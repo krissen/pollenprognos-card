@@ -2,7 +2,7 @@ import {
     LitElement,
     html,
     css
-} from "https://unpkg.com/lit-element@2.0.1/lit-element.js?module";
+} from "https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js";
 
 class PollenCardv2 extends LitElement {
     static get properties() {
