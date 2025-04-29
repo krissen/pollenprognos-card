@@ -6,7 +6,9 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ## Requirement
 
-- [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)
+- [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
+  **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.5 or above of this card.  
+For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.4 of `pollenprognos-card`. 
 
 ### Install with HACS
 
