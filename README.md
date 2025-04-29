@@ -10,8 +10,8 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ### Install with HACS
 
-Add https://github.com/krissen/pollenprognos-card as a custom integration.
-See more info: https://hacs.xyz/docs/faq/custom_repositories
+Add <https://github.com/krissen/pollenprognos-card> as a custom integration.
+See more info: <https://hacs.xyz/docs/faq/custom_repositories>
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)  
 [![HACS Action](https://github.com/krissen/pollenprognos-card/actions/workflows/hacs_action.yml/badge.svg)](https://github.com/krissen/pollenprognos-card/actions/workflows/hacs_action.yml)
@@ -59,14 +59,15 @@ cards:
     allergens:
       - Al
       - Alm
-      - Ambrosia
+      - Malörtsambrosia
       - Björk
       - Ek
       - Gråbo
       - Gräs
       - Hassel
-      - Sälg / vide
+      - Sälg och viden
 ```
+
 </td>
 </tr>
 <tr>
@@ -83,14 +84,15 @@ cards:
     allergens:
       - Al
       - Alm
-      - Ambrosia
+      - Malörtsambrosia
       - Björk
       - Ek
       - Gråbo
       - Gräs
       - Hassel
-      - Sälg / vide
+      - Sälg och viden
 ```
+
 </td>
 </tr>
   <tr>
@@ -107,14 +109,15 @@ cards:
     allergens:
       - Al
       - Alm
-      - Ambrosia
+      - Malörtsambrosia
       - Björk
       - Ek
       - Gråbo
       - Gräs
       - Hassel
-      - Sälg / vide
-``` 
+      - Sälg och viden
+```
+
 </td>
 </tr>
   <tr><td colspan="3">Maybe try minimal layout instead?</td></tr>
@@ -139,14 +142,15 @@ cards:
     allergens:
       - Al
       - Alm
-      - Ambrosia
+      - Malörtsambrosia
       - Björk
       - Ek
       - Gråbo
       - Gräs
       - Hassel
-      - Sälg / vide
+      - Sälg och viden
 ```
+
 </td>
 </tr>
   <tr>
@@ -165,14 +169,15 @@ cards:
     allergens:
       - Al
       - Alm
-      - Ambrosia
+      - Malrötsambrosia
       - Björk
       - Ek
       - Gråbo
       - Gräs
       - Hassel
-      - Sälg / vide
+      - Sälg och viden
 ```
+
 </td>
 </tr>
 </table>
