@@ -211,26 +211,25 @@ class PollenCardv2 extends LitElement {
     }
 
     _renderMinimalHtml() {
-        return html`
+  return html`
     <ha-card>
       ${this.header ? html`<h1 class="card-header">${this.header}</h1>` : ''}
       <div class="flex-container">
-        ${this.sensors.map(sensor => html`
-          <div class="sensor">
-            <img class="box"
-                 src="${this.images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`]
-                         ?? this.images['0_png']}"/>
-            ${this.config.show_text ? html`
-              <!-- enbart kortnamn + nivå -->
-              <p>${sensor.allergenShort} (${sensor.day0.state})</p>
-              <!-- DAGSRADEN tas bort helt i minimal-läge -->
-            ` : ''}
-          </div>
-        `)}
+        ${this.sensors.map(sensor => html`<div class="sensor">
+            <img
+              class="box"
+              src="${this.images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`]
+                ?? this.images['0_png']}"
+            />
+            ${this.config.show_text
+              ? html`<span class="short-text">${sensor.allergenShort} (${sensor.day0.state})</span>`
+              : ''}
+          </div>`)}
       </div>
     </ha-card>
   `;
-    }
+}
+
 
 
     _renderNormalHtml() {
@@ -460,6 +459,13 @@ static get styles() {
         p.nowrap {
        white-space: nowrap;
         }
+        .short-text {
+          display: block;
+          margin: 0;
+          padding: 0;
+          text-align: center;
+        }
+
       `;
 }
 }
