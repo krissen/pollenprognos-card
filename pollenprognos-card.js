@@ -15,6 +15,26 @@ class PollenCardv2 extends LitElement {
     set hass(hass) {
         const debug = Boolean(this.config.debug);
         if (debug) console.log("---- pollenprognos-card start ----");
+
+        const phrases       = this.config.phrases || {};
+        const allergenFull  = phrases.full  || {};
+        const allergenShort = phrases.short || {};
+        const levelNames    = phrases.levels || [
+            "Ingen pollen",
+            "Låga halter",
+            "Låga-måttliga halter",
+            "Måttliga halter",
+            "Måttliga-höga halter",
+            "Höga halter",
+            "Mycket höga halter"
+        ];
+        const state_text = levelNames;
+        const locale = this.config.date_locale || "sv-SE";
+        const dayLabels = phrases.days || {};
+
+
+
+
         if (debug) console.log("Stad:", this.config.city);
         if (debug) console.log("Allergener från config:", this.config.allergens);
         if (debug) console.log("Totalt:", this.config.allergens.length);
@@ -24,12 +44,12 @@ class PollenCardv2 extends LitElement {
 
         const replaceAAO = (intext) =>
             intext
-            .toLowerCase()
-            .replaceAll("å", "a")
-            .replaceAll("ä", "a")
-            .replaceAll("ö", "o")
-            .replaceAll(" / ", "_")
-            .replaceAll(" ", "_");
+                .toLowerCase()
+                .replaceAll("å", "a")
+                .replaceAll("ä", "a")
+                .replaceAll("ö", "o")
+                .replaceAll(" / ", "_")
+                .replaceAll(" ", "_");
 
         const test_val = (val) => {
             const num = Number(val);
@@ -45,15 +65,6 @@ class PollenCardv2 extends LitElement {
 
         const city = replaceAAO(this.config.city);
         const allergens = this.config.allergens;
-        const state_text = [
-            "Ingen pollen",
-            "Låga halter",
-            "Låga-måttliga halter",
-            "Måttliga halter",
-            "Måttliga-höga halter",
-            "Höga halter",
-            "Mycket höga halter"
-        ];
 
         if (this.config.title == null || this.config.title === true) {
             this.header = `Pollenprognos ${this.config.city.charAt(0).toUpperCase() + this.config.city.slice(1)}`;
@@ -66,26 +77,44 @@ class PollenCardv2 extends LitElement {
         this.pollen_threshold = this.config.pollen_threshold ?? 1;
 
         const dateToLabel = (dateStr) => {
-            const date = new Date(dateStr);
-            const today = new Date();
+            const date     = new Date(dateStr);
+            const today    = new Date();
             const dateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
             const diffDays = Math.round((date - dateOnly) / (1000 * 60 * 60 * 24));
+
+            // Om användaren definierat phrase för just diffDays så returnera det
+            if (dayLabels[diffDays] !== undefined) {
+                return dayLabels[diffDays];
+            }
+
+            // Standardetiketter för 0–2 dagar
             if (diffDays === 0) return "Idag";
             if (diffDays === 1) return "Imorgon";
             if (diffDays === 2) return "I övermorgon";
-            return date.toLocaleDateString("sv-SE", { weekday: "long" });
+
+            // Slutligen: lokaliserad veckodag
+            return date.toLocaleDateString(locale, { weekday: "long" });
         };
+
 
         for (const allergen of allergens) {
             try {
                 if (debug) console.log(`Bearbetar allergen: "${allergen}"`);
                 const dict = {};
                 dict.allergenReplaced = replaceAAO(allergen);
-                dict.allergenCapitalized = allergen.charAt(0).toUpperCase() + allergen.slice(1);
-                dict.allergenShort = dict.allergenCapitalized
+                const fullName = allergenFull[allergen]
+                    || (allergen.charAt(0).toUpperCase() + allergen.slice(1));
+                dict.allergenCapitalized = fullName;
+
+                const defaultShort = dict.allergenCapitalized
                     .replace("Sälg och viden", "Vide")
                     .replace("Malörtsambrosia", "msia")
                     .replace("assel", "ssel");
+
+                dict.allergenShort = 
+                    (phrases.short && phrases.short[allergen])  // användat eget om angivet
+                    || defaultShort;                            // annars default
+
                 dict.allergenSensorName = `sensor.pollen_${city}_${dict.allergenReplaced}`;
                 if (debug) console.log(`  -> Omvandlat med replaceAAO: "${dict.allergenReplaced}"`);
                 if (debug) console.log(`  -> Byggt sensor-ID: ${dict.allergenSensorName}`);
@@ -128,7 +157,7 @@ class PollenCardv2 extends LitElement {
                         name: dict.allergenCapitalized,
                         day: dateToLabel(dateStr),
                         state: level,
-                        state_text: raw?.level_name ?? test_text(level)
+                        state_text: levelNames[level] ?? raw?.level_name ?? test_text(level)
                     };
                 });
 
@@ -157,49 +186,52 @@ class PollenCardv2 extends LitElement {
             }
         }
 
-// Sortering
-const sortBy = this.config.sort ?? "value_descending";
-const sorter = {
-value_ascending: (a, b) => a.day0.state - b.day0.state,
-                 value_descending: (a, b) => b.day0.state - a.day0.state,
-                 name_descending: (a, b) => b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-    default: (a, b) => b.day0.state - a.day0.state,
-};
-sensors.sort(sorter[sortBy] || sorter.default);
+        // Sortering
+        const sortBy = this.config.sort ?? "value_descending";
+        const sorter = {
+            value_ascending: (a, b) => a.day0.state - b.day0.state,
+            value_descending: (a, b) => b.day0.state - a.day0.state,
+            name_descending: (a, b) => b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+            default: (a, b) => b.day0.state - a.day0.state,
+        };
+        sensors.sort(sorter[sortBy] || sorter.default);
 
-if (debug) console.log("🧩 Slutlig sensors-array:");
-if (debug) console.log(sensors.map(s => ({
-  allergen: s.allergenReplaced,
-  short: s.allergenShort,
-  state: s.day0?.state,
-  state_text: s.day0?.state_text,
-  bildnyckel: `${s.allergenReplaced}_${s.day0?.state}_png`,
-  bildFinns: `${(s.day0 && this.images?.[s.allergenReplaced + '_' + s.day0.state + '_png']) ? 'ja' : 'nej'}`
-})));
+        if (debug) console.log("🧩 Slutlig sensors-array:");
+        if (debug) console.log(sensors.map(s => ({
+            allergen: s.allergenReplaced,
+            short: s.allergenShort,
+            state: s.day0?.state,
+            state_text: s.day0?.state_text,
+            bildnyckel: `${s.allergenReplaced}_${s.day0?.state}_png`,
+            bildFinns: `${(s.day0 && this.images?.[s.allergenReplaced + '_' + s.day0.state + '_png']) ? 'ja' : 'nej'}`
+        })));
 
 
-this.sensors = sensors;
-}
+        this.sensors = sensors;
+    }
 
     _renderMinimalHtml() {
         return html`
-      <ha-card>
-          ${this.header ? html`<h1 class="card-header" style="padding-bottom: 0px;">${this.header}</h1>` : ''}
-          ${this.config.title === false ? html`<p></p>` : ''}
-          <div class="flex-container">
-              ${this.sensors.map(sensor => html`
-              <div class="sensor">
-                  <img class="box" src="${this.images[sensor.allergenReplaced + '_' + sensor.day0.state + '_png'] ?? this.images['0_png']}"/>
-                  ${this.config.show_text === true ? html`
-                  <p>${sensor.allergenShort} (${sensor.day0.state})</p>
-                  <p class="nowrap">${sensor.day0.day}</p>
-                  ` : ''}
-              </div>
-              `)}
+    <ha-card>
+      ${this.header ? html`<h1 class="card-header">${this.header}</h1>` : ''}
+      <div class="flex-container">
+        ${this.sensors.map(sensor => html`
+          <div class="sensor">
+            <img class="box"
+                 src="${this.images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`]
+                         ?? this.images['0_png']}"/>
+            ${this.config.show_text ? html`
+              <!-- enbart kortnamn + nivå -->
+              <p>${sensor.allergenShort} (${sensor.day0.state})</p>
+              <!-- DAGSRADEN tas bort helt i minimal-läge -->
+            ` : ''}
           </div>
-      </ha-card>
-    `;
+        `)}
+      </div>
+    </ha-card>
+  `;
     }
+
 
     _renderNormalHtml() {
         return html`
