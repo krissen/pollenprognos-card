@@ -197,7 +197,8 @@ cards:
 <table>
 <tr>
 <td>Custom text</td>
-<td>IMAGE</td>
+<td><img width="377" alt="Skärmavbild 2025-04-29 kl  19 41 43" src="https://github.com/user-attachments/assets/71635179-1bce-427f-8563-0cc7163ad6ea" />
+</td>
 <td>
 
 ```yaml
