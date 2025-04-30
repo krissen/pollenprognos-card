@@ -207,7 +207,7 @@ city: Forshaga
 show_text: true
 minimal: false
 sort: value_descending
-pollen_threshold: 1
+pollen_threshold: 0
 days_to_show: 2
 date_locale: en-GB
 allergens:
