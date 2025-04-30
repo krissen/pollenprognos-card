@@ -202,57 +202,57 @@ cards:
 <td>
 
 ```yaml
-type: 'custom:pollenprognos-card'
-city: Forshaga
-show_text: true
-minimal: false
-sort: value_descending
-pollen_threshold: 1
-days_to_show: 2
-date_locale: en-GB
-allergens:
-  - Al
-  - Alm
-  - Malörtsambrosia
-  - Björk
-  - Ek
-  - Gråbo
-  - Gräs
-  - Hassel
-  - Sälg och viden
-phrases:
-  full:
-    Al: Alder
-    Alm: Elm
-    Malörtsambrosia: Ragweed
-    Björk: Birch
-    Ek: Oak
-    Gråbo: Mugwort
-    Gräs: Grass
-    Hassel: Hazel
-    Sälg och viden: Willow and sallow
-  short:
-    Al: Alder
-    Alm: Elm
-    Malörtsambrosia: Ragweed
-    Björk: Birch
-    Ek: Oak
-    Gråbo: Mugwort
-    Gräs: Grass
-    Hassel: Hazel
-    Sälg och viden: Willow
-  levels:
-    - No pollen
-    - Low
-    - Low-Moderate
-    - Moderate
-    - Moderate-High
-    - High
-    - Very high
-  days:
-    0: Today
-    1: Tomorrow
-    2: Day after tomorrow
+- type: 'custom:pollenprognos-card'
+  city: Forshaga
+  show_text: true
+  minimal: false
+  sort: value_descending
+  pollen_threshold: 0
+  days_to_show: 2
+  date_locale: en-GB
+  allergens:
+    - Al
+    - Alm
+    - Malörtsambrosia
+    - Björk
+    - Ek
+    - Gråbo
+    - Gräs
+    - Hassel
+    - Sälg och viden
+  phrases:
+    full:
+      Al: Alder
+      Alm: Elm
+      Malörtsambrosia: Ragweed
+      Björk: Birch
+      Ek: Oak
+      Gråbo: Mugwort
+      Gräs: Grass
+      Hassel: Hazel
+      Sälg och viden: Willow and sallow
+    short:
+      Al: Alder
+      Alm: Elm
+      Malörtsambrosia: Ragweed
+      Björk: Birch
+      Ek: Oak
+      Gråbo: Mugwort
+      Gräs: Grass
+      Hassel: Hazel
+      Sälg och viden: Willow
+    levels:
+      - No pollen
+      - Low
+      - Low-Moderate
+      - Moderate
+      - Moderate-High
+      - High
+      - Very high
+    days:
+      0: Today
+      1: Tomorrow
+      2: Day after tomorrow
 ```
 
 </td>
