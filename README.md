@@ -8,7 +8,7 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
   **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.6 or above of this card.  
-For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`. 
+For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
 
 ### Install with HACS
 
@@ -30,17 +30,25 @@ Spelling in the normal (that is, not-minimal) card is as expected. ;-)
 
 ## Options
 
-| Name | Type | Default | Description
-| ---- | ---- | ------- | -----------
-| type | string | **Required** | `custom:pollen-card`
-| city | string | **Required** | City from which you have sensors
-| allergens | list | **Required** | List of allergens for which you have sensors
-| days_to_show | integer | **Optional** | How many days to show, 0 (only allergen) to 4. Default: 4.
-| minimal | boolean | **Optional** | Use minimal, flexible layout
-| pollen_threshold | integer | **Optional** | Threshold of pollen value, for any of days 1-4, to show. Possible values: 0 to 6. Default: 1.
-| show_text | boolean | **Optional** | Set to `true` if you want to show the state text under the images
-| sort | string | **Optional** | Change how list of allergens is sorted. Possible values: `value_ascending`, `value_descending`, `name_ascending` (default), and `name_descending`. If sorted by value, today's value is used.
-| title | boolean | **Optional** | Custom title if string, boolean value if generated or not to show. Default is generated text
+## Options
+
+| Name             | Type                     | Default                                                                                                                                       | Description                                                                                                                             |
+| ---------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`           | string                   | **Required**                                                                                                                                  | `custom:pollen-card`                                                                                                                   |
+| `city`           | string                   | **Required**                                                                                                                                  | City from which you have sensors                                                                                                       |
+| `allergens`      | list                     | **Required**                                                                                                                                  | List of allergens for which you have sensors                                                                                           |
+| `days_to_show`   | integer                  | `4`                                                                                                                                           | How many days to show, `0` (only allergen) to `4`                                                                                       |
+| `minimal`        | boolean                  | `false`                                                                                                                                       | Use minimal, flexible layout                                                                                                            |
+| `pollen_threshold` | integer                | `1`                                                                                                                                           | Threshold of pollen value (`0–6`) for any of days `1–4` to show                                                                        |
+| `show_text`      | boolean                  | `false`                                                                                                                                       | Set to `true` if you want to show the state text under the images                                                                       |
+| `sort`           | string                   | `name_ascending`                                                                                                                              | Change how list of allergens is sorted. Possible values: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`      |
+| `title`          | boolean \| string        | generated                                                                                                                                     | If boolean, controls showing generated title; if string, uses as custom title                                                           |
+| `debug`          | boolean                  | `false`                                                                                                                                       | Enable debug logging in the browser console                                                                                             |
+| `phrases.full`   | object <string,string>   | `{}`                                                                                                                                          | Custom full allergen display names keyed by the original allergen                                                                       |
+| `phrases.short`  | object <string,string>   | `{}`                                                                                                                                          | Custom short allergen display names keyed by the original allergen                                                                      |
+| `phrases.levels` | array <string>           | `["Ingen pollen","Låga halter","Låga-måttliga halter","Måttliga halter","Måttliga-höga halter","Höga halter","Mycket höga halter"]`            | Custom list of pollen intensity level names for indexes 0–6                                                                             |
+| `phrases.days`   | object <number,string>   | `{}`                                                                                                                                          | Custom labels for days keyed by day offset (`0`=today, `1`=tomorrow, `2`=day after tomorrow). Day four is created according to config key `date_locale`.                                           |
+| `date_locale`    | string                   | `"sv-SE"`                                                                                                                                     | Locale for formatting weekday names when displaying dates (e.g. `sv-SE`, `en-GB`)                                                        |
 
 ## Examples
 
@@ -178,6 +186,73 @@ cards:
       - Gräs
       - Hassel
       - Sälg och viden
+```
+
+</td>
+</tr>
+</table>
+
+### Custom text for allergens, values etc
+
+<table>
+<tr>
+<td>Custom text</td>
+<td><img width="377" alt="Skärmavbild 2025-04-29 kl  19 41 43" src="https://github.com/user-attachments/assets/71635179-1bce-427f-8563-0cc7163ad6ea" />
+</td>
+<td>
+
+```yaml
+- type: 'custom:pollenprognos-card'
+  city: Forshaga
+  show_text: true
+  minimal: false
+  sort: value_descending
+  pollen_threshold: 0
+  days_to_show: 2
+  date_locale: en-GB
+  allergens:
+    - Al
+    - Alm
+    - Malörtsambrosia
+    - Björk
+    - Ek
+    - Gråbo
+    - Gräs
+    - Hassel
+    - Sälg och viden
+  phrases:
+    full:
+      Al: Alder
+      Alm: Elm
+      Malörtsambrosia: Ragweed
+      Björk: Birch
+      Ek: Oak
+      Gråbo: Mugwort
+      Gräs: Grass
+      Hassel: Hazel
+      Sälg och viden: Willow and sallow
+    short:
+      Al: Alder
+      Alm: Elm
+      Malörtsambrosia: Ragweed
+      Björk: Birch
+      Ek: Oak
+      Gråbo: Mugwort
+      Gräs: Grass
+      Hassel: Hazel
+      Sälg och viden: Willow
+    levels:
+      - No pollen
+      - Low
+      - Low-Moderate
+      - Moderate
+      - Moderate-High
+      - High
+      - Very high
+    days:
+      0: Today
+      1: Tomorrow
+      2: Day after tomorrow
 ```
 
 </td>
