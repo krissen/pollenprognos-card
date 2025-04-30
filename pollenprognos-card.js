@@ -49,6 +49,7 @@ class PollenCardv2 extends LitElement {
                 .replaceAll("ä", "a")
                 .replaceAll("ö", "o")
                 .replaceAll(" / ", "_")
+                .replaceAll("-", "_")
                 .replaceAll(" ", "_");
 
         const test_val = (val) => {
