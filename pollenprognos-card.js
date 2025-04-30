@@ -68,10 +68,12 @@ class PollenCardv2 extends LitElement {
         const allergens = this.config.allergens;
 
         if (this.config.title == null || this.config.title === true) {
-            this.header = `Pollenprognos ${this.config.city.charAt(0).toUpperCase() + this.config.city.slice(1)}`;
-        } else if (this.config.title.length > 0) {
+            const rawCity = this.config.city;
+            this.header = `Pollenprognos ${rawCity.charAt(0).toUpperCase() + rawCity.slice(1)}`;
+        } else if (typeof this.config.title === "string" && this.config.title.length > 0) {
             this.header = this.config.title;
         }
+
 
         this.rowspan = this.config.show_text === false ? 2 : 1;
         this.days_to_show = this.config.days_to_show ?? 4;
