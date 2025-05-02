@@ -24,9 +24,17 @@ Small improvements to [pollen-card](https://github.com/nidayand/lovelace-pollen-
 
 ## Note
 
-In minimal mode, you might notice some odd spelling. For instance, "Hassel" is shortened to "Hssel". This is to avoid line breaks which would break symmetry. *Let me know if this bothers you*. Create an issue on the repo or send me a PM. I can add an option to turn it off, if there's interest.
-
-Spelling in the normal (that is, not-minimal) card is as expected. ;-)
+In minimal mode, you might notice some odd spelling. For instance, "Hassel" is shortened to "Hssel". This is to avoid line breaks which would break symmetry. *If you don't like the current abbreviations, from v1.1.0 you can create your own custom phrases!* You'd add something like the following to the config, needing only to include lines for allergens you want to customise:
+```yaml
+- type: 'custom:pollenprognos-card'
+  # your current config
+  # then add:
+  phrases:
+    short:
+      Malörtsambrosia: Ambrs
+      Sälg och viden: Sälg
+```
+See example under "Custom text for allergens, values etc", below. 
 
 ## Options
 
