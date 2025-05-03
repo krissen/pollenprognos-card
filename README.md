@@ -25,6 +25,7 @@ Small improvements to [pollen-card](https://github.com/nidayand/lovelace-pollen-
 ## Note
 
 In minimal mode, you might notice some odd spelling. For instance, "Hassel" is shortened to "Hssel". This is to avoid line breaks which would break symmetry. *If you don't like the current abbreviations, from v1.1.0 you can create your own custom phrases!* You'd add something like the following to the config, needing only to include lines for allergens you want to customise:
+
 ```yaml
 - type: 'custom:pollenprognos-card'
   # your current config
@@ -34,7 +35,8 @@ In minimal mode, you might notice some odd spelling. For instance, "Hassel" is s
       Malörtsambrosia: Ambrs
       Sälg och viden: Sälg
 ```
-See example under "Custom text for allergens, values etc", below. 
+
+See example under "Custom text for allergens, values etc", below.
 
 ## Options
 
@@ -46,6 +48,7 @@ See example under "Custom text for allergens, values etc", below.
 | `city`           | string                   | **Required**                                                                                                                                  | City from which you have sensors                                                                                                       |
 | `allergens`      | list                     | **Required**                                                                                                                                  | List of allergens for which you have sensors                                                                                           |
 | `days_to_show`   | integer                  | `4`                                                                                                                                           | How many days to show, `0` (only allergen) to `4`                                                                                       |
+| `days_relative`   | boolean                  | `true`                                                                                                                                           | Whether to write out closest three days in relative terms (`true` gives `Today`, `Tomorrow`) or absolute (`false´ gives`Monday`,`Tuesday`)                                                                                      |
 | `minimal`        | boolean                  | `false`                                                                                                                                       | Use minimal, flexible layout                                                                                                            |
 | `pollen_threshold` | integer                | `1`                                                                                                                                           | Threshold of pollen value (`0–6`) for any of days `1–4` to show                                                                        |
 | `show_text`      | boolean                  | `false`                                                                                                                                       | Set to `true` if you want to show the state text under the images                                                                       |
