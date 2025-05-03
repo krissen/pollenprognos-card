@@ -84,9 +84,9 @@ class PollenCardv2 extends LitElement {
                     );
                     if (cands.length === 1) {
                         sensorId = cands[0];
-                        console.warn(`⚠️ Fallback-sensor ${sensorId}`);
+                        if (debug) console.warn(`⚠️ Fallback-sensor ${sensorId}`);
                     } else {
-                        console.warn(`❌ ${cands.length} sensorer för ${allergen}`, cands);
+                        if (debug) console.warn(`❌ ${cands.length} sensorer för ${allergen}`, cands);
                         continue;
                     }
                 }
