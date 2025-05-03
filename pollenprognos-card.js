@@ -14,12 +14,12 @@ class PollenCardv2 extends LitElement {
 
 
     set hass(hass) {
-        const debug        = Boolean(this.config.debug);
-        const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
-        const phrases      = this.config.phrases || {};
-        const allergenFull  = phrases.full  || {};
-        const allergenShort = phrases.short || {};
-        const levelNames     = phrases.levels || [
+        const debug           = Boolean(this.config.debug);
+        const capitalize      = s => s.charAt(0).toUpperCase() + s.slice(1);
+        const phrases         = this.config.phrases || {};
+        const allergenFull    = phrases.full  || {};
+        const allergenShort   = phrases.short || {};
+        const levelNames      = phrases.levels || [
             "Ingen pollen",
             "Låga halter",
             "Låga-måttliga halter",
@@ -28,14 +28,23 @@ class PollenCardv2 extends LitElement {
             "Höga halter",
             "Mycket höga halter"
         ];
-        const locale       = this.config.date_locale || "sv-SE";
-        const dayLabels    = phrases.days    || {};
-        this.days_to_show = this.config.days_to_show ?? 4;
-        const daysToShow = this.days_to_show;  // valfritt, för internt bruk
+        const locale          = this.config.date_locale    || "sv-SE";
+        const dayLabels       = phrases.days              || {};
+        this.days_to_show     = this.config.days_to_show  ?? 4;
         this.pollen_threshold = this.config.pollen_threshold ?? 1;
-        const threshold = this.pollen_threshold;
-        const daysRelative = this.config.days_relative === false ? false : true;
+        const daysRelative    = this.config.days_relative !== false;
+        const dayAbbrev       = Boolean(this.config.days_abbreviated);
 
+        // ==== HEADER / TITLE-support ====
+        const titleCfg = this.config.title;
+        if (typeof titleCfg === "string") {
+            this.header = titleCfg;
+        } else if (titleCfg === false) {
+            this.header = ""; // ingen rubrik
+        } else {
+            // default eller title:true
+            this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
+        }
 
         if (debug) console.log("---- pollenprognos-card start ----");
         if (debug) console.log("Stad:", this.config.city);
@@ -64,11 +73,11 @@ class PollenCardv2 extends LitElement {
             try {
                 if (debug) console.log(`Bearbetar allergen: "${allergen}"`);
                 const dict = {};
-                dict.allergenReplaced = replaceAAO(allergen);
-                const capitalized = allergenFull[allergen] ||
-                    (allergen.charAt(0).toUpperCase() + allergen.slice(1));
-                dict.allergenCapitalized = capitalized;
-                const defaultShort = capitalized
+                dict.allergenReplaced   = replaceAAO(allergen);
+                dict.allergenCapitalized = allergenFull[allergen]
+                    || capitalize(allergen);
+
+                const defaultShort = dict.allergenCapitalized
                     .replace("Sälg och viden","Vide")
                     .replace("Malörtsambrosia","msia")
                     .replace("assel","ssel");
@@ -79,8 +88,8 @@ class PollenCardv2 extends LitElement {
                 let sensorId = expectedId;
                 if (!hass.states[expectedId]) {
                     const cands = Object.keys(hass.states).filter(id=>
-                        id.startsWith(`sensor.pollen_${city}_`) &&
-                        id.includes(dict.allergenReplaced)
+                        id.startsWith(`sensor.pollen_${city}_`)
+                        && id.includes(dict.allergenReplaced)
                     );
                     if (cands.length === 1) {
                         sensorId = cands[0];
@@ -93,42 +102,40 @@ class PollenCardv2 extends LitElement {
                 const sensor = hass.states[sensorId];
                 if (!sensor?.attributes?.forecast) throw `Saknar forecast`;
 
-                // Hämta och sortera datumsträngar
+                // Rådatum → framtida / fallback
                 const rawDates = Object.keys(sensor.attributes.forecast)
                     .sort((a,b)=> new Date(a) - new Date(b));
-
-                // Dela upp i framtida
                 const upcoming = rawDates.filter(d => new Date(d) >= today);
-                let forecastDates;
-                if (upcoming.length) {
-                    forecastDates = upcoming.slice(0, daysToShow);
-                } else {
-                    // fallback: senaste historiska datum
-                    forecastDates = [ rawDates[rawDates.length - 1] ];
-                }
+                const datesToUse = upcoming.length
+                    ? upcoming.slice(0, this.days_to_show)
+                    : [ rawDates[rawDates.length - 1] ];
 
-                // Bygg day0…dayN
-                forecastDates.forEach((dateStr, idx) => {
-                    const raw = sensor.attributes.forecast[dateStr] || {};
+                // Bygg upp day0…dayN
+                datesToUse.forEach((dateStr, idx) => {
+                    const raw   = sensor.attributes.forecast[dateStr] || {};
                     const level = test_val(raw.level);
                     const d     = new Date(dateStr);
                     const diff  = Math.round((d - today)/(1000*60*60*24));
 
-                    // Label logic
+                    // ▼ etikett
                     let label;
                     if (!daysRelative) {
-                        // Om alltid veckodag önskas
-                        label = d.toLocaleDateString(locale, { weekday: "long" });
-                            } else {
-                                if (dayLabels[diff] !== undefined) label = dayLabels[diff];
-                                else if (diff === 0) label = "Idag";
-                                else if (diff === 1) label = "Imorgon";
-                                else if (diff === 2) label = "I övermorgon";
-                                else if (diff === -1) label = "Igår";
-                                else if (diff === -2) label = "I förrgår";
-                                else if (diff < -2) label = d.toLocaleDateString(locale, { day:"numeric",month:"short" });
-                                else label = d.toLocaleDateString(locale, { weekday:"long" });
-                            }
+                        // alltid veckodag enligt locale
+                        label = d.toLocaleDateString(locale, {
+                            weekday: dayAbbrev ? "short" : "long"
+                        });
+                    } else {
+                        if (dayLabels[diff] !== undefined)      label = dayLabels[diff];
+                        else if (diff === 0)                    label = "Idag";
+                        else if (diff === 1)                    label = "Imorgon";
+                        else if (diff === 2)                    label = "I övermorgon";
+                        else if (diff === -1)                   label = "Igår";
+                        else if (diff === -2)                   label = "I förrgår";
+                        else if (diff < -2)                     label = d.toLocaleDateString(locale, { day: "numeric", month: "short" });
+                        else /* framtida diff>2 */              label = d.toLocaleDateString(locale, {
+                            weekday: dayAbbrev ? "short" : "long"
+                        });
+                    }
                     label = capitalize(label);
 
                     dict[`day${idx}`] = {
@@ -139,24 +146,22 @@ class PollenCardv2 extends LitElement {
                     };
                 });
 
-                // Pad till minst daysToShow
-                while (forecastDates.length < daysToShow) {
-                    const idx = forecastDates.length;
+                // fyll på till denna många dagar
+                while (datesToUse.length < this.days_to_show) {
+                    const idx = datesToUse.length;
                     dict[`day${idx}`] = {
                         name:       dict.allergenCapitalized,
                         day:        "-",
                         state:      -1,
                         state_text: "(Ingen information)"
                     };
-                    forecastDates.push(null);
+                    datesToUse.push(null);
                 }
 
-                // Threshold-kontroll endast för dag0…dag(daysToShow-1)
-                let meets = threshold === 0;
-                for (let i = 0; i < daysToShow && !meets; i++) {
-                    if ((dict[`day${i}`]?.state ?? -1) >= threshold) {
-                        meets = true;
-                    }
+                // threshold-filter
+                let meets = this.pollen_threshold === 0;
+                for (let i=0; i< this.days_to_show && !meets; i++) {
+                    if ((dict[`day${i}`]?.state ?? -1) >= this.pollen_threshold) meets = true;
                 }
                 if (meets) {
                     sensors.push(dict);
@@ -167,7 +172,7 @@ class PollenCardv2 extends LitElement {
             }
         }
 
-        // Sortering
+        // sortera
         const sorter = {
             value_ascending:  (a,b)=>a.day0.state - b.day0.state,
             value_descending: (a,b)=>b.day0.state - a.day0.state,
@@ -179,9 +184,6 @@ class PollenCardv2 extends LitElement {
         if (debug) console.log("🧩 Slutliga sensors-array:", sensors);
         this.sensors = sensors;
     }
-
-
-
 
 
     _renderMinimalHtml() {
