@@ -15,6 +15,7 @@ class PollenCardv2 extends LitElement {
 
     set hass(hass) {
         const debug        = Boolean(this.config.debug);
+        const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
         const phrases      = this.config.phrases || {};
         const allergenFull  = phrases.full  || {};
         const allergenShort = phrases.short || {};
@@ -33,6 +34,8 @@ class PollenCardv2 extends LitElement {
         const daysToShow = this.days_to_show;  // valfritt, för internt bruk
         this.pollen_threshold = this.config.pollen_threshold ?? 1;
         const threshold = this.pollen_threshold;
+        const daysRelative = this.config.days_relative === false ? false : true;
+
 
         if (debug) console.log("---- pollenprognos-card start ----");
         if (debug) console.log("Stad:", this.config.city);
@@ -113,14 +116,20 @@ class PollenCardv2 extends LitElement {
 
                     // Label logic
                     let label;
-                    if (dayLabels[diff] !== undefined) label = dayLabels[diff];
-                    else if (diff === 0) label = "Idag";
-                    else if (diff === 1) label = "Imorgon";
-                    else if (diff === 2) label = "I övermorgon";
-                    else if (diff === -1) label = "Igår";
-                    else if (diff === -2) label = "I förrgår";
-                    else if (diff < -2) label = d.toLocaleDateString(locale, { day:"numeric",month:"short" });
-                    else label = d.toLocaleDateString(locale, { weekday:"long" });
+                    if (!daysRelative) {
+                        // Om alltid veckodag önskas
+                        label = d.toLocaleDateString(locale, { weekday: "long" });
+                            } else {
+                                if (dayLabels[diff] !== undefined) label = dayLabels[diff];
+                                else if (diff === 0) label = "Idag";
+                                else if (diff === 1) label = "Imorgon";
+                                else if (diff === 2) label = "I övermorgon";
+                                else if (diff === -1) label = "Igår";
+                                else if (diff === -2) label = "I förrgår";
+                                else if (diff < -2) label = d.toLocaleDateString(locale, { day:"numeric",month:"short" });
+                                else label = d.toLocaleDateString(locale, { weekday:"long" });
+                            }
+                    label = capitalize(label);
 
                     dict[`day${idx}`] = {
                         name:       dict.allergenCapitalized,
