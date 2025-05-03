@@ -34,6 +34,8 @@ class PollenCardv2 extends LitElement {
         this.pollen_threshold = this.config.pollen_threshold ?? 1;
         const daysRelative    = this.config.days_relative !== false;
         const dayAbbrev       = Boolean(this.config.days_abbreviated);
+        const daysUppercase = Boolean(this.config.days_uppercase);
+
 
         // ==== HEADER / TITLE-support ====
         const titleCfg = this.config.title;
@@ -137,6 +139,10 @@ class PollenCardv2 extends LitElement {
                         });
                     }
                     label = capitalize(label);
+                    if (daysUppercase) {
+                        label = label.toUpperCase();
+                    }
+
 
                     dict[`day${idx}`] = {
                         name:       dict.allergenCapitalized,
