@@ -256,60 +256,59 @@ class PollenCardv2 extends LitElement {
 
 
     _renderNormalHtml() {
-        // Läs in din config-flagga
-        const showEmpty = this.config.show_empty_days == null
+        // Läs in dina config-flaggor
+        const showEmpty     = this.config.show_empty_days == null
             ? true
             : Boolean(this.config.show_empty_days);
-
+        const daysBold      = Boolean(this.config.days_boldfaced);
         // Vi använder displayCols som redan är byggd i set hass()
         const cols = this.displayCols;
 
         return html`
-    <ha-card>
-      ${this.header ? html`<h1 class="card-header">${this.header}</h1>` : ''}
-      <table class="forecast">
-        <thead>
-          <tr>
-            <th></th>
-            ${cols.map(i => html`
-              <th>
-                ${this.sensors[0][`day${i}`].day}
-              </th>
-            `)}
-          </tr>
-        </thead>
-        ${this.sensors.map(sensor => html`
-          <tr class="allergen" valign="top">
-            <td>
-              <img
-                class="allergen"
-                src="${this.images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`]}"
-              />
-            </td>
-            ${cols.map(i => html`
+      <ha-card>
+        ${this.header ? html`<h1 class="card-header">${this.header}</h1>` : ''}
+        <table class="forecast">
+          <thead>
+            <tr>
+              <th></th>
+              ${cols.map(i => html`
+                <th style="font-weight: ${daysBold ? 'bold' : 'normal'}">
+                  ${this.sensors[0][`day${i}`].day}
+                </th>
+              `)}
+            </tr>
+          </thead>
+          ${this.sensors.map(sensor => html`
+            <tr class="allergen" valign="top">
               <td>
                 <img
-                  src="${this.images[`${sensor[`day${i}`].state}_png`] 
-                          ?? this.images['0_png']}"
+                  class="allergen"
+                  src="${this.images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`]}"
                 />
               </td>
-            `)}
-          </tr>
-          ${this.config.show_text ? html`
-            <tr class="allergen" valign="top">
-              <td>${sensor.allergenCapitalized}</td>
               ${cols.map(i => html`
                 <td>
-                  <p>${sensor[`day${i}`].state_text}</p>
+                  <img
+                    src="${this.images[`${sensor[`day${i}`].state}_png`] 
+                            ?? this.images['0_png']}"
+                  />
                 </td>
               `)}
             </tr>
-          ` : ''}
-        `)}
-      </table>
-    </ha-card>
-  `;
+            ${this.config.show_text ? html`
+              <tr class="allergen" valign="top">
+                <td>${sensor.allergenCapitalized}</td>
+                ${cols.map(i => html`
+                  <td><p>${sensor[`day${i}`].state_text}</p></td>
+                `)}
+              </tr>
+            ` : ''}
+          `)}
+        </table>
+      </ha-card>
+    `;
     }
+
 
 
     render() {
