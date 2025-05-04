@@ -617,15 +617,15 @@ customElements.define("pollenprognos-card", PollenCardv2);
 class PollenPrognosCardEditor extends LitElement {
     static get properties() {
         return {
-            _config:          { type: Object },
-            hass:             { type: Object },
-            _cityInitialized: { type: Boolean },
+            _config:         { type: Object },
+            hass:            { type: Object },
+            installedCities: { type: Array },
         };
     }
 
     constructor() {
         super();
-        // Initiera alltid en grundkonfiguration
+        // Grund-config
         this._config = {
             city:             '',
             allergens:        [],
@@ -637,65 +637,69 @@ class PollenPrognosCardEditor extends LitElement {
             sort:             'default',
             debug:            false,
         };
-        this._cityInitialized = false;
+        this.installedCities = [];
     }
 
-    // Här måste HA kunna skicka in den befintliga configen
     setConfig(config) {
-        // Slå ihop med defaults så ingenting nollas
+        // Merga in användar-config utan att nolla något
         this._config = { ...this._config, ...config };
     }
 
-    // Körs när Home Assistant-objektet trillar in
     set hass(hass) {
         this._hass = hass;
-        // Vänta på att användaren inte redan satt city
-        if (!this._cityInitialized && !this._config.city) {
-            const possibleCities = [
-                'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
-                'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
-                'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
-                'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
-            ];
-            const keyFor = name => name.toLowerCase()
-                .replace(/[åä]/g,'a').replace(/ö/g,'o')
-                .replace(/-/g,'_').replace(/\s+/g,'_');
 
-            const installedKeys = new Set(
-                Object.keys(hass.states)
-                .filter(id => id.startsWith('sensor.pollen_'))
-                .map(id => id.slice('sensor.pollen_'.length).split('_')[0])
-            );
+        // Hitta alla "sensor.pollen_<stad>_*"
+        const installedKeys = new Set(
+            Object.keys(hass.states)
+            .filter(id => id.startsWith('sensor.pollen_'))
+            .map(id => id.slice('sensor.pollen_'.length).split('_')[0])
+        );
 
-            // Hitta första alfabetiskt existerande stad
-            const chosen = possibleCities.find(c => installedKeys.has(keyFor(c)));
-            if (chosen) {
-                this._updateConfig('city', chosen);
-            }
-            this._cityInitialized = true;
-        }
+        // Din fulla lista över möjliga städer
+        const possibleCities = [
+            'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
+            'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
+            'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
+            'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
+        ];
+
+        const keyFor = name => name.toLowerCase()
+            .replace(/[åä]/g, 'a')
+            .replace(/ö/g, 'o')
+            .replace(/[-\s]/g, '_');
+
+        // Filtrera bara de som verkligen är installerade, och sortera alfabetiskt
+        this.installedCities = possibleCities
+            .filter(city => installedKeys.has(keyFor(city)))
+            .sort((a, b) => a.localeCompare(b));
     }
 
     get allAllergens() {
         return [
             'Al','Alm','Björk','Ek','Malörtsambrosia','Gråbo',
-            'Gräs','Hassel','Sälg och viden',
+            'Gräs','Hassel','Sälg och viden'
         ];
     }
 
     render() {
         return html`
       <div class="card-config">
-        <!-- Stad -->
-        <div class="input-row">
-          <label class="label">Stad</label>
-          <ha-textfield
-            placeholder="Ange stad, t.ex. Stockholm"
-            style="width: 100%;"
-            .value=${this._config.city}
-            @input=${e => this._updateConfig('city', e.target.value)}
-          ></ha-textfield>
-        </div>
+        <!-- Stad som dropdown -->
+          <ha-formfield label="Stad">
+        <ha-select
+          style="width: 100%;"
+          .value=${this._config.city}
+          @selected=${e => {
+            e.stopPropagation();
+            this._updateConfig('city', e.target.value);
+          }}
+          @closed=${e => e.stopPropagation()}
+        >
+          ${this.installedCities.map(city => html`
+            <mwc-list-item .value=${city}>${city}</mwc-list-item>
+          `)}
+        </ha-select>
+      </ha-formfield>
 
         <!-- Allergener -->
         <div class="allergens-group">
@@ -736,7 +740,7 @@ class PollenPrognosCardEditor extends LitElement {
           ></ha-switch>
         </ha-formfield>
 
-        <!-- Visa text -->
+        <!-- Visa text under ikoner -->
         <ha-formfield label="Visa text under ikoner">
           <ha-switch
             .checked=${this._config.show_text}
@@ -748,10 +752,9 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     _onAllergenToggle(allergen, checked) {
-        const s = new Set(this._config.allergens);
-        if (checked) s.add(allergen);
-        else s.delete(allergen);
-        this._updateConfig('allergens', [...s]);
+        const set = new Set(this._config.allergens);
+        checked ? set.add(allergen) : set.delete(allergen);
+        this._updateConfig('allergens', [...set]);
     }
 
     _updateConfig(prop, value) {
@@ -766,12 +769,13 @@ class PollenPrognosCardEditor extends LitElement {
 
     static get styles() {
         return css`
-      .card-config { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
-      .input-row  { display: flex; flex-direction: column; gap: 4px; }
-      .input-row .label { font-weight: 500; font-size: 14px; }
-      .allergens-group { display: flex; flex-wrap: wrap; gap: 8px; }
-      .allergens-group .label { width: 100%; font-weight: bold; margin-bottom: 4px; }
-      ha-slider { width: 100%; }
+      .card-config { display: flex; flex-direction: column; gap:16px; padding:16px; }
+      .input-row { display: flex; flex-direction:column; gap:4px; }
+      .label { font-weight:500; font-size:14px; }
+      .allergens-group { display:flex; flex-wrap:wrap; gap:8px; }
+      .allergens-group .label { width:100%; font-weight:bold; margin-bottom:4px; }
+      ha-select { --mdc-theme-primary: var(--primary-color); }
+      ha-slider { width:100%; }
     `;
     }
 }
