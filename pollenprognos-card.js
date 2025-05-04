@@ -28,33 +28,24 @@ class PollenCardv2 extends LitElement {
             "Höga halter",
             "Mycket höga halter"
         ];
-        const noInfoLabel         = phrases.no_information || "(Ingen information)";
-        const locale          = this.config.date_locale    || "sv-SE";
-        const dayLabels       = phrases.days              || {};
-        this.days_to_show     = this.config.days_to_show  ?? 4;
+        const noInfoLabel     = phrases.no_information || "(Ingen information)";
+        const locale          = this.config.date_locale || "sv-SE";
+        const dayLabels       = phrases.days || {};
+        this.days_to_show     = this.config.days_to_show ?? 4;
         this.pollen_threshold = this.config.pollen_threshold ?? 1;
         const daysRelative    = this.config.days_relative !== false;
         const dayAbbrev       = Boolean(this.config.days_abbreviated);
-        const daysUppercase = Boolean(this.config.days_uppercase);
-        const daysBoldfaced = Boolean(this.config.days_boldfaced);
+        const daysUppercase   = Boolean(this.config.days_uppercase);
+        const daysBoldfaced   = Boolean(this.config.days_boldfaced);
         const showDaysWithoutData = this.config.show_empty_days == null
             ? true
             : Boolean(this.config.show_empty_days);
 
-        // ==== HEADER / TITLE-support ====
+        // HEADER / TITLE-support …
         const titleCfg = this.config.title;
-        if (typeof titleCfg === "string") {
-            this.header = titleCfg;
-        } else if (titleCfg === false) {
-            this.header = ""; // ingen rubrik
-        } else {
-            // default eller title:true
-            this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
-        }
-
-        if (debug) console.log("---- pollenprognos-card start ----");
-        if (debug) console.log("Stad:", this.config.city);
-        if (debug) console.log("Allergener från config:", this.config.allergens);
+        if (typeof titleCfg === "string") this.header = titleCfg;
+        else if (titleCfg === false) this.header = "";
+        else this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
 
         this._hass = hass;
         const sensors = [];
@@ -79,12 +70,11 @@ class PollenCardv2 extends LitElement {
             try {
                 const dict = {};
                 dict.allergenReplaced   = replaceAAO(allergen);
-                dict.allergenCapitalized = allergenFull[allergen]
-                    || capitalize(allergen);
+                dict.allergenCapitalized = allergenFull[allergen] || capitalize(allergen);
                 dict.allergenShort      = allergenShort[allergen]
-                    || dict.allergenCapitalized.replace("Sälg och viden","Vide") /* osv */;
+                    || dict.allergenCapitalized.replace("Sälg och viden","Vide");
 
-                // Hitta sensor‐ID
+                // Hitta sensor-ID …
                 const expectedId = `sensor.pollen_${city}_${dict.allergenReplaced}`;
                 let sensorId = expectedId;
                 if (!hass.states[expectedId]) {
@@ -92,51 +82,44 @@ class PollenCardv2 extends LitElement {
                         id.startsWith(`sensor.pollen_${city}_`)
                         && id.includes(dict.allergenReplaced)
                     );
-                    if (cands.length === 1) {
-                        sensorId = cands[0];
-                    } else {
-                        continue;
-                    }
+                    if (cands.length === 1) sensorId = cands[0];
+                    else continue;
                 }
                 const sensor = hass.states[sensorId];
                 if (!sensor?.attributes?.forecast) throw "Saknar forecast";
 
-                // Rådatum, sorterade
+                // Rådatum → framtida / fallback
                 const rawDates  = Object.keys(sensor.attributes.forecast)
                     .sort((a,b)=>new Date(a)-new Date(b));
-                const upcoming = rawDates.filter(d => new Date(d) >= today);
-
-                let datesToUse = upcoming.length
+                const upcoming  = rawDates.filter(d => new Date(d) >= today);
+                let datesToUse  = upcoming.length
                     ? upcoming.slice(0, this.days_to_show)
                     : [ rawDates[rawDates.length - 1] ];
-
-                const baseCount = upcoming.length>0
+                const baseCount = upcoming.length > 0
                     ? Math.min(upcoming.length, this.days_to_show)
                     : 1;
-                // 2) only pad out to days_to_show if showDaysWithoutData === true
+
+                // Pad om så önskas
                 if (showDaysWithoutData) {
                     while (datesToUse.length < this.days_to_show) {
                         const idx = datesToUse.length;
                         dict[`day${idx}`] = {
-                            name: dict.allergenCapitalized,
-                            day:  "–",
-                            state: -1,
-                            state_text: "(Ingen information)",
+                            name:       dict.allergenCapitalized,
+                            day:        "–",
+                            state:      -1,
+                            state_text: noInfoLabel,
                         };
                         datesToUse.push(null);
                     }
                 }
 
-                // Bygg ut lista med exakt days_to_show datum, extrapolera vid behov
+                // Extrapolera datum
                 const msDay = 1000*60*60*24;
                 let forecastDates;
                 if (upcoming.length) {
-                    // take as many real future days as we have
                     forecastDates = upcoming.slice(0, this.days_to_show);
                     if (forecastDates.length < this.days_to_show) {
-                        // parse the very last one as local
-                        const lastReal = new Date(forecastDates[forecastDates.length - 1]);
-                        // add 1, 2, 3… days in local time
+                        const lastReal = new Date(forecastDates.at(-1));
                         for (let add = 1; forecastDates.length < this.days_to_show; add++) {
                             const nextLocal = new Date(
                                 lastReal.getFullYear(),
@@ -144,16 +127,14 @@ class PollenCardv2 extends LitElement {
                                 lastReal.getDate() + add
                             );
                             const yyyy = nextLocal.getFullYear();
-                            const mm   = String(nextLocal.getMonth() + 1).padStart(2, "0");
-                            const dd   = String(nextLocal.getDate()).padStart(2, "0");
+                            const mm   = String(nextLocal.getMonth()+1).padStart(2,"0");
+                            const dd   = String(nextLocal.getDate()).padStart(2,"0");
                             forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
                         }
                     }
                 } else {
-                    // fallback: one historical day + extrapolate forward from it
-                    const lastHist = rawDates[rawDates.length - 1];
-                    forecastDates = [lastHist];
-                    const baseDate = new Date(lastHist);
+                    forecastDates = [ rawDates.at(-1) ];
+                    const baseDate = new Date(forecastDates[0]);
                     for (let add = 1; forecastDates.length < this.days_to_show; add++) {
                         const nextLocal = new Date(
                             baseDate.getFullYear(),
@@ -161,41 +142,40 @@ class PollenCardv2 extends LitElement {
                             baseDate.getDate() + add
                         );
                         const yyyy = nextLocal.getFullYear();
-                        const mm   = String(nextLocal.getMonth() + 1).padStart(2, "0");
-                        const dd   = String(nextLocal.getDate()).padStart(2, "0");
+                        const mm   = String(nextLocal.getMonth()+1).padStart(2,"0");
+                        const dd   = String(nextLocal.getDate()).padStart(2,"0");
                         forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
                     }
                 }
-                // Spara vilka kolumner vi ska visa
-                const totalCols = showDaysWithoutData
-                    ? this.days_to_show
-                    : baseCount;
+
+                // Vilka kolumner ska visas
+                const totalCols = showDaysWithoutData ? this.days_to_show : baseCount;
                 this.displayCols = Array.from({length: totalCols},(_,i)=>i);
 
-                // Bygg upp day0…dayN
+                // Bygg day0…dayN med NY etikettlogik:
                 forecastDates.forEach((dateStr, idx) => {
                     const raw   = sensor.attributes.forecast[dateStr] || {};
                     const level = test_val(raw.level);
                     const d     = new Date(dateStr);
                     const diff  = Math.round((d - today)/msDay);
 
-                    // Sätt etikett
                     let label;
                     if (!daysRelative) {
+                        // alltid veckodag
                         label = d.toLocaleDateString(locale, {
                             weekday: dayAbbrev ? "short" : "long"
                         });
                     } else {
-                        if (dayLabels[diff] !== undefined)      label = dayLabels[diff];
-                        else if (diff === 0)                    label = "Idag";
-                        else if (diff === 1)                    label = "Imorgon";
-                        else if (diff === 2)                    label = "I övermorgon";
-                        else if (diff === -1)                   label = "Igår";
-                        else if (diff === -2)                   label = "I förrgår";
-                        else if (diff < -2)                     label = d.toLocaleDateString(locale,{ day:"numeric",month:"short" });
-                        else                                    label = d.toLocaleDateString(locale,{
-                            weekday: dayAbbrev ? "short" : "long"
-                        });
+                        // RELATIVA för 0–2
+                        if (diff === 0)       label = "Idag";
+                        else if (diff === 1)  label = "Imorgon";
+                        else if (diff === 2)  label = "I övermorgon";
+                        else {
+                            // ÖVRIGA → alltid veckodag enligt locale
+                            label = d.toLocaleDateString(locale, {
+                                weekday: dayAbbrev ? "short" : "long"
+                            });
+                        }
                     }
                     label = capitalize(label);
                     if (daysUppercase) label = label.toUpperCase();
@@ -204,16 +184,15 @@ class PollenCardv2 extends LitElement {
                         name:       dict.allergenCapitalized,
                         day:        label,
                         state:      level,
-                        // Använd alltid phrase-levels (levelNames) i första hand:
                         state_text: level === -1
                         ? noInfoLabel
                         : (levelNames[level] ?? raw.level_name)
                     };
                 });
 
-                // Threshold‐filter
-                let meets = this.pollen_threshold===0;
-                for (let i=0; i<baseCount && !meets; i++) {
+                // Threshold‐filter …
+                let meets = this.pollen_threshold === 0;
+                for (let i = 0; i < baseCount && !meets; i++) {
                     if (dict[`day${i}`].state >= this.pollen_threshold) meets = true;
                 }
                 if (meets) sensors.push(dict);
@@ -223,7 +202,7 @@ class PollenCardv2 extends LitElement {
             }
         }
 
-        // sortera
+        // Sortera och spara …
         const sorter = {
             value_ascending:  (a,b)=>a.day0.state - b.day0.state,
             value_descending: (a,b)=>b.day0.state - a.day0.state,
@@ -235,6 +214,7 @@ class PollenCardv2 extends LitElement {
         if (debug) console.log("🧩 Slutliga sensors-array:", sensors);
         this.sensors = sensors;
     }
+
 
 
     _renderMinimalHtml() {
