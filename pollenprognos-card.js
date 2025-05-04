@@ -13,14 +13,17 @@ class PollenCardv2 extends LitElement {
     }
 
      // Return the custom editor element for the visual editor
-    static getConfigElement() {
+    static async getConfigElement() {
+        // Vänta på att editorn är definierad
+        await customElements.whenDefined('pollenprognos-card-editor');
+        // Skapa och returnera ett korrekt element
         return document.createElement('pollenprognos-card-editor');
     }
 
     // Provide a stub/default configuration for the editor
     static getStubConfig() {
         return {
-            city: 'Stockholm',
+            city: '',
             allergens: [
                 'Al',
                 'Alm',
@@ -43,6 +46,50 @@ class PollenCardv2 extends LitElement {
     }
 
     set hass(hass) {
+        // Hjälpfunktion: tolka alltid ISO-datum som lokala midnatt
+        const parseLocal = s => {
+            const [ymd] = s.split("T");
+            const [y, m, d] = ymd.split("-").map(Number);
+            return new Date(y, m - 1, d);
+        };
+
+        const replaceAAO = intext => intext.toLowerCase()
+            .replaceAll("å","a").replaceAll("ä","a").replaceAll("ö","o")
+            .replaceAll(" / ","_").replaceAll("-","_").replaceAll(" ","_");
+
+        this._hass = hass;
+
+        const installedKeys = new Set(
+            Object.keys(hass.states)
+            .filter(id => id.startsWith('sensor.pollen_'))
+            .map(id => {
+                const key = id.slice('sensor.pollen_'.length).split('_')[0];
+                return key;
+            })
+        );
+
+        // 2) Hitta först alfabetiskt i possibleCities som finns installerad
+        //    (possibleCities är listan ni hade i editorn – bara display-namn)
+        const possibleCities = [
+            'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
+            'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
+            'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
+            'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
+        ];
+        const keyFor = name => name
+            .toLowerCase()
+            .replace(/[åä]/g,'a').replace(/ö/g,'o')
+            .replace(/-/g,'_').replace(/\s+/g,'_');
+
+        const autoCity = possibleCities
+            .map(c => ({ display: c, key: keyFor(c) }))
+            .find(o => installedKeys.has(o.key))
+            ?.display;
+
+        // 3) Effektivt stadsvärde: använd det som finns i config.city, annars autoCity
+        const effectiveCity = this.config.city || autoCity || '';
+        const cityKey       = replaceAAO(effectiveCity);
+
         const debug           = Boolean(this.config.debug);
         const capitalize      = s => s.charAt(0).toUpperCase() + s.slice(1);
         const phrases         = this.config.phrases || {};
@@ -70,13 +117,6 @@ class PollenCardv2 extends LitElement {
             ? true
             : Boolean(this.config.show_empty_days);
 
-        // Hjälpfunktion: tolka alltid ISO-datum som lokala midnatt
-        const parseLocal = s => {
-            const [ymd] = s.split("T");
-            const [y, m, d] = ymd.split("-").map(Number);
-            return new Date(y, m - 1, d);
-        };
-
         // HEADER / TITLE
         const titleCfg = this.config.title;
         if (typeof titleCfg === "string") {
@@ -84,7 +124,7 @@ class PollenCardv2 extends LitElement {
         } else if (titleCfg === false) {
             this.header = "";
         } else {
-            this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
+            this.header = `Pollenprognos för ${capitalize(effectiveCity)}`;
         }
 
         if (debug) console.log("---- pollenprognos-card start ----");
@@ -94,9 +134,6 @@ class PollenCardv2 extends LitElement {
         this._hass = hass;
         const sensors = [];
 
-        const replaceAAO = intext => intext.toLowerCase()
-            .replaceAll("å","a").replaceAll("ä","a").replaceAll("ö","o")
-            .replaceAll(" / ","_").replaceAll("-","_").replaceAll(" ","_");
         const test_val = val => {
             const n = Number(val);
             if (isNaN(n)||n<0) return -1;
@@ -108,7 +145,7 @@ class PollenCardv2 extends LitElement {
         const today = new Date();
         today.setHours(0,0,0,0);
 
-        const city = replaceAAO(this.config.city);
+        const city = cityKey;
 
         for (const allergen of this.config.allergens) {
             try {
@@ -385,13 +422,27 @@ class PollenCardv2 extends LitElement {
 
 
     setConfig(config) {
-        if (!config.allergens) {
-            throw new Error('You need to specify a list of allergens');
-        }
-        if (!config.city) {
-            throw new Error('You need to define a city');
-        }
-        this.config = config;
+        const defaults = {
+            city:             '',
+            allergens:        [],
+            days_to_show:     4,
+            pollen_threshold: 1,
+            show_empty_days:  true,
+            show_text:        true,
+            minimal:          false,
+            sort:             'default',
+            debug:            false,
+        };
+        // Slå ihop användarens config med våra defaults
+        this.config = { ...defaults, ...config };
+
+
+        // if (!config.allergens) {
+        //     throw new Error('You need to specify a list of allergens');
+        // }
+        // if (!config.city) {
+        //     throw new Error('You need to define a city');
+        // }
 
         //Save images
         var myImages = {};
@@ -566,164 +617,168 @@ customElements.define("pollenprognos-card", PollenCardv2);
 class PollenPrognosCardEditor extends LitElement {
     static get properties() {
         return {
-            _config: { type: Object },
-            hass: { type: Object }
+            _config:          { type: Object },
+            hass:             { type: Object },
+            _cityInitialized: { type: Boolean },
         };
     }
 
-    setConfig(config) {
-        const defaults = {
-            type: 'custom:pollenprognos-card',
-            city: '',
-            allergens: [],
-            days_to_show:        4,
-            pollen_threshold:    1,
-            show_empty_days:     true,
-            show_text:           true,
-            minimal:             false,
-            sort:                'default',
-            debug:               false,
+    constructor() {
+        super();
+        // Initiera alltid en grundkonfiguration
+        this._config = {
+            city:             '',
+            allergens:        [],
+            days_to_show:     4,
+            pollen_threshold: 1,
+            show_empty_days:  true,
+            show_text:        true,
+            minimal:          false,
+            sort:             'default',
+            debug:            false,
         };
-        this._config = { ...defaults, ...config };
+        this._cityInitialized = false;
+    }
 
+    // Här måste HA kunna skicka in den befintliga configen
+    setConfig(config) {
+        // Slå ihop med defaults så ingenting nollas
+        this._config = { ...this._config, ...config };
+    }
+
+    // Körs när Home Assistant-objektet trillar in
+    set hass(hass) {
+        this._hass = hass;
+        // Vänta på att användaren inte redan satt city
+        if (!this._cityInitialized && !this._config.city) {
+            const possibleCities = [
+                'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
+                'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
+                'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
+                'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
+            ];
+            const keyFor = name => name.toLowerCase()
+                .replace(/[åä]/g,'a').replace(/ö/g,'o')
+                .replace(/-/g,'_').replace(/\s+/g,'_');
+
+            const installedKeys = new Set(
+                Object.keys(hass.states)
+                .filter(id => id.startsWith('sensor.pollen_'))
+                .map(id => id.slice('sensor.pollen_'.length).split('_')[0])
+            );
+
+            // Hitta första alfabetiskt existerande stad
+            const chosen = possibleCities.find(c => installedKeys.has(keyFor(c)));
+            if (chosen) {
+                this._updateConfig('city', chosen);
+            }
+            this._cityInitialized = true;
+        }
     }
 
     get allAllergens() {
         return [
-            'Al',
-            'Alm',
-            'Björk',
-            'Ek',
-            'Malörtsambrosia',
-            'Gråbo',
-            'Gräs',
-            'Hassel',
-            'Sälg och viden',
+            'Al','Alm','Björk','Ek','Malörtsambrosia','Gråbo',
+            'Gräs','Hassel','Sälg och viden',
         ];
     }
 
     render() {
-  return html`
-    <div class="card-config">
-      <!-- Stad -->
-      <div class="input-row">
-        <label class="label">Stad</label>
-        <ha-textfield
-          placeholder="Ange stad, t.ex. Stockholm"
-          style="width: 100%;"
-          .value=${this._config.city}
-          @input=${e => this._updateConfig('city', e.target.value)}
-        ></ha-textfield>
-      </div>
+        return html`
+      <div class="card-config">
+        <!-- Stad -->
+        <div class="input-row">
+          <label class="label">Stad</label>
+          <ha-textfield
+            placeholder="Ange stad, t.ex. Stockholm"
+            style="width: 100%;"
+            .value=${this._config.city}
+            @input=${e => this._updateConfig('city', e.target.value)}
+          ></ha-textfield>
+        </div>
 
-      <!-- Allergener -->
-      <div class="allergens-group">
-        <div class="label">Allergener</div>
-        ${this.allAllergens.map(allergen => html`
-          <ha-formfield .label=${allergen}>
-            <ha-checkbox
-              .checked=${this._config.allergens.includes(allergen)}
-              @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
-            ></ha-checkbox>
-          </ha-formfield>
-        `)}
-      </div>
+        <!-- Allergener -->
+        <div class="allergens-group">
+          <div class="label">Allergener</div>
+          ${this.allAllergens.map(allergen => html`
+            <ha-formfield .label=${allergen}>
+              <ha-checkbox
+                .checked=${this._config.allergens.includes(allergen)}
+                @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
+              ></ha-checkbox>
+            </ha-formfield>
+          `)}
+        </div>
 
-      <!-- Antal dagar att visa som slider -->
-        <ha-formfield
-          label="Antal dagar att visa: ${this._config.days_to_show}"
-        >
+        <!-- Dagar-slider -->
+        <ha-formfield label="Antal dagar att visa: ${this._config.days_to_show}">
           <ha-slider
-            min="1"
-            max="4"
-            step="1"
+            min="1" max="4" step="1"
             .value=${this._config.days_to_show}
             @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
           ></ha-slider>
         </ha-formfield>
 
-        <!-- Pollen-tröskelvärde som slider -->
-        <ha-formfield
-          label="Pollen-tröskelvärde: ${this._config.pollen_threshold}"
-        >
+        <!-- Tröskel-slider -->
+        <ha-formfield label="Pollen-tröskelvärde: ${this._config.pollen_threshold}">
           <ha-slider
-            min="0"
-            max="6"
-            step="1"
+            min="0" max="6" step="1"
             .value=${this._config.pollen_threshold}
             @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
           ></ha-slider>
         </ha-formfield>
 
-      <!-- Minimal layout -->
-      <ha-formfield label="Minimal layout">
-        <ha-switch
-          .checked=${this._config.minimal}
-          @change=${e => this._updateConfig('minimal', e.target.checked)}
-        ></ha-switch>
-      </ha-formfield>
+        <!-- Minimal layout -->
+        <ha-formfield label="Minimal layout">
+          <ha-switch
+            .checked=${this._config.minimal}
+            @change=${e => this._updateConfig('minimal', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
 
-      <!-- Visa text under ikoner -->
-      <ha-formfield label="Visa text under ikoner">
-        <ha-switch
-          .checked=${this._config.show_text}
-          @change=${e => this._updateConfig('show_text', e.target.checked)}
-        ></ha-switch>
-      </ha-formfield>
-    </div>
-  `;
-}
-
-
-  _onAllergenToggle(allergen, checked) {
-    const s = new Set(this._config.allergens);
-    if (checked) s.add(allergen);
-    else s.delete(allergen);
-    this._updateConfig('allergens', [...s]);
-  }
-
-  _updateConfig(prop, value) {
-    const newConfig = { ...this._config, [prop]: value };
-    this._config = newConfig;
-    this.dispatchEvent(new CustomEvent('config-changed', {
-      detail: { config: newConfig },
-      bubbles: true,
-      composed: true,
-    }));
-  }
-
-  static get styles() {
-    return css`
-      .card-config {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 16px;
-      }
-      .input-row {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .input-row .label {
-        font-weight: 500;
-        font-size: 14px;
-      }
-      .allergens-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .allergens-group .label {
-        width: 100%;
-        font-weight: bold;
-        margin-bottom: 4px;
-      }
+        <!-- Visa text -->
+        <ha-formfield label="Visa text under ikoner">
+          <ha-switch
+            .checked=${this._config.show_text}
+            @change=${e => this._updateConfig('show_text', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+      </div>
     `;
-  }
+    }
+
+    _onAllergenToggle(allergen, checked) {
+        const s = new Set(this._config.allergens);
+        if (checked) s.add(allergen);
+        else s.delete(allergen);
+        this._updateConfig('allergens', [...s]);
+    }
+
+    _updateConfig(prop, value) {
+        const newConfig = { ...this._config, [prop]: value };
+        this._config = newConfig;
+        this.dispatchEvent(new CustomEvent('config-changed', {
+            detail: { config: newConfig },
+            bubbles: true,
+            composed: true,
+        }));
+    }
+
+    static get styles() {
+        return css`
+      .card-config { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+      .input-row  { display: flex; flex-direction: column; gap: 4px; }
+      .input-row .label { font-weight: 500; font-size: 14px; }
+      .allergens-group { display: flex; flex-wrap: wrap; gap: 8px; }
+      .allergens-group .label { width: 100%; font-weight: bold; margin-bottom: 4px; }
+      ha-slider { width: 100%; }
+    `;
+    }
 }
 
 customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
+
+
 
 // Register custom card for visual picker
 window.customCards = window.customCards || [];
