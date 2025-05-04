@@ -46,50 +46,54 @@ class PollenCardv2 extends LitElement {
     }
 
     set hass(hass) {
-        // Hjälpfunktion: tolka alltid ISO-datum som lokala midnatt
+        // Hjälpfunktioner
         const parseLocal = s => {
             const [ymd] = s.split("T");
             const [y, m, d] = ymd.split("-").map(Number);
             return new Date(y, m - 1, d);
         };
-
         const replaceAAO = intext => intext.toLowerCase()
             .replaceAll("å","a").replaceAll("ä","a").replaceAll("ö","o")
             .replaceAll(" / ","_").replaceAll("-","_").replaceAll(" ","_");
 
         this._hass = hass;
 
+        // 1) Bygg upp set med installerade stad-nycklar (hela city_key, ej bara första delen)
         const installedKeys = new Set(
             Object.keys(hass.states)
-            .filter(id => id.startsWith('sensor.pollen_'))
+            .filter(id => id.startsWith("sensor.pollen_"))
             .map(id => {
-                const key = id.slice('sensor.pollen_'.length).split('_')[0];
-                return key;
+                const rem = id.slice("sensor.pollen_".length);
+                // klipp bort allergen-delen (sista "_<allergen>")
+                return rem.slice(0, rem.lastIndexOf("_"));
             })
         );
 
-        // 2) Hitta först alfabetiskt i possibleCities som finns installerad
-        //    (possibleCities är listan ni hade i editorn – bara display-namn)
+        // 2) Lista alla tillåtna städer som display-namn
         const possibleCities = [
-            'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
-            'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
-            'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
-            'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
+            "Borlänge","Bräkne-Hoby","Eskilstuna","Forshaga","Gävle","Göteborg",
+            "Hässleholm","Jönköping","Kristianstad","Ljusdal","Malmö",
+            "Norrköping","Nässjö","Piteå","Skövde","Stockholm",
+            "Storuman","Sundsvall","Umeå","Visby","Västervik","Östersund"
         ];
-        const keyFor = name => name
-            .toLowerCase()
-            .replace(/[åä]/g,'a').replace(/ö/g,'o')
-            .replace(/-/g,'_').replace(/\s+/g,'_');
+        const keyFor = name => name.toLowerCase()
+            .replace(/[åä]/g,"a").replace(/ö/g,"o")
+            .replace(/[-\s]/g,"_");
 
-        const autoCity = possibleCities
-            .map(c => ({ display: c, key: keyFor(c) }))
-            .find(o => installedKeys.has(o.key))
-            ?.display;
+        // 3) Filtrera vilka som faktiskt är installerade
+        const installedDisplays = possibleCities
+            .filter(city => installedKeys.has(keyFor(city)))
+            .sort((a, b) => a.localeCompare(b));
 
-        // 3) Effektivt stadsvärde: använd det som finns i config.city, annars autoCity
-        const effectiveCity = this.config.city || autoCity || '';
+        // 4) AutoCity blir första i den listan (eller blank om ingen)
+        const autoCity = installedDisplays[0] || "";
+
+        // 5) Effektivt stadsvärde: använd config.city om satt, annars autoCity
+        const effectiveCity = this.config.city || autoCity;
         const cityKey       = replaceAAO(effectiveCity);
 
+        // --- Resten av er ursprungliga set hass-logik oförändrad, men
+        //     använd `effectiveCity` för rubriken och `cityKey` för sensor-id ---
         const debug           = Boolean(this.config.debug);
         const capitalize      = s => s.charAt(0).toUpperCase() + s.slice(1);
         const phrases         = this.config.phrases || {};
@@ -118,10 +122,9 @@ class PollenCardv2 extends LitElement {
             : Boolean(this.config.show_empty_days);
 
         // HEADER / TITLE
-        const titleCfg = this.config.title;
-        if (typeof titleCfg === "string") {
-            this.header = titleCfg;
-        } else if (titleCfg === false) {
+        if (typeof this.config.title === "string") {
+            this.header = this.config.title;
+        } else if (this.config.title === false) {
             this.header = "";
         } else {
             this.header = `Pollenprognos för ${capitalize(effectiveCity)}`;
@@ -157,11 +160,11 @@ class PollenCardv2 extends LitElement {
                     || dict.allergenCapitalized.replace("Sälg och viden","Vide");
 
                 // Hitta sensor‐ID
-                const expectedId = `sensor.pollen_${city}_${dict.allergenReplaced}`;
+                const expectedId = `sensor.pollen_${cityKey}_${dict.allergenReplaced}`;
                 let sensorId = expectedId;
                 if (!hass.states[expectedId]) {
                     const cands = Object.keys(hass.states).filter(id =>
-                        id.startsWith(`sensor.pollen_${city}_`)
+                        id.startsWith(`sensor.pollen_${cityKey}_`)
                         && id.includes(dict.allergenReplaced)
                     );
                     if (cands.length === 1) {
@@ -398,6 +401,21 @@ class PollenCardv2 extends LitElement {
 
 
     render() {
+        // Om vi inte har någon sensordata alls, visa fel
+        if (!this.sensors || this.sensors.length === 0) {
+            return html`
+      <ha-card>
+        <div class="card-error">
+          Inga pollen-sensorer hittades. Har du installerat integrationen
+          <a href="https://github.com/JohNan/homeassistant-pollenprognos"
+             target="_blank" rel="noopener">
+            homeassistant-pollenprognos
+          </a>
+          och valt en stad att bevaka i integrationens inställningar?
+        </div>
+      </ha-card>
+    `;
+        }
         // DEBUG: se vilken layout som faktiskt renderas
         const debug = Boolean(this.config.debug);
         if (debug) console.log(
@@ -606,6 +624,16 @@ static get styles() {
           padding: 0;
           text-align: center;
         }
+        .card-error {
+          padding: 16px;
+          color: var(--error-text-color, #b71c1c);
+          font-weight: 500;
+          line-height: 1.4;
+        }
+        .card-error a {
+          color: var(--primary-color);
+          text-decoration: underline;
+        }
 
       `;
 }
@@ -649,33 +677,40 @@ class PollenPrognosCardEditor extends LitElement {
 
     set hass(hass) {
         this._hass = hass;
-        // Hitta installerade "pollen_<stad>_..."-sensorer
+
+        // 1) Bygg upp installerade stad-nycklar precis som i kortet
         const installedKeys = new Set(
             Object.keys(hass.states)
-            .filter(id => id.startsWith('sensor.pollen_'))
-            .map(id => id.slice('sensor.pollen_'.length).split('_')[0])
+            .filter(id => id.startsWith("sensor.pollen_"))
+            .map(id => {
+                const rem = id.slice("sensor.pollen_".length);
+                return rem.slice(0, rem.lastIndexOf("_"));
+            })
         );
+
+        // 2) Lista alla möjliga display-städer
         const possibleCities = [
-            'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
-            'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
-            'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
-            'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
+            "Borlänge","Bräkne-Hoby","Eskilstuna","Forshaga","Gävle","Göteborg",
+            "Hässleholm","Jönköping","Kristianstad","Ljusdal","Malmö",
+            "Norrköping","Nässjö","Piteå","Skövde","Stockholm",
+            "Storuman","Sundsvall","Umeå","Visby","Västervik","Östersund"
         ];
         const keyFor = name => name.toLowerCase()
-            .replace(/[åä]/g,'a').replace(/ö/g,'o')
-            .replace(/[-\s]/g,'_');
+            .replace(/[åä]/g,"a").replace(/ö/g,"o")
+            .replace(/[-\s]/g,"_");
 
-        // Filtrera och sortera
+        // 3) Filtrera och sortera installerade
         this.installedCities = possibleCities
-            .filter(c => installedKeys.has(keyFor(c)))
+            .filter(city => installedKeys.has(keyFor(city)))
             .sort((a, b) => a.localeCompare(b));
 
-        // Sätt första som default EN GÅNG om ingen stad är vald
+        // 4) Om editorn öppnas första gången och ingen stad är satt, defaulta
         if (!this._initDone && !this._config.city && this.installedCities.length) {
-            this._updateConfig('city', this.installedCities[0]);
+            this._updateConfig("city", this.installedCities[0]);
         }
         this._initDone = true;
     }
+
 
     get allAllergens() {
         return [
