@@ -231,6 +231,7 @@ cards:
       Gräs: Grass
       Hassel: Hazel
       Sälg och viden: Willow
+    no_information: "(N/A)"
     levels:
       - No pollen
       - Low
