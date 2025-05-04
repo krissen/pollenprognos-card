@@ -602,69 +602,70 @@ class PollenPrognosCardEditor extends LitElement {
         ];
     }
 
-     render() {
-    return html`
-      <div class="card-config">
-        <!-- Stad -->
-        <div class="input-row">
-          <label class="label">Stad</label>
-          <ha-textfield
-            placeholder="Ange stad, t.ex. Stockholm"
-            style="width: 100%;"
-            .value=${this._config.city}
-            @value-changed=${e => this._updateConfig('city', e.detail.value)}
-          ></ha-textfield>
-        </div>
-
-        <!-- Allergener -->
-        <div class="allergens-group">
-          <div class="label">Allergener</div>
-          ${this.allAllergens.map(allergen => html`
-            <ha-formfield .label=${allergen}>
-              <ha-checkbox
-                .checked=${this._config.allergens.includes(allergen)}
-                @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
-              ></ha-checkbox>
-            </ha-formfield>
-          `)}
-        </div>
-
-        <!-- Antal dagar -->
-        <ha-formfield label="Antal dagar att visa">
-          <ha-textfield
-            type="number"
-            .value=${this._config.days_to_show}
-            @value-changed=${e => this._updateConfig('days_to_show', Number(e.detail.value))}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Tröskelvärde -->
-        <ha-formfield label="Pollen-tröskelvärde">
-          <ha-textfield
-            type="number"
-            .value=${this._config.pollen_threshold}
-            @value-changed=${e => this._updateConfig('pollen_threshold', Number(e.detail.value))}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Minimal layout -->
-        <ha-formfield label="Minimal layout">
-          <ha-switch
-            .checked=${this._config.minimal}
-            @change=${e => this._updateConfig('minimal', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-
-        <!-- Visa text under ikoner -->
-        <ha-formfield label="Visa text under ikoner">
-          <ha-switch
-            .checked=${this._config.show_text}
-            @change=${e => this._updateConfig('show_text', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
+    render() {
+  return html`
+    <div class="card-config">
+      <!-- Stad -->
+      <div class="input-row">
+        <label class="label">Stad</label>
+        <ha-textfield
+          placeholder="Ange stad, t.ex. Stockholm"
+          style="width: 100%;"
+          .value=${this._config.city}
+          @input=${e => this._updateConfig('city', e.target.value)}
+        ></ha-textfield>
       </div>
-    `;
-  }
+
+      <!-- Allergener -->
+      <div class="allergens-group">
+        <div class="label">Allergener</div>
+        ${this.allAllergens.map(allergen => html`
+          <ha-formfield .label=${allergen}>
+            <ha-checkbox
+              .checked=${this._config.allergens.includes(allergen)}
+              @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
+            ></ha-checkbox>
+          </ha-formfield>
+        `)}
+      </div>
+
+      <!-- Antal dagar att visa -->
+      <ha-formfield label="Antal dagar att visa">
+        <ha-textfield
+          type="number"
+          .value=${this._config.days_to_show}
+          @value-changed=${e => this._updateConfig('days_to_show', Number(e.detail.value))}
+        ></ha-textfield>
+      </ha-formfield>
+
+      <!-- Pollen-tröskelvärde -->
+      <ha-formfield label="Pollen-tröskelvärde">
+        <ha-textfield
+          type="number"
+          .value=${this._config.pollen_threshold}
+          @value-changed=${e => this._updateConfig('pollen_threshold', Number(e.detail.value))}
+        ></ha-textfield>
+      </ha-formfield>
+
+      <!-- Minimal layout -->
+      <ha-formfield label="Minimal layout">
+        <ha-switch
+          .checked=${this._config.minimal}
+          @change=${e => this._updateConfig('minimal', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+
+      <!-- Visa text under ikoner -->
+      <ha-formfield label="Visa text under ikoner">
+        <ha-switch
+          .checked=${this._config.show_text}
+          @change=${e => this._updateConfig('show_text', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+    </div>
+  `;
+}
+
 
   _onAllergenToggle(allergen, checked) {
     const s = new Set(this._config.allergens);
