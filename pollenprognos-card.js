@@ -29,23 +29,38 @@ class PollenCardv2 extends LitElement {
             "Mycket höga halter"
         ];
         const noInfoLabel     = phrases.no_information || "(Ingen information)";
-        const locale          = this.config.date_locale || "sv-SE";
-        const dayLabels       = phrases.days || {};
-        this.days_to_show     = this.config.days_to_show ?? 4;
+        const locale          = this.config.date_locale    || "sv-SE";
+        const dayLabels       = phrases.days               || {};
+        this.days_to_show     = this.config.days_to_show   ?? 4;
         this.pollen_threshold = this.config.pollen_threshold ?? 1;
-        const daysRelative    = this.config.days_relative !== false;
+        const daysRelative    = this.config.days_relative  !== false;
         const dayAbbrev       = Boolean(this.config.days_abbreviated);
         const daysUppercase   = Boolean(this.config.days_uppercase);
         const daysBoldfaced   = Boolean(this.config.days_boldfaced);
-        const showDaysWithoutData = this.config.show_empty_days == null
+        const showEmpty       = this.config.show_empty_days == null
             ? true
             : Boolean(this.config.show_empty_days);
 
-        // HEADER / TITLE-support …
+        // Hjälpfunktion: tolka alltid ISO-datum som lokala midnatt
+        const parseLocal = s => {
+            const [ymd] = s.split("T");
+            const [y, m, d] = ymd.split("-").map(Number);
+            return new Date(y, m - 1, d);
+        };
+
+        // HEADER / TITLE
         const titleCfg = this.config.title;
-        if (typeof titleCfg === "string") this.header = titleCfg;
-        else if (titleCfg === false) this.header = "";
-        else this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
+        if (typeof titleCfg === "string") {
+            this.header = titleCfg;
+        } else if (titleCfg === false) {
+            this.header = "";
+        } else {
+            this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
+        }
+
+        if (debug) console.log("---- pollenprognos-card start ----");
+        if (debug) console.log("Stad:", this.config.city);
+        if (debug) console.log("Allergener från config:", this.config.allergens);
 
         this._hass = hass;
         const sensors = [];
@@ -70,11 +85,12 @@ class PollenCardv2 extends LitElement {
             try {
                 const dict = {};
                 dict.allergenReplaced   = replaceAAO(allergen);
-                dict.allergenCapitalized = allergenFull[allergen] || capitalize(allergen);
+                dict.allergenCapitalized = allergenFull[allergen]
+                    || capitalize(allergen);
                 dict.allergenShort      = allergenShort[allergen]
                     || dict.allergenCapitalized.replace("Sälg och viden","Vide");
 
-                // Hitta sensor-ID …
+                // Hitta sensor‐ID
                 const expectedId = `sensor.pollen_${city}_${dict.allergenReplaced}`;
                 let sensorId = expectedId;
                 if (!hass.states[expectedId]) {
@@ -82,25 +98,43 @@ class PollenCardv2 extends LitElement {
                         id.startsWith(`sensor.pollen_${city}_`)
                         && id.includes(dict.allergenReplaced)
                     );
-                    if (cands.length === 1) sensorId = cands[0];
-                    else continue;
+                    if (cands.length === 1) {
+                        sensorId = cands[0];
+                    } else {
+                        continue;
+                    }
                 }
                 const sensor = hass.states[sensorId];
                 if (!sensor?.attributes?.forecast) throw "Saknar forecast";
 
-                // Rådatum → framtida / fallback
-                const rawDates  = Object.keys(sensor.attributes.forecast)
-                    .sort((a,b)=>new Date(a)-new Date(b));
-                const upcoming  = rawDates.filter(d => new Date(d) >= today);
-                let datesToUse  = upcoming.length
+                // —————————————————————————————————————————
+                // **Nytt**: om forecast är en array, bygg upp en lookup
+                const rawForecast = sensor.attributes.forecast;
+                const forecastMap = Array.isArray(rawForecast)
+                    ? rawForecast.reduce((o,entry) => {
+                        const key = entry.time || entry.datetime;
+                        o[key] = entry;
+                        return o;
+                    }, {})
+                    : rawForecast;
+                // —————————————————————————————————————————
+
+                // Rådatum sorterat
+                const rawDates = Object.keys(forecastMap)
+                    .sort((a,b) => parseLocal(a) - parseLocal(b));
+                const upcoming = rawDates.filter(d => parseLocal(d) >= today);
+
+                // Baslista med riktiga datum
+                let datesToUse = upcoming.length
                     ? upcoming.slice(0, this.days_to_show)
                     : [ rawDates[rawDates.length - 1] ];
+
                 const baseCount = upcoming.length > 0
                     ? Math.min(upcoming.length, this.days_to_show)
                     : 1;
 
-                // Pad om så önskas
-                if (showDaysWithoutData) {
+                // Om vi vill visa tomma dagar, lägg in placeholders
+                if (showEmpty) {
                     while (datesToUse.length < this.days_to_show) {
                         const idx = datesToUse.length;
                         dict[`day${idx}`] = {
@@ -113,69 +147,70 @@ class PollenCardv2 extends LitElement {
                     }
                 }
 
-                // Extrapolera datum
-                const msDay = 1000*60*60*24;
+                // Extrapolera framåt så vi får exactly days_to_show datum
                 let forecastDates;
                 if (upcoming.length) {
                     forecastDates = upcoming.slice(0, this.days_to_show);
                     if (forecastDates.length < this.days_to_show) {
-                        const lastReal = new Date(forecastDates.at(-1));
+                        const lastReal = parseLocal(forecastDates[forecastDates.length-1]);
                         for (let add = 1; forecastDates.length < this.days_to_show; add++) {
-                            const nextLocal = new Date(
+                            const nl = new Date(
                                 lastReal.getFullYear(),
                                 lastReal.getMonth(),
                                 lastReal.getDate() + add
                             );
-                            const yyyy = nextLocal.getFullYear();
-                            const mm   = String(nextLocal.getMonth()+1).padStart(2,"0");
-                            const dd   = String(nextLocal.getDate()).padStart(2,"0");
+                            const yyyy = nl.getFullYear();
+                            const mm   = String(nl.getMonth()+1).padStart(2,"0");
+                            const dd   = String(nl.getDate()  ).padStart(2,"0");
                             forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
                         }
                     }
                 } else {
-                    forecastDates = [ rawDates.at(-1) ];
-                    const baseDate = new Date(forecastDates[0]);
+                    const lastHist = rawDates[rawDates.length-1];
+                    forecastDates = [ lastHist ];
+                    const baseDate = parseLocal(lastHist);
                     for (let add = 1; forecastDates.length < this.days_to_show; add++) {
-                        const nextLocal = new Date(
+                        const nl = new Date(
                             baseDate.getFullYear(),
                             baseDate.getMonth(),
                             baseDate.getDate() + add
                         );
-                        const yyyy = nextLocal.getFullYear();
-                        const mm   = String(nextLocal.getMonth()+1).padStart(2,"0");
-                        const dd   = String(nextLocal.getDate()).padStart(2,"0");
+                        const yyyy = nl.getFullYear();
+                        const mm   = String(nl.getMonth()+1).padStart(2,"0");
+                        const dd   = String(nl.getDate()  ).padStart(2,"0");
                         forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
                     }
                 }
 
-                // Vilka kolumner ska visas
-                const totalCols = showDaysWithoutData ? this.days_to_show : baseCount;
-                this.displayCols = Array.from({length: totalCols},(_,i)=>i);
+                // Välj vilka kolumner vi visar
+                const totalCols = showEmpty
+                    ? this.days_to_show
+                    : baseCount;
+                this.displayCols = Array.from({ length: totalCols }, (_,i) => i);
 
-                // Bygg day0…dayN med NY etikettlogik:
+                // Bygg day0…dayN
                 forecastDates.forEach((dateStr, idx) => {
-                    const raw   = sensor.attributes.forecast[dateStr] || {};
+                    const raw   = forecastMap[dateStr] || {};
                     const level = test_val(raw.level);
-                    const d     = new Date(dateStr);
-                    const diff  = Math.round((d - today)/msDay);
+                    const d     = parseLocal(dateStr);
+                    const diff  = Math.floor((d - today) / (1000*60*60*24));
 
                     let label;
                     if (!daysRelative) {
-                        // alltid veckodag
                         label = d.toLocaleDateString(locale, {
                             weekday: dayAbbrev ? "short" : "long"
                         });
                     } else {
-                        // RELATIVA för 0–2
-                        if (diff === 0)       label = "Idag";
-                        else if (diff === 1)  label = "Imorgon";
-                        else if (diff === 2)  label = "I övermorgon";
-                        else {
-                            // ÖVRIGA → alltid veckodag enligt locale
-                            label = d.toLocaleDateString(locale, {
-                                weekday: dayAbbrev ? "short" : "long"
-                            });
-                        }
+                        if (dayLabels[diff] !== undefined)      label = dayLabels[diff];
+                        else if (diff === 0)                    label = "Idag";
+                        else if (diff === 1)                    label = "Imorgon";
+                        else if (diff === 2)                    label = "I övermorgon";
+                        else if (diff === -1)                   label = "Igår";
+                        else if (diff === -2)                   label = "I förrgår";
+                        else if (diff < -2)                     label = d.toLocaleDateString(locale, { day:"numeric", month:"short" });
+                        else                                    label = d.toLocaleDateString(locale, {
+                            weekday: dayAbbrev ? "short" : "long"
+                        });
                     }
                     label = capitalize(label);
                     if (daysUppercase) label = label.toUpperCase();
@@ -190,7 +225,7 @@ class PollenCardv2 extends LitElement {
                     };
                 });
 
-                // Threshold‐filter …
+                // Threshold-filter
                 let meets = this.pollen_threshold === 0;
                 for (let i = 0; i < baseCount && !meets; i++) {
                     if (dict[`day${i}`].state >= this.pollen_threshold) meets = true;
@@ -202,7 +237,7 @@ class PollenCardv2 extends LitElement {
             }
         }
 
-        // Sortera och spara …
+        // Sortera och spara
         const sorter = {
             value_ascending:  (a,b)=>a.day0.state - b.day0.state,
             value_descending: (a,b)=>b.day0.state - a.day0.state,
@@ -214,6 +249,8 @@ class PollenCardv2 extends LitElement {
         if (debug) console.log("🧩 Slutliga sensors-array:", sensors);
         this.sensors = sensors;
     }
+
+
 
 
 
