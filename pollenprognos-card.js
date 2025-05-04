@@ -12,6 +12,35 @@ class PollenCardv2 extends LitElement {
         };
     }
 
+     // Return the custom editor element for the visual editor
+    static getConfigElement() {
+        return document.createElement('pollenprognos-card-editor');
+    }
+
+    // Provide a stub/default configuration for the editor
+    static getStubConfig() {
+        return {
+            city: 'Stockholm',
+            allergens: [
+                'Al',
+                'Alm',
+                'Björk',
+                'Ek',
+                'Malörtsambrosia',
+                'Gråbo',
+                'Gräs',
+                'Hassel',
+                'Sälg och viden',
+            ],
+            days_to_show: 4,
+            pollen_threshold: 1,
+            show_empty_days: true,
+            show_text: true,
+            minimal: false,
+            sort: 'default',
+            debug: false,
+        };
+    }
 
     set hass(hass) {
         const debug           = Boolean(this.config.debug);
@@ -529,7 +558,173 @@ static get styles() {
 
       `;
 }
+
 }
 customElements.define("pollenprognos-card", PollenCardv2);
+
+// Configuration editor for the UI
+class PollenPrognosCardEditor extends LitElement {
+    static get properties() {
+        return {
+            _config: { type: Object },
+            hass: { type: Object }
+        };
+    }
+
+    setConfig(config) {
+        const defaults = {
+            type: 'custom:pollenprognos-card',
+            city: '',
+            allergens: [],
+            days_to_show:        4,
+            pollen_threshold:    1,
+            show_empty_days:     true,
+            show_text:           true,
+            minimal:             false,
+            sort:                'default',
+            debug:               false,
+        };
+        this._config = { ...defaults, ...config };
+
+    }
+
+    get allAllergens() {
+        return [
+            'Al',
+            'Alm',
+            'Björk',
+            'Ek',
+            'Malörtsambrosia',
+            'Gråbo',
+            'Gräs',
+            'Hassel',
+            'Sälg och viden',
+        ];
+    }
+
+     render() {
+    return html`
+      <div class="card-config">
+        <!-- Stad -->
+        <div class="input-row">
+          <label class="label">Stad</label>
+          <ha-textfield
+            placeholder="Ange stad, t.ex. Stockholm"
+            style="width: 100%;"
+            .value=${this._config.city}
+            @value-changed=${e => this._updateConfig('city', e.detail.value)}
+          ></ha-textfield>
+        </div>
+
+        <!-- Allergener -->
+        <div class="allergens-group">
+          <div class="label">Allergener</div>
+          ${this.allAllergens.map(allergen => html`
+            <ha-formfield .label=${allergen}>
+              <ha-checkbox
+                .checked=${this._config.allergens.includes(allergen)}
+                @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
+              ></ha-checkbox>
+            </ha-formfield>
+          `)}
+        </div>
+
+        <!-- Antal dagar -->
+        <ha-formfield label="Antal dagar att visa">
+          <ha-textfield
+            type="number"
+            .value=${this._config.days_to_show}
+            @value-changed=${e => this._updateConfig('days_to_show', Number(e.detail.value))}
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- Tröskelvärde -->
+        <ha-formfield label="Pollen-tröskelvärde">
+          <ha-textfield
+            type="number"
+            .value=${this._config.pollen_threshold}
+            @value-changed=${e => this._updateConfig('pollen_threshold', Number(e.detail.value))}
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- Minimal layout -->
+        <ha-formfield label="Minimal layout">
+          <ha-switch
+            .checked=${this._config.minimal}
+            @change=${e => this._updateConfig('minimal', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+
+        <!-- Visa text under ikoner -->
+        <ha-formfield label="Visa text under ikoner">
+          <ha-switch
+            .checked=${this._config.show_text}
+            @change=${e => this._updateConfig('show_text', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+      </div>
+    `;
+  }
+
+  _onAllergenToggle(allergen, checked) {
+    const s = new Set(this._config.allergens);
+    if (checked) s.add(allergen);
+    else s.delete(allergen);
+    this._updateConfig('allergens', [...s]);
+  }
+
+  _updateConfig(prop, value) {
+    const newConfig = { ...this._config, [prop]: value };
+    this._config = newConfig;
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  static get styles() {
+    return css`
+      .card-config {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+      }
+      .input-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .input-row .label {
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .allergens-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .allergens-group .label {
+        width: 100%;
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+    `;
+  }
+}
+
+customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
+
+// Register custom card for visual picker
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: 'pollenprognos-card',
+    name: 'Pollenprognos Card',
+    preview: true,
+    description: 'Visar en grafisk prognos för pollenhalter',
+    documentationURL: 'https://github.com/your-repo/pollenprognos-card'
+});
+
 
 // vim: set ts=4 sw=4 et:
