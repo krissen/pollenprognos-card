@@ -23,25 +23,48 @@ class PollenCardv2 extends LitElement {
     // Provide a stub/default configuration for the editor
     static getStubConfig() {
         return {
+            // ‣ Stad – lämna tom för att auto-fallback till första installerade
             city: '',
+
+            // ‣ Allergener (behåll fulla lista)
             allergens: [
-                'Al',
-                'Alm',
-                'Björk',
-                'Ek',
-                'Malörtsambrosia',
-                'Gråbo',
-                'Gräs',
-                'Hassel',
-                'Sälg och viden',
+                'Al','Alm','Björk','Ek','Malörtsambrosia',
+                'Gråbo','Gräs','Hassel','Sälg och viden'
             ],
-            days_to_show: 4,
-            pollen_threshold: 1,
-            show_empty_days: true,
-            show_text: true,
+
+            // ‣ Layout & visning
             minimal: false,
-            sort: 'default',
+            show_text: true,
+            show_empty_days: true,
             debug: false,
+
+            // ‣ Hur många dagar och om de ska visas relativt
+            days_to_show: 4,
+            days_relative: true,
+            days_abbreviated: false,
+            days_uppercase: false,
+            days_boldfaced: false,
+
+            // ‣ Tröskelvärde
+            pollen_threshold: 1,
+
+            // ‣ Sortering
+            sort: 'value_descending',
+
+            // ‣ Locale för datum
+            date_locale: 'sv-SE',
+
+            // ‣ Egen titel (tom = auto)
+            title: undefined,
+
+            // ‣ Phrases – tomma objekt/arrayer som kan fyllas på
+            phrases: {
+                full: {},
+                short: {},
+                levels: [],      // lista med 7 strängar
+                days: {},        // kartläggning 0→”Today”, 1→”Tomorrow” etc
+                no_information: ''
+            }
         };
     }
 
@@ -641,6 +664,26 @@ static get styles() {
 }
 customElements.define("pollenprognos-card", PollenCardv2);
 
+// --- Hjälpfunktion för rekursiv merge ---
+const deepMerge = (target, source) => {
+    const out = { ...target };
+    for (const key of Object.keys(source)) {
+        const val = source[key];
+        if (
+            val !== null &&
+            typeof val === 'object' &&
+            !Array.isArray(val) &&
+            typeof target[key] === 'object' &&
+            target[key] !== null
+        ) {
+            out[key] = deepMerge(target[key], val);
+        } else {
+            out[key] = val;
+        }
+    }
+    return out;
+};
+
 // Configuration editor for the UI
 class PollenPrognosCardEditor extends LitElement {
     static get properties() {
@@ -648,99 +691,111 @@ class PollenPrognosCardEditor extends LitElement {
             _config:         { type: Object },
             hass:            { type: Object },
             installedCities: { type: Array },
-            _initDone:       { type: Boolean }
+            _initDone:       { type: Boolean },
         };
     }
 
     constructor() {
         super();
-        // Grund-config
         this._config = {
             city:             '',
             allergens:        [],
             days_to_show:     4,
-            pollen_threshold: 1,
-            show_empty_days:  true,
-            show_text:        true,
+            days_relative:    true,
+            days_abbreviated: false,
+            days_uppercase:   false,
+            days_boldfaced:   false,
             minimal:          false,
-            sort:             'default',
+            show_text:        false,
+            show_empty_days:  true,
+            pollen_threshold: 1,
+            sort:             'value_descending',
+            date_locale:      'sv-SE',
+            title:            undefined,
             debug:            false,
+            phrases: {
+                full: {},
+                short: {},
+                levels: [],
+                days: {},
+                no_information: ''
+            }
         };
         this.installedCities = [];
         this._initDone = false;
     }
 
     setConfig(config) {
-        // Slå ihop med tidigare config (behåll valda allergener etc)
-        this._config = { ...this._config, ...config };
+        this._config = deepMerge(this._config, config);
     }
 
     set hass(hass) {
         this._hass = hass;
-
-        // 1) Bygg upp installerade stad-nycklar precis som i kortet
+        // Bygg lista med installerade städer
         const installedKeys = new Set(
             Object.keys(hass.states)
-            .filter(id => id.startsWith("sensor.pollen_"))
+            .filter(id => id.startsWith('sensor.pollen_'))
             .map(id => {
-                const rem = id.slice("sensor.pollen_".length);
-                return rem.slice(0, rem.lastIndexOf("_"));
+                const rem = id.slice('sensor.pollen_'.length);
+                return rem.slice(0, rem.lastIndexOf('_'));
             })
         );
-
-        // 2) Lista alla möjliga display-städer
         const possibleCities = [
-            "Borlänge","Bräkne-Hoby","Eskilstuna","Forshaga","Gävle","Göteborg",
-            "Hässleholm","Jönköping","Kristianstad","Ljusdal","Malmö",
-            "Norrköping","Nässjö","Piteå","Skövde","Stockholm",
-            "Storuman","Sundsvall","Umeå","Visby","Västervik","Östersund"
+            'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
+            'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
+            'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
+            'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
         ];
         const keyFor = name => name.toLowerCase()
-            .replace(/[åä]/g,"a").replace(/ö/g,"o")
-            .replace(/[-\s]/g,"_");
+            .replace(/[åä]/g,'a').replace(/ö/g,'o')
+            .replace(/[-\s]/g,'_');
 
-        // 3) Filtrera och sortera installerade
         this.installedCities = possibleCities
             .filter(city => installedKeys.has(keyFor(city)))
             .sort((a, b) => a.localeCompare(b));
 
-        // 4) Om editorn öppnas första gången och ingen stad är satt, defaulta
         if (!this._initDone && !this._config.city && this.installedCities.length) {
-            this._updateConfig("city", this.installedCities[0]);
+            this._updateConfig('city', this.installedCities[0]);
         }
         this._initDone = true;
     }
 
-
     get allAllergens() {
         return [
-            'Al','Alm','Björk','Ek','Malörtsambrosia','Gråbo',
-            'Gräs','Hassel','Sälg och viden'
+            'Al','Alm','Björk','Ek','Malörtsambrosia',
+            'Gråbo','Gräs','Hassel','Sälg och viden'
         ];
     }
 
     render() {
-        const displayedCity = this._config.city || this.installedCities[0] || '';
-
+        const cityValue = this._config.city || '';
         return html`
-    <div class="card-config">
-      <!-- Stad som dropdown -->
-      <ha-formfield label="Stad">
-        <ha-select
-          style="width: 100%;"
-          .value=${displayedCity}
-          @selected=${e => {
-              e.stopPropagation();
-              this._updateConfig('city', e.target.value);
-          }}
-          @closed=${e => e.stopPropagation()}
-        >
-          ${this.installedCities.map(city => html`
-            <mwc-list-item .value=${city}>${city}</mwc-list-item>
-          `)}
-        </ha-select>
-      </ha-formfield>
+      <div class="card-config">
+        <!-- Stad -->
+        <ha-formfield label="Stad">
+          <ha-select
+            style="width:100%"
+            .value=${cityValue}
+            @selected=${e => {
+                e.stopPropagation();
+                this._updateConfig('city', e.target.value);
+            }}
+            @closed=${e => e.stopPropagation()}
+          >
+            ${this.installedCities.map(city => html`
+              <mwc-list-item .value=${city}>${city}</mwc-list-item>
+            `)}
+          </ha-select>
+        </ha-formfield>
 
+        <!-- Egen titel -->
+        <ha-formfield label="Titel (tom = auto)">
+          <ha-textfield
+            .value=${this._config.title || ''}
+            placeholder="Ange egen titel eller lämna tom"
+            @input=${e => this._updateConfig('title', e.target.value || undefined)}
+          ></ha-textfield>
+        </ha-formfield>
 
         <!-- Allergener -->
         <div class="allergens-group">
@@ -755,83 +810,229 @@ class PollenPrognosCardEditor extends LitElement {
           `)}
         </div>
 
-        <!-- Dagar-slider -->
-        <ha-formfield label="Antal dagar att visa: ${this._config.days_to_show}">
-          <ha-slider
-            min="1" max="4" step="1"
-            .value=${this._config.days_to_show}
-            @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-
-        <!-- Tröskel-slider -->
-        <ha-formfield label="Pollen-tröskelvärde: ${this._config.pollen_threshold}">
-          <ha-slider
-            min="0" max="6" step="1"
-            .value=${this._config.pollen_threshold}
-            @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-
-        <!-- Minimal layout -->
+        <!-- Layout-switchar -->
         <ha-formfield label="Minimal layout">
           <ha-switch
             .checked=${this._config.minimal}
             @change=${e => this._updateConfig('minimal', e.target.checked)}
           ></ha-switch>
         </ha-formfield>
-
-        <!-- Visa text under ikoner -->
         <ha-formfield label="Visa text under ikoner">
           <ha-switch
             .checked=${this._config.show_text}
             @change=${e => this._updateConfig('show_text', e.target.checked)}
           ></ha-switch>
         </ha-formfield>
+
+        <!-- Dagar och tröskel -->
+        <ha-formfield label="Tröskelvärde av pollen för visning: ${this._config.pollen_threshold}">
+          <ha-slider
+            min="0" max="6" step="1"
+            .value=${this._config.pollen_threshold}
+            @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
+        <ha-formfield label="Antal dagar att visa: ${this._config.days_to_show}">
+          <ha-slider
+            min="0" max="4" step="1"
+            .value=${this._config.days_to_show}
+            @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
+
+        <!-- Sortering -->
+        <ha-formfield label="Sorteringsordning för allergener">
+          <ha-select
+            style="width:100%"
+            .value=${this._config.sort}
+            @selected=${e => {
+                e.stopPropagation();
+                this._updateConfig('sort', e.target.value);
+            }}
+            @closed=${e => e.stopPropagation()}
+          >
+            ${[
+                'value_ascending','value_descending',
+                'name_ascending','name_descending'
+            ].map(o => html`
+              <mwc-list-item .value=${o}>${o.replace('_',' ')}</mwc-list-item>
+            `)}
+          </ha-select>
+        </ha-formfield>
+
+
+        <!-- Veckodagar -->
+        <ha-formfield label="Visa tomma dagar">
+          <ha-switch
+            .checked=${this._config.show_empty_days}
+            @change=${e => this._updateConfig('show_empty_days', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label='Relativa dagar ("idag" -vs- veckodag)'>
+          <ha-switch
+            .checked=${this._config.days_relative}
+            @change=${e => this._updateConfig('days_relative', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="Förkorta veckodagar (inte relativa)">
+          <ha-switch
+            .checked=${this._config.days_abbreviated}
+            @change=${e => this._updateConfig('days_abbreviated', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="Veckodagar i versaler">
+          <ha-switch
+            .checked=${this._config.days_uppercase}
+            @change=${e => this._updateConfig('days_uppercase', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="Veckodagar i fetstil">
+          <ha-switch
+            .checked=${this._config.days_boldfaced}
+            @change=${e => this._updateConfig('days_boldfaced', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+
+        <!-- Fraser (foldade sektioner) -->
+        <h3>Fraser</h3>
+        <p>Genom att ändra nedan kan du fullständigt översätta kortet, eller på annat sätt anpassa samtliga synliga fraser inom kortet.</p>
+        <!-- Datum-locale -->
+        <ha-formfield label="Locale (för veckodagar)">
+          <ha-textfield
+            .value=${this._config.date_locale}
+            placeholder="t.ex. sv-SE eller en-GB"
+            @input=${e => this._updateConfig('date_locale', e.target.value)}
+          ></ha-textfield>
+        </ha-formfield>
+        <details>
+          <summary>phrases.full (fullständiga namn)</summary>
+          ${this.allAllergens.map(allergen => html`
+            <ha-formfield .label=${allergen}>
+              <ha-textfield
+                .value=${this._config.phrases.full[allergen]||''}
+                @input=${e => {
+                    const p = { ...this._config.phrases };
+                  p.full = { ...p.full, [allergen]: e.target.value };
+                  this._updateConfig('phrases', p);
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+          `)}
+        </details>
+
+        <details>
+          <summary>phrases.short (kortnamn)</summary>
+          ${this.allAllergens.map(allergen => html`
+            <ha-formfield .label=${allergen}>
+              <ha-textfield
+                .value=${this._config.phrases.short[allergen]||''}
+                @input=${e => {
+                    const p = { ...this._config.phrases };
+                  p.short = { ...p.short, [allergen]: e.target.value };
+                  this._updateConfig('phrases', p);
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+          `)}
+        </details>
+
+        <details>
+          <summary>phrases.levels (värde 0–6)</summary>
+          ${Array.from({ length: 7 }, (_, i) => html`
+              <ha-formfield .label=${i}>
+              <ha-textfield
+              .value=${this._config.phrases.levels[i]||''}
+              @input=${e => {
+                  const p = { ...this._config.phrases };
+                  const lv = [...(p.levels||[])];
+                  lv[i] = e.target.value;
+                  p.levels = lv;
+                  this._updateConfig('phrases', p);
+              }}
+              ></ha-textfield>
+              </ha-formfield>
+              `)}
+        </details>
+          <ha-formfield label="no_information">
+            <ha-textfield
+              .value=${this._config.phrases.no_information||''}
+              @input=${e => {
+                  const p = { ...this._config.phrases };
+                p.no_information = e.target.value;
+                this._updateConfig('phrases', p);
+              }}
+            ></ha-textfield>
+          </ha-formfield>
+
+        <details>
+          <summary>phrases.days (0=idag,1=imorgon,2=övermorgon)</summary>
+          ${[0,1,2].map(i => html`
+            <ha-formfield .label=${i}>
+              <ha-textfield
+                .value=${this._config.phrases.days[i]||''}
+                @input=${e => {
+                    const p = { ...this._config.phrases };
+                  const dd = { ...(p.days||{}) };
+                  dd[i] = e.target.value;
+                  p.days = dd;
+                  this._updateConfig('phrases', p);
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+          `)}
+        </details>
+
+        <!-- Debug-switch -->
+        <ha-formfield label="Debug-läge">
+          <ha-switch
+            .checked=${this._config.debug}
+            @change=${e => this._updateConfig('debug', e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
       </div>
     `;
-          }
+                }
 
-        _onAllergenToggle(allergen, checked) {
-            const set = new Set(this._config.allergens);
-            checked ? set.add(allergen) : set.delete(allergen);
-            this._updateConfig('allergens', [...set]);
-        }
+              _onAllergenToggle(allergen, checked) {
+                  const s = new Set(this._config.allergens);
+                  checked ? s.add(allergen) : s.delete(allergen);
+                  this._updateConfig('allergens', [...s]);
+              }
 
-        _updateConfig(prop, value) {
-            const newConfig = { ...this._config, [prop]: value };
-            this._config = newConfig;
-            this.dispatchEvent(new CustomEvent('config-changed', {
-                detail: { config: newConfig },
-                bubbles: true, composed: true,
-            }));
-        }
+              _updateConfig(prop, value) {
+                  const newConfig = { ...this._config, [prop]: value };
+                  this._config = newConfig;
+                  this.dispatchEvent(new CustomEvent('config-changed', {
+                      detail: { config: newConfig },
+                      bubbles: true, composed: true
+                  }));
+              }
 
-        static get styles() {
-            return css`
+              static get styles() {
+                  return css`
       .card-config { display:flex; flex-direction:column; gap:12px; padding:16px; }
-      .card-config ha-formfield { margin:0; }
+      ha-formfield, details { margin-bottom:8px; }
       .allergens-group { display:flex; flex-wrap:wrap; gap:8px; }
       .allergens-group .label { width:100%; font-weight:bold; margin-bottom:4px; }
-      ha-select { --mdc-theme-primary: var(--primary-color); }
+      details summary { cursor:pointer; font-weight:bold; margin:8px 0; }
       ha-slider { width:100%; }
+      ha-select { --mdc-theme-primary: var(--primary-color); }
     `;
-        }
-    }
+              }
+          }
 
-    customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
-
-
-
-    // Register custom card for visual picker
-    window.customCards = window.customCards || [];
-    window.customCards.push({
-        type: 'pollenprognos-card',
-        name: 'Pollenprognos Card',
-        preview: true,
-        description: 'Visar en grafisk prognos för pollenhalter',
-        documentationURL: 'https://github.com/your-repo/pollenprognos-card'
-    });
+                  customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
 
 
-    // vim: set ts=4 sw=4 et:
+                  // Register custom card for visual picker
+                  window.customCards = window.customCards || [];
+                  window.customCards.push({
+                      type: 'pollenprognos-card',
+                      name: 'Pollenprognos Card',
+                      preview: true,
+                      description: 'Visar en grafisk prognos för pollenhalter',
+                      documentationURL: 'https://github.com/your-repo/pollenprognos-card'
+                  });
+
+
+                  // vim: set ts=4 sw=4 et:
