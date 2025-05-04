@@ -629,23 +629,31 @@ class PollenPrognosCardEditor extends LitElement {
         `)}
       </div>
 
-      <!-- Antal dagar att visa -->
-      <ha-formfield label="Antal dagar att visa">
-        <ha-textfield
-          type="number"
-          .value=${this._config.days_to_show}
-          @value-changed=${e => this._updateConfig('days_to_show', Number(e.detail.value))}
-        ></ha-textfield>
-      </ha-formfield>
+      <!-- Antal dagar att visa som slider -->
+        <ha-formfield
+          label="Antal dagar att visa: ${this._config.days_to_show}"
+        >
+          <ha-slider
+            min="1"
+            max="4"
+            step="1"
+            .value=${this._config.days_to_show}
+            @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
 
-      <!-- Pollen-tröskelvärde -->
-      <ha-formfield label="Pollen-tröskelvärde">
-        <ha-textfield
-          type="number"
-          .value=${this._config.pollen_threshold}
-          @value-changed=${e => this._updateConfig('pollen_threshold', Number(e.detail.value))}
-        ></ha-textfield>
-      </ha-formfield>
+        <!-- Pollen-tröskelvärde som slider -->
+        <ha-formfield
+          label="Pollen-tröskelvärde: ${this._config.pollen_threshold}"
+        >
+          <ha-slider
+            min="0"
+            max="6"
+            step="1"
+            .value=${this._config.pollen_threshold}
+            @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
 
       <!-- Minimal layout -->
       <ha-formfield label="Minimal layout">
