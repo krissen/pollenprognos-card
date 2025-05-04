@@ -797,18 +797,6 @@ class PollenPrognosCardEditor extends LitElement {
           ></ha-textfield>
         </ha-formfield>
 
-        <!-- Allergener -->
-        <div class="allergens-group">
-          <div class="label">Allergener</div>
-          ${this.allAllergens.map(allergen => html`
-            <ha-formfield .label=${allergen}>
-              <ha-checkbox
-                .checked=${this._config.allergens.includes(allergen)}
-                @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
-              ></ha-checkbox>
-            </ha-formfield>
-          `)}
-        </div>
 
         <!-- Layout-switchar -->
         <ha-formfield label="Minimal layout">
@@ -823,43 +811,6 @@ class PollenPrognosCardEditor extends LitElement {
             @change=${e => this._updateConfig('show_text', e.target.checked)}
           ></ha-switch>
         </ha-formfield>
-
-        <!-- Dagar och tröskel -->
-        <ha-formfield label="Tröskelvärde av pollen för visning: ${this._config.pollen_threshold}">
-          <ha-slider
-            min="0" max="6" step="1"
-            .value=${this._config.pollen_threshold}
-            @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-        <ha-formfield label="Antal dagar att visa: ${this._config.days_to_show}">
-          <ha-slider
-            min="0" max="4" step="1"
-            .value=${this._config.days_to_show}
-            @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-
-        <!-- Sortering -->
-        <ha-formfield label="Sorteringsordning för allergener">
-          <ha-select
-            style="width:100%"
-            .value=${this._config.sort}
-            @selected=${e => {
-                e.stopPropagation();
-                this._updateConfig('sort', e.target.value);
-            }}
-            @closed=${e => e.stopPropagation()}
-          >
-            ${[
-                'value_ascending','value_descending',
-                'name_ascending','name_descending'
-            ].map(o => html`
-              <mwc-list-item .value=${o}>${o.replace('_',' ')}</mwc-list-item>
-            `)}
-          </ha-select>
-        </ha-formfield>
-
 
         <!-- Veckodagar -->
         <ha-formfield label="Visa tomma dagar">
@@ -892,6 +843,60 @@ class PollenPrognosCardEditor extends LitElement {
             @change=${e => this._updateConfig('days_boldfaced', e.target.checked)}
           ></ha-switch>
         </ha-formfield>
+
+        <!-- Dagar och tröskel -->
+        <ha-formfield label="Antal dagar att visa: ${this._config.days_to_show}">
+          <ha-slider
+            min="0" max="4" step="1"
+            .value=${this._config.days_to_show}
+            @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
+
+        <!-- Allergener -->
+        <details>
+          <summary>Allergener</summary>
+        <div class="allergens-group">
+          <!-- <div class="label">Allergener</div> -->
+          ${this.allAllergens.map(allergen => html`
+            <ha-formfield .label=${allergen}>
+              <ha-checkbox
+                .checked=${this._config.allergens.includes(allergen)}
+                @change=${e => this._onAllergenToggle(allergen, e.target.checked)}
+              ></ha-checkbox>
+            </ha-formfield>
+          `)}
+        </div>
+        </details>
+        <ha-formfield label="Tröskelvärde av pollen för visning: ${this._config.pollen_threshold}">
+          <ha-slider
+            min="0" max="6" step="1"
+            .value=${this._config.pollen_threshold}
+            @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
+
+        <!-- Sortering -->
+        <ha-formfield label="Sorteringsordning för allergener">
+          <ha-select
+            style="width:100%"
+            .value=${this._config.sort}
+            @selected=${e => {
+                e.stopPropagation();
+                this._updateConfig('sort', e.target.value);
+            }}
+            @closed=${e => e.stopPropagation()}
+          >
+            ${[
+                'value_ascending','value_descending',
+                'name_ascending','name_descending'
+            ].map(o => html`
+              <mwc-list-item .value=${o}>${o.replace('_',' ')}</mwc-list-item>
+            `)}
+          </ha-select>
+        </ha-formfield>
+
+
 
         <!-- Fraser (foldade sektioner) -->
         <h3>Fraser</h3>
