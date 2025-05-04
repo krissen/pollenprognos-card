@@ -204,7 +204,10 @@ class PollenCardv2 extends LitElement {
                         name:       dict.allergenCapitalized,
                         day:        label,
                         state:      level,
-                        state_text: raw.level_name || (level===-1 ? noInfoLabel : levelNames[level])
+                        // Använd alltid phrase-levels (levelNames) i första hand:
+                        state_text: level === -1
+                        ? noInfoLabel
+                        : (levelNames[level] ?? raw.level_name)
                     };
                 });
 
