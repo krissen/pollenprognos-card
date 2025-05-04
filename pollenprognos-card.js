@@ -12,7 +12,7 @@ class PollenCardv2 extends LitElement {
         };
     }
 
-     // Return the custom editor element for the visual editor
+    // Return the custom editor element for the visual editor
     static async getConfigElement() {
         // Vänta på att editorn är definierad
         await customElements.whenDefined('pollenprognos-card-editor');
@@ -620,6 +620,7 @@ class PollenPrognosCardEditor extends LitElement {
             _config:         { type: Object },
             hass:            { type: Object },
             installedCities: { type: Array },
+            _initDone:       { type: Boolean }
         };
     }
 
@@ -638,40 +639,42 @@ class PollenPrognosCardEditor extends LitElement {
             debug:            false,
         };
         this.installedCities = [];
+        this._initDone = false;
     }
 
     setConfig(config) {
-        // Merga in användar-config utan att nolla något
+        // Slå ihop med tidigare config (behåll valda allergener etc)
         this._config = { ...this._config, ...config };
     }
 
     set hass(hass) {
         this._hass = hass;
-
-        // Hitta alla "sensor.pollen_<stad>_*"
+        // Hitta installerade "pollen_<stad>_..."-sensorer
         const installedKeys = new Set(
             Object.keys(hass.states)
             .filter(id => id.startsWith('sensor.pollen_'))
             .map(id => id.slice('sensor.pollen_'.length).split('_')[0])
         );
-
-        // Din fulla lista över möjliga städer
         const possibleCities = [
             'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
             'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
             'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
             'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
         ];
-
         const keyFor = name => name.toLowerCase()
-            .replace(/[åä]/g, 'a')
-            .replace(/ö/g, 'o')
-            .replace(/[-\s]/g, '_');
+            .replace(/[åä]/g,'a').replace(/ö/g,'o')
+            .replace(/[-\s]/g,'_');
 
-        // Filtrera bara de som verkligen är installerade, och sortera alfabetiskt
+        // Filtrera och sortera
         this.installedCities = possibleCities
-            .filter(city => installedKeys.has(keyFor(city)))
+            .filter(c => installedKeys.has(keyFor(c)))
             .sort((a, b) => a.localeCompare(b));
+
+        // Sätt första som default EN GÅNG om ingen stad är vald
+        if (!this._initDone && !this._config.city && this.installedCities.length) {
+            this._updateConfig('city', this.installedCities[0]);
+        }
+        this._initDone = true;
     }
 
     get allAllergens() {
@@ -682,16 +685,18 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     render() {
+        const displayedCity = this._config.city || this.installedCities[0] || '';
+
         return html`
-      <div class="card-config">
-        <!-- Stad som dropdown -->
-          <ha-formfield label="Stad">
+    <div class="card-config">
+      <!-- Stad som dropdown -->
+      <ha-formfield label="Stad">
         <ha-select
           style="width: 100%;"
-          .value=${this._config.city}
+          .value=${displayedCity}
           @selected=${e => {
-            e.stopPropagation();
-            this._updateConfig('city', e.target.value);
+              e.stopPropagation();
+              this._updateConfig('city', e.target.value);
           }}
           @closed=${e => e.stopPropagation()}
         >
@@ -700,6 +705,7 @@ class PollenPrognosCardEditor extends LitElement {
           `)}
         </ha-select>
       </ha-formfield>
+
 
         <!-- Allergener -->
         <div class="allergens-group">
@@ -749,50 +755,48 @@ class PollenPrognosCardEditor extends LitElement {
         </ha-formfield>
       </div>
     `;
-    }
+          }
 
-    _onAllergenToggle(allergen, checked) {
-        const set = new Set(this._config.allergens);
-        checked ? set.add(allergen) : set.delete(allergen);
-        this._updateConfig('allergens', [...set]);
-    }
+        _onAllergenToggle(allergen, checked) {
+            const set = new Set(this._config.allergens);
+            checked ? set.add(allergen) : set.delete(allergen);
+            this._updateConfig('allergens', [...set]);
+        }
 
-    _updateConfig(prop, value) {
-        const newConfig = { ...this._config, [prop]: value };
-        this._config = newConfig;
-        this.dispatchEvent(new CustomEvent('config-changed', {
-            detail: { config: newConfig },
-            bubbles: true,
-            composed: true,
-        }));
-    }
+        _updateConfig(prop, value) {
+            const newConfig = { ...this._config, [prop]: value };
+            this._config = newConfig;
+            this.dispatchEvent(new CustomEvent('config-changed', {
+                detail: { config: newConfig },
+                bubbles: true, composed: true,
+            }));
+        }
 
-    static get styles() {
-        return css`
-      .card-config { display: flex; flex-direction: column; gap:16px; padding:16px; }
-      .input-row { display: flex; flex-direction:column; gap:4px; }
-      .label { font-weight:500; font-size:14px; }
+        static get styles() {
+            return css`
+      .card-config { display:flex; flex-direction:column; gap:12px; padding:16px; }
+      .card-config ha-formfield { margin:0; }
       .allergens-group { display:flex; flex-wrap:wrap; gap:8px; }
       .allergens-group .label { width:100%; font-weight:bold; margin-bottom:4px; }
       ha-select { --mdc-theme-primary: var(--primary-color); }
       ha-slider { width:100%; }
     `;
+        }
     }
-}
 
-customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
-
+    customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
 
 
-// Register custom card for visual picker
-window.customCards = window.customCards || [];
-window.customCards.push({
-    type: 'pollenprognos-card',
-    name: 'Pollenprognos Card',
-    preview: true,
-    description: 'Visar en grafisk prognos för pollenhalter',
-    documentationURL: 'https://github.com/your-repo/pollenprognos-card'
-});
+
+    // Register custom card for visual picker
+    window.customCards = window.customCards || [];
+    window.customCards.push({
+        type: 'pollenprognos-card',
+        name: 'Pollenprognos Card',
+        preview: true,
+        description: 'Visar en grafisk prognos för pollenhalter',
+        documentationURL: 'https://github.com/your-repo/pollenprognos-card'
+    });
 
 
-// vim: set ts=4 sw=4 et:
+    // vim: set ts=4 sw=4 et:
