@@ -20,7 +20,11 @@ See more info: <https://hacs.xyz/docs/faq/custom_repositories>
 
 ## Credits
 
-Small improvements to [pollen-card](https://github.com/nidayand/lovelace-pollen-card) by @nidayand , who in turn rewrote @isabellaalstrom's [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card).
+This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card) by @nidayand , who in turn rewrote @isabellaalstrom's [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card).
+
+## Configuring
+
+`pollenprognos-card` supports Home Assistant's visual UI editor since v1.2.0! For the yaml-inclined, keep reading!
 
 ## Note
 
