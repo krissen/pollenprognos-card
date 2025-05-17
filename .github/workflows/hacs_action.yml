@@ -17,7 +17,5 @@ jobs:
       - name: HACS validation
         uses: hacs/action@main
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          category: dashboard
-          pr_comment: true
+          category: Dashboard
 
