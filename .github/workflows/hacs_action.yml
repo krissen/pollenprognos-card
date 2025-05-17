@@ -1,17 +1,23 @@
-name: HACS Action
+name: Validate HACS
 
 on:
   push:
   pull_request:
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
-  hacs:
-    name: HACS Action
-    runs-on: "ubuntu-latest"
+  validate-hacs:
+    runs-on: ubuntu-latest
     steps:
-      - name: HACS Action
-        uses: "hacs/action@main"
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: HACS validation
+        uses: hacs/action@v4
         with:
-          category: "plugin"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          category: dashboard
+          pr_comment: true
+
