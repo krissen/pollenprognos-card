@@ -5,27 +5,30 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write   # viktig
+
 jobs:
-  build-and-publish:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      # 1) Checka ut koden
       - uses: actions/checkout@v3
 
-      # 2) Installera dependencies och bygg
-      - name: Install and build
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install & build
         run: |
           npm ci
           npm run build
-        working-directory: ./
 
-      # 3) Ladda upp dist/pollenprognos-card.js som asset med korrekt namn
-      - name: Upload built card
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload bundle to release
+        uses: actions/upload-release-asset@v1
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: dist/pollenprognos-card.js
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: dist/pollenprognos-card.js
           asset_name: pollenprognos-card.js
-          tag: ${{ github.ref_name }}
-          overwrite: true
+          asset_content_type: application/javascript
 
