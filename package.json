@@ -1,0 +1,20 @@
+{
+  "name": "pollenprognos-card",
+  "version": "1.0.0",
+  "description": "Custom card for Home Assistant showing pollen forecasts",
+  "main": "pollenprognos-card.js",
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^23.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-terser": "^0.4.0",
+    "rollup": "^3.29.5"
+  },
+  "dependencies": {
+    "lit": "^2.8.0"
+  }
+}
