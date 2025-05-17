@@ -6,33 +6,30 @@ on:
   pull_request:
     branches: [ master ]
   schedule:
-    - cron: "0 0 * * *"
-
-permissions:
-  contents: write   # behövs för release-steget senare om du vill ladda upp assets
+    - cron: '0 0 * * *'
 
 jobs:
-  build-and-validate:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
-        uses: actions/checkout@v3
-
-      - name: Use Node.js
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16"
-
+          node-version: '16'
       - name: Install dependencies
         run: npm ci
-
       - name: Build bundle
         run: npm run build
 
-      - name: Validate with HACS
+  validate:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # dist/ finns redan sedan tidigare steg
+      - name: Validate repository for HACS
         uses: hacs/action@main
         with:
-          category: "plugin"
-          comment: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          category: 'plugin'
 

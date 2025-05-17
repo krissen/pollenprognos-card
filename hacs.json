@@ -1,10 +1,9 @@
 {
   "name": "pollenprognos-card",
-  "category": "dashboard",
-  "content_in_root": true,
-  "filename": "pollenprognos-card.js",
-  "render_readme": true,
+  "content_in_root": false,
+  "filename": "dist/pollenprognos-card.js",
   "country": [
     "SE"
-  ]
+  ],
+  "render_readme": true
 }
