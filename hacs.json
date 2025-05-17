@@ -1,6 +1,6 @@
 {
   "name": "pollenprognos-card",
-  "category": "Lovelace",
+  "category": "Dashboard",
   "content_in_root": false,
   "root": "dist",
   "filename": "pollenprognos-card.js",
