@@ -17,7 +17,7 @@ jobs:
       - name: Validate with HACS Action
         uses: hacs/action@main
         with:
-          category: "Dashboard"
+          category: "plugin"
           github_token: ${{ secrets.GITHUB_TOKEN }}
           comment: true
 
