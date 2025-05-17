@@ -1,0 +1,31 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      # 1) Checka ut koden
+      - uses: actions/checkout@v3
+
+      # 2) Installera dependencies och bygg
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+        working-directory: ./
+
+      # 3) Ladda upp dist/pollenprognos-card.js som asset med korrekt namn
+      - name: Upload built card
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/pollenprognos-card.js
+          asset_name: pollenprognos-card.js
+          tag: ${{ github.ref_name }}
+          overwrite: true
+
