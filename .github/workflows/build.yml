@@ -34,5 +34,5 @@ jobs:
           commit_message: "chore: build dist [skip ci]"
           file_pattern: |
             dist/**
-          branch: main
+          branch: master
 
