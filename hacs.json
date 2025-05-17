@@ -1,9 +1,11 @@
 {
-  "name": "Pollenprognos Card",
-  "content_in_root": false,
-  "filename": "dist/pollenprognos-card.js",
+  "name": "pollenprognos-card",
+  "type": "plugin", // ← tell HACS it’s a Lovelace plugin
+  "root": "dist", // ← where your built JS lives
+  "content_in_root": false, // ← don’t copy repo root, use `root` instead
+  "filename": "pollenprognos-card.js",
+  "render_readme": true,
   "country": [
     "SE"
-  ],
-  "render_readme": true
+  ]
 }
