@@ -11,11 +11,13 @@ jobs:
   validate-hacs:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: HACS validation
+      - name: Validate with HACS Action
         uses: hacs/action@main
         with:
-          category: Dashboard
+          category: "Dashboard"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          comment: true
 
