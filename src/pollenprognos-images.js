@@ -113,6 +113,26 @@ import img_willow_4      from "./images/willow_4.png";
 import img_willow_5      from "./images/willow_5.png";
 import img_willow_6      from "./images/willow_6.png";
 
+// Ash (Ask)
+import img_ash_minus1 from "./images/ash_-1.png";
+import img_ash_0      from "./images/ash_0.png";
+import img_ash_1      from "./images/ash_1.png";
+import img_ash_2      from "./images/ash_2.png";
+import img_ash_3      from "./images/ash_3.png";
+import img_ash_4      from "./images/ash_4.png";
+import img_ash_5      from "./images/ash_5.png";
+import img_ash_6      from "./images/ash_6.png";
+
+// Rye (Råg)
+import img_rye_minus1 from "./images/rye_-1.png";
+import img_rye_0      from "./images/rye_0.png";
+import img_rye_1      from "./images/rye_1.png";
+import img_rye_2      from "./images/rye_2.png";
+import img_rye_3      from "./images/rye_3.png";
+import img_rye_4      from "./images/rye_4.png";
+import img_rye_5      from "./images/rye_5.png";
+import img_rye_6      from "./images/rye_6.png";
+
 export const images = {
   // global
   "-1_png":                    img_minus1,
@@ -220,6 +240,28 @@ export const images = {
   "willow_3_png":              img_willow_3,
   "willow_4_png":              img_willow_4,
   "willow_5_png":              img_willow_5,
-  "willow_6_png":              img_willow_6
+  "willow_6_png":              img_willow_6,
+
+  // ash
+  "ash_-1_png":             img_ash_minus1,
+  "ash_0_png":              img_ash_0,
+  "ash_1_png":              img_ash_1,
+  "ash_2_png":              img_ash_2,
+  "ash_3_png":              img_ash_3,
+  "ash_4_png":              img_ash_4,
+  "ash_5_png":              img_ash_5,
+  "ash_6_png":              img_ash_6,
+
+  // rye
+  "rye_-1_png":              img_rye_minus1,
+  "rye_0_png":               img_rye_0,
+  "rye_1_png":               img_rye_1,
+  "rye_2_png":               img_rye_2,
+  "rye_3_png":               img_rye_3,
+  "rye_4_png":               img_rye_4,
+  "rye_5_png":               img_rye_5,
+  "rye_6_png":               img_rye_6
+
+
 };
 
