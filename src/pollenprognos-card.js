@@ -4,7 +4,6 @@ import { images } from './pollenprognos-images.js';
 import * as PP from './adapters/pp.js';
 import * as DWD from './adapters/dwd.js';
 
-// --- lägg in högst upp i src/pollenprognos-card.js ---
 const ALLERGEN_TRANSLATION = {
   // Svenska
   al:               'alder',
@@ -28,19 +27,6 @@ const ALLERGEN_TRANSLATION = {
   roggen:   'rye'
 };
 
-/**
- * Returns the right Base64-inlined image from our map,
- * falling back to the global level-icons if needed.
- */
-_getImageSrc(allergenReplaced, state) {
-  // translate to our internal English key if available
-  const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
-  // try allergen-specific icon
-  const custom = images[`${key}_${state}_png`];
-  if (custom) return custom;
-  // otherwise global level icon (”0_png”, “-1_png”, etc)
-  return images[`${state}_png`];
-}
 
 const ADAPTERS = {
   pp: PP,
@@ -56,6 +42,12 @@ class PollenPrognosCard extends LitElement {
     displayCols: { state: true },
     header:      { state: true }
   };
+
+  _getImageSrc(allergenReplaced, state) {
+    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    const specific = images[`${key}_${state}_png`];
+    return specific || images[`${state}_png`];
+  }
 
   constructor() {
     super();

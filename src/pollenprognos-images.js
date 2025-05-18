@@ -16,105 +16,105 @@ import img_5      from "./images/5.png";
 import img_6      from "./images/6.png";
 
 // Alder (Al)
-import img_al_minus1 from "./images/al_-1.png";
-import img_al_0      from "./images/al_0.png";
-import img_al_1      from "./images/al_1.png";
-import img_al_2      from "./images/al_2.png";
-import img_al_3      from "./images/al_3.png";
-import img_al_4      from "./images/al_4.png";
-import img_al_5      from "./images/al_5.png";
-import img_al_6      from "./images/al_6.png";
+import img_alder_minus1 from "./images/alder_-1.png";
+import img_alder_0      from "./images/alder_0.png";
+import img_alder_1      from "./images/alder_1.png";
+import img_alder_2      from "./images/alder_2.png";
+import img_alder_3      from "./images/alder_3.png";
+import img_alder_4      from "./images/alder_4.png";
+import img_alder_5      from "./images/alder_5.png";
+import img_alder_6      from "./images/alder_6.png";
 
 // Elm (Alm)
-import img_alm_0 from "./images/alm_0.png";
-import img_alm_1 from "./images/alm_1.png";
-import img_alm_2 from "./images/alm_2.png";
-import img_alm_3 from "./images/alm_3.png";
-import img_alm_4 from "./images/alm_4.png";
-import img_alm_5 from "./images/alm_5.png";
-import img_alm_6 from "./images/alm_6.png";
+import img_elm_0 from "./images/elm_0.png";
+import img_elm_1 from "./images/elm_1.png";
+import img_elm_2 from "./images/elm_2.png";
+import img_elm_3 from "./images/elm_3.png";
+import img_elm_4 from "./images/elm_4.png";
+import img_elm_5 from "./images/elm_5.png";
+import img_elm_6 from "./images/elm_6.png";
 
 // Birch (Björk)
-import img_bjork_minus1 from "./images/bjork_-1.png";
-import img_bjork_0      from "./images/bjork_0.png";
-import img_bjork_1      from "./images/bjork_1.png";
-import img_bjork_2      from "./images/bjork_2.png";
-import img_bjork_3      from "./images/bjork_3.png";
-import img_bjork_4      from "./images/bjork_4.png";
-import img_bjork_5      from "./images/bjork_5.png";
-import img_bjork_6      from "./images/bjork_6.png";
+import img_birch_minus1 from "./images/birch_-1.png";
+import img_birch_0      from "./images/birch_0.png";
+import img_birch_1      from "./images/birch_1.png";
+import img_birch_2      from "./images/birch_2.png";
+import img_birch_3      from "./images/birch_3.png";
+import img_birch_4      from "./images/birch_4.png";
+import img_birch_5      from "./images/birch_5.png";
+import img_birch_6      from "./images/birch_6.png";
 
 // Beech (Bok)
-import img_bok_minus1 from "./images/bok_-1.png";
-import img_bok_0      from "./images/bok_0.png";
-import img_bok_1      from "./images/bok_1.png";
-import img_bok_2      from "./images/bok_2.png";
-import img_bok_3      from "./images/bok_3.png";
-import img_bok_4      from "./images/bok_4.png";
-import img_bok_5      from "./images/bok_5.png";
-import img_bok_6      from "./images/bok_6.png";
+import img_beech_0 from "./images/beech_0.png";
+import img_beech_1 from "./images/beech_1.png";
+import img_beech_2 from "./images/beech_2.png";
+import img_beech_3 from "./images/beech_3.png";
+import img_beech_4 from "./images/beech_4.png";
+import img_beech_5 from "./images/beech_5.png";
+import img_beech_6 from "./images/beech_6.png";
 
 // Oak (Ek)
-import img_ek_minus1 from "./images/ek_-1.png";
-import img_ek_0      from "./images/ek_0.png";
-import img_ek_1      from "./images/ek_1.png";
-import img_ek_2      from "./images/ek_2.png";
-import img_ek_3      from "./images/ek_3.png";
-import img_ek_4      from "./images/ek_4.png";
-import img_ek_5      from "./images/ek_5.png";
-import img_ek_6      from "./images/ek_6.png";
+import img_oak_minus1 from "./images/oak_-1.png";
+import img_oak_0      from "./images/oak_0.png";
+import img_oak_1      from "./images/oak_1.png";
+import img_oak_2      from "./images/oak_2.png";
+import img_oak_3      from "./images/oak_3.png";
+import img_oak_4      from "./images/oak_4.png";
+import img_oak_5      from "./images/oak_5.png";
+import img_oak_6      from "./images/oak_6.png";
 
 // Mugwort (Gråbo)
-import img_grabo_minus1 from "./images/grabo_-1.png";
-import img_grabo_0      from "./images/grabo_0.png";
-import img_grabo_1      from "./images/grabo_1.png";
-import img_grabo_2      from "./images/grabo_2.png";
-import img_grabo_3      from "./images/grabo_3.png";
-import img_grabo_4      from "./images/grabo_4.png";
-import img_grabo_5      from "./images/grabo_5.png";
-import img_grabo_6      from "./images/grabo_6.png";
+import img_mugwort_minus1 from "./images/mugwort_-1.png";
+import img_mugwort_0      from "./images/mugwort_0.png";
+import img_mugwort_1      from "./images/mugwort_1.png";
+import img_mugwort_2      from "./images/mugwort_2.png";
+import img_mugwort_3      from "./images/mugwort_3.png";
+import img_mugwort_4      from "./images/mugwort_4.png";
+import img_mugwort_5      from "./images/mugwort_5.png";
+import img_mugwort_6      from "./images/mugwort_6.png";
 
 // Grass (Gräs)
-import img_gras_minus1 from "./images/gras_-1.png";
-import img_gras_0      from "./images/gras_0.png";
-import img_gras_1      from "./images/gras_1.png";
-import img_gras_2      from "./images/gras_2.png";
-import img_gras_3      from "./images/gras_3.png";
-import img_gras_4      from "./images/gras_4.png";
-import img_gras_5      from "./images/gras_5.png";
-import img_gras_6      from "./images/gras_6.png";
+import img_grass_minus1 from "./images/grass_-1.png";
+import img_grass_0      from "./images/grass_0.png";
+import img_grass_1      from "./images/grass_1.png";
+import img_grass_2      from "./images/grass_2.png";
+import img_grass_3      from "./images/grass_3.png";
+import img_grass_4      from "./images/grass_4.png";
+import img_grass_5      from "./images/grass_5.png";
+import img_grass_6      from "./images/grass_6.png";
 
 // Hazel (Hassel)
-import img_hassel_minus1 from "./images/hassel_-1.png";
-import img_hassel_0      from "./images/hassel_0.png";
-import img_hassel_1      from "./images/hassel_1.png";
-import img_hassel_2      from "./images/hassel_2.png";
-import img_hassel_3      from "./images/hassel_3.png";
-import img_hassel_4      from "./images/hassel_4.png";
-import img_hassel_5      from "./images/hassel_5.png";
-import img_hassel_6      from "./images/hassel_6.png";
+import img_hazel_minus1 from "./images/hazel_-1.png";
+import img_hazel_0      from "./images/hazel_0.png";
+import img_hazel_1      from "./images/hazel_1.png";
+import img_hazel_2      from "./images/hazel_2.png";
+import img_hazel_3      from "./images/hazel_3.png";
+import img_hazel_4      from "./images/hazel_4.png";
+import img_hazel_5      from "./images/hazel_5.png";
+import img_hazel_6      from "./images/hazel_6.png";
 
 // Ambrosia (Malörtsambrosia)
-import img_malortsambrosia_minus1 from "./images/malortsambrosia_-1.png";
-import img_malortsambrosia_0      from "./images/malortsambrosia_0.png";
-import img_malortsambrosia_1      from "./images/malortsambrosia_1.png";
-import img_malortsambrosia_2      from "./images/malortsambrosia_2.png";
-import img_malortsambrosia_3      from "./images/malortsambrosia_3.png";
-import img_malortsambrosia_4      from "./images/malortsambrosia_4.png";
-import img_malortsambrosia_5      from "./images/malortsambrosia_5.png";
-import img_malortsambrosia_6      from "./images/malortsambrosia_6.png";
+import img_ragweed_minus1 from "./images/ragweed_-1.png";
+import img_ragweed_0      from "./images/ragweed_0.png";
+import img_ragweed_1      from "./images/ragweed_1.png";
+import img_ragweed_2      from "./images/ragweed_2.png";
+import img_ragweed_3      from "./images/ragweed_3.png";
+import img_ragweed_4      from "./images/ragweed_4.png";
+import img_ragweed_5      from "./images/ragweed_5.png";
+import img_ragweed_6      from "./images/ragweed_6.png";
 
 // Willow (Sälg och viden)
-import img_salg_och_viden_minus1 from "./images/salg_och_viden_-1.png";
-import img_salg_och_viden_0      from "./images/salg_och_viden_0.png";
-import img_salg_och_viden_1      from "./images/salg_och_viden_1.png";
-import img_salg_och_viden_2      from "./images/salg_och_viden_2.png";
-import img_salg_och_viden_3      from "./images/salg_och_viden_3.png";
-import img_salg_och_viden_4      from "./images/salg_och_viden_4.png";
-import img_salg_och_viden_5      from "./images/salg_och_viden_5.png";
-import img_salg_och_viden_6      from "./images/salg_och_viden_6.png";
+import img_willow_minus1 from "./images/willow_-1.png";
+import img_willow_0      from "./images/willow_0.png";
+import img_willow_1      from "./images/willow_1.png";
+import img_willow_2      from "./images/willow_2.png";
+import img_willow_3      from "./images/willow_3.png";
+import img_willow_4      from "./images/willow_4.png";
+import img_willow_5      from "./images/willow_5.png";
+import img_willow_6      from "./images/willow_6.png";
 
 export const images = {
+  // global
   "-1_png":                    img_minus1,
   "0_png":                     img_0,
   "1_png":                     img_1,
@@ -124,93 +124,102 @@ export const images = {
   "5_png":                     img_5,
   "6_png":                     img_6,
 
-  "al_-1_png":                 img_al_minus1,
-  "al_0_png":                  img_al_0,
-  "al_1_png":                  img_al_1,
-  "al_2_png":                  img_al_2,
-  "al_3_png":                  img_al_3,
-  "al_4_png":                  img_al_4,
-  "al_5_png":                  img_al_5,
-  "al_6_png":                  img_al_6,
+  // alder
+  "alder_-1_png":              img_alder_minus1,
+  "alder_0_png":               img_alder_0,
+  "alder_1_png":               img_alder_1,
+  "alder_2_png":               img_alder_2,
+  "alder_3_png":               img_alder_3,
+  "alder_4_png":               img_alder_4,
+  "alder_5_png":               img_alder_5,
+  "alder_6_png":               img_alder_6,
 
-  "alm_0_png":                 img_alm_0,
-  "alm_1_png":                 img_alm_1,
-  "alm_2_png":                 img_alm_2,
-  "alm_3_png":                 img_alm_3,
-  "alm_4_png":                 img_alm_4,
-  "alm_5_png":                 img_alm_5,
-  "alm_6_png":                 img_alm_6,
+  // elm
+  "elm_0_png":                 img_elm_0,
+  "elm_1_png":                 img_elm_1,
+  "elm_2_png":                 img_elm_2,
+  "elm_3_png":                 img_elm_3,
+  "elm_4_png":                 img_elm_4,
+  "elm_5_png":                 img_elm_5,
+  "elm_6_png":                 img_elm_6,
 
-  "bjork_-1_png":              img_bjork_minus1,
-  "bjork_0_png":               img_bjork_0,
-  "bjork_1_png":               img_bjork_1,
-  "bjork_2_png":               img_bjork_2,
-  "bjork_3_png":               img_bjork_3,
-  "bjork_4_png":               img_bjork_4,
-  "bjork_5_png":               img_bjork_5,
-  "bjork_6_png":               img_bjork_6,
+  // birch
+  "birch_-1_png":              img_birch_minus1,
+  "birch_0_png":               img_birch_0,
+  "birch_1_png":               img_birch_1,
+  "birch_2_png":               img_birch_2,
+  "birch_3_png":               img_birch_3,
+  "birch_4_png":               img_birch_4,
+  "birch_5_png":               img_birch_5,
+  "birch_6_png":               img_birch_6,
 
-  "bok_-1_png":                img_bok_minus1,
-  "bok_0_png":                 img_bok_0,
-  "bok_1_png":                 img_bok_1,
-  "bok_2_png":                 img_bok_2,
-  "bok_3_png":                 img_bok_3,
-  "bok_4_png":                 img_bok_4,
-  "bok_5_png":                 img_bok_5,
-  "bok_6_png":                 img_bok_6,
+  // beech
+  "beech_0_png":               img_beech_0,
+  "beech_1_png":               img_beech_1,
+  "beech_2_png":               img_beech_2,
+  "beech_3_png":               img_beech_3,
+  "beech_4_png":               img_beech_4,
+  "beech_5_png":               img_beech_5,
+  "beech_6_png":               img_beech_6,
 
-  "ek_-1_png":                 img_ek_minus1,
-  "ek_0_png":                  img_ek_0,
-  "ek_1_png":                  img_ek_1,
-  "ek_2_png":                  img_ek_2,
-  "ek_3_png":                  img_ek_3,
-  "ek_4_png":                  img_ek_4,
-  "ek_5_png":                  img_ek_5,
-  "ek_6_png":                  img_ek_6,
+  // oak
+  "oak_-1_png":                img_oak_minus1,
+  "oak_0_png":                 img_oak_0,
+  "oak_1_png":                 img_oak_1,
+  "oak_2_png":                 img_oak_2,
+  "oak_3_png":                 img_oak_3,
+  "oak_4_png":                 img_oak_4,
+  "oak_5_png":                 img_oak_5,
+  "oak_6_png":                 img_oak_6,
 
-  "grabo_-1_png":              img_grabo_minus1,
-  "grabo_0_png":               img_grabo_0,
-  "grabo_1_png":               img_grabo_1,
-  "grabo_2_png":               img_grabo_2,
-  "grabo_3_png":               img_grabo_3,
-  "grabo_4_png":               img_grabo_4,
-  "grabo_5_png":               img_grabo_5,
-  "grabo_6_png":               img_grabo_6,
+  // mugwort
+  "mugwort_-1_png":            img_mugwort_minus1,
+  "mugwort_0_png":             img_mugwort_0,
+  "mugwort_1_png":             img_mugwort_1,
+  "mugwort_2_png":             img_mugwort_2,
+  "mugwort_3_png":             img_mugwort_3,
+  "mugwort_4_png":             img_mugwort_4,
+  "mugwort_5_png":             img_mugwort_5,
+  "mugwort_6_png":             img_mugwort_6,
 
-  "gras_-1_png":               img_gras_minus1,
-  "gras_0_png":                img_gras_0,
-  "gras_1_png":                img_gras_1,
-  "gras_2_png":                img_gras_2,
-  "gras_3_png":                img_gras_3,
-  "gras_4_png":                img_gras_4,
-  "gras_5_png":                img_gras_5,
-  "gras_6_png":                img_gras_6,
+  // grass
+  "grass_-1_png":              img_grass_minus1,
+  "grass_0_png":               img_grass_0,
+  "grass_1_png":               img_grass_1,
+  "grass_2_png":               img_grass_2,
+  "grass_3_png":               img_grass_3,
+  "grass_4_png":               img_grass_4,
+  "grass_5_png":               img_grass_5,
+  "grass_6_png":               img_grass_6,
 
-  "hassel_-1_png":             img_hassel_minus1,
-  "hassel_0_png":              img_hassel_0,
-  "hassel_1_png":              img_hassel_1,
-  "hassel_2_png":              img_hassel_2,
-  "hassel_3_png":              img_hassel_3,
-  "hassel_4_png":              img_hassel_4,
-  "hassel_5_png":              img_hassel_5,
-  "hassel_6_png":              img_hassel_6,
+  // hazel
+  "hazel_-1_png":              img_hazel_minus1,
+  "hazel_0_png":               img_hazel_0,
+  "hazel_1_png":               img_hazel_1,
+  "hazel_2_png":               img_hazel_2,
+  "hazel_3_png":               img_hazel_3,
+  "hazel_4_png":               img_hazel_4,
+  "hazel_5_png":               img_hazel_5,
+  "hazel_6_png":               img_hazel_6,
 
-  "malortsambrosia_-1_png":    img_malortsambrosia_minus1,
-  "malortsambrosia_0_png":     img_malortsambrosia_0,
-  "malortsambrosia_1_png":     img_malortsambrosia_1,
-  "malortsambrosia_2_png":     img_malortsambrosia_2,
-  "malortsambrosia_3_png":     img_malortsambrosia_3,
-  "malortsambrosia_4_png":     img_malortsambrosia_4,
-  "malortsambrosia_5_png":     img_malortsambrosia_5,
-  "malortsambrosia_6_png":     img_malortsambrosia_6,
+  // ragweed
+  "ragweed_-1_png":            img_ragweed_minus1,
+  "ragweed_0_png":             img_ragweed_0,
+  "ragweed_1_png":             img_ragweed_1,
+  "ragweed_2_png":             img_ragweed_2,
+  "ragweed_3_png":             img_ragweed_3,
+  "ragweed_4_png":             img_ragweed_4,
+  "ragweed_5_png":             img_ragweed_5,
+  "ragweed_6_png":             img_ragweed_6,
 
-  "salg_och_viden_-1_png":     img_salg_och_viden_minus1,
-  "salg_och_viden_0_png":      img_salg_och_viden_0,
-  "salg_och_viden_1_png":      img_salg_och_viden_1,
-  "salg_och_viden_2_png":      img_salg_och_viden_2,
-  "salg_och_viden_3_png":      img_salg_och_viden_3,
-  "salg_och_viden_4_png":      img_salg_och_viden_4,
-  "salg_och_viden_5_png":      img_salg_och_viden_5,
-  "salg_och_viden_6_png":      img_salg_och_viden_6
+  // willow
+  "willow_-1_png":             img_willow_minus1,
+  "willow_0_png":              img_willow_0,
+  "willow_1_png":              img_willow_1,
+  "willow_2_png":              img_willow_2,
+  "willow_3_png":              img_willow_3,
+  "willow_4_png":              img_willow_4,
+  "willow_5_png":              img_willow_5,
+  "willow_6_png":              img_willow_6
 };
 
