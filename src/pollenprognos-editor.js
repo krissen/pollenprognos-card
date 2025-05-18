@@ -333,11 +333,11 @@ class PollenPrognosCardEditor extends LitElement {
 customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
 
 // Register for visual picker
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'pollenprognos-card',
-  name: 'Pollenprognos Card',
-  preview: true,
-  description: 'Visar grafisk prognos för pollenhalter'
-});
+// window.customCards = window.customCards || [];
+// window.customCards.push({
+//   type: 'pollenprognos-card',
+//   name: 'Pollenprognos Card',
+//   preview: true,
+//   description: 'Visar grafisk prognos för pollenhalter'
+// });
 

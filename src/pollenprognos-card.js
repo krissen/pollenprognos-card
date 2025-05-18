@@ -43,10 +43,32 @@ class PollenPrognosCard extends LitElement {
     header:      { state: true }
   };
 
+  /**
+   * Hämta inline-ikon för ett allergen + nivå.
+   * Om integration === 'dwd' skalar vi state * 2 för bildvalet,
+   * men behåller det ursprungliga state för ev. textvisning.
+   */
   _getImageSrc(allergenReplaced, state) {
+    // Råvärde från sensor
+    const raw = Number(state);
+
+    // Skala för DWD så att 0.5–3 → 1–6
+    let scaled = raw;
+    if (this.config.integration === 'dwd') {
+      scaled = raw * 2;
+    }
+
+    // Avrunda till närmaste heltal och clamp mellan -1 och 6
+    let lvl = Math.round(scaled);
+    if (isNaN(lvl) || lvl < -1) lvl = -1;
+    if (lvl > 6) lvl = 6;
+
+    // Översätt allergen-nyckel till engelskt internt namn
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
-    const specific = images[`${key}_${state}_png`];
-    return specific || images[`${state}_png`];
+
+    // Försök allergen-specifik ikon, annars global nivå-ikon
+    const specific = images[`${key}_${lvl}_png`];
+    return specific || images[`${lvl}_png`];
   }
 
   constructor() {
@@ -142,77 +164,83 @@ class PollenPrognosCard extends LitElement {
   }
 
 
-_renderMinimalHtml() {
-  return html`
-    <ha-card>
-      ${this.header ? html`<h1 class="header">${this.header}</h1>` : ''}
-      <div class="flex-container">
-        ${this.sensors.map(sensor => html`
-          <div class="sensor">
-            <img
-              class="box"
-              src="${this._getImageSrc(sensor.allergenReplaced, sensor.day0.state)}"
-            />
-            ${this.config.show_text
-              ? html`<span class="short-text">
-                  ${sensor.allergenShort} (${sensor.day0.state})
-                </span>`
-              : ''}
-          </div>
-        `)}
-      </div>
-    </ha-card>
-  `;
-}
-
-
-_renderNormalHtml() {
-  const daysBold = Boolean(this.config.days_boldfaced);
-  const cols     = this.displayCols;
-
-  return html`
-    <ha-card>
-      ${this.header ? html`<h1 class="header">${this.header}</h1>` : ''}
-      <table class="forecast">
-        <thead>
-          <tr>
-            <th></th>
-            ${cols.map(i => html`
-              <th style="font-weight: ${daysBold ? 'bold' : 'normal'}">
-                ${this.sensors[0][`day${i}`].day}
-              </th>
-            `)}
-          </tr>
-        </thead>
-        ${this.sensors.map(sensor => html`
-          <tr class="allergen" valign="top">
-            <td>
+  _renderMinimalHtml() {
+    return html`
+      <ha-card>
+        ${this.header
+            ? html`<h1 class="header">${this.header}</h1>`
+            : ''}
+        <div class="flex-container">
+          ${this.sensors.map(sensor => html`
+            <div class="sensor">
               <img
-                class="allergen"
+                class="box"
                 src="${this._getImageSrc(sensor.allergenReplaced, sensor.day0.state)}"
               />
-            </td>
-            ${cols.map(i => html`
-              <td>
-                <img
-                  src="${this._getImageSrc('', sensor[`day${i}`].state)}"
-                />
-              </td>
-            `)}
-          </tr>
-          ${this.config.show_text ? html`
-            <tr class="allergen" valign="top">
-              <td>${sensor.allergenCapitalized}</td>
+              ${this.config.show_text
+                  ? html`
+                  <span class="short-text">
+                    ${sensor.allergenShort} (${sensor.day0.state})
+                  </span>`
+                  : ''}
+            </div>
+          `)}
+        </div>
+      </ha-card>
+    `;
+  }
+
+
+  _renderNormalHtml() {
+    const daysBold = Boolean(this.config.days_boldfaced);
+    const cols     = this.displayCols;
+
+    return html`
+      <ha-card>
+        ${this.header
+            ? html`<h1 class="header">${this.header}</h1>`
+            : ''}
+        <table class="forecast">
+          <thead>
+            <tr>
+              <th></th>
               ${cols.map(i => html`
-                <td><p>${sensor[`day${i}`].state_text}</p></td>
+                <th style="font-weight: ${daysBold ? 'bold' : 'normal'}">
+                  ${this.sensors[0][`day${i}`].day}
+                </th>
               `)}
             </tr>
-          ` : ''}
-        `)}
-      </table>
-    </ha-card>
-  `;
-}
+          </thead>
+          ${this.sensors.map(sensor => html`
+            <tr class="allergen" valign="top">
+              <td>
+                <!-- här använder vi översättaren -->
+                <img
+                  class="allergen"
+                  src="${this._getImageSrc(sensor.allergenReplaced, sensor.day0.state)}"
+                />
+              </td>
+              ${cols.map(i => html`
+                <td>
+                  <img
+                    src="${this._getImageSrc('', sensor[`day${i}`].state)}"
+                  />
+                </td>
+              `)}
+            </tr>
+            ${this.config.show_text ? html`
+              <tr class="allergen" valign="top">
+                <td>${sensor.allergenCapitalized}</td>
+                ${cols.map(i => html`
+                  <td><p>${sensor[`day${i}`].state_text}</p></td>
+                `)}
+              </tr>
+            ` : ''}
+          `)}
+        </table>
+      </ha-card>
+    `;
+  }
 
 
 
@@ -238,63 +266,59 @@ _renderNormalHtml() {
 
   static get styles() {
     return css`
-      /* Titelnhetsstyling hämtad från äldre version */
-      .header {
-        /* nollställ ev. använd standardmarginaler/padding */
-        margin: 0;
-        padding: 4px 0 12px;
-        /* använd Ha-card rubrik-typografi */
-        @apply --paper-font-headline;
-        /* tidigar radhöjd i äldre kod */
-        line-height: 40px;
-        color: var(--primary-text-color);
-      }
+    /* Rubrik: lägg på 16px sidopadding för att matcha innehållet */
+    .header {
+      margin: 0;
+      padding: 4px 16px 12px; /* top 4, sidor 16, bottom 12px */
+      @apply --paper-font-headline;
+      line-height: 40px;
+      color: var(--primary-text-color);
+    }
 
-      .forecast {
-        width: 100%;
-        padding: 7px;
-      }
-      td {
-        padding: 1px;
-        text-align: center;
-        width: 100px;
-        font-size: smaller;
-      }
-      img.allergen {
-        width: 40px;
-        height: 40px;
-      }
-      img {
-        width: 50px;
-        height: 50px;
-      }
-      .flex-container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-evenly;
-        padding: 16px;
-        /* återinför align-items för enhetlig vertikal centrering */
-        align-items: center;
-      }
-      .sensor {
-        flex: 1;
-        min-width: 20%;
-        text-align: center;
-      }
-      .short-text {
-        display: block;
-      }
-      .card-error {
-        padding: 16px;
-        color: var(--error-text-color, #b71c1c);
-        font-weight: 500;
-        line-height: 1.4;
-      }
-      .card-error a {
-        color: var(--primary-color);
-        text-decoration: underline;
-      }
-    `;
+    .forecast {
+      width:100%;
+      padding:7px;
+    }
+    td {
+      padding:1px;
+      text-align:center;
+      width:100px;
+      font-size:smaller;
+    }
+    img.allergen {
+      width:40px;
+      height:40px;
+    }
+    img {
+      width:50px;
+      height:50px;
+    }
+    .flex-container {
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:space-evenly;
+      align-items:center;
+      padding:16px;
+    }
+    .sensor {
+      flex:1;
+      min-width:20%;
+      text-align:center;
+    }
+    .short-text {
+      display:block;
+    }
+    .card-error {
+      padding:16px;
+      color:var(--error-text-color,#b71c1c);
+      font-weight:500;
+      line-height:1.4;
+    }
+    .card-error a {
+      color:var(--primary-color);
+      text-decoration:underline;
+    }
+  `;
   }
 
 }
