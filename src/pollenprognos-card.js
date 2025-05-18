@@ -4,6 +4,44 @@ import { images } from './pollenprognos-images.js';
 import * as PP from './adapters/pp.js';
 import * as DWD from './adapters/dwd.js';
 
+// --- lägg in högst upp i src/pollenprognos-card.js ---
+const ALLERGEN_TRANSLATION = {
+  // Svenska
+  al:               'alder',
+  alm:              'elm',
+  bjork:            'birch',
+  ek:               'oak',
+  grabo:            'mugwort',
+  gras:             'grass',
+  hassel:           'hazel',
+  malortsambrosia:  'ragweed',
+  salg_och_viden:   'willow',
+
+  // Tyska (DWD), normaliserade via replaceAAO
+  erle:     'alder',
+  ambrosia: 'ragweed',
+  esche:    'ash',
+  birke:    'birch',
+  hasel:    'hazel',
+  graeser:  'grass',    // från 'gräser'
+  beifuss:  'mugwort',  // från 'beifuss'
+  roggen:   'rye'
+};
+
+/**
+ * Returns the right Base64-inlined image from our map,
+ * falling back to the global level-icons if needed.
+ */
+_getImageSrc(allergenReplaced, state) {
+  // translate to our internal English key if available
+  const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+  // try allergen-specific icon
+  const custom = images[`${key}_${state}_png`];
+  if (custom) return custom;
+  // otherwise global level icon (”0_png”, “-1_png”, etc)
+  return images[`${state}_png`];
+}
+
 const ADAPTERS = {
   pp: PP,
   dwd: DWD
@@ -111,39 +149,79 @@ class PollenPrognosCard extends LitElement {
       });
   }
 
-  _renderMinimalHtml() {
-    return html`
-      <ha-card>
-        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ''}
-        <div class="flex-container">
-          ${this.sensors.map(sensor => html`
-            <div class="sensor">
-              <img class="box"
-                   src="${images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`] ?? images['0_png']}"
+
+_renderMinimalHtml() {
+  return html`
+    <ha-card>
+      ${this.header ? html`<h1 class="header">${this.header}</h1>` : ''}
+      <div class="flex-container">
+        ${this.sensors.map(sensor => html`
+          <div class="sensor">
+            <img
+              class="box"
+              src="${this._getImageSrc(sensor.allergenReplaced, sensor.day0.state)}"
+            />
+            ${this.config.show_text
+              ? html`<span class="short-text">
+                  ${sensor.allergenShort} (${sensor.day0.state})
+                </span>`
+              : ''}
+          </div>
+        `)}
+      </div>
+    </ha-card>
+  `;
+}
+
+
+_renderNormalHtml() {
+  const daysBold = Boolean(this.config.days_boldfaced);
+  const cols     = this.displayCols;
+
+  return html`
+    <ha-card>
+      ${this.header ? html`<h1 class="header">${this.header}</h1>` : ''}
+      <table class="forecast">
+        <thead>
+          <tr>
+            <th></th>
+            ${cols.map(i => html`
+              <th style="font-weight: ${daysBold ? 'bold' : 'normal'}">
+                ${this.sensors[0][`day${i}`].day}
+              </th>
+            `)}
+          </tr>
+        </thead>
+        ${this.sensors.map(sensor => html`
+          <tr class="allergen" valign="top">
+            <td>
+              <img
+                class="allergen"
+                src="${this._getImageSrc(sensor.allergenReplaced, sensor.day0.state)}"
               />
-              ${this.config.show_text
-                  ? html`<span class="short-text">${sensor.allergenShort} (${sensor.day0.state})</span>`
-                  : ''}
-            </div>
-          `)}
-        </div>
-      </ha-card>
-    `;
-  }
+            </td>
+            ${cols.map(i => html`
+              <td>
+                <img
+                  src="${this._getImageSrc('', sensor[`day${i}`].state)}"
+                />
+              </td>
+            `)}
+          </tr>
+          ${this.config.show_text ? html`
+            <tr class="allergen" valign="top">
+              <td>${sensor.allergenCapitalized}</td>
+              ${cols.map(i => html`
+                <td><p>${sensor[`day${i}`].state_text}</p></td>
+              `)}
+            </tr>
+          ` : ''}
+        `)}
+      </table>
+    </ha-card>
+  `;
+}
 
-  _renderNormalHtml() {
-    const daysBold = Boolean(this.config.days_boldfaced);
-    const cols = this.displayCols;
-
-    return html`
-      <ha-card>
-        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ''}
-        <table class="forecast">
-          <!-- resten av tabellen oförändrat -->
-        </table>
-      </ha-card>
-    `;
-  }
 
 
   render() {
