@@ -72,11 +72,12 @@ class PollenPrognosCard extends LitElement {
 
   constructor() {
     super();
-    this.sensors = [];
     this.days_to_show = 4;
     this.displayCols = [];
     this.header = '';
     this._initDone = false;
+    this._userConfig = {};
+    this.sensors      = [];
   }
 
   static async getConfigElement() {
@@ -113,120 +114,129 @@ class PollenPrognosCard extends LitElement {
     };
   }
 
-  setConfig(config) {
-    // 1) Börja med PP-stub
-    const defaults = stubConfigPP;
-    // 2) Slå ihop stub + user-config, men radera stub.integration om användaren inte satt något
-    const merged = { ...defaults, ...config };
-    if (!config.hasOwnProperty('integration')) {
-      delete merged.integration;
-    }
-    this.config = merged;
+setConfig(config) {
+  // Klona original-config (om den är fryst) och—vid byte till DWD—sätt DWD-stubben
+  const userConf = { ...config };
+  if (userConf.integration === 'dwd') {
+    // När användaren väljer DWD, lägg in DWD-standardlistan direkt
+    userConf.allergens = stubConfigDWD.allergens;
+  }
+  // 2) Spara den klonade configen
+  this._userConfig = userConf;
 
-    // 3) Om det *verkligen* var en manuell DWD-val → ersätt stub-värden
-    if (this.config.integration === 'dwd') {
-      this.config.allergens    = stubConfigDWD.allergens;
-      this.config.days_to_show = stubConfigDWD.days_to_show;
-      this.config.date_locale  = stubConfigDWD.date_locale;
-    }
+  // 3) Börja med PP-stub och merge mot userConf (istället för original config)
+  const defaults = stubConfigPP;
+  const merged   = { ...defaults, ...userConf };
+  if (!userConf.hasOwnProperty('integration')) {
+    delete merged.integration;
+  }
+  this.config = merged;
+  // 4) Om det verkligen var en manuell DWD-val → rensa stub-fält så att set hass kan falla tillbaka korrekt
 
-    // 4) Markera explicit ENDAST om integration skiljer sig från PP-stubben
-    this._integrationExplicit =
-      config.hasOwnProperty('integration') &&
-      config.integration !== stubConfigPP.integration;
+  // 5) Markera explicit ENDAST om integration skiljer sig från PP-stubben
+  this._integrationExplicit =
+    config.hasOwnProperty('integration') &&
+    config.integration !== stubConfigPP.integration;
 
-    this._initDone = false;
-    if (this._hass) this.hass = this._hass;
+  // 6) Återställ init-flagga och trigga hass-uppdatering
+  this._initDone = false;
+  if (this._hass) {
+    this.hass = this._hass;
+  }
+}
+
+set hass(hass) {
+  this._hass = hass;
+
+  // 1) Läs av om integration satts explicit i editorn/YAML
+  const explicit = !!this._integrationExplicit;
+
+  // 2) Hitta vilka sensorer som finns
+  const ppStates  = Object.keys(hass.states).filter(s => s.startsWith('sensor.pollen_'));
+  const dwdStates = Object.keys(hass.states).filter(s => s.startsWith('sensor.pollenflug_'));
+
+  // 3) Bestäm integration: 
+  //    - om explicit valt → behåll 
+  //    - annars: PP om PP-sensorer finns, annars DWD om DWD-sensorer finns
+  let integration = this.config.integration;
+  if (!explicit) {
+    if (ppStates.length)       integration = 'pp';
+    else if (dwdStates.length) integration = 'dwd';
   }
 
-  set hass(hass) {
-    this._hass = hass;
+  // 4) Extra fallback: om integration=pp men inga PP-sensorer finns, kör DWD
+  if (!explicit && integration === 'pp' && ppStates.length === 0 && dwdStates.length) {
+    integration = 'dwd';
+  }
 
-    // 1) Läs av användar-explicit val
-    const explicit = !!this._integrationExplicit;
+  // 5) Hämta stub-defaults beroende på integration
+  const stubPP  = PollenPrognosCard.getStubConfig();
+  const stubDWD = DWD.stubConfigDWD;
+  const baseStub = integration === 'dwd' ? stubDWD : stubPP;
 
-    // 2) Hämta vilka sensorer som finns
-    const ppStates  = Object.keys(hass.states).filter(s => s.startsWith('sensor.pollen_'));
-    const dwdStates = Object.keys(hass.states).filter(s => s.startsWith('sensor.pollenflug_'));
+  console.debug('📡 fallback check', { explicit, pp: ppStates.length, dwd: dwdStates.length, integration });
 
-    // 3) Bestäm integration (PP om explict valt, annars PP om finns, annars DWD om finns)
-    let integration = this.config.integration;
-    if (!explicit) {
-      if (ppStates.length)       integration = 'pp';
-      else if (dwdStates.length) integration = 'dwd';
-    }
+  // 6) Bygg cfg ENBART från stub + det användaren faktiskt angett
+  const cfg = {
+    ...baseStub,
+    ...this._userConfig,
+    integration,
+  };
 
-    // 4) **Fallback**: om vi nu landade på PP men det finns inga PP-sensorer, men det finns DWD → kör DWD direkt
-    if (!explicit && integration === 'pp' && ppStates.length === 0 && dwdStates.length) {
-      integration = 'dwd';
-    }
-
-    // 5) Ta fram rätt stub-defaults och slå ihop med user-config
-    const stubPP  = PollenPrognosCard.getStubConfig();
-    const stubDWD = DWD.stubConfigDWD;
-    const baseStub = integration === 'dwd' ? stubDWD : stubPP;
-
-      console.debug('📡 fallback check', { explicit, pp: ppStates.length, dwd: dwdStates.length, integration });
-
-
-    const cfg = {
-      ...baseStub,
-      ...this.config,
-      integration,
-    };
-
-    // 3) SÄKERSTÄLL att DWD-defaults *alltid* ligger kvar vid dwd
-    if (integration === 'dwd') {
+  // 7) DWD-fallback: tvinga fram DWD-defaults
+  //    - vid autodetektering (explicit=false)
+  //    - eller om användaren inte explicit ändrat just det fältet
+  if (integration === 'dwd') {
+    if (!explicit || !this._userConfig.hasOwnProperty('allergens')) {
       cfg.allergens    = stubDWD.allergens;
+    }
+    if (!explicit || !this._userConfig.hasOwnProperty('days_to_show')) {
       cfg.days_to_show = stubDWD.days_to_show;
+    }
+    if (!explicit || !this._userConfig.hasOwnProperty('date_locale')) {
       cfg.date_locale  = stubDWD.date_locale;
     }
-
-    // 6) Om DWD, auto-välj första region om saknas
-    if (integration === 'dwd') {
-      if (!cfg.region_id && dwdStates.length) {
-        cfg.region_id = Array.from(new Set(dwdStates.map(id => id.split('_').pop())))
-          .sort((a,b)=>Number(a)-Number(b))[0];
-      }
-    } else {
-      // PP: auto-välj första stad om saknas
-      if (!cfg.city && ppStates.length) {
-        cfg.city = ppStates[0]
-          .slice('sensor.pollen_'.length)
-          .split('_')
-          .slice(0, -1)
-          .join('_');
-      }
-    }
-
-    // 7) Spara config och rubrik
-    this.config = cfg;
-    if (typeof cfg.title === 'string') this.header = cfg.title;
-    else if (cfg.title === false)      this.header = '';
-    else {
-      const loc = cfg.integration === 'dwd'
-        ? (DWD_REGIONS[cfg.region_id] || cfg.region_id)
-        : cfg.city;
-      this.header = `${this._t('header_prefix')} ${loc}`;
-    }
-
-    // 8) Hämta prognosen
-    const adapter = ADAPTERS[cfg.integration] || PP;
-    adapter.fetchForecast(hass, cfg)
-      .then(sensors => {
-        this.sensors      = sensors;
-        this.days_to_show = cfg.days_to_show;
-        this.displayCols  = Array.from(
-          { length: cfg.show_empty_days
-            ? cfg.days_to_show
-            : (sensors[0]?.days?.length || 0)
-          },
-          (_, i) => i
-        );
-        this.requestUpdate();
-      })
-      .catch(err => console.error('Error fetching pollen forecast:', err));
   }
+
+  // 8) Automatisk region-/stad-val om det saknas
+  if (integration === 'dwd') {
+    if (!cfg.region_id && dwdStates.length) {
+      cfg.region_id = Array.from(new Set(dwdStates.map(id => id.split('_').pop())))
+        .sort((a,b)=>Number(a)-Number(b))[0];
+    }
+  } else {
+    if (!cfg.city && ppStates.length) {
+      cfg.city = ppStates[0]
+        .slice('sensor.pollen_'.length)
+        .split('_').slice(0,-1).join('_');
+    }
+  }
+
+  // 9) Spara den slutgiltiga configen och sätt header
+  this.config = cfg;
+  if (typeof cfg.title === 'string') this.header = cfg.title;
+  else if (cfg.title === false)      this.header = '';
+  else {
+    const loc = cfg.integration === 'dwd'
+      ? (DWD_REGIONS[cfg.region_id] || cfg.region_id)
+      : cfg.city;
+    this.header = `${this._t('header_prefix')} ${loc}`;
+  }
+
+  // 10) Hämta och rendera prognosen
+  const adapter = ADAPTERS[cfg.integration] || PP;
+  adapter.fetchForecast(hass, cfg)
+    .then(sensors => {
+      this.sensors      = sensors;
+      this.days_to_show = cfg.days_to_show;
+      this.displayCols  = Array.from(
+        { length: cfg.show_empty_days ? cfg.days_to_show : (sensors[0]?.days?.length || 0) },
+        (_, i) => i
+      );
+      this.requestUpdate();
+    })
+    .catch(err => console.error('Error fetching pollen forecast:', err));
+}
 
 
   _renderMinimalHtml() {

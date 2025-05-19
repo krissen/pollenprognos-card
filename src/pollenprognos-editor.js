@@ -70,21 +70,23 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   setConfig(config) {
-    // 1) Om vi byter integration, återställ helt mot stub och slå ihop
-    if (this._config.integration !== config.integration) {
-      const base = config.integration === 'dwd' ? stubConfigDWD : stubConfigPP;
-      // börja från ett rent stub-objekt
-      this._config = deepMerge(base, {});
-      // slå på användarens egna overrides
-      this._config = deepMerge(this._config, config);
-      // återställ days_to_show & locale till stub-värden
-      this._config.days_to_show = base.days_to_show;
-      this._config.date_locale  = base.date_locale;
-      this._config.allergens = base.allergens;
-    } else {
-      // samma integration, bara merge in nya värden
-      this._config = deepMerge(this._config, config);
-    }
+if (this._config.integration !== config.integration) {
+  const base = config.integration === 'dwd' ? stubConfigDWD : stubConfigPP;
+  // börja från ett rent stub-objekt
+  this._config = deepMerge(base, {});
+  // slå på användarens egna overrides
+  this._config = deepMerge(this._config, config);
+  // återställ days_to_show & locale till stub-värden
+  this._config.days_to_show = base.days_to_show;
+  this._config.date_locale  = base.date_locale;
+  // bara återställ allergens om användaren inte själv angivit en egen lista
+  if (!config.hasOwnProperty('allergens')) {
+    this._config.allergens = base.allergens;
+  }
+} else {
+  // samma integration, bara merge in nya värden
+  this._config = deepMerge(this._config, config);
+}
 
     // säkerställ att type alltid ligger kvar – annars kan inte förhandsvisningen ritas
     this._config = { ...this._config, type: 'custom:pollenprognos-card' };
@@ -153,43 +155,48 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
 _updateConfig(prop, value) {
-  // Börja alltid från det som redan finns
-  const cfg = { ...this._config };
+  let cfg;
 
   if (prop === 'integration') {
-    // Välj ny integration
-    cfg.integration = value;
-    // Hämta stub för den nya integrationen
+    // 1) Hämta rätt stub för den nya integrationen
     const base = value === 'dwd' ? stubConfigDWD : stubConfigPP;
-    // Nollställ enbart days_to_show och date_locale
-    cfg.days_to_show = base.days_to_show;
-    cfg.date_locale  = base.date_locale;
-    cfg.allergens = base.allergens;
-    // Släng bort det gamle integrations-fältet
+
+    // 2) Börja från ett rent stub-objekt (inga gamla overrides)
+    cfg = deepMerge(base, {});
+
+    // 3) Sätt den nya integration-flaggan
+    cfg.integration = value;
+
+    // 4) Ta bort fält som inte gäller för den valda integrationen
     if (value === 'dwd') {
+      // Ingen stad i DWD
       delete cfg.city;
-      // (valfritt) auto-välj första region_id om ej satt
+      // Auto-välj första region om ej satt
       if (!cfg.region_id && this.installedRegionIds?.length) {
         cfg.region_id = this.installedRegionIds[0];
       }
     } else {
+      // Ingen region i PP
       delete cfg.region_id;
-      // (valfritt) auto-välj första stad om ej satt
+      // Auto-välj första stad om ej satt
       if (!cfg.city && this.installedCities?.length) {
         cfg.city = this.installedCities[0];
       }
     }
   } else {
-    // Bara ett vanligt fältbyte
-    cfg[prop] = value;
+    // Övriga ändringar: bygg vidare på befintlig config
+    cfg = { ...this._config, [prop]: value };
   }
 
   // Se till att type alltid finns kvar
   cfg.type = this._config.type || 'custom:pollenprognos-card';
 
+  // Spara och skicka vidare till Lovelace
   this._config = cfg;
   this.dispatchEvent(new CustomEvent('config-changed', {
-    detail: { config: cfg }, bubbles: true, composed: true
+    detail: { config: cfg },
+    bubbles: true,
+    composed: true
   }));
 }
 
