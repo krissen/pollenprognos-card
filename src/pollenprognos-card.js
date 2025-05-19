@@ -4,6 +4,21 @@ import { images } from './pollenprognos-images.js';
 import * as PP from './adapters/pp.js';
 import * as DWD from './adapters/dwd.js';
 
+const TRANSLATIONS = {
+  en: {
+    header_prefix:   'Pollen forecast for',
+    error:           'No pollen sensors found. Have you installed the correct integration and selected a region in the card config?'
+  },
+  sv: {
+    header_prefix:   'Pollenprognos för',
+    error:           'Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?'
+  },
+  de: {
+    header_prefix:   'Pollenprognose für',
+    error:           'Keine Pollensensoren gefunden. Haben Sie die richtige Integration installiert und eine Region in der Kartenkonfiguration ausgewählt?'
+  }
+};
+
 const ALLERGEN_TRANSLATION = {
   // Svenska
   al:               'alder',
@@ -34,6 +49,17 @@ const ADAPTERS = {
 };
 
 class PollenPrognosCard extends LitElement {
+  /** Tvåbokstavskod, fallback en */
+  get _lang() {
+    const haLang = this._hass?.language?.slice(0,2);
+    const navLang = navigator.language?.slice(0,2);
+    return (haLang || navLang || 'en').toLowerCase();
+  }
+
+  /** Hämta text från TRANSLATIONS */
+  _t(key) {
+    return (TRANSLATIONS[this._lang] || TRANSLATIONS.en)[key] || '';
+  }
   static properties = {
     hass:        { state: true },
     config:      {},
@@ -130,14 +156,14 @@ class PollenPrognosCard extends LitElement {
 
     const debug = Boolean(cfg.debug);
 
-    // HEADER / TITLE
+    // HEADER / TITLE, flerspråkigt
     if (typeof cfg.title === 'string') {
       this.header = cfg.title;
     } else if (cfg.title === false) {
       this.header = '';
     } else {
       const loc = cfg.integration === 'dwd' ? cfg.region_id : cfg.city;
-      this.header = `Pollenprognos för ${loc}`;
+      this.header = `${this._t('header_prefix')} ${loc}`;
     }
 
     if (debug) {
@@ -242,18 +268,16 @@ class PollenPrognosCard extends LitElement {
     `;
   }
 
-
-
   render() {
+    // Om vi inte har någon sensordata alls, visa fel
     if (!this.sensors.length) {
       return html`
-        <ha-card>
-          <div class="card-error">
-            Inga pollen-sensorer hittades. Har du installerat rätt integration
-            och valt region i kortets konfiguration?
-          </div>
-        </ha-card>
-      `;
+      <ha-card>
+        <div class="card-error">
+          ${this._t('error')}
+        </div>
+      </ha-card>
+    `;
     }
     return this.config.minimal
       ? this._renderMinimalHtml()
