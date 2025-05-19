@@ -98,14 +98,15 @@ const TRANSLATIONS = {
 };
 
 class PollenPrognosCardEditor extends LitElement {
-  static get properties() {
-    return {
-      _config:         { type: Object },
-      hass:            { type: Object },
-      installedCities: { type: Array },
-      _initDone:       { type: Boolean }
-    };
-  }
+static get properties() {
+  return {
+    _config:         { type: Object },
+    hass:            { type: Object },
+    installedCities: { type: Array },
+    installedRegions:{ type: Array },
+    _initDone:       { type: Boolean }
+  };
+}
 
   /** Hämta tvåbokstavskod, fallback ’en’ */
   get _lang() {
@@ -119,13 +120,14 @@ class PollenPrognosCardEditor extends LitElement {
   _t(key) {
     return (TRANSLATIONS[this._lang] || TRANSLATIONS.en)[key] || key;
   }
-  constructor() {
-    super();
-    // initialize with PP stub
-    this._config = deepMerge(stubConfigPP, {});
-    this.installedCities = [];
-    this._initDone = false;
-  }
+
+constructor() {
+  super();
+  this._config = deepMerge(stubConfigPP, {});
+  this.installedCities = [];
+  this.installedRegions = [];
+  this._initDone = false;
+}
 
   setConfig(config) {
     // if switching integration, reset to that stub
@@ -138,33 +140,43 @@ class PollenPrognosCardEditor extends LitElement {
     this.requestUpdate();
   }
 
-  set hass(hass) {
-    this._hass = hass;
-    // detect installed cities for PP
-    const keys = Object.keys(hass.states)
-      .filter(id => id.startsWith('sensor.pollen_'))
-      .map(id => id.slice('sensor.pollen_'.length).split('_')[0]);
-    const uniq = [...new Set(keys)];
-    // map to display names using stub list
-    const allNames = Object.keys(stubConfigPP.phrases?.days).length ? [] : [];
-    // use stubConfigPP allergen list for possible cities
-    const possible = [
-      'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
-      'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
-      'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
-      'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
-    ];
-    const keyFor = n => n.toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g,'o').replace(/[-\s]/g,'_');
-    this.installedCities = possible
-      .filter(name => uniq.includes(keyFor(name)))
-      .sort((a,b)=>a.localeCompare(b));
+set hass(hass) {
+  this._hass = hass;
 
-    // for PP auto-select first installed
-    if (!this._initDone && this._config.integration === 'pp' && !this._config.city && this.installedCities.length) {
+  // Detektera PP-städer
+  const ppStates = Object.keys(hass.states).filter(id => id.startsWith('sensor.pollen_'));
+  const cityKeys = Array.from(new Set(
+    ppStates.map(id => id.slice('sensor.pollen_'.length).split('_')[0])
+  ));
+
+  // Detektera DWD-regioner
+  const dwdStates = Object.keys(hass.states).filter(id => id.startsWith('sensor.pollenflug_'));
+  const regionIds = Array.from(new Set(
+    dwdStates.map(id => id.split('_').pop())
+  )).sort((a,b)=>Number(a)-Number(b));
+
+  // Auto-välj integration första gången
+  if (!this._initDone) {
+    if (cityKeys.length) this._updateConfig('integration','pp');
+    else if (regionIds.length) this._updateConfig('integration','dwd');
+  }
+
+  // Bygg listor
+  this.installedCities = cityKeys.sort();
+  this.installedRegions = regionIds;
+
+  // Auto-välj city/region första gången
+  if (!this._initDone) {
+    if (this._config.integration==='pp' && !this._config.city && this.installedCities.length) {
       this._updateConfig('city', this.installedCities[0]);
     }
-    this._initDone = true;
+    if (this._config.integration==='dwd' && !this._config.region_id && this.installedRegions.length) {
+      this._updateConfig('region_id', this.installedRegions[0]);
+    }
   }
+
+  this._initDone = true;
+}
 
   _onAllergenToggle(allergen, checked) {
     const s = new Set(this._config.allergens);
@@ -180,11 +192,11 @@ class PollenPrognosCardEditor extends LitElement {
     }));
   }
 
-render() {
-  const c = this._config;
-  const t = key => this._t(key);
+  render() {
+    const c = this._config;
+    const t = key => this._t(key);
 
-  return html`
+    return html`
     <div class="card-config">
       <!-- Integration selector -->
       <ha-formfield label="${t('integration')}">
@@ -193,33 +205,39 @@ render() {
           @selected=${e => this._updateConfig('integration', e.target.value)}
           @closed=${e => e.stopPropagation()}
         >
-          <mwc-list-item value="pp">PollenPrognos (SMHI)</mwc-list-item>
+          <mwc-list-item value="pp">PollenPrognos</mwc-list-item>
           <mwc-list-item value="dwd">DWD Pollenflug</mwc-list-item>
         </ha-select>
       </ha-formfield>
 
       <!-- City or Region -->
-      ${c.integration === 'pp' ? html`
-        <ha-formfield label="${t('city')}">
-          <ha-select
-            .value=${c.city || ''}
-            @selected=${e => this._updateConfig('city', e.target.value)}
-            @closed=${e => e.stopPropagation()}
-          >
-            ${this.installedCities.map(city => html`
-              <mwc-list-item .value=${city}>${city}</mwc-list-item>
-            `)}
-          </ha-select>
-        </ha-formfield>
-      ` : html`
-        <ha-formfield label="${t('region_id')}">
-          <ha-textfield
-            .value=${c.region_id || ''}
-            placeholder="${t('region_id')}"
-            @input=${e => this._updateConfig('region_id', e.target.value)}
-          ></ha-textfield>
-        </ha-formfield>
-      `}
+      ${c.integration === 'pp'
+        ? html`
+          <ha-formfield label="${t('city')}">
+            <ha-select
+              .value=${c.city || ''}
+              @selected=${e => this._updateConfig('city', e.target.value)}
+              @closed=${e => e.stopPropagation()}
+            >
+              ${this.installedCities.map(city => html`
+                <mwc-list-item .value=${city}>${city}</mwc-list-item>
+              `)}
+            </ha-select>
+          </ha-formfield>
+        `
+        : html`
+          <ha-formfield label="${t('region_id')}">
+            <ha-select
+              .value=${c.region_id || ''}
+              @selected=${e => this._updateConfig('region_id', e.target.value)}
+              @closed=${e => e.stopPropagation()}
+            >
+              ${this.installedRegions.map(id => html`
+                <mwc-list-item .value=${id}>${id}</mwc-list-item>
+              `)}
+            </ha-select>
+          </ha-formfield>
+        `}
 
       <!-- Title -->
       <ha-formfield label="${t('title')}">
@@ -371,17 +389,17 @@ render() {
         <summary>${t('phrases_levels')}</summary>
         ${Array.from({ length: 7 }, (_, i) => html`
           <ha-formfield .label=${i}>
-            <ha-textfield
-              .value=${c.phrases.levels[i] || ''}
-              @input=${e => {
-                const lv = [...(c.phrases.levels || [])];
-                lv[i] = e.target.value;
-                const p = { ...c.phrases, levels: lv };
-                this._updateConfig('phrases', p);
-              }}
-            ></ha-textfield>
+          <ha-textfield
+          .value=${c.phrases.levels[i] || ''}
+          @input=${e => {
+            const lv = [...(c.phrases.levels || [])];
+            lv[i] = e.target.value;
+            const p = { ...c.phrases, levels: lv };
+            this._updateConfig('phrases', p);
+          }}
+          ></ha-textfield>
           </ha-formfield>
-        `)}
+          `)}
       </details>
 
       <details>
@@ -420,10 +438,10 @@ render() {
       </ha-formfield>
     </div>
   `;
-}
+          }
 
-  static get styles() {
-    return css`
+            static get styles() {
+              return css`
       .card-config { display:flex; flex-direction:column; gap:12px; padding:16px; }
       ha-formfield, details { margin-bottom:8px; }
       .allergens-group { display:flex; flex-wrap:wrap; gap:8px; }
@@ -431,8 +449,8 @@ render() {
       ha-slider { width:100%; }
       ha-select { width:100%; --mdc-theme-primary: var(--primary-color); }
     `;
-  }
-}
+            }
+          }
 
-customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
+                customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
 

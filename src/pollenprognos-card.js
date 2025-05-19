@@ -146,17 +146,46 @@ class PollenPrognosCard extends LitElement {
 
   set hass(hass) {
     this._hass = hass;
-    const cfg = { ...this.config };
+    const availablePP  = Object.keys(hass.states).filter(id => id.startsWith('sensor.pollen_'));
+    const availableDWD = Object.keys(hass.states).filter(id => id.startsWith('sensor.pollenflug_'));
 
-    // För DWD: använd region_id för city och standard-allergener
+    // 1) Auto-välj integration om inget konfigurerat
+    if (!this.config.integration) {
+      if (availablePP.length) this.config.integration = 'pp';
+      else if (availableDWD.length) this.config.integration = 'dwd';
+    }
+
+    const cfg = { ...this.config };
+    const debug = Boolean(cfg.debug);
+
+    // 2) För DWD: auto-välj region_id om inget konfigurerat
     if (cfg.integration === 'dwd') {
+      const regionIds = Array.from(new Set(
+        availableDWD.map(id => id.split('_').pop())
+      )).sort((a, b) => Number(a) - Number(b));
+      if (!cfg.region_id && regionIds.length) {
+        cfg.region_id = regionIds[0];
+      }
       cfg.city = cfg.region_id;
       cfg.allergens = DWD.stubConfigDWD.allergens;
     }
 
-    const debug = Boolean(cfg.debug);
+    // 3) För PP: auto-välj första stad om inget konfigurerat
+    if (cfg.integration === 'pp') {
+      // bygg upp nycklar "pollen_<citykey>_<allergen>"
+      const cityKeys = Array.from(new Set(
+        availablePP.map(id => {
+          const rem = id.slice('sensor.pollen_'.length);
+          return rem.slice(0, rem.lastIndexOf('_'));
+        })
+      ));
+      if (!cfg.city && cityKeys.length) {
+        // välj alfabetiskt
+        cfg.city = cityKeys.sort()[0];
+      }
+    }
 
-    // HEADER / TITLE, flerspråkigt
+    // HEADER / TITLE
     if (typeof cfg.title === 'string') {
       this.header = cfg.title;
     } else if (cfg.title === false) {
@@ -170,7 +199,6 @@ class PollenPrognosCard extends LitElement {
       console.log('---- pollenprognos-card start ----');
       console.log('Integration:', cfg.integration);
       console.log('Region/City:', cfg.integration === 'dwd' ? cfg.region_id : cfg.city);
-      console.log('Allergens:', cfg.allergens);
     }
 
     const adapter = ADAPTERS[cfg.integration] || PP;
@@ -179,7 +207,10 @@ class PollenPrognosCard extends LitElement {
         this.sensors = sensors;
         this.days_to_show = cfg.days_to_show;
         this.displayCols = Array.from(
-          { length: cfg.show_empty_days ? cfg.days_to_show : (sensors[0]?.days?.length || 0) },
+          { length: cfg.show_empty_days
+            ? cfg.days_to_show
+            : (sensors[0]?.days?.length || 0)
+          },
           (_, i) => i
         );
         this.requestUpdate();
