@@ -22,6 +22,81 @@ const deepMerge = (target, source) => {
   return out;
 };
 
+const TRANSLATIONS = {
+  en: {
+    integration:      'Integration',
+    city:             'City',
+    region_id:        'Region ID',
+    title:            'Title (empty = auto)',
+    minimal:          'Minimal',
+    show_text:        'Show text',
+    show_empty_days:  'Show empty days',
+    days_relative:    'Relative days (today/tomorrow)',
+    days_abbreviated: 'Abbreviate weekdays',
+    days_uppercase:   'Uppercase weekdays',
+    days_boldfaced:   'Bold weekdays',
+    days_to_show:     'Days to show:',
+    pollen_threshold: 'Threshold:',
+    sort:             'Sort order',
+    locale:           'Locale',
+    allergens:        'Allergens',
+    phrases_full:     'Phrases – full',
+    phrases_short:    'Phrases – short',
+    phrases_levels:   'Phrases – levels',
+    phrases_days:     'Phrases – days',
+    no_information:   'No information',
+    debug:            'Debug',
+  },
+  sv: {
+    integration:      'Integration',
+    city:             'Stad',
+    region_id:        'Region ID',
+    title:            'Titel (tom = auto)',
+    minimal:          'Minimal',
+    show_text:        'Visa text',
+    show_empty_days:  'Visa tomma dagar',
+    days_relative:    'Relativa dagar (idag/imorgon)',
+    days_abbreviated: 'Förkorta veckodagar',
+    days_uppercase:   'Versaler veckodagar',
+    days_boldfaced:   'Fetstil veckodagar',
+    days_to_show:     'Antal dagar:',
+    pollen_threshold: 'Tröskelvärde:',
+    sort:             'Sortering',
+    locale:           'Locale',
+    allergens:        'Allergener',
+    phrases_full:     'Fraser – full',
+    phrases_short:    'Fraser – kort',
+    phrases_levels:   'Fraser – nivåer',
+    phrases_days:     'Fraser – dagar',
+    no_information:   'Ingen information',
+    debug:            'Debug',
+  },
+  de: {
+    integration:      'Integration',
+    city:             'Stadt',
+    region_id:        'Region ID',
+    title:            'Titel (leer = Auto)',
+    minimal:          'Minimal',
+    show_text:        'Text anzeigen',
+    show_empty_days:  'Leere Tage anzeigen',
+    days_relative:    'Relative Tage (heute/morgen)',
+    days_abbreviated: 'Wochentage abkürzen',
+    days_uppercase:   'Wochentage groß',
+    days_boldfaced:   'Wochentage fett',
+    days_to_show:     'Anzahl Tage:',
+    pollen_threshold: 'Schwelle:',
+    sort:             'Sortierung',
+    locale:           'Locale',
+    allergens:        'Allergene',
+    phrases_full:     'Phrasen – full',
+    phrases_short:    'Phrasen – kurz',
+    phrases_levels:   'Phrasen – Stufen',
+    phrases_days:     'Phrasen – Tage',
+    no_information:   'Keine Information',
+    debug:            'Debug',
+  }
+};
+
 class PollenPrognosCardEditor extends LitElement {
   static get properties() {
     return {
@@ -32,6 +107,18 @@ class PollenPrognosCardEditor extends LitElement {
     };
   }
 
+  /** Hämta tvåbokstavskod, fallback ’en’ */
+  get _lang() {
+    // HA:s språk, annars browser
+    const ha = this._hass?.language?.slice(0,2);
+    const nav = navigator.language?.slice(0,2);
+    return (ha || nav || 'en').toLowerCase();
+  }
+
+  /** Översätt nyckel till korrekt label */
+  _t(key) {
+    return (TRANSLATIONS[this._lang] || TRANSLATIONS.en)[key] || key;
+  }
   constructor() {
     super();
     // initialize with PP stub
@@ -93,230 +180,247 @@ class PollenPrognosCardEditor extends LitElement {
     }));
   }
 
-  render() {
-    const c = this._config;
-    return html`
-      <div class="card-config">
-        <!-- Integration selector -->
-        <ha-formfield label="Integration">
+render() {
+  const c = this._config;
+  const t = key => this._t(key);
+
+  return html`
+    <div class="card-config">
+      <!-- Integration selector -->
+      <ha-formfield label="${t('integration')}">
+        <ha-select
+          .value=${c.integration}
+          @selected=${e => this._updateConfig('integration', e.target.value)}
+          @closed=${e => e.stopPropagation()}
+        >
+          <mwc-list-item value="pp">PollenPrognos (SMHI)</mwc-list-item>
+          <mwc-list-item value="dwd">DWD Pollenflug</mwc-list-item>
+        </ha-select>
+      </ha-formfield>
+
+      <!-- City or Region -->
+      ${c.integration === 'pp' ? html`
+        <ha-formfield label="${t('city')}">
           <ha-select
-            .value=${c.integration}
-            @selected=${e=>this._updateConfig('integration', e.target.value)}
-            @closed=${e=>e.stopPropagation()}
+            .value=${c.city || ''}
+            @selected=${e => this._updateConfig('city', e.target.value)}
+            @closed=${e => e.stopPropagation()}
           >
-            <mwc-list-item value="pp">PollenPrognos (SMHI)</mwc-list-item>
-            <mwc-list-item value="dwd">DWD Pollenflug</mwc-list-item>
+            ${this.installedCities.map(city => html`
+              <mwc-list-item .value=${city}>${city}</mwc-list-item>
+            `)}
           </ha-select>
         </ha-formfield>
+      ` : html`
+        <ha-formfield label="${t('region_id')}">
+          <ha-textfield
+            .value=${c.region_id || ''}
+            placeholder="${t('region_id')}"
+            @input=${e => this._updateConfig('region_id', e.target.value)}
+          ></ha-textfield>
+        </ha-formfield>
+      `}
 
-        <!-- City or Region -->
-        ${c.integration==='pp' ? html`
-          <ha-formfield label="Stad">
-            <ha-select
-              .value=${c.city||''}
-              @selected=${e=>this._updateConfig('city', e.target.value)}
-              @closed=${e=>e.stopPropagation()}
-            >
-              ${this.installedCities.map(city=>html`<mwc-list-item .value=${city}>${city}</mwc-list-item>`)}
-            </ha-select>
-          </ha-formfield>
-        ` : html`
-          <ha-formfield label="Region ID">
+      <!-- Title -->
+      <ha-formfield label="${t('title')}">
+        <ha-textfield
+          .value=${c.title || ''}
+          placeholder="${t('title')}"
+          @input=${e => this._updateConfig('title', e.target.value || undefined)}
+        ></ha-textfield>
+      </ha-formfield>
+
+      <!-- Layout switches -->
+      <ha-formfield label="${t('minimal')}">
+        <ha-switch
+          .checked=${c.minimal}
+          @change=${e => this._updateConfig('minimal', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <ha-formfield label="${t('show_text')}">
+        <ha-switch
+          .checked=${c.show_text}
+          @change=${e => this._updateConfig('show_text', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <ha-formfield label="${t('show_empty_days')}">
+        <ha-switch
+          .checked=${c.show_empty_days}
+          @change=${e => this._updateConfig('show_empty_days', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+
+      <!-- Day settings -->
+      <ha-formfield label="${t('days_relative')}">
+        <ha-switch
+          .checked=${c.days_relative}
+          @change=${e => this._updateConfig('days_relative', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <ha-formfield label="${t('days_abbreviated')}">
+        <ha-switch
+          .checked=${c.days_abbreviated}
+          @change=${e => this._updateConfig('days_abbreviated', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <ha-formfield label="${t('days_uppercase')}">
+        <ha-switch
+          .checked=${c.days_uppercase}
+          @change=${e => this._updateConfig('days_uppercase', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <ha-formfield label="${t('days_boldfaced')}">
+        <ha-switch
+          .checked=${c.days_boldfaced}
+          @change=${e => this._updateConfig('days_boldfaced', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+
+      <!-- Days to show slider -->
+      <ha-formfield label="${t('days_to_show')} ${c.days_to_show}">
+        <ha-slider
+          min="0" max="6" step="1"
+          .value=${c.days_to_show}
+          @change=${e => this._updateConfig('days_to_show', Number(e.target.value))}
+        ></ha-slider>
+      </ha-formfield>
+
+      <!-- Pollen threshold -->
+      <ha-formfield label="${t('pollen_threshold')} ${c.pollen_threshold}">
+        <ha-slider
+          min="0" max="6" step="1"
+          .value=${c.pollen_threshold}
+          @change=${e => this._updateConfig('pollen_threshold', Number(e.target.value))}
+        ></ha-slider>
+      </ha-formfield>
+
+      <!-- Sort order -->
+      <ha-formfield label="${t('sort')}">
+        <ha-select
+          .value=${c.sort}
+          @selected=${e => this._updateConfig('sort', e.target.value)}
+          @closed=${e => e.stopPropagation()}
+        >
+          ${[
+            'value_ascending',
+            'value_descending',
+            'name_ascending',
+            'name_descending'
+          ].map(o => html`
+            <mwc-list-item .value=${o}>${o.replace('_',' ')}</mwc-list-item>
+          `)}
+        </ha-select>
+      </ha-formfield>
+
+      <!-- Date locale -->
+      <ha-formfield label="${t('locale')}">
+        <ha-textfield
+          .value=${c.date_locale}
+          @input=${e => this._updateConfig('date_locale', e.target.value)}
+        ></ha-textfield>
+      </ha-formfield>
+
+      <!-- Allergens -->
+      <details>
+        <summary>${t('allergens')}</summary>
+        <div class="allergens-group">
+          ${stubConfigPP.allergens.map(a => html`
+            <ha-formfield .label=${a}>
+              <ha-checkbox
+                .checked=${c.allergens.includes(a)}
+                @change=${e => this._onAllergenToggle(a, e.target.checked)}
+              ></ha-checkbox>
+            </ha-formfield>
+          `)}
+        </div>
+      </details>
+
+      <!-- Phrases sections -->
+      <h3>${t('phrases_full')}</h3>
+      <details>
+        <summary>${t('phrases_full')}</summary>
+        ${stubConfigPP.allergens.map(a => html`
+          <ha-formfield .label=${a}>
             <ha-textfield
-              .value=${c.region_id||''}
-              placeholder="Ange region_id"
-              @input=${e=>this._updateConfig('region_id', e.target.value)}
+              .value=${c.phrases.full[a] || ''}
+              @input=${e => {
+                const p = { ...c.phrases, full: { ...c.phrases.full, [a]: e.target.value }};
+                this._updateConfig('phrases', p);
+              }}
             ></ha-textfield>
           </ha-formfield>
-        `}
+        `)}
+      </details>
 
-        <!-- Title -->
-        <ha-formfield label="Titel (tom=auto)">
-          <ha-textfield
-            .value=${c.title||''}
-            placeholder="Ange egen titel eller lämna tom"
-            @input=${e=>this._updateConfig('title', e.target.value||undefined)}
-          ></ha-textfield>
-        </ha-formfield>
+      <details>
+        <summary>${t('phrases_short')}</summary>
+        ${stubConfigPP.allergens.map(a => html`
+          <ha-formfield .label=${a}>
+            <ha-textfield
+              .value=${c.phrases.short[a] || ''}
+              @input=${e => {
+                const p = { ...c.phrases, short: { ...c.phrases.short, [a]: e.target.value }};
+                this._updateConfig('phrases', p);
+              }}
+            ></ha-textfield>
+          </ha-formfield>
+        `)}
+      </details>
 
-        <!-- Layout switches -->
-        <ha-formfield label="Minimal">
-          <ha-switch
-            .checked=${c.minimal}
-            @change=${e=>this._updateConfig('minimal', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="Visa text">
-          <ha-switch
-            .checked=${c.show_text}
-            @change=${e=>this._updateConfig('show_text', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="Visa tomma dagar">
-          <ha-switch
-            .checked=${c.show_empty_days}
-            @change=${e=>this._updateConfig('show_empty_days', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
+      <details>
+        <summary>${t('phrases_levels')}</summary>
+        ${Array.from({ length: 7 }, (_, i) => html`
+          <ha-formfield .label=${i}>
+            <ha-textfield
+              .value=${c.phrases.levels[i] || ''}
+              @input=${e => {
+                const lv = [...(c.phrases.levels || [])];
+                lv[i] = e.target.value;
+                const p = { ...c.phrases, levels: lv };
+                this._updateConfig('phrases', p);
+              }}
+            ></ha-textfield>
+          </ha-formfield>
+        `)}
+      </details>
 
-        <!-- Day settings -->
-        <ha-formfield label="Relativa dagar (idag/imorgon)">
-          <ha-switch
-            .checked=${c.days_relative}
-            @change=${e=>this._updateConfig('days_relative', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="Förkorta veckodagar">
-          <ha-switch
-            .checked=${c.days_abbreviated}
-            @change=${e=>this._updateConfig('days_abbreviated', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="Versaler veckodagar">
-          <ha-switch
-            .checked=${c.days_uppercase}
-            @change=${e=>this._updateConfig('days_uppercase', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="Fetstil veckodagar">
-          <ha-switch
-            .checked=${c.days_boldfaced}
-            @change=${e=>this._updateConfig('days_boldfaced', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
+      <details>
+        <summary>${t('phrases_days')}</summary>
+        ${[0,1,2].map(i => html`
+          <ha-formfield .label=${i}>
+            <ha-textfield
+              .value=${c.phrases.days[i] || ''}
+              @input=${e => {
+                const dd = { ...(c.phrases.days || {}) };
+                dd[i] = e.target.value;
+                const p = { ...c.phrases, days: dd };
+                this._updateConfig('phrases', p);
+              }}
+            ></ha-textfield>
+          </ha-formfield>
+        `)}
+      </details>
 
-        <!-- Days to show slider -->
-        <ha-formfield label="Antal dagar: ${c.days_to_show}">
-          <ha-slider
-            min="0" max="6" step="1"
-            .value=${c.days_to_show}
-            @change=${e=>this._updateConfig('days_to_show', Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
+      <ha-formfield label="${t('no_information')}">
+        <ha-textfield
+          .value=${c.phrases.no_information || ''}
+          @input=${e => {
+            const p = { ...c.phrases, no_information: e.target.value };
+            this._updateConfig('phrases', p);
+          }}
+        ></ha-textfield>
+      </ha-formfield>
 
-        <!-- Pollen threshold -->
-        <ha-formfield label="Tröskel: ${c.pollen_threshold}">
-          <ha-slider
-            min="0" max="6" step="1"
-            .value=${c.pollen_threshold}
-            @change=${e=>this._updateConfig('pollen_threshold', Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-
-        <!-- Sort order -->
-        <ha-formfield label="Sortering">
-          <ha-select
-            .value=${c.sort}
-            @selected=${e=>this._updateConfig('sort', e.target.value)}
-            @closed=${e=>e.stopPropagation()}
-          >
-            ${['value_ascending','value_descending','name_ascending','name_descending'].map(o=>html`<mwc-list-item .value=${o}>${o}</mwc-list-item>`)}
-          </ha-select>
-        </ha-formfield>
-
-        <!-- Date locale -->
-        <ha-formfield label="Locale">
-          <ha-textfield
-            .value=${c.date_locale}
-            @input=${e=>this._updateConfig('date_locale', e.target.value)}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Allergens -->
-        <details>
-          <summary>Allergener</summary>
-          <div class="allergens-group">
-            ${stubConfigPP.allergens.map(a=>html`
-              <ha-formfield .label=${a}>
-                <ha-checkbox
-                  .checked=${c.allergens.includes(a)}
-                  @change=${e=>this._onAllergenToggle(a,e.target.checked)}
-                ></ha-checkbox>
-              </ha-formfield>
-            `)}
-          </div>
-        </details>
-
-        <!-- Phrases sections -->
-        <h3>Fraser</h3>
-        <details>
-          <summary>full</summary>
-          ${stubConfigPP.allergens.map(a=>html`
-            <ha-formfield .label=${a}>
-              <ha-textfield
-                .value=${c.phrases.full[a]||''}
-                @input=${e=>{
-                  const p = { ...c.phrases, full: { ...c.phrases.full, [a]: e.target.value }};
-                  this._updateConfig('phrases', p);
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-          `)}
-        </details>
-        <details>
-          <summary>short</summary>
-          ${stubConfigPP.allergens.map(a=>html`
-            <ha-formfield .label=${a}>
-              <ha-textfield
-                .value=${c.phrases.short[a]||''}
-                @input=${e=>{
-                  const p = { ...c.phrases, short: { ...c.phrases.short, [a]: e.target.value }};
-                  this._updateConfig('phrases', p);
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-          `)}
-        </details>
-        <details>
-          <summary>levels</summary>
-          ${Array.from({ length: 7 }, (_,i)=>html`
-            <ha-formfield .label=${i}>
-              <ha-textfield
-                .value=${c.phrases.levels[i]||''}
-                @input=${e=>{
-                  const lv = [...(c.phrases.levels||[])]; lv[i]=e.target.value;
-                  const p = { ...c.phrases, levels: lv };
-                  this._updateConfig('phrases', p);
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-          `)}
-        </details>
-        <details>
-          <summary>days</summary>
-          ${[0,1,2].map(i=>html`
-            <ha-formfield .label=${i}>
-              <ha-textfield
-                .value=${c.phrases.days[i]||''}
-                @input=${e=>{
-                  const dd = {...(c.phrases.days||{})}; dd[i]=e.target.value;
-                  const p = { ...c.phrases, days: dd };
-                  this._updateConfig('phrases', p);
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-          `)}
-        </details>
-        <ha-formfield label="no_information">
-          <ha-textfield
-            .value=${c.phrases.no_information||''}
-            @input=${e=>{
-              const p = { ...c.phrases, no_information: e.target.value };
-              this._updateConfig('phrases', p);
-            }}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Debug -->
-        <ha-formfield label="Debug">
-          <ha-switch
-            .checked=${c.debug}
-            @change=${e=>this._updateConfig('debug', e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-      </div>
-    `;
-  }
+      <!-- Debug -->
+      <ha-formfield label="${t('debug')}">
+        <ha-switch
+          .checked=${c.debug}
+          @change=${e => this._updateConfig('debug', e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+    </div>
+  `;
+}
 
   static get styles() {
     return css`
@@ -331,13 +435,4 @@ class PollenPrognosCardEditor extends LitElement {
 }
 
 customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
-
-// Register for visual picker
-// window.customCards = window.customCards || [];
-// window.customCards.push({
-//   type: 'pollenprognos-card',
-//   name: 'Pollenprognos Card',
-//   preview: true,
-//   description: 'Visar grafisk prognos för pollenhalter'
-// });
 
