@@ -25,7 +25,7 @@ export const stubConfigDWD = {
   show_text:         true,
   show_empty_days:   true,
   debug:             false,
-  days_to_show:      3,
+  days_to_show:      2,
   days_relative:     true,
   days_abbreviated:  false,
   days_uppercase:    false,
@@ -72,7 +72,7 @@ export async function fetchForecast(hass, config) {
   const noInfoLabel      = phrases.no_information || '';
   const locale           = config.date_locale || 'de-DE';
   const dayLabels        = phrases.days || {};
-  const days_to_show     = config.days_to_show ?? 3;
+  const days_to_show     = config.days_to_show ?? 2;
   const pollen_threshold = config.pollen_threshold ?? 0;
   const daysRelative     = config.days_relative !== false;
   const dayAbbrev        = Boolean(config.days_abbreviated);
