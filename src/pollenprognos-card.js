@@ -4,6 +4,35 @@ import { images } from './pollenprognos-images.js';
 import * as PP from './adapters/pp.js';
 import * as DWD from './adapters/dwd.js';
 
+const DWD_REGIONS = {
+  '11': 'Schleswig-Holstein und Hamburg',
+  '12': 'Schleswig-Holstein und Hamburg',
+  '20': 'Mecklenburg-Vorpommern',
+  '31': 'Niedersachsen und Bremen',
+  '32': 'Niedersachsen und Bremen',
+  '41': 'Nordrhein-Westfalen',
+  '42': 'Nordrhein-Westfalen',
+  '43': 'Nordrhein-Westfalen',
+  '50': 'Brandenburg und Berlin',
+  '61': 'Sachsen-Anhalt',
+  '62': 'Sachsen-Anhalt',
+  '71': 'Thüringen',
+  '72': 'Thüringen',
+  '81': 'Sachsen',
+  '82': 'Sachsen',
+  '91': 'Hessen',
+  '92': 'Hessen',
+  '101': 'Rheinland-Pfalz und Saarland',
+  '102': 'Rheinland-Pfalz und Saarland',
+  '103': 'Rheinland-Pfalz und Saarland',
+  '111': 'Baden-Württemberg',
+  '112': 'Baden-Württemberg',
+  '113': 'Baden-Württemberg',
+  '121': 'Bayern',
+  '122': 'Bayern',
+  '123': 'Bayern',
+  '124': 'Bayern',
+};
 const TRANSLATIONS = {
   en: {
     header_prefix:   'Pollen forecast for',
@@ -103,6 +132,7 @@ class PollenPrognosCard extends LitElement {
     this.days_to_show = 4;
     this.displayCols = [];
     this.header = '';
+    this._initDone = false;
   }
 
   static async getConfigElement() {
@@ -140,84 +170,132 @@ class PollenPrognosCard extends LitElement {
   }
 
   setConfig(config) {
+    // 1) Merga in defaults + inkommande config
     const defaults = PollenPrognosCard.getStubConfig();
     this.config = { ...defaults, ...config };
+
+    // 2) Spara om integreringen faktiskt sattes i config:en (inte bara via stub)
+    this._integrationExplicit = config.hasOwnProperty('integration');
+
+    // 3) Nollställ autokonfig-flaggan så att hass-settern kör om
+    this._initDone = false;
+
+    // 4) Om vi redan har hass: trigger hass-settern direkt
+    if (this._hass) {
+      this.hass = this._hass;
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
-    const availablePP  = Object.keys(hass.states).filter(id => id.startsWith('sensor.pollen_'));
-    const availableDWD = Object.keys(hass.states).filter(id => id.startsWith('sensor.pollenflug_'));
 
-    // 1) Auto-välj integration om inget konfigurerat
-    if (!this.config.integration) {
-      if (availablePP.length) this.config.integration = 'pp';
-      else if (availableDWD.length) this.config.integration = 'dwd';
+    // 1) Har användaren uttryckligen satt "integration"?
+    const explicit = !!this._integrationExplicit;
+
+    // 2) Hitta tillgängliga sensorer
+    const ppStates  = Object.keys(hass.states).filter(s => s.startsWith('sensor.pollen_'));
+    const dwdStates = Object.keys(hass.states).filter(s => s.startsWith('sensor.pollenflug_'));
+
+    // 3) Bestäm integration (PP om finns, annars DWD), men bara om inte explicit
+    let integration = this.config.integration;
+    if (!explicit) {
+      if (ppStates.length)       integration = 'pp';
+      else if (dwdStates.length) integration = 'dwd';
     }
 
-    const cfg = { ...this.config };
-    const debug = Boolean(cfg.debug);
+    // 4) Slå ihop stub‐defaults + user‐config
+    const ppStub  = PollenPrognosCard.getStubConfig();
+    const dwdStub = DWD.stubConfigDWD;
+    const baseStub = integration === 'dwd' ? dwdStub : ppStub;
+    const cfg = { ...baseStub, ...this.config, integration };
 
-    // 2) För DWD: auto-välj region_id om inget konfigurerat
-    if (cfg.integration === 'dwd') {
-      const regionIds = Array.from(new Set(
-        availableDWD.map(id => id.split('_').pop())
-      )).sort((a, b) => Number(a) - Number(b));
-      if (!cfg.region_id && regionIds.length) {
+    // 5) Återställ integration‐specifika defaults
+    if (integration === 'dwd') {
+      cfg.allergens    = dwdStub.allergens;
+      cfg.days_to_show = dwdStub.days_to_show;
+      cfg.date_locale  = dwdStub.date_locale;
+      if (!cfg.region_id && dwdStates.length) {
+        const regionIds = Array.from(new Set(dwdStates.map(id => id.split('_').pop())))
+          .sort((a,b)=>Number(a)-Number(b));
         cfg.region_id = regionIds[0];
       }
-      cfg.city = cfg.region_id;
-      cfg.allergens = DWD.stubConfigDWD.allergens;
-    }
-
-    // 3) För PP: auto-välj första stad om inget konfigurerat
-    if (cfg.integration === 'pp') {
-      // bygg upp nycklar "pollen_<citykey>_<allergen>"
-      const cityKeys = Array.from(new Set(
-        availablePP.map(id => {
-          const rem = id.slice('sensor.pollen_'.length);
-          return rem.slice(0, rem.lastIndexOf('_'));
-        })
-      ));
-      if (!cfg.city && cityKeys.length) {
-        // välj alfabetiskt
-        cfg.city = cityKeys.sort()[0];
+    } else {
+      if (!cfg.city && ppStates.length) {
+        const cityKeys = Array.from(new Set(
+          ppStates.map(id => id.slice('sensor.pollen_'.length)
+            .split('_').slice(0,-1).join('_'))
+        ));
+        const possible = [
+          'Borlänge','Bräkne-Hoby','Eskilstuna','Forshaga','Gävle','Göteborg',
+          'Hässleholm','Jönköping','Kristianstad','Ljusdal','Malmö',
+          'Norrköping','Nässjö','Piteå','Skövde','Stockholm',
+          'Storuman','Sundsvall','Umeå','Visby','Västervik','Östersund'
+        ];
+        const keyFor = n => n.toLowerCase()
+          .replace(/[åä]/g,'a').replace(/ö/g,'o')
+          .replace(/[-\s]/g,'_');
+        const installed = possible.filter(n => cityKeys.includes(keyFor(n))).sort();
+        cfg.city = installed[0];
       }
     }
 
-    // HEADER / TITLE
-    if (typeof cfg.title === 'string') {
-      this.header = cfg.title;
-    } else if (cfg.title === false) {
-      this.header = '';
-    } else {
-      const loc = cfg.integration === 'dwd' ? cfg.region_id : cfg.city;
+    // 6) Spara config + sätt rubrik
+    this.config = cfg;
+    if (typeof cfg.title === 'string')      this.header = cfg.title;
+    else if (cfg.title === false)           this.header = '';
+    else {
+      const loc = cfg.integration === 'dwd'
+        ? (DWD_REGIONS[cfg.region_id] || cfg.region_id)
+        : cfg.city;
       this.header = `${this._t('header_prefix')} ${loc}`;
     }
-
-    if (debug) {
-      console.log('---- pollenprognos-card start ----');
-      console.log('Integration:', cfg.integration);
-      console.log('Region/City:', cfg.integration === 'dwd' ? cfg.region_id : cfg.city);
-    }
-
+    // 7) Hämta prognos, med fallback om PP ger 0 resultat
     const adapter = ADAPTERS[cfg.integration] || PP;
     adapter.fetchForecast(hass, cfg)
       .then(sensors => {
-        this.sensors = sensors;
+        // Om ingen explicit PP-val och vi är i PP-läge utan sensorer men har DWD-sensorer → fallback
+        if (
+          !explicit &&
+          cfg.integration === 'pp' &&
+          sensors.length === 0 &&
+          dwdStates.length > 0
+        ) {
+          // Byt integration i cfg
+          cfg.integration    = 'dwd';
+          cfg.allergens      = dwdStub.allergens;
+          cfg.days_to_show   = dwdStub.days_to_show;
+          cfg.date_locale    = dwdStub.date_locale;
+          // plocka första region
+          cfg.region_id      = Array.from(new Set(dwdStates.map(id => id.split('_').pop())))
+            .sort((a,b)=>Number(a)-Number(b))[0];
+          // justera header
+          this.header = `${this._t('header_prefix')} ${
+            DWD_REGIONS[cfg.region_id] || cfg.region_id
+          }`;
+          // hämta via DWD istället
+          return ADAPTERS.dwd.fetchForecast(hass, cfg);
+        }
+        // annars returnera sensorerna vi fick
+        return sensors;
+      })
+      .then(finalSensors => {
+        // Sätt slutligt resultat, oavsett PP eller fallback-DWD
+        this.sensors      = finalSensors;
         this.days_to_show = cfg.days_to_show;
-        this.displayCols = Array.from(
+        this.displayCols  = Array.from(
           { length: cfg.show_empty_days
             ? cfg.days_to_show
-            : (sensors[0]?.days?.length || 0)
+            : (finalSensors[0]?.days?.length || 0)
           },
           (_, i) => i
         );
         this.requestUpdate();
       })
       .catch(err => {
+        // Körs bara om själva fetchen REJECTAR, eller om fallback‐fetchen REJECTAR.
         console.error('Error fetching pollen forecast:', err);
       });
+
   }
 
 
