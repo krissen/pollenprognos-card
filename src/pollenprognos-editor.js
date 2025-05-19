@@ -1,3 +1,5 @@
+// src/pollenprognos-editor.js
+
 import { LitElement, html, css } from 'lit';
 
 // Stub-config från adaptrar (för att editorn vet vilka fält som finns)
@@ -195,6 +197,12 @@ _updateConfig(prop, value) {
     const c = this._config;
     const t = key => this._t(key);
 
+    // pick the right “master list” of allergens
+    const available =
+      c.integration === 'dwd'
+      ? stubConfigDWD.allergens
+      : stubConfigPP.allergens;
+
     return html`
     <div class="card-config">
       <!-- Integration -->
@@ -339,24 +347,24 @@ _updateConfig(prop, value) {
 
     <!-- Allergens -->
     <details>
-    <summary>${t('allergens')}</summary>
-    <div class="allergens-group">
-    ${stubConfigPP.allergens.map(a => html`
-            <ha-formfield .label=${a}>
-              <ha-checkbox
-                .checked=${c.allergens.includes(a)}
-                @change=${e => this._onAllergenToggle(a, e.target.checked)}
-              ></ha-checkbox>
-            </ha-formfield>
-          `)}
-    </div>
+      <summary>${t('allergens')}</summary>
+      <div class="allergens-group">
+        ${available.map(allergenKey => html`
+          <ha-formfield .label=${allergenKey}>
+            <ha-checkbox
+              .checked=${c.allergens.includes(allergenKey)}
+              @change=${e => this._onAllergenToggle(allergenKey, e.target.checked)}
+            ></ha-checkbox>
+          </ha-formfield>
+        `)}
+      </div>
     </details>
 
     <!-- Phrases sections -->
     <h3>${t('phrases')}</h3>
     <details>
     <summary>${t('phrases_full')}</summary>
-    ${stubConfigPP.allergens.map(a => html`
+    ${available.map(a => html`
           <ha-formfield .label=${a}>
             <ha-textfield
               .value=${c.phrases.full[a] || ''}
@@ -371,7 +379,7 @@ _updateConfig(prop, value) {
 
             <details>
             <summary>${t('phrases_short')}</summary>
-            ${stubConfigPP.allergens.map(a => html`
+            ${available.map(a => html`
     <ha-formfield .label=${a}>
       <ha-textfield
         .value=${c.phrases.short[a] || ''}
