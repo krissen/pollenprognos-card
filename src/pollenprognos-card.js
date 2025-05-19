@@ -1,84 +1,25 @@
+// src/pollenprognos-card.js
 import { LitElement, html, css } from 'lit';
 import { images } from './pollenprognos-images.js';
 
+// Adapter-modulerna (du använder dem senare via CONSTANT_ADAPTERS eller direkt)
 import * as PP from './adapters/pp.js';
 import * as DWD from './adapters/dwd.js';
 
+// Stub-konfigurationer
 import { stubConfigPP }  from './adapters/pp.js';
 import { stubConfigDWD } from './adapters/dwd.js';
 
-const DWD_REGIONS = {
-  '11': 'Schleswig-Holstein und Hamburg',
-  '12': 'Schleswig-Holstein und Hamburg',
-  '20': 'Mecklenburg-Vorpommern',
-  '31': 'Niedersachsen und Bremen',
-  '32': 'Niedersachsen und Bremen',
-  '41': 'Nordrhein-Westfalen',
-  '42': 'Nordrhein-Westfalen',
-  '43': 'Nordrhein-Westfalen',
-  '50': 'Brandenburg und Berlin',
-  '61': 'Sachsen-Anhalt',
-  '62': 'Sachsen-Anhalt',
-  '71': 'Thüringen',
-  '72': 'Thüringen',
-  '81': 'Sachsen',
-  '82': 'Sachsen',
-  '91': 'Hessen',
-  '92': 'Hessen',
-  '101': 'Rheinland-Pfalz und Saarland',
-  '102': 'Rheinland-Pfalz und Saarland',
-  '103': 'Rheinland-Pfalz und Saarland',
-  '111': 'Baden-Württemberg',
-  '112': 'Baden-Württemberg',
-  '113': 'Baden-Württemberg',
-  '121': 'Bayern',
-  '122': 'Bayern',
-  '123': 'Bayern',
-  '124': 'Bayern',
-};
-const TRANSLATIONS = {
-  en: {
-    header_prefix:   'Pollen forecast for',
-    error:           'No pollen sensors found. Have you installed the correct integration and selected a region in the card config?'
-  },
-  sv: {
-    header_prefix:   'Pollenprognos för',
-    error:           'Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?'
-  },
-  de: {
-    header_prefix:   'Pollenprognose für',
-    error:           'Keine Pollensensoren gefunden. Haben Sie die richtige Integration installiert und eine Region in der Kartenkonfiguration ausgewählt?'
-  }
-};
+// Statiska konstanter
+import {
+  DWD_REGIONS,
+  TRANSLATIONS,
+  ALLERGEN_TRANSLATION,
+  ADAPTERS as CONSTANT_ADAPTERS,
+  PP_POSSIBLE_CITIES
+} from './constants.js';
 
-const ALLERGEN_TRANSLATION = {
-  // Svenska
-  al:               'alder',
-  alm:              'elm',
-  bjork:            'birch',
-  ek:               'oak',
-  grabo:            'mugwort',
-  gras:             'grass',
-  hassel:           'hazel',
-  malortsambrosia:  'ragweed',
-  salg_och_viden:   'willow',
-
-  // Tyska (DWD), normaliserade via replaceAAO
-  erle:     'alder',
-  ambrosia: 'ragweed',
-  esche:    'ash',
-  birke:    'birch',
-  hasel:    'hazel',
-  graeser:  'grass',    // från 'gräser'
-  beifuss:  'mugwort',  // från 'beifuss'
-  roggen:   'rye'
-};
-
-
-const ADAPTERS = {
-  pp: PP,
-  dwd: DWD
-};
+const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
 
 class PollenPrognosCard extends LitElement {
   /** Tvåbokstavskod, fallback en */
