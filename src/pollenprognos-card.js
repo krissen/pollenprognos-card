@@ -234,6 +234,13 @@ class PollenPrognosCard extends LitElement {
       integration,
     };
 
+    // 3) SÄKERSTÄLL att DWD-defaults *alltid* ligger kvar vid dwd
+    if (integration === 'dwd') {
+      cfg.allergens    = stubDWD.allergens;
+      cfg.days_to_show = stubDWD.days_to_show;
+      cfg.date_locale  = stubDWD.date_locale;
+    }
+
     // 6) Om DWD, auto-välj första region om saknas
     if (integration === 'dwd') {
       if (!cfg.region_id && dwdStates.length) {
