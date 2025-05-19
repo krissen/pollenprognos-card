@@ -183,6 +183,7 @@ class PollenPrognosCardEditor extends LitElement {
       // återställ days_to_show & locale till stub-värden
       this._config.days_to_show = base.days_to_show;
       this._config.date_locale  = base.date_locale;
+      this._config.allergens = base.allergens;
     } else {
       // samma integration, bara merge in nya värden
       this._config = deepMerge(this._config, config);
@@ -272,6 +273,7 @@ _updateConfig(prop, value) {
     // Nollställ enbart days_to_show och date_locale
     cfg.days_to_show = base.days_to_show;
     cfg.date_locale  = base.date_locale;
+    cfg.allergens = base.allergens;
     // Släng bort det gamle integrations-fältet
     if (value === 'dwd') {
       delete cfg.city;
