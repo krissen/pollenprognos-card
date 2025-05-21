@@ -69,29 +69,34 @@ class PollenPrognosCardEditor extends LitElement {
     this._initDone = false;
   }
 
-setConfig(config) {
-  // If the user changed integration → start from a fresh stub, but preserve their own allergens if they had set any
-  if (config.integration && config.integration !== this._config.integration) {
-    const base = config.integration === 'dwd' ? stubConfigDWD : stubConfigPP;
-    // fresh stub…
-    this._config = { ...base };
-    // …then apply only the fields the user explicitly sent
-    Object.assign(this._config, config);
-    // If user didn’t supply their own allergen‐array, we leave base.allergens intact;
-    // if they *did* supply one, Object.assign above already copied it.
-  } else {
-    // same integration or first time: merge all user fields on top
-    this._config = deepMerge(this._config, config);
+  setConfig(config) {
+    // If the user changed integration → start from a fresh stub, but preserve their own allergens if they had set any
+    if (config.integration && config.integration !== this._config.integration) {
+      const base = config.integration === 'dwd' ? stubConfigDWD : stubConfigPP;
+      // fresh stub…
+      this._config = { ...base };
+      // …then apply only the fields the user explicitly sent
+      Object.assign(this._config, config);
+      // If user didn’t supply their own allergen‐array, we leave base.allergens intact;
+      // if they *did* supply one, Object.assign above already copied it.
+    } else {
+      // same integration or first time: merge all user fields on top
+      this._config = deepMerge(this._config, config);
+    }
+
+    // ensure `type` stays present so the preview will render
+    this._config.type = 'custom:pollenprognos-card';
+
+    this.requestUpdate();
   }
-
-  // ensure `type` stays present so the preview will render
-  this._config.type = 'custom:pollenprognos-card';
-
-  this.requestUpdate();
-}
 
   set hass(hass) {
     this._hass = hass;
+    const explicit = !!this._integrationExplicit;
+    // console.debug('[PollenPrognos] set hass 🔄', {
+    //   explicit,
+    //   userConfig: this._userConfig,
+    // });
 
     // Hitta alla PP- och DWD-sensorer
     const ppStates  = Object.keys(hass.states)
@@ -99,28 +104,30 @@ setConfig(config) {
     const dwdStates = Object.keys(hass.states)
       .filter(id => id.startsWith('sensor.pollenflug_'));
 
-    // 1) Auto-välj integration EN GÅNG: PP om vi har några PP-sensorer,
-    // annars DWD om vi har några DWD-sensorer
+    // console.debug('[PollenPrognos] sensor counts', {
+    //   pp: ppStates.length,
+    //   dwd: dwdStates.length,
+    // });
+
+    // Auto-choose integration once, for UI only
     if (!this._initDone) {
-      if (ppStates.length) {
-        this._updateConfig('integration', 'pp');
-      } else if (dwdStates.length) {
-        this._updateConfig('integration', 'dwd');
-      }
+      if      (ppStates.length) this._config.integration = 'pp';
+      else if (dwdStates.length) this._config.integration = 'dwd';
+      // no _updateConfig() here → we do NOT fire a config-changed
     }
 
-    // 2) Bygg lista med installerade DWD‐regionkoder
+    // Bygg lista med installerade DWD‐regionkoder
     const regionIds = Array.from(new Set(
       dwdStates.map(id => id.split('_').pop())
     )).sort((a, b) => Number(a) - Number(b));
     this.installedRegionIds = regionIds;
 
-    // 3) Om DWD och inget region_id valt → välj första
+    // Om DWD och inget region_id valt → välj första
     if (this._config.integration === 'dwd' && regionIds.length && !this._config.region_id) {
       this._updateConfig('region_id', regionIds[0]);
     }
 
-    // 4) Bygg lista installerade PP-städer (hela key före sista “_”)
+    // Bygg lista installerade PP-städer (hela key före sista “_”)
     const ppKeys = ppStates.map(id => {
       const rem = id.slice('sensor.pollen_'.length);
       return rem.slice(0, rem.lastIndexOf('_'));
@@ -133,7 +140,7 @@ setConfig(config) {
       .filter(city => uniqCities.includes(keyFor(city)))
       .sort((a, b) => a.localeCompare(b));
 
-    // 5) Om PP och inget city valt → välj första
+    // Om PP och inget city valt → välj första
     if (!this._initDone
       && this._config.integration === 'pp'
       && !this._config.city
@@ -142,6 +149,7 @@ setConfig(config) {
     }
 
     this._initDone = true;
+    this.requestUpdate();
   }
 
   _onAllergenToggle(allergen, checked) {
@@ -150,51 +158,51 @@ setConfig(config) {
     this._updateConfig('allergens', [...s]);
   }
 
-_updateConfig(prop, value) {
-  let cfg;
+  _updateConfig(prop, value) {
+    let cfg;
 
-  if (prop === 'integration') {
-    // 1) Hämta rätt stub för den nya integrationen
-    const base = value === 'dwd' ? stubConfigDWD : stubConfigPP;
+    if (prop === 'integration') {
+      // Hämta rätt stub för den nya integrationen
+      const base = value === 'dwd' ? stubConfigDWD : stubConfigPP;
 
-    // 2) Börja från ett rent stub-objekt (inga gamla overrides)
-    cfg = deepMerge(base, {});
+      // Börja från ett rent stub-objekt (inga gamla overrides)
+      cfg = deepMerge(base, {});
 
-    // 3) Sätt den nya integration-flaggan
-    cfg.integration = value;
+      // Sätt den nya integration-flaggan
+      cfg.integration = value;
 
-    // 4) Ta bort fält som inte gäller för den valda integrationen
-    if (value === 'dwd') {
-      // Ingen stad i DWD
-      delete cfg.city;
-      // Auto-välj första region om ej satt
-      if (!cfg.region_id && this.installedRegionIds?.length) {
-        cfg.region_id = this.installedRegionIds[0];
+      // Ta bort fält som inte gäller för den valda integrationen
+      if (value === 'dwd') {
+        // Ingen stad i DWD
+        delete cfg.city;
+        // Auto-välj första region om ej satt
+        if (!cfg.region_id && this.installedRegionIds?.length) {
+          cfg.region_id = this.installedRegionIds[0];
+        }
+      } else {
+        // Ingen region i PP
+        delete cfg.region_id;
+        // Auto-välj första stad om ej satt
+        if (!cfg.city && this.installedCities?.length) {
+          cfg.city = this.installedCities[0];
+        }
       }
     } else {
-      // Ingen region i PP
-      delete cfg.region_id;
-      // Auto-välj första stad om ej satt
-      if (!cfg.city && this.installedCities?.length) {
-        cfg.city = this.installedCities[0];
-      }
+      // Övriga ändringar: bygg vidare på befintlig config
+      cfg = { ...this._config, [prop]: value };
     }
-  } else {
-    // Övriga ändringar: bygg vidare på befintlig config
-    cfg = { ...this._config, [prop]: value };
+
+    // Se till att type alltid finns kvar
+    cfg.type = this._config.type || 'custom:pollenprognos-card';
+
+    // Spara och skicka vidare till Lovelace
+    this._config = cfg;
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: cfg },
+      bubbles: true,
+      composed: true
+    }));
   }
-
-  // Se till att type alltid finns kvar
-  cfg.type = this._config.type || 'custom:pollenprognos-card';
-
-  // Spara och skicka vidare till Lovelace
-  this._config = cfg;
-  this.dispatchEvent(new CustomEvent('config-changed', {
-    detail: { config: cfg },
-    bubbles: true,
-    composed: true
-  }));
-}
 
   render() {
     const c = this._config;
@@ -462,5 +470,5 @@ _updateConfig(prop, value) {
     }
   }
 
-                customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
+          customElements.define('pollenprognos-card-editor', PollenPrognosCardEditor);
 
