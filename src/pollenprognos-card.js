@@ -115,30 +115,32 @@ class PollenPrognosCard extends LitElement {
   }
 
 setConfig(config) {
-  // Klona original-config (om den är fryst) och—vid byte till DWD—sätt DWD-stubben
-  const userConf = { ...config };
-  if (userConf.integration === 'dwd') {
-    // När användaren väljer DWD, lägg in DWD-standardlistan direkt
-    userConf.allergens = stubConfigDWD.allergens;
-  }
-  // 2) Spara den klonade configen
-  this._userConfig = userConf;
+  // 1) Keep exactly what the user passed
+  this._userConfig = { ...config };
 
-  // 3) Börja med PP-stub och merge mot userConf (istället för original config)
-  const defaults = stubConfigPP;
-  const merged   = { ...defaults, ...userConf };
-  if (!userConf.hasOwnProperty('integration')) {
-    delete merged.integration;
-  }
-  this.config = merged;
-  // 4) Om det verkligen var en manuell DWD-val → rensa stub-fält så att set hass kan falla tillbaka korrekt
+  // 2) If they explicitly chose DWD, fill in any missing fields
+  //    from the DWD stub; otherwise do the same from the PP stub.
+  const isDwd = this._userConfig.integration === 'dwd';
+  const seed  = isDwd ? stubConfigDWD : stubConfigPP;
 
-  // 5) Markera explicit ENDAST om integration skiljer sig från PP-stubben
-  this._integrationExplicit =
-    config.hasOwnProperty('integration') &&
-    config.integration !== stubConfigPP.integration;
+  ['allergens','days_to_show','date_locale'].forEach((key) => {
+    if (this._userConfig[key] === undefined) {
+      this._userConfig[key] = seed[key];
+    }
+  });
 
-  // 6) Återställ init-flagga och trigga hass-uppdatering
+  // 3) Mark whether they explicitly set integration
+  this._integrationExplicit = config.hasOwnProperty('integration');
+
+  // 4) **This is the critical line** — give `this.config` something
+  //    before your hass-setter tries to read it.
+  //    Merge in PP-stub first, then overlay whatever they actually passed.
+  this.config = {
+    ...PollenPrognosCard.getStubConfig(),
+    ...this._userConfig
+  };
+
+  // 5) Reset init flag & re-invoke hass logic
   this._initDone = false;
   if (this._hass) {
     this.hass = this._hass;
@@ -174,7 +176,7 @@ set hass(hass) {
   const stubDWD = DWD.stubConfigDWD;
   const baseStub = integration === 'dwd' ? stubDWD : stubPP;
 
-  console.debug('📡 fallback check', { explicit, pp: ppStates.length, dwd: dwdStates.length, integration });
+  // console.debug('📡 fallback check', { explicit, pp: ppStates.length, dwd: dwdStates.length, integration });
 
   // 6) Bygg cfg ENBART från stub + det användaren faktiskt angett
   const cfg = {

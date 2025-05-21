@@ -69,30 +69,26 @@ class PollenPrognosCardEditor extends LitElement {
     this._initDone = false;
   }
 
-  setConfig(config) {
-if (this._config.integration !== config.integration) {
-  const base = config.integration === 'dwd' ? stubConfigDWD : stubConfigPP;
-  // börja från ett rent stub-objekt
-  this._config = deepMerge(base, {});
-  // slå på användarens egna overrides
-  this._config = deepMerge(this._config, config);
-  // återställ days_to_show & locale till stub-värden
-  this._config.days_to_show = base.days_to_show;
-  this._config.date_locale  = base.date_locale;
-  // bara återställ allergens om användaren inte själv angivit en egen lista
-  if (!config.hasOwnProperty('allergens')) {
-    this._config.allergens = base.allergens;
+setConfig(config) {
+  // If the user changed integration → start from a fresh stub, but preserve their own allergens if they had set any
+  if (config.integration && config.integration !== this._config.integration) {
+    const base = config.integration === 'dwd' ? stubConfigDWD : stubConfigPP;
+    // fresh stub…
+    this._config = { ...base };
+    // …then apply only the fields the user explicitly sent
+    Object.assign(this._config, config);
+    // If user didn’t supply their own allergen‐array, we leave base.allergens intact;
+    // if they *did* supply one, Object.assign above already copied it.
+  } else {
+    // same integration or first time: merge all user fields on top
+    this._config = deepMerge(this._config, config);
   }
-} else {
-  // samma integration, bara merge in nya värden
-  this._config = deepMerge(this._config, config);
+
+  // ensure `type` stays present so the preview will render
+  this._config.type = 'custom:pollenprognos-card';
+
+  this.requestUpdate();
 }
-
-    // säkerställ att type alltid ligger kvar – annars kan inte förhandsvisningen ritas
-    this._config = { ...this._config, type: 'custom:pollenprognos-card' };
-
-    this.requestUpdate();
-  }
 
   set hass(hass) {
     this._hass = hass;

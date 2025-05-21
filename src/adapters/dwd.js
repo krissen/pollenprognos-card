@@ -194,7 +194,7 @@ export async function fetchForecast(hass, config) {
   };
   sensors.sort(sorter[config.sort] || sorter.default);
 
-  console.log('DWD adapter: allergens =', config.allergens);
+  if (debug) console.log('DWD adapter: allergens =', config.allergens);
 
   if (debug) console.log('DWD adapter: färdigt sensors‐array:', sensors);
   return sensors;
