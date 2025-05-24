@@ -34,6 +34,10 @@ const deepMerge = (target, source) => {
 };
 
 class PollenPrognosCardEditor extends LitElement {
+  get debug() {
+    return Boolean(this._config.debug);
+  }
+
   static get properties() {
     return {
       _config: { type: Object },
@@ -73,7 +77,8 @@ class PollenPrognosCardEditor extends LitElement {
 
   setConfig(config) {
     // Logga inkommande värden
-    console.debug("[Editor] setConfig – userConfig in:", config);
+    if (this.debug)
+      console.debug("[Editor] setConfig – userConfig in:", config);
 
     // 1) Ackumulera nya värden över de som redan fanns
     this._userConfig = deepMerge(this._userConfig, config);
@@ -94,7 +99,8 @@ class PollenPrognosCardEditor extends LitElement {
     this._initDone = false;
 
     // Logga slutgiltigt resultat
-    console.debug("[Editor] setConfig – merged _config:", this._config);
+    if (this.debug)
+      console.debug("[Editor] setConfig – merged _config:", this._config);
 
     // *Ny kod*: meddela Home Assistant att config ändrats så att preview ritas om
     this.dispatchEvent(
@@ -109,11 +115,12 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   set hass(hass) {
-    console.debug("[Editor] hass setter – before initDone:", {
-      initDone: this._initDone,
-      userConfig: this._userConfig,
-      config: this._config,
-    });
+    if (this.debug)
+      console.debug("[Editor] hass setter – before initDone:", {
+        initDone: this._initDone,
+        userConfig: this._userConfig,
+        config: this._config,
+      });
 
     this._hass = hass;
 
@@ -170,11 +177,12 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     this._initDone = true;
-    console.debug("[Editor] hass setter – after initDone:", {
-      initDone: this._initDone,
-      userConfig: this._userConfig,
-      config: this._config,
-    });
+    if (this.debug)
+      console.debug("[Editor] hass setter – after initDone:", {
+        initDone: this._initDone,
+        userConfig: this._userConfig,
+        config: this._config,
+      });
 
     this.requestUpdate();
   }
@@ -186,7 +194,8 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   _updateConfig(prop, value) {
-    console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
+    if (this.debug)
+      console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
     // 1) Uppdatera userConfig
     const newUser = { ...this._userConfig };
@@ -272,8 +281,13 @@ class PollenPrognosCardEditor extends LitElement {
 
     // 9) Spara och logga
     this._config = cfg;
-    console.debug("[Editor] _updateConfig – userConfig now:", this._userConfig);
-    console.debug("[Editor] _updateConfig – merged _config:", this._config);
+    if (this.debug)
+      console.debug(
+        "[Editor] _updateConfig – userConfig now:",
+        this._userConfig,
+      );
+    if (this.debug)
+      console.debug("[Editor] _updateConfig – merged _config:", this._config);
 
     // 10) Triggera preview-uppdatering
     this.dispatchEvent(

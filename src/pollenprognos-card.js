@@ -22,6 +22,9 @@ import {
 const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
 
 class PollenPrognosCard extends LitElement {
+  get debug() {
+    return Boolean(this._config.debug);
+  }
   /** Tvåbokstavskod, fallback en */
   get _lang() {
     const haLang = this._hass?.language?.slice(0, 2);
