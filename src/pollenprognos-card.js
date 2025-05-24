@@ -26,13 +26,20 @@ class PollenPrognosCard extends LitElement {
     // Läs från den publika 'config'-prop som sätts i set hass
     return Boolean(this.config?.debug);
   }
-  /** Tvåbokstavskod, fallback en */
+  /** Tvåbokstavskod för översättningar: 1) date_locale, 2) HA-UI, 3) English */
   get _lang() {
+    // 1) Använd card-konfigurerad locale (date_locale) om satt
+    if (this.config?.date_locale) {
+      return this.config.date_locale.slice(0, 2).toLowerCase();
+    }
+    // 2) Annars Home Assistant-gränssnittets språk
     const haLang = this._hass?.language?.slice(0, 2);
-    const navLang = navigator.language?.slice(0, 2);
-    return (haLang || navLang || "en").toLowerCase();
+    if (haLang) {
+      return haLang.toLowerCase();
+    }
+    // 3) Slutligen engelska som fallback
+    return "en";
   }
-
   /** Hämta text från TRANSLATIONS */
   _t(key) {
     return (TRANSLATIONS[this._lang] || TRANSLATIONS.en)[key] || "";

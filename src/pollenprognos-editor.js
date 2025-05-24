@@ -188,12 +188,19 @@ class PollenPrognosCardEditor extends LitElement {
     };
   }
 
-  /** Hämta tvåbokstavskod, fallback ’en’ */
+  /** Tvåbokstavskod för översättningar: 1) date_locale, 2) HA-UI, 3) English */
   get _lang() {
-    // HA:s språk, annars browser
-    const ha = this._hass?.language?.slice(0, 2);
-    const nav = navigator.language?.slice(0, 2);
-    return (ha || nav || "en").toLowerCase();
+    // 1) Använd card-konfigurerad locale (date_locale) om satt
+    if (this.config?.date_locale) {
+      return this.config.date_locale.slice(0, 2).toLowerCase();
+    }
+    // 2) Annars Home Assistant-gränssnittets språk
+    const haLang = this._hass?.language?.slice(0, 2);
+    if (haLang) {
+      return haLang.toLowerCase();
+    }
+    // 3) Slutligen engelska som fallback
+    return "en";
   }
 
   /** Översätt nyckel till korrekt label */
