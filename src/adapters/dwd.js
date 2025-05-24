@@ -1,12 +1,5 @@
 // src/adapters/dwd.js
 
-/**
- * Adapter för DWD Pollenflug‐integration.
- * Exporterar:
- *  - stubConfigDWD: standard‐värden för setConfig / editor
- *  - fetchForecast(hass, config): bygger sensors‐array utifrån Home Assistant‐data
- */
-
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
 const ATTR_VAL_IN_2_DAYS = "state_in_2_days";
@@ -16,7 +9,7 @@ const ATTR_DESC_IN_2_DAYS = "state_in_2_days_desc";
 
 export const stubConfigDWD = {
   integration: "dwd",
-  region_id: "", // DWD-regionens ID
+  region_id: "",
   allergens: [
     "erle",
     "ambrosia",
@@ -29,6 +22,7 @@ export const stubConfigDWD = {
   ],
   minimal: false,
   show_text: true,
+  show_value: false,
   show_empty_days: true,
   debug: false,
   days_to_show: 2,
@@ -69,33 +63,26 @@ export const stubConfigDWD = {
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
   const phrases = config.phrases || {};
-  const allergenFull = phrases.full || {};
-  const allergenShort = phrases.short || {};
   const levelNames =
-    phrases.levels && phrases.levels.length === 7
+    Array.isArray(phrases.levels) && phrases.levels.length === 7
       ? phrases.levels
-      : [
-          "keine Belastung",
-          "keine bis geringe Belastung",
-          "geringe Belastung",
-          "geringe bis mittlere Belastning",
-          "mittliga Belastning",
-          "mittliga bis hohe Belastning",
-          "hohe Belastning",
-        ];
+      : stubConfigDWD.phrases.levels;
+
   const noInfoLabel = phrases.no_information || "";
-  const locale = config.date_locale || "de-DE";
+  const locale = config.date_locale || stubConfigDWD.date_locale;
   const dayLabels = phrases.days || {};
-  const days_to_show = config.days_to_show ?? 2;
-  const pollen_threshold = config.pollen_threshold ?? 1;
+  const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
+  const pollen_threshold =
+    config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);
-  const showEmpty =
-    config.show_empty_days == null ? true : Boolean(config.show_empty_days);
 
-  if (debug) console.log("DWD adapter: fetchForecast start", config);
+  if (debug) {
+    console.log("DWD adapter: fetchForecast start", { config, levelNames });
+  }
 
   const replaceAAO = (intext) =>
     intext
@@ -111,38 +98,38 @@ export async function fetchForecast(hass, config) {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const sensors = [];
 
   for (const allergen of config.allergens) {
     try {
       const dict = {};
       dict.allergenReplaced = replaceAAO(allergen);
-      dict.allergenCapitalized = allergenFull[allergen] || capitalize(allergen);
-      dict.allergenShort = allergenShort[allergen] || dict.allergenCapitalized;
+      dict.allergenCapitalized =
+        (phrases.full || {})[allergen] || capitalize(allergen);
+      dict.allergenShort =
+        (phrases.short || {})[allergen] || dict.allergenCapitalized;
 
-      // Bygg sensor-ID: sensor.pollenflug_<allergen>_<region_id>
+      // Hitta sensor‐ID
       const region = config.region_id;
       let sensorId = region
         ? `sensor.pollenflug_${dict.allergenReplaced}_${region}`
         : null;
-
       if (!sensorId || !hass.states[sensorId]) {
-        // Fallback: hitta exakt en sensor för allergenet
         const cands = Object.keys(hass.states).filter((id) =>
           id.startsWith(`sensor.pollenflug_${dict.allergenReplaced}_`),
         );
         if (cands.length === 1) sensorId = cands[0];
         else continue;
       }
-
       const sensor = hass.states[sensorId];
 
-      // Extrahera nivåer
+      // Extrahera råvärden
       const todayVal = test_val(sensor.state);
       const tomVal = test_val(sensor.attributes[ATTR_VAL_TOMORROW]);
       const twoVal = test_val(sensor.attributes[ATTR_VAL_IN_2_DAYS]);
 
-      // Bygg nivå-array
+      // Bygg nivå‐array
       const levels = [
         { date: today, level: todayVal, name: dict.allergenCapitalized },
         {
@@ -156,8 +143,6 @@ export async function fetchForecast(hass, config) {
           name: dict.allergenCapitalized,
         },
       ];
-
-      // Pad vid färre dagar
       while (levels.length < days_to_show) {
         const idx = levels.length;
         levels.push({
@@ -191,30 +176,43 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
+        // Sensorns egen beskrivning som fallback
+        const sensorDesc =
+          sensor.attributes[
+            idx === 0
+              ? ATTR_DESC_TODAY
+              : idx === 1
+                ? ATTR_DESC_TOMORROW
+                : ATTR_DESC_IN_2_DAYS
+          ] || "";
+
+        // --- Här gör vi den viktiga justeringen: --
+        // dubblar råvärdet innan vi gör text‐uppslaget:
+        const scaled = entry.level * 2;
+        const lvlIndex = Math.round(scaled);
+
+        const text =
+          lvlIndex < 0
+            ? noInfoLabel
+            : levelNames[lvlIndex] != null
+              ? levelNames[lvlIndex]
+              : sensorDesc;
+
         dict[`day${idx}`] = {
           name: entry.name,
           day: dayLabel,
+          // state lämnar vi orört (0.5–3)
           state: entry.level,
-          state_text:
-            entry.level < 0
-              ? noInfoLabel
-              : sensor.attributes[
-                  idx === 0
-                    ? ATTR_DESC_TODAY
-                    : idx === 1
-                      ? ATTR_DESC_TOMORROW
-                      : ATTR_DESC_IN_2_DAYS
-                ] ||
-                levelNames[entry.level] ||
-                "",
+          // state_text med rätt textfras
+          state_text: text,
         };
       });
 
-      // Filtera med tröskel
+      // Filtrera bort allergener under tröskel
       const baseCount = Math.min(days_to_show, levels.length);
       let meets = pollen_threshold === 0;
       for (let i = 0; i < baseCount && !meets; i++) {
-        if (dict[`day${i}`].state >= pollen_threshold) meets = true;
+        if (levels[i].level >= pollen_threshold) meets = true;
       }
       if (meets) sensors.push(dict);
     } catch (e) {
@@ -222,17 +220,15 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  // Sortera allergener
-  const sorter = {
-    value_ascending: (a, b) => a.day0.state - b.day0.state,
-    value_descending: (a, b) => b.day0.state - a.day0.state,
-    name_descending: (a, b) =>
-      b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-    default: (a, b) => b.day0.state - a.day0.state,
-  };
-  sensors.sort(sorter[config.sort] || sorter.default);
-
-  if (debug) console.log("DWD adapter: allergens =", config.allergens);
+  // Sortera enligt config.sort
+  sensors.sort(
+    {
+      value_ascending: (a, b) => a.day0.state - b.day0.state,
+      value_descending: (a, b) => b.day0.state - a.day0.state,
+      name_descending: (a, b) =>
+        b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+    }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
+  );
 
   if (debug) console.log("DWD adapter: färdigt sensors‐array:", sensors);
   return sensors;

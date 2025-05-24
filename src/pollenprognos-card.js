@@ -23,7 +23,8 @@ const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return Boolean(this._config.debug);
+    // Läs från den publika 'config'-prop som sätts i set hass
+    return Boolean(this.config?.debug);
   }
   /** Tvåbokstavskod, fallback en */
   get _lang() {
@@ -162,11 +163,11 @@ class PollenPrognosCard extends LitElement {
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
     }
-    // if (debug)
-    // console.debug("[PollenPrognos] picked before fallback", {
-    //   integration,
-    //   explicit,
-    // });
+    if (this.debug)
+      console.debug("[PollenPrognos] picked before fallback", {
+        integration,
+        explicit,
+      });
     // extra safety: if it still says “pp” but there are *no* PP sensors, flip to DWD
     if (
       !explicit &&
@@ -174,7 +175,8 @@ class PollenPrognosCard extends LitElement {
       ppStates.length === 0 &&
       dwdStates.length
     ) {
-      // console.debug("[PollenPrognos] falling back from PP → DWD");
+      if (this.debug)
+        console.debug("[PollenPrognos] falling back from PP → DWD");
       integration = "dwd";
     }
 
@@ -251,7 +253,7 @@ class PollenPrognosCard extends LitElement {
 
     // Hämta och rendera prognosen
     const adapter = ADAPTERS[cfg.integration] || PP;
-    // console.debug("[PollenPrognos] final cfg", cfg);
+    if (this.debug) console.debug("[PollenPrognos] final cfg", cfg);
     adapter
       .fetchForecast(hass, cfg)
       .then((sensors) => {
@@ -285,9 +287,14 @@ class PollenPrognosCard extends LitElement {
                     sensor.day0.state,
                   )}"
                 />
-                ${this.config.show_text
-                  ? html` <span class="short-text">
-                      ${sensor.allergenShort} (${sensor.day0.state})
+                ${this.config.show_text || this.config.show_value
+                  ? html`<span class="short-text">
+                      ${this.config.show_text ? sensor.allergenShort : ""}
+                      ${this.config.show_value
+                        ? this.config.show_text
+                          ? ` (${sensor.day0.state})`
+                          : sensor.day0.state
+                        : ""}
                     </span>`
                   : ""}
               </div>
@@ -318,11 +325,12 @@ class PollenPrognosCard extends LitElement {
               )}
             </tr>
           </thead>
+
           ${this.sensors.map(
             (sensor) => html`
+              <!-- Ikon‐ och värde‐rad -->
               <tr class="allergen" valign="top">
                 <td>
-                  <!-- här använder vi översättaren -->
                   <img
                     class="allergen"
                     src="${this._getImageSrc(
@@ -330,6 +338,9 @@ class PollenPrognosCard extends LitElement {
                       sensor.day0.state,
                     )}"
                   />
+                  ${this.config.show_value
+                    ? html`<div class="value-text">${sensor.day0.state}</div>`
+                    : ""}
                 </td>
                 ${cols.map(
                   (i) => html`
@@ -337,22 +348,29 @@ class PollenPrognosCard extends LitElement {
                       <img
                         src="${this._getImageSrc("", sensor[`day${i}`].state)}"
                       />
+                      ${this.config.show_value
+                        ? html`<div class="value-text">
+                            ${sensor[`day${i}`].state}
+                          </div>`
+                        : ""}
                     </td>
                   `,
                 )}
               </tr>
-              ${this.config.show_text
-                ? html`
-                    <tr class="allergen" valign="top">
-                      <td>${sensor.allergenCapitalized}</td>
-                      ${cols.map(
-                        (i) => html`
-                          <td><p>${sensor[`day${i}`].state_text}</p></td>
-                        `,
-                      )}
-                    </tr>
-                  `
-                : ""}
+
+              <!-- Text‐rad under samma allergen -->
+              <tr class="allergen" valign="top">
+                <td>${sensor.allergenCapitalized}</td>
+                ${cols.map(
+                  (i) => html`
+                    <td>
+                      ${this.config.show_text
+                        ? html`<p>${sensor[`day${i}`].state_text}</p>`
+                        : ""}
+                    </td>
+                  `,
+                )}
+              </tr>
             `,
           )}
         </table>
@@ -434,6 +452,12 @@ class PollenPrognosCard extends LitElement {
       .card-error a {
         color: var(--primary-color);
         text-decoration: underline;
+      }
+      .value-text {
+        font-size: smaller;
+        margin-top: 4px;
+        display: block;
+        text-align: center;
       }
     `;
   }

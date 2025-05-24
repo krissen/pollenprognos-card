@@ -183,6 +183,7 @@ class PollenPrognosCardEditor extends LitElement {
       installedCities: { type: Array },
       installedRegions: { type: Array },
       installedRegionIds: { type: Array },
+      show_value: { type: Boolean },
       _initDone: { type: Boolean },
     };
   }
@@ -438,7 +439,17 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   render() {
-    const c = this._config;
+    const c = {
+      phrases: {
+        full: {},
+        short: {},
+        levels: [],
+        days: {},
+        no_information: "",
+      },
+      ...this._config,
+    };
+
     const t = (key) => this._t(key);
 
     // pick the right “master list” of allergens
@@ -528,6 +539,12 @@ class PollenPrognosCardEditor extends LitElement {
           <ha-switch
             .checked=${c.show_text}
             @change=${(e) => this._updateConfig("show_text", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${t("show_value")}">
+          <ha-switch
+            .checked=${c.show_value}
+            @change=${(e) => this._updateConfig("show_value", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
         <ha-formfield label="${t("show_empty_days")}">

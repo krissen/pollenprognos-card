@@ -20,6 +20,7 @@ export const stubConfigPP = {
   ],
   minimal: false,
   show_text: true,
+  show_value: false,
   show_empty_days: true,
   debug: false,
   days_to_show: 4,
