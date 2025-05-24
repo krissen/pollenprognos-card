@@ -187,37 +187,48 @@ class PollenPrognosCardEditor extends LitElement {
 
   // 2) _updateConfig – oförändrat förutom att vi inte rör allergens här
   _updateConfig(prop, value) {
-    let cfg;
+    // Logga inkommande ändring
+    console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
+    // 1. Uppdatera this._userConfig:
+    //    - om value är undefined ⇒ ta bort prop
+    //    - annars skriv in/uppdatera prop
+    const newUser = { ...this._userConfig };
+    if (value === undefined) {
+      delete newUser[prop];
+    } else {
+      newUser[prop] = value;
+    }
+    this._userConfig = newUser;
+
+    // 2. Om integration ändrats → starta om med stub
+    let cfg;
     if (prop === "integration") {
-      // nytt integrationsval → börja om från stub
       const base = value === "dwd" ? stubConfigDWD : stubConfigPP;
       cfg = deepMerge(base, {});
       cfg.integration = value;
-
-      if (value === "dwd") {
-        delete cfg.city;
-        if (!cfg.region_id && this.installedRegionIds?.length) {
-          cfg.region_id = this.installedRegionIds[0];
-        }
-      } else {
-        delete cfg.region_id;
-        if (!cfg.city && this.installedCities?.length) {
-          cfg.city = this.installedCities[0];
-        }
-      }
+      // ta bort aldrig-använda fält
+      if (value === "dwd") delete cfg.city;
+      else delete cfg.region_id;
     } else {
-      // övriga ändringar – bygg på befintlig config
-      cfg = { ...this._config, [prop]: value };
+      // 3. Annars: merg’a mot senaste editor-config
+      cfg = deepMerge(this._config, {});
+      // och uppdatera just detta fält
+      cfg[prop] = value;
     }
 
-    // behåll alltid type
+    // 4. Alltid säkerställ korrekt kort-typ
     cfg.type = this._config.type || "custom:pollenprognos-card";
 
+    // 5. Spara och logga ut
     this._config = cfg;
+    console.debug("[Editor] _updateConfig – userConfig now:", this._userConfig);
+    console.debug("[Editor] _updateConfig – merged _config:", this._config);
+
+    // 6. Skicka ut ändrings-event så att preview omedelbart ritas om
     this.dispatchEvent(
       new CustomEvent("config-changed", {
-        detail: { config: cfg },
+        detail: { config: this._config },
         bubbles: true,
         composed: true,
       }),
@@ -290,8 +301,11 @@ class PollenPrognosCardEditor extends LitElement {
           <ha-textfield
             .value=${c.title || ""}
             placeholder="${t("title")}"
-            @input=${(e) =>
-              this._updateConfig("title", e.target.value || undefined)}
+            @input=${(e) => {
+              // e.target.value är "" när användaren raderat allt
+              const v = e.target.value;
+              this._updateConfig("title", v === "" ? undefined : v);
+            }}
           ></ha-textfield>
         </ha-formfield>
 
