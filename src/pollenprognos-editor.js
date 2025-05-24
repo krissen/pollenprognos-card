@@ -185,14 +185,10 @@ class PollenPrognosCardEditor extends LitElement {
     this._updateConfig("allergens", [...s]);
   }
 
-  // 2) _updateConfig – oförändrat förutom att vi inte rör allergens här
   _updateConfig(prop, value) {
-    // Logga inkommande ändring
     console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
-    // 1. Uppdatera this._userConfig:
-    //    - om value är undefined ⇒ ta bort prop
-    //    - annars skriv in/uppdatera prop
+    // 1) Uppdatera userConfig
     const newUser = { ...this._userConfig };
     if (value === undefined) {
       delete newUser[prop];
@@ -201,31 +197,85 @@ class PollenPrognosCardEditor extends LitElement {
     }
     this._userConfig = newUser;
 
-    // 2. Om integration ändrats → starta om med stub
     let cfg;
     if (prop === "integration") {
-      const base = value === "dwd" ? stubConfigDWD : stubConfigPP;
-      cfg = deepMerge(base, {});
-      cfg.integration = value;
-      // ta bort aldrig-använda fält
-      if (value === "dwd") delete cfg.city;
-      else delete cfg.region_id;
+      const newInt = value;
+      const oldInt = this._config.integration;
+
+      // 2) Rensa stad/region
+      if (newInt === "dwd") {
+        delete this._userConfig.city;
+      } else {
+        delete this._userConfig.region_id;
+      }
+
+      // 3) Rensa allergens så att stub används för nya integrationen
+      delete this._userConfig.allergens;
+
+      // 4) Rensa locale och days_to_show om de är stub för gamla integrationen
+      const oldStub = oldInt === "dwd" ? stubConfigDWD : stubConfigPP;
+      ["date_locale", "days_to_show"].forEach((key) => {
+        if (
+          Object.prototype.hasOwnProperty.call(this._userConfig, key) &&
+          this._userConfig[key] === oldStub[key]
+        ) {
+          delete this._userConfig[key];
+        }
+      });
+
+      // 5) Rensa bort DWD-phrases vid dwd→pp
+      if (newInt === "pp" && this._userConfig.phrases) {
+        const dwdP = stubConfigDWD.phrases;
+        const userP = { ...this._userConfig.phrases };
+        ["full", "short", "levels", "days", "no_information"].forEach((cat) => {
+          if (!Object.prototype.hasOwnProperty.call(userP, cat)) return;
+          if (cat === "no_information") {
+            if (userP.no_information === dwdP.no_information) {
+              delete userP.no_information;
+            }
+          } else if (Array.isArray(dwdP[cat])) {
+            const arr = Array.isArray(userP.levels) ? [...userP.levels] : [];
+            dwdP.levels.forEach((stubVal, i) => {
+              if (arr[i] === stubVal) delete arr[i];
+            });
+            const filtered = arr.filter((v) => v !== undefined);
+            if (filtered.length) userP.levels = filtered;
+            else delete userP.levels;
+          } else {
+            const cloneObj = { ...userP[cat] };
+            Object.entries(dwdP[cat]).forEach(([key, stubVal]) => {
+              if (cloneObj[key] === stubVal) delete cloneObj[key];
+            });
+            if (Object.keys(cloneObj).length) {
+              userP[cat] = cloneObj;
+            } else {
+              delete userP[cat];
+            }
+          }
+        });
+        this._userConfig.phrases = Object.keys(userP).length
+          ? userP
+          : undefined;
+      }
+
+      // 6) Bygg upp ny config från stub + userConfig
+      const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
+      cfg = deepMerge(base, this._userConfig);
+      cfg.integration = newInt;
     } else {
-      // 3. Annars: merg’a mot senaste editor-config
-      cfg = deepMerge(this._config, {});
-      // och uppdatera just detta fält
-      cfg[prop] = value;
+      // 7) För andra fält: bygg på senaste config
+      cfg = { ...this._config, [prop]: value };
     }
 
-    // 4. Alltid säkerställ korrekt kort-typ
+    // 8) Alltid se till korrekt kort-typ
     cfg.type = this._config.type || "custom:pollenprognos-card";
 
-    // 5. Spara och logga ut
+    // 9) Spara och logga
     this._config = cfg;
     console.debug("[Editor] _updateConfig – userConfig now:", this._userConfig);
     console.debug("[Editor] _updateConfig – merged _config:", this._config);
 
-    // 6. Skicka ut ändrings-event så att preview omedelbart ritas om
+    // 10) Triggera preview-uppdatering
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },

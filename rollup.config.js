@@ -1,15 +1,15 @@
 // rollup.config.js
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import url from '@rollup/plugin-url';
-import terser from '@rollup/plugin-terser';
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+import url from "@rollup/plugin-url";
+import terser from "@rollup/plugin-terser";
 
 export default {
-  input: 'src/index.js',
+  input: "src/index.js",
   output: {
-    file: 'dist/pollenprognos-card.js',
-    format: 'es',
-    sourcemap: true,
+    file: "dist/pollenprognos-card.js",
+    format: "es",
+    sourcemap: false,
   },
   plugins: [
     // So Rollup can locate `lit` and your own modules under src/
@@ -18,11 +18,10 @@ export default {
     commonjs(),
     // Inline *all* PNGs as base64, no external assets needed
     url({
-      include: ['**/*.png'],
+      include: ["**/*.png"],
       limit: Infinity,
     }),
     // Minify
     terser(),
   ],
 };
-
