@@ -6,10 +6,57 @@ import { LitElement, html, css } from "lit";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 
-// Rena konstanter från constants.js
+// --- English preset phrases for both PP and DWD integrations ---
+const stubConfigEN = {
+  date_locale: "en-US",
+  phrases: {
+    full: {
+      // PP-allergener
+      Al: "Alder",
+      Alm: "Elm",
+      Björk: "Birch",
+      Ek: "Oak",
+      Malörtsambrosia: "Ragweed",
+      Gråbo: "Mugwort",
+      Gräs: "Grass",
+      Hassel: "Hazel",
+      "Sälg och viden": "Willow",
+      // DWD-allergener (normaliserade nycklar)
+      erle: "Alder",
+      ambrosia: "Ragweed",
+      esche: "Ash",
+      birke: "Birch",
+      hasel: "Hazel",
+      gräser: "Grass",
+      beifuss: "Mugwort",
+      roggen: "Rye",
+    },
+    short: {},
+
+    levels: [
+      "No pollen",
+      "Low levels",
+      "Low–moderate levels",
+      "Moderate levels",
+      "Moderate–high levels",
+      "High levels",
+      "Very high levels",
+    ],
+
+    days: {
+      0: "Today",
+      1: "Tomorrow",
+      2: "Day after tomorrow",
+    },
+
+    no_information: "(No information)",
+  },
+}; // Rena konstanter från constants.js
 import {
   TRANSLATIONS as EDITOR_LABELS,
   DWD_REGIONS,
+  ALLERGEN_TRANSLATION,
+  LOCALIZED_ALLERGENS,
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
 
@@ -38,6 +85,97 @@ class PollenPrognosCardEditor extends LitElement {
     return Boolean(this._config.debug);
   }
 
+  /**
+   * Nollställ *hela* konfigurationen till stub‐värden
+   * för den integration som för närvarande är vald.
+   */
+  _resetAll() {
+    if (this.debug) console.debug("[Editor] resetAll");
+    this._userConfig = {};
+    // Återmata integrationen så setConfig laddar stub‐värdena
+    this.setConfig({ integration: this._config.integration });
+  }
+
+  /**
+   * Återställ date_locale + phrases till stub‐värden för valt språk.
+   * (Svenska = PP‐stub, Tyska = DWD‐stub, English = fallback/fallthrough)
+   */
+  _resetPhrases(lang) {
+    if (this.debug) console.debug("[Editor] resetPhrases – lang:", lang);
+    const integration = this._config.integration;
+
+    // två olika normaliseringar:
+    const normalizeDE = (s) =>
+      s
+        .toLowerCase()
+        .replaceAll("ä", "ae")
+        .replaceAll("ö", "oe")
+        .replaceAll("ü", "ue")
+        .replaceAll("ß", "ss")
+        .replace(/[\s\-\/]/g, "_");
+    const normalizeSV = (s) =>
+      s
+        .toLowerCase()
+        .replaceAll("å", "a")
+        .replaceAll("ä", "a")
+        .replaceAll("ö", "o")
+        .replace(/[\s\-\/]/g, "_");
+
+    // Hämta lokaliserade “levels/days/no_information” för valt språk
+    const localeTexts = LOCALIZED_ALLERGENS[lang] || {};
+
+    // hjälpfunktion som provar båda
+    const translate = (key) => {
+      // försök DWD‐normalisering först
+      let internal = ALLERGEN_TRANSLATION[normalizeDE(key)];
+      // annars PP‐normalisering
+      if (!internal) internal = ALLERGEN_TRANSLATION[normalizeSV(key)];
+      // returnera lokaliserad fras eller fallback
+      return (internal && localeTexts[internal]) || key;
+    };
+
+    // --- Svenska ---
+    if (lang === "sv") {
+      this._updateConfig("date_locale", "sv-SE");
+      // välj vilken allergenlista vi loopar:
+      const keys =
+        integration === "pp" ? this._config.allergens : stubConfigDWD.allergens;
+      const full = {};
+      keys.forEach((k) => (full[k] = translate(k)));
+      this._updateConfig("phrases", {
+        full,
+        short: {},
+        levels: localeTexts.levels,
+        days: localeTexts.days,
+        no_information: localeTexts.no_information,
+      });
+      return;
+    }
+
+    // --- Engelska ---
+    if (lang === "en") {
+      this._updateConfig("date_locale", stubConfigEN.date_locale);
+      this._updateConfig("phrases", stubConfigEN.phrases);
+      return;
+    }
+
+    // --- Tyska ---
+    if (lang === "de") {
+      this._updateConfig("date_locale", "de-DE");
+      const keys =
+        integration === "pp" ? this._config.allergens : stubConfigDWD.allergens;
+      const full = {};
+      keys.forEach((k) => (full[k] = translate(k)));
+      this._updateConfig("phrases", {
+        full,
+        short: {},
+        levels: localeTexts.levels,
+        days: localeTexts.days,
+        no_information: localeTexts.no_information,
+      });
+      return;
+    }
+  }
   static get properties() {
     return {
       _config: { type: Object },
@@ -311,6 +449,12 @@ class PollenPrognosCardEditor extends LitElement {
 
     return html`
       <div class="card-config">
+        <!-- == Preset-fraser- och återställningsknappar == -->
+        <div class="preset-buttons">
+          <mwc-button @click=${() => this._resetAll()}>
+            ${t("preset_reset_all")}
+          </mwc-button>
+        </div>
         <!-- Integration -->
         <ha-formfield label="${t("integration")}">
           <ha-select
@@ -470,14 +614,6 @@ class PollenPrognosCardEditor extends LitElement {
           </ha-select>
         </ha-formfield>
 
-        <!-- Date locale -->
-        <ha-formfield label="${t("locale")}">
-          <ha-textfield
-            .value=${c.date_locale}
-            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
-          ></ha-textfield>
-        </ha-formfield>
-
         <!-- Allergens -->
         <details>
           <summary>${t("allergens")}</summary>
@@ -495,6 +631,27 @@ class PollenPrognosCardEditor extends LitElement {
             )}
           </div>
         </details>
+
+        <!-- == Preset-fraser- och återställningsknappar == -->
+        <div class="preset-buttons">
+          <mwc-button @click=${() => this._resetPhrases("sv")}>
+            ${t("preset_svenska")}
+          </mwc-button>
+          <mwc-button @click=${() => this._resetPhrases("de")}>
+            ${t("preset_tyska")}
+          </mwc-button>
+          <mwc-button @click=${() => this._resetPhrases("en")}>
+            ${t("preset_english")}
+          </mwc-button>
+        </div>
+
+        <!-- Date locale -->
+        <ha-formfield label="${t("locale")}">
+          <ha-textfield
+            .value=${c.date_locale}
+            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
+          ></ha-textfield>
+        </ha-formfield>
 
         <!-- Phrases sections -->
         <h3>${t("phrases")}</h3>
@@ -626,6 +783,12 @@ class PollenPrognosCardEditor extends LitElement {
       ha-select {
         width: 100%;
         --mdc-theme-primary: var(--primary-color);
+      }
+      .preset-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
       }
     `;
   }
