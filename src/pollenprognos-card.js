@@ -1,8 +1,9 @@
 // src/pollenprognos-card.js
 import { LitElement, html, css } from "lit";
 import { images } from "./pollenprognos-images.js";
+import { t, detectLang } from "./i18n.js";
 
-// Adapter-modulerna
+// Adapter-moduler
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
 
@@ -13,7 +14,6 @@ import { stubConfigDWD } from "./adapters/dwd.js";
 // Statiska konstanter
 import {
   DWD_REGIONS,
-  TRANSLATIONS,
   ALLERGEN_TRANSLATION,
   ADAPTERS as CONSTANT_ADAPTERS,
   PP_POSSIBLE_CITIES,
@@ -23,27 +23,17 @@ const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    // Läs från den publika 'config'-prop som sätts i set hass
     return Boolean(this.config?.debug);
   }
-  /** Tvåbokstavskod för översättningar: 1) date_locale, 2) HA-UI, 3) English */
+
   get _lang() {
-    // 1) Använd card-konfigurerad locale (date_locale) om satt
-    if (this.config?.date_locale) {
-      return this.config.date_locale.slice(0, 2).toLowerCase();
-    }
-    // 2) Annars Home Assistant-gränssnittets språk
-    const haLang = this._hass?.language?.slice(0, 2);
-    if (haLang) {
-      return haLang.toLowerCase();
-    }
-    // 3) Slutligen engelska som fallback
-    return "en";
+    return detectLang(this._hass, this.config?.date_locale);
   }
-  /** Hämta text från TRANSLATIONS */
+
   _t(key) {
-    return (TRANSLATIONS[this._lang] || TRANSLATIONS.en)[key] || "";
+    return t(key, this._lang);
   }
+
   static properties = {
     hass: { state: true },
     config: {},
@@ -53,30 +43,14 @@ class PollenPrognosCard extends LitElement {
     header: { state: true },
   };
 
-  /**
-   * Hämta inline-ikon för ett allergen + nivå.
-   * Om integration === 'dwd' skalar vi state * 2 för bildvalet,
-   * men behåller det ursprungliga state för ev. textvisning.
-   */
   _getImageSrc(allergenReplaced, state) {
-    // Råvärde från sensor
     const raw = Number(state);
-
-    // Skala för DWD så att 0.5–3 → 1–6
     let scaled = raw;
-    if (this.config.integration === "dwd") {
-      scaled = raw * 2;
-    }
-
-    // Avrunda till närmaste heltal och clamp mellan -1 och 6
+    if (this.config.integration === "dwd") scaled = raw * 2;
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < -1) lvl = -1;
     if (lvl > 6) lvl = 6;
-
-    // Översätt allergen-nyckel till engelskt internt namn
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
-
-    // Försök allergen-specifik ikon, annars global nivå-ikon
     const specific = images[`${key}_${lvl}_png`];
     return specific || images[`${lvl}_png`];
   }
@@ -97,154 +71,75 @@ class PollenPrognosCard extends LitElement {
   }
 
   static getStubConfig() {
-    return {
-      integration: "pp",
-      city: "",
-      region_id: "",
-      allergens: [
-        "Al",
-        "Alm",
-        "Björk",
-        "Ek",
-        "Malörtsambrosia",
-        "Gråbo",
-        "Gräs",
-        "Hassel",
-        "Sälg och viden",
-      ],
-      minimal: false,
-      show_text: true,
-      show_empty_days: true,
-      debug: false,
-      days_to_show: 4,
-      days_relative: true,
-      days_abbreviated: false,
-      days_uppercase: false,
-      days_boldfaced: false,
-      pollen_threshold: 1,
-      sort: "value_descending",
-      date_locale: "sv-SE",
-      title: undefined,
-      phrases: {
-        full: {},
-        short: {},
-        levels: [],
-        days: {},
-        no_information: "",
-      },
-    };
+    return stubConfigPP;
   }
 
   setConfig(config) {
-    // store *exactly* what the user wrote
     this._userConfig = { ...config };
-    // only mark “explicit” if they *really* wrote `integration:` in their YAML/UI
     this._integrationExplicit =
       config.hasOwnProperty("integration") &&
       config.integration !== stubConfigPP.integration;
-    // trigger a re-run of the hass‐setter
     this._initDone = false;
     if (this._hass) this.hass = this._hass;
   }
 
   set hass(hass) {
     this._hass = hass;
-
-    // figure out if the user explicitly set "integration" or not
     const explicit = !!this._integrationExplicit;
-
-    // detect *PP* sensors (but exclude any DWD “pollenflug_” ones)
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
         id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
     );
-
-    // detect *DWD* sensors
     const dwdStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollenflug_"),
     );
 
-    // decide integration
     let integration = this._userConfig.integration;
     if (!explicit) {
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
     }
-    if (this.debug)
-      console.debug("[PollenPrognos] picked before fallback", {
-        integration,
-        explicit,
-      });
-    // extra safety: if it still says “pp” but there are *no* PP sensors, flip to DWD
+    if (this.debug) console.debug("[PollenPrognos] integration:", integration);
     if (
       !explicit &&
       integration === "pp" &&
-      ppStates.length === 0 &&
+      !ppStates.length &&
       dwdStates.length
-    ) {
-      if (this.debug)
-        console.debug("[PollenPrognos] falling back from PP → DWD");
+    )
       integration = "dwd";
-    }
 
-    // Hämta stub-defaults *utan* att tvinga integration
-    const stubPP = PollenPrognosCard.getStubConfig();
-    const stubDWD = DWD.stubConfigDWD;
-    const baseStub = integration === "dwd" ? stubDWD : stubPP;
+    const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
+    const cfg = { ...baseStub, ...this._userConfig, integration };
 
-    // Slå ihop stub + det användaren faktiskt skrev
-    const cfg = {
-      ...baseStub,
-      ...this._userConfig,
-      integration,
-    };
-
-    // DWD-fallback: tvinga fram DWD-defaults
-    //    - vid autodetektering (explicit=false)
-    //    - eller om användaren inte explicit ändrat just det fältet
     if (integration === "dwd") {
-      if (!explicit || !this._userConfig.hasOwnProperty("allergens")) {
-        cfg.allergens = stubDWD.allergens;
-      }
-      if (!explicit || !this._userConfig.hasOwnProperty("days_to_show")) {
-        cfg.days_to_show = stubDWD.days_to_show;
-      }
-      if (!explicit || !this._userConfig.hasOwnProperty("date_locale")) {
-        cfg.date_locale = stubDWD.date_locale;
-      }
+      if (!explicit || !this._userConfig.allergens)
+        cfg.allergens = stubConfigDWD.allergens;
+      if (!explicit || !this._userConfig.days_to_show)
+        cfg.days_to_show = stubConfigDWD.days_to_show;
+      if (!explicit || !this._userConfig.date_locale)
+        cfg.date_locale = stubConfigDWD.date_locale;
     }
 
-    // Automatisk region-/stad-val om det saknas
-    if (integration === "dwd") {
-      if (!cfg.region_id && dwdStates.length) {
-        cfg.region_id = Array.from(
-          new Set(dwdStates.map((id) => id.split("_").pop())),
-        ).sort((a, b) => Number(a) - Number(b))[0];
-      }
-    } else {
-      if (!cfg.city && ppStates.length) {
-        cfg.city = ppStates[0]
-          .slice("sensor.pollen_".length)
-          .split("_")
-          .slice(0, -1)
-          .join("_");
-      }
+    if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
+      cfg.region_id = Array.from(
+        new Set(dwdStates.map((id) => id.split("_").pop())),
+      ).sort((a, b) => Number(a) - Number(b))[0];
+    } else if (integration === "pp" && !cfg.city && ppStates.length) {
+      cfg.city = ppStates[0].slice(13).replace(/_[^_]+$/, "");
     }
 
-    // Spara den slutgiltiga configen och sätt header
     this.config = cfg;
     if (typeof cfg.title === "string") this.header = cfg.title;
     else if (cfg.title === false) this.header = "";
     else {
       let loc;
-      if (cfg.integration === "dwd") {
+      if (cfg.integration === "dwd")
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
-      } else {
-        // hitta motsvarande namn i PP_POSSIBLE_CITIES
+      else {
         const key = cfg.city;
         const pretty = PP_POSSIBLE_CITIES.find(
-          (name) =>
-            name
+          (n) =>
+            n
               .toLowerCase()
               .replace(/[åä]/g, "a")
               .replace(/ö/g, "o")
@@ -252,10 +147,9 @@ class PollenPrognosCard extends LitElement {
         );
         loc = pretty || cfg.city;
       }
-      this.header = `${this._t("header_prefix")} ${loc}`;
+      this.header = `${this._t("card.header_prefix")} ${loc}`;
     }
 
-    // Hämta och rendera prognosen
     const adapter = ADAPTERS[cfg.integration] || PP;
     if (this.debug) console.debug("[PollenPrognos] final cfg", cfg);
     adapter
@@ -321,18 +215,16 @@ class PollenPrognosCard extends LitElement {
             <tr>
               <th></th>
               ${cols.map(
-                (i) => html`
-                  <th style="font-weight: ${daysBold ? "bold" : "normal"}">
+                (i) =>
+                  html`<th style="font-weight: ${daysBold ? "bold" : "normal"}">
                     ${this.sensors[0][`day${i}`].day}
-                  </th>
-                `,
+                  </th>`,
               )}
             </tr>
           </thead>
 
           ${this.sensors.map(
             (sensor) => html`
-              <!-- Ikon‐ och värde‐rad -->
               <tr class="allergen" valign="top">
                 <td>
                   <img
@@ -347,32 +239,27 @@ class PollenPrognosCard extends LitElement {
                     : ""}
                 </td>
                 ${cols.map(
-                  (i) => html`
-                    <td>
+                  (i) =>
+                    html`<td>
                       <img
                         src="${this._getImageSrc("", sensor[`day${i}`].state)}"
-                      />
-                      ${this.config.show_value
+                      />${this.config.show_value
                         ? html`<div class="value-text">
                             ${sensor[`day${i}`].state}
                           </div>`
                         : ""}
-                    </td>
-                  `,
+                    </td>`,
                 )}
               </tr>
-
-              <!-- Text‐rad under samma allergen -->
               <tr class="allergen" valign="top">
                 <td>${sensor.allergenCapitalized}</td>
                 ${cols.map(
-                  (i) => html`
-                    <td>
+                  (i) =>
+                    html`<td>
                       ${this.config.show_text
                         ? html`<p>${sensor[`day${i}`].state_text}</p>`
                         : ""}
-                    </td>
-                  `,
+                    </td>`,
                 )}
               </tr>
             `,
@@ -383,17 +270,15 @@ class PollenPrognosCard extends LitElement {
   }
 
   render() {
-    // Om vi inte har någon sensordata alls, visa fel
     if (!this.sensors.length) {
       const name =
         this.config.integration === "dwd" ? "DWD Pollenflug" : "PollenPrognos";
-      return html`
-        <ha-card>
-          <div class="card-error">${this._t("error")} (${name})</div>
-        </ha-card>
-      `;
+      return html`<ha-card
+        ><div class="card-error">
+          ${this._t("card.error")} (${name})
+        </div></ha-card
+      >`;
     }
-
     return this.config.minimal
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
@@ -405,15 +290,13 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
-      /* Rubrik: lägg på 16px sidopadding för att matcha innehållet */
       .header {
         margin: 0;
-        padding: 4px 16px 12px; /* top 4, sidor 16, bottom 12px */
+        padding: 4px 16px 12px;
         @apply --paper-font-headline;
         line-height: 40px;
         color: var(--primary-text-color);
       }
-
       .forecast {
         width: 100%;
         padding: 7px;
@@ -453,10 +336,6 @@ class PollenPrognosCard extends LitElement {
         font-weight: 500;
         line-height: 1.4;
       }
-      .card-error a {
-        color: var(--primary-color);
-        text-decoration: underline;
-      }
       .value-text {
         font-size: smaller;
         margin-top: 4px;
@@ -468,5 +347,4 @@ class PollenPrognosCard extends LitElement {
 }
 
 customElements.define("pollenprognos-card", PollenPrognosCard);
-
 export default PollenPrognosCard;

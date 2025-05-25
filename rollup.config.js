@@ -2,6 +2,7 @@
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import url from "@rollup/plugin-url";
+import json from "@rollup/plugin-json"; // ← ny rad
 import terser from "@rollup/plugin-terser";
 
 export default {
@@ -12,16 +13,13 @@ export default {
     sourcemap: false,
   },
   plugins: [
-    // So Rollup can locate `lit` and your own modules under src/
+    json(), // ← se till att JSON-filer packas in
     resolve(),
-    // Convert any CommonJS deps (none here, but safe to keep)
     commonjs(),
-    // Inline *all* PNGs as base64, no external assets needed
     url({
       include: ["**/*.png"],
       limit: Infinity,
     }),
-    // Minify
     terser(),
   ],
 };

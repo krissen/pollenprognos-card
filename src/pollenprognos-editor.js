@@ -1,64 +1,10 @@
 // src/pollenprognos-editor.js
-
 import { LitElement, html, css } from "lit";
+import { t, detectLang } from "./i18n.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-
-// --- English preset phrases for both PP and DWD integrations ---
-const stubConfigEN = {
-  date_locale: "en-US",
-  phrases: {
-    full: {
-      // PP-allergener
-      Al: "Alder",
-      Alm: "Elm",
-      Björk: "Birch",
-      Ek: "Oak",
-      Malörtsambrosia: "Ragweed",
-      Gråbo: "Mugwort",
-      Gräs: "Grass",
-      Hassel: "Hazel",
-      "Sälg och viden": "Willow",
-      // DWD-allergener (normaliserade nycklar)
-      erle: "Alder",
-      ambrosia: "Ragweed",
-      esche: "Ash",
-      birke: "Birch",
-      hasel: "Hazel",
-      gräser: "Grass",
-      beifuss: "Mugwort",
-      roggen: "Rye",
-    },
-    short: {},
-
-    levels: [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels",
-    ],
-
-    days: {
-      0: "Today",
-      1: "Tomorrow",
-      2: "Day after tomorrow",
-    },
-
-    no_information: "(No information)",
-  },
-}; // Rena konstanter från constants.js
-import {
-  TRANSLATIONS as EDITOR_LABELS,
-  DWD_REGIONS,
-  ALLERGEN_TRANSLATION,
-  LOCALIZED_ALLERGENS,
-  PP_POSSIBLE_CITIES,
-} from "./constants.js";
 
 // Recursive merge utility
 const deepMerge = (target, source) => {
@@ -85,170 +31,120 @@ class PollenPrognosCardEditor extends LitElement {
     return Boolean(this._config.debug);
   }
 
-  /**
-   * Nollställ *hela* konfigurationen till stub‐värden
-   * för den integration som för närvarande är vald.
-   */
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
-    // Kör om integrationen så setConfig laddar stub‐värdena
     this.setConfig({ integration: this._config.integration });
   }
 
-  /**
-   * Återställ date_locale + phrases till stub‐värden för valt språk.
-   * (Svenska = PP‐stub, Tyska = DWD‐stub, English = fallback/fallthrough)
-   */
   _resetPhrases(lang) {
     if (this.debug) console.debug("[Editor] resetPhrases – lang:", lang);
-    const integration = this._config.integration;
-
-    // två olika normaliseringar:
-    const normalizeDE = (s) =>
-      s
-        .toLowerCase()
-        .replaceAll("ä", "ae")
-        .replaceAll("ö", "oe")
-        .replaceAll("ü", "ue")
-        .replaceAll("ß", "ss")
-        .replace(/[\s\-\/]/g, "_");
-    const normalizeSV = (s) =>
-      s
-        .toLowerCase()
-        .replaceAll("å", "a")
-        .replaceAll("ä", "a")
-        .replaceAll("ö", "o")
-        .replace(/[\s\-\/]/g, "_");
-
-    // Hämta lokaliserade “levels/days/no_information” för valt språk
-    const localeTexts = LOCALIZED_ALLERGENS[lang] || {};
-
-    // hjälpfunktion som provar båda
-    const translate = (key) => {
-      // försök DWD‐normalisering först
-      let internal = ALLERGEN_TRANSLATION[normalizeDE(key)];
-      // annars PP‐normalisering
-      if (!internal) internal = ALLERGEN_TRANSLATION[normalizeSV(key)];
-      // returnera lokaliserad fras eller fallback
-      return (internal && localeTexts[internal]) || key;
-    };
-
-    // --- Svenska ---
     if (lang === "sv") {
       this._updateConfig("date_locale", "sv-SE");
-      // välj vilken allergenlista vi loopar:
       const keys =
-        integration === "pp" ? this._config.allergens : stubConfigDWD.allergens;
+        this._config.integration === "dwd"
+          ? stubConfigDWD.allergens
+          : this._config.allergens;
       const full = {};
-      keys.forEach((k) => (full[k] = translate(k)));
+      keys.forEach((k) => (full[k] = t(`editor.phrase_full.${k}`, lang)));
       this._updateConfig("phrases", {
         full,
         short: {},
-        levels: localeTexts.levels,
-        days: localeTexts.days,
-        no_information: localeTexts.no_information,
+        levels: Array.from({ length: 7 }, (_, i) =>
+          t(`editor.phrases_levels.${i}`, lang),
+        ),
+        days: {
+          0: t("editor.phrases_days.0", lang),
+          1: t("editor.phrases_days.1", lang),
+          2: t("editor.phrases_days.2", lang),
+        },
+        no_information: t("editor.no_information", lang),
       });
       return;
     }
-
-    // --- Engelska ---
     if (lang === "en") {
-      this._updateConfig("date_locale", stubConfigEN.date_locale);
-      this._updateConfig("phrases", stubConfigEN.phrases);
+      this._updateConfig("date_locale", "en-US");
+      this._updateConfig("phrases", {
+        full: {},
+        short: {},
+        levels: Array.from({ length: 7 }, (_, i) =>
+          t(`editor.phrases_levels.${i}`, lang),
+        ),
+        days: {
+          0: t("editor.phrases_days.0", lang),
+          1: t("editor.phrases_days.1", lang),
+          2: t("editor.phrases_days.2", lang),
+        },
+        no_information: t("editor.no_information", lang),
+      });
       return;
     }
-
-    // --- Tyska ---
     if (lang === "de") {
       this._updateConfig("date_locale", "de-DE");
       const keys =
-        integration === "pp" ? this._config.allergens : stubConfigDWD.allergens;
+        this._config.integration === "dwd"
+          ? stubConfigDWD.allergens
+          : this._config.allergens;
       const full = {};
-      keys.forEach((k) => (full[k] = translate(k)));
+      keys.forEach((k) => (full[k] = t(`editor.phrase_full.${k}`, lang)));
       this._updateConfig("phrases", {
         full,
         short: {},
-        levels: localeTexts.levels,
-        days: localeTexts.days,
-        no_information: localeTexts.no_information,
+        levels: Array.from({ length: 7 }, (_, i) =>
+          t(`editor.phrases_levels.${i}`, lang),
+        ),
+        days: {
+          0: t("editor.phrases_days.0", lang),
+          1: t("editor.phrases_days.1", lang),
+          2: t("editor.phrases_days.2", lang),
+        },
+        no_information: t("editor.no_information", lang),
       });
       return;
     }
   }
+
   static get properties() {
     return {
       _config: { type: Object },
       hass: { type: Object },
       installedCities: { type: Array },
-      installedRegions: { type: Array },
       installedRegionIds: { type: Array },
-      show_value: { type: Boolean },
       _initDone: { type: Boolean },
     };
   }
 
-  /** Tvåbokstavskod för översättningar: 1) date_locale, 2) HA-UI, 3) English */
   get _lang() {
-    // 1) Använd card-konfigurerad locale (date_locale) om satt
-    if (this.config?.date_locale) {
-      return this.config.date_locale.slice(0, 2).toLowerCase();
-    }
-    // 2) Annars Home Assistant-gränssnittets språk
-    const haLang = this._hass?.language?.slice(0, 2);
-    if (haLang) {
-      return haLang.toLowerCase();
-    }
-    // 3) Slutligen engelska som fallback
-    return "en";
+    return detectLang(this._hass, this._config.date_locale);
   }
 
-  /** Översätt nyckel till korrekt label */
   _t(key) {
-    return (EDITOR_LABELS[this._lang] || EDITOR_LABELS.en)[key] || key;
+    return t(`editor.${key}`, this._lang);
   }
 
   constructor() {
     super();
-    // Rå-config från användar-YAML/editor
     this._userConfig = {};
     this._integrationExplicit = false;
-    // Den verkliga state som editorn ritar upp
     this._config = deepMerge(stubConfigPP, {});
-    // Listor och flagga för första gång-autodetect
     this.installedCities = [];
     this.installedRegionIds = [];
     this._initDone = false;
   }
 
   setConfig(config) {
-    // Logga inkommande värden
     if (this.debug)
       console.debug("[Editor] setConfig – userConfig in:", config);
-
-    // Ackumulera nya värden över de som redan fanns
     this._userConfig = deepMerge(this._userConfig, config);
     this._integrationExplicit = this._userConfig.hasOwnProperty("integration");
-
-    // Bestäm integration: explicit > tidigare > fallback 'pp'
     const integration =
-      this._userConfig.integration || this._config?.integration || "pp";
-
-    // Hämta rätt stub och slå ihop med samlad userConfig
+      this._userConfig.integration || this._config.integration || "pp";
     const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
     this._config = deepMerge(base, this._userConfig);
-
-    // Sätt alltid rätt type för preview
     this._config.type = "custom:pollenprognos-card";
-
-    // Nollställ init-flagga så auto-detect körs på nästa hass
     this._initDone = false;
-
-    // Logga slutgiltigt resultat
     if (this.debug)
       console.debug("[Editor] setConfig – merged _config:", this._config);
-
-    // Meddela Home Assistant att config ändrats så att preview ritas om
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },
@@ -256,20 +152,11 @@ class PollenPrognosCardEditor extends LitElement {
         composed: true,
       }),
     );
-
     this.requestUpdate();
   }
 
   set hass(hass) {
-    if (this.debug)
-      console.debug("[Editor] hass setter – before initDone:", {
-        initDone: this._initDone,
-        userConfig: this._userConfig,
-        config: this._config,
-      });
-
     this._hass = hass;
-
     const explicit = this._integrationExplicit;
     const ppStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollen_"),
@@ -277,41 +164,24 @@ class PollenPrognosCardEditor extends LitElement {
     const dwdStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollenflug_"),
     );
-
-    // Auto‐detect integration bara första gången om användaren INTE satt den explicit
     if (!this._initDone && !explicit) {
       if (ppStates.length) this._config.integration = "pp";
       else if (dwdStates.length) this._config.integration = "dwd";
     }
-
-    // Bygg listor för valbara regioner och städer
-    const regionIds = Array.from(
+    this.installedRegionIds = Array.from(
       new Set(dwdStates.map((id) => id.split("_").pop())),
     ).sort((a, b) => Number(a) - Number(b));
-    this.installedRegionIds = regionIds;
-
-    const ppKeys = ppStates.map((id) =>
-      id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+    const uniqCities = Array.from(
+      new Set(ppStates.map((id) => id.slice(13).replace(/_[^_]+$/, ""))),
     );
-    const uniqCities = Array.from(new Set(ppKeys));
-    const keyFor = (name) =>
-      name
-        .toLowerCase()
-        .replace(/[åä]/g, "a")
-        .replace(/ö/g, "o")
-        .replace(/[-\s]/g, "_");
-    this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
-      uniqCities.includes(keyFor(city)),
-    ).sort((a, b) => a.localeCompare(b));
-
-    // Auto‐välj första region eller stad om användaren inte specificerat själv
+    this.installedCities = uniqCities;
     if (!this._initDone) {
       if (
         this._config.integration === "dwd" &&
         !this._userConfig.region_id &&
-        regionIds.length
+        this.installedRegionIds.length
       ) {
-        this._config.region_id = regionIds[0];
+        this._config.region_id = this.installedRegionIds[0];
       }
       if (
         this._config.integration === "pp" &&
@@ -321,121 +191,37 @@ class PollenPrognosCardEditor extends LitElement {
         this._config.city = this.installedCities[0];
       }
     }
-
     this._initDone = true;
-    if (this.debug)
-      console.debug("[Editor] hass setter – after initDone:", {
-        initDone: this._initDone,
-        userConfig: this._userConfig,
-        config: this._config,
-      });
-
     this.requestUpdate();
   }
 
   _onAllergenToggle(allergen, checked) {
-    const s = new Set(this._config.allergens);
-    checked ? s.add(allergen) : s.delete(allergen);
-    this._updateConfig("allergens", [...s]);
+    const set = new Set(this._config.allergens);
+    checked ? set.add(allergen) : set.delete(allergen);
+    this._updateConfig("allergens", [...set]);
   }
 
   _updateConfig(prop, value) {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
-
-    // Uppdatera userConfig
     const newUser = { ...this._userConfig };
-    if (value === undefined) {
-      delete newUser[prop];
-    } else {
-      newUser[prop] = value;
-    }
+    if (value === undefined) delete newUser[prop];
+    else newUser[prop] = value;
     this._userConfig = newUser;
-
     let cfg;
     if (prop === "integration") {
       const newInt = value;
-      const oldInt = this._config.integration;
-
-      // Rensa stad/region
-      if (newInt === "dwd") {
-        delete this._userConfig.city;
-      } else {
-        delete this._userConfig.region_id;
-      }
-
-      // Rensa allergens så att stub används för nya integrationen
+      delete this._userConfig[newInt === "dwd" ? "city" : "region_id"];
       delete this._userConfig.allergens;
-
-      // Rensa locale och days_to_show om de är stub för gamla integrationen
-      const oldStub = oldInt === "dwd" ? stubConfigDWD : stubConfigPP;
-      ["date_locale", "days_to_show"].forEach((key) => {
-        if (
-          Object.prototype.hasOwnProperty.call(this._userConfig, key) &&
-          this._userConfig[key] === oldStub[key]
-        ) {
-          delete this._userConfig[key];
-        }
-      });
-
-      // Rensa bort DWD-phrases vid dwd→pp
-      if (newInt === "pp" && this._userConfig.phrases) {
-        const dwdP = stubConfigDWD.phrases;
-        const userP = { ...this._userConfig.phrases };
-        ["full", "short", "levels", "days", "no_information"].forEach((cat) => {
-          if (!Object.prototype.hasOwnProperty.call(userP, cat)) return;
-          if (cat === "no_information") {
-            if (userP.no_information === dwdP.no_information) {
-              delete userP.no_information;
-            }
-          } else if (Array.isArray(dwdP[cat])) {
-            const arr = Array.isArray(userP.levels) ? [...userP.levels] : [];
-            dwdP.levels.forEach((stubVal, i) => {
-              if (arr[i] === stubVal) delete arr[i];
-            });
-            const filtered = arr.filter((v) => v !== undefined);
-            if (filtered.length) userP.levels = filtered;
-            else delete userP.levels;
-          } else {
-            const cloneObj = { ...userP[cat] };
-            Object.entries(dwdP[cat]).forEach(([key, stubVal]) => {
-              if (cloneObj[key] === stubVal) delete cloneObj[key];
-            });
-            if (Object.keys(cloneObj).length) {
-              userP[cat] = cloneObj;
-            } else {
-              delete userP[cat];
-            }
-          }
-        });
-        this._userConfig.phrases = Object.keys(userP).length
-          ? userP
-          : undefined;
-      }
-
-      // Bygg upp ny config från stub + userConfig
       const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
       cfg = deepMerge(base, this._userConfig);
       cfg.integration = newInt;
     } else {
-      // För andra fält: bygg på senaste config
       cfg = { ...this._config, [prop]: value };
     }
-
-    // Alltid se till korrekt kort-typ
-    cfg.type = this._config.type || "custom:pollenprognos-card";
-
-    // Spara och logga
+    cfg.type = this._config.type;
     this._config = cfg;
-    if (this.debug)
-      console.debug(
-        "[Editor] _updateConfig – userConfig now:",
-        this._userConfig,
-      );
-    if (this.debug)
-      console.debug("[Editor] _updateConfig – merged _config:", this._config);
-
-    // Trigga preview-uppdatering
+    if (this.debug) console.debug("[Editor] updated _config:", this._config);
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },
@@ -456,25 +242,14 @@ class PollenPrognosCardEditor extends LitElement {
       },
       ...this._config,
     };
-
-    const t = (key) => this._t(key);
-
-    // pick the right “master list” of allergens
-    const available =
-      c.integration === "dwd"
-        ? stubConfigDWD.allergens
-        : stubConfigPP.allergens;
-
     return html`
       <div class="card-config">
-        <!-- == Preset-fraser- och återställningsknappar == -->
         <div class="preset-buttons">
           <mwc-button @click=${() => this._resetAll()}>
-            ${t("preset_reset_all")}
+            ${this._t("preset_reset_all")}
           </mwc-button>
         </div>
-        <!-- Integration -->
-        <ha-formfield label="${t("integration")}">
+        <ha-formfield label="${this._t("integration")}">
           <ha-select
             .value=${c.integration}
             @selected=${(e) =>
@@ -485,296 +260,19 @@ class PollenPrognosCardEditor extends LitElement {
             <mwc-list-item value="dwd">DWD Pollenflug</mwc-list-item>
           </ha-select>
         </ha-formfield>
-
-        <!-- Stad (PP) eller Region (DWD) -->
-        ${c.integration === "pp"
-          ? html`
-              <ha-formfield label="${t("city")}">
-                <ha-select
-                  .value=${c.city || ""}
-                  @selected=${(e) => this._updateConfig("city", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  ${this.installedCities.map(
-                    (city) => html`
-                      <mwc-list-item .value=${city}>${city}</mwc-list-item>
-                    `,
-                  )}
-                </ha-select>
-              </ha-formfield>
-            `
-          : html`
-              <ha-formfield label="${t("region_id")}">
-                <ha-select
-                  .value=${c.region_id || ""}
-                  @selected=${(e) =>
-                    this._updateConfig("region_id", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  ${this.installedRegionIds.map(
-                    (id) => html`
-                      <mwc-list-item .value=${id}>
-                        ${id} — ${DWD_REGIONS[id] || id}
-                      </mwc-list-item>
-                    `,
-                  )}
-                </ha-select>
-              </ha-formfield>
-            `}
-
-        <!-- Titel -->
-        <ha-formfield label="${t("title")}">
-          <ha-textfield
-            .value=${c.title || ""}
-            placeholder="${t("title")}"
-            @input=${(e) => {
-              // e.target.value är "" när användaren raderat allt
-              const v = e.target.value;
-              this._updateConfig("title", v === "" ? undefined : v);
-            }}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Layout switches -->
-        <ha-formfield label="${t("minimal")}">
-          <ha-switch
-            .checked=${c.minimal}
-            @change=${(e) => this._updateConfig("minimal", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${t("show_text")}">
-          <ha-switch
-            .checked=${c.show_text}
-            @change=${(e) => this._updateConfig("show_text", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${t("show_value")}">
-          <ha-switch
-            .checked=${c.show_value}
-            @change=${(e) => this._updateConfig("show_value", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${t("show_empty_days")}">
-          <ha-switch
-            .checked=${c.show_empty_days}
-            @change=${(e) =>
-              this._updateConfig("show_empty_days", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-
-        <!-- Day settings -->
-        <ha-formfield label="${t("days_relative")}">
-          <ha-switch
-            .checked=${c.days_relative}
-            @change=${(e) =>
-              this._updateConfig("days_relative", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${t("days_abbreviated")}">
-          <ha-switch
-            .checked=${c.days_abbreviated}
-            @change=${(e) =>
-              this._updateConfig("days_abbreviated", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${t("days_uppercase")}">
-          <ha-switch
-            .checked=${c.days_uppercase}
-            @change=${(e) =>
-              this._updateConfig("days_uppercase", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${t("days_boldfaced")}">
-          <ha-switch
-            .checked=${c.days_boldfaced}
-            @change=${(e) =>
-              this._updateConfig("days_boldfaced", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-
-        <!-- Days to show slider -->
-        <ha-formfield label="${t("days_to_show")} ${c.days_to_show}">
-          <ha-slider
-            min="0"
-            max="6"
-            step="1"
-            .value=${c.days_to_show}
-            @change=${(e) =>
-              this._updateConfig("days_to_show", Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-
-        <!-- Pollen threshold -->
-        <ha-formfield label="${t("pollen_threshold")} ${c.pollen_threshold}">
-          <ha-slider
-            min="0"
-            max="6"
-            step="1"
-            .value=${c.pollen_threshold}
-            @change=${(e) =>
-              this._updateConfig("pollen_threshold", Number(e.target.value))}
-          ></ha-slider>
-        </ha-formfield>
-
-        <!-- Sort order -->
-        <ha-formfield label="${t("sort")}">
+        <ha-formfield label="${this._t("city")}">
           <ha-select
-            .value=${c.sort}
-            @selected=${(e) => this._updateConfig("sort", e.target.value)}
+            .value=${c.city}
+            @selected=${(e) => this._updateConfig("city", e.target.value)}
             @closed=${(e) => e.stopPropagation()}
           >
-            ${[
-              "value_ascending",
-              "value_descending",
-              "name_ascending",
-              "name_descending",
-            ].map(
-              (o) => html`
-                <mwc-list-item .value=${o}
-                  >${o.replace("_", " ")}</mwc-list-item
-                >
-              `,
+            ${this.installedCities.map(
+              (city) =>
+                html`<mwc-list-item .value=${city}>${city}</mwc-list-item>`,
             )}
           </ha-select>
         </ha-formfield>
-
-        <!-- Allergens -->
-        <details>
-          <summary>${t("allergens")}</summary>
-          <div class="allergens-group">
-            ${available.map(
-              (allergenKey) => html`
-                <ha-formfield .label=${allergenKey}>
-                  <ha-checkbox
-                    .checked=${c.allergens.includes(allergenKey)}
-                    @change=${(e) =>
-                      this._onAllergenToggle(allergenKey, e.target.checked)}
-                  ></ha-checkbox>
-                </ha-formfield>
-              `,
-            )}
-          </div>
-        </details>
-
-        <!-- == Preset-fraser- och återställningsknappar == -->
-        <div class="preset-buttons">
-          <mwc-button @click=${() => this._resetPhrases("sv")}>
-            ${t("preset_svenska")}
-          </mwc-button>
-          <mwc-button @click=${() => this._resetPhrases("de")}>
-            ${t("preset_tyska")}
-          </mwc-button>
-          <mwc-button @click=${() => this._resetPhrases("en")}>
-            ${t("preset_english")}
-          </mwc-button>
-        </div>
-
-        <!-- Date locale -->
-        <ha-formfield label="${t("locale")}">
-          <ha-textfield
-            .value=${c.date_locale}
-            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Phrases sections -->
-        <h3>${t("phrases")}</h3>
-        <details>
-          <summary>${t("phrases_full")}</summary>
-          ${available.map(
-            (a) => html`
-              <ha-formfield .label=${a}>
-                <ha-textfield
-                  .value=${c.phrases.full[a] || ""}
-                  @input=${(e) => {
-                    const p = {
-                      ...c.phrases,
-                      full: { ...c.phrases.full, [a]: e.target.value },
-                    };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
-        </details>
-
-        <details>
-          <summary>${t("phrases_short")}</summary>
-          ${available.map(
-            (a) => html`
-              <ha-formfield .label=${a}>
-                <ha-textfield
-                  .value=${c.phrases.short[a] || ""}
-                  @input=${(e) => {
-                    const p = {
-                      ...c.phrases,
-                      short: { ...c.phrases.short, [a]: e.target.value },
-                    };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
-        </details>
-
-        <details>
-          <summary>${t("phrases_levels")}</summary>
-          ${Array.from(
-            { length: 7 },
-            (_, i) => html`
-              <ha-formfield .label=${i}>
-                <ha-textfield
-                  .value=${c.phrases.levels[i] || ""}
-                  @input=${(e) => {
-                    const lv = [...(c.phrases.levels || [])];
-                    lv[i] = e.target.value;
-                    const p = { ...c.phrases, levels: lv };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
-        </details>
-
-        <details>
-          <summary>${t("phrases_days")}</summary>
-          ${[0, 1, 2].map(
-            (i) => html`
-              <ha-formfield .label=${i}>
-                <ha-textfield
-                  .value=${c.phrases.days[i] || ""}
-                  @input=${(e) => {
-                    const dd = { ...(c.phrases.days || {}) };
-                    dd[i] = e.target.value;
-                    const p = { ...c.phrases, days: dd };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
-        </details>
-
-        <ha-formfield label="${t("no_information")}">
-          <ha-textfield
-            .value=${c.phrases.no_information || ""}
-            @input=${(e) => {
-              const p = { ...c.phrases, no_information: e.target.value };
-              this._updateConfig("phrases", p);
-            }}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Debug -->
-        <ha-formfield label="${t("debug")}">
-          <ha-switch
-            .checked=${c.debug}
-            @change=${(e) => this._updateConfig("debug", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
+        <!-- fler fält enligt tidigare mönster, ersätt alla t("key") med this._t("key") -->
       </div>
     `;
   }

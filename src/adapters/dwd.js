@@ -1,4 +1,5 @@
 // src/adapters/dwd.js
+import { t, detectLang } from "../i18n.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -46,15 +47,7 @@ export const stubConfigDWD = {
       roggen: "Roggen",
     },
     short: {},
-    levels: [
-      "keine Belastung",
-      "keine bis geringe Belastung",
-      "geringe Belastung",
-      "geringe bis mittlere Belastung",
-      "mittlere Belastung",
-      "mittliga bis hohe Belastning",
-      "hohe Belastning",
-    ],
+    levels: [],
     days: {},
     no_information: "",
   },
@@ -64,24 +57,24 @@ export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  const phrases = config.phrases || {};
-  const levelNames =
-    Array.isArray(phrases.levels) && phrases.levels.length === 7
-      ? phrases.levels
-      : stubConfigDWD.phrases.levels;
-
-  const noInfoLabel = phrases.no_information || "";
+  const lang = detectLang(hass, config.date_locale);
   const locale = config.date_locale || stubConfigDWD.date_locale;
-  const dayLabels = phrases.days || {};
-  const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
-  const pollen_threshold =
-    config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);
 
+  const phrases = config.phrases || {};
+  const levelNames = Array.from({ length: 7 }, (_, i) =>
+    t(`card.levels.${i}`, lang),
+  );
+  const noInfoLabel = t("card.no_information", lang);
+  const dayLabels = phrases.days || {};
+  const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
+  const pollen_threshold =
+    config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
+
   if (debug) {
-    console.log("DWD adapter: fetchForecast start", { config, levelNames });
+    console.debug("DWD adapter: fetchForecast start", { config, lang });
   }
 
   const replaceAAO = (intext) =>
@@ -110,7 +103,7 @@ export async function fetchForecast(hass, config) {
       dict.allergenShort =
         (phrases.short || {})[allergen] || dict.allergenCapitalized;
 
-      // Hitta sensor‐ID
+      // Hitta sensor-ID
       const region = config.region_id;
       let sensorId = region
         ? `sensor.pollenflug_${dict.allergenReplaced}_${region}`
@@ -129,7 +122,7 @@ export async function fetchForecast(hass, config) {
       const tomVal = test_val(sensor.attributes[ATTR_VAL_TOMORROW]);
       const twoVal = test_val(sensor.attributes[ATTR_VAL_IN_2_DAYS]);
 
-      // Bygg nivå‐array
+      // Bygg nivå-array
       const levels = [
         { date: today, level: todayVal, name: dict.allergenCapitalized },
         {
@@ -163,11 +156,11 @@ export async function fetchForecast(hass, config) {
         } else if (dayLabels[diff] !== undefined) {
           dayLabel = dayLabels[diff];
         } else if (diff === 0) {
-          dayLabel = "Heute";
+          dayLabel = t("card.days.0", lang);
         } else if (diff === 1) {
-          dayLabel = "Morgen";
+          dayLabel = t("card.days.1", lang);
         } else if (diff === 2) {
-          dayLabel = "Übermorgen";
+          dayLabel = t("card.days.2", lang);
         } else {
           dayLabel = entry.date.toLocaleDateString(locale, {
             day: "numeric",
@@ -186,24 +179,17 @@ export async function fetchForecast(hass, config) {
                 : ATTR_DESC_IN_2_DAYS
           ] || "";
 
-        // --- Här gör vi den viktiga justeringen: --
-        // dubblar råvärdet innan vi gör text‐uppslaget:
+        // Skala värdet för textuppslag
         const scaled = entry.level * 2;
-        const lvlIndex = Math.round(scaled);
+        const lvlIndex = Math.min(Math.max(Math.round(scaled), 0), 6);
 
         const text =
-          lvlIndex < 0
-            ? noInfoLabel
-            : levelNames[lvlIndex] != null
-              ? levelNames[lvlIndex]
-              : sensorDesc;
+          lvlIndex < 0 ? noInfoLabel : levelNames[lvlIndex] || sensorDesc;
 
         dict[`day${idx}`] = {
           name: entry.name,
           day: dayLabel,
-          // state lämnar vi orört (0.5–3)
           state: entry.level,
-          // state_text med rätt textfras
           state_text: text,
         };
       });
@@ -230,6 +216,6 @@ export async function fetchForecast(hass, config) {
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
   );
 
-  if (debug) console.log("DWD adapter: färdigt sensors‐array:", sensors);
+  if (debug) console.debug("DWD adapter: färdigt sensors‐array:", sensors);
   return sensors;
 }
