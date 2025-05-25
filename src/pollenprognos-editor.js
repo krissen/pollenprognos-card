@@ -2,7 +2,7 @@
 
 import { LitElement, html, css } from "lit";
 
-// Stub-config från adaptrar (för att editorn vet vilka fält som finns)
+// Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 
@@ -92,7 +92,7 @@ class PollenPrognosCardEditor extends LitElement {
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
-    // Återmata integrationen så setConfig laddar stub‐värdena
+    // Kör om integrationen så setConfig laddar stub‐värdena
     this.setConfig({ integration: this._config.integration });
   }
 
@@ -210,12 +210,12 @@ class PollenPrognosCardEditor extends LitElement {
 
   constructor() {
     super();
-    // 1) Rå-config från användar-YAML/editor
+    // Rå-config från användar-YAML/editor
     this._userConfig = {};
     this._integrationExplicit = false;
-    // 2) Den verkliga state som editorn ritar upp
+    // Den verkliga state som editorn ritar upp
     this._config = deepMerge(stubConfigPP, {});
-    // 3) Listor och flagga för första gång-autodetect
+    // Listor och flagga för första gång-autodetect
     this.installedCities = [];
     this.installedRegionIds = [];
     this._initDone = false;
@@ -226,29 +226,29 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] setConfig – userConfig in:", config);
 
-    // 1) Ackumulera nya värden över de som redan fanns
+    // Ackumulera nya värden över de som redan fanns
     this._userConfig = deepMerge(this._userConfig, config);
     this._integrationExplicit = this._userConfig.hasOwnProperty("integration");
 
-    // 2) Bestäm integration: explicit > tidigare > fallback 'pp'
+    // Bestäm integration: explicit > tidigare > fallback 'pp'
     const integration =
       this._userConfig.integration || this._config?.integration || "pp";
 
-    // 3) Hämta rätt stub och slå ihop med samlad userConfig
+    // Hämta rätt stub och slå ihop med samlad userConfig
     const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
     this._config = deepMerge(base, this._userConfig);
 
-    // 4) Sätt alltid rätt type för preview
+    // Sätt alltid rätt type för preview
     this._config.type = "custom:pollenprognos-card";
 
-    // 5) Nollställ init-flagga så auto-detect körs på nästa hass
+    // Nollställ init-flagga så auto-detect körs på nästa hass
     this._initDone = false;
 
     // Logga slutgiltigt resultat
     if (this.debug)
       console.debug("[Editor] setConfig – merged _config:", this._config);
 
-    // *Ny kod*: meddela Home Assistant att config ändrats så att preview ritas om
+    // Meddela Home Assistant att config ändrats så att preview ritas om
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },
@@ -278,13 +278,13 @@ class PollenPrognosCardEditor extends LitElement {
       id.startsWith("sensor.pollenflug_"),
     );
 
-    // 1) Auto‐detect integration bara första gången om användaren INTE satt den explicit
+    // Auto‐detect integration bara första gången om användaren INTE satt den explicit
     if (!this._initDone && !explicit) {
       if (ppStates.length) this._config.integration = "pp";
       else if (dwdStates.length) this._config.integration = "dwd";
     }
 
-    // 2) Bygg listor för valbara regioner och städer
+    // Bygg listor för valbara regioner och städer
     const regionIds = Array.from(
       new Set(dwdStates.map((id) => id.split("_").pop())),
     ).sort((a, b) => Number(a) - Number(b));
@@ -304,7 +304,7 @@ class PollenPrognosCardEditor extends LitElement {
       uniqCities.includes(keyFor(city)),
     ).sort((a, b) => a.localeCompare(b));
 
-    // 3) Auto‐välj första region eller stad om användaren inte specificerat själv
+    // Auto‐välj första region eller stad om användaren inte specificerat själv
     if (!this._initDone) {
       if (
         this._config.integration === "dwd" &&
@@ -343,7 +343,7 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
-    // 1) Uppdatera userConfig
+    // Uppdatera userConfig
     const newUser = { ...this._userConfig };
     if (value === undefined) {
       delete newUser[prop];
@@ -357,17 +357,17 @@ class PollenPrognosCardEditor extends LitElement {
       const newInt = value;
       const oldInt = this._config.integration;
 
-      // 2) Rensa stad/region
+      // Rensa stad/region
       if (newInt === "dwd") {
         delete this._userConfig.city;
       } else {
         delete this._userConfig.region_id;
       }
 
-      // 3) Rensa allergens så att stub används för nya integrationen
+      // Rensa allergens så att stub används för nya integrationen
       delete this._userConfig.allergens;
 
-      // 4) Rensa locale och days_to_show om de är stub för gamla integrationen
+      // Rensa locale och days_to_show om de är stub för gamla integrationen
       const oldStub = oldInt === "dwd" ? stubConfigDWD : stubConfigPP;
       ["date_locale", "days_to_show"].forEach((key) => {
         if (
@@ -378,7 +378,7 @@ class PollenPrognosCardEditor extends LitElement {
         }
       });
 
-      // 5) Rensa bort DWD-phrases vid dwd→pp
+      // Rensa bort DWD-phrases vid dwd→pp
       if (newInt === "pp" && this._userConfig.phrases) {
         const dwdP = stubConfigDWD.phrases;
         const userP = { ...this._userConfig.phrases };
@@ -413,19 +413,19 @@ class PollenPrognosCardEditor extends LitElement {
           : undefined;
       }
 
-      // 6) Bygg upp ny config från stub + userConfig
+      // Bygg upp ny config från stub + userConfig
       const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
       cfg = deepMerge(base, this._userConfig);
       cfg.integration = newInt;
     } else {
-      // 7) För andra fält: bygg på senaste config
+      // För andra fält: bygg på senaste config
       cfg = { ...this._config, [prop]: value };
     }
 
-    // 8) Alltid se till korrekt kort-typ
+    // Alltid se till korrekt kort-typ
     cfg.type = this._config.type || "custom:pollenprognos-card";
 
-    // 9) Spara och logga
+    // Spara och logga
     this._config = cfg;
     if (this.debug)
       console.debug(
@@ -435,7 +435,7 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – merged _config:", this._config);
 
-    // 10) Triggera preview-uppdatering
+    // Trigga preview-uppdatering
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },

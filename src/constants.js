@@ -71,7 +71,7 @@ export const LOCALIZED_ALLERGENS = {
     grass: "Gräs",
     hazel: "Hassel",
     willow: "Sälg och viden",
-    ash: "Asp", // om du vill, annars ta bort
+    ash: "Asp",
     rye: "Råg",
     levels: [
       "Ingen pollen",

@@ -2,7 +2,7 @@
 import { LitElement, html, css } from "lit";
 import { images } from "./pollenprognos-images.js";
 
-// Adapter-modulerna (du använder dem senare via CONSTANT_ADAPTERS eller direkt)
+// Adapter-modulerna
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
 
@@ -165,7 +165,7 @@ class PollenPrognosCard extends LitElement {
     );
 
     // decide integration
-    let integration = this._userConfig.integration; // may be undefined
+    let integration = this._userConfig.integration;
     if (!explicit) {
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
@@ -198,9 +198,6 @@ class PollenPrognosCard extends LitElement {
       ...this._userConfig,
       integration,
     };
-
-    // (resten av din DWD-fallback, automat-region, header, fetchForecast osv…)
-    // this.config = cfg;
 
     // DWD-fallback: tvinga fram DWD-defaults
     //    - vid autodetektering (explicit=false)
