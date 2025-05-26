@@ -281,10 +281,11 @@ class PollenPrognosCard extends LitElement {
             <tr>
               <th></th>
               ${cols.map(
-                (i) =>
-                  html`<th style="font-weight: ${daysBold ? "bold" : "normal"}">
-                    ${this.sensors[0][`day${i}`].day}
-                  </th>`,
+                (i) => html`
+                  <th style="font-weight: ${daysBold ? "bold" : "normal"}">
+                    ${this.sensors[0].days[i]?.day || ""}
+                  </th>
+                `,
               )}
             </tr>
           </thead>
@@ -297,35 +298,40 @@ class PollenPrognosCard extends LitElement {
                     class="allergen"
                     src="${this._getImageSrc(
                       sensor.allergenReplaced,
-                      sensor.day0.state,
+                      sensor.days[0]?.state,
                     )}"
                   />
                   ${this.config.show_value
-                    ? html`<div class="value-text">${sensor.day0.state}</div>`
+                    ? html`<div class="value-text">
+                        ${sensor.days[0]?.state}
+                      </div>`
                     : ""}
                 </td>
                 ${cols.map(
-                  (i) =>
-                    html`<td>
+                  (i) => html`
+                    <td>
                       <img
-                        src="${this._getImageSrc("", sensor[`day${i}`].state)}"
-                      />${this.config.show_value
+                        src="${this._getImageSrc("", sensor.days[i]?.state)}"
+                      />
+                      ${this.config.show_value
                         ? html`<div class="value-text">
-                            ${sensor[`day${i}`].state}
+                            ${sensor.days[i]?.state ?? ""}
                           </div>`
                         : ""}
-                    </td>`,
+                    </td>
+                  `,
                 )}
               </tr>
               <tr class="allergen" valign="top">
                 <td>${sensor.allergenCapitalized}</td>
                 ${cols.map(
-                  (i) =>
-                    html`<td>
+                  (i) => html`
+                    <td>
                       ${this.config.show_text
-                        ? html`<p>${sensor[`day${i}`].state_text}</p>`
+                        ? html`<p>${sensor.days[i]?.state_text || ""}</p>`
                         : ""}
-                    </td>`,
+                    </td>
+                  `,
                 )}
               </tr>
             `,

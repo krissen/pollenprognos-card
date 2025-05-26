@@ -45,14 +45,14 @@ export async function fetchForecast(hass, config) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Språk och locale: respektera användar-inställning
+  // Language and locale
   const lang = detectLang(hass, config.date_locale);
   const locale = config.date_locale || stubConfigPP.date_locale;
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);
 
-  // Phrases: ge userConfig företräde
+  // Phrases with user overrides
   const phrases = {
     full: {},
     short: {},
@@ -92,10 +92,11 @@ export async function fetchForecast(hass, config) {
   for (const allergen of config.allergens) {
     try {
       const dict = {};
+      dict.days = []; // Initialize a days array
       const rawKey = normalize(allergen);
       dict.allergenReplaced = rawKey;
 
-      // Allergen-namn: user eller i18n eller fallback
+      // Allergen name resolution
       if (fullPhrases[allergen]) {
         dict.allergenCapitalized = fullPhrases[allergen];
       } else {
@@ -108,7 +109,7 @@ export async function fetchForecast(hass, config) {
       }
       dict.allergenShort = shortPhrases[allergen] || dict.allergenCapitalized;
 
-      // Hitta sensor
+      // Sensor lookup
       const cityKey = normalize(config.city);
       let sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
       if (!hass.states[sensorId]) {
@@ -122,7 +123,7 @@ export async function fetchForecast(hass, config) {
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";
 
-      // Bygg forecastMap
+      // Build forecastMap
       const rawForecast = sensor.attributes.forecast;
       const forecastMap = Array.isArray(rawForecast)
         ? rawForecast.reduce((o, entry) => {
@@ -132,28 +133,37 @@ export async function fetchForecast(hass, config) {
           }, {})
         : rawForecast;
 
+      // Sort and slice dates
+      // Hämta och sortera prognosdatum
       const rawDates = Object.keys(forecastMap).sort(
         (a, b) => parseLocal(a) - parseLocal(b),
       );
       const upcoming = rawDates.filter((d) => parseLocal(d) >= today);
-      const forecastDates = upcoming.length
-        ? upcoming.slice(0, days_to_show)
-        : rawDates.slice(-1).reduce(
-            (arr, last) => {
-              const base = parseLocal(last);
-              while (arr.length < days_to_show) {
-                const nl = new Date(base.getTime() + arr.length * 86400000);
-                const yyyy = nl.getFullYear();
-                const mm = String(nl.getMonth() + 1).padStart(2, "0");
-                const dd = String(nl.getDate()).padStart(2, "0");
-                arr.push(`${yyyy}-${mm}-${dd}T00:00:00`);
-              }
-              return arr;
-            },
-            [rawDates[rawDates.length - 1]],
-          );
 
-      // Loopar dagarna
+      // Padda ut till exactly days_to_show datum
+      let forecastDates = [];
+      if (upcoming.length >= days_to_show) {
+        // Tillräckligt många kommande – ta de första N
+        forecastDates = upcoming.slice(0, days_to_show);
+      } else {
+        // Lägg först in vad som finns
+        forecastDates = upcoming.slice();
+        // Sedan bygg på dag för dag framåt
+        // (antingen från senast i upcoming, eller från idag)
+        let lastDate =
+          upcoming.length > 0
+            ? parseLocal(upcoming[upcoming.length - 1])
+            : today;
+
+        while (forecastDates.length < days_to_show) {
+          lastDate = new Date(lastDate.getTime() + 86400000);
+          const yyyy = lastDate.getFullYear();
+          const mm = String(lastDate.getMonth() + 1).padStart(2, "0");
+          const dd = String(lastDate.getDate()).padStart(2, "0");
+          forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
+        }
+      }
+      // Iterate forecast days
       forecastDates.forEach((dateStr, idx) => {
         const raw = forecastMap[dateStr] || {};
         const level = testVal(raw.level);
@@ -162,19 +172,15 @@ export async function fetchForecast(hass, config) {
         let label;
 
         if (!daysRelative) {
-          // Visa veckodagar med första bokstaven stor
           label = d.toLocaleDateString(locale, {
             weekday: dayAbbrev ? "short" : "long",
           });
           label = label.charAt(0).toUpperCase() + label.slice(1);
         } else if (userDays[diff] != null) {
-          // Relativa dagar från användarens config
           label = userDays[diff];
         } else if (diff >= 0 && diff <= 2) {
-          // Standard relative days från i18n
           label = t(`card.days.${diff}`, lang);
         } else {
-          // Datum som dag mån
           label = d.toLocaleDateString(locale, {
             day: "numeric",
             month: "short",
@@ -182,26 +188,26 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) label = label.toUpperCase();
 
-        dict[`day${idx}`] = {
+        const dayObj = {
           name: dict.allergenCapitalized,
           day: label,
           state: level,
           state_text: level < 0 ? noInfoLabel : levelNames[level],
         };
+
+        dict[`day${idx}`] = dayObj;
+        dict.days.push(dayObj);
       });
 
-      // Filtrera med tröskel
-      const meets = Array.from(
-        { length: days_to_show },
-        (_, i) => dict[`day${i}`]?.state ?? -1,
-      ).some((v) => v >= pollen_threshold);
+      // Threshold filtering
+      const meets = dict.days.some((d) => d.state >= pollen_threshold);
       if (meets || pollen_threshold === 0) sensors.push(dict);
     } catch (e) {
       console.warn(`Fel vid allergen ${allergen}:`, e);
     }
   }
 
-  // Sortering
+  // Sorting
   sensors.sort(
     {
       value_ascending: (a, b) => a.day0.state - b.day0.state,

@@ -143,6 +143,8 @@ export async function fetchForecast(hass, config) {
       }
 
       // Bygg dict.dayN
+      dict.days = [];
+      // Bygg dict.dayN och dict.days[]
       levels.forEach((entry, idx) => {
         const diff = Math.round((entry.date - today) / 86400000);
         let dayLabel;
@@ -188,6 +190,7 @@ export async function fetchForecast(hass, config) {
           state: entry.level,
           state_text: stateText,
         };
+        dict.days.push(dict[`day${idx}`]);
       });
 
       // Filtrera med tröskel
