@@ -30,8 +30,7 @@ const deepMerge = (target, source) => {
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
-    // return Boolean(this._config.debug);
-    return true; // Always debug mode for editor
+    return Boolean(this._config.debug);
   }
 
   _resetAll() {
@@ -151,14 +150,14 @@ class PollenPrognosCardEditor extends LitElement {
       !this._integrationExplicit &&
       incoming.integration === stubConfigPP.integration
     ) {
-      console.debug("[Editor] dropped stub integration");
+      if (this.debug) console.debug("[Editor] dropped stub integration");
       delete incoming.integration;
     }
     if (
       !this._daysExplicit &&
       incoming.days_to_show === stubConfigPP.days_to_show
     ) {
-      console.debug("[Editor] dropped stub days_to_show");
+      if (this.debug) console.debug("[Editor] dropped stub days_to_show");
       delete incoming.days_to_show;
     }
     // Här kollar vi om det är stub från *rätt* stubConfig beroende på integration:
@@ -166,12 +165,13 @@ class PollenPrognosCardEditor extends LitElement {
       incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
     ).date_locale;
     if (!this._localeExplicit && incoming.date_locale === stubLocale) {
-      console.debug("[Editor] dropped stub date_locale");
+      if (this.debug) console.debug("[Editor] dropped stub date_locale");
       delete incoming.date_locale;
     }
 
     // 2) Slå ihop med userConfig
-    console.debug("[Editor] after cleaning, incoming:", incoming);
+    if (this.debug)
+      console.debug("[Editor] after cleaning, incoming:", incoming);
     this._userConfig = deepMerge(this._userConfig, incoming);
 
     // 3) Sätt explicit‐flaggor per fält
@@ -187,7 +187,8 @@ class PollenPrognosCardEditor extends LitElement {
       else if (all.some((id) => id.startsWith("sensor.pollenflug_")))
         integration = "dwd";
       this._userConfig.integration = integration;
-      console.debug("[Editor] auto-detected integration:", integration);
+      if (this.debug)
+        console.debug("[Editor] auto-detected integration:", integration);
     }
 
     // 5) Bygg config från stub + userConfig
@@ -199,10 +200,11 @@ class PollenPrognosCardEditor extends LitElement {
     // 6) Återställ days_to_show om inte explicit
     if (!this._daysExplicit) {
       this._config.days_to_show = baseStub.days_to_show;
-      console.debug(
-        "[Editor] reset days_to_show to stub:",
-        baseStub.days_to_show,
-      );
+      if (this.debug)
+        console.debug(
+          "[Editor] reset days_to_show to stub:",
+          baseStub.days_to_show,
+        );
     }
 
     // 7) Autofyll date_locale om inte explicit, nu baserat på HA language
@@ -224,13 +226,14 @@ class PollenPrognosCardEditor extends LitElement {
           locale = "en-US";
       }
       this._config.date_locale = locale;
-      console.debug(
-        "[Editor] autofilled date_locale:",
-        locale,
-        "(HA language was:",
-        detected,
-        ")",
-      );
+      if (this.debug)
+        console.debug(
+          "[Editor] autofilled date_locale:",
+          locale,
+          "(HA language was:",
+          detected,
+          ")",
+        );
     }
 
     this._initDone = false;

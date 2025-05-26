@@ -86,6 +86,8 @@ class PollenPrognosCard extends LitElement {
   set hass(hass) {
     this._hass = hass;
     const explicit = !!this._integrationExplicit;
+
+    // 1) Hitta sensorer för PP respektive DWD
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
         id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
@@ -94,51 +96,67 @@ class PollenPrognosCard extends LitElement {
       id.startsWith("sensor.pollenflug_"),
     );
 
+    // 2) Autodetektera integration om inte explicit
     let integration = this._userConfig.integration;
     if (!explicit) {
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
+      // rensa bort eventuell gammal cache så vi får en ren merge nedan
       this._userConfig = {};
     }
+
     if (this.debug) console.debug("[PollenPrognos] integration:", integration);
+
+    // extra fallback: om vi valde PP men inga PP-sensorer finns
     if (
       !explicit &&
       integration === "pp" &&
       !ppStates.length &&
       dwdStates.length
-    )
+    ) {
       integration = "dwd";
+    }
 
+    // 3) Slå ihop stub + userConfig
     const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
     const cfg = { ...baseStub, ...this._userConfig, integration };
 
-    if (integration === "dwd") {
-      if (!explicit || !this._userConfig.allergens)
-        cfg.allergens = stubConfigDWD.allergens;
-      if (!explicit || !this._userConfig.days_to_show)
-        cfg.days_to_show = stubConfigDWD.days_to_show;
-      if (!explicit || !this._userConfig.date_locale)
-        cfg.date_locale = stubConfigDWD.date_locale;
+    // 4) När vi är i DWD-mode: bara återställ date_locale om inte explicit
+    if (
+      integration === "dwd" &&
+      !explicit &&
+      !this._userConfig.hasOwnProperty("date_locale")
+    ) {
+      if (this.debug)
+        console.debug(
+          "[PollenPrognos] restoring DWD-stub locale:",
+          baseStub.date_locale,
+        );
+      cfg.date_locale = baseStub.date_locale;
     }
 
+    // (Eventuellt: lämna days_to_show / allergens intakta alltid, som du hade)
+
+    // 5) Automatisk region / stad
     if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
       cfg.region_id = Array.from(
         new Set(dwdStates.map((id) => id.split("_").pop())),
       ).sort((a, b) => Number(a) - Number(b))[0];
     } else if (integration === "pp" && !cfg.city && ppStates.length) {
       cfg.city = ppStates[0]
-        .slice("sensor.pollen_".length) // rätta till slice-index
+        .slice("sensor.pollen_".length)
         .replace(/_[^_]+$/, "");
     }
 
+    // 6) Spara och sätt header
     this.config = cfg;
     if (typeof cfg.title === "string") this.header = cfg.title;
     else if (cfg.title === false) this.header = "";
     else {
       let loc;
-      if (cfg.integration === "dwd")
+      if (cfg.integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
-      else {
+      } else {
         const key = cfg.city;
         const pretty = PP_POSSIBLE_CITIES.find(
           (n) =>
@@ -153,6 +171,7 @@ class PollenPrognosCard extends LitElement {
       this.header = `${this._t("card.header_prefix")} ${loc}`;
     }
 
+    // 7) Hämta prognos
     const adapter = ADAPTERS[cfg.integration] || PP;
     if (this.debug) console.debug("[PollenPrognos] final cfg", cfg);
     adapter
