@@ -96,6 +96,7 @@ class PollenPrognosCard extends LitElement {
 
     let integration = this._userConfig.integration;
     if (!explicit) {
+      this._userConfig = {};
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
     }
@@ -125,7 +126,9 @@ class PollenPrognosCard extends LitElement {
         new Set(dwdStates.map((id) => id.split("_").pop())),
       ).sort((a, b) => Number(a) - Number(b))[0];
     } else if (integration === "pp" && !cfg.city && ppStates.length) {
-      cfg.city = ppStates[0].slice(13).replace(/_[^_]+$/, "");
+      cfg.city = ppStates[0]
+        .slice("sensor.pollen_".length) // rätta till slice-index
+        .replace(/_[^_]+$/, "");
     }
 
     this.config = cfg;

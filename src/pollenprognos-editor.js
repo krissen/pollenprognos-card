@@ -6,6 +6,8 @@ import { t, detectLang } from "./i18n.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 
+import { PP_POSSIBLE_CITIES, DWD_REGIONS } from "./constants.js";
+
 // Recursive merge utility
 const deepMerge = (target, source) => {
   const out = { ...target };
@@ -46,7 +48,7 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigDWD.allergens
           : this._config.allergens;
       const full = {};
-      keys.forEach((k) => (full[k] = t(`editor.phrase_full.${k}`, lang)));
+      keys.forEach((k) => (full[k] = t(`editor.phrases_full.${k}`, lang)));
       this._updateConfig("phrases", {
         full,
         short: {},
@@ -64,8 +66,17 @@ class PollenPrognosCardEditor extends LitElement {
     }
     if (lang === "en") {
       this._updateConfig("date_locale", "en-US");
+      // Hämta alla allergen-nycklar beroende på integration
+      const keys =
+        this._config.integration === "dwd"
+          ? stubConfigDWD.allergens
+          : stubConfigPP.allergens;
+      // Bygg upp full-fraserna
+      const full = {};
+      keys.forEach((k) => (full[k] = t(`editor.phrases_full.${k}`, lang)));
+      // Uppdatera hela phrases-objektet
       this._updateConfig("phrases", {
-        full: {},
+        full,
         short: {},
         levels: Array.from({ length: 7 }, (_, i) =>
           t(`editor.phrases_levels.${i}`, lang),
@@ -86,7 +97,7 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigDWD.allergens
           : this._config.allergens;
       const full = {};
-      keys.forEach((k) => (full[k] = t(`editor.phrase_full.${k}`, lang)));
+      keys.forEach((k) => (full[k] = t(`editor.phrases_full.${k}`, lang)));
       this._updateConfig("phrases", {
         full,
         short: {},
@@ -168,13 +179,32 @@ class PollenPrognosCardEditor extends LitElement {
       if (ppStates.length) this._config.integration = "pp";
       else if (dwdStates.length) this._config.integration = "dwd";
     }
+
     this.installedRegionIds = Array.from(
       new Set(dwdStates.map((id) => id.split("_").pop())),
     ).sort((a, b) => Number(a) - Number(b));
-    const uniqCities = Array.from(
-      new Set(ppStates.map((id) => id.slice(13).replace(/_[^_]+$/, ""))),
+
+    const uniqKeys = Array.from(
+      new Set(
+        ppStates.map(
+          (id) =>
+            id
+              .slice("sensor.pollen_".length) // “forshaga_elm”
+              .replace(/_[^_]+$/, ""), // → “forshaga”
+        ),
+      ),
     );
-    this.installedCities = uniqCities;
+
+    this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
+      uniqKeys.includes(
+        city
+          .toLowerCase()
+          .replace(/[åä]/g, "a")
+          .replace(/ö/g, "o")
+          .replace(/[-\s]/g, "_"),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+
     if (!this._initDone) {
       if (
         this._config.integration === "dwd" &&
@@ -242,13 +272,17 @@ class PollenPrognosCardEditor extends LitElement {
       },
       ...this._config,
     };
+
     return html`
       <div class="card-config">
+        <!-- Återställ-knapp -->
         <div class="preset-buttons">
           <mwc-button @click=${() => this._resetAll()}>
             ${this._t("preset_reset_all")}
           </mwc-button>
         </div>
+
+        <!-- Integration -->
         <ha-formfield label="${this._t("integration")}">
           <ha-select
             .value=${c.integration}
@@ -260,19 +294,298 @@ class PollenPrognosCardEditor extends LitElement {
             <mwc-list-item value="dwd">DWD Pollenflug</mwc-list-item>
           </ha-select>
         </ha-formfield>
-        <ha-formfield label="${this._t("city")}">
+
+        <!-- Stad (PP) eller Region (DWD) -->
+        ${c.integration === "pp"
+          ? html`
+              <ha-formfield label="${this._t("city")}">
+                <ha-select
+                  .value=${c.city || ""}
+                  @selected=${(e) => this._updateConfig("city", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  ${this.installedCities.map(
+                    (city) =>
+                      html`<mwc-list-item .value=${city}
+                        >${city}</mwc-list-item
+                      >`,
+                  )}
+                </ha-select>
+              </ha-formfield>
+            `
+          : html`
+              <ha-formfield label="${this._t("region_id")}">
+                <ha-select
+                  .value=${c.region_id || ""}
+                  @selected=${(e) =>
+                    this._updateConfig("region_id", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  ${this.installedRegionIds.map(
+                    (id) => html`
+                      <mwc-list-item .value=${id}>
+                        ${id} — ${DWD_REGIONS[id] || id}
+                      </mwc-list-item>
+                    `,
+                  )}
+                </ha-select>
+              </ha-formfield>
+            `}
+
+        <!-- Titel -->
+        <ha-formfield label="${this._t("title")}">
+          <ha-textfield
+            .value=${c.title || ""}
+            placeholder="${this._t("title")}"
+            @input=${(e) => {
+              const v = e.target.value;
+              this._updateConfig("title", v === "" ? undefined : v);
+            }}
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- Layout-switchar -->
+        <ha-formfield label="${this._t("minimal")}">
+          <ha-switch
+            .checked=${c.minimal}
+            @change=${(e) => this._updateConfig("minimal", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_text")}">
+          <ha-switch
+            .checked=${c.show_text}
+            @change=${(e) => this._updateConfig("show_text", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_value")}">
+          <ha-switch
+            .checked=${c.show_value}
+            @change=${(e) => this._updateConfig("show_value", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_empty_days")}">
+          <ha-switch
+            .checked=${c.show_empty_days}
+            @change=${(e) =>
+              this._updateConfig("show_empty_days", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+
+        <!-- Dag-inställningar -->
+        <ha-formfield label="${this._t("days_relative")}">
+          <ha-switch
+            .checked=${c.days_relative}
+            @change=${(e) =>
+              this._updateConfig("days_relative", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("days_abbreviated")}">
+          <ha-switch
+            .checked=${c.days_abbreviated}
+            @change=${(e) =>
+              this._updateConfig("days_abbreviated", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("days_uppercase")}">
+          <ha-switch
+            .checked=${c.days_uppercase}
+            @change=${(e) =>
+              this._updateConfig("days_uppercase", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("days_boldfaced")}">
+          <ha-switch
+            .checked=${c.days_boldfaced}
+            @change=${(e) =>
+              this._updateConfig("days_boldfaced", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+
+        <!-- Antal dagar -->
+        <ha-formfield label="${this._t("days_to_show")} ${c.days_to_show}">
+          <ha-slider
+            min="0"
+            max="6"
+            step="1"
+            .value=${c.days_to_show}
+            @change=${(e) =>
+              this._updateConfig("days_to_show", Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
+
+        <!-- Tröskel -->
+        <ha-formfield
+          label="${this._t("pollen_threshold")} ${c.pollen_threshold}"
+        >
+          <ha-slider
+            min="0"
+            max="6"
+            step="1"
+            .value=${c.pollen_threshold}
+            @change=${(e) =>
+              this._updateConfig("pollen_threshold", Number(e.target.value))}
+          ></ha-slider>
+        </ha-formfield>
+
+        <!-- Sortering -->
+        <ha-formfield label="${this._t("sort")}">
           <ha-select
-            .value=${c.city}
-            @selected=${(e) => this._updateConfig("city", e.target.value)}
+            .value=${c.sort}
+            @selected=${(e) => this._updateConfig("sort", e.target.value)}
             @closed=${(e) => e.stopPropagation()}
           >
-            ${this.installedCities.map(
-              (city) =>
-                html`<mwc-list-item .value=${city}>${city}</mwc-list-item>`,
+            ${[
+              "value_ascending",
+              "value_descending",
+              "name_ascending",
+              "name_descending",
+            ].map(
+              (o) =>
+                html`<mwc-list-item .value=${o}
+                  >${o.replace("_", " ")}</mwc-list-item
+                >`,
             )}
           </ha-select>
         </ha-formfield>
-        <!-- fler fält enligt tidigare mönster, ersätt alla t("key") med this._t("key") -->
+
+        <!-- Språk-inställning -->
+        <ha-formfield label="${this._t("locale")}">
+          <ha-textfield
+            .value=${c.date_locale}
+            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- Allergener (detaljerad) -->
+        <details>
+          <summary>${this._t("allergens")}</summary>
+          <div class="allergens-group">
+            ${(c.integration === "dwd"
+              ? stubConfigDWD.allergens
+              : stubConfigPP.allergens
+            ).map(
+              (key) => html`
+                <ha-formfield .label=${key}>
+                  <ha-checkbox
+                    .checked=${c.allergens.includes(key)}
+                    @change=${(e) =>
+                      this._onAllergenToggle(key, e.target.checked)}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `,
+            )}
+          </div>
+        </details>
+
+        <!-- Fraser -->
+        <h3>${this._t("phrases")}</h3>
+        <div class="preset-buttons">
+          <mwc-button @click=${() => this._resetPhrases("sv")}>
+            ${this._t("preset_svenska")}
+          </mwc-button>
+          <mwc-button @click=${() => this._resetPhrases("de")}>
+            ${this._t("preset_tyska")}
+          </mwc-button>
+          <mwc-button @click=${() => this._resetPhrases("en")}>
+            ${this._t("preset_english")}
+          </mwc-button>
+        </div>
+        <details>
+          <summary>${this._t("phrases_full")}</summary>
+          ${(c.integration === "dwd"
+            ? stubConfigDWD.allergens
+            : stubConfigPP.allergens
+          ).map(
+            (a) => html`
+              <ha-formfield .label=${a}>
+                <ha-textfield
+                  .value=${c.phrases.full[a] || ""}
+                  @input=${(e) => {
+                    const p = {
+                      ...c.phrases,
+                      full: { ...c.phrases.full, [a]: e.target.value },
+                    };
+                    this._updateConfig("phrases", p);
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `,
+          )}
+        </details>
+        <details>
+          <summary>${this._t("phrases_short")}</summary>
+          ${(c.integration === "dwd"
+            ? stubConfigDWD.allergens
+            : stubConfigPP.allergens
+          ).map(
+            (a) => html`
+              <ha-formfield .label=${a}>
+                <ha-textfield
+                  .value=${c.phrases.short[a] || ""}
+                  @input=${(e) => {
+                    const p = {
+                      ...c.phrases,
+                      short: { ...c.phrases.short, [a]: e.target.value },
+                    };
+                    this._updateConfig("phrases", p);
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `,
+          )}
+        </details>
+        <details>
+          <summary>${this._t("phrases_levels")}</summary>
+          ${Array.from({ length: 7 }, (_, i) => i).map(
+            (i) => html`
+              <ha-formfield .label=${i}>
+                <ha-textfield
+                  .value=${c.phrases.levels[i] || ""}
+                  @input=${(e) => {
+                    const lv = [...c.phrases.levels];
+                    lv[i] = e.target.value;
+                    const p = { ...c.phrases, levels: lv };
+                    this._updateConfig("phrases", p);
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `,
+          )}
+        </details>
+        <details>
+          <summary>${this._t("phrases_days")}</summary>
+          ${[0, 1, 2].map(
+            (i) => html`
+              <ha-formfield .label=${i}>
+                <ha-textfield
+                  .value=${c.phrases.days[i] || ""}
+                  @input=${(e) => {
+                    const dd = { ...c.phrases.days, [i]: e.target.value };
+                    this._updateConfig("phrases", { ...c.phrases, days: dd });
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `,
+          )}
+        </details>
+        <ha-formfield label="${this._t("no_information")}">
+          <ha-textfield
+            .value=${c.phrases.no_information || ""}
+            @input=${(e) =>
+              this._updateConfig("phrases", {
+                ...c.phrases,
+                no_information: e.target.value,
+              })}
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- Debug -->
+        <ha-formfield label="${this._t("debug")}">
+          <ha-switch
+            .checked=${c.debug}
+            @change=${(e) => this._updateConfig("debug", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
       </div>
     `;
   }
