@@ -17,7 +17,11 @@ export function detectLang(hass, userLocale) {
   let lang;
   if (userLocale) {
     lang = userLocale.slice(0, 2).toLowerCase();
+  } else if (hass?.locale?.language) {
+    // Newer HA stores UI locale here
+    lang = hass.locale.language.slice(0, 2).toLowerCase();
   } else if (hass?.language) {
+    // Fallback to older property
     lang = hass.language.slice(0, 2).toLowerCase();
   } else {
     lang = DEFAULT;

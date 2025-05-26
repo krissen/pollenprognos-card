@@ -100,25 +100,6 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // 4) Om användaren inte har angett date_locale, fyll i baserat på HA-UI
-    if (!this._userConfig.hasOwnProperty("date_locale")) {
-      const detected = detectLang(this._hass, null);
-      this._userConfig.date_locale =
-        detected === "sv"
-          ? "sv-SE"
-          : detected === "de"
-            ? "de-DE"
-            : detected === "fi"
-              ? "fi-FI"
-              : "en-US";
-      if (this.debug) {
-        console.debug(
-          "[PollenPrognos] setConfig auto-filling date_locale:",
-          this._userConfig.date_locale,
-        );
-      }
-    }
-
     // 5) Återställ init-flaggan så att set hass körs om
     this._initDone = false;
 

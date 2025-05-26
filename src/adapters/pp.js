@@ -46,8 +46,18 @@ export async function fetchForecast(hass, config) {
   today.setHours(0, 0, 0, 0);
 
   // Language and locale
+  // Figure out the base language code ("sv", "en", "de", …)
   const lang = detectLang(hass, config.date_locale);
-  const locale = config.date_locale || stubConfigPP.date_locale;
+  // Turn it into a full locale tag for dates (sv-SE, de-DE, fi-FI, en-US)
+  const locale =
+    config.date_locale ||
+    (lang === "sv"
+      ? "sv-SE"
+      : lang === "de"
+        ? "de-DE"
+        : lang === "fi"
+          ? "fi-FI"
+          : "en-US");
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);
