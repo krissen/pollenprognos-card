@@ -1,4 +1,8 @@
 {
+  "editor.integration.pp": "PollenPrognos",
+  "editor.integration.dwd": "DWD Pollenflug",
+  "card.integration.pp": "PollenPrognos",
+  "card.integration.dwd": "DWD Pollenflug",
   "card.allergen.alder": "Alder",
   "card.allergen.ash": "Ash",
   "card.allergen.birch": "Birch",

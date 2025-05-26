@@ -23,7 +23,8 @@ const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return Boolean(this.config?.debug);
+    return true;
+    // return Boolean(this.config?.debug);
   }
 
   get _lang() {
@@ -75,19 +76,63 @@ class PollenPrognosCard extends LitElement {
   }
 
   setConfig(config) {
+    // 1) Kopiera in användarens råa config
     this._userConfig = { ...config };
+
+    // 2) Markera integration som explicit
     this._integrationExplicit =
       config.hasOwnProperty("integration") &&
       config.integration !== stubConfigPP.integration;
+
+    // 3) -- NYTT! -- gör fallback redan här, för preview
+    if (!this._integrationExplicit && this._hass) {
+      const allIds = Object.keys(this._hass.states);
+      const hasPP = allIds.some(
+        (id) =>
+          id.startsWith("sensor.pollen_") &&
+          !id.startsWith("sensor.pollenflug_"),
+      );
+      const hasDWD = allIds.some((id) => id.startsWith("sensor.pollenflug_"));
+      if (!hasPP && hasDWD) {
+        this._userConfig.integration = "dwd";
+        if (this.debug)
+          console.debug("[PollenPrognos] fallback to DWD in setConfig");
+      }
+    }
+
+    // 4) Om användaren inte har angett date_locale, fyll i baserat på HA-UI
+    if (!this._userConfig.hasOwnProperty("date_locale")) {
+      const detected = detectLang(this._hass, null);
+      this._userConfig.date_locale =
+        detected === "sv"
+          ? "sv-SE"
+          : detected === "de"
+            ? "de-DE"
+            : detected === "fi"
+              ? "fi-FI"
+              : "en-US";
+      if (this.debug) {
+        console.debug(
+          "[PollenPrognos] setConfig auto-filling date_locale:",
+          this._userConfig.date_locale,
+        );
+      }
+    }
+
+    // 5) Återställ init-flaggan så att set hass körs om
     this._initDone = false;
-    if (this._hass) this.hass = this._hass;
+
+    // 6) Om vi redan har hass tillgängligt, trigga set hass direkt
+    if (this._hass) {
+      this.hass = this._hass;
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
     const explicit = !!this._integrationExplicit;
 
-    // 1) Hitta sensorer för PP respektive DWD
+    // 1) Hitta sensorer
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
         id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
@@ -96,18 +141,18 @@ class PollenPrognosCard extends LitElement {
       id.startsWith("sensor.pollenflug_"),
     );
 
-    // 2) Autodetektera integration om inte explicit
+    // 2) Autodetektera integration (men respektera explicit)
     let integration = this._userConfig.integration;
     if (!explicit) {
-      if (ppStates.length) integration = "pp";
-      else if (dwdStates.length) integration = "dwd";
-      // rensa bort eventuell gammal cache så vi får en ren merge nedan
-      this._userConfig = {};
+      if (ppStates.length) {
+        integration = "pp";
+      } else if (dwdStates.length) {
+        integration = "dwd";
+        this._userConfig = {};
+      }
     }
 
-    if (this.debug) console.debug("[PollenPrognos] integration:", integration);
-
-    // extra fallback: om vi valde PP men inga PP-sensorer finns
+    // 3) Fallback: om vi valt PP men inga PP-sensorer finns, falla tillbaka till DWD
     if (
       !explicit &&
       integration === "pp" &&
@@ -115,29 +160,32 @@ class PollenPrognosCard extends LitElement {
       dwdStates.length
     ) {
       integration = "dwd";
+      this._userConfig = {};
     }
 
-    // 3) Slå ihop stub + userConfig
+    // 4) Sammanslå stub + userConfig
     const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
     const cfg = { ...baseStub, ...this._userConfig, integration };
 
-    // 4) När vi är i DWD-mode: bara återställ date_locale om inte explicit
-    if (
-      integration === "dwd" &&
-      !explicit &&
-      !this._userConfig.hasOwnProperty("date_locale")
-    ) {
+    // 5) Auto-fyll date_locale första gången om användaren inte satt något
+    if (!this._userConfig.hasOwnProperty("date_locale")) {
+      const detected = detectLang(hass, null);
+      cfg.date_locale =
+        detected === "sv"
+          ? "sv-SE"
+          : detected === "de"
+            ? "de-DE"
+            : detected === "fi"
+              ? "fi-FI"
+              : "en-US";
       if (this.debug)
         console.debug(
-          "[PollenPrognos] restoring DWD-stub locale:",
-          baseStub.date_locale,
+          "[PollenPrognos] auto-filling date_locale:",
+          cfg.date_locale,
         );
-      cfg.date_locale = baseStub.date_locale;
     }
 
-    // (Eventuellt: lämna days_to_show / allergens intakta alltid, som du hade)
-
-    // 5) Automatisk region / stad
+    // 6) Automatisk region/stad
     if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
       cfg.region_id = Array.from(
         new Set(dwdStates.map((id) => id.split("_").pop())),
@@ -148,32 +196,29 @@ class PollenPrognosCard extends LitElement {
         .replace(/_[^_]+$/, "");
     }
 
-    // 6) Spara och sätt header
+    // 7) Spara config och header
     this.config = cfg;
-    if (typeof cfg.title === "string") this.header = cfg.title;
-    else if (cfg.title === false) this.header = "";
-    else {
-      let loc;
-      if (cfg.integration === "dwd") {
-        loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
-      } else {
-        const key = cfg.city;
-        const pretty = PP_POSSIBLE_CITIES.find(
-          (n) =>
-            n
-              .toLowerCase()
-              .replace(/[åä]/g, "a")
-              .replace(/ö/g, "o")
-              .replace(/[-\s]/g, "_") === key,
-        );
-        loc = pretty || cfg.city;
-      }
+    if (typeof cfg.title === "string") {
+      this.header = cfg.title;
+    } else if (cfg.title === false) {
+      this.header = "";
+    } else {
+      const loc =
+        integration === "dwd"
+          ? DWD_REGIONS[cfg.region_id] || cfg.region_id
+          : PP_POSSIBLE_CITIES.find(
+              (n) =>
+                n
+                  .toLowerCase()
+                  .replace(/[åä]/g, "a")
+                  .replace(/ö/g, "o")
+                  .replace(/[-\s]/g, "_") === cfg.city,
+            ) || cfg.city;
       this.header = `${this._t("card.header_prefix")} ${loc}`;
     }
 
-    // 7) Hämta prognos
+    // 8) Hämta prognos
     const adapter = ADAPTERS[cfg.integration] || PP;
-    if (this.debug) console.debug("[PollenPrognos] final cfg", cfg);
     adapter
       .fetchForecast(hass, cfg)
       .then((sensors) => {
@@ -183,7 +228,7 @@ class PollenPrognosCard extends LitElement {
           {
             length: cfg.show_empty_days
               ? cfg.days_to_show
-              : sensors[0]?.days?.length || 0,
+              : sensors[0]?.days.length || 0,
           },
           (_, i) => i,
         );
@@ -191,7 +236,6 @@ class PollenPrognosCard extends LitElement {
       })
       .catch((err) => console.error("Error fetching pollen forecast:", err));
   }
-
   _renderMinimalHtml() {
     return html`
       <ha-card>
@@ -293,13 +337,11 @@ class PollenPrognosCard extends LitElement {
 
   render() {
     if (!this.sensors.length) {
-      const name =
-        this.config.integration === "dwd" ? "DWD Pollenflug" : "PollenPrognos";
-      return html`<ha-card
-        ><div class="card-error">
-          ${this._t("card.error")} (${name})
-        </div></ha-card
-      >`;
+      const nameKey = `card.integration.${this.config.integration}`;
+      const name = this._t(nameKey);
+      return html`<ha-card>
+        <div class="card-error">${this._t("card.error")} (${name})</div>
+      </ha-card>`;
     }
     return this.config.minimal
       ? this._renderMinimalHtml()

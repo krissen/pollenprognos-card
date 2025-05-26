@@ -1,4 +1,3 @@
-// src/adapters/dwd.js
 import { t, detectLang } from "../i18n.js";
 
 const DOMAIN = "dwd_pollenflug";
@@ -33,19 +32,10 @@ export const stubConfigDWD = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
-  date_locale: "de-DE",
+  date_locale: undefined,
   title: undefined,
   phrases: {
-    full: {
-      erle: "Erle",
-      ambrosia: "Ambrosia",
-      esche: "Esche",
-      birke: "Birke",
-      hasel: "Hasel",
-      gräser: "Gräser",
-      beifuss: "Beifuß",
-      roggen: "Roggen",
-    },
+    full: {},
     short: {},
     levels: [],
     days: {},
@@ -55,36 +45,42 @@ export const stubConfigDWD = {
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
+  const { ALLERGEN_TRANSLATION } = await import("../constants.js");
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+  // Språk- och lokaliseringsinställningar
   const lang = detectLang(hass, config.date_locale);
   const locale = config.date_locale || stubConfigDWD.date_locale;
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);
 
+  // Phrases från användar-config har förträde
   const phrases = config.phrases || {};
-  const levelNames = Array.from({ length: 7 }, (_, i) =>
-    t(`card.levels.${i}`, lang),
-  );
-  const noInfoLabel = t("card.no_information", lang);
-  const dayLabels = phrases.days || {};
+  const fullPhrases = phrases.full || {};
+  const shortPhrases = phrases.short || {};
+  const userLevels = phrases.levels;
+  const levelNames =
+    Array.isArray(userLevels) && userLevels.length === 7
+      ? userLevels
+      : Array.from({ length: 7 }, (_, i) => t(`card.levels.${i}`, lang));
+  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
+  const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
 
-  if (debug) {
-    console.debug("DWD adapter: fetchForecast start", { config, lang });
-  }
+  if (debug)
+    console.debug("DWD adapter: start fetchForecast", { config, lang });
 
-  const replaceAAO = (intext) =>
-    intext
+  const replaceAAO = (text) =>
+    text
       .toLowerCase()
       .replaceAll("ä", "ae")
       .replaceAll("ö", "oe")
       .replaceAll("ü", "ue")
       .replaceAll("ß", "ss");
-  const test_val = (val) => {
+  const testVal = (val) => {
     const n = Number(val);
     return isNaN(n) ? -1 : n;
   };
@@ -97,71 +93,74 @@ export async function fetchForecast(hass, config) {
   for (const allergen of config.allergens) {
     try {
       const dict = {};
-      dict.allergenReplaced = replaceAAO(allergen);
-      dict.allergenCapitalized =
-        (phrases.full || {})[allergen] || capitalize(allergen);
-      dict.allergenShort =
-        (phrases.short || {})[allergen] || dict.allergenCapitalized;
+      const rawKey = replaceAAO(allergen);
+      dict.allergenReplaced = rawKey;
 
-      // Hitta sensor-ID
-      const region = config.region_id;
-      let sensorId = region
-        ? `sensor.pollenflug_${dict.allergenReplaced}_${region}`
+      // Allergen-namn: använd user phrase, annars i18n, annars default
+      const userFull = fullPhrases[allergen];
+      if (userFull) {
+        dict.allergenCapitalized = userFull;
+      } else {
+        const transKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
+        const nameKey = `card.allergen.${transKey}`;
+        const i18nName = t(nameKey, lang);
+        dict.allergenCapitalized =
+          i18nName !== nameKey ? i18nName : capitalize(allergen);
+      }
+      const userShort = shortPhrases[allergen];
+      dict.allergenShort = userShort || dict.allergenCapitalized;
+
+      // Hitta sensor
+      let sensorId = config.region_id
+        ? `sensor.pollenflug_${rawKey}_${config.region_id}`
         : null;
       if (!sensorId || !hass.states[sensorId]) {
-        const cands = Object.keys(hass.states).filter((id) =>
-          id.startsWith(`sensor.pollenflug_${dict.allergenReplaced}_`),
+        const candidates = Object.keys(hass.states).filter((id) =>
+          id.startsWith(`sensor.pollenflug_${rawKey}_`),
         );
-        if (cands.length === 1) sensorId = cands[0];
+        if (candidates.length === 1) sensorId = candidates[0];
         else continue;
       }
       const sensor = hass.states[sensorId];
 
-      // Extrahera råvärden
-      const todayVal = test_val(sensor.state);
-      const tomVal = test_val(sensor.attributes[ATTR_VAL_TOMORROW]);
-      const twoVal = test_val(sensor.attributes[ATTR_VAL_IN_2_DAYS]);
+      // Råvärden
+      const todayVal = testVal(sensor.state);
+      const tomVal = testVal(sensor.attributes[ATTR_VAL_TOMORROW]);
+      const twoVal = testVal(sensor.attributes[ATTR_VAL_IN_2_DAYS]);
 
-      // Bygg nivå-array
+      // Nivåer-datum
       const levels = [
-        { date: today, level: todayVal, name: dict.allergenCapitalized },
-        {
-          date: new Date(today.getTime() + 86400000),
-          level: tomVal,
-          name: dict.allergenCapitalized,
-        },
-        {
-          date: new Date(today.getTime() + 2 * 86400000),
-          level: twoVal,
-          name: dict.allergenCapitalized,
-        },
+        { date: today, level: todayVal },
+        { date: new Date(today.getTime() + 86400000), level: tomVal },
+        { date: new Date(today.getTime() + 2 * 86400000), level: twoVal },
       ];
       while (levels.length < days_to_show) {
         const idx = levels.length;
         levels.push({
           date: new Date(today.getTime() + idx * 86400000),
           level: -1,
-          name: dict.allergenCapitalized,
         });
       }
 
-      // Bygg upp dict.day0…dayN
+      // Bygg dict.dayN
       levels.forEach((entry, idx) => {
         const diff = Math.round((entry.date - today) / 86400000);
         let dayLabel;
+
         if (!daysRelative) {
+          // Visa absoluta veckodagar med versal
           dayLabel = entry.date.toLocaleDateString(locale, {
             weekday: dayAbbrev ? "short" : "long",
           });
-        } else if (dayLabels[diff] !== undefined) {
-          dayLabel = dayLabels[diff];
-        } else if (diff === 0) {
-          dayLabel = t("card.days.0", lang);
-        } else if (diff === 1) {
-          dayLabel = t("card.days.1", lang);
-        } else if (diff === 2) {
-          dayLabel = t("card.days.2", lang);
+          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+        } else if (userDays[diff] !== undefined) {
+          // Relativa dagar från användarens config
+          dayLabel = userDays[diff];
+        } else if (diff >= 0 && diff <= 2) {
+          // Standard relative days från i18n
+          dayLabel = t(`card.days.${diff}`, lang);
         } else {
+          // Datum som dag mån
           dayLabel = entry.date.toLocaleDateString(locale, {
             day: "numeric",
             month: "short",
@@ -169,7 +168,6 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
-        // Sensorns egen beskrivning som fallback
         const sensorDesc =
           sensor.attributes[
             idx === 0
@@ -179,34 +177,30 @@ export async function fetchForecast(hass, config) {
                 : ATTR_DESC_IN_2_DAYS
           ] || "";
 
-        // Skala värdet för textuppslag
         const scaled = entry.level * 2;
         const lvlIndex = Math.min(Math.max(Math.round(scaled), 0), 6);
-
-        const text =
+        const stateText =
           lvlIndex < 0 ? noInfoLabel : levelNames[lvlIndex] || sensorDesc;
 
         dict[`day${idx}`] = {
-          name: entry.name,
+          name: dict.allergenCapitalized,
           day: dayLabel,
           state: entry.level,
-          state_text: text,
+          state_text: stateText,
         };
       });
 
-      // Filtrera bort allergener under tröskel
-      const baseCount = Math.min(days_to_show, levels.length);
-      let meets = pollen_threshold === 0;
-      for (let i = 0; i < baseCount && !meets; i++) {
-        if (levels[i].level >= pollen_threshold) meets = true;
-      }
-      if (meets) sensors.push(dict);
+      // Filtrera med tröskel
+      const meets = levels
+        .slice(0, days_to_show)
+        .some((l) => l.level >= pollen_threshold);
+      if (meets || pollen_threshold === 0) sensors.push(dict);
     } catch (e) {
-      console.warn(`DWD adapter: fel för allergen ${allergen}:`, e);
+      console.warn(`DWD adapter error for allergen ${allergen}:`, e);
     }
   }
 
-  // Sortera enligt config.sort
+  // Sortering
   sensors.sort(
     {
       value_ascending: (a, b) => a.day0.state - b.day0.state,
@@ -216,6 +210,6 @@ export async function fetchForecast(hass, config) {
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
   );
 
-  if (debug) console.debug("DWD adapter: färdigt sensors‐array:", sensors);
+  if (debug) console.debug("DWD adapter complete sensors:", sensors);
   return sensors;
 }

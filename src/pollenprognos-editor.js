@@ -248,11 +248,17 @@ class PollenPrognosCardEditor extends LitElement {
             .map((id) => id.split("_").pop()),
         ),
       ).sort((a, b) => Number(a) - Number(b));
-
       const ppKeys = new Set(
         all
-          .filter((id) => id.startsWith("sensor.pollen_"))
-          .map((id) => id.slice(15).replace(/_[^_]+$/, "")),
+          .filter(
+            (id) =>
+              id.startsWith("sensor.pollen_") &&
+              !id.startsWith("sensor.pollenflug_"),
+          )
+          // plocka bort prefix och suffix, så det matchar PP_POSSIBLE_CITIES
+          .map((id) =>
+            id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+          ),
       );
       this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
         ppKeys.has(
@@ -299,8 +305,9 @@ class PollenPrognosCardEditor extends LitElement {
     const explicit = this._integrationExplicit;
 
     // Hitta alla sensor-ID för PP respektive DWD
-    const ppStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.pollen_"),
+    const ppStates = Object.keys(hass.states).filter(
+      (id) =>
+        id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
     );
     const dwdStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollenflug_"),
@@ -440,8 +447,12 @@ class PollenPrognosCardEditor extends LitElement {
               this._updateConfig("integration", e.target.value)}
             @closed=${(e) => e.stopPropagation()}
           >
-            <mwc-list-item value="pp">PollenPrognos</mwc-list-item>
-            <mwc-list-item value="dwd">DWD Pollenflug</mwc-list-item>
+            <mwc-list-item value="pp"
+              >${this._t("integration.pp")}</mwc-list-item
+            >
+            <mwc-list-item value="dwd"
+              >${this._t("integration.dwd")}</mwc-list-item
+            >
           </ha-select>
         </ha-formfield>
 
