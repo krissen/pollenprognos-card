@@ -96,9 +96,9 @@ class PollenPrognosCard extends LitElement {
 
     let integration = this._userConfig.integration;
     if (!explicit) {
-      this._userConfig = {};
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
+      this._userConfig = {};
     }
     if (this.debug) console.debug("[PollenPrognos] integration:", integration);
     if (

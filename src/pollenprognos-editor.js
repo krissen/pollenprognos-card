@@ -30,7 +30,8 @@ const deepMerge = (target, source) => {
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
-    return Boolean(this._config.debug);
+    // return Boolean(this._config.debug);
+    return true; // Always debug mode for editor
   }
 
   _resetAll() {
@@ -144,18 +145,142 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   setConfig(config) {
-    if (this.debug)
-      console.debug("[Editor] setConfig – userConfig in:", config);
-    this._userConfig = deepMerge(this._userConfig, config);
+    // 1) Rensa stub‐integration, stub‐days och stub‐locale
+    const incoming = { ...config };
+    if (
+      !this._integrationExplicit &&
+      incoming.integration === stubConfigPP.integration
+    ) {
+      console.debug("[Editor] dropped stub integration");
+      delete incoming.integration;
+    }
+    if (
+      !this._daysExplicit &&
+      incoming.days_to_show === stubConfigPP.days_to_show
+    ) {
+      console.debug("[Editor] dropped stub days_to_show");
+      delete incoming.days_to_show;
+    }
+    // Här kollar vi om det är stub från *rätt* stubConfig beroende på integration:
+    const stubLocale = (
+      incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
+    ).date_locale;
+    if (!this._localeExplicit && incoming.date_locale === stubLocale) {
+      console.debug("[Editor] dropped stub date_locale");
+      delete incoming.date_locale;
+    }
+
+    // 2) Slå ihop med userConfig
+    console.debug("[Editor] after cleaning, incoming:", incoming);
+    this._userConfig = deepMerge(this._userConfig, incoming);
+
+    // 3) Sätt explicit‐flaggor per fält
     this._integrationExplicit = this._userConfig.hasOwnProperty("integration");
-    const integration =
-      this._userConfig.integration || this._config.integration || "pp";
-    const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
-    this._config = deepMerge(base, this._userConfig);
+    this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
+    this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
+
+    // 4) Autodetektera integration om inte explicit
+    let integration = this._userConfig.integration;
+    if (!this._integrationExplicit && this._hass) {
+      const all = Object.keys(this._hass.states);
+      if (all.some((id) => id.startsWith("sensor.pollen_"))) integration = "pp";
+      else if (all.some((id) => id.startsWith("sensor.pollenflug_")))
+        integration = "dwd";
+      this._userConfig.integration = integration;
+      console.debug("[Editor] auto-detected integration:", integration);
+    }
+
+    // 5) Bygg config från stub + userConfig
+    const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
+    this._config = deepMerge(baseStub, this._userConfig);
+    this._config.integration = integration;
     this._config.type = "custom:pollenprognos-card";
+
+    // 6) Återställ days_to_show om inte explicit
+    if (!this._daysExplicit) {
+      this._config.days_to_show = baseStub.days_to_show;
+      console.debug(
+        "[Editor] reset days_to_show to stub:",
+        baseStub.days_to_show,
+      );
+    }
+
+    // 7) Autofyll date_locale om inte explicit, nu baserat på HA language
+    if (!this._localeExplicit) {
+      // detectLang prioriterar hass.language över stub‐värde
+      const detected = detectLang(this._hass, null);
+      let locale;
+      switch (detected) {
+        case "sv":
+          locale = "sv-SE";
+          break;
+        case "de":
+          locale = "de-DE";
+          break;
+        case "fi":
+          locale = "fi-FI";
+          break;
+        default:
+          locale = "en-US";
+      }
+      this._config.date_locale = locale;
+      console.debug(
+        "[Editor] autofilled date_locale:",
+        locale,
+        "(HA language was:",
+        detected,
+        ")",
+      );
+    }
+
     this._initDone = false;
-    if (this.debug)
-      console.debug("[Editor] setConfig – merged _config:", this._config);
+
+    // 8) Uppdatera listor för cities/regions om hass finns
+    if (this._hass) {
+      const all = Object.keys(this._hass.states);
+      this.installedRegionIds = Array.from(
+        new Set(
+          all
+            .filter((id) => id.startsWith("sensor.pollenflug_"))
+            .map((id) => id.split("_").pop()),
+        ),
+      ).sort((a, b) => Number(a) - Number(b));
+
+      const ppKeys = new Set(
+        all
+          .filter((id) => id.startsWith("sensor.pollen_"))
+          .map((id) => id.slice(15).replace(/_[^_]+$/, "")),
+      );
+      this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
+        ppKeys.has(
+          c
+            .toLowerCase()
+            .replace(/[åä]/g, "a")
+            .replace(/ö/g, "o")
+            .replace(/[-\s]/g, "_"),
+        ),
+      ).sort();
+    }
+
+    // 9) Auto‐välj city/region om inte explicit
+    if (!this._integrationExplicit) {
+      if (
+        integration === "dwd" &&
+        !this._userConfig.region_id &&
+        this.installedRegionIds.length
+      ) {
+        this._config.region_id = this.installedRegionIds[0];
+      }
+      if (
+        integration === "pp" &&
+        !this._userConfig.city &&
+        this.installedCities.length
+      ) {
+        this._config.city = this.installedCities[0];
+      }
+    }
+
+    // 10) Skicka tillbaka config till HA‐formuläret och rerender
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },
@@ -169,32 +294,43 @@ class PollenPrognosCardEditor extends LitElement {
   set hass(hass) {
     this._hass = hass;
     const explicit = this._integrationExplicit;
+
+    // Hitta alla sensor-ID för PP respektive DWD
     const ppStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollen_"),
     );
     const dwdStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollenflug_"),
     );
-    if (!this._initDone && !explicit) {
-      if (ppStates.length) this._config.integration = "pp";
-      else if (dwdStates.length) this._config.integration = "dwd";
+
+    // 1) Autodetektera integration om användaren inte valt själv
+    let integration = this._userConfig.integration;
+    if (!explicit) {
+      if (ppStates.length) integration = "pp";
+      else if (dwdStates.length) integration = "dwd";
+
+      // Spara tillbaka det här valet så dropdownen visar rätt
+      this._userConfig.integration = integration;
     }
 
+    // 2) Slå ihop stub + användar-config
+    const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
+    this._config = deepMerge(base, this._userConfig);
+    this._config.integration = integration;
+    this._config.type = "custom:pollenprognos-card";
+
+    // 3) Fyll installerade regioner/städer
     this.installedRegionIds = Array.from(
       new Set(dwdStates.map((id) => id.split("_").pop())),
     ).sort((a, b) => Number(a) - Number(b));
 
     const uniqKeys = Array.from(
       new Set(
-        ppStates.map(
-          (id) =>
-            id
-              .slice("sensor.pollen_".length) // “forshaga_elm”
-              .replace(/_[^_]+$/, ""), // → “forshaga”
+        ppStates.map((id) =>
+          id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
         ),
       ),
     );
-
     this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
       uniqKeys.includes(
         city
@@ -205,16 +341,17 @@ class PollenPrognosCardEditor extends LitElement {
       ),
     ).sort((a, b) => a.localeCompare(b));
 
+    // 4) Auto-välj första region/stad om användaren inte satt något
     if (!this._initDone) {
       if (
-        this._config.integration === "dwd" &&
+        integration === "dwd" &&
         !this._userConfig.region_id &&
         this.installedRegionIds.length
       ) {
         this._config.region_id = this.installedRegionIds[0];
       }
       if (
-        this._config.integration === "pp" &&
+        integration === "pp" &&
         !this._userConfig.city &&
         this.installedCities.length
       ) {
@@ -222,6 +359,16 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     this._initDone = true;
+
+    // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config: this._config },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+
     this.requestUpdate();
   }
 
