@@ -1,4 +1,5 @@
 import { t, detectLang } from "../i18n.js";
+import { ALLERGEN_TRANSLATION } from "../constants.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -45,7 +46,6 @@ export const stubConfigDWD = {
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
-  const { ALLERGEN_TRANSLATION } = await import("../constants.js");
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   // Språk- och lokaliseringsinställningar

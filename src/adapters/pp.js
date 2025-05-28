@@ -1,4 +1,5 @@
 import { t, detectLang } from "../i18n.js";
+import { ALLERGEN_TRANSLATION } from "../constants.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -34,7 +35,6 @@ export const stubConfigPP = {
 export async function fetchForecast(hass, config) {
   const sensors = [];
   const debug = Boolean(config.debug);
-  const { ALLERGEN_TRANSLATION } = await import("../constants.js");
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const parseLocal = (s) => {
     const [ymd] = s.split("T");
@@ -51,13 +51,9 @@ export async function fetchForecast(hass, config) {
   // Turn it into a full locale tag for dates (sv-SE, de-DE, fi-FI, en-US)
   const locale =
     config.date_locale ||
-    (lang === "sv"
-      ? "sv-SE"
-      : lang === "de"
-        ? "de-DE"
-        : lang === "fi"
-          ? "fi-FI"
-          : "en-US");
+    hass.locale?.language ||
+    hass.language ||
+    `${lang}-${lang.toUpperCase()}`;
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);

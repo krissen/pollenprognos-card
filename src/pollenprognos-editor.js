@@ -1,4 +1,3 @@
-// src/pollenprognos-editor.js
 import { LitElement, html, css } from "lit";
 import { t, detectLang } from "./i18n.js";
 
@@ -41,78 +40,39 @@ class PollenPrognosCardEditor extends LitElement {
 
   _resetPhrases(lang) {
     if (this.debug) console.debug("[Editor] resetPhrases – lang:", lang);
-    if (lang === "sv") {
-      this._updateConfig("date_locale", "sv-SE");
-      const keys =
-        this._config.integration === "dwd"
-          ? stubConfigDWD.allergens
-          : this._config.allergens;
-      const full = {};
-      keys.forEach((k) => (full[k] = t(`editor.phrases_full.${k}`, lang)));
-      this._updateConfig("phrases", {
-        full,
-        short: {},
-        levels: Array.from({ length: 7 }, (_, i) =>
-          t(`editor.phrases_levels.${i}`, lang),
-        ),
-        days: {
-          0: t("editor.phrases_days.0", lang),
-          1: t("editor.phrases_days.1", lang),
-          2: t("editor.phrases_days.2", lang),
-        },
-        no_information: t("editor.no_information", lang),
-      });
-      return;
+    // Behåll befintligt date_locale eller sätt till angivet språk
+    const localeTag = `${lang}-${lang.toUpperCase()}`;
+    this._updateConfig("date_locale", localeTag);
+    // Hämta allergen-nycklar baserat på integration
+    const keys =
+      this._config.integration === "dwd"
+        ? stubConfigDWD.allergens
+        : stubConfigPP.allergens;
+
+    // Bygg upp phrases-objektet helt generiskt
+    const full = {};
+    const short = {};
+    const levels = [];
+    const days = {};
+    keys.forEach((key) => {
+      full[key] = t(`editor.phrases_full.${key}`, lang);
+      short[key] = t(`editor.phrases_short.${key}`, lang);
+    });
+    for (let i = 0; i < 7; i++) {
+      levels[i] = t(`editor.phrases_levels.${i}`, lang);
     }
-    if (lang === "en") {
-      this._updateConfig("date_locale", "en-US");
-      // Hämta alla allergen-nycklar beroende på integration
-      const keys =
-        this._config.integration === "dwd"
-          ? stubConfigDWD.allergens
-          : stubConfigPP.allergens;
-      // Bygg upp full-fraserna
-      const full = {};
-      keys.forEach((k) => (full[k] = t(`editor.phrases_full.${k}`, lang)));
-      // Uppdatera hela phrases-objektet
-      this._updateConfig("phrases", {
-        full,
-        short: {},
-        levels: Array.from({ length: 7 }, (_, i) =>
-          t(`editor.phrases_levels.${i}`, lang),
-        ),
-        days: {
-          0: t("editor.phrases_days.0", lang),
-          1: t("editor.phrases_days.1", lang),
-          2: t("editor.phrases_days.2", lang),
-        },
-        no_information: t("editor.no_information", lang),
-      });
-      return;
-    }
-    if (lang === "de") {
-      this._updateConfig("date_locale", "de-DE");
-      const keys =
-        this._config.integration === "dwd"
-          ? stubConfigDWD.allergens
-          : this._config.allergens;
-      const full = {};
-      keys.forEach((k) => (full[k] = t(`editor.phrases_full.${k}`, lang)));
-      this._updateConfig("phrases", {
-        full,
-        short: {},
-        levels: Array.from({ length: 7 }, (_, i) =>
-          t(`editor.phrases_levels.${i}`, lang),
-        ),
-        days: {
-          0: t("editor.phrases_days.0", lang),
-          1: t("editor.phrases_days.1", lang),
-          2: t("editor.phrases_days.2", lang),
-        },
-        no_information: t("editor.no_information", lang),
-      });
-      return;
-    }
+    [0, 1, 2].forEach((i) => {
+      days[i] = t(`editor.phrases_days.${i}`, lang);
+    });
+    const noInformation = t("editor.no_information", lang);
+
+    this._updateConfig("phrases", {
+      full,
+      short,
+      levels,
+      days,
+      no_information: noInformation,
+    });
   }
 
   static get properties() {
@@ -160,7 +120,6 @@ class PollenPrognosCardEditor extends LitElement {
       if (this.debug) console.debug("[Editor] dropped stub days_to_show");
       delete incoming.days_to_show;
     }
-    // Här kollar vi om det är stub från *rätt* stubConfig beroende på integration:
     const stubLocale = (
       incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
     ).date_locale;
@@ -207,24 +166,11 @@ class PollenPrognosCardEditor extends LitElement {
         );
     }
 
-    // 7) Autofyll date_locale om inte explicit, nu baserat på HA language
+    // 7) Autofyll date_locale om inte explicit, baserat på HA language
     if (!this._localeExplicit) {
-      // detectLang prioriterar hass.language över stub‐värde
       const detected = detectLang(this._hass, null);
-      let locale;
-      switch (detected) {
-        case "sv":
-          locale = "sv-SE";
-          break;
-        case "de":
-          locale = "de-DE";
-          break;
-        case "fi":
-          locale = "fi-FI";
-          break;
-        default:
-          locale = "en-US";
-      }
+      const locale =
+        this._hass?.locale?.language || `${detected}-${detected.toUpperCase()}`;
       this._config.date_locale = locale;
       if (this.debug)
         console.debug(
@@ -255,7 +201,6 @@ class PollenPrognosCardEditor extends LitElement {
               id.startsWith("sensor.pollen_") &&
               !id.startsWith("sensor.pollenflug_"),
           )
-          // plocka bort prefix och suffix, så det matchar PP_POSSIBLE_CITIES
           .map((id) =>
             id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
           ),
@@ -289,7 +234,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
 
-    // 10) Skicka tillbaka config till HA‐formuläret och rerender
+    // 10) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: this._config },
@@ -319,7 +264,6 @@ class PollenPrognosCardEditor extends LitElement {
       if (ppStates.length) integration = "pp";
       else if (dwdStates.length) integration = "dwd";
 
-      // Spara tillbaka det här valet så dropdownen visar rätt
       this._userConfig.integration = integration;
     }
 

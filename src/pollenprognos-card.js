@@ -150,22 +150,22 @@ class PollenPrognosCard extends LitElement {
 
     // 5) Auto-fyll date_locale första gången om användaren inte satt något
     if (!this._userConfig.hasOwnProperty("date_locale")) {
-      const detected = detectLang(hass, null);
-      cfg.date_locale =
-        detected === "sv"
-          ? "sv-SE"
-          : detected === "de"
-            ? "de-DE"
-            : detected === "fi"
-              ? "fi-FI"
-              : "en-US";
-      if (this.debug)
+      // Ta helst HA:s fullständiga locale (t.ex. "sv-SE", "en-GB" osv.)
+      // Annars fall back till hass.language (äldre HA)
+      // Om inget av dessa finns, bygg en default-tag utifrån tvåbokstavskoden
+      const detectedLangCode = detectLang(hass, null);
+      const localeTag =
+        this._hass?.locale?.language ||
+        this._hass?.language ||
+        `${detectedLangCode}-${detectedLangCode.toUpperCase()}`;
+      cfg.date_locale = localeTag;
+      if (this.debug) {
         console.debug(
           "[PollenPrognos] auto-filling date_locale:",
           cfg.date_locale,
         );
+      }
     }
-
     // 6) Automatisk region/stad
     if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
       cfg.region_id = Array.from(
