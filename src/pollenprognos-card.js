@@ -1,290 +1,256 @@
-import { LitElement, html, css } from 'lit';
+// src/pollenprognos-card.js
+import { LitElement, html, css } from "lit";
+import { images } from "./pollenprognos-images.js";
+import { t, detectLang } from "./i18n.js";
 
-import { images } from './pollenprognos-images.js';
+// Adapter-moduler
+import * as PP from "./adapters/pp.js";
+import * as DWD from "./adapters/dwd.js";
 
-class PollenCardv2 extends LitElement {
-  static get properties() {
-    return {
-      hass: {},
-      config: {}
-    };
+// Stub-konfigurationer
+import { stubConfigPP } from "./adapters/pp.js";
+import { stubConfigDWD } from "./adapters/dwd.js";
+
+// Statiska konstanter
+import {
+  DWD_REGIONS,
+  ALLERGEN_TRANSLATION,
+  ADAPTERS as CONSTANT_ADAPTERS,
+  PP_POSSIBLE_CITIES,
+} from "./constants.js";
+
+const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
+
+class PollenPrognosCard extends LitElement {
+  get debug() {
+    return true;
+    // return Boolean(this.config?.debug);
+  }
+
+  get _lang() {
+    return detectLang(this._hass, this.config?.date_locale);
+  }
+
+  _t(key) {
+    return t(key, this._lang);
+  }
+
+  static properties = {
+    hass: { state: true },
+    config: {},
+    sensors: { state: true },
+    days_to_show: { state: true },
+    displayCols: { state: true },
+    header: { state: true },
+  };
+
+  _getImageSrc(allergenReplaced, state) {
+    const raw = Number(state);
+    let scaled = raw;
+    if (this.config.integration === "dwd") scaled = raw * 2;
+    let lvl = Math.round(scaled);
+    if (isNaN(lvl) || lvl < -1) lvl = -1;
+    if (lvl > 6) lvl = 6;
+    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    const specific = images[`${key}_${lvl}_png`];
+    return specific || images[`${lvl}_png`];
+  }
+
+  constructor() {
+    super();
+    this.days_to_show = 4;
+    this.displayCols = [];
+    this.header = "";
+    this._initDone = false;
+    this._userConfig = {};
+    this.sensors = [];
   }
 
   static async getConfigElement() {
-    await customElements.whenDefined('pollenprognos-card-editor');
-    return document.createElement('pollenprognos-card-editor');
+    await customElements.whenDefined("pollenprognos-card-editor");
+    return document.createElement("pollenprognos-card-editor");
   }
 
   static getStubConfig() {
-    return {
-      city: '',
-      allergens: [
-        'Al','Alm','Björk','Ek','Malörtsambrosia',
-        'Gråbo','Gräs','Hassel','Sälg och viden'
-      ],
-      minimal: false,
-      show_text: true,
-      show_empty_days: true,
-      debug: false,
-      days_to_show: 4,
-      days_relative: true,
-      days_abbreviated: false,
-      days_uppercase: false,
-      days_boldfaced: false,
-      pollen_threshold: 1,
-      sort: 'value_descending',
-      date_locale: 'sv-SE',
-      title: undefined,
-      phrases: {
-        full: {},
-        short: {},
-        levels: [],
-        days: {},
-        no_information: ''
+    return stubConfigPP;
+  }
+
+  setConfig(config) {
+    // 1) Kopiera in användarens råa config
+    this._userConfig = { ...config };
+
+    // 2) Markera integration som explicit
+    this._integrationExplicit =
+      config.hasOwnProperty("integration") &&
+      config.integration !== stubConfigPP.integration;
+
+    // 3) -- NYTT! -- gör fallback redan här, för preview
+    if (!this._integrationExplicit && this._hass) {
+      const allIds = Object.keys(this._hass.states);
+      const hasPP = allIds.some(
+        (id) =>
+          id.startsWith("sensor.pollen_") &&
+          !id.startsWith("sensor.pollenflug_"),
+      );
+      const hasDWD = allIds.some((id) => id.startsWith("sensor.pollenflug_"));
+      if (!hasPP && hasDWD) {
+        this._userConfig.integration = "dwd";
+        if (this.debug)
+          console.debug("[PollenPrognos] fallback to DWD in setConfig");
       }
-    };
+    }
+
+    // 5) Återställ init-flaggan så att set hass körs om
+    this._initDone = false;
+
+    // 6) Om vi redan har hass tillgängligt, trigga set hass direkt
+    if (this._hass) {
+      this.hass = this._hass;
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
-    const debug        = Boolean(this.config.debug);
-    const capitalize   = s => s.charAt(0).toUpperCase() + s.slice(1);
-    const parseLocal   = s => {
-      const [ymd] = s.split("T");
-      const [y, m, d] = ymd.split("-").map(Number);
-      return new Date(y, m - 1, d);
-    };
-    const replaceAAO  = intext => intext.toLowerCase()
-      .replaceAll("å","a").replaceAll("ä","a").replaceAll("ö","o")
-      .replaceAll(" / ","_").replaceAll("-","_").replaceAll(" ","_");
+    const explicit = !!this._integrationExplicit;
 
-    const phrases         = this.config.phrases || {};
-    const allergenFull    = phrases.full  || {};
-    const allergenShort   = phrases.short || {};
-    const levelNames      = phrases.levels || [
-      "Ingen pollen","Låga halter","Låga-måttliga halter",
-      "Måttliga halter","Måttliga-höga halter","Höga halter",
-      "Mycket höga halter"
-    ];
-    const noInfoLabel     = phrases.no_information || "(Ingen information)";
-    const dayLabels       = phrases.days || {};
-    const locale          = this.config.date_locale || "sv-SE";
-    this.days_to_show     = this.config.days_to_show ?? 4;
-    this.pollen_threshold = this.config.pollen_threshold ?? 1;
-    const daysRelative    = this.config.days_relative !== false;
-    const dayAbbrev       = Boolean(this.config.days_abbreviated);
-    const daysUppercase   = Boolean(this.config.days_uppercase);
-    const daysBoldfaced   = Boolean(this.config.days_boldfaced);
-    const showEmpty       = this.config.show_empty_days == null
-      ? true
-      : Boolean(this.config.show_empty_days);
+    // 1) Hitta sensorer
+    const ppStates = Object.keys(hass.states).filter(
+      (id) =>
+        id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
+    );
+    const dwdStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.pollenflug_"),
+    );
 
-    // HEADER / TITLE
-    if (typeof this.config.title === "string") {
-      this.header = this.config.title;
-    } else if (this.config.title === false) {
-      this.header = "";
-    } else {
-      this.header = `Pollenprognos för ${capitalize(this.config.city)}`;
-    }
-
-    if (debug) console.log("---- pollenprognos-card start ----");
-    if (debug) console.log("Stad:", this.config.city);
-    if (debug) console.log("Allergener från config:", this.config.allergens);
-
-    const sensors = [];
-    const test_val = val => {
-      const n = Number(val);
-      if (isNaN(n) || n < 0) return -1;
-      if (n > 6) return 6;
-      return n;
-    };
-
-    // Midnatt idag
-    const today = new Date(); today.setHours(0,0,0,0);
-
-    // Loop through each allergen
-    for (const allergen of this.config.allergens) {
-      try {
-        const dict = {};
-        dict.allergenReplaced   = replaceAAO(allergen);
-        dict.allergenCapitalized = allergenFull[allergen] || capitalize(allergen);
-        dict.allergenShort      = allergenShort[allergen] ||
-          dict.allergenCapitalized.replace("Sälg och viden","Vide");
-
-        // Find the right sensor
-        const expectedId = `sensor.pollen_${replaceAAO(this.config.city)}_${dict.allergenReplaced}`;
-        let sensorId = expectedId;
-        if (!hass.states[expectedId]) {
-          const cands = Object.keys(hass.states).filter(id =>
-            id.startsWith(`sensor.pollen_`) &&
-            id.includes(dict.allergenReplaced)
-          );
-          if (cands.length === 1) {
-            sensorId = cands[0];
-          } else {
-            continue;
-          }
-        }
-        const sensor = hass.states[sensorId];
-        if (!sensor?.attributes?.forecast) throw "Saknar forecast";
-
-        // Normalize forecast to a map if it's an array
-        const rawForecast = sensor.attributes.forecast;
-        const forecastMap = Array.isArray(rawForecast)
-          ? rawForecast.reduce((o, entry) => {
-              const key = entry.time || entry.datetime;
-              o[key] = entry;
-              return o;
-            }, {})
-          : rawForecast;
-
-        // Sort and filter dates
-        const rawDates = Object.keys(forecastMap)
-          .sort((a,b) => parseLocal(a) - parseLocal(b));
-        const upcoming = rawDates.filter(d => parseLocal(d) >= today);
-
-        // Base list of actual dates
-        let datesToUse = upcoming.length
-          ? upcoming.slice(0, this.days_to_show)
-          : [ rawDates[rawDates.length - 1] ];
-
-        const baseCount = upcoming.length > 0
-          ? Math.min(upcoming.length, this.days_to_show)
-          : 1;
-
-        // If showing empty days: add placeholders
-        if (showEmpty) {
-          while (datesToUse.length < this.days_to_show) {
-            const idx = datesToUse.length;
-            dict[`day${idx}`] = {
-              name:       dict.allergenCapitalized,
-              day:        "–",
-              state:      -1,
-              state_text: noInfoLabel
-            };
-            datesToUse.push(null);
-          }
-        }
-
-        // Extrapolate forward to get exactly days_to_show dates
-        let forecastDates = [];
-        if (upcoming.length) {
-          forecastDates = upcoming.slice(0, this.days_to_show);
-          if (forecastDates.length < this.days_to_show) {
-            const lastReal = parseLocal(forecastDates[forecastDates.length-1]);
-            for (let add = 1; forecastDates.length < this.days_to_show; add++) {
-              const nl = new Date(
-                lastReal.getFullYear(),
-                lastReal.getMonth(),
-                lastReal.getDate() + add
-              );
-              const yyyy = nl.getFullYear();
-              const mm   = String(nl.getMonth()+1).padStart(2,"0");
-              const dd   = String(nl.getDate()).padStart(2,"0");
-              forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
-            }
-          }
-        } else {
-          const lastHist = rawDates[rawDates.length-1];
-          forecastDates = [ lastHist ];
-          const baseDate = parseLocal(lastHist);
-          for (let add = 1; forecastDates.length < this.days_to_show; add++) {
-            const nl = new Date(
-              baseDate.getFullYear(),
-              baseDate.getMonth(),
-              baseDate.getDate() + add
-            );
-            const yyyy = nl.getFullYear();
-            const mm   = String(nl.getMonth()+1).padStart(2,"0");
-            const dd   = String(nl.getDate()).padStart(2,"0");
-            forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
-          }
-        }
-
-        // Determine which columns to render
-        const totalCols = showEmpty
-          ? this.days_to_show
-          : baseCount;
-        this.displayCols = Array.from({ length: totalCols }, (_,i) => i);
-
-        // Build day0...dayN
-        forecastDates.forEach((dateStr, idx) => {
-          const raw   = forecastMap[dateStr] || {};
-          const level = test_val(raw.level);
-          const d     = parseLocal(dateStr);
-          const diff  = Math.floor((d - today)/(1000*60*60*24));
-
-          let label;
-          if (!daysRelative) {
-            label = d.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long"
-            });
-          } else {
-            if (dayLabels[diff] !== undefined)      label = dayLabels[diff];
-            else if (diff === 0)                    label = "Idag";
-            else if (diff === 1)                    label = "Imorgon";
-            else if (diff === 2)                    label = "I övermorgon";
-            else if (diff === -1)                   label = "Igår";
-            else if (diff === -2)                   label = "I förrgår";
-            else if (diff < -2)                     label = d.toLocaleDateString(locale, { day:"numeric", month:"short" });
-            else                                    label = d.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long"
-            });
-          }
-          label = capitalize(label);
-          if (daysUppercase) label = label.toUpperCase();
-
-          dict[`day${idx}`] = {
-            name:       dict.allergenCapitalized,
-            day:        label,
-            state:      level,
-            state_text: level === -1
-              ? noInfoLabel
-              : (levelNames[level] ?? raw.level_name)
-          };
-        });
-
-        // Threshold filter
-        let meets = this.pollen_threshold === 0;
-        for (let i = 0; i < baseCount && !meets; i++) {
-          if (dict[`day${i}`].state >= this.pollen_threshold) meets = true;
-        }
-        if (meets) sensors.push(dict);
-
-      } catch (e) {
-        console.warn(`Fel vid allergen ${allergen}:`, e);
+    // 2) Autodetektera integration (men respektera explicit)
+    let integration = this._userConfig.integration;
+    if (!explicit) {
+      if (ppStates.length) {
+        integration = "pp";
+      } else if (dwdStates.length) {
+        integration = "dwd";
+        this._userConfig = {};
       }
     }
 
-    // Sort and save
-    const sorter = {
-      value_ascending:  (a,b)=>a.day0.state - b.day0.state,
-      value_descending: (a,b)=>b.day0.state - a.day0.state,
-      name_descending:  (a,b)=>b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      default:          (a,b)=>b.day0.state - a.day0.state
-    };
-    sensors.sort(sorter[this.config.sort] || sorter.default);
+    // 3) Fallback: om vi valt PP men inga PP-sensorer finns, falla tillbaka till DWD
+    if (
+      !explicit &&
+      integration === "pp" &&
+      !ppStates.length &&
+      dwdStates.length
+    ) {
+      integration = "dwd";
+      this._userConfig = {};
+    }
 
-    if (debug) console.log("🧩 Slutliga sensors-array:", sensors);
-    this.sensors = sensors;
+    // 4) Sammanslå stub + userConfig
+    const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
+    const cfg = { ...baseStub, ...this._userConfig, integration };
+
+    // 5) Auto-fyll date_locale första gången om användaren inte satt något
+    if (!this._userConfig.hasOwnProperty("date_locale")) {
+      // Ta helst HA:s fullständiga locale (t.ex. "sv-SE", "en-GB" osv.)
+      // Annars fall back till hass.language (äldre HA)
+      // Om inget av dessa finns, bygg en default-tag utifrån tvåbokstavskoden
+      const detectedLangCode = detectLang(hass, null);
+      const localeTag =
+        this._hass?.locale?.language ||
+        this._hass?.language ||
+        `${detectedLangCode}-${detectedLangCode.toUpperCase()}`;
+      cfg.date_locale = localeTag;
+      if (this.debug) {
+        console.debug(
+          "[PollenPrognos] auto-filling date_locale:",
+          cfg.date_locale,
+        );
+      }
+    }
+    // 6) Automatisk region/stad
+    if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
+      cfg.region_id = Array.from(
+        new Set(dwdStates.map((id) => id.split("_").pop())),
+      ).sort((a, b) => Number(a) - Number(b))[0];
+    } else if (integration === "pp" && !cfg.city && ppStates.length) {
+      cfg.city = ppStates[0]
+        .slice("sensor.pollen_".length)
+        .replace(/_[^_]+$/, "");
+    }
+
+    // 7) Spara config och header
+    this.config = cfg;
+    if (typeof cfg.title === "string") {
+      this.header = cfg.title;
+    } else if (cfg.title === false) {
+      this.header = "";
+    } else {
+      const loc =
+        integration === "dwd"
+          ? DWD_REGIONS[cfg.region_id] || cfg.region_id
+          : PP_POSSIBLE_CITIES.find(
+              (n) =>
+                n
+                  .toLowerCase()
+                  .replace(/[åä]/g, "a")
+                  .replace(/ö/g, "o")
+                  .replace(/[-\s]/g, "_") === cfg.city,
+            ) || cfg.city;
+      this.header = `${this._t("card.header_prefix")} ${loc}`;
+    }
+
+    // 8) Hämta prognos
+    const adapter = ADAPTERS[cfg.integration] || PP;
+    adapter
+      .fetchForecast(hass, cfg)
+      .then((sensors) => {
+        this.sensors = sensors;
+        this.days_to_show = cfg.days_to_show;
+        this.displayCols = Array.from(
+          {
+            length: cfg.show_empty_days
+              ? cfg.days_to_show
+              : sensors[0]?.days.length || 0,
+          },
+          (_, i) => i,
+        );
+        this.requestUpdate();
+      })
+      .catch((err) => console.error("Error fetching pollen forecast:", err));
   }
-
   _renderMinimalHtml() {
     return html`
       <ha-card>
-        ${this.header ? html`<h1 class="card-header">${this.header}</h1>` : ''}
+        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
         <div class="flex-container">
-          ${this.sensors.map(sensor => html`
-            <div class="sensor">
-              <img class="box"
-                src="${images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`] 
-                       ?? images['0_png']}"
-              />
-              ${this.config.show_text
-                ? html`<span class="short-text">${sensor.allergenShort} (${sensor.day0.state})</span>`
-                : ''}
-            </div>`)}
+          ${this.sensors.map(
+            (sensor) => html`
+              <div class="sensor">
+                <img
+                  class="box"
+                  src="${this._getImageSrc(
+                    sensor.allergenReplaced,
+                    sensor.day0.state,
+                  )}"
+                />
+                ${this.config.show_text || this.config.show_value
+                  ? html`
+                      <span class="short-text">
+                        ${this.config.show_text
+                          ? this.config.allergens_abbreviated
+                            ? sensor.allergenShort
+                            : sensor.allergenCapitalized
+                          : ""}
+                        ${this.config.show_value
+                          ? this.config.show_text
+                            ? ` (${sensor.day0.state})`
+                            : sensor.day0.state
+                          : ""}
+                      </span>
+                    `
+                  : ""}
+              </div>
+            `,
+          )}
         </div>
       </ha-card>
     `;
@@ -296,91 +262,87 @@ class PollenCardv2 extends LitElement {
 
     return html`
       <ha-card>
-        ${this.header ? html`<h1 class="card-header">${this.header}</h1>` : ''}
+        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
         <table class="forecast">
           <thead>
             <tr>
               <th></th>
-              ${cols.map(i => html`
-                <th style="font-weight: ${daysBold ? 'bold' : 'normal'}">
-                  ${this.sensors[0][`day${i}`].day}
-                </th>`)}
+              ${cols.map(
+                (i) => html`
+                  <th style="font-weight: ${daysBold ? "bold" : "normal"}">
+                    ${this.sensors[0].days[i]?.day || ""}
+                  </th>
+                `,
+              )}
             </tr>
           </thead>
-          ${this.sensors.map(sensor => html`
-            <tr class="allergen" valign="top">
-              <td>
-                <img class="allergen"
-                  src="${images[`${sensor.allergenReplaced}_${sensor.day0.state}_png`]}"
-                />
-              </td>
-              ${cols.map(i => html`
+
+          ${this.sensors.map(
+            (sensor) => html`
+              <tr class="allergen" valign="top">
                 <td>
                   <img
-                    src="${images[`${sensor[`day${i}`].state}_png`]
-                            ?? images['0_png']}"
+                    class="allergen"
+                    src="${this._getImageSrc(
+                      sensor.allergenReplaced,
+                      sensor.days[0]?.state,
+                    )}"
                   />
-                </td>`)}
-            </tr>
-            ${this.config.show_text ? html`
-              <tr class="allergen" valign="top">
-                <td>${sensor.allergenCapitalized}</td>
-                ${cols.map(i => html`
-                  <td><p>${sensor[`day${i}`].state_text}</p></td>`)}
+                  ${this.config.show_value
+                    ? html`<div class="value-text">
+                        ${sensor.days[0]?.state}
+                      </div>`
+                    : ""}
+                </td>
+                ${cols.map(
+                  (i) => html`
+                    <td>
+                      <img
+                        src="${this._getImageSrc("", sensor.days[i]?.state)}"
+                      />
+                      ${this.config.show_value
+                        ? html`<div class="value-text">
+                            ${sensor.days[i]?.state ?? ""}
+                          </div>`
+                        : ""}
+                    </td>
+                  `,
+                )}
               </tr>
-            ` : ''}
-          `)}
+              <tr class="allergen" valign="top">
+                <td>
+                  ${this.config.allergens_abbreviated
+                    ? sensor.allergenShort
+                    : sensor.allergenCapitalized}
+                </td>
+                ${cols.map(
+                  (i) => html`
+                    <td>
+                      ${this.config.show_text
+                        ? html`<p>${sensor.days[i]?.state_text || ""}</p>`
+                        : ""}
+                    </td>
+                  `,
+                )}
+              </tr>
+            `,
+          )}
         </table>
       </ha-card>
     `;
   }
 
   render() {
-    if (!this.sensors || this.sensors.length === 0) {
-      return html`
-        <ha-card>
-          <div class="card-error">
-            Inga pollen-sensorer hittades. Har du installerat integrationen
-            <a href="https://github.com/JohNan/homeassistant-pollenprognos"
-               target="_blank" rel="noopener">
-              homeassistant-pollenprognos
-            </a>
-            och valt en stad?
-          </div>
-        </ha-card>
-      `;
+    if (!this.sensors.length) {
+      const nameKey = `card.integration.${this.config.integration}`;
+      const name = this._t(nameKey);
+      return html`<ha-card>
+        <div class="card-error">${this._t("card.error")} (${name})</div>
+      </ha-card>`;
     }
-
-    const debug = Boolean(this.config.debug);
-    if (debug) console.log(
-      ">>> pollenprognos.render:",
-      "minimal=", this.config.minimal,
-      "days_to_show=", this.days_to_show,
-      "sensors.length=", this.sensors.length
-    );
-
-    if (this.config.minimal) {
-      return this._renderMinimalHtml();
-    } else {
-      return this._renderNormalHtml();
-    }
-  }
-
-  setConfig(config) {
-    const defaults = {
-      city:             '',
-      allergens:        [],
-      days_to_show:     4,
-      pollen_threshold: 1,
-      show_empty_days:  true,
-      show_text:        true,
-      minimal:          false,
-      sort:             'default',
-      debug:            false
-    };
-    this.config = { ...defaults, ...config };
-    // assign image map
-    this.images = images;
+    return this.config.minimal
+      ? this._renderMinimalHtml()
+      : this._renderNormalHtml();
   }
 
   getCardSize() {
@@ -389,19 +351,61 @@ class PollenCardv2 extends LitElement {
 
   static get styles() {
     return css`
-      .header { padding: 4px 0 12px; @apply --paper-font-headline; color: var(--primary-text-color); }
-      .forecast { width:100%; padding:7px; }
-      td { padding:1px; text-align:center; width:100px; font-size:smaller; }
-      img.allergen { width:40px; height:40px; }
-      img { width:50px; height:50px; }
-      .flex-container { display:flex; flex-wrap:wrap; justify-content:space-evenly; padding:16px; }
-      .sensor { flex:1; min-width:20%; text-align:center; }
-      .short-text { display:block; }
-      .card-error { padding:16px; color:var(--error-text-color,#b71c1c); font-weight:500; line-height:1.4; }
-      .card-error a { color:var(--primary-color); text-decoration:underline; }
+      .header {
+        margin: 0;
+        padding: 4px 16px 12px;
+        @apply --paper-font-headline;
+        line-height: 40px;
+        color: var(--primary-text-color);
+      }
+      .forecast {
+        width: 100%;
+        padding: 7px;
+      }
+      td {
+        padding: 1px;
+        text-align: center;
+        width: 100px;
+        font-size: smaller;
+      }
+      img.allergen {
+        width: 40px;
+        height: 40px;
+      }
+      img {
+        width: 50px;
+        height: 50px;
+      }
+      .flex-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-evenly;
+        align-items: center;
+        padding: 16px;
+      }
+      .sensor {
+        flex: 1;
+        min-width: 20%;
+        text-align: center;
+      }
+      .short-text {
+        display: block;
+      }
+      .card-error {
+        padding: 16px;
+        color: var(--error-text-color, #b71c1c);
+        font-weight: 500;
+        line-height: 1.4;
+      }
+      .value-text {
+        font-size: smaller;
+        margin-top: 4px;
+        display: block;
+        text-align: center;
+      }
     `;
   }
 }
 
-customElements.define("pollenprognos-card", PollenCardv2);
-
+customElements.define("pollenprognos-card", PollenPrognosCard);
+export default PollenPrognosCard;

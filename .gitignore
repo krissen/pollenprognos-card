@@ -1,3 +1,4 @@
 pollenprognos-card.js.gz
 node_modules/
 dist/pollenprognos-card.js.map
+.DS_Store
