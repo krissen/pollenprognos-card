@@ -1,5 +1,6 @@
 import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { normalize } from "../utils/normalize.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -80,12 +81,6 @@ export async function fetchForecast(hass, config) {
   if (debug)
     console.debug("PP.fetchForecast — start", { city: config.city, lang });
 
-  const normalize = (s) =>
-    s
-      .toLowerCase()
-      .replace(/[åä]/g, "a")
-      .replace(/ö/g, "o")
-      .replace(/[^a-z0-9]/g, "_");
   const testVal = (v) => {
     const n = Number(v);
     return isNaN(n) || n < 0 ? -1 : n > 6 ? 6 : n;

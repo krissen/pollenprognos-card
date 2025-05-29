@@ -1,11 +1,16 @@
 import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
+import { normalize } from "./utils/normalize.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 
-import { PP_POSSIBLE_CITIES, DWD_REGIONS } from "./constants.js";
+import {
+  PP_POSSIBLE_CITIES,
+  DWD_REGIONS,
+  ALLERGEN_TRANSLATION,
+} from "./constants.js";
 
 // Recursive merge utility
 const deepMerge = (target, source) => {
@@ -40,32 +45,40 @@ class PollenPrognosCardEditor extends LitElement {
 
   _resetPhrases(lang) {
     if (this.debug) console.debug("[Editor] resetPhrases – lang:", lang);
-    // Behåll befintligt date_locale eller sätt till angivet språk
-    const localeTag = lang;
-    this._updateConfig("date_locale", localeTag);
-    // Hämta allergen-nycklar baserat på integration
-    const keys =
+
+    // Sätt alltid date_locale precis efter valt språk
+    this._updateConfig("date_locale", lang);
+
+    // Välj rätt lista med raw-allergener
+    const rawKeys =
       this._config.integration === "dwd"
         ? stubConfigDWD.allergens
         : stubConfigPP.allergens;
 
-    // Bygg upp phrases-objektet helt generiskt
+    // Börja bygga nytt phrases-objekt
     const full = {};
     const short = {};
-    const levels = [];
-    const days = {};
-    keys.forEach((key) => {
-      full[key] = t(`editor.phrases_full.${key}`, lang);
-      short[key] = t(`editor.phrases_short.${key}`, lang);
+
+    // Använd canonical nyckel för lookup i locale-filerna
+    rawKeys.forEach((raw) => {
+      const normKey = normalize(raw); // ex 'alm' eller 'erle'
+      const canonKey = ALLERGEN_TRANSLATION[normKey] || normKey; // t.ex. 'alder'
+      full[raw] = t(`editor.phrases_full.${canonKey}`, lang);
+      short[raw] = t(`editor.phrases_short.${canonKey}`, lang);
     });
-    for (let i = 0; i < 7; i++) {
-      levels[i] = t(`editor.phrases_levels.${i}`, lang);
-    }
-    [0, 1, 2].forEach((i) => {
-      days[i] = t(`editor.phrases_days.${i}`, lang);
-    });
+
+    // Levels och days hämtas precis som tidigare
+    const levels = Array.from({ length: 7 }, (_, i) =>
+      t(`editor.phrases_levels.${i}`, lang),
+    );
+    const days = {
+      0: t(`editor.phrases_days.0`, lang),
+      1: t(`editor.phrases_days.1`, lang),
+      2: t(`editor.phrases_days.2`, lang),
+    };
     const noInformation = t("editor.no_information", lang);
 
+    // Tillämpa allt på config
     this._updateConfig("phrases", {
       full,
       short,

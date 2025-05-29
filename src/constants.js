@@ -56,6 +56,7 @@ export const ALLERGEN_TRANSLATION = {
   esche: "ash",
   birke: "birch",
   hasel: "hazel",
+  graser: "grass", // från 'gräser'
   graeser: "grass", // från 'gräser'
   beifuss: "mugwort", // från 'beifuss'
   roggen: "rye",

@@ -1,5 +1,6 @@
 import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { normalizeDWD } from "../utils/normalize.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -73,13 +74,6 @@ export async function fetchForecast(hass, config) {
   if (debug)
     console.debug("DWD adapter: start fetchForecast", { config, lang });
 
-  const replaceAAO = (text) =>
-    text
-      .toLowerCase()
-      .replaceAll("ä", "ae")
-      .replaceAll("ö", "oe")
-      .replaceAll("ü", "ue")
-      .replaceAll("ß", "ss");
   const testVal = (val) => {
     const n = Number(val);
     return isNaN(n) ? -1 : n;
@@ -93,7 +87,7 @@ export async function fetchForecast(hass, config) {
   for (const allergen of config.allergens) {
     try {
       const dict = {};
-      const rawKey = replaceAAO(allergen);
+      const rawKey = normalizeDWD(allergen);
       dict.allergenReplaced = rawKey;
 
       // Allergen-namn: använd user phrase, annars i18n, annars default
