@@ -113,17 +113,68 @@ class PollenPrognosCardEditor extends LitElement {
     this._integrationExplicit = false;
     this._config = deepMerge(stubConfigPP, {});
     this.installedCities = [];
+    this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
     this._selectedPhraseLang = detectLang(
       this._hass,
       this._config?.date_locale,
     );
+    // Spåra om användaren själv har valt allergener
+    this._allergensExplicit = false;
+    this._origAllergensSet = false;
+    this._userAllergens = null;
   }
 
   setConfig(config) {
-    // 1) Rensa stub‐integration, stub‐days och stub‐locale
+    if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
+    // första gången editorn öppnas: om det är en *reducerad* lista (< stub-längd), behåll den
+    const stubLen =
+      config.integration === "dwd"
+        ? stubConfigDWD.allergens.length
+        : stubConfigPP.allergens.length;
+    if (this.debug) console.debug("[Editor] stubLen är", stubLen);
+
+    if (Array.isArray(config.allergens) && config.allergens.length < stubLen) {
+      this._userConfig.allergens = [...config.allergens];
+      this._allergensExplicit = true;
+      if (this.debug)
+        console.debug(
+          "[Editor] saved user-chosen allergens:",
+          this._userConfig.allergens,
+        );
+    }
+    // 0) skapa incoming-objektet **direkt**
     const incoming = { ...config };
+    // --- släpp aldrig in stub-listor som HA alltid skickar med när editorn öppnas ---
+    if (
+      Array.isArray(incoming.allergens) &&
+      incoming.allergens.length === stubLen
+    ) {
+      if (this.debug)
+        console.debug(
+          "[Editor] dropping incoming stub-allergens (length matches stub)",
+        );
+      delete incoming.allergens;
+    }
+    if (this.debug)
+      console.debug(
+        "[Editor][B] efter stub-drop, incoming.allergens:",
+        incoming.allergens,
+      );
+
+    // --- På integration-change låter vi userConfig.allergens bli tomt så att stub listas ---
+    const incomingInt = config.integration;
+    if (
+      this._prevIntegration !== undefined &&
+      incomingInt !== this._prevIntegration
+    ) {
+      delete this._userConfig.allergens;
+      this._allergensExplicit = false;
+      if (this.debug)
+        console.debug("[Editor] integration changed → wipe allergens");
+    }
+    // 1) Rensa stub‐integration, stub‐days och stub‐locale
     if (
       !this._integrationExplicit &&
       incoming.integration === stubConfigPP.integration
@@ -148,8 +199,23 @@ class PollenPrognosCardEditor extends LitElement {
 
     // 2) Slå ihop med userConfig
     if (this.debug)
-      console.debug("[Editor] after cleaning, incoming:", incoming);
+      console.debug(
+        "[Editor][C] före merge, userConfig:",
+        this._userConfig,
+        " incoming:",
+        incoming,
+      );
+
     this._userConfig = deepMerge(this._userConfig, incoming);
+    if (this.debug)
+      console.debug(
+        "[Editor][D] efter merge, this._userConfig:",
+        this._userConfig,
+      );
+    if (this.debug)
+      console.debug("[Editor]    _userConfig after merge:", this._userConfig);
+    // Sätt explicit-flagga för allergens
+    this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
 
     // 3) Sätt explicit‐flaggor per fält
     this._integrationExplicit = this._userConfig.hasOwnProperty("integration");
@@ -170,7 +236,34 @@ class PollenPrognosCardEditor extends LitElement {
 
     // 5) Bygg config från stub + userConfig
     const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
-    this._config = deepMerge(baseStub, this._userConfig);
+    if (this.debug)
+      console.debug("[Editor][E] baseStub.allergens:", baseStub.allergens);
+    if (this.debug)
+      console.debug(
+        "[Editor][E] this._userConfig.allergens:",
+        this._userConfig.allergens,
+      );
+    const merged = deepMerge(baseStub, this._userConfig);
+    // alltid använd explicit userConfig.allergens om det finns, annars stub
+    if (this.debug)
+      console.debug(
+        "[Editor] baseStub.allergens:",
+        baseStub.allergens,
+        "userConfig.allergens:",
+        this._userConfig.allergens,
+      );
+    merged.allergens =
+      Array.isArray(this._userConfig.allergens) &&
+      this._userConfig.allergens.length
+        ? this._userConfig.allergens
+        : baseStub.allergens;
+    this._config = merged;
+    this._prevIntegration = integration;
+    if (this.debug)
+      console.debug(
+        "[Editor][F] slutgiltigt this._config.allergens:",
+        this._config.allergens,
+      );
     this._config.integration = integration;
     this._config.type = "custom:pollenprognos-card";
 
@@ -252,6 +345,9 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
 
+    if (this.debug)
+      console.debug("[Editor] färdig _config innan dispatch:", this._config);
+
     // 10) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
     this.dispatchEvent(
       new CustomEvent("config-changed", {
@@ -261,6 +357,8 @@ class PollenPrognosCardEditor extends LitElement {
       }),
     );
     this.requestUpdate();
+    this._prevIntegration = incomingInt;
+    this._initDone = true;
   }
 
   set hass(hass) {
@@ -354,18 +452,22 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
     const newUser = { ...this._userConfig };
-    if (value === undefined) delete newUser[prop];
-    else newUser[prop] = value;
-    this._userConfig = newUser;
     let cfg;
     if (prop === "integration") {
       const newInt = value;
-      delete this._userConfig[newInt === "dwd" ? "city" : "region_id"];
-      delete this._userConfig.allergens;
+      const oldInt = this._config.integration;
+      // bara nolla om det verkligen är ett byte
+      if (newInt !== oldInt) {
+        delete newUser[newInt === "dwd" ? "city" : "region_id"];
+        delete newUser.allergens;
+        this._allergensExplicit = false;
+      }
+      // bygg ny config utifrån rätt stub + ny userConfig
       const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
-      cfg = deepMerge(base, this._userConfig);
+      cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
     } else {
+      // övriga fält behandlas som förut
       cfg = { ...this._config, [prop]: value };
     }
     cfg.type = this._config.type;
