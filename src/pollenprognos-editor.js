@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { t, detectLang } from "./i18n.js";
+import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
@@ -41,7 +41,7 @@ class PollenPrognosCardEditor extends LitElement {
   _resetPhrases(lang) {
     if (this.debug) console.debug("[Editor] resetPhrases – lang:", lang);
     // Behåll befintligt date_locale eller sätt till angivet språk
-    const localeTag = `${lang}-${lang.toUpperCase()}`;
+    const localeTag = lang;
     this._updateConfig("date_locale", localeTag);
     // Hämta allergen-nycklar baserat på integration
     const keys =
@@ -82,6 +82,7 @@ class PollenPrognosCardEditor extends LitElement {
       installedCities: { type: Array },
       installedRegionIds: { type: Array },
       _initDone: { type: Boolean },
+      _selectedPhraseLang: { state: true },
     };
   }
 
@@ -101,6 +102,10 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedCities = [];
     this.installedRegionIds = [];
     this._initDone = false;
+    this._selectedPhraseLang = detectLang(
+      this._hass,
+      this._config?.date_locale,
+    );
   }
 
   setConfig(config) {
@@ -581,20 +586,33 @@ class PollenPrognosCardEditor extends LitElement {
             )}
           </div>
         </details>
-
         <!-- Fraser -->
         <h3>${this._t("phrases")}</h3>
         <div class="preset-buttons">
-          <mwc-button @click=${() => this._resetPhrases("sv")}>
-            ${this._t("preset_svenska")}
-          </mwc-button>
-          <mwc-button @click=${() => this._resetPhrases("de")}>
-            ${this._t("preset_tyska")}
-          </mwc-button>
-          <mwc-button @click=${() => this._resetPhrases("en")}>
-            ${this._t("preset_english")}
+          <ha-formfield label="${this._t("phrases_translate_all")}">
+            <ha-select
+              .value=${this._selectedPhraseLang}
+              @selected=${(e) => (this._selectedPhraseLang = e.target.value)}
+              @closed=${(e) => e.stopPropagation()}
+            >
+              ${SUPPORTED_LOCALES.map(
+                (code) => html`
+                  <mwc-list-item .value=${code}>
+                    ${new Intl.DisplayNames([this._lang], {
+                      type: "language",
+                    }).of(code) || code}
+                  </mwc-list-item>
+                `,
+              )}
+            </ha-select>
+          </ha-formfield>
+          <mwc-button
+            @click=${() => this._resetPhrases(this._selectedPhraseLang)}
+          >
+            ${this._t("phrases_apply")}
           </mwc-button>
         </div>
+
         <details>
           <summary>${this._t("phrases_full")}</summary>
           ${(c.integration === "dwd"
