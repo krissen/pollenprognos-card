@@ -23,6 +23,60 @@ See more info: <https://hacs.xyz/docs/faq/custom_repositories>
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)  
 [![HACS Action](https://github.com/krissen/pollenprognos-card/actions/workflows/ci.yml/badge.svg)](https://github.com/krissen/pollenprognos-card/actions/workflows/ci.yml)
 
+## Related / Similar Projects
+
+Below are some other Lovelace cards and integrations for pollen forecasts. Each has its own scope, strengths and limitations.
+
+---
+
+### lovelace-pollen-card  
+
+<https://github.com/nidayand/lovelace-pollen-card>  
+**Description:** A Lovelace card that displays pollen sensor data (forked from `isabellaalstrom/lovelace-pollenprognos-card`).  
+**Pros:**  
+
+- Makes `lovelace-pollenprognos-card` (below) usable, after changes made to the integration.
+- More features than the original: minimal view, configurable number of days, custom sorting.  
+- Still relatively simple to set up.  
+**Cons:**  
+- I believe it does not work with the latest changes to the integration (v1.1.0 and higher of `homeassistant-pollenprognos`).
+- Only supports PP/Pollenprognos integration—no DWD fallback.  
+- No built-in support for translating or customizing all text strings.  
+- Configuration via YAML only; no visual editor.  
+
+---
+
+### lovelace-pollenprognos-card  
+
+<https://github.com/isabellaalstrom/lovelace-pollenprognos-card>  
+**Description:** The original card for the [Pollenprognos](https://github.com/custom-components/pollenprognos) integration in Home Assistant.  
+**Pros:**  
+
+- Straightforward display of Pollenprognos sensor data.  
+**Cons:**  
+- Now defunct—no longer maintained.  
+- No HACS support or UI editor.  
+- Requires manual copying of `pollen_img` to `www/` or configuring `img_path`.  
+
+---
+
+### dwd-pollenprognos-card  
+
+<https://github.com/bhuebschen/dwd-pollenprognos-card>  
+**Description:** A custom Lovelace card for the [DWD Pollenflug](https://www.dwd.de/EN/ourservices/pollen/pollen.html) sensor integration in Home Assistant, originally forked from `isabellaalstrom/lovelace-pollenprognos-card`.  
+**Pros:**  
+
+- Focused solely on DWD data (no PP adapter).  
+- Implements the same basic styling and icons as the upstream card.  
+**Cons:**  
+- No visual editor support—configuration must be written in YAML.  
+- You must manually copy the `pollen_img` folder into your `www/` directory or set a custom `img_path`.  
+- Only supports DWD; cannot display PP (Pollenprognos) sensors.  
+
+---
+
+None of these cards support fully dynamic string localization or two-adapter fallback (PP + DWD) with a built-in UI editor. The **pollenprognos-card** you are using combines both data sources, supports HACS & the Lovelace editor, and is fully localizable via simple JSON files.
+
 ## Localization
 
 Since v2.0.0, the card is fully localizable. Out of the box it will automatically detect your Home Assistant UI locale (e.g. `sv-SE`, `en-GB`, `de-DE`) and then:
