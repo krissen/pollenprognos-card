@@ -233,14 +233,20 @@ class PollenPrognosCard extends LitElement {
                   )}"
                 />
                 ${this.config.show_text || this.config.show_value
-                  ? html`<span class="short-text">
-                      ${this.config.show_text ? sensor.allergenShort : ""}
-                      ${this.config.show_value
-                        ? this.config.show_text
-                          ? ` (${sensor.day0.state})`
-                          : sensor.day0.state
-                        : ""}
-                    </span>`
+                  ? html`
+                      <span class="short-text">
+                        ${this.config.show_text
+                          ? this.config.allergens_abbreviated
+                            ? sensor.allergenShort
+                            : sensor.allergenCapitalized
+                          : ""}
+                        ${this.config.show_value
+                          ? this.config.show_text
+                            ? ` (${sensor.day0.state})`
+                            : sensor.day0.state
+                          : ""}
+                      </span>
+                    `
                   : ""}
               </div>
             `,
@@ -304,7 +310,11 @@ class PollenPrognosCard extends LitElement {
                 )}
               </tr>
               <tr class="allergen" valign="top">
-                <td>${sensor.allergenCapitalized}</td>
+                <td>
+                  ${this.config.allergens_abbreviated
+                    ? sensor.allergenShort
+                    : sensor.allergenCapitalized}
+                </td>
                 ${cols.map(
                   (i) => html`
                     <td>

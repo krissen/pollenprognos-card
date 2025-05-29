@@ -28,6 +28,7 @@ export const stubConfigPP = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
+  allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
@@ -108,8 +109,18 @@ export async function fetchForecast(hass, config) {
             ? lookup
             : capitalize(allergen);
       }
-      dict.allergenShort = shortPhrases[allergen] || dict.allergenCapitalized;
-
+      // Kolla om vi ska använda kortnamn
+      if (config.allergens_abbreviated) {
+        // Canonical key för lookup i phrases_short
+        const canonKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
+        const userShort = shortPhrases[allergen];
+        dict.allergenShort =
+          userShort ||
+          t(`editor.phrases_short.${canonKey}`, lang) ||
+          dict.allergenCapitalized;
+      } else {
+        dict.allergenShort = dict.allergenCapitalized;
+      }
       // Sensor lookup
       const cityKey = normalize(config.city);
       let sensorId = `sensor.pollen_${cityKey}_${rawKey}`;

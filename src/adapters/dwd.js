@@ -34,6 +34,7 @@ export const stubConfigDWD = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
+  allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
   phrases: {
@@ -89,6 +90,8 @@ export async function fetchForecast(hass, config) {
       const dict = {};
       const rawKey = normalizeDWD(allergen);
       dict.allergenReplaced = rawKey;
+      // Canonical key for lookup in locales
+      const canonKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
 
       // Allergen-namn: använd user phrase, annars i18n, annars default
       const userFull = fullPhrases[allergen];
@@ -101,8 +104,17 @@ export async function fetchForecast(hass, config) {
         dict.allergenCapitalized =
           i18nName !== nameKey ? i18nName : capitalize(allergen);
       }
-      const userShort = shortPhrases[allergen];
-      dict.allergenShort = userShort || dict.allergenCapitalized;
+
+      // Kortnamn beroende på config.allergens_abbreviated
+      if (config.allergens_abbreviated) {
+        const userShort = shortPhrases[allergen];
+        dict.allergenShort =
+          userShort ||
+          t(`editor.phrases_short.${canonKey}`, lang) ||
+          dict.allergenCapitalized;
+      } else {
+        dict.allergenShort = dict.allergenCapitalized;
+      }
 
       // Hitta sensor
       let sensorId = config.region_id

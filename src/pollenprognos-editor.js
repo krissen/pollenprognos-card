@@ -474,6 +474,13 @@ class PollenPrognosCardEditor extends LitElement {
             @change=${(e) => this._updateConfig("minimal", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
+        <ha-formfield label="${this._t("allergens_abbreviated")}">
+          <ha-switch
+            .checked=${c.allergens_abbreviated}
+            @change=${(e) =>
+              this._updateConfig("allergens_abbreviated", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
         <ha-formfield label="${this._t("show_text")}">
           <ha-switch
             .checked=${c.show_text}
