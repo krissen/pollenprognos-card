@@ -6,9 +6,14 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ## Requirement
 
+Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos or DWD Pollenflug.
+
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
   **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.6 or above of this card.  
 For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
+
+- [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)  
+  **Note,** do not change sensor names from the integration's defaults. The card excpects sensors like `sensor.pollenflug_erle_43` and the like (ie., the defaults).
 
 ### Install with HACS
 
@@ -18,9 +23,29 @@ See more info: <https://hacs.xyz/docs/faq/custom_repositories>
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)  
 [![HACS Action](https://github.com/krissen/pollenprognos-card/actions/workflows/ci.yml/badge.svg)](https://github.com/krissen/pollenprognos-card/actions/workflows/ci.yml)
 
-## Credits
+## Localization
 
-This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card) by @nidayand , who in turn rewrote @isabellaalstrom's [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card).
+Since v2.0.0, the card is fully localizable. Out of the box it will automatically detect your Home Assistant UI locale (e.g. `sv-SE`, `en-GB`, `de-DE`) and then:
+
+1. **Exact match**: if you have a file named `src/locales/en-GB.json`, it will use that.  
+2. **Language fallback**: otherwise it will strip the region and look for `src/locales/en.json`.  
+3. **Default fallback**: if that’s missing too, it will fall back to `en.json`.  
+
+### Supported locales
+
+By default this repository provides:
+
+- `src/locales/sv.json`  
+- `src/locales/en.json`  
+- `src/locales/de.json`  
+
+### Adding a new language
+
+1. Copy `src/locales/en.json` → `src/locales/xx.json` (or `xx-YY.json` for region-specific variants).  
+2. Translate every value in the JSON.  
+3. Commit & open a PR, or file an issue to let us know!  
+
+Because the card uses dynamic imports (`import.meta.globEager()`), it will pick up your new file automatically—no code changes required.  
 
 ## Configuring
 
@@ -57,6 +82,7 @@ See example under "Custom text for allergens, values etc", below.
 | `days_uppercase`              | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Render weekday labels in **uppercase**.                                                                                                                                   |                                                                                                                              |
 | `days_boldfaced`              | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Render weekday labels in **bold**.                                                                                                                                        |                                                                                                                              |
 | `minimal`                     | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Use the compact “minimal” flex‐box layout instead of the full table.                                                                                                      |                                                                                                                              |
+| `allergens_abbreviated` | `boolean` | `false` | `false` | If true, shows short names of alleergens (`phrases.allergen_short.*`) instead of full allergen names (`phrases.allergen_full.*`).|
 | `show_text`                   | `boolean`                 | `false`                                                                                                                             | `true`                                                                    | Display the textual description (state\_text) below each icon.                                                                                                            |                                                                                                                              |
 | `show_empty_days`             | `boolean`                 | `true`                                                                                                                              | `true`                                                                    | If `true`, always render `days_to_show` columns even if sensor has no data for some days (empty placeholders).                                                            |                                                                                                                              |
 | `pollen_threshold`            | `integer`                 | `1`                                                                                                                                 | `1`                                                                       | Minimum pollen value (0–6) on any of the shown days to include that allergen in the list. Set to `0` to always show all.                                                  |                                                                                                                              |
@@ -253,3 +279,7 @@ cards:
 </td>
 </tr>
 </table>
+
+## Credits
+
+This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card) by @nidayand , who in turn rewrote @isabellaalstrom's [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card).
