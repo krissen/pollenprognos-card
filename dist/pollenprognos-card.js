@@ -734,7 +734,7 @@ const fg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAakAAAGpCAMAAAAA8jlpAA
   "editor.phrases_short.ash": "Esche",
   "editor.phrases_short.birch": "Birke",
   "editor.phrases_short.elm": "Ulme",
-  "editor.phrases_short.grass": "Gras",
+  "editor.phrases_short.grass": "Gräs",
   "editor.phrases_short.hazel": "Hasel",
   "editor.phrases_short.mugwort": "Beifu",
   "editor.phrases_short.oak": "Eiche",
