@@ -664,6 +664,16 @@ class PollenPrognosCardEditor extends LitElement {
               this._updateConfig("show_value_numeric", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
+        <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
+          <ha-switch
+            .checked=${c.show_value_numeric_in_circle}
+            @change=${(e) =>
+              this._updateConfig(
+                "show_value_numeric_in_circle",
+                e.target.checked,
+              )}
+          ></ha-switch>
+        </ha-formfield>
         <ha-formfield label="${this._t("show_empty_days")}">
           <ha-switch
             .checked=${c.show_empty_days}

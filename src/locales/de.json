@@ -86,6 +86,7 @@
   "editor.show_text_allergen": "Allergentext anzeigen",
   "editor.show_value_text": "Wert als Text anzeigen",
   "editor.show_value_numeric": "Wert als Zahl anzeigen",
+  "editor.show_value_numeric_in_circle": "Numerischen Wert im Kreis anzeigen",
   "editor.sort": "Sortierung",
   "editor.title": "Titel (leer = Auto)"
 }

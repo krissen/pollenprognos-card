@@ -300,9 +300,16 @@ class PollenPrognosCard extends LitElement {
                 ${cols.map(
                   (i) => html`
                     <td>
-                      <img
-                        src="${this._getImageSrc("", sensor.days[i]?.state)}"
-                      />
+                      <div class="icon-wrapper">
+                        <img
+                          src="${this._getImageSrc("", sensor.days[i]?.state)}"
+                        />
+                        ${this.config.show_value_numeric_in_circle
+                          ? html`<span class="circle-overlay">
+                              ${sensor.days[i]?.state ?? ""}
+                            </span>`
+                          : ""}
+                      </div>
                     </td>
                   `,
                 )}
@@ -379,6 +386,21 @@ class PollenPrognosCard extends LitElement {
         /* Separera raderna med lite vertikal luft */
         border-collapse: separate;
         border-spacing: 0 4px;
+      }
+      /* wrapper + overlay for circle numerics */
+      .icon-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+      .icon-wrapper .circle-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: var(--primary-text-color);
+        pointer-events: none;
       }
       td {
         padding: 1px;
