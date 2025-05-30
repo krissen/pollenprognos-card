@@ -83,8 +83,9 @@
   "editor.preset_reset_all": "Alles zurücksetzen",
   "editor.region_id": "Region ID",
   "editor.show_empty_days": "Leere Tage anzeigen",
-  "editor.show_text": "Text anzeigen",
-  "editor.show_value": "Wert anzeigen",
+  "editor.show_text_allergen": "Allergentext anzeigen",
+  "editor.show_value_text": "Wert als Text anzeigen",
+  "editor.show_value_numeric": "Wert als Zahl anzeigen",
   "editor.sort": "Sortierung",
   "editor.title": "Titel (leer = Auto)"
 }

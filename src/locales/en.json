@@ -83,8 +83,9 @@
   "editor.preset_reset_all": "Reset all settings",
   "editor.region_id": "Region ID",
   "editor.show_empty_days": "Show empty days",
-  "editor.show_text": "Show text",
-  "editor.show_value": "Show value",
+  "editor.show_text_allergen": "Show text, allergen",
+  "editor.show_value_text": "Show value, text",
+  "editor.show_value_numeric": "Show value, numeric",
   "editor.sort": "Sort order",
   "editor.title": "Title (empty = auto)"
 }

@@ -111,19 +111,89 @@ class PollenPrognosCardEditor extends LitElement {
     super();
     this._userConfig = {};
     this._integrationExplicit = false;
+    this._thresholdExplicit = false;
     this._config = deepMerge(stubConfigPP, {});
     this.installedCities = [];
+    this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
     this._selectedPhraseLang = detectLang(
       this._hass,
       this._config?.date_locale,
     );
+    // Spåra om användaren själv har valt allergener
+    this._allergensExplicit = false;
+    this._origAllergensSet = false;
+    this._userAllergens = null;
   }
 
   setConfig(config) {
-    // 1) Rensa stub‐integration, stub‐days och stub‐locale
+    if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
+    // första gången editorn öppnas: om det är en *reducerad* lista (< stub-längd), behåll den
+    const stubLen =
+      config.integration === "dwd"
+        ? stubConfigDWD.allergens.length
+        : stubConfigPP.allergens.length;
+    if (this.debug) console.debug("[Editor] stubLen är", stubLen);
+
+    if (Array.isArray(config.allergens) && config.allergens.length < stubLen) {
+      this._userConfig.allergens = [...config.allergens];
+      this._allergensExplicit = true;
+      if (this.debug)
+        console.debug(
+          "[Editor] saved user-chosen allergens:",
+          this._userConfig.allergens,
+        );
+    }
+    // 0) skapa incoming-objektet **direkt**
     const incoming = { ...config };
+    // --- släpp aldrig in stub-listor som HA alltid skickar med när editorn öppnas ---
+    if (
+      Array.isArray(incoming.allergens) &&
+      incoming.allergens.length === stubLen
+    ) {
+      if (this.debug)
+        console.debug(
+          "[Editor] dropping incoming stub-allergens (length matches stub)",
+        );
+      delete incoming.allergens;
+    }
+    if (this.debug)
+      console.debug(
+        "[Editor][B] efter stub-drop, incoming.allergens:",
+        incoming.allergens,
+      );
+
+    // --- släpp aldrig in stub-pollen_threshold ---
+    // Räkna ut vilket stub-värde som gäller i inkommande.integration (kan vara dwd/pp)
+    const stubThresh = (
+      incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
+    ).pollen_threshold;
+    if (
+      incoming.hasOwnProperty("pollen_threshold") &&
+      !this._thresholdExplicit &&
+      incoming.pollen_threshold === stubThresh
+    ) {
+      if (this.debug)
+        console.debug(
+          "[Editor] dropping incoming stub-threshold (matches stub):",
+          stubThresh,
+        );
+      delete incoming.pollen_threshold;
+    }
+
+    // --- På integration-change låter vi userConfig.allergens bli tomt så att stub listas ---
+    const incomingInt = config.integration;
+    if (
+      this._prevIntegration !== undefined &&
+      incomingInt !== this._prevIntegration
+    ) {
+      delete this._userConfig.allergens;
+      this._allergensExplicit = false;
+      if (this.debug)
+        console.debug("[Editor] integration changed → wipe allergens");
+    }
+    // 1) Rensa stub‐integration, stub‐days och stub‐locale
     if (
       !this._integrationExplicit &&
       incoming.integration === stubConfigPP.integration
@@ -148,29 +218,91 @@ class PollenPrognosCardEditor extends LitElement {
 
     // 2) Slå ihop med userConfig
     if (this.debug)
-      console.debug("[Editor] after cleaning, incoming:", incoming);
+      console.debug(
+        "[Editor][C] före merge, userConfig:",
+        this._userConfig,
+        " incoming:",
+        incoming,
+      );
+
     this._userConfig = deepMerge(this._userConfig, incoming);
+    this._thresholdExplicit =
+      this._userConfig.hasOwnProperty("pollen_threshold");
+
+    if (this.debug)
+      console.debug(
+        "[Editor][D] efter merge, this._userConfig:",
+        this._userConfig,
+      );
+    if (this.debug)
+      console.debug("[Editor]    _userConfig after merge:", this._userConfig);
+    // Sätt explicit-flagga för allergens
+    this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
 
     // 3) Sätt explicit‐flaggor per fält
     this._integrationExplicit = this._userConfig.hasOwnProperty("integration");
     this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
     this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
 
-    // 4) Autodetektera integration om inte explicit
-    let integration = this._userConfig.integration;
+    // 4) Bestäm integration: explicit > tidigare stub > autodetect via hass
+    //    så att stubConfig från konstruktorn alltid finns som default
+    let integration =
+      this._userConfig.integration !== undefined
+        ? this._userConfig.integration
+        : this._config.integration;
     if (!this._integrationExplicit && this._hass) {
       const all = Object.keys(this._hass.states);
-      if (all.some((id) => id.startsWith("sensor.pollen_"))) integration = "pp";
-      else if (all.some((id) => id.startsWith("sensor.pollenflug_")))
+      if (all.some((id) => id.startsWith("sensor.pollen_"))) {
+        integration = "pp";
+      } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
         integration = "dwd";
+      }
       this._userConfig.integration = integration;
       if (this.debug)
         console.debug("[Editor] auto-detected integration:", integration);
     }
-
     // 5) Bygg config från stub + userConfig
     const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
-    this._config = deepMerge(baseStub, this._userConfig);
+    if (this.debug)
+      console.debug("[Editor][E] baseStub.allergens:", baseStub.allergens);
+    if (this.debug)
+      console.debug(
+        "[Editor][E] this._userConfig.allergens:",
+        this._userConfig.allergens,
+      );
+
+    let merged = deepMerge(baseStub, this._userConfig);
+
+    // Om användaren inte explicit satt pollen_threshold, ta stub-värdet
+    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+      merged.pollen_threshold = baseStub.pollen_threshold;
+      if (this.debug)
+        console.debug(
+          "[Editor] reset pollen_threshold to stub:",
+          baseStub.pollen_threshold,
+        );
+    }
+
+    // alltid använd explicit userConfig.allergens om det finns, annars stub
+    if (this.debug)
+      console.debug(
+        "[Editor] baseStub.allergens:",
+        baseStub.allergens,
+        "userConfig.allergens:",
+        this._userConfig.allergens,
+      );
+    merged.allergens =
+      Array.isArray(this._userConfig.allergens) &&
+      this._userConfig.allergens.length
+        ? this._userConfig.allergens
+        : baseStub.allergens;
+    this._config = merged;
+    this._prevIntegration = integration;
+    if (this.debug)
+      console.debug(
+        "[Editor][F] slutgiltigt this._config.allergens:",
+        this._config.allergens,
+      );
     this._config.integration = integration;
     this._config.type = "custom:pollenprognos-card";
 
@@ -252,6 +384,9 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
 
+    if (this.debug)
+      console.debug("[Editor] färdig _config innan dispatch:", this._config);
+
     // 10) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
     this.dispatchEvent(
       new CustomEvent("config-changed", {
@@ -261,6 +396,8 @@ class PollenPrognosCardEditor extends LitElement {
       }),
     );
     this.requestUpdate();
+    this._prevIntegration = incomingInt;
+    this._initDone = true;
   }
 
   set hass(hass) {
@@ -287,9 +424,21 @@ class PollenPrognosCardEditor extends LitElement {
 
     // 2) Slå ihop stub + användar-config
     const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
-    this._config = deepMerge(base, this._userConfig);
-    this._config.integration = integration;
-    this._config.type = "custom:pollenprognos-card";
+    // slå ihop stub + userConfig
+    const merged = deepMerge(base, this._userConfig);
+    merged.integration = integration;
+    merged.type = "custom:pollenprognos-card";
+
+    // --- återställ pollen_threshold om användaren inte explicit satt det ---
+    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+      merged.pollen_threshold = base.pollen_threshold;
+      if (this.debug)
+        console.debug(
+          "[Editor][hass] reset pollen_threshold to stub:",
+          base.pollen_threshold,
+        );
+    }
+    this._config = merged;
 
     // 3) Fyll installerade regioner/städer
     this.installedRegionIds = Array.from(
@@ -354,18 +503,24 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
     const newUser = { ...this._userConfig };
-    if (value === undefined) delete newUser[prop];
-    else newUser[prop] = value;
-    this._userConfig = newUser;
     let cfg;
     if (prop === "integration") {
       const newInt = value;
-      delete this._userConfig[newInt === "dwd" ? "city" : "region_id"];
-      delete this._userConfig.allergens;
+      const oldInt = this._config.integration;
+      // bara nolla om det verkligen är ett byte
+      if (newInt !== oldInt) {
+        delete newUser[newInt === "dwd" ? "city" : "region_id"];
+        delete newUser.allergens;
+        // nolla även pollen_threshold så att stub läses in
+        delete newUser.pollen_threshold;
+        this._allergensExplicit = false;
+      }
+      // bygg ny config utifrån rätt stub + ny userConfig
       const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
-      cfg = deepMerge(base, this._userConfig);
+      cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
     } else {
+      // övriga fält behandlas som förut
       cfg = { ...this._config, [prop]: value };
     }
     cfg.type = this._config.type;
@@ -391,6 +546,12 @@ class PollenPrognosCardEditor extends LitElement {
       },
       ...this._config,
     };
+
+    // dynamiska parametrar för pollen_threshold-slider
+    const thresholdParams =
+      c.integration === "dwd"
+        ? { min: 0, max: 3, step: 0.5 }
+        : { min: 0, max: 6, step: 1 };
 
     return html`
       <div class="card-config">
@@ -481,16 +642,26 @@ class PollenPrognosCardEditor extends LitElement {
               this._updateConfig("allergens_abbreviated", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
-        <ha-formfield label="${this._t("show_text")}">
+        <!-- Nya switchar för text och värde -->
+        <ha-formfield label="${this._t("show_text_allergen")}">
           <ha-switch
-            .checked=${c.show_text}
-            @change=${(e) => this._updateConfig("show_text", e.target.checked)}
+            .checked=${c.show_text_allergen}
+            @change=${(e) =>
+              this._updateConfig("show_text_allergen", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
-        <ha-formfield label="${this._t("show_value")}">
+        <ha-formfield label="${this._t("show_value_text")}">
           <ha-switch
-            .checked=${c.show_value}
-            @change=${(e) => this._updateConfig("show_value", e.target.checked)}
+            .checked=${c.show_value_text}
+            @change=${(e) =>
+              this._updateConfig("show_value_text", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_value_numeric")}">
+          <ha-switch
+            .checked=${c.show_value_numeric}
+            @change=${(e) =>
+              this._updateConfig("show_value_numeric", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
         <ha-formfield label="${this._t("show_empty_days")}">
@@ -532,30 +703,32 @@ class PollenPrognosCardEditor extends LitElement {
         </ha-formfield>
 
         <!-- Antal dagar -->
-        <ha-formfield label="${this._t("days_to_show")} ${c.days_to_show}">
+        <div class="slider-row">
+          <div class="slider-text">${this._t("days_to_show")}</div>
+          <div class="slider-value">${c.days_to_show}</div>
           <ha-slider
             min="0"
             max="6"
             step="1"
             .value=${c.days_to_show}
-            @change=${(e) =>
+            @input=${(e) =>
               this._updateConfig("days_to_show", Number(e.target.value))}
           ></ha-slider>
-        </ha-formfield>
+        </div>
 
         <!-- Tröskel -->
-        <ha-formfield
-          label="${this._t("pollen_threshold")} ${c.pollen_threshold}"
-        >
+        <div class="slider-row">
+          <div class="slider-text">${this._t("pollen_threshold")}</div>
+          <div class="slider-value">${c.pollen_threshold}</div>
           <ha-slider
-            min="0"
-            max="6"
-            step="1"
+            min="${thresholdParams.min}"
+            max="${thresholdParams.max}"
+            step="${thresholdParams.step}"
             .value=${c.pollen_threshold}
-            @change=${(e) =>
+            @input=${(e) =>
               this._updateConfig("pollen_threshold", Number(e.target.value))}
           ></ha-slider>
-        </ha-formfield>
+        </div>
 
         <!-- Sortering -->
         <ha-formfield label="${this._t("sort")}">
@@ -767,6 +940,25 @@ class PollenPrognosCardEditor extends LitElement {
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 16px;
+      }
+      .slider-row {
+        display: grid;
+        grid-template-columns: auto 3ch 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .slider-text {
+        /* etikett, naturlig bredd */
+      }
+      .slider-value {
+        /* värdet får alltid 3 teckenplats (t.ex. "0,5" / "1  ") */
+        font-family: monospace;
+        text-align: right;
+        width: 3ch;
+      }
+      .slider-row ha-slider {
+        width: 100%;
       }
     `;
   }

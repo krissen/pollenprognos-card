@@ -82,8 +82,9 @@
   "editor.preset_reset_all": "Återställ allt",
   "editor.region_id": "Region ID",
   "editor.show_empty_days": "Visa tomma dagar",
-  "editor.show_text": "Visa text",
-  "editor.show_value": "Visa värde",
+  "editor.show_text_allergen": "Visa text, allergen",
+  "editor.show_value_text": "Visa värde, text",
+  "editor.show_value_numeric": "Visa värde, numeriskt",
   "editor.sort": "Sortering",
   "editor.title": "Titel (tom = auto)"
 }
