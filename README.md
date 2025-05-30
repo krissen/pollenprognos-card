@@ -4,6 +4,8 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ![Screenshot 2022-08-05 at 22 37 45](https://user-images.githubusercontent.com/2181965/183159066-2cef1a6e-e59b-4bb3-832b-7bff781b471c.png)
 
+<img width="527" alt="Skärmavbild 2025-05-30 kl  12 38 11" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
+
 ## Requirement
 
 Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos or DWD Pollenflug.
