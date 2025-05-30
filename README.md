@@ -158,6 +158,76 @@ See example under "Custom text for allergens, values etc", below.
 ### Normal layout
 
 <table>
+ <tr>
+  <td>4 days, value inside circles, German translation</td>
+  <td><img width="527" alt="card_4_days_values_inside_circle" src="https://github.com/user-attachments/assets/dd242bd4-e891-4dde-9163-d1870ced84b1" /></td>
+  <td>
+
+   ```yaml
+type: custom:pollenprognos-card
+integration: dwd
+region_id: ""
+allergens:
+  - erle
+  - ambrosia
+  - esche
+  - birke
+  - hasel
+  - gräser
+  - beifuss
+  - roggen
+minimal: false
+show_text_allergen: true
+show_value_text: true
+show_value_numeric: false
+show_value_numeric_in_circle: true
+show_empty_days: true
+debug: false
+days_to_show: 2
+days_relative: true
+days_abbreviated: false
+days_uppercase: false
+days_boldfaced: false
+pollen_threshold: 0.5
+sort: value_descending
+allergens_abbreviated: false
+date_locale: de
+phrases:
+  full:
+    erle: Erle
+    ambrosia: Ambrosia
+    esche: Esche
+    birke: Birke
+    hasel: Hasel
+    gräser: Gräser
+    beifuss: Beifuß
+    roggen: Roggen
+  short:
+    erle: Erle
+    ambrosia: Ambro
+    esche: Esche
+    birke: Birke
+    hasel: Hasel
+    gräser: Gräs
+    beifuss: Beifu
+    roggen: Roggn
+  levels:
+    - keine Belastung
+    - keine bis geringe Belastung
+    - geringe Belastung
+    - geringe bis mittlere Belastung
+    - mittlere Belastung
+    - mittlere bis hohe Belastung
+    - hohe Belastung
+  days:
+    "0": Heute
+    "1": Morgen
+    "2": Übermorgen
+  no_information: Keine Information
+type: custom:pollenprognos-card
+```
+  </td>
+ </tr>
 <tr>
 <td>2 days, no text</td>
 <td><img width="510" alt="card_2_days_without_text" src="https://user-images.githubusercontent.com/2943684/234618818-0f5b4953-8604-48e9-b308-20a3887b45d8.png"></td>
