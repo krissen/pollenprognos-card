@@ -111,6 +111,7 @@ class PollenPrognosCardEditor extends LitElement {
     super();
     this._userConfig = {};
     this._integrationExplicit = false;
+    this._thresholdExplicit = false;
     this._config = deepMerge(stubConfigPP, {});
     this.installedCities = [];
     this._prevIntegration = undefined;
@@ -163,6 +164,24 @@ class PollenPrognosCardEditor extends LitElement {
         incoming.allergens,
       );
 
+    // --- släpp aldrig in stub-pollen_threshold ---
+    // Räkna ut vilket stub-värde som gäller i inkommande.integration (kan vara dwd/pp)
+    const stubThresh = (
+      incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
+    ).pollen_threshold;
+    if (
+      incoming.hasOwnProperty("pollen_threshold") &&
+      !this._thresholdExplicit &&
+      incoming.pollen_threshold === stubThresh
+    ) {
+      if (this.debug)
+        console.debug(
+          "[Editor] dropping incoming stub-threshold (matches stub):",
+          stubThresh,
+        );
+      delete incoming.pollen_threshold;
+    }
+
     // --- På integration-change låter vi userConfig.allergens bli tomt så att stub listas ---
     const incomingInt = config.integration;
     if (
@@ -207,6 +226,9 @@ class PollenPrognosCardEditor extends LitElement {
       );
 
     this._userConfig = deepMerge(this._userConfig, incoming);
+    this._thresholdExplicit =
+      this._userConfig.hasOwnProperty("pollen_threshold");
+
     if (this.debug)
       console.debug(
         "[Editor][D] efter merge, this._userConfig:",
@@ -222,18 +244,23 @@ class PollenPrognosCardEditor extends LitElement {
     this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
     this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
 
-    // 4) Autodetektera integration om inte explicit
-    let integration = this._userConfig.integration;
+    // 4) Bestäm integration: explicit > tidigare stub > autodetect via hass
+    //    så att stubConfig från konstruktorn alltid finns som default
+    let integration =
+      this._userConfig.integration !== undefined
+        ? this._userConfig.integration
+        : this._config.integration;
     if (!this._integrationExplicit && this._hass) {
       const all = Object.keys(this._hass.states);
-      if (all.some((id) => id.startsWith("sensor.pollen_"))) integration = "pp";
-      else if (all.some((id) => id.startsWith("sensor.pollenflug_")))
+      if (all.some((id) => id.startsWith("sensor.pollen_"))) {
+        integration = "pp";
+      } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
         integration = "dwd";
+      }
       this._userConfig.integration = integration;
       if (this.debug)
         console.debug("[Editor] auto-detected integration:", integration);
     }
-
     // 5) Bygg config från stub + userConfig
     const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
     if (this.debug)
@@ -243,7 +270,19 @@ class PollenPrognosCardEditor extends LitElement {
         "[Editor][E] this._userConfig.allergens:",
         this._userConfig.allergens,
       );
-    const merged = deepMerge(baseStub, this._userConfig);
+
+    let merged = deepMerge(baseStub, this._userConfig);
+
+    // Om användaren inte explicit satt pollen_threshold, ta stub-värdet
+    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+      merged.pollen_threshold = baseStub.pollen_threshold;
+      if (this.debug)
+        console.debug(
+          "[Editor] reset pollen_threshold to stub:",
+          baseStub.pollen_threshold,
+        );
+    }
+
     // alltid använd explicit userConfig.allergens om det finns, annars stub
     if (this.debug)
       console.debug(
@@ -385,9 +424,21 @@ class PollenPrognosCardEditor extends LitElement {
 
     // 2) Slå ihop stub + användar-config
     const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
-    this._config = deepMerge(base, this._userConfig);
-    this._config.integration = integration;
-    this._config.type = "custom:pollenprognos-card";
+    // slå ihop stub + userConfig
+    const merged = deepMerge(base, this._userConfig);
+    merged.integration = integration;
+    merged.type = "custom:pollenprognos-card";
+
+    // --- återställ pollen_threshold om användaren inte explicit satt det ---
+    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+      merged.pollen_threshold = base.pollen_threshold;
+      if (this.debug)
+        console.debug(
+          "[Editor][hass] reset pollen_threshold to stub:",
+          base.pollen_threshold,
+        );
+    }
+    this._config = merged;
 
     // 3) Fyll installerade regioner/städer
     this.installedRegionIds = Array.from(

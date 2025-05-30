@@ -23,8 +23,7 @@ const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return true;
-    // return Boolean(this.config?.debug);
+    return Boolean(this.config?.debug);
   }
 
   get _lang() {
