@@ -32,7 +32,7 @@ export const stubConfigDWD = {
   days_abbreviated: false,
   days_uppercase: false,
   days_boldfaced: false,
-  pollen_threshold: 1,
+  pollen_threshold: 0.5,
   sort: "value_descending",
   allergens_abbreviated: false,
   date_locale: undefined,

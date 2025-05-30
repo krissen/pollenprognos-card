@@ -460,6 +460,8 @@ class PollenPrognosCardEditor extends LitElement {
       if (newInt !== oldInt) {
         delete newUser[newInt === "dwd" ? "city" : "region_id"];
         delete newUser.allergens;
+        // nolla även pollen_threshold så att stub läses in
+        delete newUser.pollen_threshold;
         this._allergensExplicit = false;
       }
       // bygg ny config utifrån rätt stub + ny userConfig
@@ -493,6 +495,12 @@ class PollenPrognosCardEditor extends LitElement {
       },
       ...this._config,
     };
+
+    // dynamiska parametrar för pollen_threshold-slider
+    const thresholdParams =
+      c.integration === "dwd"
+        ? { min: 0, max: 3, step: 0.5 }
+        : { min: 0, max: 6, step: 1 };
 
     return html`
       <div class="card-config">
@@ -640,7 +648,7 @@ class PollenPrognosCardEditor extends LitElement {
             max="6"
             step="1"
             .value=${c.days_to_show}
-            @change=${(e) =>
+            @input=${(e) =>
               this._updateConfig("days_to_show", Number(e.target.value))}
           ></ha-slider>
         </ha-formfield>
@@ -650,11 +658,11 @@ class PollenPrognosCardEditor extends LitElement {
           label="${this._t("pollen_threshold")} ${c.pollen_threshold}"
         >
           <ha-slider
-            min="0"
-            max="6"
-            step="1"
+            min="${thresholdParams.min}"
+            max="${thresholdParams.max}"
+            step="${thresholdParams.step}"
             .value=${c.pollen_threshold}
-            @change=${(e) =>
+            @input=${(e) =>
               this._updateConfig("pollen_threshold", Number(e.target.value))}
           ></ha-slider>
         </ha-formfield>
