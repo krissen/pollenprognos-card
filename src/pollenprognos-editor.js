@@ -693,7 +693,9 @@ class PollenPrognosCardEditor extends LitElement {
         </ha-formfield>
 
         <!-- Antal dagar -->
-        <ha-formfield label="${this._t("days_to_show")} ${c.days_to_show}">
+        <div class="slider-row">
+          <div class="slider-text">${this._t("days_to_show")}</div>
+          <div class="slider-value">${c.days_to_show}</div>
           <ha-slider
             min="0"
             max="6"
@@ -702,12 +704,12 @@ class PollenPrognosCardEditor extends LitElement {
             @input=${(e) =>
               this._updateConfig("days_to_show", Number(e.target.value))}
           ></ha-slider>
-        </ha-formfield>
+        </div>
 
         <!-- Tröskel -->
-        <ha-formfield
-          label="${this._t("pollen_threshold")} ${c.pollen_threshold}"
-        >
+        <div class="slider-row">
+          <div class="slider-text">${this._t("pollen_threshold")}</div>
+          <div class="slider-value">${c.pollen_threshold}</div>
           <ha-slider
             min="${thresholdParams.min}"
             max="${thresholdParams.max}"
@@ -716,7 +718,7 @@ class PollenPrognosCardEditor extends LitElement {
             @input=${(e) =>
               this._updateConfig("pollen_threshold", Number(e.target.value))}
           ></ha-slider>
-        </ha-formfield>
+        </div>
 
         <!-- Sortering -->
         <ha-formfield label="${this._t("sort")}">
@@ -928,6 +930,25 @@ class PollenPrognosCardEditor extends LitElement {
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 16px;
+      }
+      .slider-row {
+        display: grid;
+        grid-template-columns: auto 3ch 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .slider-text {
+        /* etikett, naturlig bredd */
+      }
+      .slider-value {
+        /* värdet får alltid 3 teckenplats (t.ex. "0,5" / "1  ") */
+        font-family: monospace;
+        text-align: right;
+        width: 3ch;
+      }
+      .slider-row ha-slider {
+        width: 100%;
       }
     `;
   }

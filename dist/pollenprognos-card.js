@@ -1904,7 +1904,9 @@ class JC extends q {
         </ha-formfield>
 
         <!-- Antal dagar -->
-        <ha-formfield label="${this._t("days_to_show")} ${A.days_to_show}">
+        <div class="slider-row">
+          <div class="slider-text">${this._t("days_to_show")}</div>
+          <div class="slider-value">${A.days_to_show}</div>
           <ha-slider
             min="0"
             max="6"
@@ -1912,12 +1914,12 @@ class JC extends q {
             .value=${A.days_to_show}
             @input=${(g) => this._updateConfig("days_to_show", Number(g.target.value))}
           ></ha-slider>
-        </ha-formfield>
+        </div>
 
         <!-- Tröskel -->
-        <ha-formfield
-          label="${this._t("pollen_threshold")} ${A.pollen_threshold}"
-        >
+        <div class="slider-row">
+          <div class="slider-text">${this._t("pollen_threshold")}</div>
+          <div class="slider-value">${A.pollen_threshold}</div>
           <ha-slider
             min="${I.min}"
             max="${I.max}"
@@ -1925,7 +1927,7 @@ class JC extends q {
             .value=${A.pollen_threshold}
             @input=${(g) => this._updateConfig("pollen_threshold", Number(g.target.value))}
           ></ha-slider>
-        </ha-formfield>
+        </div>
 
         <!-- Sortering -->
         <ha-formfield label="${this._t("sort")}">
@@ -2124,6 +2126,25 @@ class JC extends q {
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 16px;
+      }
+      .slider-row {
+        display: grid;
+        grid-template-columns: auto 3ch 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .slider-text {
+        /* etikett, naturlig bredd */
+      }
+      .slider-value {
+        /* värdet får alltid 3 teckenplats (t.ex. "0,5" / "1  ") */
+        font-family: monospace;
+        text-align: right;
+        width: 3ch;
+      }
+      .slider-row ha-slider {
+        width: 100%;
       }
     `;
   }
