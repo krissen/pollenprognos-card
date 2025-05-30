@@ -642,16 +642,26 @@ class PollenPrognosCardEditor extends LitElement {
               this._updateConfig("allergens_abbreviated", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
-        <ha-formfield label="${this._t("show_text")}">
+        <!-- Nya switchar för text och värde -->
+        <ha-formfield label="${this._t("show_text_allergen")}">
           <ha-switch
-            .checked=${c.show_text}
-            @change=${(e) => this._updateConfig("show_text", e.target.checked)}
+            .checked=${c.show_text_allergen}
+            @change=${(e) =>
+              this._updateConfig("show_text_allergen", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
-        <ha-formfield label="${this._t("show_value")}">
+        <ha-formfield label="${this._t("show_value_text")}">
           <ha-switch
-            .checked=${c.show_value}
-            @change=${(e) => this._updateConfig("show_value", e.target.checked)}
+            .checked=${c.show_value_text}
+            @change=${(e) =>
+              this._updateConfig("show_value_text", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_value_numeric")}">
+          <ha-switch
+            .checked=${c.show_value_numeric}
+            @change=${(e) =>
+              this._updateConfig("show_value_numeric", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
         <ha-formfield label="${this._t("show_empty_days")}">

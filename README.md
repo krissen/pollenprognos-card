@@ -137,11 +137,13 @@ See example under "Custom text for allergens, values etc", below.
 | `days_boldfaced`              | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Render weekday labels in **bold**.                                                                                                                                        |                                                                                                                              |
 | `minimal`                     | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Use the compact “minimal” flex‐box layout instead of the full table.                                                                                                      |                                                                                                                              |
 | `allergens_abbreviated` | `boolean` | `false` | `false` | If true, shows short names of alleergens (`phrases.allergen_short.*`) instead of full allergen names (`phrases.allergen_full.*`).|
-| `show_text`                   | `boolean`                 | `false`                                                                                                                             | `true`                                                                    | Display the textual description (state\_text) below each icon.                                                                                                            |                                                                                                                              |
+| `show_text_allergen`          | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Show allergen name in text.                                                                                                                                              |
+| `show_value_text`             | `boolean`                 | `false`                                                                                                                             | `true`                                                                    | Show pollen intensity as text below icons/cells.                                                                                                                         |
+| `show_value_numeric`          | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Show numeric pollen intensity value below icons/cells.                                                                                                                   |
 | `show_empty_days`             | `boolean`                 | `true`                                                                                                                              | `true`                                                                    | If `true`, always render `days_to_show` columns even if sensor has no data for some days (empty placeholders).                                                            |                                                                                                                              |
 | `pollen_threshold`            | `integer`                 | `1`                                                                                                                                 | `1`                                                                       | Minimum pollen value (0–6) on any of the shown days to include that allergen in the list. Set to `0` to always show all.                                                  |                                                                                                                              |
 | `sort`                        | `string`                  | `name_ascending`                                                                                                                    | `value_descending`                                                        | How to sort the allergen rows. Options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`.                                                       |                                                                                                                              |
-| `title`                       | \`boolean                 | string\`                                                                                                                            | *generated* (e.g. “Pollenprognos för Stockholm”)                          | *generated*                                                                                                                                                               | If `true` (or omitted) shows the auto‐generated header. If `false` hides header. If you provide a string, uses that instead. |
+| `title`                       | `boolean`                 | `string`                                                                                                                            | *generated* (e.g. “Pollenprognos för Stockholm”)                          | *generated*                                                                                                                                                               | If `true` (or omitted) shows the auto‐generated header. If `false` hides header. If you provide a string, uses that instead. |
 | `date_locale`                 | `string`                  | `"sv-SE"`                                                                                                                           | `"de-DE"`                                                                 | IETF locale for formatting weekdays via `toLocaleDateString` (e.g. `en-GB`, `de-DE`).                                                                                     |                                                                                                                              |
 | `debug`                       | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Enable verbose console logging for troubleshooting.                                                                                                                       |                                                                                                                              |
 | `phrases.full`                | `<object>`                | `{}`                                                                                                                                | `{"erle":"Erle",…}`                                                       | Map original allergen keys to full‐length display names. DWD default includes German names; PP default is empty (uses raw sensor names).                                  |                                                                                                                              |
@@ -164,7 +166,10 @@ See example under "Custom text for allergens, values etc", below.
 cards:
   - type: 'custom:pollenprognos-card'
     city: Forshaga
-    show_text: false
+    show_text_allergen: true
+    show_value_text: false
+    show_value_numeric: false
+    days_to_show: 2
     days_to_show: 2
     allergens:
       - Al
@@ -189,7 +194,9 @@ cards:
 cards:
   - type: 'custom:pollenprognos-card'
     city: Forshaga
-    show_text: true
+    show_text_allergen: true
+    show_value_text: true
+    show_value_numeric: false
     days_to_show: 4
     allergens:
       - Al
@@ -219,7 +226,9 @@ cards:
 cards:
   - type: 'custom:pollenprognos-card'
     city: Forshaga
-    show_text: false
+    show_text_allergen: false
+    show_value_text: false
+    show_value_numeric: false
     title: false
     minimal: true
     days_to_show: 4        # HAS NO EFFECT IN MINIMAL LAYOUT
@@ -247,7 +256,9 @@ cards:
 cards:
   - type: 'custom:pollenprognos-card'
     city: Forshaga
-    show_text: true
+    show_text_allergen: true
+    show_value_text: false
+    show_value_numeric: true
     minimal: true
     days_to_show: 4        # HAS NO EFFECT IN MINIMAL LAYOUT
     allergens:
@@ -278,7 +289,9 @@ cards:
 ```yaml
 - type: 'custom:pollenprognos-card'
   city: Forshaga
-  show_text: true
+  show_text_allergen: true
+  show_value_text: true
+  show_value_numeric: false
   minimal: false
   sort: value_descending
   pollen_threshold: 0

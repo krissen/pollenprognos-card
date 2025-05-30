@@ -216,13 +216,36 @@ class PollenPrognosCard extends LitElement {
       })
       .catch((err) => console.error("Error fetching pollen forecast:", err));
   }
+
   _renderMinimalHtml() {
     return html`
       <ha-card>
         ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
         <div class="flex-container">
-          ${this.sensors.map(
-            (sensor) => html`
+          ${this.sensors.map((sensor) => {
+            const txt = sensor.day0.state_text || "";
+            const num = sensor.day0.state;
+            // Bygg upp label-strängen
+            let label = "";
+            if (this.config.show_text_allergen) {
+              label += this.config.allergens_abbreviated
+                ? sensor.allergenShort
+                : sensor.allergenCapitalized;
+            }
+            if (this.config.show_value_text && this.config.show_value_numeric) {
+              // allergen + text + (num)
+              if (label) label += ": ";
+              label += `${txt} (${num})`;
+            } else if (this.config.show_value_text) {
+              // allergen + text
+              if (label) label += ": ";
+              label += txt;
+            } else if (this.config.show_value_numeric) {
+              // allergen + (num)
+              if (label) label += " ";
+              label += `(${num})`;
+            }
+            return html`
               <div class="sensor">
                 <img
                   class="box"
@@ -231,25 +254,10 @@ class PollenPrognosCard extends LitElement {
                     sensor.day0.state,
                   )}"
                 />
-                ${this.config.show_text || this.config.show_value
-                  ? html`
-                      <span class="short-text">
-                        ${this.config.show_text
-                          ? this.config.allergens_abbreviated
-                            ? sensor.allergenShort
-                            : sensor.allergenCapitalized
-                          : ""}
-                        ${this.config.show_value
-                          ? this.config.show_text
-                            ? ` (${sensor.day0.state})`
-                            : sensor.day0.state
-                          : ""}
-                      </span>
-                    `
-                  : ""}
+                ${label ? html`<span class="short-text">${label}</span>` : ""}
               </div>
-            `,
-          )}
+            `;
+          })}
         </div>
       </ha-card>
     `;
@@ -278,7 +286,8 @@ class PollenPrognosCard extends LitElement {
 
           ${this.sensors.map(
             (sensor) => html`
-              <tr class="allergen" valign="top">
+              <!-- Rad 1: bara ikoner -->
+              <tr class="allergen-icon-row" valign="top">
                 <td>
                   <img
                     class="allergen"
@@ -287,11 +296,6 @@ class PollenPrognosCard extends LitElement {
                       sensor.days[0]?.state,
                     )}"
                   />
-                  ${this.config.show_value
-                    ? html`<div class="value-text">
-                        ${sensor.days[0]?.state}
-                      </div>`
-                    : ""}
                 </td>
                 ${cols.map(
                   (i) => html`
@@ -299,31 +303,43 @@ class PollenPrognosCard extends LitElement {
                       <img
                         src="${this._getImageSrc("", sensor.days[i]?.state)}"
                       />
-                      ${this.config.show_value
-                        ? html`<div class="value-text">
-                            ${sensor.days[i]?.state ?? ""}
-                          </div>`
-                        : ""}
                     </td>
                   `,
                 )}
               </tr>
-              <tr class="allergen" valign="top">
-                <td>
-                  ${this.config.allergens_abbreviated
-                    ? sensor.allergenShort
-                    : sensor.allergenCapitalized}
-                </td>
-                ${cols.map(
-                  (i) => html`
-                    <td>
-                      ${this.config.show_text
-                        ? html`<p>${sensor.days[i]?.state_text || ""}</p>`
-                        : ""}
-                    </td>
-                  `,
-                )}
-              </tr>
+
+              <!-- Rad 2: allergennamn + text/nummer under dagarna -->
+              ${this.config.show_text_allergen ||
+              this.config.show_value_text ||
+              this.config.show_value_numeric
+                ? html`
+                    <tr class="allergen-text-row" valign="top">
+                      <td>
+                        ${this.config.show_text_allergen
+                          ? this.config.allergens_abbreviated
+                            ? sensor.allergenShort
+                            : sensor.allergenCapitalized
+                          : ""}
+                      </td>
+                      ${cols.map((i) => {
+                        const txt = sensor.days[i]?.state_text || "";
+                        const num = sensor.days[i]?.state;
+                        let content = "";
+                        if (
+                          this.config.show_value_text &&
+                          this.config.show_value_numeric
+                        ) {
+                          content = `${txt} (${num})`;
+                        } else if (this.config.show_value_text) {
+                          content = txt;
+                        } else if (this.config.show_value_numeric) {
+                          content = String(num);
+                        }
+                        return html`<td>${content}</td>`;
+                      })}
+                    </tr>
+                  `
+                : ""}
             `,
           )}
         </table>
@@ -360,6 +376,9 @@ class PollenPrognosCard extends LitElement {
       .forecast {
         width: 100%;
         padding: 7px;
+        /* Separera raderna med lite vertikal luft */
+        border-collapse: separate;
+        border-spacing: 0 4px;
       }
       td {
         padding: 1px;
