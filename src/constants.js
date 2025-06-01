@@ -42,6 +42,7 @@ export const ALLERGEN_TRANSLATION = {
   // Svenska
   al: "alder",
   alm: "elm",
+  bok: "beech",
   bjork: "birch",
   ek: "oak",
   grabo: "mugwort",
@@ -55,6 +56,7 @@ export const ALLERGEN_TRANSLATION = {
   ambrosia: "ragweed",
   esche: "ash",
   birke: "birch",
+  buche: "beech",
   hasel: "hazel",
   graser: "grass", // från 'gräser'
   graeser: "grass", // från 'gräser'

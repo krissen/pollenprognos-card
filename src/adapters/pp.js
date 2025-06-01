@@ -8,6 +8,7 @@ export const stubConfigPP = {
   allergens: [
     "Al",
     "Alm",
+    "Bok",
     "Björk",
     "Ek",
     "Malörtsambrosia",
