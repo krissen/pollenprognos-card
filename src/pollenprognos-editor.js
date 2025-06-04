@@ -96,6 +96,11 @@ class PollenPrognosCardEditor extends LitElement {
       installedRegionIds: { type: Array },
       _initDone: { type: Boolean },
       _selectedPhraseLang: { state: true },
+      _tapType: { type: String },
+      _tapEntity: { type: String },
+      _tapNavigation: { type: String },
+      _tapService: { type: String },
+      _tapServiceData: { type: String },
     };
   }
 
@@ -125,6 +130,12 @@ class PollenPrognosCardEditor extends LitElement {
     this._allergensExplicit = false;
     this._origAllergensSet = false;
     this._userAllergens = null;
+    // Tap action defaults
+    this._tapType = "none";
+    this._tapEntity = "";
+    this._tapNavigation = "";
+    this._tapService = "";
+    this._tapServiceData = "";
   }
 
   setConfig(config) {
@@ -387,6 +398,24 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] färdig _config innan dispatch:", this._config);
 
+    // Hantera tap_action för editorn
+    if (this._config.tap_action) {
+      this._tapType = this._config.tap_action.type || "more-info";
+      this._tapEntity = this._config.tap_action.entity || "";
+      this._tapNavigation = this._config.tap_action.navigation_path || "";
+      this._tapService = this._config.tap_action.service || "";
+      this._tapServiceData = JSON.stringify(
+        this._config.tap_action.service_data || {},
+        null,
+        2,
+      );
+    } else {
+      this._tapType = "none";
+      this._tapEntity = "";
+      this._tapNavigation = "";
+      this._tapService = "";
+      this._tapServiceData = "";
+    }
     // 10) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
     this.dispatchEvent(
       new CustomEvent("config-changed", {
@@ -507,20 +536,18 @@ class PollenPrognosCardEditor extends LitElement {
     if (prop === "integration") {
       const newInt = value;
       const oldInt = this._config.integration;
-      // bara nolla om det verkligen är ett byte
       if (newInt !== oldInt) {
         delete newUser[newInt === "dwd" ? "city" : "region_id"];
         delete newUser.allergens;
-        // nolla även pollen_threshold så att stub läses in
         delete newUser.pollen_threshold;
         this._allergensExplicit = false;
       }
-      // bygg ny config utifrån rätt stub + ny userConfig
       const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
+    } else if (prop === "tap_action") {
+      cfg = { ...this._config, tap_action: value };
     } else {
-      // övriga fält behandlas som förut
       cfg = { ...this._config, [prop]: value };
     }
     cfg.type = this._config.type;
@@ -904,6 +931,131 @@ class PollenPrognosCardEditor extends LitElement {
               })}
           ></ha-textfield>
         </ha-formfield>
+
+        <!-- Tap Action -->
+        <h3>Tap Action</h3>
+        <ha-formfield label="Enable tap action">
+          <ha-switch
+            .checked=${this._tapType !== "none"}
+            @change=${(e) => {
+              if (e.target.checked) {
+                this._tapType = "more-info";
+              } else {
+                this._tapType = "none";
+                this._updateConfig("tap_action", undefined);
+              }
+              this.requestUpdate();
+            }}
+          ></ha-switch>
+        </ha-formfield>
+        ${this._tapType !== "none"
+          ? html`
+              <div style="margin-top: 10px;">
+                <label>Action type</label>
+                <ha-select
+                  .value=${this._tapType}
+                  @selected=${(e) => {
+                    this._tapType = e.target.value;
+                    let tapAction = { type: this._tapType };
+                    if (this._tapType === "more-info")
+                      tapAction.entity = this._tapEntity;
+                    if (this._tapType === "navigate")
+                      tapAction.navigation_path = this._tapNavigation;
+                    if (this._tapType === "call-service") {
+                      tapAction.service = this._tapService;
+                      try {
+                        tapAction.service_data = JSON.parse(
+                          this._tapServiceData || "{}",
+                        );
+                      } catch {
+                        tapAction.service_data = {};
+                      }
+                    }
+                    this._updateConfig("tap_action", tapAction);
+                    this.requestUpdate();
+                  }}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  <mwc-list-item value="more-info">More Info</mwc-list-item>
+                  <mwc-list-item value="navigate">Navigate</mwc-list-item>
+                  <mwc-list-item value="call-service"
+                    >Call Service</mwc-list-item
+                  >
+                  <mwc-list-item value="none">None</mwc-list-item>
+                </ha-select>
+              </div>
+              ${this._tapType === "more-info"
+                ? html`
+                    <ha-formfield label="Entity">
+                      <ha-textfield
+                        .value=${this._tapEntity}
+                        @input=${(e) => {
+                          this._tapEntity = e.target.value;
+                          this._updateConfig("tap_action", {
+                            type: "more-info",
+                            entity: this._tapEntity,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `
+                : ""}
+              ${this._tapType === "navigate"
+                ? html`
+                    <ha-formfield label="Navigation path">
+                      <ha-textfield
+                        .value=${this._tapNavigation}
+                        @input=${(e) => {
+                          this._tapNavigation = e.target.value;
+                          this._updateConfig("tap_action", {
+                            type: "navigate",
+                            navigation_path: this._tapNavigation,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `
+                : ""}
+              ${this._tapType === "call-service"
+                ? html`
+                    <ha-formfield label="Service (e.g. light.turn_on)">
+                      <ha-textfield
+                        .value=${this._tapService}
+                        @input=${(e) => {
+                          this._tapService = e.target.value;
+                          let data = {};
+                          try {
+                            data = JSON.parse(this._tapServiceData || "{}");
+                          } catch {}
+                          this._updateConfig("tap_action", {
+                            type: "call-service",
+                            service: this._tapService,
+                            service_data: data,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                    <ha-formfield label="Service data (JSON)">
+                      <ha-textfield
+                        .value=${this._tapServiceData}
+                        @input=${(e) => {
+                          this._tapServiceData = e.target.value;
+                          let data = {};
+                          try {
+                            data = JSON.parse(this._tapServiceData || "{}");
+                          } catch {}
+                          this._updateConfig("tap_action", {
+                            type: "call-service",
+                            service: this._tapService,
+                            service_data: data,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `
+                : ""}
+            `
+          : ""}
 
         <!-- Debug -->
         <ha-formfield label="${this._t("debug")}">
