@@ -41,6 +41,7 @@ class PollenPrognosCard extends LitElement {
     days_to_show: { state: true },
     displayCols: { state: true },
     header: { state: true },
+    tapAction: {},
   };
 
   _getImageSrc(allergenReplaced, state) {
@@ -63,6 +64,7 @@ class PollenPrognosCard extends LitElement {
     this._initDone = false;
     this._userConfig = {};
     this.sensors = [];
+    this.tapAction = null;
   }
 
   static async getConfigElement() {
@@ -77,6 +79,8 @@ class PollenPrognosCard extends LitElement {
   setConfig(config) {
     // 1) Kopiera in användarens råa config
     this._userConfig = { ...config };
+    // Stöd för tap_action via config
+    this.tapAction = config.tap_action || null;
 
     // 2) Markera integration som explicit
     this._integrationExplicit =
@@ -149,9 +153,6 @@ class PollenPrognosCard extends LitElement {
 
     // 5) Auto-fyll date_locale första gången om användaren inte satt något
     if (!this._userConfig.hasOwnProperty("date_locale")) {
-      // Ta helst HA:s fullständiga locale (t.ex. "sv-SE", "en-GB" osv.)
-      // Annars fall back till hass.language (äldre HA)
-      // Om inget av dessa finns, bygg en default-tag utifrån tvåbokstavskoden
       const detectedLangCode = detectLang(hass, null);
       const localeTag =
         this._hass?.locale?.language ||
@@ -178,6 +179,7 @@ class PollenPrognosCard extends LitElement {
 
     // 7) Spara config och header
     this.config = cfg;
+    this.tapAction = cfg.tap_action || this.tapAction || null;
     if (typeof cfg.title === "string") {
       this.header = cfg.title;
     } else if (cfg.title === false) {
@@ -233,15 +235,12 @@ class PollenPrognosCard extends LitElement {
                 : sensor.allergenCapitalized;
             }
             if (this.config.show_value_text && this.config.show_value_numeric) {
-              // allergen + text + (num)
               if (label) label += ": ";
               label += `${txt} (${num})`;
             } else if (this.config.show_value_text) {
-              // allergen + text
               if (label) label += ": ";
               label += txt;
             } else if (this.config.show_value_numeric) {
-              // allergen + (num)
               if (label) label += " ";
               label += `(${num})`;
             }
@@ -358,17 +357,73 @@ class PollenPrognosCard extends LitElement {
     if (!this.sensors.length) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
-      return html`<ha-card>
-        <div class="card-error">${this._t("card.error")} (${name})</div>
-      </ha-card>`;
+      return html`
+        <ha-card
+          @click="${this._handleTapAction}"
+          style="cursor: ${this.tapAction ? "pointer" : "auto"}"
+        >
+          <div class="card-error">${this._t("card.error")} (${name})</div>
+        </ha-card>
+      `;
     }
-    return this.config.minimal
+    const cardContent = this.config.minimal
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
+    return html`
+      <ha-card
+        @click="${this._handleTapAction}"
+        style="cursor: ${this.tapAction ? "pointer" : "auto"}"
+      >
+        ${cardContent}
+      </ha-card>
+    `;
   }
 
   getCardSize() {
     return this.sensors.length + 1;
+  }
+
+  _handleTapAction(e) {
+    if (!this.tapAction || !this._hass) return;
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    const action = this.tapAction.type || "more-info";
+    let entity = this.tapAction.entity || "camera.pollen";
+    switch (action) {
+      case "more-info":
+        this._fire("hass-more-info", { entityId: entity });
+        break;
+      case "navigate":
+        if (this.tapAction.navigation_path)
+          window.history.pushState(null, "", this.tapAction.navigation_path);
+        break;
+      case "call-service":
+        if (
+          this.tapAction.service &&
+          typeof this.tapAction.service === "string"
+        ) {
+          const [domain, service] = this.tapAction.service.split(".");
+          this._hass.callService(
+            domain,
+            service,
+            this.tapAction.service_data || {},
+          );
+        }
+        break;
+      // Fler fall vid behov
+    }
+  }
+
+  _fire(type, detail, options) {
+    const event = new Event(type, {
+      bubbles: true,
+      cancelable: false,
+      composed: true,
+      ...options,
+    });
+    event.detail = detail;
+    this.dispatchEvent(event);
+    return event;
   }
 
   static get styles() {
@@ -383,11 +438,9 @@ class PollenPrognosCard extends LitElement {
       .forecast {
         width: 100%;
         padding: 7px;
-        /* Separera raderna med lite vertikal luft */
         border-collapse: separate;
         border-spacing: 0 4px;
       }
-      /* wrapper + overlay for circle numerics */
       .icon-wrapper {
         position: relative;
         display: inline-block;
