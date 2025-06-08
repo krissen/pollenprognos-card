@@ -5,6 +5,7 @@ import { normalize } from "./utils/normalize.js";
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
+import { stubConfigPEU } from "./adapters/peu.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -32,9 +33,17 @@ const deepMerge = (target, source) => {
   return out;
 };
 
+const getStubConfig = (integration) =>
+  integration === "dwd"
+    ? stubConfigDWD
+    : integration === "peu"
+      ? stubConfigPEU
+      : stubConfigPP;
+
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
-    return Boolean(this._config.debug);
+    return true;
+    // return Boolean(this._config.debug);
   }
 
   _resetAll() {
@@ -53,7 +62,9 @@ class PollenPrognosCardEditor extends LitElement {
     const rawKeys =
       this._config.integration === "dwd"
         ? stubConfigDWD.allergens
-        : stubConfigPP.allergens;
+        : this._config.integration === "peu"
+          ? stubConfigPEU.allergens
+          : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -68,9 +79,17 @@ class PollenPrognosCardEditor extends LitElement {
     });
 
     // Levels och days hämtas precis som tidigare
-    const levels = Array.from({ length: 7 }, (_, i) =>
+    const numLevels =
+      this._config.integration === "dwd"
+        ? 4
+        : this._config.integration === "peu"
+          ? 5
+          : 7;
+
+    const levels = Array.from({ length: numLevels }, (_, i) =>
       t(`editor.phrases_levels.${i}`, lang),
     );
+
     const days = {
       0: t(`editor.phrases_days.0`, lang),
       1: t(`editor.phrases_days.1`, lang),
@@ -119,6 +138,7 @@ class PollenPrognosCardEditor extends LitElement {
     this._thresholdExplicit = false;
     this._config = deepMerge(stubConfigPP, {});
     this.installedCities = [];
+    this.installedPeuLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
@@ -144,8 +164,9 @@ class PollenPrognosCardEditor extends LitElement {
     const stubLen =
       config.integration === "dwd"
         ? stubConfigDWD.allergens.length
-        : stubConfigPP.allergens.length;
-    if (this.debug) console.debug("[Editor] stubLen är", stubLen);
+        : config.integration === "peu"
+          ? stubConfigPEU.allergens.length
+          : stubConfigPP.allergens.length;
 
     if (Array.isArray(config.allergens) && config.allergens.length < stubLen) {
       this._userConfig.allergens = [...config.allergens];
@@ -178,7 +199,11 @@ class PollenPrognosCardEditor extends LitElement {
     // --- släpp aldrig in stub-pollen_threshold ---
     // Räkna ut vilket stub-värde som gäller i inkommande.integration (kan vara dwd/pp)
     const stubThresh = (
-      incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
+      incoming.integration === "dwd"
+        ? stubConfigDWD
+        : incoming.integration === "peu"
+          ? stubConfigPEU
+          : stubConfigPP
     ).pollen_threshold;
     if (
       incoming.hasOwnProperty("pollen_threshold") &&
@@ -220,7 +245,11 @@ class PollenPrognosCardEditor extends LitElement {
       delete incoming.days_to_show;
     }
     const stubLocale = (
-      incoming.integration === "dwd" ? stubConfigDWD : stubConfigPP
+      incoming.integration === "dwd"
+        ? stubConfigDWD
+        : incoming.integration === "peu"
+          ? stubConfigPEU
+          : stubConfigPP
     ).date_locale;
     if (!this._localeExplicit && incoming.date_locale === stubLocale) {
       if (this.debug) console.debug("[Editor] dropped stub date_locale");
@@ -265,6 +294,8 @@ class PollenPrognosCardEditor extends LitElement {
       const all = Object.keys(this._hass.states);
       if (all.some((id) => id.startsWith("sensor.pollen_"))) {
         integration = "pp";
+      } else if (all.some((id) => id.startsWith("sensor.polleninformation_"))) {
+        integration = "peu";
       } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
         integration = "dwd";
       }
@@ -272,8 +303,12 @@ class PollenPrognosCardEditor extends LitElement {
       if (this.debug)
         console.debug("[Editor] auto-detected integration:", integration);
     }
+
     // 5) Bygg config från stub + userConfig
-    const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
+    const baseStub = getStubConfig(integration);
+
+    const allergens = baseStub.allergens;
+
     if (this.debug)
       console.debug("[Editor][E] baseStub.allergens:", baseStub.allergens);
     if (this.debug)
@@ -441,23 +476,26 @@ class PollenPrognosCardEditor extends LitElement {
     const dwdStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollenflug_"),
     );
+    const peuStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.polleninformation_"),
+    );
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
     if (!explicit) {
       if (ppStates.length) integration = "pp";
+      else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
-
       this._userConfig.integration = integration;
     }
 
     // 2) Slå ihop stub + användar-config
-    const base = integration === "dwd" ? stubConfigDWD : stubConfigPP;
-    // slå ihop stub + userConfig
-    const merged = deepMerge(base, this._userConfig);
-    merged.integration = integration;
-    merged.type = "custom:pollenprognos-card";
-
+    const base =
+      integration === "dwd"
+        ? stubConfigDWD
+        : integration === "peu"
+          ? stubConfigPEU
+          : stubConfigPP;
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
     if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
       merged.pollen_threshold = base.pollen_threshold;
@@ -490,6 +528,19 @@ class PollenPrognosCardEditor extends LitElement {
           .replace(/[-\s]/g, "_"),
       ),
     ).sort((a, b) => a.localeCompare(b));
+
+    this.installedPeuLocations = Array.from(
+      new Map(
+        Object.values(hass.states)
+          .filter((s) => s.entity_id.startsWith("sensor.polleninformation_"))
+          .map((s) => [
+            s.attributes.location_slug || s.entity_id.split("_")[1],
+            s.attributes.location_title ||
+              s.attributes.friendly_name?.match(/\((.*?)\)/)?.[1] ||
+              s.entity_id.split("_")[1],
+          ]),
+      ),
+    );
 
     // 4) Auto-välj första region/stad om användaren inte satt något
     if (!this._initDone) {
@@ -542,7 +593,13 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.pollen_threshold;
         this._allergensExplicit = false;
       }
-      const base = newInt === "dwd" ? stubConfigDWD : stubConfigPP;
+      const base =
+        newInt === "dwd"
+          ? stubConfigDWD
+          : newInt === "peu"
+            ? stubConfigPEU
+            : stubConfigPP;
+
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
     } else if (prop === "tap_action") {
@@ -574,11 +631,24 @@ class PollenPrognosCardEditor extends LitElement {
       ...this._config,
     };
 
+    const allergens =
+      c.integration === "dwd"
+        ? stubConfigDWD.allergens
+        : c.integration === "peu"
+          ? stubConfigPEU.allergens
+          : stubConfigPP.allergens;
+
+    // Lägg till detta:
+    const numLevels =
+      c.integration === "dwd" ? 4 : c.integration === "peu" ? 5 : 7;
+
     // dynamiska parametrar för pollen_threshold-slider
     const thresholdParams =
       c.integration === "dwd"
         ? { min: 0, max: 3, step: 0.5 }
-        : { min: 0, max: 6, step: 1 };
+        : c.integration === "peu"
+          ? { min: 0, max: 4, step: 1 }
+          : { min: 0, max: 6, step: 1 };
 
     return html`
       <div class="card-config">
@@ -599,6 +669,9 @@ class PollenPrognosCardEditor extends LitElement {
           >
             <mwc-list-item value="pp"
               >${this._t("integration.pp")}</mwc-list-item
+            >
+            <mwc-list-item value="peu"
+              >${this._t("integration.peu")}</mwc-list-item
             >
             <mwc-list-item value="dwd"
               >${this._t("integration.dwd")}</mwc-list-item
@@ -624,25 +697,42 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-select>
               </ha-formfield>
             `
-          : html`
-              <ha-formfield label="${this._t("region_id")}">
-                <ha-select
-                  .value=${c.region_id || ""}
-                  @selected=${(e) =>
-                    this._updateConfig("region_id", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  ${this.installedRegionIds.map(
-                    (id) => html`
-                      <mwc-list-item .value=${id}>
-                        ${id} — ${DWD_REGIONS[id] || id}
-                      </mwc-list-item>
-                    `,
-                  )}
-                </ha-select>
-              </ha-formfield>
-            `}
-
+          : c.integration === "peu"
+            ? html`
+                <ha-formfield label="${this._t("location")}">
+                  <ha-select
+                    .value=${c.location || ""}
+                    @selected=${(e) =>
+                      this._updateConfig("location", e.target.value)}
+                    @closed=${(e) => e.stopPropagation()}
+                  >
+                    ${this.installedPeuLocations.map(
+                      ([slug, title]) =>
+                        html`<mwc-list-item .value=${slug}
+                          >${title}</mwc-list-item
+                        >`,
+                    )}
+                  </ha-select>
+                </ha-formfield>
+              `
+            : html`
+                <ha-formfield label="${this._t("region_id")}">
+                  <ha-select
+                    .value=${c.region_id || ""}
+                    @selected=${(e) =>
+                      this._updateConfig("region_id", e.target.value)}
+                    @closed=${(e) => e.stopPropagation()}
+                  >
+                    ${this.installedRegionIds.map(
+                      (id) => html`
+                        <mwc-list-item .value=${id}>
+                          ${id} — ${DWD_REGIONS[id] || id}
+                        </mwc-list-item>
+                      `,
+                    )}
+                  </ha-select>
+                </ha-formfield>
+              `}
         <!-- Titel -->
         <ha-formfield label="${this._t("title")}">
           <ha-textfield
@@ -800,10 +890,7 @@ class PollenPrognosCardEditor extends LitElement {
         <details>
           <summary>${this._t("allergens")}</summary>
           <div class="allergens-group">
-            ${(c.integration === "dwd"
-              ? stubConfigDWD.allergens
-              : stubConfigPP.allergens
-            ).map(
+            ${allergens.map(
               (key) => html`
                 <ha-formfield .label=${key}>
                   <ha-checkbox
@@ -842,13 +929,9 @@ class PollenPrognosCardEditor extends LitElement {
             ${this._t("phrases_apply")}
           </mwc-button>
         </div>
-
         <details>
           <summary>${this._t("phrases_full")}</summary>
-          ${(c.integration === "dwd"
-            ? stubConfigDWD.allergens
-            : stubConfigPP.allergens
-          ).map(
+          ${allergens.map(
             (a) => html`
               <ha-formfield .label=${a}>
                 <ha-textfield
@@ -867,10 +950,7 @@ class PollenPrognosCardEditor extends LitElement {
         </details>
         <details>
           <summary>${this._t("phrases_short")}</summary>
-          ${(c.integration === "dwd"
-            ? stubConfigDWD.allergens
-            : stubConfigPP.allergens
-          ).map(
+          ${allergens.map(
             (a) => html`
               <ha-formfield .label=${a}>
                 <ha-textfield
@@ -889,7 +969,7 @@ class PollenPrognosCardEditor extends LitElement {
         </details>
         <details>
           <summary>${this._t("phrases_levels")}</summary>
-          ${Array.from({ length: 7 }, (_, i) => i).map(
+          ${Array.from({ length: numLevels }, (_, i) => i).map(
             (i) => html`
               <ha-formfield .label=${i}>
                 <ha-textfield

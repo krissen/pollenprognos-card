@@ -6,10 +6,12 @@ import { t, detectLang } from "./i18n.js";
 // Adapter-moduler
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
+import * as PEU from "./adapters/peu.js";
 
 // Stub-konfigurationer
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
+import { stubConfigPEU } from "./adapters/peu.js";
 
 // Statiska konstanter
 import {
@@ -19,11 +21,12 @@ import {
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
 
-const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD }
+const ADAPTERS = CONSTANT_ADAPTERS; // { pp: PP, dwd: DWD, peu: PEU }
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return Boolean(this.config?.debug);
+    return true;
+    // return Boolean(this.config?.debug);
   }
 
   get _lang() {
@@ -47,10 +50,18 @@ class PollenPrognosCard extends LitElement {
   _getImageSrc(allergenReplaced, state) {
     const raw = Number(state);
     let scaled = raw;
-    if (this.config.integration === "dwd") scaled = raw * 2;
+    let min = -1,
+      max = 6;
+    if (this.config.integration === "dwd") {
+      scaled = raw * 2;
+      max = 6;
+    } else if (this.config.integration === "peu") {
+      scaled = raw;
+      max = 4;
+    }
     let lvl = Math.round(scaled);
-    if (isNaN(lvl) || lvl < -1) lvl = -1;
-    if (lvl > 6) lvl = 6;
+    if (isNaN(lvl) || lvl < min) lvl = min;
+    if (lvl > max) lvl = max;
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
     const specific = images[`${key}_${lvl}_png`];
     return specific || images[`${lvl}_png`];
@@ -124,31 +135,44 @@ class PollenPrognosCard extends LitElement {
     const dwdStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.pollenflug_"),
     );
+    const peuStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.polleninformation_"),
+    );
 
     // 2) Autodetektera integration (men respektera explicit)
     let integration = this._userConfig.integration;
     if (!explicit) {
       if (ppStates.length) {
         integration = "pp";
+      } else if (peuStates.length) {
+        integration = "peu";
       } else if (dwdStates.length) {
         integration = "dwd";
         this._userConfig = {};
       }
     }
 
-    // 3) Fallback: om vi valt PP men inga PP-sensorer finns, falla tillbaka till DWD
-    if (
-      !explicit &&
-      integration === "pp" &&
-      !ppStates.length &&
-      dwdStates.length
-    ) {
-      integration = "dwd";
-      this._userConfig = {};
+    // 3) Fallback: om vi valt PP men inga PP-sensorer finns, falla tillbaka till PEU → DWD
+    if (!explicit) {
+      if (integration === "pp" && !ppStates.length && peuStates.length) {
+        integration = "peu";
+        this._userConfig = {};
+      } else if (
+        (integration === "pp" || integration === "peu") &&
+        !ppStates.length &&
+        !peuStates.length &&
+        dwdStates.length
+      ) {
+        integration = "dwd";
+        this._userConfig = {};
+      }
     }
 
     // 4) Sammanslå stub + userConfig
-    const baseStub = integration === "dwd" ? stubConfigDWD : stubConfigPP;
+    let baseStub;
+    if (integration === "dwd") baseStub = stubConfigDWD;
+    else if (integration === "peu") baseStub = stubConfigPEU;
+    else baseStub = stubConfigPP;
     const cfg = { ...baseStub, ...this._userConfig, integration };
 
     // 5) Auto-fyll date_locale första gången om användaren inte satt något
