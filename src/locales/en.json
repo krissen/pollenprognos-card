@@ -109,5 +109,7 @@
   "editor.show_value_text": "Show value, text",
   "editor.sort": "Sort order",
   "editor.title": "Title (empty = auto)",
-  "card.integration.peu": "Polleninformation EU"
+  "card.integration.peu": "Polleninformation EU",
+  "editor.integration.peu": "Polleninformation EU",
+  "editor.location": "Location"
 }

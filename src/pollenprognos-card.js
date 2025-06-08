@@ -37,15 +37,17 @@ class PollenPrognosCard extends LitElement {
     return t(key, this._lang);
   }
 
-  static properties = {
-    hass: { state: true },
-    config: {},
-    sensors: { state: true },
-    days_to_show: { state: true },
-    displayCols: { state: true },
-    header: { state: true },
-    tapAction: {},
-  };
+  static get properties() {
+    return {
+      hass: { state: true },
+      config: {},
+      sensors: { state: true },
+      days_to_show: { state: true },
+      displayCols: { state: true },
+      header: { state: true },
+      tapAction: {},
+    };
+  }
 
   _getImageSrc(allergenReplaced, state) {
     const raw = Number(state);
@@ -106,14 +108,20 @@ class PollenPrognosCard extends LitElement {
           id.startsWith("sensor.pollen_") &&
           !id.startsWith("sensor.pollenflug_"),
       );
+      const hasPEU = allIds.some((id) =>
+        id.startsWith("sensor.polleninformation_"),
+      );
       const hasDWD = allIds.some((id) => id.startsWith("sensor.pollenflug_"));
-      if (!hasPP && hasDWD) {
+      if (!hasPP && hasPEU) {
+        this._userConfig.integration = "peu";
+        if (this.debug)
+          console.debug("[PollenPrognos] fallback to PEU in setConfig");
+      } else if (!hasPP && !hasPEU && hasDWD) {
         this._userConfig.integration = "dwd";
         if (this.debug)
           console.debug("[PollenPrognos] fallback to DWD in setConfig");
       }
     }
-
     // 5) Återställ init-flaggan så att set hass körs om
     this._initDone = false;
 
@@ -204,22 +212,46 @@ class PollenPrognosCard extends LitElement {
     // 7) Spara config och header
     this.config = cfg;
     this.tapAction = cfg.tap_action || this.tapAction || null;
+    // Bygg rubrik utifrån integration och valda fält
     if (typeof cfg.title === "string") {
       this.header = cfg.title;
     } else if (cfg.title === false) {
       this.header = "";
     } else {
-      const loc =
-        integration === "dwd"
-          ? DWD_REGIONS[cfg.region_id] || cfg.region_id
-          : PP_POSSIBLE_CITIES.find(
-              (n) =>
-                n
-                  .toLowerCase()
-                  .replace(/[åä]/g, "a")
-                  .replace(/ö/g, "o")
-                  .replace(/[-\s]/g, "_") === cfg.city,
-            ) || cfg.city;
+      let loc = "";
+      if (integration === "dwd") {
+        loc = DWD_REGIONS[cfg.region_id] || cfg.region_id || "";
+      } else if (integration === "pp") {
+        loc =
+          PP_POSSIBLE_CITIES.find(
+            (n) =>
+              n
+                .toLowerCase()
+                .replace(/[åä]/g, "a")
+                .replace(/ö/g, "o")
+                .replace(/[-\s]/g, "_") === (cfg.city || "").toLowerCase(),
+          ) ||
+          cfg.city ||
+          "";
+      } else if (integration === "peu") {
+        // För PEU – visa location_title om tillgänglig, annars location (slug)
+        loc = "";
+        if (cfg.location) {
+          // Försök hitta rätt label i sensorlistan (hass.states)
+          const peuSensors = Object.values(this._hass?.states || {}).filter(
+            (s) => s.entity_id.startsWith("sensor.polleninformation_"),
+          );
+          const found = peuSensors.find(
+            (s) =>
+              s.attributes.location_slug === cfg.location ||
+              s.entity_id.split("_")[1] === cfg.location,
+          );
+          loc =
+            found?.attributes.location_title ||
+            found?.attributes.friendly_name ||
+            cfg.location;
+        }
+      }
       this.header = `${this._t("card.header_prefix")} ${loc}`;
     }
 

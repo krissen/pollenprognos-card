@@ -109,5 +109,7 @@
   "editor.show_value_text": "Wert als Text anzeigen",
   "editor.sort": "Sortierung",
   "editor.title": "Titel (leer = Auto)",
-  "card.integration.peu": "Polleninformation EU"
+  "card.integration.peu": "Polleninformation EU",
+  "editor.integration.peu": "Polleninformation EU",
+  "editor.location": "Ort"
 }

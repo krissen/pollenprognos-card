@@ -133,24 +133,21 @@ class PollenPrognosCardEditor extends LitElement {
 
   constructor() {
     super();
+    // Sätt ALLT till neutrala värden, oavsett state på this._hass eller this._config
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
-    this._config = deepMerge(stubConfigPP, {});
+    this._config = stubConfigPP;
     this.installedCities = [];
     this.installedPeuLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
-    this._selectedPhraseLang = detectLang(
-      this._hass,
-      this._config?.date_locale,
-    );
-    // Spåra om användaren själv har valt allergener
+    // Säkra att _selectedPhraseLang alltid får fallback om ingen hass eller locale finns
+    this._selectedPhraseLang = "sv";
     this._allergensExplicit = false;
     this._origAllergensSet = false;
     this._userAllergens = null;
-    // Tap action defaults
     this._tapType = "none";
     this._tapEntity = "";
     this._tapNavigation = "";
@@ -159,316 +156,293 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   setConfig(config) {
-    if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
-    // första gången editorn öppnas: om det är en *reducerad* lista (< stub-längd), behåll den
-    const stubLen =
-      config.integration === "dwd"
-        ? stubConfigDWD.allergens.length
-        : config.integration === "peu"
-          ? stubConfigPEU.allergens.length
-          : stubConfigPP.allergens.length;
+    try {
+      if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
 
-    if (Array.isArray(config.allergens) && config.allergens.length < stubLen) {
-      this._userConfig.allergens = [...config.allergens];
-      this._allergensExplicit = true;
-      if (this.debug)
-        console.debug(
-          "[Editor] saved user-chosen allergens:",
-          this._userConfig.allergens,
-        );
-    }
-    // 0) skapa incoming-objektet **direkt**
-    const incoming = { ...config };
-    // --- släpp aldrig in stub-listor som HA alltid skickar med när editorn öppnas ---
-    if (
-      Array.isArray(incoming.allergens) &&
-      incoming.allergens.length === stubLen
-    ) {
-      if (this.debug)
-        console.debug(
-          "[Editor] dropping incoming stub-allergens (length matches stub)",
-        );
-      delete incoming.allergens;
-    }
-    if (this.debug)
-      console.debug(
-        "[Editor][B] efter stub-drop, incoming.allergens:",
-        incoming.allergens,
-      );
+      // 1. Identifiera stub-längd och skapa kopia av inkommande config
+      const stubLen =
+        config.integration === "dwd"
+          ? stubConfigDWD.allergens.length
+          : config.integration === "peu"
+            ? stubConfigPEU.allergens.length
+            : stubConfigPP.allergens.length;
+      const incoming = { ...config };
 
-    // --- släpp aldrig in stub-pollen_threshold ---
-    // Räkna ut vilket stub-värde som gäller i inkommande.integration (kan vara dwd/pp)
-    const stubThresh = (
-      incoming.integration === "dwd"
-        ? stubConfigDWD
-        : incoming.integration === "peu"
-          ? stubConfigPEU
-          : stubConfigPP
-    ).pollen_threshold;
-    if (
-      incoming.hasOwnProperty("pollen_threshold") &&
-      !this._thresholdExplicit &&
-      incoming.pollen_threshold === stubThresh
-    ) {
-      if (this.debug)
-        console.debug(
-          "[Editor] dropping incoming stub-threshold (matches stub):",
-          stubThresh,
-        );
-      delete incoming.pollen_threshold;
-    }
-
-    // --- På integration-change låter vi userConfig.allergens bli tomt så att stub listas ---
-    const incomingInt = config.integration;
-    if (
-      this._prevIntegration !== undefined &&
-      incomingInt !== this._prevIntegration
-    ) {
-      delete this._userConfig.allergens;
-      this._allergensExplicit = false;
-      if (this.debug)
-        console.debug("[Editor] integration changed → wipe allergens");
-    }
-    // 1) Rensa stub‐integration, stub‐days och stub‐locale
-    if (
-      !this._integrationExplicit &&
-      incoming.integration === stubConfigPP.integration
-    ) {
-      if (this.debug) console.debug("[Editor] dropped stub integration");
-      delete incoming.integration;
-    }
-    if (
-      !this._daysExplicit &&
-      incoming.days_to_show === stubConfigPP.days_to_show
-    ) {
-      if (this.debug) console.debug("[Editor] dropped stub days_to_show");
-      delete incoming.days_to_show;
-    }
-    const stubLocale = (
-      incoming.integration === "dwd"
-        ? stubConfigDWD
-        : incoming.integration === "peu"
-          ? stubConfigPEU
-          : stubConfigPP
-    ).date_locale;
-    if (!this._localeExplicit && incoming.date_locale === stubLocale) {
-      if (this.debug) console.debug("[Editor] dropped stub date_locale");
-      delete incoming.date_locale;
-    }
-
-    // 2) Slå ihop med userConfig
-    if (this.debug)
-      console.debug(
-        "[Editor][C] före merge, userConfig:",
-        this._userConfig,
-        " incoming:",
-        incoming,
-      );
-
-    this._userConfig = deepMerge(this._userConfig, incoming);
-    this._thresholdExplicit =
-      this._userConfig.hasOwnProperty("pollen_threshold");
-
-    if (this.debug)
-      console.debug(
-        "[Editor][D] efter merge, this._userConfig:",
-        this._userConfig,
-      );
-    if (this.debug)
-      console.debug("[Editor]    _userConfig after merge:", this._userConfig);
-    // Sätt explicit-flagga för allergens
-    this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
-
-    // 3) Sätt explicit‐flaggor per fält
-    this._integrationExplicit = this._userConfig.hasOwnProperty("integration");
-    this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
-    this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
-
-    // 4) Bestäm integration: explicit > tidigare stub > autodetect via hass
-    //    så att stubConfig från konstruktorn alltid finns som default
-    let integration =
-      this._userConfig.integration !== undefined
-        ? this._userConfig.integration
-        : this._config.integration;
-    if (!this._integrationExplicit && this._hass) {
-      const all = Object.keys(this._hass.states);
-      if (all.some((id) => id.startsWith("sensor.pollen_"))) {
-        integration = "pp";
-      } else if (all.some((id) => id.startsWith("sensor.polleninformation_"))) {
-        integration = "peu";
-      } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
-        integration = "dwd";
+      // 2. Om användaren tidigare valt färre allergener än stub, spara undan dessa
+      if (
+        Array.isArray(config.allergens) &&
+        config.allergens.length < stubLen
+      ) {
+        this._userConfig.allergens = [...config.allergens];
+        this._allergensExplicit = true;
+        if (this.debug)
+          console.debug(
+            "[Editor] saved user-chosen allergens:",
+            this._userConfig.allergens,
+          );
       }
-      this._userConfig.integration = integration;
-      if (this.debug)
-        console.debug("[Editor] auto-detected integration:", integration);
-    }
 
-    // 5) Bygg config från stub + userConfig
-    const baseStub = getStubConfig(integration);
+      // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
+      if (
+        Array.isArray(incoming.allergens) &&
+        incoming.allergens.length === stubLen
+      ) {
+        if (this.debug)
+          console.debug(
+            "[Editor] dropping incoming stub-allergens (length matches stub)",
+          );
+        delete incoming.allergens;
+      }
 
-    const allergens = baseStub.allergens;
+      // 4. Släpp aldrig in stub-pollen_threshold
+      const stubThresh = (
+        incoming.integration === "dwd"
+          ? stubConfigDWD
+          : incoming.integration === "peu"
+            ? stubConfigPEU
+            : stubConfigPP
+      ).pollen_threshold;
+      if (
+        incoming.hasOwnProperty("pollen_threshold") &&
+        !this._thresholdExplicit &&
+        incoming.pollen_threshold === stubThresh
+      ) {
+        if (this.debug)
+          console.debug(
+            "[Editor] dropping incoming stub-threshold (matches stub):",
+            stubThresh,
+          );
+        delete incoming.pollen_threshold;
+      }
 
-    if (this.debug)
-      console.debug("[Editor][E] baseStub.allergens:", baseStub.allergens);
-    if (this.debug)
-      console.debug(
-        "[Editor][E] this._userConfig.allergens:",
-        this._userConfig.allergens,
-      );
+      // 5. Om integration byts, nollställ allergens/relaterade explicit-val
+      const incomingInt = config.integration;
+      if (
+        this._prevIntegration !== undefined &&
+        incomingInt !== this._prevIntegration
+      ) {
+        delete this._userConfig.allergens;
+        this._allergensExplicit = false;
+        if (this.debug)
+          console.debug("[Editor] integration changed → wipe allergens");
+      }
 
-    let merged = deepMerge(baseStub, this._userConfig);
+      // 6. Rensa stub-värden på integration, days_to_show, date_locale (om de inte är explicita)
+      if (
+        !this._integrationExplicit &&
+        incoming.integration === stubConfigPP.integration
+      ) {
+        if (this.debug) console.debug("[Editor] dropped stub integration");
+        delete incoming.integration;
+      }
+      if (
+        !this._daysExplicit &&
+        incoming.days_to_show === stubConfigPP.days_to_show
+      ) {
+        if (this.debug) console.debug("[Editor] dropped stub days_to_show");
+        delete incoming.days_to_show;
+      }
+      const stubLocale = (
+        incoming.integration === "dwd"
+          ? stubConfigDWD
+          : incoming.integration === "peu"
+            ? stubConfigPEU
+            : stubConfigPP
+      ).date_locale;
+      if (!this._localeExplicit && incoming.date_locale === stubLocale) {
+        if (this.debug) console.debug("[Editor] dropped stub date_locale");
+        delete incoming.date_locale;
+      }
 
-    // Om användaren inte explicit satt pollen_threshold, ta stub-värdet
-    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
-      merged.pollen_threshold = baseStub.pollen_threshold;
+      // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
+      this._userConfig = deepMerge(this._userConfig, incoming);
+
+      // 8. Sätt explicit-flaggor
+      this._thresholdExplicit =
+        this._userConfig.hasOwnProperty("pollen_threshold");
+      this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
+      this._integrationExplicit =
+        this._userConfig.hasOwnProperty("integration");
+      this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
+      this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
+
+      // 9. Bestäm integration (userConfig > tidigare config > autodetect)
+      let integration =
+        this._userConfig.integration !== undefined
+          ? this._userConfig.integration
+          : this._config.integration;
+      if (!this._integrationExplicit && this._hass) {
+        const all = Object.keys(this._hass.states);
+        if (all.some((id) => id.startsWith("sensor.pollen_"))) {
+          integration = "pp";
+        } else if (
+          all.some((id) => id.startsWith("sensor.polleninformation_"))
+        ) {
+          integration = "peu";
+        } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
+          integration = "dwd";
+        }
+        this._userConfig.integration = integration;
+        if (this.debug)
+          console.debug("[Editor] auto-detected integration:", integration);
+      }
+
+      // 10. Bygg config från stub + userConfig (bara EN gång!)
+      const baseStub = getStubConfig(integration);
+      let merged = deepMerge(baseStub, this._userConfig);
+
+      // 11. Om användaren inte explicit satt pollen_threshold, ta stub-värdet
+      if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+        merged.pollen_threshold = baseStub.pollen_threshold;
+        if (this.debug)
+          console.debug(
+            "[Editor] reset pollen_threshold to stub:",
+            baseStub.pollen_threshold,
+          );
+      }
+
+      // 12. Alltid använd explicit userConfig.allergens om det finns, annars stub
+      merged.allergens =
+        Array.isArray(this._userConfig.allergens) &&
+        this._userConfig.allergens.length
+          ? this._userConfig.allergens
+          : baseStub.allergens;
+
+      // 13. Lägg till typ och integration
+      merged.integration = integration;
+      merged.type = "custom:pollenprognos-card";
+      this._config = merged;
+      this._prevIntegration = integration;
+
       if (this.debug)
         console.debug(
-          "[Editor] reset pollen_threshold to stub:",
-          baseStub.pollen_threshold,
+          "[Editor][F] slutgiltigt this._config.allergens:",
+          this._config.allergens,
         );
-    }
 
-    // alltid använd explicit userConfig.allergens om det finns, annars stub
-    if (this.debug)
-      console.debug(
-        "[Editor] baseStub.allergens:",
-        baseStub.allergens,
-        "userConfig.allergens:",
-        this._userConfig.allergens,
-      );
-    merged.allergens =
-      Array.isArray(this._userConfig.allergens) &&
-      this._userConfig.allergens.length
-        ? this._userConfig.allergens
-        : baseStub.allergens;
-    this._config = merged;
-    this._prevIntegration = integration;
-    if (this.debug)
-      console.debug(
-        "[Editor][F] slutgiltigt this._config.allergens:",
-        this._config.allergens,
-      );
-    this._config.integration = integration;
-    this._config.type = "custom:pollenprognos-card";
+      // 14. Återställ days_to_show om inte explicit
+      if (!this._daysExplicit) {
+        this._config.days_to_show = baseStub.days_to_show;
+        if (this.debug)
+          console.debug(
+            "[Editor] reset days_to_show to stub:",
+            baseStub.days_to_show,
+          );
+      }
 
-    // 6) Återställ days_to_show om inte explicit
-    if (!this._daysExplicit) {
-      this._config.days_to_show = baseStub.days_to_show;
-      if (this.debug)
-        console.debug(
-          "[Editor] reset days_to_show to stub:",
-          baseStub.days_to_show,
-        );
-    }
+      // 15. Autofyll date_locale om inte explicit, baserat på HA language
+      if (!this._localeExplicit) {
+        const detected = detectLang(this._hass, null);
+        const locale =
+          this._hass?.locale?.language ||
+          `${detected}-${detected.toUpperCase()}`;
+        this._config.date_locale = locale;
+        if (this.debug)
+          console.debug(
+            "[Editor] autofilled date_locale:",
+            locale,
+            "(HA language was:",
+            detected,
+            ")",
+          );
+      }
 
-    // 7) Autofyll date_locale om inte explicit, baserat på HA language
-    if (!this._localeExplicit) {
-      const detected = detectLang(this._hass, null);
-      const locale =
-        this._hass?.locale?.language || `${detected}-${detected.toUpperCase()}`;
-      this._config.date_locale = locale;
-      if (this.debug)
-        console.debug(
-          "[Editor] autofilled date_locale:",
-          locale,
-          "(HA language was:",
-          detected,
-          ")",
-        );
-    }
+      this._initDone = false;
 
-    this._initDone = false;
-
-    // 8) Uppdatera listor för cities/regions om hass finns
-    if (this._hass) {
-      const all = Object.keys(this._hass.states);
-      this.installedRegionIds = Array.from(
-        new Set(
-          all
-            .filter((id) => id.startsWith("sensor.pollenflug_"))
-            .map((id) => id.split("_").pop()),
-        ),
-      ).sort((a, b) => Number(a) - Number(b));
-      const ppKeys = new Set(
-        all
-          .filter(
-            (id) =>
-              id.startsWith("sensor.pollen_") &&
-              !id.startsWith("sensor.pollenflug_"),
-          )
-          .map((id) =>
-            id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+      // 16. Uppdatera listor för cities/regions om hass finns
+      if (this._hass) {
+        const all = Object.keys(this._hass.states);
+        this.installedRegionIds = Array.from(
+          new Set(
+            all
+              .filter((id) => id.startsWith("sensor.pollenflug_"))
+              .map((id) => id.split("_").pop()),
           ),
-      );
-      this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
-        ppKeys.has(
-          c
-            .toLowerCase()
-            .replace(/[åä]/g, "a")
-            .replace(/ö/g, "o")
-            .replace(/[-\s]/g, "_"),
-        ),
-      ).sort();
-    }
-
-    // 9) Auto‐välj city/region om inte explicit
-    if (!this._integrationExplicit) {
-      if (
-        integration === "dwd" &&
-        !this._userConfig.region_id &&
-        this.installedRegionIds.length
-      ) {
-        this._config.region_id = this.installedRegionIds[0];
+        ).sort((a, b) => Number(a) - Number(b));
+        const ppKeys = new Set(
+          all
+            .filter(
+              (id) =>
+                id.startsWith("sensor.pollen_") &&
+                !id.startsWith("sensor.pollenflug_"),
+            )
+            .map((id) =>
+              id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+            ),
+        );
+        this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
+          ppKeys.has(
+            c
+              .toLowerCase()
+              .replace(/[åä]/g, "a")
+              .replace(/ö/g, "o")
+              .replace(/[-\s]/g, "_"),
+          ),
+        ).sort();
       }
-      if (
-        integration === "pp" &&
-        !this._userConfig.city &&
-        this.installedCities.length
-      ) {
-        this._config.city = this.installedCities[0];
+
+      // 17. Auto-välj city/region om inte explicit
+      if (!this._integrationExplicit) {
+        if (
+          integration === "dwd" &&
+          !this._userConfig.region_id &&
+          this.installedRegionIds.length
+        ) {
+          this._config.region_id = this.installedRegionIds[0];
+        }
+        if (
+          integration === "pp" &&
+          !this._userConfig.city &&
+          this.installedCities.length
+        ) {
+          this._config.city = this.installedCities[0];
+        }
       }
-    }
 
-    if (this.debug)
-      console.debug("[Editor] färdig _config innan dispatch:", this._config);
+      if (this.debug)
+        console.debug("[Editor] färdig _config innan dispatch:", this._config);
 
-    // Hantera tap_action för editorn
-    if (this._config.tap_action) {
-      this._tapType = this._config.tap_action.type || "more-info";
-      this._tapEntity = this._config.tap_action.entity || "";
-      this._tapNavigation = this._config.tap_action.navigation_path || "";
-      this._tapService = this._config.tap_action.service || "";
-      this._tapServiceData = JSON.stringify(
-        this._config.tap_action.service_data || {},
-        null,
-        2,
+      // 18. Hantera tap_action för editorn
+      if (this._config.tap_action) {
+        this._tapType = this._config.tap_action.type || "more-info";
+        this._tapEntity = this._config.tap_action.entity || "";
+        this._tapNavigation = this._config.tap_action.navigation_path || "";
+        this._tapService = this._config.tap_action.service || "";
+        this._tapServiceData = JSON.stringify(
+          this._config.tap_action.service_data || {},
+          null,
+          2,
+        );
+      } else {
+        this._tapType = "none";
+        this._tapEntity = "";
+        this._tapNavigation = "";
+        this._tapService = "";
+        this._tapServiceData = "";
+      }
+
+      // 19. Dispatch’a så att HA-editorn ritar om formuläret med nya värden
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }),
       );
-    } else {
-      this._tapType = "none";
-      this._tapEntity = "";
-      this._tapNavigation = "";
-      this._tapService = "";
-      this._tapServiceData = "";
+      this.requestUpdate();
+      this._prevIntegration = incomingInt;
+      this._initDone = true;
+    } catch (e) {
+      console.error("pollenprognos-card-editor: Fel i setConfig:", e, config);
+      throw e;
     }
-    // 10) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
-    this.dispatchEvent(
-      new CustomEvent("config-changed", {
-        detail: { config: this._config },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    this.requestUpdate();
-    this._prevIntegration = incomingInt;
-    this._initDone = true;
   }
 
   set hass(hass) {
     this._hass = hass;
     const explicit = this._integrationExplicit;
 
-    // Hitta alla sensor-ID för PP respektive DWD
+    // Hitta alla sensor-ID för PP, DWD och PEU
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
         id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
@@ -496,6 +470,10 @@ class PollenPrognosCardEditor extends LitElement {
         : integration === "peu"
           ? stubConfigPEU
           : stubConfigPP;
+
+    // Bygg merged-objekt (det är denna rad som saknas)
+    let merged = deepMerge(base, this._userConfig);
+
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
     if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
       merged.pollen_threshold = base.pollen_threshold;

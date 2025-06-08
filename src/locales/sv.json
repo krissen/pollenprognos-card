@@ -108,5 +108,7 @@
   "editor.show_value_text": "Visa värde, text",
   "editor.sort": "Sortering",
   "editor.title": "Titel (tom = auto)",
-  "card.integration.peu": "Polleninformation EU"
+  "card.integration.peu": "Polleninformation EU",
+  "editor.integration.peu": "Polleninformation EU",
+  "editor.location": "Plats"
 }
