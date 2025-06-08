@@ -1639,7 +1639,9 @@ class wC extends IA {
       if (D === "dwd")
         r = Ig[h.region_id] || h.region_id;
       else if (D === "peu") {
-        const B = I.find((J) => J.endsWith("_" + h.location));
+        const B = I.find(
+          (J) => J.split("_")[1] === h.location
+        );
         let k = "";
         if (B && A.states[B]) {
           const J = A.states[B].attributes;

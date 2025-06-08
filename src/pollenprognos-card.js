@@ -249,7 +249,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("[Card] config after all auto-choices:", this.config);
     }
 
-    // Header (oförändrat)
+    // Header
     if (typeof cfg.title === "string") {
       this.header = cfg.title;
     } else if (cfg.title === false) {
@@ -259,7 +259,10 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        const entity = peuStates.find((id) => id.endsWith("_" + cfg.location));
+        // Hitta första entity med rätt plats
+        const entity = peuStates.find(
+          (id) => id.split("_")[1] === cfg.location,
+        );
         let title = "";
         if (entity && hass.states[entity]) {
           const attr = hass.states[entity].attributes;
