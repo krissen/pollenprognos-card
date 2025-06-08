@@ -43,8 +43,8 @@ const getStubConfig = (integration) =>
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
-    return true;
-    // return Boolean(this._config.debug);
+    // return true;
+    return Boolean(this._config.debug);
   }
 
   _resetAll() {
@@ -184,16 +184,16 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
-      if (
-        Array.isArray(incoming.allergens) &&
-        incoming.allergens.length === stubLen
-      ) {
-        if (this.debug)
-          console.debug(
-            "[Editor] dropping incoming stub-allergens (length matches stub)",
-          );
-        delete incoming.allergens;
-      }
+      // if (
+      //   Array.isArray(incoming.allergens) &&
+      //   incoming.allergens.length === stubLen
+      // ) {
+      //   if (this.debug)
+      //     console.debug(
+      //       "[Editor] dropping incoming stub-allergens (length matches stub)",
+      //     );
+      //   delete incoming.allergens;
+      // }
 
       // 4. Släpp aldrig in stub-pollen_threshold
       const stubThresh = (
@@ -303,12 +303,10 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 12. Alltid använd explicit userConfig.allergens om det finns, annars stub
-      merged.allergens =
-        Array.isArray(this._userConfig.allergens) &&
-        this._userConfig.allergens.length
-          ? this._userConfig.allergens
-          : baseStub.allergens;
-
+      merged.allergens = Array.isArray(this._userConfig.allergens)
+        ? this._userConfig.allergens
+        : baseStub.allergens;
+      //
       // 13. Lägg till typ och integration
       merged.integration = integration;
       merged.type = "custom:pollenprognos-card";

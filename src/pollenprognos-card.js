@@ -19,7 +19,8 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return true;
+    // return true;
+    return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -175,6 +176,7 @@ class PollenPrognosCard extends LitElement {
     if (Array.isArray(allergens) && allergens.length > 0) {
       cfg.allergens = allergens;
     } else {
+      // Om INGEN explicit allergen-lista finns – då, och bara då, kan du ta stub
       if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
       else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
       else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
@@ -286,9 +288,19 @@ class PollenPrognosCard extends LitElement {
         }
         let filtered = sensors;
         if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0) {
-          const allowed = new Set(
-            cfg.allergens.map((a) => a.toLowerCase().replace(/\s+/g, "_")),
-          );
+          let allowed;
+          if (integration === "dwd") {
+            // Gör både 'gräser' och 'graeser' till 'graeser'
+            allowed = new Set(
+              cfg.allergens.map((a) =>
+                a.toLowerCase().replace(/ä/g, "ae").replace(/\s+/g, "_"),
+              ),
+            );
+          } else {
+            allowed = new Set(
+              cfg.allergens.map((a) => a.toLowerCase().replace(/\s+/g, "_")),
+            );
+          }
           filtered = sensors.filter((s) => {
             let allergenKey = "";
             if (integration === "dwd" || integration === "peu")
@@ -313,6 +325,7 @@ class PollenPrognosCard extends LitElement {
             return ok;
           });
         }
+
         if (this.debug) {
           console.debug("[Card][Debug] Sensors EFTER filtrering:", filtered);
         }
@@ -335,6 +348,7 @@ class PollenPrognosCard extends LitElement {
         if (this.debug) console.debug("[Card] sensors fetched:", this.sensors);
         this.requestUpdate();
       })
+
       .catch((err) => {
         console.error("Error fetching pollen forecast:", err);
         if (this.debug) console.debug("[Card] fetchForecast error:", err);
