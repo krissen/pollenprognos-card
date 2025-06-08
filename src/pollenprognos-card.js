@@ -92,32 +92,39 @@ class PollenPrognosCard extends LitElement {
       config.hasOwnProperty("integration") &&
       config.integration !== stubConfigPP.integration;
 
-    // Fallback: välj PEU före DWD, nollställ stub om vi byter till PEU/DWD
-    if (!this._integrationExplicit && this._hass) {
-      const allIds = Object.keys(this._hass.states);
-      const hasPP = allIds.some(
-        (id) =>
-          id.startsWith("sensor.pollen_") &&
-          !id.startsWith("sensor.pollenflug_"),
-      );
-      const hasPEU = allIds.some((id) =>
-        id.startsWith("sensor.polleninformation_"),
-      );
-      const hasDWD = allIds.some((id) => id.startsWith("sensor.pollenflug_"));
-      if (!hasPP && hasPEU) {
-        this._userConfig = { ...stubConfigPEU, integration: "peu" };
-        if (this.debug)
-          console.debug(
-            "[PollenPrognos] fallback to PEU in setConfig, clearing userConfig",
-          );
-      } else if (!hasPP && !hasPEU && hasDWD) {
-        this._userConfig = { ...stubConfigDWD, integration: "dwd" };
-        if (this.debug)
-          console.debug(
-            "[PollenPrognos] fallback to DWD in setConfig, clearing userConfig",
-          );
-      }
+    // Byt till relevant stub för integration och nollställ övriga fält
+    let integration = this._userConfig.integration;
+    let stub;
+    if (integration === "pp") stub = stubConfigPP;
+    else if (integration === "peu") stub = stubConfigPEU;
+    else if (integration === "dwd") stub = stubConfigDWD;
+    else stub = stubConfigPP;
+
+    // Spara enbart tillåtna fält
+    const allowedFields = Object.keys(stub).concat([
+      "allergens",
+      "city",
+      "location",
+      "region_id",
+      "tap_action",
+      "debug", // om du vill ha det
+      "title",
+      "days_to_show",
+      "date_locale",
+      // lägg till fler globala configfält om det behövs
+    ]);
+    // Kopiera endast tillåtna fält från användarens config
+    let cleanedUserConfig = {};
+    for (const k of allowedFields) {
+      if (k in this._userConfig) cleanedUserConfig[k] = this._userConfig[k];
     }
+
+    // Starta om config från stub, plus user-params
+    this._userConfig = { ...stub, ...cleanedUserConfig, integration };
+
+    // Fallback-logik (om du verkligen vill ha den)
+    // ...
+
     this._initDone = false;
     if (this._hass) {
       this.hass = this._hass;
@@ -142,61 +149,39 @@ class PollenPrognosCard extends LitElement {
       id.startsWith("sensor.polleninformation_"),
     );
 
-    if (this.debug) {
-      console.debug("[Card] PP sensors:", ppStates);
-      console.debug("[Card] DWD sensors:", dwdStates);
-      console.debug("[Card] PEU sensors:", peuStates);
-    }
-
     // Bestäm integration (PEU går före DWD)
     let integration = this._userConfig.integration;
     if (!explicit) {
-      if (ppStates.length) {
-        integration = "pp";
-      } else if (peuStates.length) {
-        integration = "peu";
-      } else if (dwdStates.length) {
-        integration = "dwd";
-      }
+      if (ppStates.length) integration = "pp";
+      else if (peuStates.length) integration = "peu";
+      else if (dwdStates.length) integration = "dwd";
     }
 
-    // Om integration byts – nollställ userConfig (spara ev. plats-param)
-    if (!explicit) {
-      if (integration === "pp" && !ppStates.length && peuStates.length) {
-        integration = "peu";
-        // Spara plats och RADERA allergen-lista mm
-        const location = this._userConfig.location;
-        this._userConfig = { ...stubConfigPEU, integration: "peu" };
-        if (location) this._userConfig.location = location;
-      } else if (
-        (integration === "pp" || integration === "peu") &&
-        !ppStates.length &&
-        !peuStates.length &&
-        dwdStates.length
-      ) {
-        integration = "dwd";
-        const region_id = this._userConfig.region_id;
-        this._userConfig = { ...stubConfigDWD, integration: "dwd" };
-        if (region_id) this._userConfig.region_id = region_id;
-      }
-    }
-
-    // *** ALLTID TA ALLERGENS FRÅN STUB, ALDRIG USERCONFIG ***
+    // Plocka rätt stub
     let baseStub;
     if (integration === "dwd") baseStub = stubConfigDWD;
     else if (integration === "peu") baseStub = stubConfigPEU;
     else baseStub = stubConfigPP;
 
-    // Bygg config utan allergens från userConfig:
+    // Sätt config rätt — utan allergens
     const { allergens, ...userConfigWithoutAllergens } = this._userConfig;
     const cfg = {
       ...baseStub,
-      ...userConfigWithoutAllergens, // Alla övriga inställningar
+      ...userConfigWithoutAllergens,
       integration,
     };
 
-    // Auto-fyll date_locale
-    if (!this._userConfig.hasOwnProperty("date_locale")) {
+    // Sätt rätt allergen-lista
+    if (Array.isArray(allergens) && allergens.length > 0) {
+      cfg.allergens = allergens;
+    } else {
+      if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
+      else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
+      else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
+    }
+
+    // Fyll date_locale
+    if (!cfg.hasOwnProperty("date_locale")) {
       const detectedLangCode = detectLang(hass, null);
       const localeTag =
         this._hass?.locale?.language ||
@@ -228,7 +213,7 @@ class PollenPrognosCard extends LitElement {
         new Set(
           peuStates.map((id) => {
             const parts = id.split("_");
-            return parts[1]; // alltid platsen/stad
+            return parts[1];
           }),
         ),
       );
@@ -246,7 +231,8 @@ class PollenPrognosCard extends LitElement {
     this.tapAction = cfg.tap_action || this.tapAction || null;
 
     if (this.debug) {
-      console.debug("[Card] config after all auto-choices:", this.config);
+      console.debug("[Card][Debug] Aktiv integration:", integration);
+      console.debug("[Card][Debug] Allergens i config:", cfg.allergens);
     }
 
     // Header
@@ -259,7 +245,6 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        // Hitta första entity med rätt plats
         const entity = peuStates.find(
           (id) => id.split("_")[1] === cfg.location,
         );
@@ -292,13 +277,58 @@ class PollenPrognosCard extends LitElement {
     adapter
       .fetchForecast(hass, cfg)
       .then((sensors) => {
-        this.sensors = sensors;
+        if (this.debug) {
+          console.debug("[Card][Debug] Sensors före filtrering:", sensors);
+          console.debug(
+            "[Card][Debug] Förväntade allergener från config:",
+            cfg.allergens,
+          );
+        }
+        let filtered = sensors;
+        if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0) {
+          const allowed = new Set(
+            cfg.allergens.map((a) => a.toLowerCase().replace(/\s+/g, "_")),
+          );
+          filtered = sensors.filter((s) => {
+            let allergenKey = "";
+            if (integration === "dwd" || integration === "peu")
+              allergenKey = (s.allergenReplaced || "").toLowerCase();
+            else
+              allergenKey = (
+                s.allergenCapitalized ||
+                s.allergenShort ||
+                s.allergenReplaced ||
+                s.allergen ||
+                ""
+              )
+                .toLowerCase()
+                .replace(/\s+/g, "_");
+            const ok = allowed.has(allergenKey);
+            if (!ok && this.debug) {
+              console.debug(
+                `[Card][Debug] Sensor '${allergenKey}' är EJ tillåten (ej i allowed)`,
+                s,
+              );
+            }
+            return ok;
+          });
+        }
+        if (this.debug) {
+          console.debug("[Card][Debug] Sensors EFTER filtrering:", filtered);
+        }
+        this.sensors = filtered;
+        if (this.debug) {
+          console.debug(
+            "[Card][Debug] Slutlig sensors till kortet:",
+            this.sensors,
+          );
+        }
         this.days_to_show = cfg.days_to_show;
         this.displayCols = Array.from(
           {
             length: cfg.show_empty_days
               ? cfg.days_to_show
-              : sensors[0]?.days.length || 0,
+              : filtered[0]?.days.length || 0,
           },
           (_, i) => i,
         );
