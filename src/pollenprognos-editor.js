@@ -1,3 +1,4 @@
+// src/pollenprognos-editor.js
 import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
