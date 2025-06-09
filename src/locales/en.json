@@ -23,6 +23,7 @@
   "card.error": "No pollen sensors found. Have you installed the correct integration and selected a region in the card configuration?",
   "card.header_prefix": "Pollen forecast for",
   "card.integration.dwd": "DWD Pollenflug",
+  "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
   "card.levels.0": "No pollen",
   "card.levels.1": "Low levels",
@@ -43,8 +44,10 @@
   "editor.debug": "Debug",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
+  "editor.integration.peu": "Polleninformation EU",
   "editor.integration.pp": "PollenPrognos",
   "editor.locale": "Locale",
+  "editor.location": "Location",
   "editor.minimal": "Minimal",
   "editor.no_information": "No information",
   "editor.phrases": "Phrases",
@@ -109,7 +112,4 @@
   "editor.show_value_text": "Show value, text",
   "editor.sort": "Sort order",
   "editor.title": "Title (empty = auto)",
-  "card.integration.peu": "Polleninformation EU",
-  "editor.integration.peu": "Polleninformation EU",
-  "editor.location": "Location"
 }

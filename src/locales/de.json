@@ -23,6 +23,7 @@
   "card.error": "Keine Pollensensoren gefunden. Haben Sie die richtige Integration installiert und eine Region in der Kartenkonfiguration ausgewählt?",
   "card.header_prefix": "Pollenprognose für",
   "card.integration.dwd": "DWD Pollenflug",
+  "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
   "card.levels.0": "keine Belastung",
   "card.levels.1": "keine bis geringe Belastung",
@@ -43,8 +44,10 @@
   "editor.debug": "Debug",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
+  "editor.integration.peu": "Polleninformation EU",
   "editor.integration.pp": "PollenPrognos",
   "editor.locale": "Locale",
+  "editor.location": "Ort",
   "editor.minimal": "Minimal",
   "editor.no_information": "Keine Information",
   "editor.phrases": "Phrasen",
@@ -108,8 +111,5 @@
   "editor.show_value_numeric_in_circle": "Numerischen Wert im Kreis anzeigen",
   "editor.show_value_text": "Wert als Text anzeigen",
   "editor.sort": "Sortierung",
-  "editor.title": "Titel (leer = Auto)",
-  "card.integration.peu": "Polleninformation EU",
-  "editor.integration.peu": "Polleninformation EU",
-  "editor.location": "Ort"
+  "editor.title": "Titel (leer = Auto)"
 }

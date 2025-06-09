@@ -23,6 +23,7 @@
   "card.error": "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?",
   "card.header_prefix": "Pollenprognos för",
   "card.integration.dwd": "DWD Pollenflug",
+  "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
   "card.levels.0": "Ingen pollen",
   "card.levels.1": "Låga halter",
@@ -43,8 +44,10 @@
   "editor.debug": "Debug",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
+  "editor.integration.peu": "Polleninformation EU",
   "editor.integration.pp": "PollenPrognos",
   "editor.locale": "Locale",
+  "editor.location": "Plats",
   "editor.minimal": "Minimal",
   "editor.no_information": "Ingen information",
   "editor.phrases": "Fraser",
@@ -107,8 +110,5 @@
   "editor.show_value_numeric_in_circle": "Visa numeriskt värde inuti cirklarna",
   "editor.show_value_text": "Visa värde, text",
   "editor.sort": "Sortering",
-  "editor.title": "Titel (tom = auto)",
-  "card.integration.peu": "Polleninformation EU",
-  "editor.integration.peu": "Polleninformation EU",
-  "editor.location": "Plats"
+  "editor.title": "Titel (tom = auto)"
 }
