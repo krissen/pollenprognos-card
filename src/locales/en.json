@@ -111,5 +111,5 @@
   "editor.show_value_numeric_in_circle": "Show numeric value in the circles",
   "editor.show_value_text": "Show value, text",
   "editor.sort": "Sort order",
-  "editor.title": "Title (empty = auto)",
+  "editor.title": "Title (empty = auto)"
 }
