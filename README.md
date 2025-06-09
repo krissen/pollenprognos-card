@@ -1,4 +1,10 @@
 # pollenprognos-card
+[![GitHub Release][releases-shield]][releases]
+[![License][license-shield]](LICENSE)
+
+[![hacs][hacsbadge]][hacs]
+[![Project Maintenance][maintenance-shield]][user_profile]
+[![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
 A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos) or (v2.0 and above) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master).
 
@@ -21,9 +27,6 @@ For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
 
 Add <https://github.com/krissen/pollenprognos-card> as a custom integration.
 See more info: <https://hacs.xyz/docs/faq/custom_repositories>
-
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)  
-[![HACS Action](https://github.com/krissen/pollenprognos-card/actions/workflows/ci.yml/badge.svg)](https://github.com/krissen/pollenprognos-card/actions/workflows/ci.yml)
 
 ## Related / Similar Projects
 
@@ -423,3 +426,21 @@ cards:
 ## Credits
 
 This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card) by @nidayand , who in turn rewrote @isabellaalstrom's [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card).
+
+---
+
+[Want to support development? Buy me a coffee!](https://coff.ee/krissen)
+
+---
+
+[hacs]: https://hacs.xyz
+[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[license-shield]: https://img.shields.io/github/license/krissen/pollenprognos-card.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-%40krissen-blue.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/krissen/pollenprognos-card.svg?style=for-the-badge
+[releases]: https://github.com/krissen/pollenprognos-card/releases
+[user_profile]: https://github.com/krissen
+[buymecoffee]: https://coff.ee/krissen
+[buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
+
+
