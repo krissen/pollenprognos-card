@@ -209,11 +209,21 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) label = label.toUpperCase();
 
+        let scaledLevel;
+        if (level < 2) {
+          scaledLevel = Math.floor((level * 6) / 4);
+        } else {
+          scaledLevel = Math.ceil((level * 6) / 4);
+        }
+
         const dayObj = {
           name: dict.allergenCapitalized,
           day: label,
           state: level,
-          state_text: level < 0 ? noInfoLabel : levelNames[level],
+          state_text:
+            scaledLevel < 0
+              ? noInfoLabel
+              : t(`card.levels.${scaledLevel}`, lang),
         };
 
         dict[`day${idx}`] = dayObj;

@@ -52,8 +52,9 @@ class PollenPrognosCard extends LitElement {
       scaled = raw * 2;
       max = 6;
     } else if (this.config.integration === "peu") {
-      scaled = raw;
-      max = 4;
+      scaled = Math.round((raw * 6) / 4); // Skala peu 0–4 till 0–6 för bild
+      max = 6;
+      min = 0;
     }
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < min) lvl = min;
