@@ -1,6 +1,6 @@
 # pollenprognos-card
 
-A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos) or (v2.0 and above) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master).
+A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos), [Polleninformation EU](https://github.com/krissen/polleninformation) or (v2.0 and above) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master).
 
 ![Screenshot 2022-08-05 at 22 37 45](https://user-images.githubusercontent.com/2181965/183159066-2cef1a6e-e59b-4bb3-832b-7bff781b471c.png)
 
@@ -8,11 +8,14 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ## Requirement
 
-Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos or DWD Pollenflug.
+Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos, Polleninformation EU or DWD Pollenflug.
 
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
   **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.6 or above of this card.  
 For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
+
+- [Polleninformation EU](https://github.com/krissen/polleninformation)  
+  **Note,** for polleninformation, you need v2.2.0 or higher of this card.
 
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)  
   **Note,** do not change sensor names from the integration's defaults. The card excpects sensors like `sensor.pollenflug_erle_43` and the like (ie., the defaults).
@@ -228,6 +231,7 @@ phrases:
   no_information: Keine Information
 type: custom:pollenprognos-card
 ```
+
   </td>
  </tr>
 <tr>
