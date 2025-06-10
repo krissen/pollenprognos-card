@@ -2,10 +2,12 @@
 
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
+import * as PEU from "./adapters/peu.js";
 
 export const ADAPTERS = {
   pp: PP,
   dwd: DWD,
+  peu: PEU,
 };
 
 export const DWD_REGIONS = {
@@ -62,6 +64,14 @@ export const ALLERGEN_TRANSLATION = {
   graeser: "grass", // från 'gräser'
   beifuss: "mugwort", // från 'beifuss'
   roggen: "rye",
+
+  // Engelska (PEU)
+  olive: "olive",
+  plane: "plane",
+  cypress: "cypress",
+  lime: "lime",
+  mold_spores: "mold_spores",
+  nettle_and_pellitory: "nettle_and_pellitory",
 };
 
 export const PP_POSSIBLE_CITIES = [

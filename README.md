@@ -6,19 +6,38 @@
 [![Project Maintenance][maintenance-shield]][user_profile]
 [![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos) or (v2.0 and above) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master).
+A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos), [Polleninformation EU](https://github.com/krissen/polleninformation) or (v2.0 and above) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master).
 
-![Screenshot 2022-08-05 at 22 37 45](https://user-images.githubusercontent.com/2181965/183159066-2cef1a6e-e59b-4bb3-832b-7bff781b471c.png)
+<table align="center">
+  <tr>
+    <td align="center" valign="middle">
+      <img width="450" alt="Skärmavbild 2022-08-05" src="https://user-images.githubusercontent.com/2181965/183159066-2cef1a6e-e59b-4bb3-832b-7bff781b471c.png" />
+    </td>
+    <td align="center" valign="middle">
+      <img width="450" alt="Skärmavbild 2025-05-30 kl  12 38 11" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="middle">
+      <img width="450" alt="Skärmavbild 2025-06-09 kl  20 10 46" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
+    </td>
+    <td align="center" valign="middle">
+      <img width="450" alt="Skärmavbild 2025-06-09 kl  20 10 26" src="https://github.com/user-attachments/assets/3ecfcc60-4c91-4164-b175-e3ed151ee566" />
+    </td>
+  </tr>
+</table>
 
-<img width="527" alt="Skärmavbild 2025-05-30 kl  12 38 11" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
+## Requirements
 
-## Requirement
 
-Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos or DWD Pollenflug.
+Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos, Polleninformation EU or DWD Pollenflug.
 
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
   **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.6 or above of this card.  
 For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
+
+- [Polleninformation EU](https://github.com/krissen/polleninformation)  
+  **Note,** for polleninformation, you need v2.2.0 or higher of this card.
 
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)  
   **Note,** do not change sensor names from the integration's defaults. The card excpects sensors like `sensor.pollenflug_erle_43` and the like (ie., the defaults).
@@ -231,6 +250,7 @@ phrases:
   no_information: Keine Information
 type: custom:pollenprognos-card
 ```
+
   </td>
  </tr>
 <tr>
