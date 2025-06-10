@@ -239,10 +239,14 @@ class PollenPrognosCard extends LitElement {
     }
 
     // Header
-    if (typeof cfg.title === "string") {
-      this.header = cfg.title;
-    } else if (cfg.title === false) {
+    if (cfg.title === "false" || cfg.title === false) {
       this.header = "";
+    } else if (
+      typeof cfg.title === "string" &&
+      cfg.title.trim() !== "" &&
+      cfg.title !== "true"
+    ) {
+      this.header = cfg.title;
     } else {
       let loc = "";
       if (integration === "dwd") {

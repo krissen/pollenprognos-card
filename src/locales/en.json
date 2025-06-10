@@ -111,6 +111,9 @@
   "editor.show_value_numeric_in_circle": "Show numeric value in the circles",
   "editor.show_value_text": "Show value, text",
   "editor.sort": "Sort order",
-  "editor.title": "Title (empty = auto)",
+  "editor.title": "Card title",
+  "editor.title_placeholder": "(automatic)",
+  "editor.title_hide": "Hide title",
+  "editor.title_automatic": "Automatic title",
   "card.integration.peu": "Polleninformation EU"
 }

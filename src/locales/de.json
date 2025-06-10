@@ -111,6 +111,9 @@
   "editor.show_value_numeric_in_circle": "Numerischen Wert im Kreis anzeigen",
   "editor.show_value_text": "Wert als Text anzeigen",
   "editor.sort": "Sortierung",
-  "editor.title": "Titel (leer = Auto)",
+  "editor.title": "Kartentitel",
+  "editor.title_placeholder": "(automatisch)",
+  "editor.title_hide": "Titel ausblenden",
+  "editor.title_automatic": "Automatischer Titel",
   "card.integration.peu": "Polleninformation EU"
 }

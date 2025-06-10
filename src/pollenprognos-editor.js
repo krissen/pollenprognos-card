@@ -710,14 +710,59 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </ha-formfield>
               `}
-        <!-- Titel -->
+        <!-- Title toggles -->
+        <div style="display:flex; gap:8px; align-items:center;">
+          <!-- Hide -->
+          <ha-formfield label="${this._t("title_hide")}">
+            <ha-checkbox
+              .checked=${c.title === false}
+              @change=${(e) => {
+                if (e.target.checked) {
+                  // Sätt HIDE, rensa övrigt
+                  this._updateConfig("title", false);
+                } else {
+                  // Om man avbockar, gå till auto
+                  this._updateConfig("title", true);
+                }
+              }}
+            ></ha-checkbox>
+          </ha-formfield>
+          <!-- Automatic -->
+          <ha-formfield label="${this._t("title_automatic")}">
+            <ha-checkbox
+              .checked=${c.title === true || c.title === undefined}
+              @change=${(e) => {
+                if (e.target.checked) {
+                  this._updateConfig("title", true);
+                } else {
+                  // Om man avbockar, gå till manual
+                  // (töm textruta)
+                  this._updateConfig("title", "");
+                }
+              }}
+            ></ha-checkbox>
+          </ha-formfield>
+        </div>
+
+        <!-- Titel (manuellt) -->
         <ha-formfield label="${this._t("title")}">
           <ha-textfield
-            .value=${c.title || ""}
-            placeholder="${this._t("title")}"
+            .value=${typeof c.title === "string"
+              ? c.title
+              : c.title === false
+                ? "(false)"
+                : ""}
+            placeholder="${this._t("title_placeholder")}"
+            .disabled=${c.title === false}
             @input=${(e) => {
-              const v = e.target.value;
-              this._updateConfig("title", v === "" ? undefined : v);
+              const val = e.target.value;
+              // Om tom: gå till auto
+              if (val.trim() === "") {
+                this._updateConfig("title", true);
+              } else {
+                // Spara som string
+                this._updateConfig("title", val);
+              }
             }}
           ></ha-textfield>
         </ha-formfield>

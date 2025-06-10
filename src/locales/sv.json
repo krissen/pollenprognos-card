@@ -110,6 +110,9 @@
   "editor.show_value_numeric_in_circle": "Visa numeriskt värde inuti cirklarna",
   "editor.show_value_text": "Visa värde, text",
   "editor.sort": "Sortering",
-  "editor.title": "Titel (tom = auto)",
+  "editor.title": "Rubrik på kortet",
+  "editor.title_placeholder": "(automatisk)",
+  "editor.title_hide": "Göm rubrik",
+  "editor.title_automatic": "Automatisk rubrik",
   "card.integration.peu": "Polleninformation EU"
 }
