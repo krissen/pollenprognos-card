@@ -1694,7 +1694,7 @@ class Rn extends IA {
         B
       );
     }
-    if (this.config = t, this.tapAction = t.tap_action || this.tapAction || null, this.debug && (console.debug("[Card][Debug] Aktiv integration:", D), console.debug("[Card][Debug] Allergens i config:", t.allergens)), t.title === "false" || t.title === !1)
+    if (this.config = t, this.tapAction = t.tap_action || this.tapAction || null, this.debug && (console.debug("[Card][Debug] Aktiv integration:", D), console.debug("[Card][Debug] Allergens i config:", t.allergens)), t.title === "false" || t.title === !1 || typeof t.title == "string" && t.title.trim() === "")
       this.header = "";
     else if (typeof t.title == "string" && t.title.trim() !== "" && t.title !== "true")
       this.header = t.title;
