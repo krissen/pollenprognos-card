@@ -174,7 +174,9 @@ class PollenPrognosCard extends LitElement {
     };
 
     // Sätt rätt allergen-lista
-    if (Array.isArray(allergens) && allergens.length > 0) {
+    if (cfg._allergens_were_inferred) {
+      // Gör inget
+    } else if (Array.isArray(allergens) && allergens.length > 0) {
       cfg.allergens = allergens;
     } else {
       // Om INGEN explicit allergen-lista finns – då, och bara då, kan du ta stub
@@ -211,22 +213,53 @@ class PollenPrognosCard extends LitElement {
         .slice("sensor.pollen_".length)
         .replace(/_[^_]+$/, "");
       if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (integration === "peu" && !cfg.location && peuStates.length) {
-      const peuLocations = Array.from(
-        new Set(
-          peuStates.map((id) => {
-            const parts = id.split("_");
-            return parts[1];
-          }),
-        ),
-      );
-      cfg.location = peuLocations[0];
-      if (this.debug)
-        console.debug(
-          "[Card][PEU] Auto-set location:",
-          cfg.location,
-          peuLocations,
+    } else if (integration === "peu" && peuStates.length) {
+      // Extrahera platsnamn om det inte redan är satt
+      if (!cfg.location) {
+        // 1. Extrahera platser från entity-id – behåll exakt slug
+        const peuLocations = Array.from(
+          new Set(
+            peuStates
+              .map((id) => {
+                const base = id.replace("sensor.polleninformation_", "");
+                const splitIndex = base.lastIndexOf("_");
+                if (splitIndex === -1) return null;
+                return base.slice(0, splitIndex); // Hela plats-sluggen
+              })
+              .filter(Boolean),
+          ),
         );
+
+        // 2. Använd exakt slug från entity-id till cfg.location
+        cfg.location = peuLocations[0];
+
+        // 3. Logga
+        if (this.debug) {
+          console.debug(
+            "[Card][PEU] Auto-extracted location slugs:",
+            peuLocations,
+          );
+          console.debug("[Card][PEU] Using cfg.location:", cfg.location);
+        }
+      }
+
+      // 4. Hitta sensors för platsen (exakt slugmatch)
+      const matchingStates = peuStates.filter((id) => {
+        const base = id.replace("sensor.polleninformation_", "");
+        const splitIndex = base.lastIndexOf("_");
+        if (splitIndex === -1) return false;
+        const location = base.slice(0, splitIndex);
+        return location === cfg.location;
+      });
+
+      cfg.allergens = matchingStates.map((id) =>
+        id.replace(`sensor.polleninformation_${cfg.location}_`, ""),
+      );
+      cfg._allergens_were_inferred = true;
+
+      if (this.debug) {
+        console.debug("[Card][PEU] Allergens inferred:", cfg.allergens);
+      }
     }
 
     // Spara config och header
@@ -256,16 +289,21 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        const entity = peuStates.find(
-          (id) => id.split("_")[1] === cfg.location,
-        );
+        const entities = peuStates.filter((id) => {
+          const withoutPrefix = id.replace("sensor.polleninformation_", "");
+          const parts = withoutPrefix.split("_");
+          const location = parts.slice(0, -1).join("_");
+          return location === cfg.location;
+        });
+
         let title = "";
-        if (entity && hass.states[entity]) {
-          const attr = hass.states[entity].attributes;
+        for (const id of entities) {
+          const attr = hass.states[id]?.attributes || {};
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-            cfg.location;
+            "";
+          if (title) break;
         }
         loc = title || cfg.location || "";
       } else {
