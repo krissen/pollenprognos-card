@@ -80,9 +80,9 @@ class PollenPrognosCard extends LitElement {
     return document.createElement("pollenprognos-card-editor");
   }
 
-  static getStubConfig() {
-    return stubConfigPP;
-  }
+  // static getStubConfig() {
+  //   return stubConfigPP;
+  // }
 
   setConfig(config) {
     // Kopiera användarens config
@@ -173,11 +173,27 @@ class PollenPrognosCard extends LitElement {
       integration,
     };
 
-    // Sätt rätt allergen-lista
-    if (Array.isArray(allergens) && allergens.length > 0) {
+    if (
+      this._integrationExplicit &&
+      Array.isArray(allergens) &&
+      allergens.length > 0
+    ) {
+      // Endast om integrationen är explicit satt av användaren (inte autodetect)
+      if (this.debug) {
+        console.debug(
+          "[Card] Explicit integration; using user-defined allergens:",
+          allergens,
+        );
+      }
       cfg.allergens = allergens;
     } else {
-      // Om INGEN explicit allergen-lista finns – då, och bara då, kan du ta stub
+      if (this.debug) {
+        console.debug(
+          "[Card] Using stub allergens for integration:",
+          integration,
+        );
+      }
+      // Om integrationen INTE är explicit (autodetect): använd stubben
       if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
       else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
       else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
@@ -192,10 +208,7 @@ class PollenPrognosCard extends LitElement {
         `${detectedLangCode}-${detectedLangCode.toUpperCase()}`;
       cfg.date_locale = localeTag;
       if (this.debug) {
-        console.debug(
-          "[PollenPrognos] auto-filling date_locale:",
-          cfg.date_locale,
-        );
+        console.debug("[Card] auto-filling date_locale:", cfg.date_locale);
       }
     }
 
@@ -212,18 +225,21 @@ class PollenPrognosCard extends LitElement {
         .replace(/_[^_]+$/, "");
       if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
     } else if (integration === "peu" && !cfg.location && peuStates.length) {
+      // Samla alla location_slug från entity attributes (om de finns)
       const peuLocations = Array.from(
         new Set(
-          peuStates.map((id) => {
-            const parts = id.split("_");
-            return parts[1];
-          }),
+          peuStates
+            .map((eid) => {
+              const attr = hass.states[eid]?.attributes || {};
+              return attr.location_slug || null;
+            })
+            .filter(Boolean),
         ),
       );
-      cfg.location = peuLocations[0];
+      cfg.location = peuLocations[0] || null;
       if (this.debug)
         console.debug(
-          "[Card][PEU] Auto-set location:",
+          "[Card][PEU] Auto-set location (location_slug):",
           cfg.location,
           peuLocations,
         );
@@ -256,12 +272,23 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        const entity = peuStates.find(
-          (id) => id.split("_")[1] === cfg.location,
+        // Hitta alla peu-entities
+        const peuEntities = Object.values(hass.states).filter((s) =>
+          s.entity_id.startsWith("sensor.polleninformation_"),
         );
+        // Hitta entity där slug-attribut eller entity_id matchar cfg.location
+        const match = peuEntities.find((s) => {
+          const attr = s.attributes || {};
+          const slug =
+            attr.location_slug ||
+            s.entity_id
+              .replace("sensor.polleninformation_", "")
+              .replace(/_[^_]+$/, "");
+          return slug === cfg.location;
+        });
         let title = "";
-        if (entity && hass.states[entity]) {
-          const attr = hass.states[entity].attributes;
+        if (match) {
+          const attr = match.attributes;
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
@@ -359,7 +386,7 @@ class PollenPrognosCard extends LitElement {
       })
 
       .catch((err) => {
-        console.error("Error fetching pollen forecast:", err);
+        console.error("[Card] Error fetching pollen forecast:", err);
         if (this.debug) console.debug("[Card] fetchForecast error:", err);
       });
   }

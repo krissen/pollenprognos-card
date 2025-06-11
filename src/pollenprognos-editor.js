@@ -138,7 +138,8 @@ class PollenPrognosCardEditor extends LitElement {
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
-    this._config = stubConfigPP;
+    // this._config = stubConfigPP;
+    this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];
     this._prevIntegration = undefined;
@@ -510,12 +511,20 @@ class PollenPrognosCardEditor extends LitElement {
       new Map(
         Object.values(hass.states)
           .filter((s) => s.entity_id.startsWith("sensor.polleninformation_"))
-          .map((s) => [
-            s.attributes.location_slug || s.entity_id.split("_")[1],
-            s.attributes.location_title ||
+          .map((s) => {
+            const locationSlug =
+              s.attributes.location_slug ||
+              s.entity_id
+                .replace("sensor.polleninformation_", "")
+                .replace(/_[^_]+$/, "");
+            const title =
+              s.attributes.location_title ||
               s.attributes.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-              s.entity_id.split("_")[1],
-          ]),
+              locationSlug;
+            // DEBUG:
+            // console.log("[PEU] entity_id:", s.entity_id, "| location_slug:", s.attributes.location_slug, "| selected locationSlug:", locationSlug, "| title:", title);
+            return [locationSlug, title];
+          }),
       ),
     );
 

@@ -143,7 +143,14 @@ export async function fetchForecast(hass, config) {
         : null;
       if (!sensorId || !hass.states[sensorId]) {
         // Leta fallback-sensor bland peuStates
-        const cands = peuStates.filter((id) => id.endsWith(`_${allergenSlug}`));
+        const cands = peuStates.filter((id) => {
+          const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+          if (!match) return false;
+          const loc = match[1];
+          const allergen = match[2];
+          return (!locationSlug || loc === locationSlug) && allergen === allergenSlug;
+        });
+
         if (cands.length === 1) sensorId = cands[0];
         else continue;
       }
