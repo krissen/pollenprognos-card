@@ -19,8 +19,8 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    // return true;
-    return Boolean(this.config && this.config.debug);
+    return true;
+    // return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -216,7 +216,6 @@ class PollenPrognosCard extends LitElement {
     } else if (integration === "peu" && peuStates.length) {
       // Extrahera platsnamn om det inte redan är satt
       if (!cfg.location) {
-        // 1. Extrahera platser från entity-id – behåll exakt slug
         const peuLocations = Array.from(
           new Set(
             peuStates
@@ -229,11 +228,7 @@ class PollenPrognosCard extends LitElement {
               .filter(Boolean),
           ),
         );
-
-        // 2. Använd exakt slug från entity-id till cfg.location
         cfg.location = peuLocations[0];
-
-        // 3. Logga
         if (this.debug) {
           console.debug(
             "[Card][PEU] Auto-extracted location slugs:",
@@ -242,26 +237,32 @@ class PollenPrognosCard extends LitElement {
           console.debug("[Card][PEU] Using cfg.location:", cfg.location);
         }
       }
-
-      // 4. Hitta sensors för platsen (exakt slugmatch)
-      const matchingStates = peuStates.filter((id) => {
-        const base = id.replace("sensor.polleninformation_", "");
-        const splitIndex = base.lastIndexOf("_");
-        if (splitIndex === -1) return false;
-        const location = base.slice(0, splitIndex);
-        return location === cfg.location;
-      });
-
-      cfg.allergens = matchingStates.map((id) =>
-        id.replace(`sensor.polleninformation_${cfg.location}_`, ""),
-      );
-      cfg._allergens_were_inferred = true;
-
-      if (this.debug) {
-        console.debug("[Card][PEU] Allergens inferred:", cfg.allergens);
+      // OBS! Sätt INTE allergens automatiskt om de finns i config eller stub.
+      // Endast om allergens saknas HELT – då kan du auto-inferera (edge case)
+      if (
+        !cfg.allergens ||
+        !Array.isArray(cfg.allergens) ||
+        !cfg.allergens.length
+      ) {
+        const matchingStates = peuStates.filter((id) => {
+          const base = id.replace("sensor.polleninformation_", "");
+          const splitIndex = base.lastIndexOf("_");
+          if (splitIndex === -1) return false;
+          const location = base.slice(0, splitIndex);
+          return location === cfg.location;
+        });
+        cfg.allergens = matchingStates.map((id) =>
+          id.replace(`sensor.polleninformation_${cfg.location}_`, ""),
+        );
+        cfg._allergens_were_inferred = true;
+        if (this.debug) {
+          console.debug(
+            "[Card][PEU] Allergens inferred (auto):",
+            cfg.allergens,
+          );
+        }
       }
     }
-
     // Spara config och header
     this.config = cfg;
     this.tapAction = cfg.tap_action || this.tapAction || null;
