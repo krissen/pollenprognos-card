@@ -20,7 +20,7 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 class PollenPrognosCard extends LitElement {
   get debug() {
     return true;
-    // return Boolean(this.config && this.config.debug);
+    //return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -174,9 +174,7 @@ class PollenPrognosCard extends LitElement {
     };
 
     // Sätt rätt allergen-lista
-    if (cfg._allergens_were_inferred) {
-      // Gör inget
-    } else if (Array.isArray(allergens) && allergens.length > 0) {
+    if (Array.isArray(allergens) && allergens.length > 0) {
       cfg.allergens = allergens;
     } else {
       // Om INGEN explicit allergen-lista finns – då, och bara då, kan du ta stub
@@ -213,56 +211,27 @@ class PollenPrognosCard extends LitElement {
         .slice("sensor.pollen_".length)
         .replace(/_[^_]+$/, "");
       if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (integration === "peu" && peuStates.length) {
-      // Extrahera platsnamn om det inte redan är satt
-      if (!cfg.location) {
-        const peuLocations = Array.from(
-          new Set(
-            peuStates
-              .map((id) => {
-                const base = id.replace("sensor.polleninformation_", "");
-                const splitIndex = base.lastIndexOf("_");
-                if (splitIndex === -1) return null;
-                return base.slice(0, splitIndex); // Hela plats-sluggen
-              })
-              .filter(Boolean),
-          ),
+    } else if (integration === "peu" && !cfg.location && peuStates.length) {
+      // Samla alla location_slug från entity attributes (om de finns)
+      const peuLocations = Array.from(
+        new Set(
+          peuStates
+            .map((eid) => {
+              const attr = hass.states[eid]?.attributes || {};
+              return attr.location_slug || null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = peuLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][PEU] Auto-set location (location_slug):",
+          cfg.location,
+          peuLocations,
         );
-        cfg.location = peuLocations[0];
-        if (this.debug) {
-          console.debug(
-            "[Card][PEU] Auto-extracted location slugs:",
-            peuLocations,
-          );
-          console.debug("[Card][PEU] Using cfg.location:", cfg.location);
-        }
-      }
-      // OBS! Sätt INTE allergens automatiskt om de finns i config eller stub.
-      // Endast om allergens saknas HELT – då kan du auto-inferera (edge case)
-      if (
-        !cfg.allergens ||
-        !Array.isArray(cfg.allergens) ||
-        !cfg.allergens.length
-      ) {
-        const matchingStates = peuStates.filter((id) => {
-          const base = id.replace("sensor.polleninformation_", "");
-          const splitIndex = base.lastIndexOf("_");
-          if (splitIndex === -1) return false;
-          const location = base.slice(0, splitIndex);
-          return location === cfg.location;
-        });
-        cfg.allergens = matchingStates.map((id) =>
-          id.replace(`sensor.polleninformation_${cfg.location}_`, ""),
-        );
-        cfg._allergens_were_inferred = true;
-        if (this.debug) {
-          console.debug(
-            "[Card][PEU] Allergens inferred (auto):",
-            cfg.allergens,
-          );
-        }
-      }
     }
+
     // Spara config och header
     this.config = cfg;
     this.tapAction = cfg.tap_action || this.tapAction || null;
@@ -290,21 +259,16 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        const entities = peuStates.filter((id) => {
-          const withoutPrefix = id.replace("sensor.polleninformation_", "");
-          const parts = withoutPrefix.split("_");
-          const location = parts.slice(0, -1).join("_");
-          return location === cfg.location;
-        });
-
+        const entity = peuStates.find(
+          (id) => id.split("_")[1] === cfg.location,
+        );
         let title = "";
-        for (const id of entities) {
-          const attr = hass.states[id]?.attributes || {};
+        if (entity && hass.states[entity]) {
+          const attr = hass.states[entity].attributes;
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-            "";
-          if (title) break;
+            cfg.location;
         }
         loc = title || cfg.location || "";
       } else {

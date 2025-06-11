@@ -266,7 +266,7 @@ gA[xA] = !0, gA.elementProperties = /* @__PURE__ */ new Map(), gA.elementStyles 
 var UA;
 const rA = window, CA = rA.trustedTypes, PA = CA ? CA.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, uA = "$lit$", z = `lit$${(Math.random() + "").slice(9)}$`, _A = "?" + z, eg = `<${_A}>`, _ = document, iA = () => _.createComment(""), aA = (e) => e === null || typeof e != "object" && typeof e != "function", $A = Array.isArray, tg = (e) => $A(e) || typeof (e == null ? void 0 : e[Symbol.iterator]) == "function", dA = `[ 	
 \f\r]`, tA = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, MA = /-->/g, bA = />/g, X = RegExp(`>|${dA}(?:([^\\s"'>=/]+)(${dA}*=${dA}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), GA = /'/g, ZA = /"/g, Ag = /^(?:script|style|textarea|title)$/i, hg = (e) => (A, ...g) => ({ _$litType$: e, strings: A, values: g }), m = hg(1), nA = Symbol.for("lit-noChange"), J = Symbol.for("lit-nothing"), WA = /* @__PURE__ */ new WeakMap(), q = _.createTreeWalker(_, 129, null, !1);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), GA = /'/g, ZA = /"/g, Ag = /^(?:script|style|textarea|title)$/i, hg = (e) => (A, ...g) => ({ _$litType$: e, strings: A, values: g }), f = hg(1), nA = Symbol.for("lit-noChange"), J = Symbol.for("lit-nothing"), WA = /* @__PURE__ */ new WeakMap(), q = _.createTreeWalker(_, 129, null, !1);
 function gg(e, A) {
   if (!Array.isArray(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return PA !== void 0 ? PA.createHTML(A) : A;
@@ -276,10 +276,10 @@ const ig = (e, A) => {
   let n, I = A === 2 ? "<svg>" : "", D = tA;
   for (let h = 0; h < g; h++) {
     const i = e[h];
-    let a, t, r = -1, E = 0;
-    for (; E < i.length && (D.lastIndex = E, t = D.exec(i), t !== null); ) E = D.lastIndex, D === tA ? t[1] === "!--" ? D = MA : t[1] !== void 0 ? D = bA : t[2] !== void 0 ? (Ag.test(t[2]) && (n = RegExp("</" + t[2], "g")), D = X) : t[3] !== void 0 && (D = X) : D === X ? t[0] === ">" ? (D = n ?? tA, r = -1) : t[1] === void 0 ? r = -2 : (r = D.lastIndex - t[2].length, a = t[1], D = t[3] === void 0 ? X : t[3] === '"' ? ZA : GA) : D === ZA || D === GA ? D = X : D === MA || D === bA ? D = tA : (D = X, n = void 0);
+    let a, t, s = -1, r = 0;
+    for (; r < i.length && (D.lastIndex = r, t = D.exec(i), t !== null); ) r = D.lastIndex, D === tA ? t[1] === "!--" ? D = MA : t[1] !== void 0 ? D = bA : t[2] !== void 0 ? (Ag.test(t[2]) && (n = RegExp("</" + t[2], "g")), D = X) : t[3] !== void 0 && (D = X) : D === X ? t[0] === ">" ? (D = n ?? tA, s = -1) : t[1] === void 0 ? s = -2 : (s = D.lastIndex - t[2].length, a = t[1], D = t[3] === void 0 ? X : t[3] === '"' ? ZA : GA) : D === ZA || D === GA ? D = X : D === MA || D === bA ? D = tA : (D = X, n = void 0);
     const U = D === X && e[h + 1].startsWith("/>") ? " " : "";
-    I += D === tA ? i + eg : r >= 0 ? (C.push(a), i.slice(0, r) + uA + i.slice(r) + z + U) : i + z + (r === -2 ? (C.push(void 0), h) : U);
+    I += D === tA ? i + eg : s >= 0 ? (C.push(a), i.slice(0, s) + uA + i.slice(s) + z + U) : i + z + (s === -2 ? (C.push(void 0), h) : U);
   }
   return [gg(e, I + (e[g] || "<?>") + (A === 2 ? "</svg>" : "")), C];
 };
@@ -290,34 +290,34 @@ class lA {
     let I = 0, D = 0;
     const h = A.length - 1, i = this.parts, [a, t] = ig(A, g);
     if (this.el = lA.createElement(a, C), q.currentNode = this.el.content, g === 2) {
-      const r = this.el.content, E = r.firstChild;
-      E.remove(), r.append(...E.childNodes);
+      const s = this.el.content, r = s.firstChild;
+      r.remove(), s.append(...r.childNodes);
     }
     for (; (n = q.nextNode()) !== null && i.length < h; ) {
       if (n.nodeType === 1) {
         if (n.hasAttributes()) {
-          const r = [];
-          for (const E of n.getAttributeNames()) if (E.endsWith(uA) || E.startsWith(z)) {
+          const s = [];
+          for (const r of n.getAttributeNames()) if (r.endsWith(uA) || r.startsWith(z)) {
             const U = t[D++];
-            if (r.push(E), U !== void 0) {
-              const u = n.getAttribute(U.toLowerCase() + uA).split(z), v = /([.?@])?(.*)/.exec(U);
-              i.push({ type: 1, index: I, name: v[2], strings: u, ctor: v[1] === "." ? lg : v[1] === "?" ? og : v[1] === "@" ? sg : EA });
+            if (s.push(r), U !== void 0) {
+              const x = n.getAttribute(U.toLowerCase() + uA).split(z), v = /([.?@])?(.*)/.exec(U);
+              i.push({ type: 1, index: I, name: v[2], strings: x, ctor: v[1] === "." ? lg : v[1] === "?" ? og : v[1] === "@" ? sg : EA });
             } else i.push({ type: 6, index: I });
           }
-          for (const E of r) n.removeAttribute(E);
+          for (const r of s) n.removeAttribute(r);
         }
         if (Ag.test(n.tagName)) {
-          const r = n.textContent.split(z), E = r.length - 1;
-          if (E > 0) {
+          const s = n.textContent.split(z), r = s.length - 1;
+          if (r > 0) {
             n.textContent = CA ? CA.emptyScript : "";
-            for (let U = 0; U < E; U++) n.append(r[U], iA()), q.nextNode(), i.push({ type: 2, index: ++I });
-            n.append(r[E], iA());
+            for (let U = 0; U < r; U++) n.append(s[U], iA()), q.nextNode(), i.push({ type: 2, index: ++I });
+            n.append(s[r], iA());
           }
         }
       } else if (n.nodeType === 8) if (n.data === _A) i.push({ type: 2, index: I });
       else {
-        let r = -1;
-        for (; (r = n.data.indexOf(z, r + 1)) !== -1; ) i.push({ type: 7, index: I }), r += z.length - 1;
+        let s = -1;
+        for (; (s = n.data.indexOf(z, s + 1)) !== -1; ) i.push({ type: 7, index: I }), s += z.length - 1;
       }
       I++;
     }
@@ -1110,7 +1110,7 @@ function wA(e) {
 function rn(e) {
   return e.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
-const En = "state_tomorrow", Sn = "state_in_2_days", Bn = "state_today_desc", Un = "state_tomorrow_desc", dn = "state_in_2_days_desc", P = {
+const En = "state_tomorrow", Sn = "state_in_2_days", Bn = "state_today_desc", Un = "state_tomorrow_desc", dn = "state_in_2_days_desc", M = {
   integration: "dwd",
   region_id: "",
   allergens: [
@@ -1149,83 +1149,83 @@ const En = "state_tomorrow", Sn = "state_in_2_days", Bn = "state_today_desc", Un
   }
 };
 async function fn(e, A) {
-  const g = !!A.debug, C = (S) => S.charAt(0).toUpperCase() + S.slice(1), n = $(e, A.date_locale), I = A.date_locale || P.date_locale, D = A.days_relative !== !1, h = !!A.days_abbreviated, i = !!A.days_uppercase, a = A.phrases || {}, t = a.full || {}, r = a.short || {}, E = a.levels, U = Array.isArray(E) && E.length === 7 ? E : Array.from({ length: 7 }, (S, o) => w(`card.levels.${o}`, n)), u = a.no_information || w("card.no_information", n), v = a.days || {}, V = A.days_to_show ?? P.days_to_show, b = A.pollen_threshold ?? P.pollen_threshold;
+  const g = !!A.debug, C = (E) => E.charAt(0).toUpperCase() + E.slice(1), n = $(e, A.date_locale), I = A.date_locale || M.date_locale, D = A.days_relative !== !1, h = !!A.days_abbreviated, i = !!A.days_uppercase, a = A.phrases || {}, t = a.full || {}, s = a.short || {}, r = a.levels, U = Array.isArray(r) && r.length === 7 ? r : Array.from({ length: 7 }, (E, S) => w(`card.levels.${S}`, n)), x = a.no_information || w("card.no_information", n), v = a.days || {}, V = A.days_to_show ?? M.days_to_show, B = A.pollen_threshold ?? M.pollen_threshold;
   g && console.debug("DWD adapter: start fetchForecast", { config: A, lang: n });
-  const B = (S) => {
-    const o = Number(S);
-    return isNaN(o) ? -1 : o;
-  }, p = /* @__PURE__ */ new Date();
-  p.setHours(0, 0, 0, 0);
+  const u = (E) => {
+    const S = Number(E);
+    return isNaN(S) ? -1 : S;
+  }, k = /* @__PURE__ */ new Date();
+  k.setHours(0, 0, 0, 0);
   const c = [];
-  for (const S of A.allergens)
+  for (const E of A.allergens)
     try {
-      const o = {}, k = rn(S);
-      o.allergenReplaced = k;
-      const f = AA[k] || k, Q = t[S];
+      const S = {}, P = rn(E);
+      S.allergenReplaced = P;
+      const m = AA[P] || P, Q = t[E];
       if (Q)
-        o.allergenCapitalized = Q;
+        S.allergenCapitalized = Q;
       else {
-        const j = `card.allergen.${AA[k] || k}`, K = w(j, n);
-        o.allergenCapitalized = K !== j ? K : C(S);
+        const j = `card.allergen.${AA[P] || P}`, K = w(j, n);
+        S.allergenCapitalized = K !== j ? K : C(E);
       }
       if (A.allergens_abbreviated) {
-        const x = r[S];
-        o.allergenShort = x || w(`editor.phrases_short.${f}`, n) || o.allergenCapitalized;
+        const p = s[E];
+        S.allergenShort = p || w(`editor.phrases_short.${m}`, n) || S.allergenCapitalized;
       } else
-        o.allergenShort = o.allergenCapitalized;
-      let s = A.region_id ? `sensor.pollenflug_${k}_${A.region_id}` : null;
-      if (!s || !e.states[s]) {
-        const x = Object.keys(e.states).filter(
-          (j) => j.startsWith(`sensor.pollenflug_${k}_`)
+        S.allergenShort = S.allergenCapitalized;
+      let o = A.region_id ? `sensor.pollenflug_${P}_${A.region_id}` : null;
+      if (!o || !e.states[o]) {
+        const p = Object.keys(e.states).filter(
+          (j) => j.startsWith(`sensor.pollenflug_${P}_`)
         );
-        if (x.length === 1) s = x[0];
+        if (p.length === 1) o = p[0];
         else continue;
       }
-      const R = e.states[s], G = B(R.state), Z = B(R.attributes[En]), T = B(R.attributes[Sn]), W = [
-        { date: p, level: G },
-        { date: new Date(p.getTime() + 864e5), level: Z },
-        { date: new Date(p.getTime() + 2 * 864e5), level: T }
+      const R = e.states[o], G = u(R.state), Z = u(R.attributes[En]), T = u(R.attributes[Sn]), W = [
+        { date: k, level: G },
+        { date: new Date(k.getTime() + 864e5), level: Z },
+        { date: new Date(k.getTime() + 2 * 864e5), level: T }
       ];
       for (; W.length < V; ) {
-        const x = W.length;
+        const p = W.length;
         W.push({
-          date: new Date(p.getTime() + x * 864e5),
+          date: new Date(k.getTime() + p * 864e5),
           level: -1
         });
       }
-      o.days = [], W.forEach((x, j) => {
-        const K = Math.round((x.date - p) / 864e5);
+      S.days = [], W.forEach((p, j) => {
+        const K = Math.round((p.date - k) / 864e5);
         let l;
-        D ? v[K] !== void 0 ? l = v[K] : K >= 0 && K <= 2 ? l = w(`card.days.${K}`, n) : l = x.date.toLocaleDateString(I, {
+        D ? v[K] !== void 0 ? l = v[K] : K >= 0 && K <= 2 ? l = w(`card.days.${K}`, n) : l = p.date.toLocaleDateString(I, {
           day: "numeric",
           month: "short"
-        }) : (l = x.date.toLocaleDateString(I, {
+        }) : (l = p.date.toLocaleDateString(I, {
           weekday: h ? "short" : "long"
         }), l = l.charAt(0).toUpperCase() + l.slice(1)), i && (l = l.toUpperCase());
-        const d = R.attributes[j === 0 ? Bn : j === 1 ? Un : dn] || "", Y = x.level * 2, O = Math.min(Math.max(Math.round(Y), 0), 6), F = O < 0 ? u : U[O] || d;
-        o[`day${j}`] = {
-          name: o.allergenCapitalized,
+        const d = R.attributes[j === 0 ? Bn : j === 1 ? Un : dn] || "", Y = p.level * 2, O = Math.min(Math.max(Math.round(Y), 0), 6), F = O < 0 ? x : U[O] || d;
+        S[`day${j}`] = {
+          name: S.allergenCapitalized,
           day: l,
-          state: x.level,
+          state: p.level,
           state_text: F
-        }, o.days.push(o[`day${j}`]);
-      }), (W.slice(0, V).some((x) => x.level >= b) || b === 0) && c.push(o);
-    } catch (o) {
-      console.warn(`DWD adapter error for allergen ${S}:`, o);
+        }, S.days.push(S[`day${j}`]);
+      }), (W.slice(0, V).some((p) => p.level >= B) || B === 0) && c.push(S);
+    } catch (S) {
+      console.warn(`DWD adapter error for allergen ${E}:`, S);
     }
   return c.sort(
     {
-      value_ascending: (S, o) => S.day0.state - o.day0.state,
-      value_descending: (S, o) => o.day0.state - S.day0.state,
-      name_descending: (S, o) => o.allergenCapitalized.localeCompare(S.allergenCapitalized)
-    }[A.sort] || ((S, o) => o.day0.state - S.day0.state)
+      value_ascending: (E, S) => E.day0.state - S.day0.state,
+      value_descending: (E, S) => S.day0.state - E.day0.state,
+      name_descending: (E, S) => S.allergenCapitalized.localeCompare(E.allergenCapitalized)
+    }[A.sort] || ((E, S) => S.day0.state - E.day0.state)
   ), g && console.debug("DWD adapter complete sensors:", c), c;
 }
 const mn = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   fetchForecast: fn,
-  stubConfigDWD: P
-}, Symbol.toStringTag, { value: "Module" })), M = {
+  stubConfigDWD: M
+}, Symbol.toStringTag, { value: "Module" })), b = {
   integration: "peu",
   location: "",
   allergens: [
@@ -1268,81 +1268,81 @@ const mn = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" }
 };
 async function pn(e, A) {
-  var k, f;
-  const g = !!A.debug, C = $(e, A.date_locale), n = A.date_locale || ((k = e.locale) == null ? void 0 : k.language) || e.language || `${C}-${C.toUpperCase()}`, I = A.days_relative !== !1, D = !!A.days_abbreviated, h = !!A.days_uppercase, i = {
+  var P, m;
+  const g = !!A.debug, C = $(e, A.date_locale), n = A.date_locale || ((P = e.locale) == null ? void 0 : P.language) || e.language || `${C}-${C.toUpperCase()}`, I = A.days_relative !== !1, D = !!A.days_abbreviated, h = !!A.days_uppercase, i = {
     full: {},
     short: {},
     levels: [],
     days: {},
     no_information: "",
     ...A.phrases || {}
-  }, a = i.full, t = i.short, r = i.levels, E = 5;
-  Array.isArray(r) && r.length === E || Array.from(
-    { length: E },
-    (Q, s) => w(`card.levels.${s}`, C)
+  }, a = i.full, t = i.short, s = i.levels, r = 5;
+  Array.isArray(s) && s.length === r || Array.from(
+    { length: r },
+    (Q, o) => w(`card.levels.${o}`, C)
   );
-  const U = i.no_information || w("card.no_information", C), u = i.days, v = A.integration === "dwd" ? 3 : A.integration === "peu" ? 4 : 6, V = (Q) => {
-    const s = Number(Q);
-    return isNaN(s) || s < 0 ? -1 : s > v ? v : s;
-  }, b = /* @__PURE__ */ new Date();
-  b.setHours(0, 0, 0, 0);
-  const B = A.days_to_show ?? M.days_to_show, p = A.pollen_threshold ?? M.pollen_threshold, c = Object.keys(e.states).filter(
+  const U = i.no_information || w("card.no_information", C), x = i.days, v = A.integration === "dwd" ? 3 : A.integration === "peu" ? 4 : 6, V = (Q) => {
+    const o = Number(Q);
+    return isNaN(o) || o < 0 ? -1 : o > v ? v : o;
+  }, B = /* @__PURE__ */ new Date();
+  B.setHours(0, 0, 0, 0);
+  const u = A.days_to_show ?? b.days_to_show, k = A.pollen_threshold ?? b.pollen_threshold, c = Object.keys(e.states).filter(
     (Q) => Q.startsWith("sensor.polleninformation_")
   );
-  let S = A.location;
-  !S && c.length && (S = c[0].slice(25).split("_")[0]);
-  const o = [];
+  let E = A.location;
+  !E && c.length && (E = c[0].slice(25).split("_")[0]);
+  const S = [];
   for (const Q of A.allergens)
     try {
-      const s = {};
-      s.days = [];
+      const o = {};
+      o.days = [];
       const R = Q;
-      if (s.allergenReplaced = R, a[R])
-        s.allergenCapitalized = a[R];
+      if (o.allergenReplaced = R, a[R])
+        o.allergenCapitalized = a[R];
       else {
         const l = AA[R] || R, d = w(`card.allergen.${l}`, C);
-        s.allergenCapitalized = d !== `card.allergen.${l}` ? d : R.charAt(0).toUpperCase() + R.slice(1);
+        o.allergenCapitalized = d !== `card.allergen.${l}` ? d : R.charAt(0).toUpperCase() + R.slice(1);
       }
       if (A.allergens_abbreviated) {
         const l = t[R];
-        s.allergenShort = l || w(`editor.phrases_short.${R}`, C) || s.allergenCapitalized;
+        o.allergenShort = l || w(`editor.phrases_short.${R}`, C) || o.allergenCapitalized;
       } else
-        s.allergenShort = s.allergenCapitalized;
-      let G = S ? `sensor.polleninformation_${S}_${R}` : null;
+        o.allergenShort = o.allergenCapitalized;
+      let G = E ? `sensor.polleninformation_${E}_${R}` : null;
       if (!G || !e.states[G]) {
         const l = c.filter((d) => {
           const Y = d.match(/^sensor\.polleninformation_(.+)_(.+)$/);
           if (!Y) return !1;
           const O = Y[1], F = Y[2];
-          return (!S || O === S) && F === R;
+          return (!E || O === E) && F === R;
         });
         if (l.length === 1) G = l[0];
         else continue;
       }
       const Z = e.states[G];
-      if (!((f = Z == null ? void 0 : Z.attributes) != null && f.forecast)) throw "Missing forecast";
+      if (!((m = Z == null ? void 0 : Z.attributes) != null && m.forecast)) throw "Missing forecast";
       const T = Z.attributes.forecast, W = Array.isArray(T) ? T.reduce((l, d) => {
         const Y = d.time || d.datetime;
         return l[Y] = d, l;
-      }, {}) : {}, x = Object.keys(W).sort(
+      }, {}) : {}, p = Object.keys(W).sort(
         (l, d) => new Date(l) - new Date(d)
-      ).filter((l) => new Date(l) >= b);
+      ).filter((l) => new Date(l) >= B);
       let j = [];
-      if (x.length >= B)
-        j = x.slice(0, B);
+      if (p.length >= u)
+        j = p.slice(0, u);
       else {
-        j = x.slice();
-        let l = x.length > 0 ? new Date(x[x.length - 1]) : b;
-        for (; j.length < B; ) {
+        j = p.slice();
+        let l = p.length > 0 ? new Date(p[p.length - 1]) : B;
+        for (; j.length < u; ) {
           l = new Date(l.getTime() + 864e5);
           const d = l.getFullYear(), Y = String(l.getMonth() + 1).padStart(2, "0"), O = String(l.getDate()).padStart(2, "0");
           j.push(`${d}-${Y}-${O}T00:00:00`);
         }
       }
       j.forEach((l, d) => {
-        const Y = W[l] || {}, O = V(Y.level), F = new Date(l), L = Math.round((F - b) / 864e5);
+        const Y = W[l] || {}, O = V(Y.level), F = new Date(l), L = Math.round((F - B) / 864e5);
         let y;
-        I ? u[L] != null ? y = u[L] : L >= 0 && L <= 2 ? y = w(`card.days.${L}`, C) : y = F.toLocaleDateString(n, {
+        I ? x[L] != null ? y = x[L] : L >= 0 && L <= 2 ? y = w(`card.days.${L}`, C) : y = F.toLocaleDateString(n, {
           day: "numeric",
           month: "short"
         }) : (y = F.toLocaleDateString(n, {
@@ -1351,29 +1351,29 @@ async function pn(e, A) {
         let N;
         O < 2 ? N = Math.floor(O * 6 / 4) : N = Math.ceil(O * 6 / 4);
         const vA = {
-          name: s.allergenCapitalized,
+          name: o.allergenCapitalized,
           day: y,
           state: O,
           state_text: N < 0 ? U : w(`card.levels.${N}`, C)
         };
-        s[`day${d}`] = vA, s.days.push(vA);
-      }), (s.days.some((l) => l.state >= p) || p === 0) && o.push(s);
-    } catch (s) {
-      g && console.warn(`Fel vid allergen ${Q}:`, s);
+        o[`day${d}`] = vA, o.days.push(vA);
+      }), (o.days.some((l) => l.state >= k) || k === 0) && S.push(o);
+    } catch (o) {
+      g && console.warn(`Fel vid allergen ${Q}:`, o);
     }
-  return o.sort(
+  return S.sort(
     {
-      value_ascending: (Q, s) => Q.day0.state - s.day0.state,
-      value_descending: (Q, s) => s.day0.state - Q.day0.state,
-      name_ascending: (Q, s) => Q.allergenCapitalized.localeCompare(s.allergenCapitalized),
-      name_descending: (Q, s) => s.allergenCapitalized.localeCompare(Q.allergenCapitalized)
-    }[A.sort] || ((Q, s) => s.day0.state - Q.day0.state)
-  ), g && console.debug("PEU.fetchForecast — done", o), o;
+      value_ascending: (Q, o) => Q.day0.state - o.day0.state,
+      value_descending: (Q, o) => o.day0.state - Q.day0.state,
+      name_ascending: (Q, o) => Q.allergenCapitalized.localeCompare(o.allergenCapitalized),
+      name_descending: (Q, o) => o.allergenCapitalized.localeCompare(Q.allergenCapitalized)
+    }[A.sort] || ((Q, o) => o.day0.state - Q.day0.state)
+  ), g && console.debug("PEU.fetchForecast — done", S), S;
 }
 const xn = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   fetchForecast: pn,
-  stubConfigPEU: M
+  stubConfigPEU: b
 }, Symbol.toStringTag, { value: "Module" })), un = {
   pp: zA,
   dwd: mn,
@@ -1497,64 +1497,64 @@ const xn = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" }
 };
 async function cn(e, A) {
-  var o, k;
-  const g = [], C = !!A.debug, n = (f) => f.charAt(0).toUpperCase() + f.slice(1), I = (f) => {
-    const [Q] = f.split("T"), [s, R, G] = Q.split("-").map(Number);
-    return new Date(s, R - 1, G);
+  var S, P;
+  const g = [], C = !!A.debug, n = (m) => m.charAt(0).toUpperCase() + m.slice(1), I = (m) => {
+    const [Q] = m.split("T"), [o, R, G] = Q.split("-").map(Number);
+    return new Date(o, R - 1, G);
   }, D = /* @__PURE__ */ new Date();
   D.setHours(0, 0, 0, 0);
-  const h = $(e, A.date_locale), i = A.date_locale || ((o = e.locale) == null ? void 0 : o.language) || e.language || `${h}-${h.toUpperCase()}`, a = A.days_relative !== !1, t = !!A.days_abbreviated, r = !!A.days_uppercase, E = {
+  const h = $(e, A.date_locale), i = A.date_locale || ((S = e.locale) == null ? void 0 : S.language) || e.language || `${h}-${h.toUpperCase()}`, a = A.days_relative !== !1, t = !!A.days_abbreviated, s = !!A.days_uppercase, r = {
     full: {},
     short: {},
     levels: [],
     days: {},
     no_information: "",
     ...A.phrases || {}
-  }, U = E.full, u = E.short, v = E.levels, V = Array.isArray(v) && v.length === 7 ? v : Array.from({ length: 7 }, (f, Q) => w(`card.levels.${Q}`, h)), b = E.no_information || w("card.no_information", h), B = E.days;
+  }, U = r.full, x = r.short, v = r.levels, V = Array.isArray(v) && v.length === 7 ? v : Array.from({ length: 7 }, (m, Q) => w(`card.levels.${Q}`, h)), B = r.no_information || w("card.no_information", h), u = r.days;
   C && console.debug("PP.fetchForecast — start", { city: A.city, lang: h });
-  const p = (f) => {
-    const Q = Number(f);
+  const k = (m) => {
+    const Q = Number(m);
     return isNaN(Q) || Q < 0 ? -1 : Q > 6 ? 6 : Q;
-  }, c = A.days_to_show ?? H.days_to_show, S = A.pollen_threshold ?? H.pollen_threshold;
-  for (const f of A.allergens)
+  }, c = A.days_to_show ?? H.days_to_show, E = A.pollen_threshold ?? H.pollen_threshold;
+  for (const m of A.allergens)
     try {
       const Q = {};
       Q.days = [];
-      const s = wA(f);
-      if (Q.allergenReplaced = s, U[f])
-        Q.allergenCapitalized = U[f];
+      const o = wA(m);
+      if (Q.allergenReplaced = o, U[m])
+        Q.allergenCapitalized = U[m];
       else {
-        const l = AA[s] || s, d = w(`card.allergen.${l}`, h);
-        Q.allergenCapitalized = d !== `card.allergen.${l}` ? d : n(f);
+        const l = AA[o] || o, d = w(`card.allergen.${l}`, h);
+        Q.allergenCapitalized = d !== `card.allergen.${l}` ? d : n(m);
       }
       if (A.allergens_abbreviated) {
-        const l = AA[s] || s, d = u[f];
+        const l = AA[o] || o, d = x[m];
         Q.allergenShort = d || w(`editor.phrases_short.${l}`, h) || Q.allergenCapitalized;
       } else
         Q.allergenShort = Q.allergenCapitalized;
       const R = wA(A.city);
-      let G = `sensor.pollen_${R}_${s}`;
+      let G = `sensor.pollen_${R}_${o}`;
       if (!e.states[G]) {
         const l = Object.keys(e.states).filter(
-          (d) => d.startsWith(`sensor.pollen_${R}_`) && d.includes(s)
+          (d) => d.startsWith(`sensor.pollen_${R}_`) && d.includes(o)
         );
         if (l.length === 1) G = l[0];
         else continue;
       }
       const Z = e.states[G];
-      if (!((k = Z == null ? void 0 : Z.attributes) != null && k.forecast)) throw "Missing forecast";
+      if (!((P = Z == null ? void 0 : Z.attributes) != null && P.forecast)) throw "Missing forecast";
       const T = Z.attributes.forecast, W = Array.isArray(T) ? T.reduce((l, d) => {
         const Y = d.time || d.datetime;
         return l[Y] = d, l;
-      }, {}) : T, x = Object.keys(W).sort(
+      }, {}) : T, p = Object.keys(W).sort(
         (l, d) => I(l) - I(d)
       ).filter((l) => I(l) >= D);
       let j = [];
-      if (x.length >= c)
-        j = x.slice(0, c);
+      if (p.length >= c)
+        j = p.slice(0, c);
       else {
-        j = x.slice();
-        let l = x.length > 0 ? I(x[x.length - 1]) : D;
+        j = p.slice();
+        let l = p.length > 0 ? I(p[p.length - 1]) : D;
         for (; j.length < c; ) {
           l = new Date(l.getTime() + 864e5);
           const d = l.getFullYear(), Y = String(l.getMonth() + 1).padStart(2, "0"), O = String(l.getDate()).padStart(2, "0");
@@ -1562,32 +1562,32 @@ async function cn(e, A) {
         }
       }
       j.forEach((l, d) => {
-        const Y = W[l] || {}, O = p(Y.level), F = I(l), L = Math.round((F - D) / 864e5);
+        const Y = W[l] || {}, O = k(Y.level), F = I(l), L = Math.round((F - D) / 864e5);
         let y;
-        a ? B[L] != null ? y = B[L] : L >= 0 && L <= 2 ? y = w(`card.days.${L}`, h) : y = F.toLocaleDateString(i, {
+        a ? u[L] != null ? y = u[L] : L >= 0 && L <= 2 ? y = w(`card.days.${L}`, h) : y = F.toLocaleDateString(i, {
           day: "numeric",
           month: "short"
         }) : (y = F.toLocaleDateString(i, {
           weekday: t ? "short" : "long"
-        }), y = y.charAt(0).toUpperCase() + y.slice(1)), r && (y = y.toUpperCase());
+        }), y = y.charAt(0).toUpperCase() + y.slice(1)), s && (y = y.toUpperCase());
         const N = {
           name: Q.allergenCapitalized,
           day: y,
           state: O,
-          state_text: O < 0 ? b : V[O]
+          state_text: O < 0 ? B : V[O]
         };
         Q[`day${d}`] = N, Q.days.push(N);
-      }), (Q.days.some((l) => l.state >= S) || S === 0) && g.push(Q);
+      }), (Q.days.some((l) => l.state >= E) || E === 0) && g.push(Q);
     } catch (Q) {
-      console.warn(`Fel vid allergen ${f}:`, Q);
+      console.warn(`Fel vid allergen ${m}:`, Q);
     }
   return g.sort(
     {
-      value_ascending: (f, Q) => f.day0.state - Q.day0.state,
-      value_descending: (f, Q) => Q.day0.state - f.day0.state,
-      name_ascending: (f, Q) => f.allergenCapitalized.localeCompare(Q.allergenCapitalized),
-      name_descending: (f, Q) => Q.allergenCapitalized.localeCompare(f.allergenCapitalized)
-    }[A.sort] || ((f, Q) => Q.day0.state - f.day0.state)
+      value_ascending: (m, Q) => m.day0.state - Q.day0.state,
+      value_descending: (m, Q) => Q.day0.state - m.day0.state,
+      name_ascending: (m, Q) => m.allergenCapitalized.localeCompare(Q.allergenCapitalized),
+      name_descending: (m, Q) => Q.allergenCapitalized.localeCompare(m.allergenCapitalized)
+    }[A.sort] || ((m, Q) => Q.day0.state - m.day0.state)
   ), C && console.debug("PP.fetchForecast — done", g), g;
 }
 const wn = un;
@@ -1634,7 +1634,7 @@ class Rn extends IA {
   setConfig(A) {
     this._userConfig = { ...A }, this.tapAction = A.tap_action || null, this._integrationExplicit = A.hasOwnProperty("integration") && A.integration !== H.integration;
     let g = this._userConfig.integration, C;
-    g === "pp" ? C = H : g === "peu" ? C = M : g === "dwd" ? C = P : C = H;
+    g === "pp" ? C = H : g === "peu" ? C = b : g === "dwd" ? C = M : C = H;
     const n = Object.keys(C).concat([
       "allergens",
       "city",
@@ -1654,7 +1654,7 @@ class Rn extends IA {
     this._userConfig = { ...C, ...I, integration: g }, this._initDone = !1, this._hass && (this.hass = this._hass);
   }
   set hass(A) {
-    var E, U, u, v, V, b;
+    var r, U, x, v, V;
     this._hass = A;
     const g = !!this._integrationExplicit;
     this.debug && console.debug("[Card] set hass called; explicit:", g);
@@ -1668,15 +1668,15 @@ class Rn extends IA {
     let D = this._userConfig.integration;
     g || (C.length ? D = "pp" : I.length ? D = "peu" : n.length && (D = "dwd"));
     let h;
-    D === "dwd" ? h = P : D === "peu" ? h = M : h = H;
+    D === "dwd" ? h = M : D === "peu" ? h = b : h = H;
     const { allergens: i, ...a } = this._userConfig, t = {
       ...h,
       ...a,
       integration: D
     };
-    if (t._allergens_were_inferred || (Array.isArray(i) && i.length > 0 ? t.allergens = i : D === "pp" ? t.allergens = H.allergens : D === "peu" ? t.allergens = M.allergens : D === "dwd" && (t.allergens = P.allergens)), !t.hasOwnProperty("date_locale")) {
-      const B = $(A, null), p = ((U = (E = this._hass) == null ? void 0 : E.locale) == null ? void 0 : U.language) || ((u = this._hass) == null ? void 0 : u.language) || `${B}-${B.toUpperCase()}`;
-      t.date_locale = p, this.debug && console.debug(
+    if (Array.isArray(i) && i.length > 0 ? t.allergens = i : D === "pp" ? t.allergens = H.allergens : D === "peu" ? t.allergens = b.allergens : D === "dwd" && (t.allergens = M.allergens), !t.hasOwnProperty("date_locale")) {
+      const B = $(A, null), u = ((U = (r = this._hass) == null ? void 0 : r.locale) == null ? void 0 : U.language) || ((x = this._hass) == null ? void 0 : x.language) || `${B}-${B.toUpperCase()}`;
+      t.date_locale = u, this.debug && console.debug(
         "[PollenPrognos] auto-filling date_locale:",
         t.date_locale
       );
@@ -1684,36 +1684,23 @@ class Rn extends IA {
     if (D === "dwd" && !t.region_id && n.length)
       t.region_id = Array.from(
         new Set(n.map((B) => B.split("_").pop()))
-      ).sort((B, p) => Number(B) - Number(p))[0], this.debug && console.debug("[Card] Auto-set region_id:", t.region_id);
+      ).sort((B, u) => Number(B) - Number(u))[0], this.debug && console.debug("[Card] Auto-set region_id:", t.region_id);
     else if (D === "pp" && !t.city && C.length)
       t.city = C[0].slice(14).replace(/_[^_]+$/, ""), this.debug && console.debug("[Card] Auto-set city:", t.city);
-    else if (D === "peu" && I.length) {
-      if (!t.location) {
-        const B = Array.from(
-          new Set(
-            I.map((p) => {
-              const c = p.replace("sensor.polleninformation_", ""), S = c.lastIndexOf("_");
-              return S === -1 ? null : c.slice(0, S);
-            }).filter(Boolean)
-          )
-        );
-        t.location = B[0], this.debug && (console.debug(
-          "[Card][PEU] Auto-extracted location slugs:",
-          B
-        ), console.debug("[Card][PEU] Using cfg.location:", t.location));
-      }
-      if (!t.allergens || !Array.isArray(t.allergens) || !t.allergens.length) {
-        const B = I.filter((p) => {
-          const c = p.replace("sensor.polleninformation_", ""), S = c.lastIndexOf("_");
-          return S === -1 ? !1 : c.slice(0, S) === t.location;
-        });
-        t.allergens = B.map(
-          (p) => p.replace(`sensor.polleninformation_${t.location}_`, "")
-        ), t._allergens_were_inferred = !0, this.debug && console.debug(
-          "[Card][PEU] Allergens inferred (auto):",
-          t.allergens
-        );
-      }
+    else if (D === "peu" && !t.location && I.length) {
+      const B = Array.from(
+        new Set(
+          I.map((u) => {
+            var c;
+            return (((c = A.states[u]) == null ? void 0 : c.attributes) || {}).location_slug || null;
+          }).filter(Boolean)
+        )
+      );
+      t.location = B[0] || null, this.debug && console.debug(
+        "[Card][PEU] Auto-set location (location_slug):",
+        t.location,
+        B
+      );
     }
     if (this.config = t, this.tapAction = t.tap_action || this.tapAction || null, this.debug && (console.debug("[Card][Debug] Aktiv integration:", D), console.debug("[Card][Debug] Allergens i config:", t.allergens)), t.title === "false" || t.title === !1 || typeof t.title == "string" && t.title.trim() === "")
       this.header = "";
@@ -1724,66 +1711,68 @@ class Rn extends IA {
       if (D === "dwd")
         B = Ig[t.region_id] || t.region_id;
       else if (D === "peu") {
-        const p = I.filter((S) => S.replace("sensor.polleninformation_", "").split("_").slice(0, -1).join("_") === t.location);
-        let c = "";
-        for (const S of p) {
-          const o = ((v = A.states[S]) == null ? void 0 : v.attributes) || {};
-          if (c = o.location_title || ((b = (V = o.friendly_name) == null ? void 0 : V.match(/\((.*?)\)/)) == null ? void 0 : b[1]) || "", c) break;
+        const u = I.find(
+          (c) => c.split("_")[1] === t.location
+        );
+        let k = "";
+        if (u && A.states[u]) {
+          const c = A.states[u].attributes;
+          k = c.location_title || ((V = (v = c.friendly_name) == null ? void 0 : v.match(/\((.*?)\)/)) == null ? void 0 : V[1]) || t.location;
         }
-        B = c || t.location || "";
+        B = k || t.location || "";
       } else
         B = RA.find(
-          (p) => p.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_") === t.city
+          (u) => u.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_") === t.city
         ) || t.city;
       this.header = `${this._t("card.header_prefix")} ${B}`, this.debug && console.debug("[Card] header set to:", this.header);
     }
     (wn[t.integration] || zA).fetchForecast(A, t).then((B) => {
-      var c;
+      var k;
       this.debug && (console.debug("[Card][Debug] Sensors före filtrering:", B), console.debug(
         "[Card][Debug] Förväntade allergener från config:",
         t.allergens
       ));
-      let p = B;
+      let u = B;
       if (Array.isArray(t.allergens) && t.allergens.length > 0) {
-        let S;
-        D === "dwd" ? S = new Set(
+        let c;
+        D === "dwd" ? c = new Set(
           t.allergens.map(
-            (o) => o.toLowerCase().replace(/ä/g, "ae").replace(/\s+/g, "_")
+            (E) => E.toLowerCase().replace(/ä/g, "ae").replace(/\s+/g, "_")
           )
-        ) : S = new Set(
-          t.allergens.map((o) => o.toLowerCase().replace(/\s+/g, "_"))
-        ), p = B.filter((o) => {
-          let k = "";
-          D === "dwd" || D === "peu" ? k = (o.allergenReplaced || "").toLowerCase() : k = (o.allergenCapitalized || o.allergenShort || o.allergenReplaced || o.allergen || "").toLowerCase().replace(/\s+/g, "_");
-          const f = S.has(k);
-          return !f && this.debug && console.debug(
-            `[Card][Debug] Sensor '${k}' är EJ tillåten (ej i allowed)`,
-            o
-          ), f;
+        ) : c = new Set(
+          t.allergens.map((E) => E.toLowerCase().replace(/\s+/g, "_"))
+        ), u = B.filter((E) => {
+          let S = "";
+          D === "dwd" || D === "peu" ? S = (E.allergenReplaced || "").toLowerCase() : S = (E.allergenCapitalized || E.allergenShort || E.allergenReplaced || E.allergen || "").toLowerCase().replace(/\s+/g, "_");
+          const P = c.has(S);
+          return !P && this.debug && console.debug(
+            `[Card][Debug] Sensor '${S}' är EJ tillåten (ej i allowed)`,
+            E
+          ), P;
         });
       }
-      this.debug && console.debug("[Card][Debug] Sensors EFTER filtrering:", p), this.sensors = p, this.debug && console.debug(
+      this.debug && console.debug("[Card][Debug] Sensors EFTER filtrering:", u), this.sensors = u, this.debug && console.debug(
         "[Card][Debug] Slutlig sensors till kortet:",
         this.sensors
       ), this.days_to_show = t.days_to_show, this.displayCols = Array.from(
         {
-          length: t.show_empty_days ? t.days_to_show : ((c = p[0]) == null ? void 0 : c.days.length) || 0
+          length: t.show_empty_days ? t.days_to_show : ((k = u[0]) == null ? void 0 : k.days.length) || 0
         },
-        (S, o) => o
+        (c, E) => E
       ), this.debug && console.debug("[Card] sensors fetched:", this.sensors), this.requestUpdate();
     }).catch((B) => {
       console.error("Error fetching pollen forecast:", B), this.debug && console.debug("[Card] fetchForecast error:", B);
     });
   }
   _renderMinimalHtml() {
-    return m`
+    return f`
       <ha-card>
-        ${this.header ? m`<h1 class="header">${this.header}</h1>` : ""}
+        ${this.header ? f`<h1 class="header">${this.header}</h1>` : ""}
         <div class="flex-container">
           ${this.sensors.map((A) => {
       const g = A.day0.state_text || "", C = A.day0.state;
       let n = "";
-      return this.config.show_text_allergen && (n += this.config.allergens_abbreviated ? A.allergenShort : A.allergenCapitalized), this.config.show_value_text && this.config.show_value_numeric ? (n && (n += ": "), n += `${g} (${C})`) : this.config.show_value_text ? (n && (n += ": "), n += g) : this.config.show_value_numeric && (n && (n += " "), n += `(${C})`), m`
+      return this.config.show_text_allergen && (n += this.config.allergens_abbreviated ? A.allergenShort : A.allergenCapitalized), this.config.show_value_text && this.config.show_value_numeric ? (n && (n += ": "), n += `${g} (${C})`) : this.config.show_value_text ? (n && (n += ": "), n += g) : this.config.show_value_numeric && (n && (n += " "), n += `(${C})`), f`
               <div class="sensor">
                 <img
                   class="box"
@@ -1792,7 +1781,7 @@ class Rn extends IA {
         A.day0.state
       )}"
                 />
-                ${n ? m`<span class="short-text">${n}</span>` : ""}
+                ${n ? f`<span class="short-text">${n}</span>` : ""}
               </div>
             `;
     })}
@@ -1802,9 +1791,9 @@ class Rn extends IA {
   }
   _renderNormalHtml() {
     const A = !!this.config.days_boldfaced, g = this.displayCols;
-    return m`
+    return f`
       <ha-card>
-        ${this.header ? m`<h1 class="header">${this.header}</h1>` : ""}
+        ${this.header ? f`<h1 class="header">${this.header}</h1>` : ""}
         <table class="forecast">
           <thead>
             <tr>
@@ -1812,7 +1801,7 @@ class Rn extends IA {
               ${g.map(
       (C) => {
         var n;
-        return m`
+        return f`
                   <th style="font-weight: ${A ? "bold" : "normal"}">
                     ${((n = this.sensors[0].days[C]) == null ? void 0 : n.day) || ""}
                   </th>
@@ -1824,7 +1813,7 @@ class Rn extends IA {
           ${this.sensors.map(
       (C) => {
         var n;
-        return m`
+        return f`
               <!-- Rad 1: bara ikoner -->
               <tr class="allergen-icon-row" valign="top">
                 <td>
@@ -1839,13 +1828,13 @@ class Rn extends IA {
                 ${g.map(
           (I) => {
             var D, h;
-            return m`
+            return f`
                     <td>
                       <div class="icon-wrapper">
                         <img
                           src="${this._getImageSrc("", (D = C.days[I]) == null ? void 0 : D.state)}"
                         />
-                        ${this.config.show_value_numeric_in_circle ? m`<span class="circle-overlay">
+                        ${this.config.show_value_numeric_in_circle ? f`<span class="circle-overlay">
                               ${((h = C.days[I]) == null ? void 0 : h.state) ?? ""}
                             </span>` : ""}
                       </div>
@@ -1855,7 +1844,7 @@ class Rn extends IA {
         )}
               </tr>
               <!-- Rad 2: allergennamn + text/nummer under dagarna -->
-              ${this.config.show_text_allergen || this.config.show_value_text || this.config.show_value_numeric ? m`
+              ${this.config.show_text_allergen || this.config.show_value_text || this.config.show_value_numeric ? f`
                     <tr class="allergen-text-row" valign="top">
                       <td>
                         ${this.config.show_text_allergen ? this.config.allergens_abbreviated ? C.allergenShort : C.allergenCapitalized : ""}
@@ -1864,7 +1853,7 @@ class Rn extends IA {
           var a, t;
           const D = ((a = C.days[I]) == null ? void 0 : a.state_text) || "", h = (t = C.days[I]) == null ? void 0 : t.state;
           let i = "";
-          return this.config.show_value_text && this.config.show_value_numeric ? i = `${D} (${h})` : this.config.show_value_text ? i = D : this.config.show_value_numeric && (i = String(h)), m`<td>${i}</td>`;
+          return this.config.show_value_text && this.config.show_value_numeric ? i = `${D} (${h})` : this.config.show_value_text ? i = D : this.config.show_value_numeric && (i = String(h)), f`<td>${i}</td>`;
         })}
                     </tr>
                   ` : ""}
@@ -1878,7 +1867,7 @@ class Rn extends IA {
   render() {
     if (!this.sensors.length) {
       const g = `card.integration.${this.config.integration}`, C = this._t(g);
-      return m`
+      return f`
         <ha-card
           @click="${this._handleTapAction}"
           style="cursor: ${this.tapAction ? "pointer" : "auto"}"
@@ -1888,7 +1877,7 @@ class Rn extends IA {
       `;
     }
     const A = this.config.minimal ? this._renderMinimalHtml() : this._renderNormalHtml();
-    return m`
+    return f`
       <ha-card
         @click="${this._handleTapAction}"
         style="cursor: ${this.tapAction ? "pointer" : "auto"}"
@@ -2015,7 +2004,7 @@ const hA = (e, A) => {
     n !== null && typeof n == "object" && !Array.isArray(n) && typeof e[C] == "object" && e[C] !== null ? g[C] = hA(e[C], n) : g[C] = n;
   }
   return g;
-}, jn = (e) => e === "dwd" ? P : e === "peu" ? M : H;
+}, jn = (e) => e === "dwd" ? M : e === "peu" ? b : H;
 class yn extends IA {
   get debug() {
     return !!this._config.debug;
@@ -2025,10 +2014,10 @@ class yn extends IA {
   }
   _resetPhrases(A) {
     this.debug && console.debug("[Editor] resetPhrases – lang:", A), this._updateConfig("date_locale", A);
-    const g = this._config.integration === "dwd" ? P.allergens : this._config.integration === "peu" ? M.allergens : H.allergens, C = {}, n = {};
+    const g = this._config.integration === "dwd" ? M.allergens : this._config.integration === "peu" ? b.allergens : H.allergens, C = {}, n = {};
     g.forEach((a) => {
-      const t = wA(a), r = AA[t] || t;
-      C[a] = w(`editor.phrases_full.${r}`, A), n[a] = w(`editor.phrases_short.${r}`, A);
+      const t = wA(a), s = AA[t] || t;
+      C[a] = w(`editor.phrases_full.${s}`, A), n[a] = w(`editor.phrases_short.${s}`, A);
     });
     const I = this._config.integration === "dwd" ? 4 : this._config.integration === "peu" ? 5 : 7, D = Array.from(
       { length: I },
@@ -2074,63 +2063,63 @@ class yn extends IA {
     var g, C;
     try {
       this.debug && console.debug("[Editor] ▶️ setConfig INCOMING:", A);
-      const n = A.integration === "dwd" ? P.allergens.length : A.integration === "peu" ? M.allergens.length : H.allergens.length, I = { ...A };
+      const n = A.integration === "dwd" ? M.allergens.length : A.integration === "peu" ? b.allergens.length : H.allergens.length, I = { ...A };
       Array.isArray(A.allergens) && A.allergens.length < n && (this._userConfig.allergens = [...A.allergens], this._allergensExplicit = !0, this.debug && console.debug(
         "[Editor] saved user-chosen allergens:",
         this._userConfig.allergens
       ));
-      const D = (I.integration === "dwd" ? P : I.integration === "peu" ? M : H).pollen_threshold;
+      const D = (I.integration === "dwd" ? M : I.integration === "peu" ? b : H).pollen_threshold;
       I.hasOwnProperty("pollen_threshold") && !this._thresholdExplicit && I.pollen_threshold === D && (this.debug && console.debug(
         "[Editor] dropping incoming stub-threshold (matches stub):",
         D
       ), delete I.pollen_threshold);
       const h = A.integration;
       this._prevIntegration !== void 0 && h !== this._prevIntegration && (delete this._userConfig.allergens, this._allergensExplicit = !1, this.debug && console.debug("[Editor] integration changed → wipe allergens")), !this._integrationExplicit && I.integration === H.integration && (this.debug && console.debug("[Editor] dropped stub integration"), delete I.integration), !this._daysExplicit && I.days_to_show === H.days_to_show && (this.debug && console.debug("[Editor] dropped stub days_to_show"), delete I.days_to_show);
-      const i = (I.integration === "dwd" ? P : I.integration === "peu" ? M : H).date_locale;
+      const i = (I.integration === "dwd" ? M : I.integration === "peu" ? b : H).date_locale;
       !this._localeExplicit && I.date_locale === i && (this.debug && console.debug("[Editor] dropped stub date_locale"), delete I.date_locale), this._userConfig = hA(this._userConfig, I), this._thresholdExplicit = this._userConfig.hasOwnProperty("pollen_threshold"), this._allergensExplicit = this._userConfig.hasOwnProperty("allergens"), this._integrationExplicit = this._userConfig.hasOwnProperty("integration"), this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show"), this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
       let a = this._userConfig.integration !== void 0 ? this._userConfig.integration : this._config.integration;
       if (!this._integrationExplicit && this._hass) {
-        const E = Object.keys(this._hass.states);
-        E.some((U) => U.startsWith("sensor.pollen_")) ? a = "pp" : E.some((U) => U.startsWith("sensor.polleninformation_")) ? a = "peu" : E.some((U) => U.startsWith("sensor.pollenflug_")) && (a = "dwd"), this._userConfig.integration = a, this.debug && console.debug("[Editor] auto-detected integration:", a);
+        const r = Object.keys(this._hass.states);
+        r.some((U) => U.startsWith("sensor.pollen_")) ? a = "pp" : r.some((U) => U.startsWith("sensor.polleninformation_")) ? a = "peu" : r.some((U) => U.startsWith("sensor.pollenflug_")) && (a = "dwd"), this._userConfig.integration = a, this.debug && console.debug("[Editor] auto-detected integration:", a);
       }
       const t = jn(a);
-      let r = hA(t, this._userConfig);
-      if (this._userConfig.hasOwnProperty("pollen_threshold") || (r.pollen_threshold = t.pollen_threshold, this.debug && console.debug(
+      let s = hA(t, this._userConfig);
+      if (this._userConfig.hasOwnProperty("pollen_threshold") || (s.pollen_threshold = t.pollen_threshold, this.debug && console.debug(
         "[Editor] reset pollen_threshold to stub:",
         t.pollen_threshold
-      )), r.allergens = Array.isArray(this._userConfig.allergens) ? this._userConfig.allergens : t.allergens, r.integration = a, r.type = "custom:pollenprognos-card", this._config = r, this._prevIntegration = a, this.debug && console.debug(
+      )), s.allergens = Array.isArray(this._userConfig.allergens) ? this._userConfig.allergens : t.allergens, s.integration = a, s.type = "custom:pollenprognos-card", this._config = s, this._prevIntegration = a, this.debug && console.debug(
         "[Editor][F] slutgiltigt this._config.allergens:",
         this._config.allergens
       ), this._daysExplicit || (this._config.days_to_show = t.days_to_show, this.debug && console.debug(
         "[Editor] reset days_to_show to stub:",
         t.days_to_show
       )), !this._localeExplicit) {
-        const E = $(this._hass, null), U = ((C = (g = this._hass) == null ? void 0 : g.locale) == null ? void 0 : C.language) || `${E}-${E.toUpperCase()}`;
+        const r = $(this._hass, null), U = ((C = (g = this._hass) == null ? void 0 : g.locale) == null ? void 0 : C.language) || `${r}-${r.toUpperCase()}`;
         this._config.date_locale = U, this.debug && console.debug(
           "[Editor] autofilled date_locale:",
           U,
           "(HA language was:",
-          E,
+          r,
           ")"
         );
       }
       if (this._initDone = !1, this._hass) {
-        const E = Object.keys(this._hass.states);
+        const r = Object.keys(this._hass.states);
         this.installedRegionIds = Array.from(
           new Set(
-            E.filter((u) => u.startsWith("sensor.pollenflug_")).map((u) => u.split("_").pop())
+            r.filter((x) => x.startsWith("sensor.pollenflug_")).map((x) => x.split("_").pop())
           )
-        ).sort((u, v) => Number(u) - Number(v));
+        ).sort((x, v) => Number(x) - Number(v));
         const U = new Set(
-          E.filter(
-            (u) => u.startsWith("sensor.pollen_") && !u.startsWith("sensor.pollenflug_")
+          r.filter(
+            (x) => x.startsWith("sensor.pollen_") && !x.startsWith("sensor.pollenflug_")
           ).map(
-            (u) => u.slice(14).replace(/_[^_]+$/, "")
+            (x) => x.slice(14).replace(/_[^_]+$/, "")
           )
         );
         this.installedCities = RA.filter(
-          (u) => U.has(
-            u.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_")
+          (x) => U.has(
+            x.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_")
           )
         ).sort();
       }
@@ -2160,14 +2149,14 @@ class yn extends IA {
     );
     let D = this._userConfig.integration;
     g || (C.length ? D = "pp" : I.length ? D = "peu" : n.length && (D = "dwd"), this._userConfig.integration = D);
-    const h = D === "dwd" ? P : D === "peu" ? M : H;
+    const h = D === "dwd" ? M : D === "peu" ? b : H;
     let i = hA(h, this._userConfig);
     this._userConfig.hasOwnProperty("pollen_threshold") || (i.pollen_threshold = h.pollen_threshold, this.debug && console.debug(
       "[Editor][hass] reset pollen_threshold to stub:",
       h.pollen_threshold
     )), this._config = i, this.installedRegionIds = Array.from(
       new Set(n.map((t) => t.split("_").pop()))
-    ).sort((t, r) => Number(t) - Number(r));
+    ).sort((t, s) => Number(t) - Number(s));
     const a = Array.from(
       new Set(
         C.map(
@@ -2179,12 +2168,12 @@ class yn extends IA {
       (t) => a.includes(
         t.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_")
       )
-    ).sort((t, r) => t.localeCompare(r)), this.installedPeuLocations = Array.from(
+    ).sort((t, s) => t.localeCompare(s)), this.installedPeuLocations = Array.from(
       new Map(
         Object.values(A.states).filter((t) => t.entity_id.startsWith("sensor.polleninformation_")).map((t) => {
-          var U, u;
-          const r = t.attributes.location_slug || t.entity_id.replace("sensor.polleninformation_", "").replace(/_[^_]+$/, ""), E = t.attributes.location_title || ((u = (U = t.attributes.friendly_name) == null ? void 0 : U.match(/\((.*?)\)/)) == null ? void 0 : u[1]) || r;
-          return [r, E];
+          var U, x;
+          const s = t.attributes.location_slug || t.entity_id.replace("sensor.polleninformation_", "").replace(/_[^_]+$/, ""), r = t.attributes.location_title || ((x = (U = t.attributes.friendly_name) == null ? void 0 : U.match(/\((.*?)\)/)) == null ? void 0 : x[1]) || s;
+          return [s, r];
         })
       )
     ), this._initDone || (D === "dwd" && !this._userConfig.region_id && this.installedRegionIds.length && (this._config.region_id = this.installedRegionIds[0]), D === "pp" && !this._userConfig.city && this.installedCities.length && (this._config.city = this.installedCities[0])), this._initDone = !0, this.dispatchEvent(
@@ -2205,7 +2194,7 @@ class yn extends IA {
     let n;
     if (A === "integration") {
       const I = g, D = this._config.integration;
-      I !== D && (delete C[I === "dwd" ? "city" : "region_id"], delete C.allergens, delete C.pollen_threshold, this._allergensExplicit = !1), n = hA(I === "dwd" ? P : I === "peu" ? M : H, C), n.integration = I;
+      I !== D && (delete C[I === "dwd" ? "city" : "region_id"], delete C.allergens, delete C.pollen_threshold, this._allergensExplicit = !1), n = hA(I === "dwd" ? M : I === "peu" ? b : H, C), n.integration = I;
     } else A === "tap_action" ? n = { ...this._config, tap_action: g } : n = { ...this._config, [A]: g };
     n.type = this._config.type, this._config = n, this.debug && console.debug("[Editor] updated _config:", this._config), this.dispatchEvent(
       new CustomEvent("config-changed", {
@@ -2225,8 +2214,8 @@ class yn extends IA {
         no_information: ""
       },
       ...this._config
-    }, g = A.integration === "dwd" ? P.allergens : A.integration === "peu" ? M.allergens : H.allergens, C = A.integration === "dwd" ? 4 : A.integration === "peu" ? 5 : 7, n = A.integration === "dwd" ? { min: 0, max: 3, step: 0.5 } : A.integration === "peu" ? { min: 0, max: 4, step: 1 } : { min: 0, max: 6, step: 1 };
-    return m`
+    }, g = A.integration === "dwd" ? M.allergens : A.integration === "peu" ? b.allergens : H.allergens, C = A.integration === "dwd" ? 4 : A.integration === "peu" ? 5 : 7, n = A.integration === "dwd" ? { min: 0, max: 3, step: 0.5 } : A.integration === "peu" ? { min: 0, max: 4, step: 1 } : { min: 0, max: 6, step: 1 };
+    return f`
       <div class="card-config">
         <!-- Återställ-knapp -->
         <div class="preset-buttons">
@@ -2255,7 +2244,7 @@ class yn extends IA {
         </ha-formfield>
 
         <!-- Stad (PP) eller Region (DWD) -->
-        ${A.integration === "pp" ? m`
+        ${A.integration === "pp" ? f`
               <ha-formfield label="${this._t("city")}">
                 <ha-select
                   .value=${A.city || ""}
@@ -2263,13 +2252,13 @@ class yn extends IA {
                   @closed=${(I) => I.stopPropagation()}
                 >
                   ${this.installedCities.map(
-      (I) => m`<mwc-list-item .value=${I}
+      (I) => f`<mwc-list-item .value=${I}
                         >${I}</mwc-list-item
                       >`
     )}
                 </ha-select>
               </ha-formfield>
-            ` : A.integration === "peu" ? m`
+            ` : A.integration === "peu" ? f`
                 <ha-formfield label="${this._t("location")}">
                   <ha-select
                     .value=${A.location || ""}
@@ -2277,13 +2266,13 @@ class yn extends IA {
                     @closed=${(I) => I.stopPropagation()}
                   >
                     ${this.installedPeuLocations.map(
-      ([I, D]) => m`<mwc-list-item .value=${I}
+      ([I, D]) => f`<mwc-list-item .value=${I}
                           >${D}</mwc-list-item
                         >`
     )}
                   </ha-select>
                 </ha-formfield>
-              ` : m`
+              ` : f`
                 <ha-formfield label="${this._t("region_id")}">
                   <ha-select
                     .value=${A.region_id || ""}
@@ -2291,7 +2280,7 @@ class yn extends IA {
                     @closed=${(I) => I.stopPropagation()}
                   >
                     ${this.installedRegionIds.map(
-      (I) => m`
+      (I) => f`
                         <mwc-list-item .value=${I}>
                           ${I} — ${Ig[I] || I}
                         </mwc-list-item>
@@ -2448,7 +2437,7 @@ class yn extends IA {
       "name_ascending",
       "name_descending"
     ].map(
-      (I) => m`<mwc-list-item .value=${I}
+      (I) => f`<mwc-list-item .value=${I}
                   >${I.replace("_", " ")}</mwc-list-item
                 >`
     )}
@@ -2468,7 +2457,7 @@ class yn extends IA {
           <summary>${this._t("allergens")}</summary>
           <div class="allergens-group">
             ${g.map(
-      (I) => m`
+      (I) => f`
                 <ha-formfield .label=${I}>
                   <ha-checkbox
                     .checked=${A.allergens.includes(I)}
@@ -2489,7 +2478,7 @@ class yn extends IA {
               @closed=${(I) => I.stopPropagation()}
             >
               ${sn.map(
-      (I) => m`
+      (I) => f`
                   <mwc-list-item .value=${I}>
                     ${new Intl.DisplayNames([this._lang], {
         type: "language"
@@ -2508,7 +2497,7 @@ class yn extends IA {
         <details>
           <summary>${this._t("phrases_full")}</summary>
           ${g.map(
-      (I) => m`
+      (I) => f`
               <ha-formfield .label=${I}>
                 <ha-textfield
                   .value=${A.phrases.full[I] || ""}
@@ -2527,7 +2516,7 @@ class yn extends IA {
         <details>
           <summary>${this._t("phrases_short")}</summary>
           ${g.map(
-      (I) => m`
+      (I) => f`
               <ha-formfield .label=${I}>
                 <ha-textfield
                   .value=${A.phrases.short[I] || ""}
@@ -2546,7 +2535,7 @@ class yn extends IA {
         <details>
           <summary>${this._t("phrases_levels")}</summary>
           ${Array.from({ length: C }, (I, D) => D).map(
-      (I) => m`
+      (I) => f`
               <ha-formfield .label=${I}>
                 <ha-textfield
                   .value=${A.phrases.levels[I] || ""}
@@ -2564,7 +2553,7 @@ class yn extends IA {
         <details>
           <summary>${this._t("phrases_days")}</summary>
           ${[0, 1, 2].map(
-      (I) => m`
+      (I) => f`
               <ha-formfield .label=${I}>
                 <ha-textfield
                   .value=${A.phrases.days[I] || ""}
@@ -2597,7 +2586,7 @@ class yn extends IA {
     }}
           ></ha-switch>
         </ha-formfield>
-        ${this._tapType !== "none" ? m`
+        ${this._tapType !== "none" ? f`
               <div style="margin-top: 10px;">
                 <label>Action type</label>
                 <ha-select
@@ -2627,7 +2616,7 @@ class yn extends IA {
                   <mwc-list-item value="none">None</mwc-list-item>
                 </ha-select>
               </div>
-              ${this._tapType === "more-info" ? m`
+              ${this._tapType === "more-info" ? f`
                     <ha-formfield label="Entity">
                       <ha-textfield
                         .value=${this._tapEntity}
@@ -2640,7 +2629,7 @@ class yn extends IA {
                       ></ha-textfield>
                     </ha-formfield>
                   ` : ""}
-              ${this._tapType === "navigate" ? m`
+              ${this._tapType === "navigate" ? f`
                     <ha-formfield label="Navigation path">
                       <ha-textfield
                         .value=${this._tapNavigation}
@@ -2653,7 +2642,7 @@ class yn extends IA {
                       ></ha-textfield>
                     </ha-formfield>
                   ` : ""}
-              ${this._tapType === "call-service" ? m`
+              ${this._tapType === "call-service" ? f`
                     <ha-formfield label="Service (e.g. light.turn_on)">
                       <ha-textfield
                         .value=${this._tapService}
