@@ -173,11 +173,27 @@ class PollenPrognosCard extends LitElement {
       integration,
     };
 
-    // Sätt rätt allergen-lista
-    if (Array.isArray(allergens) && allergens.length > 0) {
+    if (
+      this._integrationExplicit &&
+      Array.isArray(allergens) &&
+      allergens.length > 0
+    ) {
+      // Endast om integrationen är explicit satt av användaren (inte autodetect)
+      if (this.debug) {
+        console.debug(
+          "[Card] Explicit integration; using user-defined allergens:",
+          allergens,
+        );
+      }
       cfg.allergens = allergens;
     } else {
-      // Om INGEN explicit allergen-lista finns – då, och bara då, kan du ta stub
+      if (this.debug) {
+        console.debug(
+          "[Card] Using stub allergens for integration:",
+          integration,
+        );
+      }
+      // Om integrationen INTE är explicit (autodetect): använd stubben
       if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
       else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
       else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;

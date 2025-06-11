@@ -1674,7 +1674,13 @@ class Rn extends IA {
       ...a,
       integration: D
     };
-    if (Array.isArray(i) && i.length > 0 ? t.allergens = i : D === "pp" ? t.allergens = H.allergens : D === "peu" ? t.allergens = b.allergens : D === "dwd" && (t.allergens = M.allergens), !t.hasOwnProperty("date_locale")) {
+    if (this._integrationExplicit && Array.isArray(i) && i.length > 0 ? (this.debug && console.debug(
+      "[Card] Explicit integration; using user-defined allergens:",
+      i
+    ), t.allergens = i) : (this.debug && console.debug(
+      "[Card] Using stub allergens for integration:",
+      D
+    ), D === "pp" ? t.allergens = H.allergens : D === "peu" ? t.allergens = b.allergens : D === "dwd" && (t.allergens = M.allergens)), !t.hasOwnProperty("date_locale")) {
       const B = $(A, null), u = ((U = (r = this._hass) == null ? void 0 : r.locale) == null ? void 0 : U.language) || ((x = this._hass) == null ? void 0 : x.language) || `${B}-${B.toUpperCase()}`;
       t.date_locale = u, this.debug && console.debug(
         "[PollenPrognos] auto-filling date_locale:",
