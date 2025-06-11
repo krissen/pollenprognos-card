@@ -19,8 +19,8 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return true;
-    //return Boolean(this.config && this.config.debug);
+    // return true;
+    return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -80,9 +80,9 @@ class PollenPrognosCard extends LitElement {
     return document.createElement("pollenprognos-card-editor");
   }
 
-  static getStubConfig() {
-    return stubConfigPP;
-  }
+  // static getStubConfig() {
+  //   return stubConfigPP;
+  // }
 
   setConfig(config) {
     // Kopiera användarens config
@@ -208,10 +208,7 @@ class PollenPrognosCard extends LitElement {
         `${detectedLangCode}-${detectedLangCode.toUpperCase()}`;
       cfg.date_locale = localeTag;
       if (this.debug) {
-        console.debug(
-          "[PollenPrognos] auto-filling date_locale:",
-          cfg.date_locale,
-        );
+        console.debug("[Card] auto-filling date_locale:", cfg.date_locale);
       }
     }
 
@@ -275,12 +272,23 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        const entity = peuStates.find(
-          (id) => id.split("_")[1] === cfg.location,
+        // Hitta alla peu-entities
+        const peuEntities = Object.values(hass.states).filter((s) =>
+          s.entity_id.startsWith("sensor.polleninformation_"),
         );
+        // Hitta entity där slug-attribut eller entity_id matchar cfg.location
+        const match = peuEntities.find((s) => {
+          const attr = s.attributes || {};
+          const slug =
+            attr.location_slug ||
+            s.entity_id
+              .replace("sensor.polleninformation_", "")
+              .replace(/_[^_]+$/, "");
+          return slug === cfg.location;
+        });
         let title = "";
-        if (entity && hass.states[entity]) {
-          const attr = hass.states[entity].attributes;
+        if (match) {
+          const attr = match.attributes;
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
@@ -378,7 +386,7 @@ class PollenPrognosCard extends LitElement {
       })
 
       .catch((err) => {
-        console.error("Error fetching pollen forecast:", err);
+        console.error("[Card] Error fetching pollen forecast:", err);
         if (this.debug) console.debug("[Card] fetchForecast error:", err);
       });
   }
