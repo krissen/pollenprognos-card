@@ -92,9 +92,7 @@ class PollenPrognosCard extends LitElement {
     this.tapAction = config.tap_action || null;
 
     // Markera explicit integration
-    this._integrationExplicit =
-      config.hasOwnProperty("integration") &&
-      config.integration !== stubConfigPP.integration;
+    this._integrationExplicit = config.hasOwnProperty("integration");
 
     // Byt till relevant stub för integration och nollställ övriga fält
     let integration = this._userConfig.integration;
@@ -165,7 +163,8 @@ class PollenPrognosCard extends LitElement {
     let baseStub;
     if (integration === "dwd") baseStub = stubConfigDWD;
     else if (integration === "peu") baseStub = stubConfigPEU;
-    else baseStub = stubConfigPP;
+    else if (integration === "pp") baseStub = stubConfigPP;
+    else console.error("Unknown integration:", integration);
 
     // Sätt config rätt — utan allergens
     const { allergens, ...userConfigWithoutAllergens } = this._userConfig;
