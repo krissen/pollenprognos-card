@@ -21,6 +21,8 @@
   "card.days.1": "Morgen",
   "card.days.2": "Übermorgen",
   "card.error": "Keine Pollensensoren gefunden. Haben Sie die richtige Integration installiert und eine Region in der Kartenkonfiguration ausgewählt?",
+"card.error_no_sensors": "Keine Pollen-Sensoren gefunden. Haben Sie die richtige Integration installiert und eine Region in der Kartenkonfiguration ausgewählt?",
+"card.error_filtered_sensors": "Keine Sensoren entsprechen Ihren Filtern. Überprüfen Sie die ausgewählten Allergene und den Schwellenwert.",
   "card.header_prefix": "Pollenprognose für",
   "card.integration.dwd": "DWD Pollenflug",
   "card.integration.peu": "Polleninformation EU",

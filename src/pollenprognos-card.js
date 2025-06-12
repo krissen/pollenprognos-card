@@ -3,8 +3,8 @@ import { LitElement, html, css } from "lit";
 import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
-import { normalize } from "./utils/normalize.js"; // högst upp i filen
-import { normalizeDWD } from "./utils/normalize.js";
+import { normalize, normalizeDWD } from "./utils/normalize.js";
+import { findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import { stubConfigPP } from "./adapters/pp.js";
@@ -21,8 +21,8 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    return true;
-    //return Boolean(this.config && this.config.debug);
+    // return true;
+    return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -328,6 +328,43 @@ class PollenPrognosCard extends LitElement {
             cfg.allergens,
           );
         }
+
+        if (this.debug) {
+          console.debug(
+            "[Card][Debug] Alla tillgängliga hass.states:",
+            Object.keys(hass.states),
+          );
+          console.debug(
+            "[Card][Debug] Användare har valt city:",
+            cfg.city,
+            "| allergens:",
+            cfg.allergens,
+          );
+        }
+
+        const availableSensors = findAvailableSensors(cfg, hass, this.debug);
+        this._availableSensorCount = availableSensors.length;
+        if (this.debug) {
+          console.debug(
+            "[Card][Debug] Upptäckta sensorer i HA:",
+            availableSensors,
+          );
+        }
+        if (this.debug) {
+          console.debug(
+            "[Card][Debug] Upptäckta sensorer i HA:",
+            availableSensors,
+          );
+        }
+
+        this._availableSensorCount = availableSensors.length; // Spara antalet
+
+        if (this.debug)
+          console.debug(
+            "[CARD][Debug] Tillgängliga sensorer:",
+            this._availableSensorCount,
+          );
+
         let filtered = sensors;
 
         if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0) {
@@ -517,6 +554,12 @@ class PollenPrognosCard extends LitElement {
     if (!this.sensors.length) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
+      let errorMsg = "";
+      if (this._availableSensorCount === 0) {
+        errorMsg = this._t("card.error_no_sensors"); // "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?"
+      } else {
+        errorMsg = this._t("card.error_filtered_sensors"); // "Inga sensorer matchar din filtrering. Kontrollera valda allergener och tröskel."
+      }
       return html`
         <ha-card
           @click="${this._hasTapAction() ? this._handleTapAction : null}"
@@ -526,7 +569,7 @@ class PollenPrognosCard extends LitElement {
             ? "pointer"
             : "auto"}"
         >
-          <div class="card-error">${this._t("card.error")} (${name})</div>
+          <div class="card-error">${errorMsg} (${name})</div>
         </ha-card>
       `;
     }
