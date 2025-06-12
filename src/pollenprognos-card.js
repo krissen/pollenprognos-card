@@ -33,6 +33,11 @@ class PollenPrognosCard extends LitElement {
     return t(key, this._lang);
   }
 
+  _hasTapAction() {
+    const ta = this.tapAction;
+    return ta && ta.type && ta.type !== "none";
+  }
+
   static get properties() {
     return {
       hass: { state: true },
@@ -514,8 +519,12 @@ class PollenPrognosCard extends LitElement {
       const name = this._t(nameKey);
       return html`
         <ha-card
-          @click="${this._handleTapAction}"
-          style="cursor: ${this.tapAction ? "pointer" : "auto"}"
+          @click="${this._hasTapAction() ? this._handleTapAction : null}"
+          style="cursor: ${this.tapAction &&
+          this.tapAction.type &&
+          this.tapAction.type !== "none"
+            ? "pointer"
+            : "auto"}"
         >
           <div class="card-error">${this._t("card.error")} (${name})</div>
         </ha-card>
@@ -527,7 +536,11 @@ class PollenPrognosCard extends LitElement {
     return html`
       <ha-card
         @click="${this._handleTapAction}"
-        style="cursor: ${this.tapAction ? "pointer" : "auto"}"
+        style="cursor: ${this.tapAction &&
+        this.tapAction.type &&
+        this.tapAction.type !== "none"
+          ? "pointer"
+          : "auto"}"
       >
         ${cardContent}
       </ha-card>

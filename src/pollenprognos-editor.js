@@ -588,8 +588,6 @@ class PollenPrognosCardEditor extends LitElement {
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
-    } else if (prop === "tap_action") {
-      cfg = { ...this._config, tap_action: value };
     } else {
       cfg = { ...this._config, [prop]: value };
     }
@@ -1051,9 +1049,16 @@ class PollenPrognosCardEditor extends LitElement {
             @change=${(e) => {
               if (e.target.checked) {
                 this._tapType = "more-info";
+                this._updateConfig("tap_action", {
+                  ...this._config.tap_action,
+                  type: "more-info",
+                });
               } else {
                 this._tapType = "none";
-                this._updateConfig("tap_action", undefined);
+                this._updateConfig("tap_action", {
+                  ...this._config.tap_action,
+                  type: "none",
+                });
               }
               this.requestUpdate();
             }}
@@ -1092,7 +1097,6 @@ class PollenPrognosCardEditor extends LitElement {
                   <mwc-list-item value="call-service"
                     >Call Service</mwc-list-item
                   >
-                  <mwc-list-item value="none">None</mwc-list-item>
                 </ha-select>
               </div>
               ${this._tapType === "more-info"
