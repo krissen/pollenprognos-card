@@ -3,6 +3,8 @@ import { LitElement, html, css } from "lit";
 import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
+import { normalize } from "./utils/normalize.js"; // högst upp i filen
+import { normalizeDWD } from "./utils/normalize.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import { stubConfigPP } from "./adapters/pp.js";
@@ -19,8 +21,8 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    // return true;
-    return Boolean(this.config && this.config.debug);
+    return true;
+    //return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -29,6 +31,11 @@ class PollenPrognosCard extends LitElement {
 
   _t(key) {
     return t(key, this._lang);
+  }
+
+  _hasTapAction() {
+    const ta = this.tapAction;
+    return ta && ta.type && ta.type !== "none";
   }
 
   static get properties() {
@@ -90,9 +97,7 @@ class PollenPrognosCard extends LitElement {
     this.tapAction = config.tap_action || null;
 
     // Markera explicit integration
-    this._integrationExplicit =
-      config.hasOwnProperty("integration") &&
-      config.integration !== stubConfigPP.integration;
+    this._integrationExplicit = config.hasOwnProperty("integration");
 
     // Byt till relevant stub för integration och nollställ övriga fält
     let integration = this._userConfig.integration;
@@ -163,7 +168,8 @@ class PollenPrognosCard extends LitElement {
     let baseStub;
     if (integration === "dwd") baseStub = stubConfigDWD;
     else if (integration === "peu") baseStub = stubConfigPEU;
-    else baseStub = stubConfigPP;
+    else if (integration === "pp") baseStub = stubConfigPP;
+    else console.error("Unknown integration:", integration);
 
     // Sätt config rätt — utan allergens
     const { allergens, ...userConfigWithoutAllergens } = this._userConfig;
@@ -323,34 +329,19 @@ class PollenPrognosCard extends LitElement {
           );
         }
         let filtered = sensors;
+
         if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0) {
           let allowed;
+          let getKey;
           if (integration === "dwd") {
-            // Gör både 'gräser' och 'graeser' till 'graeser'
-            allowed = new Set(
-              cfg.allergens.map((a) =>
-                a.toLowerCase().replace(/ä/g, "ae").replace(/\s+/g, "_"),
-              ),
-            );
+            allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
+            getKey = (s) => normalizeDWD(s.allergenReplaced || "");
           } else {
-            allowed = new Set(
-              cfg.allergens.map((a) => a.toLowerCase().replace(/\s+/g, "_")),
-            );
+            allowed = new Set(cfg.allergens.map((a) => normalize(a)));
+            getKey = (s) => normalize(s.allergenReplaced || "");
           }
           filtered = sensors.filter((s) => {
-            let allergenKey = "";
-            if (integration === "dwd" || integration === "peu")
-              allergenKey = (s.allergenReplaced || "").toLowerCase();
-            else
-              allergenKey = (
-                s.allergenCapitalized ||
-                s.allergenShort ||
-                s.allergenReplaced ||
-                s.allergen ||
-                ""
-              )
-                .toLowerCase()
-                .replace(/\s+/g, "_");
+            const allergenKey = getKey(s);
             const ok = allowed.has(allergenKey);
             if (!ok && this.debug) {
               console.debug(
@@ -528,8 +519,12 @@ class PollenPrognosCard extends LitElement {
       const name = this._t(nameKey);
       return html`
         <ha-card
-          @click="${this._handleTapAction}"
-          style="cursor: ${this.tapAction ? "pointer" : "auto"}"
+          @click="${this._hasTapAction() ? this._handleTapAction : null}"
+          style="cursor: ${this.tapAction &&
+          this.tapAction.type &&
+          this.tapAction.type !== "none"
+            ? "pointer"
+            : "auto"}"
         >
           <div class="card-error">${this._t("card.error")} (${name})</div>
         </ha-card>
@@ -541,7 +536,11 @@ class PollenPrognosCard extends LitElement {
     return html`
       <ha-card
         @click="${this._handleTapAction}"
-        style="cursor: ${this.tapAction ? "pointer" : "auto"}"
+        style="cursor: ${this.tapAction &&
+        this.tapAction.type &&
+        this.tapAction.type !== "none"
+          ? "pointer"
+          : "auto"}"
       >
         ${cardContent}
       </ha-card>

@@ -102,6 +102,14 @@ export async function fetchForecast(hass, config) {
       dict.allergenReplaced = rawKey;
 
       // Allergen name resolution
+      if (this.debug) {
+        console.log(
+          "[PP] allergen",
+          allergen,
+          "fullPhrases keys",
+          Object.keys(fullPhrases),
+        );
+      }
       if (fullPhrases[allergen]) {
         dict.allergenCapitalized = fullPhrases[allergen];
       } else {
