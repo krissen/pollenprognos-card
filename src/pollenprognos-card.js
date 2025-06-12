@@ -3,6 +3,8 @@ import { LitElement, html, css } from "lit";
 import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
+import { normalize } from "./utils/normalize.js"; // högst upp i filen
+import { normalizeDWD } from "./utils/normalize.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import { stubConfigPP } from "./adapters/pp.js";
@@ -19,8 +21,8 @@ const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   get debug() {
-    // return true;
-    return Boolean(this.config && this.config.debug);
+    return true;
+    //return Boolean(this.config && this.config.debug);
   }
 
   get _lang() {
@@ -323,34 +325,19 @@ class PollenPrognosCard extends LitElement {
           );
         }
         let filtered = sensors;
+
         if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0) {
           let allowed;
+          let getKey;
           if (integration === "dwd") {
-            // Gör både 'gräser' och 'graeser' till 'graeser'
-            allowed = new Set(
-              cfg.allergens.map((a) =>
-                a.toLowerCase().replace(/ä/g, "ae").replace(/\s+/g, "_"),
-              ),
-            );
+            allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
+            getKey = (s) => normalizeDWD(s.allergenReplaced || "");
           } else {
-            allowed = new Set(
-              cfg.allergens.map((a) => a.toLowerCase().replace(/\s+/g, "_")),
-            );
+            allowed = new Set(cfg.allergens.map((a) => normalize(a)));
+            getKey = (s) => normalize(s.allergenReplaced || "");
           }
           filtered = sensors.filter((s) => {
-            let allergenKey = "";
-            if (integration === "dwd" || integration === "peu")
-              allergenKey = (s.allergenReplaced || "").toLowerCase();
-            else
-              allergenKey = (
-                s.allergenCapitalized ||
-                s.allergenShort ||
-                s.allergenReplaced ||
-                s.allergen ||
-                ""
-              )
-                .toLowerCase()
-                .replace(/\s+/g, "_");
+            const allergenKey = getKey(s);
             const ok = allowed.has(allergenKey);
             if (!ok && this.debug) {
               console.debug(
