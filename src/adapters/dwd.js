@@ -23,6 +23,7 @@ export const stubConfigDWD = {
     "roggen",
   ],
   minimal: false,
+  background_color: "",
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,

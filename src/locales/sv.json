@@ -21,8 +21,8 @@
   "card.days.1": "Imorgon",
   "card.days.2": "I övermorgon",
   "card.error": "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?",
-  "card.error_no_sensors": "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?",
   "card.error_filtered_sensors": "Inga sensorer matchar din filtrering. Kontrollera valda allergener och tröskel.",
+  "card.error_no_sensors": "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?",
   "card.header_prefix": "Pollenprognos för",
   "card.integration.dwd": "DWD Pollenflug",
   "card.integration.peu": "Polleninformation EU",
@@ -37,6 +37,9 @@
   "card.no_information": "(Ingen information)",
   "editor.allergens": "Allergener",
   "editor.allergens_abbreviated": "Förkorta allergener",
+  "editor.background_color": "Bakgrundsfärg",
+  "editor.background_color_picker": "Välj färg",
+  "editor.background_color_placeholder": "t.ex. #ffeecc eller var(--my-color)",
   "editor.city": "Stad",
   "editor.days_abbreviated": "Förkorta veckodagar",
   "editor.days_boldfaced": "Fetstil veckodagar",
@@ -114,8 +117,7 @@
   "editor.show_value_text": "Visa värde, text",
   "editor.sort": "Sortering",
   "editor.title": "Rubrik på kortet",
-  "editor.title_placeholder": "(automatisk)",
-  "editor.title_hide": "Göm rubrik",
   "editor.title_automatic": "Automatisk rubrik",
-  "card.integration.peu": "Polleninformation EU"
+  "editor.title_hide": "Göm rubrik",
+  "editor.title_placeholder": "(automatisk)"
 }

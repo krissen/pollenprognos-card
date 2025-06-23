@@ -556,6 +556,10 @@ class PollenPrognosCard extends LitElement {
   render() {
     if (!this.config) return html``;
 
+    if (this.debug) {
+      console.debug("[Card] Hela config:", this.config);
+    }
+
     let cardContent;
     if (!this.sensors.length) {
       const nameKey = `card.integration.${this.config.integration}`;
@@ -576,9 +580,12 @@ class PollenPrognosCard extends LitElement {
     const tapAction = this.config.tap_action || null;
 
     // Lägg till background-color om satt
-    const bgStyle = this.config.background_color
-      ? `background-color: ${this.config.background_color};`
+    const bgStyle = this.config.background_color?.trim?.()
+      ? `background-color: ${this.config.background_color.trim()};`
       : "";
+    if (this.debug) {
+      console.debug("[Card] Background style:", bgStyle);
+    }
     // Sätt style för cursor
     const cursorStyle =
       tapAction && tapAction.type && tapAction.type !== "none"
