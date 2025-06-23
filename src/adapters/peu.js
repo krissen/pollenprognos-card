@@ -27,6 +27,7 @@ export const stubConfigPEU = {
     "willow",
   ],
   minimal: false,
+  background_color: "",
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,
@@ -148,7 +149,9 @@ export async function fetchForecast(hass, config) {
           if (!match) return false;
           const loc = match[1];
           const allergen = match[2];
-          return (!locationSlug || loc === locationSlug) && allergen === allergenSlug;
+          return (
+            (!locationSlug || loc === locationSlug) && allergen === allergenSlug
+          );
         });
 
         if (cands.length === 1) sensorId = cands[0];

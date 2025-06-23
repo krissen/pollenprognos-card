@@ -421,25 +421,28 @@ class PollenPrognosCard extends LitElement {
 
   _renderMinimalHtml() {
     return html`
-      <ha-card>
-        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
         <div class="flex-container">
-          ${this.sensors.map((sensor) => {
-            const txt = sensor.day0.state_text || "";
-            const num = sensor.day0.state;
+          ${(this.sensors || []).map((sensor) => {
+            const txt = sensor.day0?.state_text ?? "";
+            const num = sensor.day0?.state ?? "";
             let label = "";
-            if (this.config.show_text_allergen) {
-              label += this.config.allergens_abbreviated
-                ? sensor.allergenShort
-                : sensor.allergenCapitalized;
+            if (this.config?.show_text_allergen) {
+              label += this.config?.allergens_abbreviated
+                ? sensor.allergenShort ?? ""
+                : sensor.allergenCapitalized ?? "";
             }
-            if (this.config.show_value_text && this.config.show_value_numeric) {
+            if (
+              this.config?.show_value_text &&
+              this.config?.show_value_numeric
+            ) {
               if (label) label += ": ";
               label += `${txt} (${num})`;
-            } else if (this.config.show_value_text) {
+            } else if (this.config?.show_value_text) {
               if (label) label += ": ";
               label += txt;
-            } else if (this.config.show_value_numeric) {
+            } else if (this.config?.show_value_numeric) {
               if (label) label += " ";
               label += `(${num})`;
             }
@@ -449,7 +452,7 @@ class PollenPrognosCard extends LitElement {
                   class="box"
                   src="${this._getImageSrc(
                     sensor.allergenReplaced,
-                    sensor.day0.state,
+                    sensor.day0?.state,
                   )}"
                 />
                 ${label ? html`<span class="short-text">${label}</span>` : ""}
@@ -457,7 +460,7 @@ class PollenPrognosCard extends LitElement {
             `;
           })}
         </div>
-      </ha-card>
+      </div>
     `;
   }
 
@@ -466,8 +469,8 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
 
     return html`
-      <ha-card>
-        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
         <table class="forecast">
           <thead>
             <tr>
@@ -546,44 +549,57 @@ class PollenPrognosCard extends LitElement {
             `,
           )}
         </table>
-      </ha-card>
+      </div>
     `;
   }
 
   render() {
+    if (!this.config) return html``;
+
+    if (this.debug) {
+      console.debug("[Card] Hela config:", this.config);
+    }
+
+    let cardContent;
     if (!this.sensors.length) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
       let errorMsg = "";
       if (this._availableSensorCount === 0) {
-        errorMsg = this._t("card.error_no_sensors"); // "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?"
+        errorMsg = this._t("card.error_no_sensors");
       } else {
-        errorMsg = this._t("card.error_filtered_sensors"); // "Inga sensorer matchar din filtrering. Kontrollera valda allergener och tröskel."
+        errorMsg = this._t("card.error_filtered_sensors");
       }
-      return html`
-        <ha-card
-          @click="${this._hasTapAction() ? this._handleTapAction : null}"
-          style="cursor: ${this.tapAction &&
-          this.tapAction.type &&
-          this.tapAction.type !== "none"
-            ? "pointer"
-            : "auto"}"
-        >
-          <div class="card-error">${errorMsg} (${name})</div>
-        </ha-card>
-      `;
+      cardContent = html`<div class="card-error">${errorMsg} (${name})</div>`;
+    } else {
+      cardContent = this.config.minimal
+        ? this._renderMinimalHtml()
+        : this._renderNormalHtml();
     }
-    const cardContent = this.config.minimal
-      ? this._renderMinimalHtml()
-      : this._renderNormalHtml();
+
+    const tapAction = this.config.tap_action || null;
+
+    // Lägg till background-color om satt
+    const bgStyle = this.config.background_color?.trim?.()
+      ? `background-color: ${this.config.background_color.trim()};`
+      : "";
+    if (this.debug) {
+      console.debug("[Card] Background style:", bgStyle);
+    }
+    // Sätt style för cursor
+    const cursorStyle =
+      tapAction && tapAction.type && tapAction.type !== "none"
+        ? "pointer"
+        : "auto";
+    // Sätt ihop bakgrund och cursor
+    const cardStyle = `${bgStyle} cursor: ${cursorStyle};`;
+
     return html`
       <ha-card
-        @click="${this._handleTapAction}"
-        style="cursor: ${this.tapAction &&
-        this.tapAction.type &&
-        this.tapAction.type !== "none"
-          ? "pointer"
-          : "auto"}"
+        style="${cardStyle}"
+        @click="${tapAction && tapAction.type && tapAction.type !== "none"
+          ? this._handleTapAction
+          : null}"
       >
         ${cardContent}
       </ha-card>
@@ -638,13 +654,6 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
-      .header {
-        margin: 0;
-        padding: 4px 16px 12px;
-        @apply --paper-font-headline;
-        line-height: 40px;
-        color: var(--primary-text-color);
-      }
       .forecast {
         width: 100%;
         padding: 7px;
