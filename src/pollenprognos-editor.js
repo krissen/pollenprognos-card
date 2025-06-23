@@ -773,7 +773,30 @@ class PollenPrognosCardEditor extends LitElement {
             }}
           ></ha-textfield>
         </ha-formfield>
-
+        <!-- Bakgrundsfärg -->
+        <ha-formfield label="${this._t("background_color")}">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <ha-textfield
+              .value=${c.background_color || ""}
+              placeholder="${this._t("background_color_placeholder") ||
+              "#ffffff"}"
+              @input=${(e) =>
+                this._updateConfig("background_color", e.target.value)}
+              style="width: 120px;"
+            ></ha-textfield>
+            <input
+              type="color"
+              .value=${c.background_color &&
+              /^#[0-9a-fA-F]{6}$/.test(c.background_color)
+                ? c.background_color
+                : "#ffffff"}
+              @input=${(e) =>
+                this._updateConfig("background_color", e.target.value)}
+              style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
+              title="${this._t("background_color_picker") || "Pick color"}"
+            />
+          </div>
+        </ha-formfield>
         <!-- Layout-switchar -->
         <ha-formfield label="${this._t("minimal")}">
           <ha-switch
