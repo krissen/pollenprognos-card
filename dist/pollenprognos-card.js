@@ -1844,8 +1844,8 @@ class yn extends CA {
   }
   _renderMinimalHtml() {
     return m`
-      <ha-card>
-        ${this.header ? m`<h1 class="header">${this.header}</h1>` : ""}
+      ${this.header ? m`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
         <div class="flex-container">
           ${this.sensors.map((A) => {
       const g = A.day0.state_text || "", C = A.day0.state;
@@ -1864,14 +1864,14 @@ class yn extends CA {
             `;
     })}
         </div>
-      </ha-card>
+      </div>
     `;
   }
   _renderNormalHtml() {
     const A = !!this.config.days_boldfaced, g = this.displayCols;
     return m`
-      <ha-card>
-        ${this.header ? m`<h1 class="header">${this.header}</h1>` : ""}
+      ${this.header ? m`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
         <table class="forecast">
           <thead>
             <tr>
@@ -1939,26 +1939,21 @@ class yn extends CA {
       }
     )}
         </table>
-      </ha-card>
+      </div>
     `;
   }
   render() {
-    if (!this.sensors.length) {
+    let A;
+    if (this.sensors.length)
+      A = this.config.minimal ? this._renderMinimalHtml() : this._renderNormalHtml();
+    else {
       const g = `card.integration.${this.config.integration}`, C = this._t(g);
       let n = "";
-      return this._availableSensorCount === 0 ? n = this._t("card.error_no_sensors") : n = this._t("card.error_filtered_sensors"), m`
-        <ha-card
-          @click="${this._hasTapAction() ? this._handleTapAction : null}"
-          style="cursor: ${this.tapAction && this.tapAction.type && this.tapAction.type !== "none" ? "pointer" : "auto"}"
-        >
-          <div class="card-error">${n} (${C})</div>
-        </ha-card>
-      `;
+      this._availableSensorCount === 0 ? n = this._t("card.error_no_sensors") : n = this._t("card.error_filtered_sensors"), A = m` <div class="card-error">${n} (${C})</div> `;
     }
-    const A = this.config.minimal ? this._renderMinimalHtml() : this._renderNormalHtml();
     return m`
       <ha-card
-        @click="${this._handleTapAction}"
+        @click="${this._hasTapAction() ? this._handleTapAction : null}"
         style="cursor: ${this.tapAction && this.tapAction.type && this.tapAction.type !== "none" ? "pointer" : "auto"}"
       >
         ${A}
@@ -2004,13 +1999,13 @@ class yn extends CA {
   }
   static get styles() {
     return qA`
-      .header {
-        margin: 0;
-        padding: 4px 16px 12px;
-        @apply --paper-font-headline;
-        line-height: 40px;
-        color: var(--primary-text-color);
-      }
+      // .header {
+      //   margin: 0;
+      //   padding: 4px 16px 12px;
+      //   @apply --paper-font-headline;
+      //   line-height: 40px;
+      //   color: var(--primary-text-color);
+      // }
       .forecast {
         width: 100%;
         padding: 7px;

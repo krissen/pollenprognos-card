@@ -421,8 +421,8 @@ class PollenPrognosCard extends LitElement {
 
   _renderMinimalHtml() {
     return html`
-      <ha-card>
-        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
         <div class="flex-container">
           ${this.sensors.map((sensor) => {
             const txt = sensor.day0.state_text || "";
@@ -457,7 +457,7 @@ class PollenPrognosCard extends LitElement {
             `;
           })}
         </div>
-      </ha-card>
+      </div>
     `;
   }
 
@@ -466,8 +466,8 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
 
     return html`
-      <ha-card>
-        ${this.header ? html`<h1 class="header">${this.header}</h1>` : ""}
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
         <table class="forecast">
           <thead>
             <tr>
@@ -546,39 +546,30 @@ class PollenPrognosCard extends LitElement {
             `,
           )}
         </table>
-      </ha-card>
+      </div>
     `;
   }
 
   render() {
+    let cardContent;
     if (!this.sensors.length) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
       let errorMsg = "";
       if (this._availableSensorCount === 0) {
-        errorMsg = this._t("card.error_no_sensors"); // "Inga pollen-sensorer hittades. Har du installerat rätt integration och valt region i kortets konfiguration?"
+        errorMsg = this._t("card.error_no_sensors");
       } else {
-        errorMsg = this._t("card.error_filtered_sensors"); // "Inga sensorer matchar din filtrering. Kontrollera valda allergener och tröskel."
+        errorMsg = this._t("card.error_filtered_sensors");
       }
-      return html`
-        <ha-card
-          @click="${this._hasTapAction() ? this._handleTapAction : null}"
-          style="cursor: ${this.tapAction &&
-          this.tapAction.type &&
-          this.tapAction.type !== "none"
-            ? "pointer"
-            : "auto"}"
-        >
-          <div class="card-error">${errorMsg} (${name})</div>
-        </ha-card>
-      `;
+      cardContent = html` <div class="card-error">${errorMsg} (${name})</div> `;
+    } else {
+      cardContent = this.config.minimal
+        ? this._renderMinimalHtml()
+        : this._renderNormalHtml();
     }
-    const cardContent = this.config.minimal
-      ? this._renderMinimalHtml()
-      : this._renderNormalHtml();
     return html`
       <ha-card
-        @click="${this._handleTapAction}"
+        @click="${this._hasTapAction() ? this._handleTapAction : null}"
         style="cursor: ${this.tapAction &&
         this.tapAction.type &&
         this.tapAction.type !== "none"
@@ -638,13 +629,6 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
-      .header {
-        margin: 0;
-        padding: 4px 16px 12px;
-        @apply --paper-font-headline;
-        line-height: 40px;
-        color: var(--primary-text-color);
-      }
       .forecast {
         width: 100%;
         padding: 7px;
