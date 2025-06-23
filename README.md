@@ -1,4 +1,5 @@
 # pollenprognos-card
+
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]](LICENSE)
 
@@ -28,7 +29,6 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 </table>
 
 ## Requirements
-
 
 Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos, Polleninformation EU or DWD Pollenflug.
 
@@ -160,6 +160,7 @@ See example under "Custom text for allergens, values etc", below.
 | `days_uppercase`              | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Render weekday labels in **uppercase**.                                                                                                                                   |                                                                                                                              |
 | `days_boldfaced`              | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Render weekday labels in **bold**.                                                                                                                                        |                                                                                                                              |
 | `minimal`                     | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Use the compact “minimal” flex‐box layout instead of the full table.                                                                                                      |                                                                                                                              |
+| `background_color`             | `string`                  | *(empty)*                                                                                                                           | *(empty)*                                                                 | Optional. Sets the background color of the card. Accepts any valid CSS color (e.g. `#ffeecc`, `rgba(250,250,200,0.7)`, `var(--my-color)`). If omitted, uses the theme default. |                                                                                                                              |
 | `allergens_abbreviated` | `boolean` | `false` | `false` | If true, shows short names of alleergens (`phrases.allergen_short.*`) instead of full allergen names (`phrases.allergen_full.*`).|
 | `show_text_allergen`          | `boolean`                 | `false`                                                                                                                             | `false`                                                                   | Show allergen name in text.                                                                                                                                              |
 | `show_value_text`             | `boolean`                 | `false`                                                                                                                             | `true`                                                                    | Show pollen intensity as text below icons/cells.                                                                                                                         |
@@ -462,5 +463,3 @@ This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card
 [user_profile]: https://github.com/krissen
 [buymecoffee]: https://coff.ee/krissen
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-
-
