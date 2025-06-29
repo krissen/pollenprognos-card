@@ -98,22 +98,33 @@ export async function fetchForecast(hass, config) {
     config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
 
   // Alla silam-sensorer
-  const silamStates = Object.keys(hass.states).filter((id) =>
-    id.startsWith("sensor.silam_pollen_"),
-  );
+  const locationSlug = (config.location || "").toLowerCase();
+  const silamStates = Object.keys(hass.states).filter((id) => {
+    const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+    return m && m[1] === locationSlug;
+  });
 
-  // Bygg lookup
+  // Bygg lookup: ALLA språk, så vi hittar master-key oavsett HA-språk
   const sensorLookup = {};
   for (const eid of silamStates) {
     const match = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
     if (!match) continue;
-    const rawSlug = normalize(match[2] || "");
-    const mapping =
-      silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {};
-    const masterSlug =
-      mapping[rawSlug] || silamAllergenMap.mapping?.en?.[rawSlug];
-    if (!masterSlug) continue;
-    sensorLookup[masterSlug] = eid;
+    const haSlug = match[2];
+    let found = false;
+    // Loop igenom alla språk tills vi hittar master-key för denna haSlug
+    for (const [langKey, mapping] of Object.entries(silamAllergenMap.mapping)) {
+      if (mapping[haSlug]) {
+        const masterSlug = mapping[haSlug];
+        sensorLookup[masterSlug] = eid;
+        found = true;
+        break; // Sluta efter första träff!
+      }
+    }
+    if (!found && debug) {
+      console.debug(
+        `[SILAM][fetchForecast] Hittade ingen master-key för haSlug: '${haSlug}'`,
+      );
+    }
   }
 
   const sensors = [];

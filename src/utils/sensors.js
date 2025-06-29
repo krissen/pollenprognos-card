@@ -84,23 +84,42 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (exists) sensors.push(sensorId);
     }
   } else if (integration === "silam") {
-    const lang = cfg.date_locale?.slice(0, 2) || "en"; // eller plocka från hass.locale/language
-    const reverse = getSilamReverseMap(lang);
     const locationSlug = (cfg.location || "").toLowerCase();
     for (const allergen of cfg.allergens || []) {
-      const hassSlug = reverse[allergen] || allergen;
-      const sensorId = `sensor.silam_pollen_${locationSlug}_${hassSlug}`;
-      const exists = !!hass.states[sensorId];
-      if (debug) {
+      // Leta i ALLA språk-mappingar tills vi hittar rätt Home Assistant-slug
+      let hassSlug = null;
+      for (const mapping of Object.values(silamAllergenMap.mapping)) {
+        // mapping: { haSlug: "master" }
+        // Vi behöver master->haSlug, så invertera:
+        const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
+          acc[master] = ha;
+          return acc;
+        }, {});
+        if (inv[allergen]) {
+          const candidateSlug = inv[allergen];
+          const sensorId = `sensor.silam_pollen_${locationSlug}_${candidateSlug}`;
+          if (hass.states[sensorId]) {
+            hassSlug = candidateSlug;
+            // Hittade en existerande sensor!
+            if (debug) {
+              console.debug(
+                `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', hassSlug: '${hassSlug}', sensorId: '${sensorId}', exists: true`,
+                hass.states[sensorId],
+              );
+            }
+            sensors.push(sensorId);
+            break;
+          }
+        }
+      }
+      // Om vi inte hittade någon, debugga gärna:
+      if (!hassSlug && debug) {
         console.debug(
-          `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', hassSlug: '${hassSlug}', sensorId: '${sensorId}', exists: ${exists}`,
-          hass.states[sensorId],
+          `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', ingen sensor hittades!`,
         );
       }
-      if (exists) sensors.push(sensorId);
     }
   }
-
   if (debug) {
     const myLength = sensors.length;
     console.debug(

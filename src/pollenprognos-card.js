@@ -415,20 +415,43 @@ class PollenPrognosCard extends LitElement {
         const availableSensors = findAvailableSensors(cfg, hass, this.debug);
         const availableSensorCount = availableSensors.length;
 
-        // Bygg SILAM reverse mapping om aktuellt
-        let silamReverse = null;
+        // --- AUTODETECT HASS-SLUG-SPRÅK FÖR SILAM ---
+        let silamReverse = {};
         if (cfg.integration === "silam") {
-          // Försök lista ut språk: cfg.date_locale (ex sv-SE), annars en, annars fallback
-          let silamLang = (cfg.date_locale || "").slice(0, 2) || "en";
-          // Sök mapping i silamAllergenMap (ska vara importerat)
-          silamReverse = {};
-          const mapping =
-            typeof silamAllergenMap !== "undefined" &&
-            silamAllergenMap.mapping?.[silamLang]
-              ? silamAllergenMap.mapping[silamLang]
-              : silamAllergenMap.mapping?.en || {};
-          for (const [haSlug, master] of Object.entries(mapping)) {
-            silamReverse[master] = haSlug;
+          // Alla silam-entiteter för platsen
+          const silamStates = Object.keys(hass.states).filter((id) => {
+            const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+            return m && m[1] === (cfg.location || "");
+          });
+
+          // Loopa igenom alla sensors och alla mapping-språk
+          for (const eid of silamStates) {
+            const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+            if (!m) continue;
+            const haSlug = m[2];
+            // Gå igenom alla språk och leta master-slug
+            let found = false;
+            for (const [lang, mapping] of Object.entries(
+              silamAllergenMap.mapping,
+            )) {
+              if (mapping[haSlug]) {
+                silamReverse[mapping[haSlug]] = haSlug;
+                found = true;
+                break; // sluta efter första träff (det räcker, unikt per system)
+              }
+            }
+            // Om ingen träff – debugga gärna
+            if (!found && this.debug) {
+              console.debug(
+                `[Card][SILAM] Hittade ingen mapping för haSlug: '${haSlug}'`,
+              );
+            }
+          }
+          if (this.debug) {
+            console.debug(
+              "[Card][SILAM] silamReverse byggd baserat på existerande sensors:",
+              silamReverse,
+            );
           }
         }
 
@@ -439,9 +462,13 @@ class PollenPrognosCard extends LitElement {
             // Mappar master->haSlug för entity_id
             const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
             const id = `sensor.silam_pollen_${loc}_${key}`;
+            if (this.debug) {
+              console.debug(
+                `[Card][Debug][SILAM filter] allergenReplaced: '${s.allergenReplaced}', key: '${key}', id: '${id}', available: ${availableSensors.includes(id)}`,
+              );
+            }
             return availableSensors.includes(id);
           }
-          // ...lägg till motsvarande för övriga integrationer om du vill ha striktare filter...
           return true; // fallback: visa alla
         });
 
