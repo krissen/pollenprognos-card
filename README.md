@@ -1,4 +1,5 @@
 # pollenprognos-card
+
 [![GitHub Release][releases-shield]][releases]
 [![License][license-shield]](LICENSE)
 
@@ -6,7 +7,7 @@
 [![Project Maintenance][maintenance-shield]][user_profile]
 [![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos), [Polleninformation EU](https://github.com/krissen/polleninformation) or (v2.0 and above) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master).
+A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master), [Polleninformation EU](https://github.com/krissen/polleninformation), or [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen).
 
 <table align="center">
   <tr>
@@ -29,7 +30,6 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ## Requirements
 
-
 Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos, Polleninformation EU or DWD Pollenflug.
 
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
@@ -39,8 +39,15 @@ For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
 - [Polleninformation EU](https://github.com/krissen/polleninformation)  
   **Note,** for polleninformation, you need v2.2.0 or higher of this card.
 
+- [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen)  
+  **Notes:**
+  - Do not change sensor names from the integration's defaults. The card expects sensors like `sensor.silam_pollen_ambrosia` and the like (ie., the defaults).
+  - For silam_pollen, you need v2.3.0 or higher of this card.
+
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)  
-  **Note,** do not change sensor names from the integration's defaults. The card excpects sensors like `sensor.pollenflug_erle_43` and the like (ie., the defaults).
+  **Notes:**
+  - Do not change sensor names from the integration's defaults. The card excpects sensors like `sensor.pollenflug_erle_43` and the like (ie., the defaults).
+  - You need v2.0.0 or higher version of the card.
 
 ### Install with HACS
 
@@ -153,6 +160,7 @@ See example under "Custom text for allergens, values etc", below.
 | `integration`                 | `string`                  | `pp`                                                                                                                                | `dwd`                                                                     | Which adapter to use. If omitted, auto-detects based on your sensors.                                                                                                     |                                                                                                                              |
 | `city`    **(PP only)**       | `string`                  | **Required** (when using `pp`)                                                                                                      |                                                                           | City name matching your PP-sensor IDs (e.g. `Stockholm`, `Malmö`). Must appear in the [supported list](#supported-cities).                                                |                                                                                                                              |
 | `region_id`    **(DWD only)** | `string`                  |                                                                                                                                     | **Required** (when using `dwd`)                                           | Numerical DWD region code (e.g. `31`, `91`, etc). See [DWD\_REGIONS](#dwd-region-codes) for available codes & names.                                                      |                                                                                                                              |
+| `location`    **(PEU, SILAM only)** | `string` | **Required** (when using `peu` or `silam`) | | Location slug matching your PEU or SILAM sensor IDs (e.g. `uppsala`, `stockholm`, `eindhoven`). See [supported locations](#supported-locations). | |
 | `allergens`                   | `array<string>`           | `["Al","Alm","Björk","Ek","Malörtsambrosia","Gråbo","Gräs","Hassel","Sälg och viden"]`                                              | `["erle","ambrosia","esche","birke","hasel","gräser","beifuss","roggen"]` | Which pollen types to include. Keys must match your sensor IDs. Defaults differ by integration.                                                                           |                                                                                                                              |
 | `days_to_show`                | `integer`                 | `4`                                                                                                                                 | `2`                                                                       | How many days to show (including today), `0–6`.                                                                                                                           |                                                                                                                              |
 | `days_relative`               | `boolean`                 | `true`                                                                                                                              | `true`                                                                    | Use relative labels (“Today”, “Tomorrow”) for the first three days; beyond that falls back to locale weekdays. Set to `false` for always‐absolute (locale weekday names). |                                                                                                                              |
@@ -462,5 +470,3 @@ This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card
 [user_profile]: https://github.com/krissen
 [buymecoffee]: https://coff.ee/krissen
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-
-
