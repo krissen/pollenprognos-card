@@ -227,7 +227,7 @@ export async function fetchForecast(hass, config) {
       const meets = dict.days.some((d) => d.state >= pollen_threshold);
       if (meets || pollen_threshold === 0) sensors.push(dict);
     } catch (e) {
-      console.warn(`Fel vid allergen ${allergen}:`, e);
+      console.warn(`[PP] Fel vid allergen ${allergen}:`, e);
     }
   }
 

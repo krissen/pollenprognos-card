@@ -7,6 +7,7 @@ import { normalize } from "./utils/normalize.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
+import { stubConfigSILAM } from "./adapters/silam.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -39,7 +40,9 @@ const getStubConfig = (integration) =>
     ? stubConfigDWD
     : integration === "peu"
       ? stubConfigPEU
-      : stubConfigPP;
+      : integration === "silam"
+        ? stubConfigSILAM
+        : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -65,7 +68,9 @@ class PollenPrognosCardEditor extends LitElement {
         ? stubConfigDWD.allergens
         : this._config.integration === "peu"
           ? stubConfigPEU.allergens
-          : stubConfigPP.allergens;
+          : this._config.integration === "silam"
+            ? stubConfigSILAM.allergens
+            : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -85,7 +90,9 @@ class PollenPrognosCardEditor extends LitElement {
         ? 4
         : this._config.integration === "peu"
           ? 5
-          : 7;
+          : this._config.integration === "silam"
+            ? 7
+            : 7;
 
     const levels = Array.from({ length: numLevels }, (_, i) =>
       t(`editor.phrases_levels.${i}`, lang),
@@ -142,6 +149,7 @@ class PollenPrognosCardEditor extends LitElement {
     this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];
+    this.installedSilamLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
@@ -167,7 +175,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigDWD.allergens.length
           : config.integration === "peu"
             ? stubConfigPEU.allergens.length
-            : stubConfigPP.allergens.length;
+            : config.integration === "silam"
+              ? stubConfigSILAM.allergens.length
+              : stubConfigPP.allergens.length;
       const incoming = { ...config };
 
       // 2. Om användaren tidigare valt färre allergener än stub, spara undan dessa
@@ -202,7 +212,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigDWD
           : incoming.integration === "peu"
             ? stubConfigPEU
-            : stubConfigPP
+            : incoming.integration === "silam"
+              ? stubConfigSILAM
+              : stubConfigPP
       ).pollen_threshold;
       if (
         incoming.hasOwnProperty("pollen_threshold") &&
@@ -249,7 +261,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigDWD
           : incoming.integration === "peu"
             ? stubConfigPEU
-            : stubConfigPP
+            : incoming.integration === "silam"
+              ? stubConfigSILAM
+              : stubConfigPP
       ).date_locale;
       if (!this._localeExplicit && incoming.date_locale === stubLocale) {
         if (this.debug) console.debug("[Editor] dropped stub date_locale");
@@ -283,6 +297,8 @@ class PollenPrognosCardEditor extends LitElement {
           integration = "peu";
         } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
           integration = "dwd";
+        } else if (all.some((id) => id.startsWith("sensor.silam_pollen_"))) {
+          integration = "silam";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -397,6 +413,13 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           this._config.city = this.installedCities[0];
         }
+        if (
+          integration === "silam" &&
+          !this._userConfig.location &&
+          this.installedLocations.length
+        ) {
+          this._config.location = this.installedLocations[0];
+        }
       }
 
       if (this.debug)
@@ -442,7 +465,7 @@ class PollenPrognosCardEditor extends LitElement {
     this._hass = hass;
     const explicit = this._integrationExplicit;
 
-    // Hitta alla sensor-ID för PP, DWD och PEU
+    // Hitta alla sensor-ID för PP, DWD, PEU och SILAM
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
         id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
@@ -453,6 +476,9 @@ class PollenPrognosCardEditor extends LitElement {
     const peuStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.polleninformation_"),
     );
+    const silamStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.silam_pollen_"),
+    );
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -460,6 +486,7 @@ class PollenPrognosCardEditor extends LitElement {
       if (ppStates.length) integration = "pp";
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
+      else if (silamStates.length) integration = "silam";
       this._userConfig.integration = integration;
     }
 
@@ -469,7 +496,9 @@ class PollenPrognosCardEditor extends LitElement {
         ? stubConfigDWD
         : integration === "peu"
           ? stubConfigPEU
-          : stubConfigPP;
+          : integration === "silam"
+            ? stubConfigSILAM
+            : stubConfigPP;
 
     // Bygg merged-objekt (det är denna rad som saknas)
     let merged = deepMerge(base, this._userConfig);
@@ -528,6 +557,32 @@ class PollenPrognosCardEditor extends LitElement {
       ),
     );
 
+    this.installedSilamLocations = Array.from(
+      new Map(
+        Object.values(hass.states)
+          .filter((s) => s.entity_id.startsWith("sensor.silam_pollen_"))
+          .map((s) => {
+            // Format: sensor.silam_pollen_<location>_<allergen>
+            // Plocka ut location (allt mellan första och sista "_")
+            const match = s.entity_id.match(
+              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+            );
+            const locationSlug = match ? match[1].replace(/^[-\s]+/, "") : "";
+            let title =
+              s.attributes.location_title ||
+              (s.attributes.friendly_name?.match(
+                /^SILAM Pollen\s*-?\s*([^\s]+)\s/i,
+              )?.[1] ??
+                "") ||
+              locationSlug;
+            title = title.replace(/^[-\s]+/, "");
+            // Valfritt: Gör första bokstaven versal
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+            return [locationSlug, title];
+          }),
+      ),
+    );
+
     // 4) Auto-välj första region/stad om användaren inte satt något
     if (!this._initDone) {
       if (
@@ -543,6 +598,13 @@ class PollenPrognosCardEditor extends LitElement {
         this.installedCities.length
       ) {
         this._config.city = this.installedCities[0];
+      }
+      if (
+        integration === "silam" &&
+        !this._userConfig.location &&
+        this.installedSilamLocations.length
+      ) {
+        this._config.location = this.installedSilamLocations[0][0];
       }
     }
     this._initDone = true;
@@ -584,7 +646,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigDWD
           : newInt === "peu"
             ? stubConfigPEU
-            : stubConfigPP;
+            : newInt === "silam"
+              ? stubConfigSILAM
+              : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
@@ -620,9 +684,10 @@ class PollenPrognosCardEditor extends LitElement {
         ? stubConfigDWD.allergens
         : c.integration === "peu"
           ? stubConfigPEU.allergens
-          : stubConfigPP.allergens;
+          : c.integration === "silam"
+            ? stubConfigSILAM.allergens
+            : stubConfigPP.allergens;
 
-    // Lägg till detta:
     const numLevels =
       c.integration === "dwd" ? 4 : c.integration === "peu" ? 5 : 7;
 
@@ -660,10 +725,13 @@ class PollenPrognosCardEditor extends LitElement {
             <mwc-list-item value="dwd"
               >${this._t("integration.dwd")}</mwc-list-item
             >
+            <mwc-list-item value="silam"
+              >${this._t("integration.silam")}</mwc-list-item
+            >
           </ha-select>
         </ha-formfield>
 
-        <!-- Stad (PP) eller Region (DWD) -->
+        <!-- Stad (PP, PEU) eller Region (DWD) eller plats (SILAM) -->
         ${c.integration === "pp"
           ? html`
               <ha-formfield label="${this._t("city")}">
@@ -699,24 +767,42 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </ha-formfield>
               `
-            : html`
-                <ha-formfield label="${this._t("region_id")}">
-                  <ha-select
-                    .value=${c.region_id || ""}
-                    @selected=${(e) =>
-                      this._updateConfig("region_id", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    ${this.installedRegionIds.map(
-                      (id) => html`
-                        <mwc-list-item .value=${id}>
-                          ${id} — ${DWD_REGIONS[id] || id}
-                        </mwc-list-item>
-                      `,
-                    )}
-                  </ha-select>
-                </ha-formfield>
-              `}
+            : c.integration === "silam"
+              ? html`
+                  <ha-formfield label="${this._t("location")}">
+                    <ha-select
+                      .value=${c.location || ""}
+                      @selected=${(e) =>
+                        this._updateConfig("location", e.target.value)}
+                      @closed=${(e) => e.stopPropagation()}
+                    >
+                      ${this.installedSilamLocations.map(
+                        ([slug, title]) =>
+                          html`<mwc-list-item .value=${slug}
+                            >${title}</mwc-list-item
+                          >`,
+                      )}
+                    </ha-select>
+                  </ha-formfield>
+                `
+              : html`
+                  <ha-formfield label="${this._t("region_id")}">
+                    <ha-select
+                      .value=${c.region_id || ""}
+                      @selected=${(e) =>
+                        this._updateConfig("region_id", e.target.value)}
+                      @closed=${(e) => e.stopPropagation()}
+                    >
+                      ${this.installedRegionIds.map(
+                        (id) => html`
+                          <mwc-list-item .value=${id}>
+                            ${id} — ${DWD_REGIONS[id] || id}
+                          </mwc-list-item>
+                        `,
+                      )}
+                    </ha-select>
+                  </ha-formfield>
+                `}
         <!-- Title toggles -->
         <div style="display:flex; gap:8px; align-items:center;">
           <!-- Hide -->
