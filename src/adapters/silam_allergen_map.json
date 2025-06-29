@@ -1,0 +1,189 @@
+{
+  "mapping": {
+    "nl": {
+      "els": "alder",
+      "berk": "birch",
+      "gras": "grass",
+      "hazelaar": "hazel",
+      "bijvoet": "mugwort",
+      "olijf": "olive",
+      "ambrosia": "ragweed"
+    },
+    "de": {
+      "erle": "alder",
+      "birke": "birch",
+      "gras": "grass",
+      "hasel": "hazel",
+      "beifu": "mugwort",
+      "ambrosia": "ragweed"
+    },
+    "ru": {
+      "": "ragweed"
+    },
+    "fi": {
+      "leppa": "alder",
+      "koivu": "birch",
+      "heina": "grass",
+      "pahkinaleppa": "hazel",
+      "siankarsamo": "mugwort",
+      "oliivi": "olive",
+      "ambrosia": "ragweed"
+    },
+    "sk": {
+      "jelsa": "alder",
+      "breza": "birch",
+      "trava": "grass",
+      "lieska": "hazel",
+      "palina": "mugwort",
+      "olivovnik": "olive",
+      "ambrozia": "ragweed"
+    },
+    "en": {
+      "alder": "alder",
+      "birch": "birch",
+      "grass": "grass",
+      "hazel": "hazel",
+      "mugwort": "mugwort",
+      "olive": "olive",
+      "ragweed": "ragweed"
+    },
+    "it": {
+      "ontano": "alder",
+      "betulla": "birch",
+      "erba": "grass",
+      "nocciolo": "hazel",
+      "artemisia": "mugwort",
+      "oliva": "olive",
+      "ambrosia": "ragweed"
+    },
+    "cs": {
+      "olse": "alder",
+      "briza": "birch",
+      "trava": "grass",
+      "liska": "hazel",
+      "pelynek": "mugwort",
+      "olivovnik": "olive",
+      "ambrozie": "ragweed"
+    },
+    "no": {
+      "al": "alder",
+      "bj_rk": "birch",
+      "gress": "grass",
+      "hassel": "hazel",
+      "malurt": "mugwort",
+      "oliven": "olive",
+      "ambrosia": "ragweed"
+    },
+    "da": {
+      "al": "alder",
+      "birk": "birch",
+      "gr_s": "grass",
+      "hassel": "hazel",
+      "malurt": "mugwort",
+      "oliven": "olive",
+      "ambrosia": "ragweed"
+    },
+    "sv": {
+      "al": "alder",
+      "bjork": "birch",
+      "gras": "grass",
+      "hassel": "hazel",
+      "malort": "mugwort",
+      "oliv": "olive",
+      "ambrosia": "ragweed"
+    }
+  },
+  "names": {
+    "alder": {
+      "nl": "Els",
+      "de": "Erle",
+      "ru": "Ольха",
+      "fi": "Leppä",
+      "sk": "Jelša",
+      "en": "Alder",
+      "it": "Ontano",
+      "cs": "Olše",
+      "no": "Al",
+      "da": "Al",
+      "sv": "Al"
+    },
+    "birch": {
+      "nl": "Berk",
+      "de": "Birke",
+      "ru": "Берёза",
+      "fi": "Koivu",
+      "sk": "Breza",
+      "en": "Birch",
+      "it": "Betulla",
+      "cs": "Bříza",
+      "no": "Bjørk",
+      "da": "Birk",
+      "sv": "Björk"
+    },
+    "grass": {
+      "nl": "Gras",
+      "de": "Gras",
+      "ru": "Трава",
+      "fi": "Heinä",
+      "sk": "Tráva",
+      "en": "Grass",
+      "it": "Erba",
+      "cs": "Tráva",
+      "no": "Gress",
+      "da": "Græs",
+      "sv": "Gräs"
+    },
+    "hazel": {
+      "nl": "Hazelaar",
+      "de": "Hasel",
+      "ru": "Лещина",
+      "fi": "Pähkinäleppä",
+      "sk": "Lieska",
+      "en": "Hazel",
+      "it": "Nocciolo",
+      "cs": "Líska",
+      "no": "Hassel",
+      "da": "Hassel",
+      "sv": "Hassel"
+    },
+    "mugwort": {
+      "nl": "Bijvoet",
+      "de": "Beifuß",
+      "ru": "Полынь",
+      "fi": "Siankärsämö",
+      "sk": "Palina",
+      "en": "Mugwort",
+      "it": "Artemisia",
+      "cs": "Pelyněk",
+      "no": "Malurt",
+      "da": "Malurt",
+      "sv": "Malört"
+    },
+    "olive": {
+      "nl": "Olijf",
+      "de": "Olive",
+      "ru": "Олива",
+      "fi": "Oliivi",
+      "sk": "Olivovník",
+      "en": "Olive",
+      "it": "Oliva",
+      "cs": "Olivovník",
+      "no": "Oliven",
+      "da": "Oliven",
+      "sv": "Oliv"
+    },
+    "ragweed": {
+      "nl": "Ambrosia",
+      "de": "Ambrosia",
+      "ru": "Амброзия",
+      "fi": "Ambrosia",
+      "sk": "Ambrózia",
+      "en": "Ragweed",
+      "it": "Ambrosia",
+      "cs": "Ambrózie",
+      "no": "Ambrosia",
+      "da": "Ambrosia",
+      "sv": "Ambrosia"
+    }
+  }
+}
