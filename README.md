@@ -7,7 +7,11 @@
 [![Project Maintenance][maintenance-shield]][user_profile]
 [![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-A Lovelace card to display the sensor data from the integration [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos) [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master), [Polleninformation EU](https://github.com/krissen/polleninformation), or [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen).
+A Lovelace card to display the sensor data from any of the following integrations:
+- [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)
+- [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug/tree/master)
+- [Polleninformation EU](https://github.com/krissen/polleninformation)
+- [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen).
 
 <table align="center">
   <tr>
@@ -30,7 +34,7 @@ A Lovelace card to display the sensor data from the integration [Home Assistant 
 
 ## Requirements
 
-Pollenprognos-card needs one of the two supported sensor integrations; Pollenprognos, Polleninformation EU or DWD Pollenflug.
+Pollenprognos-card needs one of the two supported sensor integrations; [Pollenprognos](https://github.com/JohNan/homeassistant-pollenprognos), [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug), [Polleninformation EU](https://github.com/krissen/polleninformation) or [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen).
 
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
   **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.6 or above of this card.  
