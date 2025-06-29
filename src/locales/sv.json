@@ -27,6 +27,7 @@
   "card.integration.dwd": "DWD Pollenflug",
   "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
+  "card.integration.silam": "SILAM Pollen Allergy Sensor",
   "card.levels.0": "Ingen pollen",
   "card.levels.1": "Låga halter",
   "card.levels.2": "Låga–måttliga halter",
@@ -117,6 +118,5 @@
   "editor.title": "Rubrik på kortet",
   "editor.title_placeholder": "(automatisk)",
   "editor.title_hide": "Göm rubrik",
-  "editor.title_automatic": "Automatisk rubrik",
-  "card.integration.peu": "Polleninformation EU"
+  "editor.title_automatic": "Automatisk rubrik"
 }

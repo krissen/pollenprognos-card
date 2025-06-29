@@ -27,6 +27,7 @@
   "card.integration.dwd": "DWD Pollenflug",
   "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
+  "card.integration.silam": "SILAM Pollen Allergy Sensor",
   "card.levels.0": "keine Belastung",
   "card.levels.1": "keine bis geringe Belastung",
   "card.levels.2": "geringe Belastung",
@@ -118,6 +119,5 @@
   "editor.title": "Kartentitel",
   "editor.title_placeholder": "(automatisch)",
   "editor.title_hide": "Titel ausblenden",
-  "editor.title_automatic": "Automatischer Titel",
-  "card.integration.peu": "Polleninformation EU"
+  "editor.title_automatic": "Automatischer Titel"
 }

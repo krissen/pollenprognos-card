@@ -27,6 +27,7 @@
   "card.integration.dwd": "DWD Pollenflug",
   "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
+  "card.integration.silam": "SILAM Pollen Allergy Sensor",
   "card.levels.0": "No pollen",
   "card.levels.1": "Low levels",
   "card.levels.2": "Low–moderate levels",
@@ -48,6 +49,7 @@
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",
   "editor.integration.pp": "PollenPrognos",
+  "editor.integration.silam": "SILAM Pollen Allergy Sensor",
   "editor.locale": "Locale",
   "editor.location": "Location",
   "editor.minimal": "Minimal",
@@ -117,6 +119,5 @@
   "editor.title": "Card title",
   "editor.title_placeholder": "(automatic)",
   "editor.title_hide": "Hide title",
-  "editor.title_automatic": "Automatic title",
-  "card.integration.peu": "Polleninformation EU"
+  "editor.title_automatic": "Automatic title"
 }

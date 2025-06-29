@@ -4,7 +4,7 @@ import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
 import { normalize, normalizeDWD } from "./utils/normalize.js";
-import { findAvailableSensors } from "./utils/sensors.js";
+import { getSilamReverseMap, findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
@@ -18,6 +18,7 @@ import {
   ADAPTERS as CONSTANT_ADAPTERS,
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
+import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 
 const ADAPTERS = CONSTANT_ADAPTERS;
 
@@ -131,9 +132,6 @@ class PollenPrognosCard extends LitElement {
 
     // Starta om config från stub, plus user-params
     this._userConfig = { ...stub, ...cleanedUserConfig, integration };
-
-    // Fallback-logik (om du verkligen vill ha den)
-    // ...
 
     this._initDone = false;
     if (this._hass) {
@@ -415,31 +413,44 @@ class PollenPrognosCard extends LitElement {
         }
 
         const availableSensors = findAvailableSensors(cfg, hass, this.debug);
-        this._availableSensorCount = availableSensors.length;
-        if (this.debug) {
-          console.debug(
-            "[Card][Debug] Upptäckta sensorer i HA:",
-            availableSensors,
-          );
+        const availableSensorCount = availableSensors.length;
+
+        // Bygg SILAM reverse mapping om aktuellt
+        let silamReverse = null;
+        if (cfg.integration === "silam") {
+          // Försök lista ut språk: cfg.date_locale (ex sv-SE), annars en, annars fallback
+          let silamLang = (cfg.date_locale || "").slice(0, 2) || "en";
+          // Sök mapping i silamAllergenMap (ska vara importerat)
+          silamReverse = {};
+          const mapping =
+            typeof silamAllergenMap !== "undefined" &&
+            silamAllergenMap.mapping?.[silamLang]
+              ? silamAllergenMap.mapping[silamLang]
+              : silamAllergenMap.mapping?.en || {};
+          for (const [haSlug, master] of Object.entries(mapping)) {
+            silamReverse[master] = haSlug;
+          }
         }
-        if (this.debug) {
-          console.debug(
-            "[Card][Debug] Upptäckta sensorer i HA:",
-            availableSensors,
-          );
-        }
 
-        this._availableSensorCount = availableSensors.length; // Spara antalet
+        // Filtrera adapterns sensors så att endast de finns i availableSensors
+        let filtered = sensors.filter((s) => {
+          if (cfg.integration === "silam" && silamReverse) {
+            const loc = cfg.location || "";
+            // Mappar master->haSlug för entity_id
+            const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
+            const id = `sensor.silam_pollen_${loc}_${key}`;
+            return availableSensors.includes(id);
+          }
+          // ...lägg till motsvarande för övriga integrationer om du vill ha striktare filter...
+          return true; // fallback: visa alla
+        });
 
-        if (this.debug)
-          console.debug(
-            "[CARD][Debug] Tillgängliga sensorer:",
-            this._availableSensorCount,
-          );
-
-        let filtered = sensors;
-
-        if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0) {
+        // Endast *normalisering/namn*-filtrering för de andra integrationerna!
+        if (
+          Array.isArray(cfg.allergens) &&
+          cfg.allergens.length > 0 &&
+          cfg.integration !== "silam"
+        ) {
           let allowed;
           let getKey;
           if (integration === "dwd") {
@@ -455,7 +466,7 @@ class PollenPrognosCard extends LitElement {
             allowed = new Set(cfg.allergens.map((a) => normalize(a)));
             getKey = (s) => normalize(s.allergenReplaced || "");
           }
-          filtered = sensors.filter((s) => {
+          filtered = filtered.filter((s) => {
             const allergenKey = getKey(s);
             const ok = allowed.has(allergenKey);
             if (!ok && this.debug) {
@@ -468,27 +479,35 @@ class PollenPrognosCard extends LitElement {
           });
         }
 
-        if (this.debug) {
-          console.debug("[Card][Debug] Sensors EFTER filtrering:", filtered);
+        const explicitLocation = this._integrationExplicit && !!cfg.location;
+        const noAvailableSensors = availableSensorCount === 0;
+
+        if (explicitLocation && noAvailableSensors) {
+          this.sensors = [];
+          this._availableSensorCount = 0;
+          this._explicitLocationNoSensors = true;
+          if (this.debug) {
+            console.warn(
+              `[Card] Ingen sensor hittad för explicit vald plats: '${cfg.location}'`,
+            );
+          }
+          this.requestUpdate();
+          return;
+        } else {
+          this._explicitLocationNoSensors = false;
+          this.sensors = filtered;
+          this._availableSensorCount = availableSensors.length;
+          let daysCount = 0;
+          if (cfg.show_empty_days) {
+            daysCount = cfg.days_to_show;
+          } else if (filtered.length > 0 && filtered[0].days) {
+            daysCount = filtered[0].days.length;
+          }
+          this.days_to_show = daysCount;
+          this.displayCols = Array.from({ length: daysCount }, (_, i) => i);
+
+          this.requestUpdate();
         }
-        this.sensors = filtered;
-        if (this.debug) {
-          console.debug(
-            "[Card][Debug] Slutlig sensors till kortet:",
-            this.sensors,
-          );
-        }
-        this.days_to_show = cfg.days_to_show;
-        this.displayCols = Array.from(
-          {
-            length: cfg.show_empty_days
-              ? cfg.days_to_show
-              : filtered[0]?.days.length || 0,
-          },
-          (_, i) => i,
-        );
-        if (this.debug) console.debug("[Card] sensors fetched:", this.sensors);
-        this.requestUpdate();
       })
 
       .catch((err) => {
