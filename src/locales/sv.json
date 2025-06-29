@@ -48,6 +48,7 @@
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",
   "editor.integration.pp": "PollenPrognos",
+  "editor.integration.silam": "SILAM Pollen Allergy Sensor",
   "editor.locale": "Locale",
   "editor.location": "Plats",
   "editor.minimal": "Minimal",

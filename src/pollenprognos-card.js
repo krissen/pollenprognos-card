@@ -7,9 +7,11 @@ import { normalize, normalizeDWD } from "./utils/normalize.js";
 import { findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
+import * as SILAM from "./adapters/silam.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
+import { stubConfigSILAM } from "./adapters/silam.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
@@ -105,6 +107,7 @@ class PollenPrognosCard extends LitElement {
     if (integration === "pp") stub = stubConfigPP;
     else if (integration === "peu") stub = stubConfigPEU;
     else if (integration === "dwd") stub = stubConfigDWD;
+    else if (integration === "silam") stub = stubConfigSILAM;
     else stub = stubConfigPP;
 
     // Spara enbart tillåtna fält
@@ -155,6 +158,17 @@ class PollenPrognosCard extends LitElement {
     const peuStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.polleninformation_"),
     );
+    const silamStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.silam_pollen_"),
+    );
+
+    if (this.debug) {
+      console.debug("Sensor states detected:");
+      console.debug("PP:", ppStates);
+      console.debug("DWD:", dwdStates);
+      console.debug("PEU:", peuStates);
+      console.debug("SILAM:", silamStates);
+    }
 
     // Bestäm integration (PEU går före DWD)
     let integration = this._userConfig.integration;
@@ -162,6 +176,7 @@ class PollenPrognosCard extends LitElement {
       if (ppStates.length) integration = "pp";
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
+      else if (silamStates.length) integration = "silam";
     }
 
     // Plocka rätt stub
@@ -169,6 +184,7 @@ class PollenPrognosCard extends LitElement {
     if (integration === "dwd") baseStub = stubConfigDWD;
     else if (integration === "peu") baseStub = stubConfigPEU;
     else if (integration === "pp") baseStub = stubConfigPP;
+    else if (integration === "silam") baseStub = stubConfigSILAM;
     else console.error("Unknown integration:", integration);
 
     // Sätt config rätt — utan allergens
@@ -187,7 +203,9 @@ class PollenPrognosCard extends LitElement {
       // Endast om integrationen är explicit satt av användaren (inte autodetect)
       if (this.debug) {
         console.debug(
-          "[Card] Explicit integration; using user-defined allergens:",
+          "[Card] Explicit integration (",
+          integration,
+          "); using user-defined allergens:",
           allergens,
         );
       }
@@ -203,6 +221,8 @@ class PollenPrognosCard extends LitElement {
       if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
       else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
       else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
+      else if (integration === "silam")
+        cfg.allergens = stubConfigSILAM.allergens;
     }
 
     // Fyll date_locale
@@ -248,6 +268,27 @@ class PollenPrognosCard extends LitElement {
           "[Card][PEU] Auto-set location (location_slug):",
           cfg.location,
           peuLocations,
+        );
+    } else if (integration === "silam" && !cfg.location && silamStates.length) {
+      // Samla alla unika location-namn från entity_id
+      const silamLocations = Array.from(
+        new Set(
+          silamStates
+            .map((eid) => {
+              // sensor.silam_pollen_<location>_<allergen>
+              // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
+              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = silamLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][SILAM] Auto-set location (location):",
+          cfg.location,
+          silamLocations,
         );
     }
 
@@ -301,6 +342,37 @@ class PollenPrognosCard extends LitElement {
             cfg.location;
         }
         loc = title || cfg.location || "";
+      } else if (integration === "silam") {
+        // Hitta alla silam-entities
+        const silamEntities = Object.values(hass.states).filter((s) =>
+          s.entity_id.startsWith("sensor.silam_pollen_"),
+        );
+        // Extrahera location från entity_id (sensor.silam_pollen_<location>_<allergen>)
+        let silamLoc = cfg.location;
+        if (!silamLoc && silamEntities.length) {
+          // Gissa första unika location
+          silamLoc = silamEntities[0].entity_id
+            .replace("sensor.silam_pollen_", "")
+            .replace(/_[^_]+$/, "")
+            .replace(/^[-\s]+/, ""); // <-- Trimma här!
+        }
+        // Hitta första entity med denna location
+        const match = silamEntities.find((s) => {
+          const eid = s.entity_id.replace("sensor.silam_pollen_", "");
+          const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, ""); // <-- Trimma även här!
+          return locPart === silamLoc;
+        });
+        let title = "";
+        if (match) {
+          const attr = match.attributes;
+          // Försök hitta mer beskrivande namn, annars använd location
+          title =
+            attr.location_title ||
+            attr.friendly_name?.match(/SILAM Pollen (.+?) [^ ]+$/)?.[1] ||
+            silamLoc;
+          title = title.replace(/^[-\s]+/, ""); // <-- Trim även title!
+        }
+        loc = title || silamLoc || "";
       } else {
         loc =
           PP_POSSIBLE_CITIES.find(
@@ -334,12 +406,12 @@ class PollenPrognosCard extends LitElement {
             "[Card][Debug] Alla tillgängliga hass.states:",
             Object.keys(hass.states),
           );
+          console.debug("[Card] Användaren har valt city:", cfg.city);
           console.debug(
-            "[Card][Debug] Användare har valt city:",
-            cfg.city,
-            "| allergens:",
+            "[Card] Användaren har valt allergener:",
             cfg.allergens,
           );
+          console.debug("[Card] Användaren har valt plats:", cfg.location);
         }
 
         const availableSensors = findAvailableSensors(cfg, hass, this.debug);
@@ -374,6 +446,12 @@ class PollenPrognosCard extends LitElement {
             allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
             getKey = (s) => normalizeDWD(s.allergenReplaced || "");
           } else {
+            if (this.debug) {
+              console.debug(
+                "[Card][Debug] Använder normalisering för allergener:",
+                cfg.allergens,
+              );
+            }
             allowed = new Set(cfg.allergens.map((a) => normalize(a)));
             getKey = (s) => normalize(s.allergenReplaced || "");
           }

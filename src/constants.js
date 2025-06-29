@@ -3,11 +3,13 @@
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
+import * as SILAM from "./adapters/silam.js";
 
 export const ADAPTERS = {
   pp: PP,
   dwd: DWD,
   peu: PEU,
+  silam: SILAM,
 };
 
 export const DWD_REGIONS = {
