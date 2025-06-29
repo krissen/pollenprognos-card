@@ -15,6 +15,8 @@ import {
   ALLERGEN_TRANSLATION,
 } from "./constants.js";
 
+import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
+
 // Recursive merge utility
 const deepMerge = (target, source) => {
   const out = { ...target };
@@ -557,26 +559,47 @@ class PollenPrognosCardEditor extends LitElement {
       ),
     );
 
+    const lang =
+      (this.config &&
+        this.config.date_locale &&
+        this.config.date_locale.slice(0, 2)) ||
+      (this._hass && this._hass.language) ||
+      "en";
+
+    const validAllergenSlugs = new Set(
+      Object.keys(
+        silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {},
+      ),
+    );
+
     this.installedSilamLocations = Array.from(
       new Map(
         Object.values(hass.states)
-          .filter((s) => s.entity_id.startsWith("sensor.silam_pollen_"))
+          .filter((s) => {
+            if (!s.entity_id.startsWith("sensor.silam_pollen_")) return false;
+            const match = s.entity_id.match(
+              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+            );
+            if (!match) return false;
+            const allergenSlug = match[2];
+            // Ta endast med om allergenSlug är en av de kända allergenerna
+            return validAllergenSlugs.has(allergenSlug);
+          })
           .map((s) => {
-            // Format: sensor.silam_pollen_<location>_<allergen>
-            // Plocka ut location (allt mellan första och sista "_")
             const match = s.entity_id.match(
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
             const locationSlug = match ? match[1].replace(/^[-\s]+/, "") : "";
             let title =
               s.attributes.location_title ||
-              (s.attributes.friendly_name?.match(
-                /^SILAM Pollen\s*-?\s*([^\s]+)\s/i,
-              )?.[1] ??
-                "") ||
+              (s.attributes.friendly_name
+                ? s.attributes.friendly_name
+                    .replace(/^SILAM Pollen\s*-?\s*/i, "")
+                    .replace(/\s+\w+$/, "")
+                    .trim()
+                : "") ||
               locationSlug;
             title = title.replace(/^[-\s]+/, "");
-            // Valfritt: Gör första bokstaven versal
             title = title.charAt(0).toUpperCase() + title.slice(1);
             return [locationSlug, title];
           }),
