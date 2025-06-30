@@ -28,6 +28,7 @@
   "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
   "card.integration.silam": "SILAM Pollen Allergy Sensor",
+  "card.integration.undefined": "No pollen sensor integration found",
   "card.levels.0": "No pollen",
   "card.levels.1": "Low levels",
   "card.levels.2": "Low–moderate levels",
