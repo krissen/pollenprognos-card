@@ -567,9 +567,23 @@ class PollenPrognosCardEditor extends LitElement {
       (this._hass && this._hass.language) ||
       "en";
 
+    const pollenAllergens = [
+      "alder",
+      "birch",
+      "grass",
+      "hazel",
+      "mugwort",
+      "olive",
+      "ragweed",
+    ];
+
     const validAllergenSlugs = new Set(
       Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
-        Object.keys(langMap),
+        Object.entries(langMap)
+          .filter(([localSlug, engAllergen]) =>
+            pollenAllergens.includes(engAllergen),
+          )
+          .map(([localSlug]) => localSlug),
       ),
     );
 
@@ -590,7 +604,6 @@ class PollenPrognosCardEditor extends LitElement {
             const rawLocation = match[1];
             const allergenSlug = match[2];
 
-            // Debug vilka entiteter och allergener som går igenom filtret
             if (this.debug) {
               console.debug(
                 "[Filter] entity_id:",
@@ -604,7 +617,6 @@ class PollenPrognosCardEditor extends LitElement {
               );
             }
 
-            // Ta endast med om allergenSlug är en av de kända allergenerna
             return validAllergenSlugs.has(allergenSlug);
           })
           .map((s) => {
@@ -623,7 +635,6 @@ class PollenPrognosCardEditor extends LitElement {
                     .trim()
                 : "") ||
               rawLocation;
-            // title = slugify(title); // Endast om du vill translitterera titeln
 
             title = title.replace(/^[-\s]+/, "");
             title = title.charAt(0).toUpperCase() + title.slice(1);
