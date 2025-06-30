@@ -2,7 +2,7 @@
 import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
-import { slugify } from "transliteration";
+import { slugify } from "./utils/slugify.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
@@ -577,7 +577,33 @@ class PollenPrognosCardEditor extends LitElement {
       "ragweed",
     ];
 
-    const validAllergenSlugs = new Set(
+    if (this.debug) {
+      // Logga mapping för samtliga språk
+      console.debug("[SilamAllergenMap.mapping]", silamAllergenMap.mapping);
+
+      // Logga vilka engelska allergener som används för filtrering
+      console.debug("[pollenAllergens]", pollenAllergens);
+
+      // Bygg upp och logga ALLA möjliga allergen-slugs per språk/allergen
+      for (const [lang, langMap] of Object.entries(silamAllergenMap.mapping)) {
+        for (const [localSlug, engAllergen] of Object.entries(langMap)) {
+          console.debug(`[Mapping] ${lang}: ${localSlug} → ${engAllergen}`);
+        }
+      }
+
+      // Logga vilka slugs som räknas som giltiga för denna omgång
+      const debugSlugs = Object.values(silamAllergenMap.mapping).flatMap(
+        (langMap) =>
+          Object.entries(langMap)
+            .filter(([localSlug, engAllergen]) =>
+              pollenAllergens.includes(engAllergen),
+            )
+            .map(([localSlug]) => localSlug),
+      );
+      console.debug("[SilamValidAllergenSlugs]", debugSlugs);
+    }
+
+    const SilamValidAllergenSlugs = new Set(
       Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
         Object.entries(langMap)
           .filter(([localSlug, engAllergen]) =>
@@ -613,11 +639,11 @@ class PollenPrognosCardEditor extends LitElement {
                 "| allergenSlug:",
                 allergenSlug,
                 "| validAllergen:",
-                validAllergenSlugs.has(allergenSlug),
+                SilamValidAllergenSlugs.has(allergenSlug),
               );
             }
 
-            return validAllergenSlugs.has(allergenSlug);
+            return SilamValidAllergenSlugs.has(allergenSlug);
           })
           .map((s) => {
             const match = s.entity_id.match(

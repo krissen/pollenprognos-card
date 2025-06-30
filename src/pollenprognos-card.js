@@ -1,6 +1,6 @@
 // src/pollenprognos-card.js
 import { LitElement, html, css } from "lit";
-import { slugify } from "transliteration";
+import { slugify } from "./utils/slugify.js";
 import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
