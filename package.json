@@ -14,7 +14,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "lit": "^2.8.0"
+    "lit": "^2.8.0",
+    "transliteration": "^2.3.5"
   }
 }
-

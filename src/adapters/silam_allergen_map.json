@@ -14,11 +14,17 @@
       "birke": "birch",
       "gras": "grass",
       "hasel": "hazel",
-      "beifu": "mugwort",
+      "beifuss": "mugwort",
       "ambrosia": "ragweed"
     },
     "ru": {
-      "": "ragweed"
+      "olkha": "alder",
+      "berioza": "birch",
+      "trava": "grass",
+      "leshchina": "hazel",
+      "polyn": "mugwort",
+      "oliva": "olive",
+      "ambroziia": "ragweed"
     },
     "fi": {
       "leppa": "alder",
@@ -67,7 +73,7 @@
     },
     "no": {
       "al": "alder",
-      "bj_rk": "birch",
+      "bjork": "birch",
       "gress": "grass",
       "hassel": "hazel",
       "malurt": "mugwort",
@@ -77,7 +83,7 @@
     "da": {
       "al": "alder",
       "birk": "birch",
-      "gr_s": "grass",
+      "graes": "grass",
       "hassel": "hazel",
       "malurt": "mugwort",
       "oliven": "olive",

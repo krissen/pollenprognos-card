@@ -2,6 +2,7 @@
 import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
+import { slugify } from "transliteration";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
@@ -567,8 +568,8 @@ class PollenPrognosCardEditor extends LitElement {
       "en";
 
     const validAllergenSlugs = new Set(
-      Object.keys(
-        silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {},
+      Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
+        Object.keys(langMap),
       ),
     );
 
@@ -580,8 +581,29 @@ class PollenPrognosCardEditor extends LitElement {
             const match = s.entity_id.match(
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
-            if (!match) return false;
+            if (!match) {
+              if (this.debug) {
+                console.debug("[Filter] Skip (no match):", s.entity_id);
+              }
+              return false;
+            }
+            const rawLocation = match[1];
             const allergenSlug = match[2];
+
+            // Debug vilka entiteter och allergener som går igenom filtret
+            if (this.debug) {
+              console.debug(
+                "[Filter] entity_id:",
+                s.entity_id,
+                "| rawLocation:",
+                rawLocation,
+                "| allergenSlug:",
+                allergenSlug,
+                "| validAllergen:",
+                validAllergenSlugs.has(allergenSlug),
+              );
+            }
+
             // Ta endast med om allergenSlug är en av de kända allergenerna
             return validAllergenSlugs.has(allergenSlug);
           })
@@ -589,18 +611,36 @@ class PollenPrognosCardEditor extends LitElement {
             const match = s.entity_id.match(
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
-            const locationSlug = match ? match[1].replace(/^[-\s]+/, "") : "";
+            const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
+            const locationSlug = slugify(rawLocation);
+
             let title =
               s.attributes.location_title ||
               (s.attributes.friendly_name
                 ? s.attributes.friendly_name
                     .replace(/^SILAM Pollen\s*-?\s*/i, "")
-                    .replace(/\s+\w+$/, "")
+                    .replace(/\s+\p{L}+$/u, "")
                     .trim()
                 : "") ||
-              locationSlug;
+              rawLocation;
+            // title = slugify(title); // Endast om du vill translitterera titeln
+
             title = title.replace(/^[-\s]+/, "");
             title = title.charAt(0).toUpperCase() + title.slice(1);
+
+            if (this.debug) {
+              console.debug(
+                "[Map] entity_id:",
+                s.entity_id,
+                "| rawLocation:",
+                rawLocation,
+                "| slugified locationSlug:",
+                locationSlug,
+                "| title:",
+                title,
+              );
+            }
+
             return [locationSlug, title];
           }),
       ),
