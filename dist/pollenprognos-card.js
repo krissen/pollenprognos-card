@@ -1454,13 +1454,13 @@ const xe = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
 async function Re(D, A) {
   var x, S, s;
   const I = !!A.debug, C = $(D, A.date_locale), e = A.date_locale || ((x = D.locale) == null ? void 0 : x.language) || D.language || `${C}-${C.toUpperCase()}`, g = A.days_relative !== !1, n = !!A.days_abbreviated, t = !!A.days_uppercase, h = {
-    birch: [0, 1, 10, 50, 100, 200, 400],
-    grass: [0, 1, 10, 30, 50, 100, 200],
-    hazel: [0, 1, 5, 20, 50, 100, 200],
-    alder: [0, 1, 5, 20, 50, 100, 200],
-    ragweed: [0, 1, 3, 10, 30, 50, 100],
-    mugwort: [0, 1, 5, 15, 30, 50, 100],
-    olive: [0, 1, 3, 10, 20, 50, 100]
+    birch: [5, 25, 50, 100, 500, 1e3, 5e3],
+    grass: [5, 25, 50, 100, 500, 1e3, 5e3],
+    hazel: [5, 25, 50, 100, 500, 1e3, 5e3],
+    alder: [1, 10, 25, 50, 100, 500, 1e3],
+    ragweed: [1, 10, 25, 50, 100, 500, 1e3],
+    mugwort: [1, 10, 25, 50, 100, 500, 1e3],
+    olive: [1, 10, 25, 50, 100, 500, 1e3]
   };
   function a(r, o) {
     const U = h[r];
@@ -2374,7 +2374,7 @@ const oA = (D, A) => {
 }, Oe = (D) => D === "dwd" ? L : D === "peu" ? K : D === "silam" ? V : W;
 class be extends DA {
   get debug() {
-    return !0;
+    return !!this._config.debug;
   }
   _resetAll() {
     this.debug && console.debug("[Editor] resetAll"), this._userConfig = {}, this.setConfig({ integration: this._config.integration });
