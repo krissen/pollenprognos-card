@@ -1452,13 +1452,13 @@ const He = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   title: void 0,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" }
 }, ag = {
-  birch: [0, 1, 10, 50, 100, 200, 400],
-  grass: [0, 1, 10, 30, 50, 100, 200],
-  hazel: [0, 1, 5, 20, 50, 100, 200],
-  alder: [0, 1, 5, 20, 50, 100, 200],
-  ragweed: [0, 1, 3, 10, 30, 50, 100],
-  mugwort: [0, 1, 5, 15, 30, 50, 100],
-  olive: [0, 1, 3, 10, 20, 50, 100]
+  birch: [5, 25, 50, 100, 500, 1e3, 5e3],
+  grass: [5, 25, 50, 100, 500, 1e3, 5e3],
+  hazel: [5, 25, 50, 100, 500, 1e3, 5e3],
+  alder: [1, 10, 25, 50, 100, 500, 1e3],
+  ragweed: [1, 10, 25, 50, 100, 500, 1e3],
+  mugwort: [1, 10, 25, 50, 100, 500, 1e3],
+  olive: [1, 10, 25, 50, 100, 500, 1e3]
 };
 function tA(n, A) {
   const g = ag[n];
