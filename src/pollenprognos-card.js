@@ -412,8 +412,19 @@ class PollenPrognosCard extends LitElement {
 
     // Hämta prognos via rätt adapter
     const adapter = ADAPTERS[cfg.integration] || PP;
-    adapter
-      .fetchForecast(hass, cfg)
+    let fetchPromise;
+    if (
+      cfg.integration === "silam" &&
+      cfg.mode === "hourly" &&
+      typeof adapter.fetchHourlyForecast === "function"
+    ) {
+      console.debug("[Card] Using hourly forecast for SILAM");
+      fetchPromise = adapter.fetchHourlyForecast(hass, cfg);
+    } else {
+      console.debug("[Card] Using daily forecast for SILAM");
+      fetchPromise = adapter.fetchForecast(hass, cfg);
+    }
+    fetchPromise
       .then((sensors) => {
         if (this.debug) {
           console.debug("[Card][Debug] Sensors före filtrering:", sensors);
@@ -481,7 +492,11 @@ class PollenPrognosCard extends LitElement {
 
         // Filtrera adapterns sensors så att endast de finns i availableSensors
         let filtered = sensors.filter((s) => {
-          if (cfg.integration === "silam" && silamReverse) {
+          if (
+            cfg.integration === "silam" &&
+            silamReverse &&
+            (!cfg.mode || cfg.mode === "daily")
+          ) {
             const loc = cfg.location || "";
             // Mappar master->haSlug för entity_id
             const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
