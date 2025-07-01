@@ -28,6 +28,7 @@
   "card.integration.peu": "Polleninformation EU",
   "card.integration.pp": "PollenPrognos",
   "card.integration.silam": "SILAM Pollen Allergy Sensor",
+  "card.integration.undefined": "Ingen pollen-sensor-integration hittades",
   "card.levels.0": "Ingen pollen",
   "card.levels.1": "Låga halter",
   "card.levels.2": "Låga–måttliga halter",

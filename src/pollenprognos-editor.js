@@ -2,6 +2,7 @@
 import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
+import { slugify } from "./utils/slugify.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
@@ -566,9 +567,49 @@ class PollenPrognosCardEditor extends LitElement {
       (this._hass && this._hass.language) ||
       "en";
 
-    const validAllergenSlugs = new Set(
-      Object.keys(
-        silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {},
+    const pollenAllergens = [
+      "alder",
+      "birch",
+      "grass",
+      "hazel",
+      "mugwort",
+      "olive",
+      "ragweed",
+    ];
+
+    if (this.debug) {
+      // Logga mapping för samtliga språk
+      console.debug("[SilamAllergenMap.mapping]", silamAllergenMap.mapping);
+
+      // Logga vilka engelska allergener som används för filtrering
+      console.debug("[pollenAllergens]", pollenAllergens);
+
+      // Bygg upp och logga ALLA möjliga allergen-slugs per språk/allergen
+      for (const [lang, langMap] of Object.entries(silamAllergenMap.mapping)) {
+        for (const [localSlug, engAllergen] of Object.entries(langMap)) {
+          console.debug(`[Mapping] ${lang}: ${localSlug} → ${engAllergen}`);
+        }
+      }
+
+      // Logga vilka slugs som räknas som giltiga för denna omgång
+      const debugSlugs = Object.values(silamAllergenMap.mapping).flatMap(
+        (langMap) =>
+          Object.entries(langMap)
+            .filter(([localSlug, engAllergen]) =>
+              pollenAllergens.includes(engAllergen),
+            )
+            .map(([localSlug]) => localSlug),
+      );
+      console.debug("[SilamValidAllergenSlugs]", debugSlugs);
+    }
+
+    const SilamValidAllergenSlugs = new Set(
+      Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
+        Object.entries(langMap)
+          .filter(([localSlug, engAllergen]) =>
+            pollenAllergens.includes(engAllergen),
+          )
+          .map(([localSlug]) => localSlug),
       ),
     );
 
@@ -580,27 +621,63 @@ class PollenPrognosCardEditor extends LitElement {
             const match = s.entity_id.match(
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
-            if (!match) return false;
+            if (!match) {
+              if (this.debug) {
+                console.debug("[Filter] Skip (no match):", s.entity_id);
+              }
+              return false;
+            }
+            const rawLocation = match[1];
             const allergenSlug = match[2];
-            // Ta endast med om allergenSlug är en av de kända allergenerna
-            return validAllergenSlugs.has(allergenSlug);
+
+            if (this.debug) {
+              console.debug(
+                "[Filter] entity_id:",
+                s.entity_id,
+                "| rawLocation:",
+                rawLocation,
+                "| allergenSlug:",
+                allergenSlug,
+                "| validAllergen:",
+                SilamValidAllergenSlugs.has(allergenSlug),
+              );
+            }
+
+            return SilamValidAllergenSlugs.has(allergenSlug);
           })
           .map((s) => {
             const match = s.entity_id.match(
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
-            const locationSlug = match ? match[1].replace(/^[-\s]+/, "") : "";
+            const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
+            const locationSlug = slugify(rawLocation);
+
             let title =
               s.attributes.location_title ||
               (s.attributes.friendly_name
                 ? s.attributes.friendly_name
                     .replace(/^SILAM Pollen\s*-?\s*/i, "")
-                    .replace(/\s+\w+$/, "")
+                    .replace(/\s+\p{L}+$/u, "")
                     .trim()
                 : "") ||
-              locationSlug;
+              rawLocation;
+
             title = title.replace(/^[-\s]+/, "");
             title = title.charAt(0).toUpperCase() + title.slice(1);
+
+            if (this.debug) {
+              console.debug(
+                "[Map] entity_id:",
+                s.entity_id,
+                "| rawLocation:",
+                rawLocation,
+                "| slugified locationSlug:",
+                locationSlug,
+                "| title:",
+                title,
+              );
+            }
+
             return [locationSlug, title];
           }),
       ),

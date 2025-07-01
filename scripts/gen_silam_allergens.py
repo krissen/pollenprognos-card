@@ -1,3 +1,5 @@
+import re
+import unicodedata
 import json
 import os
 import re
@@ -24,17 +26,37 @@ Prerequisite: have silam_pollen in ../silam_pollen -directory or
 TRANSLATIONS_DIR = "../silam_pollen/custom_components/silam_pollen/translations"
 OUT_FILE = "./src/adapters/silam_allergen_map.json"
 
-def normalize(text):
-    if not text:
-        return ""
-    # Unicode NFD, ta bort diakritiska marks
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(c for c in text if unicodedata.category(c) != 'Mn')
-    text = text.lower()
-    # Ersätt allt icke-alnum med _
-    text = re.sub(r'[^a-z0-9]+', '_', text)
-    # Trimma ledande/följande _
-    text = re.sub(r'^_+|_+$', '', text)
+
+def slugify(text: str) -> str:
+    try:
+        from unidecode import unidecode
+        text = unidecode(text)
+    except ImportError:
+        text = (
+            unicodedata.normalize("NFKD", text)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+
+    # Ta bort parentesinnehåll, men behåll resten av strängen
+    text = re.sub(r'\(.*?\)', '', text)
+    text = text.strip().lower()
+
+    # Ersätt diakrit-variationer och specialfall
+    text = (
+        text.replace("ö", "o")
+        .replace("ä", "a")
+        .replace("å", "a")
+        .replace("ß", "ss")
+        .replace("'", "")
+    )
+
+    # Ersätt alla icke-alfanumeriska tecken med _
+    text = re.sub(r"[^\w]+", "_", text)
+
+    # Ta bort inledande och avslutande _
+    text = text.strip("_")
+
     return text
 
 def main():
@@ -68,7 +90,7 @@ def main():
                 else:
                     # Lokal slug
                     local_name = info.get("name", key)
-                    local_slug = normalize(local_name)
+                    local_slug = slugify(local_name)
                     # Undvik dubletter: bara lokalt namn om det skiljer sig från engelsk slug
                     if local_slug != key:
                         mapping[local_slug] = key

@@ -1,5 +1,6 @@
 // src/pollenprognos-card.js
 import { LitElement, html, css } from "lit";
+import { slugify } from "./utils/slugify.js";
 import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
@@ -341,36 +342,59 @@ class PollenPrognosCard extends LitElement {
         }
         loc = title || cfg.location || "";
       } else if (integration === "silam") {
-        // Hitta alla silam-entities
-        const silamEntities = Object.values(hass.states).filter((s) =>
-          s.entity_id.startsWith("sensor.silam_pollen_"),
+        const pollenAllergens = [
+          "alder",
+          "birch",
+          "grass",
+          "hazel",
+          "mugwort",
+          "olive",
+          "ragweed",
+        ];
+        const SilamValidAllergenSlugs = new Set(
+          Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
+            Object.entries(langMap)
+              .filter(([localSlug, engAllergen]) =>
+                pollenAllergens.includes(engAllergen),
+              )
+              .map(([localSlug]) => localSlug),
+          ),
         );
-        // Extrahera location från entity_id (sensor.silam_pollen_<location>_<allergen>)
-        let silamLoc = cfg.location;
-        if (!silamLoc && silamEntities.length) {
-          // Gissa första unika location
-          silamLoc = silamEntities[0].entity_id
-            .replace("sensor.silam_pollen_", "")
-            .replace(/_[^_]+$/, "")
-            .replace(/^[-\s]+/, ""); // <-- Trimma här!
-        }
-        // Hitta första entity med denna location
+        // Hämta alla silam-entities med giltig allergen
+        const silamEntities = Object.values(hass.states).filter((s) => {
+          if (!s.entity_id.startsWith("sensor.silam_pollen_")) return false;
+          const match = s.entity_id.match(
+            /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+          );
+          if (!match) return false;
+          const allergenSlug = match[2];
+          // Uteslut index och liknande
+          return SilamValidAllergenSlugs.has(allergenSlug);
+        });
+
+        const wantedSlug = slugify(cfg.location || "");
+
+        // Hitta första entity med samma slugificerade location
         const match = silamEntities.find((s) => {
           const eid = s.entity_id.replace("sensor.silam_pollen_", "");
-          const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, ""); // <-- Trimma även här!
-          return locPart === silamLoc;
+          const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
+          return slugify(locPart) === wantedSlug;
         });
+
         let title = "";
         if (match) {
           const attr = match.attributes;
-          // Försök hitta mer beskrivande namn, annars använd location
           title =
             attr.location_title ||
-            attr.friendly_name?.match(/SILAM Pollen (.+?) [^ ]+$/)?.[1] ||
-            silamLoc;
-          title = title.replace(/^[-\s]+/, ""); // <-- Trim även title!
+            attr.friendly_name
+              ?.replace(/^SILAM Pollen\s*-?\s*/i, "")
+              .replace(/\s+\p{L}+$/u, "")
+              .trim() ||
+            cfg.location;
+          title = title.replace(/^[-\s]+/, "");
         }
-        loc = title || silamLoc || "";
+
+        loc = title || cfg.location || "";
       } else {
         loc =
           PP_POSSIBLE_CITIES.find(
