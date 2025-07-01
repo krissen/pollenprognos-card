@@ -51,13 +51,13 @@ export async function fetchForecast(hass, config) {
   const daysUppercase = Boolean(config.days_uppercase);
 
   const SILAM_THRESHOLDS = {
-    birch: [0, 1, 10, 50, 100, 200, 400],
-    grass: [0, 1, 10, 30, 50, 100, 200],
-    hazel: [0, 1, 5, 20, 50, 100, 200],
-    alder: [0, 1, 5, 20, 50, 100, 200],
-    ragweed: [0, 1, 3, 10, 30, 50, 100],
-    mugwort: [0, 1, 5, 15, 30, 50, 100],
-    olive: [0, 1, 3, 10, 20, 50, 100],
+    birch: [5, 25, 50, 100, 500, 1000, 5000],
+    grass: [5, 25, 50, 100, 500, 1000, 5000],
+    hazel: [5, 25, 50, 100, 500, 1000, 5000],
+    alder: [1, 10, 25, 50, 100, 500, 1000],
+    ragweed: [1, 10, 25, 50, 100, 500, 1000],
+    mugwort: [1, 10, 25, 50, 100, 500, 1000],
+    olive: [1, 10, 25, 50, 100, 500, 1000],
   };
 
   function grainsToLevel(allergen, grains) {
