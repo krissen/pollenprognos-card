@@ -9,7 +9,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
-// import { findSilamWeatherEntity } from "./utils/silam.js";
+import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -770,6 +770,7 @@ class PollenPrognosCardEditor extends LitElement {
       if (newInt !== oldInt) {
         delete newUser[newInt === "dwd" ? "city" : "region_id"];
         delete newUser.allergens;
+        delete newUser.days_to_show;
         delete newUser.pollen_threshold;
         this._allergensExplicit = false;
       }
@@ -790,6 +791,8 @@ class PollenPrognosCardEditor extends LitElement {
       if (this._config.integration === "silam" && prop === "mode") {
         if (value === "hourly" || value === "twice_daily") {
           cfg.days_to_show = 8;
+          cfg.show_empty_days = false;
+          // cfg.show_empty_days = false; // om du vill
         } else if (value === "daily") {
           cfg.days_to_show = 2;
         }
