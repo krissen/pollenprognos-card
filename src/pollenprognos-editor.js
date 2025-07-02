@@ -188,6 +188,7 @@ class PollenPrognosCardEditor extends LitElement {
   setConfig(config) {
     try {
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
+      if (config.phrases) this._userConfig.phrases = config.phrases;
 
       // 1. Identifiera stub-längd och skapa kopia av inkommande config
       const stubLen =
@@ -761,6 +762,41 @@ class PollenPrognosCardEditor extends LitElement {
   _updateConfig(prop, value) {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
+
+    // Specialfall: språkbyte – tvinga sort-dropdown att ritas om
+    if (prop === "date_locale") {
+      // Spara aktuella värden
+      const prevSort = this._config.sort;
+      const prevMode = this._config.mode;
+
+      // Sätt nytt språk och nollställ sort och mode tillfälligt för att trigga omritning
+      this._config = {
+        ...this._config,
+        date_locale: value,
+        sort: "",
+        mode: "",
+      };
+      this.requestUpdate();
+
+      setTimeout(() => {
+        this._config = {
+          ...this._config,
+          sort: prevSort,
+          mode: prevMode,
+        };
+        this.requestUpdate();
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }, 0);
+
+      // Hoppa över resten!
+      return;
+    }
     const newUser = { ...this._userConfig };
     let cfg;
 
@@ -860,6 +896,10 @@ class PollenPrognosCardEditor extends LitElement {
       value: opt,
       label: this._t(`sort_${opt}`),
     }));
+    if (this.debug) {
+      console.debug("Aktuellt språk (lang):", this._lang);
+      console.debug("Sort label test:", this._t("sort_value_ascending"));
+    }
 
     return html`
       <div class="card-config">
@@ -1336,8 +1376,8 @@ class PollenPrognosCardEditor extends LitElement {
         </ha-formfield>
 
         <!-- Tap Action -->
-        <h3>Tap Action</h3>
-        <ha-formfield label="Enable tap action">
+        <h3>${this._t("tap_action")}</h3>
+        <ha-formfield label="${this._t("tap_action_enable")}">
           <ha-switch
             .checked=${this._tapType !== "none"}
             @change=${(e) => {
