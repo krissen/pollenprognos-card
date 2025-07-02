@@ -198,46 +198,48 @@ export async function fetchForecast(hass, config) {
       forecastDates.forEach((dateStr, idx) => {
         const raw = forecastMap[dateStr] || {};
         const level = testVal(raw.level);
-        const d = new Date(dateStr);
-        const diff = Math.round((d - today) / 86400000);
-        let label;
+        if (level !== null && level >= 0) {
+          const d = new Date(dateStr);
+          const diff = Math.round((d - today) / 86400000);
+          let label;
 
-        if (!daysRelative) {
-          label = d.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          label = label.charAt(0).toUpperCase() + label.slice(1);
-        } else if (userDays[diff] != null) {
-          label = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          label = t(`card.days.${diff}`, lang);
-        } else {
-          label = d.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
+          if (!daysRelative) {
+            label = d.toLocaleDateString(locale, {
+              weekday: dayAbbrev ? "short" : "long",
+            });
+            label = label.charAt(0).toUpperCase() + label.slice(1);
+          } else if (userDays[diff] != null) {
+            label = userDays[diff];
+          } else if (diff >= 0 && diff <= 2) {
+            label = t(`card.days.${diff}`, lang);
+          } else {
+            label = d.toLocaleDateString(locale, {
+              day: "numeric",
+              month: "short",
+            });
+          }
+          if (daysUppercase) label = label.toUpperCase();
+
+          let scaledLevel;
+          if (level < 2) {
+            scaledLevel = Math.floor((level * 6) / 4);
+          } else {
+            scaledLevel = Math.ceil((level * 6) / 4);
+          }
+
+          const dayObj = {
+            name: dict.allergenCapitalized,
+            day: label,
+            state: level,
+            state_text:
+              scaledLevel < 0
+                ? noInfoLabel
+                : t(`card.levels.${scaledLevel}`, lang),
+          };
+
+          dict[`day${idx}`] = dayObj;
+          dict.days.push(dayObj);
         }
-        if (daysUppercase) label = label.toUpperCase();
-
-        let scaledLevel;
-        if (level < 2) {
-          scaledLevel = Math.floor((level * 6) / 4);
-        } else {
-          scaledLevel = Math.ceil((level * 6) / 4);
-        }
-
-        const dayObj = {
-          name: dict.allergenCapitalized,
-          day: label,
-          state: level,
-          state_text:
-            scaledLevel < 0
-              ? noInfoLabel
-              : t(`card.levels.${scaledLevel}`, lang),
-        };
-
-        dict[`day${idx}`] = dayObj;
-        dict.days.push(dayObj);
       });
 
       // Threshold-filter

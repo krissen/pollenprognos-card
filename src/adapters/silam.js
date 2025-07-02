@@ -249,37 +249,39 @@ export async function fetchForecast(hass, config) {
 
       for (let i = 0; i < days_to_show; ++i) {
         const scaled = stateList[i];
-        const d = new Date(today.getTime() + i * 86400000);
-        const diff = i;
-        let label;
-        if (!daysRelative) {
-          label = d.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          label = label.charAt(0).toUpperCase() + label.slice(1);
-        } else if (userDays[diff] != null) {
-          label = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          label = t(`card.days.${diff}`, lang);
-        } else {
-          label = d.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
+        if (scaled !== null && scaled >= 0) {
+          const d = new Date(today.getTime() + i * 86400000);
+          const diff = i;
+          let label;
+          if (!daysRelative) {
+            label = d.toLocaleDateString(locale, {
+              weekday: dayAbbrev ? "short" : "long",
+            });
+            label = label.charAt(0).toUpperCase() + label.slice(1);
+          } else if (userDays[diff] != null) {
+            label = userDays[diff];
+          } else if (diff >= 0 && diff <= 2) {
+            label = t(`card.days.${diff}`, lang);
+          } else {
+            label = d.toLocaleDateString(locale, {
+              day: "numeric",
+              month: "short",
+            });
+          }
+          if (daysUppercase) label = label.toUpperCase();
+
+          const lvlIndex = scaled < 0 ? 0 : Math.min(Math.round(scaled), 6);
+          const stateText =
+            scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled);
+
+          dict[`day${i}`] = {
+            name: dict.allergenCapitalized,
+            day: label,
+            state: scaled,
+            state_text: stateText,
+          };
+          dict.days.push(dict[`day${i}`]);
         }
-        if (daysUppercase) label = label.toUpperCase();
-
-        const lvlIndex = scaled < 0 ? 0 : Math.min(Math.round(scaled), 6);
-        const stateText =
-          scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled);
-
-        dict[`day${i}`] = {
-          name: dict.allergenCapitalized,
-          day: label,
-          state: scaled,
-          state_text: stateText,
-        };
-        dict.days.push(dict[`day${i}`]);
       }
 
       const meets = dict.days.some((d) => d.state >= pollen_threshold);
@@ -446,35 +448,37 @@ export async function fetchHourlyForecast(hass, config, forecastEvent = null) {
         const key = `pollen_${allergen}`;
         const pollenVal = Number(f[key]);
         const scaled = grainsToLevel(allergen, pollenVal);
-        const stateText =
-          scaled < 0 ? noInfoLabel : levelNames[scaled] || String(scaled);
-        const d = new Date(f.datetime || f.time);
+        if (scaled !== null && scaled >= 0) {
+          const stateText =
+            scaled < 0 ? noInfoLabel : levelNames[scaled] || String(scaled);
+          const d = new Date(f.datetime || f.time);
 
-        let dayLabel, dayIcon;
-        if (config.mode === "twice_daily") {
-          const weekday = d.toLocaleDateString(locale, { weekday: "short" });
-          dayLabel = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-          dayIcon =
-            i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
-          // console.debug("Icon: ", dayIcon);
-          if (config.days_uppercase) dayLabel = dayLabel.toUpperCase();
-        } else {
-          dayLabel =
-            d.toLocaleTimeString(locale, {
-              hour: "2-digit",
-              minute: "2-digit",
-            }) || "";
-          dayIcon = null;
+          let dayLabel, dayIcon;
+          if (config.mode === "twice_daily") {
+            const weekday = d.toLocaleDateString(locale, { weekday: "short" });
+            dayLabel = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+            dayIcon =
+              i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
+            // console.debug("Icon: ", dayIcon);
+            if (config.days_uppercase) dayLabel = dayLabel.toUpperCase();
+          } else {
+            dayLabel =
+              d.toLocaleTimeString(locale, {
+                hour: "2-digit",
+                minute: "2-digit",
+              }) || "";
+            dayIcon = null;
+          }
+
+          dict[`day${i}`] = {
+            name: dict.allergenCapitalized,
+            day: dayLabel,
+            icon: dayIcon,
+            state: scaled,
+            state_text: stateText,
+          };
+          dict.days.push(dict[`day${i}`]);
         }
-
-        dict[`day${i}`] = {
-          name: dict.allergenCapitalized,
-          day: dayLabel,
-          icon: dayIcon,
-          state: scaled,
-          state_text: stateText,
-        };
-        dict.days.push(dict[`day${i}`]);
       }
       // Filtrera på threshold som vanligt
       const meets = dict.days.some((d) => d.state >= pollen_threshold);
