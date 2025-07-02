@@ -36,7 +36,7 @@
   "card.levels.4": "mittlere Belastung",
   "card.levels.5": "mittlere bis hohe Belastung",
   "card.levels.6": "hohe Belastung",
-  "card.loading_hourly_forecast": "Stündliche Vorhersage wird geladen...",
+  "card.loading_forecast": "Vorhersage wird geladen...",
   "card.no_information": "(Keine Information)",
   "editor.allergens": "Allergene",
   "editor.allergens_abbreviated": "Allergene abkürzen",

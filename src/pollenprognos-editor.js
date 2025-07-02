@@ -771,7 +771,7 @@ class PollenPrognosCardEditor extends LitElement {
       cfg = { ...this._config, [prop]: value };
       // Om vi just bytte mode för silam, och days_to_show ska justeras, inkludera det också:
       if (this._config.integration === "silam" && prop === "mode") {
-        if (value === "hourly" || value === "twice daily") {
+        if (value === "hourly" || value === "twice_daily") {
           cfg.days_to_show = 8;
         } else if (value === "daily") {
           cfg.days_to_show = 2;
@@ -1135,7 +1135,10 @@ class PollenPrognosCardEditor extends LitElement {
           <div class="slider-value">${c.days_to_show}</div>
           <ha-slider
             min="0"
-            max="${c.integration === "silam" && c.mode === "hourly" ? 8 : 6}"
+            max="${c.integration === "silam" &&
+            (c.mode === "hourly" || c.mode === "twice_daily")
+              ? 8
+              : 6}"
             step="1"
             .value=${c.days_to_show}
             @input=${(e) =>

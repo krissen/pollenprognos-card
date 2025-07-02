@@ -36,7 +36,7 @@
   "card.levels.4": "Умеренно–высокий уровень",
   "card.levels.5": "Высокий уровень",
   "card.levels.6": "Очень высокий уровень",
-  "card.loading_hourly_forecast": "Загрузка почасового прогноза...",
+  "card.loading_forecast": "Загрузка прогноза...",
   "card.no_information": "(Нет информации)",
   "editor.allergens": "Аллергены",
   "editor.allergens_abbreviated": "Сокращать аллергены",

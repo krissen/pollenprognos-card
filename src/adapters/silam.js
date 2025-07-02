@@ -452,32 +452,34 @@ export async function fetchHourlyForecast(hass, config, forecastEvent = null) {
 
       for (let i = 0; i < forecastArr.length; ++i) {
         const f = forecastArr[i];
-        // Här måste vi kolla pollen_<allergen>
         const key = `pollen_${allergen}`;
         const pollenVal = Number(f[key]);
-        // if (debug) {
-        //   console.debug(
-        //     `[SILAM][fetchHourlyForecast] forecast[${i}] key: ${key} → värde:`,
-        //     f[key],
-        //     "(num)",
-        //     pollenVal,
-        //     "obj:",
-        //     f,
-        //   );
-        // }
         const scaled = grainsToLevel(allergen, pollenVal);
         const stateText =
           scaled < 0 ? noInfoLabel : levelNames[scaled] || String(scaled);
         const d = new Date(f.datetime || f.time);
-        let label =
-          d.toLocaleTimeString(locale, {
-            hour: "2-digit",
-            minute: "2-digit",
-          }) || "";
+
+        let dayLabel, dayIcon;
+        if (config.mode === "twice_daily") {
+          const weekday = d.toLocaleDateString(locale, { weekday: "short" });
+          dayLabel = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+          dayIcon =
+            i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
+          // console.debug("Icon: ", dayIcon);
+          if (config.days_uppercase) dayLabel = dayLabel.toUpperCase();
+        } else {
+          dayLabel =
+            d.toLocaleTimeString(locale, {
+              hour: "2-digit",
+              minute: "2-digit",
+            }) || "";
+          dayIcon = null;
+        }
 
         dict[`day${i}`] = {
           name: dict.allergenCapitalized,
-          day: label,
+          day: dayLabel,
+          icon: dayIcon,
           state: scaled,
           state_text: stateText,
         };

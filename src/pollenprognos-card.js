@@ -60,7 +60,7 @@ class PollenPrognosCard extends LitElement {
 
     if (
       this.config.integration === "silam" &&
-      this.config.mode === "hourly" &&
+      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
       this.config.location
     ) {
       const locationSlug = this.config.location.toLowerCase();
@@ -70,6 +70,10 @@ class PollenPrognosCard extends LitElement {
           id.includes(locationSlug) &&
           id.endsWith("_forecast"),
       );
+      let forecastType = "hourly";
+      if (this.config && this.config.mode === "twice_daily") {
+        forecastType = "twice_daily";
+      }
       if (entityId) {
         this._forecastUnsub = this._hass.connection.subscribeMessage(
           (event) => {
@@ -87,7 +91,7 @@ class PollenPrognosCard extends LitElement {
           {
             type: "weather/subscribe_forecast",
             entity_id: entityId,
-            forecast_type: "hourly",
+            forecast_type: forecastType,
           },
         );
         if (this.debug) {
@@ -106,7 +110,7 @@ class PollenPrognosCard extends LitElement {
     if (
       this.config &&
       this.config.integration === "silam" &&
-      this.config.mode === "hourly" &&
+      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
@@ -540,13 +544,13 @@ class PollenPrognosCard extends LitElement {
     let fetchPromise = null;
     if (
       cfg.integration === "silam" &&
-      cfg.mode === "hourly" &&
+      (cfg.mode === "hourly" || cfg.mode === "twice_daily") &&
       typeof adapter.fetchHourlyForecast === "function"
     ) {
       if (!this._forecastEvent) {
         if (this.debug) {
           console.debug(
-            "[Card] Hourly mode: väntar på forecast-event innan fetch.",
+            "[Card] Forecast mode: väntar på forecast-event innan fetch.",
           );
         }
         // Visa laddar, gör inget mer nu
@@ -558,7 +562,7 @@ class PollenPrognosCard extends LitElement {
         this.displayCols = [];
         if (this.debug) {
           console.debug(
-            "[Card] Hourly mode: forecast-event saknas, nollställer sensordata och visar laddar...",
+            "[Card] Forecast mode: forecast-event saknas, nollställer sensordata och visar laddar...",
           );
         }
         this.requestUpdate();
@@ -785,8 +789,23 @@ class PollenPrognosCard extends LitElement {
               <th></th>
               ${cols.map(
                 (i) => html`
-                  <th style="font-weight: ${daysBold ? "bold" : "normal"}">
-                    ${this.sensors[0].days[i]?.day || ""}
+                  <th
+                    style="font-weight: ${daysBold
+                      ? "bold"
+                      : "normal"}; text-align: center;"
+                  >
+                    <div
+                      style="display: flex; flex-direction: column; align-items: center;"
+                    >
+                      ${this.sensors[0].days[i]?.day || ""}
+                      ${this.config.mode === "twice_daily" &&
+                      this.sensors[0].days[i]?.icon
+                        ? html`<ha-icon
+                            icon="${this.sensors[0].days[i].icon}"
+                            style="margin-top: 2px;"
+                          ></ha-icon>`
+                        : ""}
+                    </div>
                   </th>
                 `,
               )}
@@ -866,13 +885,13 @@ class PollenPrognosCard extends LitElement {
 
     if (
       this.config.integration === "silam" &&
-      this.config.mode === "hourly" &&
+      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
       !this._forecastEvent
     ) {
       return html`
         <ha-card>
           <div style="padding: 1em; text-align: center;">
-            ${this._t("card.loading_hourly_forecast") || "Laddar timprognos..."}
+            ${this._t("card.loading_forecast") || "Loading forecast..."}
           </div>
         </ha-card>
       `;
@@ -1005,6 +1024,11 @@ class PollenPrognosCard extends LitElement {
       img {
         width: 50px;
         height: 50px;
+      }
+      th ha-icon {
+        vertical-align: middle;
+        margin-left: 0.3em;
+        --mdc-icon-size: 18px;
       }
       .flex-container {
         display: flex;
