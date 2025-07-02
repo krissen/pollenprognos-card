@@ -795,99 +795,109 @@ class PollenPrognosCard extends LitElement {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
-        <table class="forecast">
-          <thead>
-            <tr>
-              <th></th>
-              ${cols.map(
-                (i) => html`
-                  <th
-                    style="font-weight: ${daysBold
-                      ? "bold"
-                      : "normal"}; text-align: center;"
-                  >
-                    <div
-                      style="display: flex; flex-direction: column; align-items: center;"
-                    >
-                      ${this.sensors[0].days[i]?.day || ""}
-                      ${this.config.mode === "twice_daily" &&
-                      this.sensors[0].days[i]?.icon
-                        ? html`<ha-icon
-                            icon="${this.sensors[0].days[i].icon}"
-                            style="margin-top: 2px;"
-                          ></ha-icon>`
-                        : ""}
-                    </div>
-                  </th>
-                `,
+        <div class="forecast-content">
+          <table class="forecast"">
+            <colgroup>
+              ${[0, ...cols].map(
+                () => html`<col style="width: ${100 / (cols.length + 1)}%;" />`,
               )}
-            </tr>
-          </thead>
-          ${this.sensors.map(
-            (sensor) => html`
-              <!-- Rad 1: bara ikoner -->
-              <tr class="allergen-icon-row" valign="top">
-                <td>
-                  <img
-                    class="allergen"
-                    src="${this._getImageSrc(
-                      sensor.allergenReplaced,
-                      sensor.days[0]?.state,
-                    )}"
-                  />
-                </td>
+            </colgroup>
+            <thead>
+              <tr>
+                <th></th>
                 ${cols.map(
                   (i) => html`
-                    <td>
-                      <div class="icon-wrapper">
-                        <img
-                          src="${this._getImageSrc("", sensor.days[i]?.state)}"
-                        />
-                        ${this.config.show_value_numeric_in_circle
-                          ? html`<span class="circle-overlay">
-                              ${sensor.days[i]?.state ?? ""}
-                            </span>`
+                    <th
+                      style="font-weight: ${daysBold
+                        ? "bold"
+                        : "normal"}; text-align: center;"
+                    >
+                      <div
+                        style="display: flex; flex-direction: column; align-items: center;"
+                      >
+                        ${this.sensors[0].days[i]?.day || ""}
+                        ${this.config.mode === "twice_daily" &&
+                        this.sensors[0].days[i]?.icon
+                          ? html`<ha-icon
+                              icon="${this.sensors[0].days[i].icon}"
+                              style="margin-top: 2px;"
+                            ></ha-icon>`
                           : ""}
                       </div>
-                    </td>
+                    </th>
                   `,
                 )}
               </tr>
-              <!-- Rad 2: allergennamn + text/nummer under dagarna -->
-              ${this.config.show_text_allergen ||
-              this.config.show_value_text ||
-              this.config.show_value_numeric
-                ? html`
-                    <tr class="allergen-text-row" valign="top">
+            </thead>
+            ${this.sensors.map(
+              (sensor) => html`
+                <!-- Rad 1: bara ikoner -->
+                <tr class="allergen-icon-row" valign="top">
+                  <td>
+                    <img
+                      class="allergen"
+                      src="${this._getImageSrc(
+                        sensor.allergenReplaced,
+                        sensor.days[0]?.state,
+                      )}"
+                    />
+                  </td>
+                  ${cols.map(
+                    (i) => html`
                       <td>
-                        ${this.config.show_text_allergen
-                          ? this.config.allergens_abbreviated
-                            ? sensor.allergenShort
-                            : sensor.allergenCapitalized
-                          : ""}
+                        <div class="icon-wrapper">
+                          <img
+                            src="${this._getImageSrc(
+                              "",
+                              sensor.days[i]?.state,
+                            )}"
+                          />
+                          ${this.config.show_value_numeric_in_circle
+                            ? html`<span class="circle-overlay">
+                                ${sensor.days[i]?.state ?? ""}
+                              </span>`
+                            : ""}
+                        </div>
                       </td>
-                      ${cols.map((i) => {
-                        const txt = sensor.days[i]?.state_text || "";
-                        const num = sensor.days[i]?.state;
-                        let content = "";
-                        if (
-                          this.config.show_value_text &&
-                          this.config.show_value_numeric
-                        ) {
-                          content = `${txt} (${num})`;
-                        } else if (this.config.show_value_text) {
-                          content = txt;
-                        } else if (this.config.show_value_numeric) {
-                          content = String(num);
-                        }
-                        return html`<td>${content}</td>`;
-                      })}
-                    </tr>
-                  `
-                : ""}
-            `,
-          )}
-        </table>
+                    `,
+                  )}
+                </tr>
+                <!-- Rad 2: allergennamn + text/nummer under dagarna -->
+                ${this.config.show_text_allergen ||
+                this.config.show_value_text ||
+                this.config.show_value_numeric
+                  ? html`
+                      <tr class="allergen-text-row" valign="top">
+                        <td>
+                          ${this.config.show_text_allergen
+                            ? this.config.allergens_abbreviated
+                              ? sensor.allergenShort
+                              : sensor.allergenCapitalized
+                            : ""}
+                        </td>
+                        ${cols.map((i) => {
+                          const txt = sensor.days[i]?.state_text || "";
+                          const num = sensor.days[i]?.state;
+                          let content = "";
+                          if (
+                            this.config.show_value_text &&
+                            this.config.show_value_numeric
+                          ) {
+                            content = `${txt} (${num})`;
+                          } else if (this.config.show_value_text) {
+                            content = txt;
+                          } else if (this.config.show_value_numeric) {
+                            content = String(num);
+                          }
+                          return html`<td>${content}</td>`;
+                        })}
+                      </tr>
+                    `
+                  : ""}
+              `,
+            )}
+          </table>
+        </div>
       </div>
     `;
   }
@@ -1004,70 +1014,86 @@ class PollenPrognosCard extends LitElement {
   static get styles() {
     return css`
       .forecast {
-        width: 100%;
-        padding: 7px;
+        width: 100%; /* Fyll hela kortet! */
+        table-layout: fixed; /* Alla kolumner blir lika breda */
         border-collapse: separate;
-        border-spacing: 0 4px;
+        border-spacing: 0 2px;
+        margin: 0 auto;
       }
+      .forecast th,
+      .forecast td {
+        vertical-align: middle; /* Lägg till! */
+        min-width: 36px;
+        /* Sätt ingen max-width – då tillåts kolumnerna expandera */
+        padding: 2px 2px;
+        text-align: center;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        line-height: 1.2;
+      }
+
+      /* Gör bilder/ikoner alltid så stora som cellen tillåter */
       .icon-wrapper {
-        position: relative;
-        display: inline-block;
+        width: 100%;
+        display: block;
+        margin: 0 auto;
+        text-align: center; /* Viktigt! */
+        /* Ta bort flex eller inline-block om du har det! */
       }
+      .icon-wrapper img {
+        display: block;
+        margin: 0 auto; /* Viktigt! */
+        width: 70%;
+        height: auto;
+        max-width: 60px; /* ev. maxbredd */
+        min-width: 18px;
+      }
+
+      img.allergen {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+        max-width: 40px;
+      }
+
+      .forecast-content {
+        width: 100%;
+        overflow-x: auto;
+        display: flex;
+        justify-content: center;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .forecast-content::-webkit-scrollbar {
+        display: none;
+      }
+
+      .allergen-icon-row td {
+        padding-top: 4px;
+        padding-bottom: 1px;
+      }
+
       .icon-wrapper .circle-overlay {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: bold;
         color: var(--primary-text-color);
         pointer-events: none;
+        text-shadow:
+          0 1px 3px #fff,
+          0 0 2px #fff;
       }
-      td {
-        padding: 1px;
-        text-align: center;
-        width: 100px;
-        font-size: smaller;
-      }
-      img.allergen {
-        width: 40px;
-        height: 40px;
-      }
-      img {
-        width: 50px;
-        height: 50px;
-      }
-      th ha-icon {
-        vertical-align: middle;
-        margin-left: 0.3em;
-        --mdc-icon-size: 18px;
-      }
-      .flex-container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-evenly;
-        align-items: center;
-        padding: 16px;
-      }
-      .sensor {
-        flex: 1;
-        min-width: 20%;
-        text-align: center;
-      }
-      .short-text {
-        display: block;
-      }
-      .card-error {
-        padding: 16px;
-        color: var(--error-text-color, #b71c1c);
-        font-weight: 500;
-        line-height: 1.4;
-      }
-      .value-text {
-        font-size: smaller;
-        margin-top: 4px;
-        display: block;
-        text-align: center;
+
+      .forecast td {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.2;
       }
     `;
   }
