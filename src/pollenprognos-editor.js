@@ -819,6 +819,13 @@ class PollenPrognosCardEditor extends LitElement {
           ? { min: 0, max: 4, step: 1 }
           : { min: 0, max: 6, step: 1 };
 
+    const sortOptions = [
+      this._t("sort_value_ascending"),
+      this._t("sort_value_descending"),
+      this._t("sort_name_ascending"),
+      this._t("sort_name_descending"),
+    ];
+
     return html`
       <div class="card-config">
         <!-- Återställ-knapp -->
@@ -1149,12 +1156,7 @@ class PollenPrognosCardEditor extends LitElement {
             @selected=${(e) => this._updateConfig("sort", e.target.value)}
             @closed=${(e) => e.stopPropagation()}
           >
-            ${[
-              "value_ascending",
-              "value_descending",
-              "name_ascending",
-              "name_descending",
-            ].map(
+            ${sortOptions.map(
               (o) =>
                 html`<mwc-list-item .value=${o}
                   >${o.replace("_", " ")}</mwc-list-item
