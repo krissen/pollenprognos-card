@@ -869,7 +869,7 @@ class PollenPrognosCard extends LitElement {
                 this.config.show_value_text ||
                 this.config.show_value_numeric
                   ? html`
-                      <tr class="allergen-text-row" valign="top">
+                      <tr class="allergen-text-row">
                         <td>
                           ${this.config.show_text_allergen
                             ? this.config.allergens_abbreviated
@@ -1088,6 +1088,13 @@ class PollenPrognosCard extends LitElement {
       .allergen-icon-row td {
         padding-top: 4px;
         padding-bottom: 1px;
+      }
+
+      .allergen-text-row td {
+        vertical-align: top !important; /* Tvinga innehållet uppåt */
+        text-align: center;
+        padding-top: 6px;
+        padding-bottom: 2px; /* eller vad som känns lagom */
       }
 
       .icon-wrapper .circle-overlay {
