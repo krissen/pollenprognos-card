@@ -1013,6 +1013,7 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
+      /* normalhtml */
       .forecast {
         width: 100%; /* Fyll hela kortet! */
         table-layout: fixed; /* Alla kolumner blir lika breda */
@@ -1095,6 +1096,44 @@ class PollenPrognosCard extends LitElement {
         overflow-wrap: anywhere;
         word-break: break-word;
         line-height: 1.2;
+      }
+
+      /* minimalhtml */
+
+      .flex-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center; /* Centrerar alla .sensor-block på raden */
+        gap: 12px 16px; /* Luft mellan bilder, justera fritt */
+        width: 100%;
+      }
+
+      .sensor {
+        display: flex;
+        flex-direction: column; /* Stapla bild och text VERTIKALT */
+        align-items: center; /* Centrera horisontellt */
+        justify-content: flex-start;
+        flex: 1 1 120px; /* Flexibel bredd, min 120px – justera fritt */
+        min-width: 80px;
+        max-width: 180px;
+        margin: 0 4px;
+      }
+
+      .sensor img.box {
+        display: block;
+        width: 80%; /* Växer tillgängligt utrymme */
+        max-width: 55px; /* Största tillåtna storlek */
+        min-width: 36px; /* Minsta tillåtna storlek */
+        height: auto;
+        margin: 0 auto 6px auto; /* Luft mellan bild och text */
+      }
+
+      .short-text {
+        display: block;
+        text-align: center;
+        margin-top: 2px;
+        word-break: break-word;
+        white-space: normal;
       }
     `;
   }
