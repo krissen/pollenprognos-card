@@ -131,6 +131,8 @@
   "editor.sort_name_descending": "name, descending",
   "editor.sort_value_ascending": "value, ascending",
   "editor.sort_value_descending": "value, descending",
+  "editor.tap_action": "Tap action",
+  "editor.tap_action_enable": "Enable tap action",
   "editor.title": "Card title",
   "editor.title_automatic": "Automatic title",
   "editor.title_hide": "Hide title",

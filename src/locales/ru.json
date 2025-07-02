@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "имя, по убыванию",
   "editor.sort_value_ascending": "значение, по возрастанию",
   "editor.sort_value_descending": "значение, по убыванию",
+  "editor.tap_action": "Действие при нажатии",
+  "editor.tap_action_enable": "Включить действие при нажатии",
   "editor.title": "Заголовок карточки",
   "editor.title_automatic": "Автоматический заголовок",
   "editor.title_hide": "Скрыть заголовок",

@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "navn, faldende",
   "editor.sort_value_ascending": "værdi, stigende",
   "editor.sort_value_descending": "værdi, faldende",
+  "editor.tap_action": "Tryk-handling",
+  "editor.tap_action_enable": "Aktivér tryk-handling",
   "editor.title": "Korttitel",
   "editor.title_automatic": "Automatisk titel",
   "editor.title_hide": "Skjul titel",

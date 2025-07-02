@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "Name, absteigend",
   "editor.sort_value_ascending": "Wert, aufsteigend",
   "editor.sort_value_descending": "Wert, absteigend",
+  "editor.tap_action": "Tippen-Aktion",
+  "editor.tap_action_enable": "Tippen-Aktion aktivieren",
   "editor.title": "Kartentitel",
   "editor.title_automatic": "Automatischer Titel",
   "editor.title_hide": "Titel ausblenden",

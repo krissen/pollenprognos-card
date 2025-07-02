@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "nome, decrescente",
   "editor.sort_value_ascending": "valore, crescente",
   "editor.sort_value_descending": "valore, decrescente",
+  "editor.tap_action": "Azione al tocco",
+  "editor.tap_action_enable": "Abilita azione al tocco",
   "editor.title": "Titolo della scheda",
   "editor.title_automatic": "Titolo automatico",
   "editor.title_hide": "Nascondi titolo",

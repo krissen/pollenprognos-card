@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "název, sestupně",
   "editor.sort_value_ascending": "hodnota, vzestupně",
   "editor.sort_value_descending": "hodnota, sestupně",
+  "editor.tap_action": "Akce na klepnutí",
+  "editor.tap_action_enable": "Povolit akci na klepnutí",
   "editor.title": "Název karty",
   "editor.title_automatic": "Automatický název",
   "editor.title_hide": "Skrýt název",

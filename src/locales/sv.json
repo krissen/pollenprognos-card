@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "namn, fallande",
   "editor.sort_value_ascending": "värde, stigande",
   "editor.sort_value_descending": "värde, fallande",
+  "editor.tap_action": "Tryckåtgärd",
+  "editor.tap_action_enable": "Aktivera tryckåtgärd",
   "editor.title": "Rubrik på kortet",
   "editor.title_automatic": "Automatisk rubrik",
   "editor.title_hide": "Göm rubrik",

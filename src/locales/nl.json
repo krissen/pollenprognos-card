@@ -128,6 +128,8 @@
   "editor.sort_name_descending": "naam, aflopend",
   "editor.sort_value_ascending": "waarde, oplopend",
   "editor.sort_value_descending": "waarde, aflopend",
+  "editor.tap_action": "Tikactie",
+  "editor.tap_action_enable": "Tikactie inschakelen",
   "editor.title": "Kaarttitel",
   "editor.title_automatic": "Automatische titel",
   "editor.title_hide": "Verberg titel",
