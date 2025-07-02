@@ -73,6 +73,8 @@ def main():
                 "slug": key,
                 "name": eng_name
             }
+
+    # Bygg allergen-mapping
     for fname in os.listdir(TRANSLATIONS_DIR):
         if not fname.endswith(".json"):
             continue
@@ -95,6 +97,7 @@ def main():
                     if local_slug != key:
                         mapping[local_slug] = key
             result[lang] = mapping
+
     # Bygg reverse-namn-lookup också
     names_by_lang = {}
     for fname in os.listdir(TRANSLATIONS_DIR):
@@ -110,15 +113,32 @@ def main():
                 if key not in names_by_lang:
                     names_by_lang[key] = {}
                 names_by_lang[key][lang] = info.get("name", key)
+
+    # NYTT: Hämta möjliga weather-suffixar per locale
+    weather_suffixes = {}
+    for fname in os.listdir(TRANSLATIONS_DIR):
+        if not fname.endswith(".json"):
+            continue
+        lang = fname.split(".")[0]
+        with open(os.path.join(TRANSLATIONS_DIR, fname), encoding="utf-8") as f:
+            data = json.load(f)
+            weather = data.get("entity", {}).get("weather", {})
+            suffixes = set()
+            for key, info in weather.items():
+                name = info.get("name", key)
+                slug = slugify(name)
+                suffixes.add(slug)
+            weather_suffixes[lang] = sorted(list(suffixes))
+
     out = {
         "mapping": result,
-        "names": names_by_lang
+        "names": names_by_lang,
+        "weather_suffixes": weather_suffixes
     }
     os.makedirs(os.path.dirname(OUT_FILE), exist_ok=True)
     with open(OUT_FILE, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"Wrote {OUT_FILE}")
-
 if __name__ == "__main__":
     main()
 

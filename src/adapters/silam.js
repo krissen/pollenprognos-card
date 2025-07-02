@@ -1,6 +1,7 @@
 // src/adapters/silam.js
 import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
+import { findSilamWeatherEntity } from "../utils/silam.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -347,17 +348,7 @@ export async function fetchHourlyForecast(hass, config, forecastEvent = null) {
 
   // Identifiera weather-entity: auto-detect, eller ge i config (eller bygg från location)
   let locationSlug = (config.location || "").toLowerCase();
-  let weatherEntity = null;
-  for (const id of Object.keys(hass.states)) {
-    if (
-      id.startsWith("weather.silam_pollen_") &&
-      id.includes(locationSlug) &&
-      id.endsWith("forecast")
-    ) {
-      weatherEntity = id;
-      break;
-    }
-  }
+  const weatherEntity = findSilamWeatherEntity(hass, locationSlug, locale);
 
   if (debug) {
     console.debug(

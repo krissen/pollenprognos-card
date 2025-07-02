@@ -5,7 +5,7 @@ import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
 import { normalize, normalizeDWD } from "./utils/normalize.js";
-import { getSilamReverseMap, findAvailableSensors } from "./utils/sensors.js";
+import { findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
@@ -13,6 +13,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
@@ -64,12 +65,23 @@ class PollenPrognosCard extends LitElement {
       this.config.location
     ) {
       const locationSlug = this.config.location.toLowerCase();
-      const entityId = Object.keys(this._hass.states).find(
-        (id) =>
-          id.startsWith("weather.silam_pollen_") &&
-          id.includes(locationSlug) &&
-          id.endsWith("_forecast"),
-      );
+      const lang = this.config?.date_locale?.split("-")[0] || "en";
+      const suffixes =
+        silamAllergenMap.weather_suffixes?.[lang] ||
+        silamAllergenMap.weather_suffixes?.en ||
+        [];
+      if (this.debug) {
+        const allWeather = Object.keys(this._hass.states).filter((id) =>
+          id.startsWith("weather.silam_pollen_"),
+        );
+        console.debug(
+          "[Card][Debug] Alla weather-entities i hass.states:",
+          allWeather,
+        );
+        console.debug("[Card][Debug] locationSlug:", locationSlug);
+        console.debug("[Card][Debug] Suffixes:", suffixes);
+      }
+      const entityId = findSilamWeatherEntity(this._hass, locationSlug, lang);
       let forecastType = "hourly";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";

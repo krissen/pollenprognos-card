@@ -9,6 +9,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+// import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -53,6 +54,22 @@ class PollenPrognosCardEditor extends LitElement {
     return Boolean(this._config.debug);
   }
 
+  _hasSilamWeatherEntity(location) {
+    if (!this._hass || !location) return false;
+    const lang = this._config?.date_locale?.split("-")[0] || "en";
+    const suffixes =
+      silamAllergenMap.weather_suffixes?.[lang] ||
+      silamAllergenMap.weather_suffixes?.en ||
+      [];
+    const loc = location.toLowerCase();
+    for (const suffix of suffixes) {
+      const entityId = `weather.silam_pollen_${loc}_${suffix}`;
+      if (entityId in this._hass.states) return true;
+    }
+    // Fallback: om det finns något weather.silam_pollen_{loc}_*
+    const prefix = `weather.silam_pollen_${loc}_`;
+    return Object.keys(this._hass.states).some((id) => id.startsWith(prefix));
+  }
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
@@ -777,6 +794,13 @@ class PollenPrognosCardEditor extends LitElement {
           cfg.days_to_show = 2;
         }
       }
+      // Tvinga mode till daily om location saknar weather-entity
+      if (this._config.integration === "silam" && prop === "location") {
+        if (!this._hasSilamWeatherEntity(value)) {
+          cfg.mode = "daily";
+          cfg.days_to_show = 2;
+        }
+      }
     }
     cfg.type = this._config.type;
     this._config = cfg;
@@ -1019,7 +1043,7 @@ class PollenPrognosCardEditor extends LitElement {
           </div>
         </ha-formfield>
         <!-- Layout-switchar -->
-        ${c.integration === "silam"
+        ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
           ? html`
               <ha-formfield label="${this._t("mode")}">
                 <ha-select
