@@ -804,7 +804,10 @@ class PollenPrognosCardEditor extends LitElement {
       const newInt = value;
       const oldInt = this._config.integration;
       if (newInt !== oldInt) {
-        delete newUser[newInt === "dwd" ? "city" : "region_id"];
+        delete newUser.city;
+        delete newUser.region_id;
+        delete newUser.location;
+        delete newUser.mode;
         delete newUser.allergens;
         delete newUser.days_to_show;
         delete newUser.pollen_threshold;
