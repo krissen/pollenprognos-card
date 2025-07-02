@@ -14,17 +14,11 @@
       "birke": "birch",
       "gras": "grass",
       "hasel": "hazel",
-      "beifuss": "mugwort",
+      "beifu": "mugwort",
       "ambrosia": "ragweed"
     },
     "ru": {
-      "olkha": "alder",
-      "berioza": "birch",
-      "trava": "grass",
-      "leshchina": "hazel",
-      "polyn": "mugwort",
-      "oliva": "olive",
-      "ambroziia": "ragweed"
+      "": "ragweed"
     },
     "fi": {
       "leppa": "alder",
@@ -73,7 +67,7 @@
     },
     "no": {
       "al": "alder",
-      "bjork": "birch",
+      "bjrk": "birch",
       "gress": "grass",
       "hassel": "hazel",
       "malurt": "mugwort",
@@ -83,7 +77,7 @@
     "da": {
       "al": "alder",
       "birk": "birch",
-      "graes": "grass",
+      "grs": "grass",
       "hassel": "hazel",
       "malurt": "mugwort",
       "oliven": "olive",
@@ -191,5 +185,40 @@
       "da": "Ambrosia",
       "sv": "Ambrosia"
     }
+  },
+  "weather_suffixes": {
+    "nl": [
+      "forecast"
+    ],
+    "de": [
+      "pollen_vorhersage_beta"
+    ],
+    "ru": [
+      "beta"
+    ],
+    "fi": [
+      "siitepolyennuste_beta"
+    ],
+    "sk": [
+      "predpoved"
+    ],
+    "en": [
+      "forecast"
+    ],
+    "it": [
+      "previsione_del_polline_beta"
+    ],
+    "cs": [
+      "predpoved"
+    ],
+    "no": [
+      "pollenprognose_beta"
+    ],
+    "da": [
+      "pollenprognose_beta"
+    ],
+    "sv": [
+      "pollenprognos_beta"
+    ]
   }
 }

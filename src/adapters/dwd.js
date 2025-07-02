@@ -155,51 +155,53 @@ export async function fetchForecast(hass, config) {
       dict.days = [];
       // Bygg dict.dayN och dict.days[]
       levels.forEach((entry, idx) => {
-        const diff = Math.round((entry.date - today) / 86400000);
-        let dayLabel;
+        if (entry.level !== null && entry.level >= 0) {
+          const diff = Math.round((entry.date - today) / 86400000);
+          let dayLabel;
 
-        if (!daysRelative) {
-          // Visa absoluta veckodagar med versal
-          dayLabel = entry.date.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-        } else if (userDays[diff] !== undefined) {
-          // Relativa dagar från användarens config
-          dayLabel = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          // Standard relative days från i18n
-          dayLabel = t(`card.days.${diff}`, lang);
-        } else {
-          // Datum som dag mån
-          dayLabel = entry.date.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
+          if (!daysRelative) {
+            // Visa absoluta veckodagar med versal
+            dayLabel = entry.date.toLocaleDateString(locale, {
+              weekday: dayAbbrev ? "short" : "long",
+            });
+            dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+          } else if (userDays[diff] !== undefined) {
+            // Relativa dagar från användarens config
+            dayLabel = userDays[diff];
+          } else if (diff >= 0 && diff <= 2) {
+            // Standard relative days från i18n
+            dayLabel = t(`card.days.${diff}`, lang);
+          } else {
+            // Datum som dag mån
+            dayLabel = entry.date.toLocaleDateString(locale, {
+              day: "numeric",
+              month: "short",
+            });
+          }
+          if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+
+          const sensorDesc =
+            sensor.attributes[
+              idx === 0
+                ? ATTR_DESC_TODAY
+                : idx === 1
+                  ? ATTR_DESC_TOMORROW
+                  : ATTR_DESC_IN_2_DAYS
+            ] || "";
+
+          const scaled = entry.level * 2;
+          const lvlIndex = Math.min(Math.max(Math.round(scaled), 0), 6);
+          const stateText =
+            lvlIndex < 0 ? noInfoLabel : levelNames[lvlIndex] || sensorDesc;
+
+          dict[`day${idx}`] = {
+            name: dict.allergenCapitalized,
+            day: dayLabel,
+            state: entry.level,
+            state_text: stateText,
+          };
+          dict.days.push(dict[`day${idx}`]);
         }
-        if (daysUppercase) dayLabel = dayLabel.toUpperCase();
-
-        const sensorDesc =
-          sensor.attributes[
-            idx === 0
-              ? ATTR_DESC_TODAY
-              : idx === 1
-                ? ATTR_DESC_TOMORROW
-                : ATTR_DESC_IN_2_DAYS
-          ] || "";
-
-        const scaled = entry.level * 2;
-        const lvlIndex = Math.min(Math.max(Math.round(scaled), 0), 6);
-        const stateText =
-          lvlIndex < 0 ? noInfoLabel : levelNames[lvlIndex] || sensorDesc;
-
-        dict[`day${idx}`] = {
-          name: dict.allergenCapitalized,
-          day: dayLabel,
-          state: entry.level,
-          state_text: stateText,
-        };
-        dict.days.push(dict[`day${idx}`]);
       });
 
       // Filtrera med tröskel

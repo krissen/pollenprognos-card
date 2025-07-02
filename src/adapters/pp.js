@@ -88,7 +88,7 @@ export async function fetchForecast(hass, config) {
 
   const testVal = (v) => {
     const n = Number(v);
-    return isNaN(n) || n < 0 ? -1 : n > 6 ? 6 : n;
+    return isNaN(n) || n < 0 ? null : n > 6 ? 6 : n;
   };
 
   const days_to_show = config.days_to_show ?? stubConfigPP.days_to_show;
@@ -212,15 +212,27 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) label = label.toUpperCase();
 
-        const dayObj = {
-          name: dict.allergenCapitalized,
-          day: label,
-          state: level,
-          state_text: level < 0 ? noInfoLabel : levelNames[level],
-        };
-
-        dict[`day${idx}`] = dayObj;
-        dict.days.push(dayObj);
+        if (level !== null) {
+          const dayObj = {
+            name: dict.allergenCapitalized,
+            day: label,
+            state: level,
+            state_text: levelNames[level],
+          };
+          dict[`day${idx}`] = dayObj;
+          dict.days.push(dayObj);
+        }
+        // Om du vill kunna visa "no information"-text när show_empty_days == true
+        // else if (config.show_empty_days) {
+        //   const dayObj = {
+        //     name: dict.allergenCapitalized,
+        //     day: label,
+        //     state: null,
+        //     state_text: noInfoLabel,
+        //   };
+        //   dict[`day${idx}`] = dayObj;
+        //   dict.days.push(dayObj);
+        // }
       });
 
       // Threshold filtering

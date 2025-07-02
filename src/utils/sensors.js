@@ -2,16 +2,6 @@
 import { normalize, normalizeDWD } from "./normalize.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
-// Skapa dynamisk reverse-map: masterAllergen => slug för rätt språk
-export function getSilamReverseMap(lang) {
-  const mapping =
-    silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {};
-  const reverse = {};
-  for (const [slug, master] of Object.entries(mapping)) {
-    reverse[master] = slug;
-  }
-  return reverse;
-}
 export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];

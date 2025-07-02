@@ -9,6 +9,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -53,6 +54,51 @@ class PollenPrognosCardEditor extends LitElement {
     return Boolean(this._config.debug);
   }
 
+  _hasSilamWeatherEntity(location) {
+    if (!this._hass) return false;
+    if (!location) {
+      // Fallback: Hitta alla möjliga platser (unika, sorterade)
+      const candidates = Object.keys(this._hass.states)
+        .filter((id) => id.startsWith("weather.silam_pollen_"))
+        .map((id) =>
+          id.replace(/^weather\.silam_pollen_/, "").replace(/_.+$/, ""),
+        )
+        .filter((v, i, a) => a.indexOf(v) === i) // unika
+        .sort();
+      if (this.debug) {
+        console.debug(
+          "[Editor] _hasSilamWeatherEntity: found locations:",
+          candidates,
+        );
+      }
+      if (candidates.length > 0) {
+        if (this.debug)
+          console.debug(
+            "[Editor] _hasSilamWeatherEntity: using fallback location",
+            candidates[0],
+          );
+        // returnera true om du bara vill signalera "OK"
+        // return candidates[0]; // om du vill använda värdet
+        return true;
+      }
+      if (this.debug)
+        console.debug("[Editor] _hasSilamWeatherEntity: no candidates");
+      return false;
+    }
+    const lang = this._config?.date_locale?.split("-")[0] || "en";
+    const suffixes =
+      silamAllergenMap.weather_suffixes?.[lang] ||
+      silamAllergenMap.weather_suffixes?.en ||
+      [];
+    const loc = location.toLowerCase();
+    for (const suffix of suffixes) {
+      const entityId = `weather.silam_pollen_${loc}_${suffix}`;
+      if (entityId in this._hass.states) return true;
+    }
+    // Fallback: om det finns något weather.silam_pollen_{loc}_*
+    const prefix = `weather.silam_pollen_${loc}_`;
+    return Object.keys(this._hass.states).some((id) => id.startsWith(prefix));
+  }
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
@@ -171,6 +217,7 @@ class PollenPrognosCardEditor extends LitElement {
   setConfig(config) {
     try {
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
+      if (config.phrases) this._userConfig.phrases = config.phrases;
 
       // 1. Identifiera stub-längd och skapa kopia av inkommande config
       const stubLen =
@@ -290,6 +337,7 @@ class PollenPrognosCardEditor extends LitElement {
         this._userConfig.integration !== undefined
           ? this._userConfig.integration
           : this._config.integration;
+
       if (!this._integrationExplicit && this._hass) {
         const all = Object.keys(this._hass.states);
         if (all.some((id) => id.startsWith("sensor.pollen_"))) {
@@ -306,6 +354,11 @@ class PollenPrognosCardEditor extends LitElement {
         this._userConfig.integration = integration;
         if (this.debug)
           console.debug("[Editor] auto-detected integration:", integration);
+      }
+
+      // 9.1 Sätt default mode för silam om inte satt
+      if (integration === "silam" && !this._userConfig.mode) {
+        this._userConfig.mode = "daily";
       }
 
       // 10. Bygg config från stub + userConfig (bara EN gång!)
@@ -493,6 +546,11 @@ class PollenPrognosCardEditor extends LitElement {
       this._userConfig.integration = integration;
     }
 
+    // 1.1) Sätt default mode för silam om inte satt
+    if (integration === "silam" && !this._userConfig.mode) {
+      this._userConfig.mode = "daily";
+    }
+
     // 2) Slå ihop stub + användar-config
     const base =
       integration === "dwd"
@@ -515,6 +573,9 @@ class PollenPrognosCardEditor extends LitElement {
           base.pollen_threshold,
         );
     }
+
+    merged.sort = merged.sort || "value_ascending";
+
     this._config = merged;
 
     // 3) Fyll installerade regioner/städer
@@ -730,14 +791,54 @@ class PollenPrognosCardEditor extends LitElement {
   _updateConfig(prop, value) {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
+
+    // Specialfall: språkbyte – tvinga sort-dropdown att ritas om
+    if (prop === "date_locale") {
+      // Spara aktuella värden
+      const prevSort = this._config.sort;
+      const prevMode = this._config.mode;
+
+      // Sätt nytt språk och nollställ sort och mode tillfälligt för att trigga omritning
+      this._config = {
+        ...this._config,
+        date_locale: value,
+        sort: "",
+        mode: "",
+      };
+      this.requestUpdate();
+
+      setTimeout(() => {
+        this._config = {
+          ...this._config,
+          sort: prevSort,
+          mode: prevMode,
+        };
+        this.requestUpdate();
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }, 0);
+
+      // Hoppa över resten!
+      return;
+    }
     const newUser = { ...this._userConfig };
     let cfg;
+
     if (prop === "integration") {
       const newInt = value;
       const oldInt = this._config.integration;
       if (newInt !== oldInt) {
-        delete newUser[newInt === "dwd" ? "city" : "region_id"];
+        delete newUser.city;
+        delete newUser.region_id;
+        delete newUser.location;
+        delete newUser.mode;
         delete newUser.allergens;
+        delete newUser.days_to_show;
         delete newUser.pollen_threshold;
         this._allergensExplicit = false;
       }
@@ -754,6 +855,23 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
+      // Om vi just bytte mode för silam, och days_to_show ska justeras, inkludera det också:
+      if (this._config.integration === "silam" && prop === "mode") {
+        if (value === "hourly" || value === "twice_daily") {
+          cfg.days_to_show = 8;
+          cfg.show_empty_days = false;
+          // cfg.show_empty_days = false; // om du vill
+        } else if (value === "daily") {
+          cfg.days_to_show = 2;
+        }
+      }
+      // Tvinga mode till daily om location saknar weather-entity
+      if (this._config.integration === "silam" && prop === "location") {
+        if (!this._hasSilamWeatherEntity(value)) {
+          cfg.mode = "daily";
+          cfg.days_to_show = 2;
+        }
+      }
     }
     cfg.type = this._config.type;
     this._config = cfg;
@@ -798,6 +916,22 @@ class PollenPrognosCardEditor extends LitElement {
         : c.integration === "peu"
           ? { min: 0, max: 4, step: 1 }
           : { min: 0, max: 6, step: 1 };
+
+    const SORT_VALUES = [
+      "value_ascending",
+      "value_descending",
+      "name_ascending",
+      "name_descending",
+    ];
+
+    const sortOptions = SORT_VALUES.map((opt) => ({
+      value: opt,
+      label: this._t(`sort_${opt}`),
+    }));
+    if (this.debug) {
+      console.debug("Aktuellt språk (lang):", this._lang);
+      console.debug("Sort label test:", this._t("sort_value_ascending"));
+    }
 
     return html`
       <div class="card-config">
@@ -984,6 +1118,27 @@ class PollenPrognosCardEditor extends LitElement {
           </div>
         </ha-formfield>
         <!-- Layout-switchar -->
+        ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
+          ? html`
+              <ha-formfield label="${this._t("mode")}">
+                <ha-select
+                  .value=${c.mode || "daily"}
+                  @selected=${(e) => this._updateConfig("mode", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  <mwc-list-item value="daily"
+                    >${this._t("mode_daily")}</mwc-list-item
+                  >
+                  <mwc-list-item value="twice_daily"
+                    >${this._t("mode_twice_daily")}</mwc-list-item
+                  >
+                  <mwc-list-item value="hourly"
+                    >${this._t("mode_hourly")}</mwc-list-item
+                  >
+                </ha-select>
+              </ha-formfield>
+            `
+          : ""}
         <ha-formfield label="${this._t("minimal")}">
           <ha-switch
             .checked=${c.minimal}
@@ -1067,13 +1222,22 @@ class PollenPrognosCardEditor extends LitElement {
           ></ha-switch>
         </ha-formfield>
 
-        <!-- Antal dagar -->
+        <!-- Antal dagar / kolumner / timmar -->
         <div class="slider-row">
-          <div class="slider-text">${this._t("days_to_show")}</div>
+          <div class="slider-text">
+            ${c.integration === "silam" && c.mode === "twice_daily"
+              ? this._t("to_show_columns")
+              : c.integration === "silam" && c.mode === "hourly"
+                ? this._t("to_show_hours")
+                : this._t("to_show_days")}
+          </div>
           <div class="slider-value">${c.days_to_show}</div>
           <ha-slider
             min="0"
-            max="6"
+            max="${c.integration === "silam" &&
+            (c.mode === "hourly" || c.mode === "twice_daily")
+              ? 8
+              : 6}"
             step="1"
             .value=${c.days_to_show}
             @input=${(e) =>
@@ -1102,16 +1266,9 @@ class PollenPrognosCardEditor extends LitElement {
             @selected=${(e) => this._updateConfig("sort", e.target.value)}
             @closed=${(e) => e.stopPropagation()}
           >
-            ${[
-              "value_ascending",
-              "value_descending",
-              "name_ascending",
-              "name_descending",
-            ].map(
-              (o) =>
-                html`<mwc-list-item .value=${o}
-                  >${o.replace("_", " ")}</mwc-list-item
-                >`,
+            ${sortOptions.map(
+              ({ value, label }) =>
+                html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
             )}
           </ha-select>
         </ha-formfield>
@@ -1251,8 +1408,8 @@ class PollenPrognosCardEditor extends LitElement {
         </ha-formfield>
 
         <!-- Tap Action -->
-        <h3>Tap Action</h3>
-        <ha-formfield label="Enable tap action">
+        <h3>${this._t("tap_action")}</h3>
+        <ha-formfield label="${this._t("tap_action_enable")}">
           <ha-switch
             .checked=${this._tapType !== "none"}
             @change=${(e) => {

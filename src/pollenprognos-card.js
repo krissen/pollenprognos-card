@@ -5,7 +5,7 @@ import { images } from "./pollenprognos-images.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
 import { normalize, normalizeDWD } from "./utils/normalize.js";
-import { getSilamReverseMap, findAvailableSensors } from "./utils/sensors.js";
+import { findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
@@ -13,6 +13,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
@@ -24,6 +25,146 @@ import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type:
 const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
+  _forecastUnsub = null; // Unsubscribe-funktion
+  _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
+
+  _updateSensorsAndColumns(filtered, availableSensors, cfg) {
+    this.sensors = filtered;
+    this._availableSensorCount = availableSensors.length;
+
+    let daysCount = 0;
+    if (cfg.show_empty_days) {
+      daysCount = cfg.days_to_show;
+    } else if (filtered.length > 0 && filtered[0].days) {
+      daysCount = Math.min(filtered[0].days.length, cfg.days_to_show);
+    }
+    this.days_to_show = daysCount;
+    this.displayCols = Array.from({ length: daysCount }, (_, i) => i);
+
+    if (this.debug) {
+      console.debug("Days to show:", this.days_to_show);
+      console.debug("Display columns:", this.displayCols);
+    }
+    this.requestUpdate();
+  }
+
+  _subscribeForecastIfNeeded() {
+    if (!this.config || !this._hass) return;
+
+    // Avsluta tidigare subscription (alltid promisifierat)
+    if (this._forecastUnsub) {
+      Promise.resolve(this._forecastUnsub).then((fn) => {
+        if (typeof fn === "function") fn();
+      });
+      this._forecastUnsub = null;
+    }
+
+    if (
+      this.config.integration === "silam" &&
+      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
+      this.config.location
+    ) {
+      const locationSlug = this.config.location.toLowerCase();
+      const lang = this.config?.date_locale?.split("-")[0] || "en";
+      const suffixes =
+        silamAllergenMap.weather_suffixes?.[lang] ||
+        silamAllergenMap.weather_suffixes?.en ||
+        [];
+      if (this.debug) {
+        const allWeather = Object.keys(this._hass.states).filter((id) =>
+          id.startsWith("weather.silam_pollen_"),
+        );
+        console.debug(
+          "[Card][Debug] Alla weather-entities i hass.states:",
+          allWeather,
+        );
+        console.debug("[Card][Debug] locationSlug:", locationSlug);
+        console.debug("[Card][Debug] Suffixes:", suffixes);
+      }
+      const entityId = findSilamWeatherEntity(this._hass, locationSlug, lang);
+      let forecastType = "hourly";
+      if (this.config && this.config.mode === "twice_daily") {
+        forecastType = "twice_daily";
+      }
+      if (entityId) {
+        this._forecastUnsub = this._hass.connection.subscribeMessage(
+          (event) => {
+            if (this.debug) {
+              console.debug(
+                "[Card][subscribeForecast] forecastEvent RECEIVED:",
+                event,
+              );
+            }
+            this._forecastEvent = event;
+            // Kör fetch direkt!
+            this._updateSensorsAfterForecastEvent();
+            // this.requestUpdate();
+          },
+          {
+            type: "weather/subscribe_forecast",
+            entity_id: entityId,
+            forecast_type: forecastType,
+          },
+        );
+        if (this.debug) {
+          console.debug("[Card][subscribeForecast] Subscribed for", entityId);
+        }
+      } else if (this.debug) {
+        console.debug(
+          "[Card] Hittar ingen weather-entity för location",
+          locationSlug,
+        );
+      }
+    }
+  }
+
+  _updateSensorsAfterForecastEvent() {
+    if (
+      this.config &&
+      this.config.integration === "silam" &&
+      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
+      this._forecastEvent
+    ) {
+      const adapter = ADAPTERS[this.config.integration] || PP;
+      if (typeof adapter.fetchHourlyForecast === "function") {
+        adapter
+          .fetchHourlyForecast(this._hass, this.config, this._forecastEvent)
+          .then((sensors) => {
+            const availableSensors = findAvailableSensors(
+              this.config,
+              this._hass,
+              this.debug,
+            );
+            this._updateSensorsAndColumns(
+              sensors,
+              availableSensors,
+              this.config,
+            );
+            // this.sensors = sensors;
+            // this.requestUpdate();
+          });
+      }
+    }
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._forecastUnsub) {
+      Promise.resolve(this._forecastUnsub).then((fn) => {
+        if (typeof fn === "function") fn();
+      });
+      this._forecastUnsub = null;
+    }
+  }
+
+  // Kör om subscription om config eller hass ändras!
+  updated(changedProps) {
+    if (changedProps.has("config") || changedProps.has("_hass")) {
+      this._subscribeForecastIfNeeded();
+    }
+    if (super.updated) super.updated(changedProps);
+  }
+
   get debug() {
     // return true;
     return Boolean(this.config && this.config.debug);
@@ -412,159 +553,190 @@ class PollenPrognosCard extends LitElement {
 
     // Hämta prognos via rätt adapter
     const adapter = ADAPTERS[cfg.integration] || PP;
-    adapter
-      .fetchForecast(hass, cfg)
-      .then((sensors) => {
-        if (this.debug) {
-          console.debug("[Card][Debug] Sensors före filtrering:", sensors);
-          console.debug(
-            "[Card][Debug] Förväntade allergener från config:",
-            cfg.allergens,
-          );
-        }
-
+    let fetchPromise = null;
+    if (
+      cfg.integration === "silam" &&
+      (cfg.mode === "hourly" || cfg.mode === "twice_daily") &&
+      typeof adapter.fetchHourlyForecast === "function"
+    ) {
+      if (!this._forecastEvent) {
         if (this.debug) {
           console.debug(
-            "[Card][Debug] Alla tillgängliga hass.states:",
-            Object.keys(hass.states),
+            "[Card] Forecast mode: väntar på forecast-event innan fetch.",
           );
-          console.debug("[Card] Användaren har valt city:", cfg.city);
-          console.debug(
-            "[Card] Användaren har valt allergener:",
-            cfg.allergens,
-          );
-          console.debug("[Card] Användaren har valt plats:", cfg.location);
         }
+        // Visa laddar, gör inget mer nu
+        return;
+      }
+      if (!this._forecastEvent) {
+        this.sensors = [];
+        this.days_to_show = 0;
+        this.displayCols = [];
+        if (this.debug) {
+          console.debug(
+            "[Card] Forecast mode: forecast-event saknas, nollställer sensordata och visar laddar...",
+          );
+        }
+        this.requestUpdate();
+        return;
+      }
 
-        const availableSensors = findAvailableSensors(cfg, hass, this.debug);
-        const availableSensorCount = availableSensors.length;
+      fetchPromise = adapter.fetchHourlyForecast(
+        hass,
+        cfg,
+        this._forecastEvent,
+      );
+    } else {
+      fetchPromise = adapter.fetchForecast(hass, cfg);
+    }
 
-        // --- AUTODETECT HASS-SLUG-SPRÅK FÖR SILAM ---
-        let silamReverse = {};
-        if (cfg.integration === "silam") {
-          // Alla silam-entiteter för platsen
-          const silamStates = Object.keys(hass.states).filter((id) => {
-            const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-            return m && m[1] === (cfg.location || "");
-          });
-
-          // Loopa igenom alla sensors och alla mapping-språk
-          for (const eid of silamStates) {
-            const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-            if (!m) continue;
-            const haSlug = m[2];
-            // Gå igenom alla språk och leta master-slug
-            let found = false;
-            for (const [lang, mapping] of Object.entries(
-              silamAllergenMap.mapping,
-            )) {
-              if (mapping[haSlug]) {
-                silamReverse[mapping[haSlug]] = haSlug;
-                found = true;
-                break; // sluta efter första träff (det räcker, unikt per system)
-              }
-            }
-            // Om ingen träff – debugga gärna
-            if (!found && this.debug) {
-              console.debug(
-                `[Card][SILAM] Hittade ingen mapping för haSlug: '${haSlug}'`,
-              );
-            }
+    if (fetchPromise) {
+      return fetchPromise
+        .then((sensors) => {
+          if (this.debug) {
+            console.debug("[Card][Debug] Sensors före filtrering:", sensors);
+            console.debug(
+              "[Card][Debug] Förväntade allergener från config:",
+              cfg.allergens,
+            );
           }
+
           if (this.debug) {
             console.debug(
-              "[Card][SILAM] silamReverse byggd baserat på existerande sensors:",
-              silamReverse,
+              "[Card][Debug] Alla tillgängliga hass.states:",
+              Object.keys(hass.states),
             );
+            console.debug("[Card] Användaren har valt city:", cfg.city);
+            console.debug(
+              "[Card] Användaren har valt allergener:",
+              cfg.allergens,
+            );
+            console.debug("[Card] Användaren har valt plats:", cfg.location);
           }
-        }
 
-        // Filtrera adapterns sensors så att endast de finns i availableSensors
-        let filtered = sensors.filter((s) => {
-          if (cfg.integration === "silam" && silamReverse) {
-            const loc = cfg.location || "";
-            // Mappar master->haSlug för entity_id
-            const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
-            const id = `sensor.silam_pollen_${loc}_${key}`;
+          const availableSensors = findAvailableSensors(cfg, hass, this.debug);
+          const availableSensorCount = availableSensors.length;
+
+          // --- AUTODETECT HASS-SLUG-SPRÅK FÖR SILAM ---
+          let silamReverse = {};
+          if (cfg.integration === "silam") {
+            // Alla silam-entiteter för platsen
+            const silamStates = Object.keys(hass.states).filter((id) => {
+              const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+              return m && m[1] === (cfg.location || "");
+            });
+
+            // Loopa igenom alla sensors och alla mapping-språk
+            for (const eid of silamStates) {
+              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+              if (!m) continue;
+              const haSlug = m[2];
+              // Gå igenom alla språk och leta master-slug
+              let found = false;
+              for (const [lang, mapping] of Object.entries(
+                silamAllergenMap.mapping,
+              )) {
+                if (mapping[haSlug]) {
+                  silamReverse[mapping[haSlug]] = haSlug;
+                  found = true;
+                  break; // sluta efter första träff (det räcker, unikt per system)
+                }
+              }
+              // Om ingen träff – debugga gärna
+              if (!found && this.debug) {
+                console.debug(
+                  `[Card][SILAM] Hittade ingen mapping för haSlug: '${haSlug}'`,
+                );
+              }
+            }
             if (this.debug) {
               console.debug(
-                `[Card][Debug][SILAM filter] allergenReplaced: '${s.allergenReplaced}', key: '${key}', id: '${id}', available: ${availableSensors.includes(id)}`,
+                "[Card][SILAM] silamReverse byggd baserat på existerande sensors:",
+                silamReverse,
               );
             }
-            return availableSensors.includes(id);
           }
-          return true; // fallback: visa alla
-        });
 
-        // Endast *normalisering/namn*-filtrering för de andra integrationerna!
-        if (
-          Array.isArray(cfg.allergens) &&
-          cfg.allergens.length > 0 &&
-          cfg.integration !== "silam"
-        ) {
-          let allowed;
-          let getKey;
-          if (integration === "dwd") {
-            allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
-            getKey = (s) => normalizeDWD(s.allergenReplaced || "");
-          } else {
-            if (this.debug) {
-              console.debug(
-                "[Card][Debug] Använder normalisering för allergener:",
-                cfg.allergens,
-              );
+          // Filtrera adapterns sensors så att endast de finns i availableSensors
+          let filtered = sensors.filter((s) => {
+            if (
+              cfg.integration === "silam" &&
+              silamReverse &&
+              (!cfg.mode || cfg.mode === "daily")
+            ) {
+              const loc = cfg.location || "";
+              // Mappar master->haSlug för entity_id
+              const key =
+                silamReverse[s.allergenReplaced] || s.allergenReplaced;
+              const id = `sensor.silam_pollen_${loc}_${key}`;
+              if (this.debug) {
+                console.debug(
+                  `[Card][Debug][SILAM filter] allergenReplaced: '${s.allergenReplaced}', key: '${key}', id: '${id}', available: ${availableSensors.includes(id)}`,
+                );
+              }
+              return availableSensors.includes(id);
             }
-            allowed = new Set(cfg.allergens.map((a) => normalize(a)));
-            getKey = (s) => normalize(s.allergenReplaced || "");
-          }
-          filtered = filtered.filter((s) => {
-            const allergenKey = getKey(s);
-            const ok = allowed.has(allergenKey);
-            if (!ok && this.debug) {
-              console.debug(
-                `[Card][Debug] Sensor '${allergenKey}' är EJ tillåten (ej i allowed)`,
-                s,
-              );
-            }
-            return ok;
+            return true; // fallback: visa alla
           });
-        }
 
-        const explicitLocation = this._integrationExplicit && !!cfg.location;
-        const noAvailableSensors = availableSensorCount === 0;
-
-        if (explicitLocation && noAvailableSensors) {
-          this.sensors = [];
-          this._availableSensorCount = 0;
-          this._explicitLocationNoSensors = true;
-          if (this.debug) {
-            console.warn(
-              `[Card] Ingen sensor hittad för explicit vald plats: '${cfg.location}'`,
-            );
+          // Endast *normalisering/namn*-filtrering för de andra integrationerna!
+          if (
+            Array.isArray(cfg.allergens) &&
+            cfg.allergens.length > 0 &&
+            cfg.integration !== "silam"
+          ) {
+            let allowed;
+            let getKey;
+            if (integration === "dwd") {
+              allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
+              getKey = (s) => normalizeDWD(s.allergenReplaced || "");
+            } else {
+              if (this.debug) {
+                console.debug(
+                  "[Card][Debug] Använder normalisering för allergener:",
+                  cfg.allergens,
+                );
+              }
+              allowed = new Set(cfg.allergens.map((a) => normalize(a)));
+              getKey = (s) => normalize(s.allergenReplaced || "");
+            }
+            filtered = filtered.filter((s) => {
+              const allergenKey = getKey(s);
+              const ok = allowed.has(allergenKey);
+              if (!ok && this.debug) {
+                console.debug(
+                  `[Card][Debug] Sensor '${allergenKey}' är EJ tillåten (ej i allowed)`,
+                  s,
+                );
+              }
+              return ok;
+            });
           }
-          this.requestUpdate();
-          return;
-        } else {
-          this._explicitLocationNoSensors = false;
-          this.sensors = filtered;
-          this._availableSensorCount = availableSensors.length;
-          let daysCount = 0;
-          if (cfg.show_empty_days) {
-            daysCount = cfg.days_to_show;
-          } else if (filtered.length > 0 && filtered[0].days) {
-            daysCount = filtered[0].days.length;
+
+          const explicitLocation = this._integrationExplicit && !!cfg.location;
+          const noAvailableSensors = availableSensorCount === 0;
+
+          if (explicitLocation && noAvailableSensors) {
+            this._explicitLocationNoSensors = true;
+            this._updateSensorsAndColumns([], [], cfg);
+            if (this.debug) {
+              console.warn(
+                `[Card] Ingen sensor hittad för explicit vald plats: '${cfg.location}'`,
+              );
+            }
+            return;
+          } else {
+            this._explicitLocationNoSensors = false;
+            this._updateSensorsAndColumns(filtered, availableSensors, cfg);
           }
-          this.days_to_show = daysCount;
-          this.displayCols = Array.from({ length: daysCount }, (_, i) => i);
+        })
 
-          this.requestUpdate();
-        }
-      })
-
-      .catch((err) => {
-        console.error("[Card] Error fetching pollen forecast:", err);
-        if (this.debug) console.debug("[Card] fetchForecast error:", err);
-      });
+        .catch((err) => {
+          console.error("[Card] Error fetching pollen forecast:", err);
+          if (this.debug) console.debug("[Card] fetchForecast error:", err);
+        });
+    }
+    // this.requestUpdate();
   }
 
   _renderMinimalHtml() {
@@ -616,87 +788,118 @@ class PollenPrognosCard extends LitElement {
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
 
+    if (this.debug) {
+      console.debug("Display columns:", cols);
+    }
+
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
-        <table class="forecast">
-          <thead>
-            <tr>
-              <th></th>
-              ${cols.map(
-                (i) => html`
-                  <th style="font-weight: ${daysBold ? "bold" : "normal"}">
-                    ${this.sensors[0].days[i]?.day || ""}
-                  </th>
-                `,
+        <div class="forecast-content">
+          <table class="forecast"">
+            <colgroup>
+              ${[0, ...cols].map(
+                () => html`<col style="width: ${100 / (cols.length + 1)}%;" />`,
               )}
-            </tr>
-          </thead>
-          ${this.sensors.map(
-            (sensor) => html`
-              <!-- Rad 1: bara ikoner -->
-              <tr class="allergen-icon-row" valign="top">
-                <td>
-                  <img
-                    class="allergen"
-                    src="${this._getImageSrc(
-                      sensor.allergenReplaced,
-                      sensor.days[0]?.state,
-                    )}"
-                  />
-                </td>
+            </colgroup>
+            <thead>
+              <tr>
+                <th></th>
                 ${cols.map(
                   (i) => html`
-                    <td>
-                      <div class="icon-wrapper">
-                        <img
-                          src="${this._getImageSrc("", sensor.days[i]?.state)}"
-                        />
-                        ${this.config.show_value_numeric_in_circle
-                          ? html`<span class="circle-overlay">
-                              ${sensor.days[i]?.state ?? ""}
-                            </span>`
+                    <th
+                      style="font-weight: ${daysBold
+                        ? "bold"
+                        : "normal"}; text-align: center;"
+                    >
+                      <div
+                        style="display: flex; flex-direction: column; align-items: center;"
+                      >
+                        <span class="day-header">
+                          ${this.sensors[0].days[i]?.day || ""}
+                        </span>
+                        ${this.config.mode === "twice_daily" &&
+                        this.sensors[0].days[i]?.icon
+                          ? html`<ha-icon
+                              icon="${this.sensors[0].days[i].icon}"
+                              style="margin-top: 2px;"
+                            ></ha-icon>`
                           : ""}
                       </div>
-                    </td>
+                    </th>
                   `,
                 )}
               </tr>
-              <!-- Rad 2: allergennamn + text/nummer under dagarna -->
-              ${this.config.show_text_allergen ||
-              this.config.show_value_text ||
-              this.config.show_value_numeric
-                ? html`
-                    <tr class="allergen-text-row" valign="top">
+            </thead>
+            ${this.sensors.map(
+              (sensor) => html`
+                <!-- Rad 1: bara ikoner -->
+                <tr class="allergen-icon-row" valign="top">
+                  <td>
+                    <img
+                      class="allergen"
+                      src="${this._getImageSrc(
+                        sensor.allergenReplaced,
+                        sensor.days[0]?.state,
+                      )}"
+                    />
+                  </td>
+                  ${cols.map(
+                    (i) => html`
                       <td>
-                        ${this.config.show_text_allergen
-                          ? this.config.allergens_abbreviated
-                            ? sensor.allergenShort
-                            : sensor.allergenCapitalized
-                          : ""}
+                        <div class="icon-wrapper">
+                          <img
+                            src="${this._getImageSrc(
+                              "",
+                              sensor.days[i]?.state,
+                            )}"
+                          />
+                          ${this.config.show_value_numeric_in_circle
+                            ? html`<span class="circle-overlay">
+                                ${sensor.days[i]?.state ?? ""}
+                              </span>`
+                            : ""}
+                        </div>
                       </td>
-                      ${cols.map((i) => {
-                        const txt = sensor.days[i]?.state_text || "";
-                        const num = sensor.days[i]?.state;
-                        let content = "";
-                        if (
-                          this.config.show_value_text &&
-                          this.config.show_value_numeric
-                        ) {
-                          content = `${txt} (${num})`;
-                        } else if (this.config.show_value_text) {
-                          content = txt;
-                        } else if (this.config.show_value_numeric) {
-                          content = String(num);
-                        }
-                        return html`<td>${content}</td>`;
-                      })}
-                    </tr>
-                  `
-                : ""}
-            `,
-          )}
-        </table>
+                    `,
+                  )}
+                </tr>
+                <!-- Rad 2: allergennamn + text/nummer under dagarna -->
+                ${this.config.show_text_allergen ||
+                this.config.show_value_text ||
+                this.config.show_value_numeric
+                  ? html`
+                      <tr class="allergen-text-row">
+                        <td>
+                          ${this.config.show_text_allergen
+                            ? this.config.allergens_abbreviated
+                              ? sensor.allergenShort
+                              : sensor.allergenCapitalized
+                            : ""}
+                        </td>
+                        ${cols.map((i) => {
+                          const txt = sensor.days[i]?.state_text || "";
+                          const num = sensor.days[i]?.state;
+                          let content = "";
+                          if (
+                            this.config.show_value_text &&
+                            this.config.show_value_numeric
+                          ) {
+                            content = `${txt} (${num})`;
+                          } else if (this.config.show_value_text) {
+                            content = txt;
+                          } else if (this.config.show_value_numeric) {
+                            content = String(num);
+                          }
+                          return html`<td>${content}</td>`;
+                        })}
+                      </tr>
+                    `
+                  : ""}
+              `,
+            )}
+          </table>
+        </div>
       </div>
     `;
   }
@@ -704,8 +907,18 @@ class PollenPrognosCard extends LitElement {
   render() {
     if (!this.config) return html``;
 
-    if (this.debug) {
-      console.debug("[Card] Hela config:", this.config);
+    if (
+      this.config.integration === "silam" &&
+      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
+      !this._forecastEvent
+    ) {
+      return html`
+        <ha-card>
+          <div style="padding: 1em; text-align: center;">
+            ${this._t("card.loading_forecast") || "Loading forecast..."}
+          </div>
+        </ha-card>
+      `;
     }
 
     let cardContent;
@@ -802,66 +1015,145 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
+      /* normalhtml */
       .forecast {
-        width: 100%;
-        padding: 7px;
+        width: 100%; /* Fyll hela kortet! */
+        table-layout: fixed; /* Alla kolumner blir lika breda */
         border-collapse: separate;
-        border-spacing: 0 4px;
+        border-spacing: 0 2px;
+        margin: 0 auto;
       }
+      .forecast th,
+      .forecast td {
+        vertical-align: middle; /* Lägg till! */
+        min-width: 36px;
+        /* Sätt ingen max-width – då tillåts kolumnerna expandera */
+        padding: 2px 2px;
+        text-align: center;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        line-height: 1.2;
+      }
+
+      /* Gör bilder/ikoner alltid så stora som cellen tillåter */
       .icon-wrapper {
-        position: relative;
-        display: inline-block;
+        width: 100%;
+        display: block;
+        margin: 0 auto;
+        text-align: center;
+        position: relative; /* <- Detta är det viktiga! */
       }
+
+      .day-header {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        margin: 0 auto;
+      }
+
+      .icon-wrapper img {
+        display: block;
+        margin: 0 auto; /* Viktigt! */
+        width: 70%;
+        height: auto;
+        max-width: 60px; /* ev. maxbredd */
+        min-width: 18px;
+      }
+
+      img.allergen {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+        max-width: 40px;
+      }
+
+      .forecast-content {
+        width: 100%;
+        overflow-x: auto;
+        display: flex;
+        justify-content: center;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .forecast-content::-webkit-scrollbar {
+        display: none;
+      }
+
+      .allergen-icon-row td {
+        padding-top: 4px;
+        padding-bottom: 1px;
+      }
+
+      .allergen-text-row td {
+        vertical-align: top !important; /* Tvinga innehållet uppåt */
+        text-align: center;
+        padding-top: 6px;
+        padding-bottom: 2px; /* eller vad som känns lagom */
+      }
+
       .icon-wrapper .circle-overlay {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: bold;
         color: var(--primary-text-color);
         pointer-events: none;
+        text-shadow:
+          0 1px 3px #fff,
+          0 0 2px #fff;
       }
-      td {
-        padding: 1px;
-        text-align: center;
-        width: 100px;
-        font-size: smaller;
+
+      .forecast td {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.2;
       }
-      img.allergen {
-        width: 40px;
-        height: 40px;
-      }
-      img {
-        width: 50px;
-        height: 50px;
-      }
+
+      /* minimalhtml */
+
       .flex-container {
         display: flex;
         flex-wrap: wrap;
-        justify-content: space-evenly;
-        align-items: center;
-        padding: 16px;
+        justify-content: center; /* Centrerar alla .sensor-block på raden */
+        gap: 12px 16px; /* Luft mellan bilder, justera fritt */
+        width: 100%;
       }
+
       .sensor {
-        flex: 1;
-        min-width: 20%;
-        text-align: center;
+        display: flex;
+        flex-direction: column; /* Stapla bild och text VERTIKALT */
+        align-items: center; /* Centrera horisontellt */
+        justify-content: flex-start;
+        flex: 1 1 120px; /* Flexibel bredd, min 120px – justera fritt */
+        min-width: 80px;
+        max-width: 180px;
+        margin: 0 4px;
       }
+
+      .sensor img.box {
+        display: block;
+        width: 80%; /* Växer tillgängligt utrymme */
+        max-width: 55px; /* Största tillåtna storlek */
+        min-width: 36px; /* Minsta tillåtna storlek */
+        height: auto;
+        margin: 0 auto 6px auto; /* Luft mellan bild och text */
+      }
+
       .short-text {
         display: block;
-      }
-      .card-error {
-        padding: 16px;
-        color: var(--error-text-color, #b71c1c);
-        font-weight: 500;
-        line-height: 1.4;
-      }
-      .value-text {
-        font-size: smaller;
-        margin-top: 4px;
-        display: block;
         text-align: center;
+        margin-top: 2px;
+        word-break: break-word;
+        white-space: normal;
       }
     `;
   }
