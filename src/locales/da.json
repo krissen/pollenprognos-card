@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Forkort ugedage",
   "editor.days_boldfaced": "Fremhæv ugedage",
   "editor.days_relative": "Relative dage (i dag/i morgen)",
-  "editor.days_to_show": "Antal dage, der vises:",
   "editor.days_uppercase": "Store bogstaver på ugedage",
   "editor.debug": "Fejlfinding",
   "editor.integration": "Integration",
@@ -127,5 +126,8 @@
   "editor.title": "Korttitel",
   "editor.title_automatic": "Automatisk titel",
   "editor.title_hide": "Skjul titel",
-  "editor.title_placeholder": "(automatisk)"
+  "editor.title_placeholder": "(automatisk)",
+  "editor.to_show_columns": "Antal kolonner der vises",
+  "editor.to_show_days": "Antal dage der vises",
+  "editor.to_show_hours": "Antal timer der vises"
 }

@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Wochentage abkürzen",
   "editor.days_boldfaced": "Wochentage fett",
   "editor.days_relative": "Relative Tage (heute/morgen)",
-  "editor.days_to_show": "Anzahl Tage:",
   "editor.days_uppercase": "Wochentage groß",
   "editor.debug": "Debug",
   "editor.integration": "Integration",
@@ -127,5 +126,8 @@
   "editor.title": "Kartentitel",
   "editor.title_automatic": "Automatischer Titel",
   "editor.title_hide": "Titel ausblenden",
-  "editor.title_placeholder": "(automatisch)"
+  "editor.title_placeholder": "(automatisch)",
+  "editor.to_show_columns": "Anzuzeigende Spalten",
+  "editor.to_show_days": "Anzuzeigende Tage",
+  "editor.to_show_hours": "Anzuzeigende Stunden"
 }

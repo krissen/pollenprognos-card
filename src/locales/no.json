@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Forkort ukedager",
   "editor.days_boldfaced": "Uthev ukedager",
   "editor.days_relative": "Relative dager (i dag/i morgen)",
-  "editor.days_to_show": "Dager som vises:",
   "editor.days_uppercase": "Store bokstaver på ukedager",
   "editor.debug": "Debug",
   "editor.integration": "Integrasjon",
@@ -127,5 +126,8 @@
   "editor.title": "Korttittel",
   "editor.title_automatic": "Automatisk tittel",
   "editor.title_hide": "Skjul tittel",
-  "editor.title_placeholder": "(automatisk)"
+  "editor.title_placeholder": "(automatisk)",
+  "editor.to_show_columns": "Antall kolonner som vises",
+  "editor.to_show_days": "Antall dager som vises",
+  "editor.to_show_hours": "Antall timer som vises"
 }

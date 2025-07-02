@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Weekdagen afkorten",
   "editor.days_boldfaced": "Weekdagen vetgedrukt",
   "editor.days_relative": "Relatieve dagen (vandaag/morgen)",
-  "editor.days_to_show": "Aantal dagen om te tonen:",
   "editor.days_uppercase": "Hoofdletters voor weekdagen",
   "editor.debug": "Debug",
   "editor.integration": "Integratie",
@@ -127,5 +126,8 @@
   "editor.title": "Kaarttitel",
   "editor.title_automatic": "Automatische titel",
   "editor.title_hide": "Verberg titel",
-  "editor.title_placeholder": "(automatisch)"
+  "editor.title_placeholder": "(automatisch)",
+  "editor.to_show_columns": "Aantal kolommen om te tonen",
+  "editor.to_show_days": "Aantal dagen om te tonen",
+  "editor.to_show_hours": "Aantal uren om te tonen"
 }

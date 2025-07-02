@@ -743,6 +743,7 @@ class PollenPrognosCardEditor extends LitElement {
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
     const newUser = { ...this._userConfig };
     let cfg;
+
     if (prop === "integration") {
       const newInt = value;
       const oldInt = this._config.integration;
@@ -765,6 +766,14 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
+      // Om vi just bytte mode för silam, och days_to_show ska justeras, inkludera det också:
+      if (this._config.integration === "silam" && prop === "mode") {
+        if (value === "hourly" || value === "twice daily") {
+          cfg.days_to_show = 8;
+        } else if (value === "daily") {
+          cfg.days_to_show = 2;
+        }
+      }
     }
     cfg.type = this._config.type;
     this._config = cfg;
@@ -1102,11 +1111,11 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Antal dagar / kolumner / timmar -->
         <div class="slider-row">
           <div class="slider-text">
-            ${c.integration === "silam" && c.mode === "twice daily"
-              ? this._t("columns_to_show")
+            ${c.integration === "silam" && c.mode === "twice_daily"
+              ? this._t("to_show_columns")
               : c.integration === "silam" && c.mode === "hourly"
-                ? this._t("hours_to_show")
-                : this._t("days_to_show")}
+                ? this._t("to_show_hours")
+                : this._t("to_show_days")}
           </div>
           <div class="slider-value">${c.days_to_show}</div>
           <ha-slider

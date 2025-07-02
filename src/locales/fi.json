@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Lyhennä viikonpäivät",
   "editor.days_boldfaced": "Korosta viikonpäivät",
   "editor.days_relative": "Suhteelliset päivät (tänään/huomenna)",
-  "editor.days_to_show": "Näytettävät päivät:",
   "editor.days_uppercase": "Isot kirjaimet viikonpäivissä",
   "editor.debug": "Debuggaus",
   "editor.integration": "Integraatio",
@@ -127,5 +126,8 @@
   "editor.title": "Kortin otsikko",
   "editor.title_automatic": "Automaattinen otsikko",
   "editor.title_hide": "Piilota otsikko",
-  "editor.title_placeholder": "(automaattinen)"
+  "editor.title_placeholder": "(automaattinen)",
+  "editor.to_show_columns": "Näytettävät sarakkeet",
+  "editor.to_show_days": "Näytettävät päivät",
+  "editor.to_show_hours": "Näytettävät tunnit"
 }

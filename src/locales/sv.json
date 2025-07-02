@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Förkorta veckodagar",
   "editor.days_boldfaced": "Fetstil veckodagar",
   "editor.days_relative": "Relativa dagar (idag/imorgon)",
-  "editor.days_to_show": "Antal dagar:",
   "editor.days_uppercase": "Versaler veckodagar",
   "editor.debug": "Debug",
   "editor.integration": "Integration",
@@ -127,5 +126,8 @@
   "editor.title": "Rubrik på kortet",
   "editor.title_automatic": "Automatisk rubrik",
   "editor.title_hide": "Göm rubrik",
-  "editor.title_placeholder": "(automatisk)"
+  "editor.title_placeholder": "(automatisk)",
+  "editor.to_show_columns": "Antal kolumner som visas",
+  "editor.to_show_days": "Antal dagar som visas",
+  "editor.to_show_hours": "Antal timmar som visas"
 }

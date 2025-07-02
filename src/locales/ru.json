@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Сокращать дни недели",
   "editor.days_boldfaced": "Выделять дни недели",
   "editor.days_relative": "Относительные дни (сегодня/завтра)",
-  "editor.days_to_show": "Дней для показа:",
   "editor.days_uppercase": "ЗАГЛАВНЫМИ буквами дни недели",
   "editor.debug": "Отладка",
   "editor.integration": "Интеграция",
@@ -127,5 +126,8 @@
   "editor.title": "Заголовок карточки",
   "editor.title_automatic": "Автоматический заголовок",
   "editor.title_hide": "Скрыть заголовок",
-  "editor.title_placeholder": "(автоматически)"
+  "editor.title_placeholder": "(автоматически)",
+  "editor.to_show_columns": "Столбцов для показа",
+  "editor.to_show_days": "Дней для показа",
+  "editor.to_show_hours": "Часов для показа"
 }

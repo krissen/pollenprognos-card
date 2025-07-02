@@ -46,7 +46,6 @@
   "editor.days_abbreviated": "Skrátiť dni v týždni",
   "editor.days_boldfaced": "Zvýrazniť dni v týždni",
   "editor.days_relative": "Relatívne dni (dnes/zajtra)",
-  "editor.days_to_show": "Dni na zobrazenie:",
   "editor.days_uppercase": "Veľké písmená v dňoch týždňa",
   "editor.debug": "Ladenie",
   "editor.integration": "Integrácia",
@@ -127,5 +126,8 @@
   "editor.title": "Názov karty",
   "editor.title_automatic": "Automatický názov",
   "editor.title_hide": "Skryť názov",
-  "editor.title_placeholder": "(automaticky)"
+  "editor.title_placeholder": "(automaticky)",
+  "editor.to_show_columns": "Počet stĺpcov na zobrazenie",
+  "editor.to_show_days": "Počet dní na zobrazenie",
+  "editor.to_show_hours": "Počet hodín na zobrazenie"
 }
