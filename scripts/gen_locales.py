@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -88,7 +89,7 @@ def scan_missing():
             saknas_i = [lang for lang, keys in missing_per_lang.items() if key in keys]
             if saknas_i:
                 print(
-                    f"  {ICON_WARN} '{key}' (\"{master[key]}\" i {MASTER}) saknas i: {', '.join(saknas_i)}"
+                    f"  {ICON_WARN} '{key}' (\"{master[key]}\" i {MASTER}) saknas i:\n      {', '.join(saknas_i)}"
                 )
     # Rapportera redundanta (överflödiga)
     all_redundant_keys = defaultdict(list)
@@ -106,14 +107,21 @@ def gen_translation_json():
         for key in keys:
             output[lang][key] = master[key]
     if output:
-        print("\n# Översätt nedan till respektive språk:\n")
-        print(json.dumps(output, ensure_ascii=False, indent=2))
-        print("\n---")
-        print("Spara översättningarna till fil och kör:\n")
-        print(f"  python3 {Path(__file__).name} update path/till/oversattning.json\n")
+        output_text = (
+            "\n# Översätt nedan till respektive språk:\n\n"
+            + json.dumps(output, ensure_ascii=False, indent=2)
+            + "\n\n---\n"
+            + "Spara översättningarna till fil och kör:\n\n"
+            + f"  python3 {Path(__file__).name} update path/till/oversattning.json\n"
+        )
+        print(output_text)
+        try:
+            subprocess.run("pbcopy", input=output_text, text=True, check=True)
+            print(f"{ICON_OK} JSON + instruktion kopierad till clipboard (pbcopy)")
+        except Exception as e:
+            print(f"{ICON_WARN} Kunde inte kopiera till clipboard: {e}")
     else:
         print(f"{ICON_OK} Alla språkfiler har redan alla nycklar från master.")
-
 def update_with_translation(json_path, force=False):
     with open(json_path, encoding="utf-8") as f:
         translation = json.load(f)
