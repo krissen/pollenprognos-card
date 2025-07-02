@@ -57,6 +57,10 @@
   "editor.locale": "Язык",
   "editor.location": "Местоположение",
   "editor.minimal": "Минимал",
+  "editor.mode": "Режим",
+  "editor.mode_daily": "Ежедневный",
+  "editor.mode_hourly": "Почасовой",
+  "editor.mode_twice_daily": "Два раза в день",
   "editor.no_information": "Нет информации",
   "editor.phrases": "Фразы",
   "editor.phrases_apply": "Применить",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Скрыть заголовок",
   "editor.title_placeholder": "(автоматически)"
 }
-

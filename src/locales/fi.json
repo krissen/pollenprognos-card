@@ -57,6 +57,10 @@
   "editor.locale": "Kieliasetus",
   "editor.location": "Sijainti",
   "editor.minimal": "Minimaalinen",
+  "editor.mode": "Tila",
+  "editor.mode_daily": "Päivittäin",
+  "editor.mode_hourly": "Tunneittain",
+  "editor.mode_twice_daily": "Kahdesti päivässä",
   "editor.no_information": "Ei tietoa",
   "editor.phrases": "Ilmaisut",
   "editor.phrases_apply": "Käytä",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Piilota otsikko",
   "editor.title_placeholder": "(automaattinen)"
 }
-

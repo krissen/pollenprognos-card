@@ -57,6 +57,10 @@
   "editor.locale": "Sprog",
   "editor.location": "Placering",
   "editor.minimal": "Minimal",
+  "editor.mode": "Tilstand",
+  "editor.mode_daily": "Dagligt",
+  "editor.mode_hourly": "Hver time",
+  "editor.mode_twice_daily": "To gange dagligt",
   "editor.no_information": "Ingen information",
   "editor.phrases": "Fraser",
   "editor.phrases_apply": "Anvend",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Skjul titel",
   "editor.title_placeholder": "(automatisk)"
 }
-

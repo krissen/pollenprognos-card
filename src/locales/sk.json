@@ -57,6 +57,10 @@
   "editor.locale": "Jazyk",
   "editor.location": "Poloha",
   "editor.minimal": "Minimálne",
+  "editor.mode": "Režim",
+  "editor.mode_daily": "Denne",
+  "editor.mode_hourly": "Hodinovo",
+  "editor.mode_twice_daily": "Dvakrát denne",
   "editor.no_information": "Žiadne informácie",
   "editor.phrases": "Frázy",
   "editor.phrases_apply": "Použiť",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Skryť názov",
   "editor.title_placeholder": "(automaticky)"
 }
-

@@ -57,6 +57,10 @@
   "editor.locale": "Taal",
   "editor.location": "Locatie",
   "editor.minimal": "Minimaal",
+  "editor.mode": "Modus",
+  "editor.mode_daily": "Dagelijks",
+  "editor.mode_hourly": "Elk uur",
+  "editor.mode_twice_daily": "Twee keer per dag",
   "editor.no_information": "Geen informatie",
   "editor.phrases": "Zinnen",
   "editor.phrases_apply": "Toepassen",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Verberg titel",
   "editor.title_placeholder": "(automatisch)"
 }
-

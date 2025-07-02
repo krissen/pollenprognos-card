@@ -57,6 +57,10 @@
   "editor.locale": "Lingua",
   "editor.location": "Località",
   "editor.minimal": "Minimale",
+  "editor.mode": "Modalità",
+  "editor.mode_daily": "Giornaliero",
+  "editor.mode_hourly": "Ogni ora",
+  "editor.mode_twice_daily": "Due volte al giorno",
   "editor.no_information": "Nessuna informazione",
   "editor.phrases": "Frasi",
   "editor.phrases_apply": "Applica",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Nascondi titolo",
   "editor.title_placeholder": "(automatico)"
 }
-

@@ -57,6 +57,10 @@
   "editor.locale": "Språk",
   "editor.location": "Sted",
   "editor.minimal": "Minimal",
+  "editor.mode": "Modus",
+  "editor.mode_daily": "Daglig",
+  "editor.mode_hourly": "Hver time",
+  "editor.mode_twice_daily": "To ganger daglig",
   "editor.no_information": "Ingen informasjon",
   "editor.phrases": "Fraser",
   "editor.phrases_apply": "Bruk",
@@ -125,4 +129,3 @@
   "editor.title_hide": "Skjul tittel",
   "editor.title_placeholder": "(automatisk)"
 }
-
