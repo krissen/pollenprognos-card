@@ -3770,9 +3770,10 @@ class rt extends iA {
         width: 100%;
         display: block;
         margin: 0 auto;
-        text-align: center; /* Viktigt! */
-        /* Ta bort flex eller inline-block om du har det! */
+        text-align: center;
+        position: relative; /* <- Detta är det viktiga! */
       }
+
       .icon-wrapper img {
         display: block;
         margin: 0 auto; /* Viktigt! */
