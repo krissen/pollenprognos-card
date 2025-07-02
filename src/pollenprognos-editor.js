@@ -997,15 +997,21 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Layout-switchar -->
         ${c.integration === "silam"
           ? html`
-              <ha-formfield label="Mode">
+              <ha-formfield label="${this._t("mode")}">
                 <ha-select
                   .value=${c.mode || "daily"}
                   @selected=${(e) => this._updateConfig("mode", e.target.value)}
                   @closed=${(e) => e.stopPropagation()}
                 >
-                  <mwc-list-item value="daily">Daily</mwc-list-item>
-                  <mwc-list-item value="twice daily">Twice daily</mwc-list-item>
-                  <mwc-list-item value="hourly">Hourly</mwc-list-item>
+                  <mwc-list-item value="daily"
+                    >${this._t("mode_daily")}</mwc-list-item
+                  >
+                  <mwc-list-item value="twice_daily"
+                    >${this._t("mode_twice_daily")}</mwc-list-item
+                  >
+                  <mwc-list-item value="hourly"
+                    >${this._t("mode_hourly")}</mwc-list-item
+                  >
                 </ha-select>
               </ha-formfield>
             `
