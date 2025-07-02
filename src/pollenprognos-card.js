@@ -815,7 +815,9 @@ class PollenPrognosCard extends LitElement {
                       <div
                         style="display: flex; flex-direction: column; align-items: center;"
                       >
-                        ${this.sensors[0].days[i]?.day || ""}
+                        <span class="day-header">
+                          ${this.sensors[0].days[i]?.day || ""}
+                        </span>
                         ${this.config.mode === "twice_daily" &&
                         this.sensors[0].days[i]?.icon
                           ? html`<ha-icon
@@ -1041,6 +1043,17 @@ class PollenPrognosCard extends LitElement {
         margin: 0 auto;
         text-align: center;
         position: relative; /* <- Detta är det viktiga! */
+      }
+
+      .day-header {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        margin: 0 auto;
       }
 
       .icon-wrapper img {

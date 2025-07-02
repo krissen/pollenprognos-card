@@ -3605,7 +3605,9 @@ class rt extends iA {
                       <div
                         style="display: flex; flex-direction: column; align-items: center;"
                       >
-                        ${((C = this.sensors[0].days[n]) == null ? void 0 : C.day) || ""}
+                        <span class="day-header">
+                          ${((C = this.sensors[0].days[n]) == null ? void 0 : C.day) || ""}
+                        </span>
                         ${this.config.mode === "twice_daily" && ((a = this.sensors[0].days[n]) != null && a.icon) ? y`<ha-icon
                               icon="${this.sensors[0].days[n].icon}"
                               style="margin-top: 2px;"
@@ -3773,6 +3775,17 @@ class rt extends iA {
         margin: 0 auto;
         text-align: center;
         position: relative; /* <- Detta är det viktiga! */
+      }
+
+      .day-header {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        margin: 0 auto;
       }
 
       .icon-wrapper img {
