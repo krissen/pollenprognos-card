@@ -269,7 +269,7 @@ nA[kA] = !0, nA.elementProperties = /* @__PURE__ */ new Map(), nA.elementStyles 
 var xA;
 const pA = window, rA = pA.trustedTypes, TA = rA ? rA.createPolicy("lit-html", { createHTML: (n) => n }) : void 0, HA = "$lit$", _ = `lit$${(Math.random() + "").slice(9)}$`, ag = "?" + _, pg = `<${ag}>`, IA = document, hA = () => IA.createComment(""), dA = (n) => n === null || typeof n != "object" && typeof n != "function", lg = Array.isArray, ug = (n) => lg(n) || typeof (n == null ? void 0 : n[Symbol.iterator]) == "function", yA = `[ 	
 \f\r]`, sA = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, zA = /-->/g, NA = />/g, gA = RegExp(`>|${yA}(?:([^\\s"'>=/]+)(${yA}*=${yA}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), XA = /'/g, qA = /"/g, og = /^(?:script|style|textarea|title)$/i, fg = (n) => (A, ...g) => ({ _$litType$: n, strings: A, values: g }), v = fg(1), aA = Symbol.for("lit-noChange"), W = Symbol.for("lit-nothing"), _A = /* @__PURE__ */ new WeakMap(), eA = IA.createTreeWalker(IA, 129, null, !1);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), XA = /'/g, qA = /"/g, og = /^(?:script|style|textarea|title)$/i, fg = (n) => (A, ...g) => ({ _$litType$: n, strings: A, values: g }), w = fg(1), aA = Symbol.for("lit-noChange"), W = Symbol.for("lit-nothing"), _A = /* @__PURE__ */ new WeakMap(), eA = IA.createTreeWalker(IA, 129, null, !1);
 function sg(n, A) {
   if (!Array.isArray(n) || !n.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return TA !== void 0 ? TA.createHTML(A) : A;
@@ -2279,7 +2279,7 @@ async function NC(n, A) {
         }) : (h = U.date.toLocaleDateString(e, {
           weekday: a ? "short" : "long"
         }), h = h.charAt(0).toUpperCase() + h.slice(1)), i && (h = h.toUpperCase());
-        const w = m.attributes[H === 0 ? VC : H === 1 ? TC : zC] || "", G = U.level * 2, F = Math.min(Math.max(Math.round(G), 0), 6), N = F < 0 ? c : o[F] || w;
+        const v = m.attributes[H === 0 ? VC : H === 1 ? TC : zC] || "", G = U.level * 2, F = Math.min(Math.max(Math.round(G), 0), 6), N = F < 0 ? c : o[F] || v;
         s[`day${H}`] = {
           name: s.allergenCapitalized,
           day: h,
@@ -2378,8 +2378,8 @@ async function qC(n, A) {
       if (E.allergenReplaced = m, l[m])
         E.allergenCapitalized = l[m];
       else {
-        const h = CA[m] || m, w = J(`card.allergen.${h}`, I);
-        E.allergenCapitalized = w !== `card.allergen.${h}` ? w : m.charAt(0).toUpperCase() + m.slice(1);
+        const h = CA[m] || m, v = J(`card.allergen.${h}`, I);
+        E.allergenCapitalized = v !== `card.allergen.${h}` ? v : m.charAt(0).toUpperCase() + m.slice(1);
       }
       if (A.allergens_abbreviated) {
         const h = d[m];
@@ -2388,8 +2388,8 @@ async function qC(n, A) {
         E.allergenShort = E.allergenCapitalized;
       let y = Q ? `sensor.polleninformation_${Q}_${m}` : null;
       if (!y || !n.states[y]) {
-        const h = M.filter((w) => {
-          const G = w.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+        const h = M.filter((v) => {
+          const G = v.match(/^sensor\.polleninformation_(.+)_(.+)$/);
           if (!G) return !1;
           const F = G[1], N = G[2];
           return (!Q || F === Q) && N === m;
@@ -2399,11 +2399,11 @@ async function qC(n, A) {
       }
       const j = n.states[y];
       if (!((u = j == null ? void 0 : j.attributes) != null && u.forecast)) throw "Missing forecast";
-      const B = j.attributes.forecast, O = Array.isArray(B) ? B.reduce((h, w) => {
-        const G = w.time || w.datetime;
-        return h[G] = w, h;
+      const B = j.attributes.forecast, O = Array.isArray(B) ? B.reduce((h, v) => {
+        const G = v.time || v.datetime;
+        return h[G] = v, h;
       }, {}) : {}, U = Object.keys(O).sort(
-        (h, w) => new Date(h) - new Date(w)
+        (h, v) => new Date(h) - new Date(v)
       ).filter((h) => new Date(h) >= f);
       let H = [];
       if (U.length >= R)
@@ -2413,11 +2413,11 @@ async function qC(n, A) {
         let h = U.length > 0 ? new Date(U[U.length - 1]) : f;
         for (; H.length < R; ) {
           h = new Date(h.getTime() + 864e5);
-          const w = h.getFullYear(), G = String(h.getMonth() + 1).padStart(2, "0"), F = String(h.getDate()).padStart(2, "0");
-          H.push(`${w}-${G}-${F}T00:00:00`);
+          const v = h.getFullYear(), G = String(h.getMonth() + 1).padStart(2, "0"), F = String(h.getDate()).padStart(2, "0");
+          H.push(`${v}-${G}-${F}T00:00:00`);
         }
       }
-      H.forEach((h, w) => {
+      H.forEach((h, v) => {
         const G = O[h] || {}, F = b(G.level), N = new Date(h), X = Math.round((N - f) / 864e5);
         let Y;
         e ? c[X] != null ? Y = c[X] : X >= 0 && X <= 2 ? Y = J(`card.days.${X}`, I) : Y = N.toLocaleDateString(C, {
@@ -2434,7 +2434,7 @@ async function qC(n, A) {
           state: F,
           state_text: AA < 0 ? o : J(`card.levels.${AA}`, I)
         };
-        E[`day${w}`] = WA, E.days.push(WA);
+        E[`day${v}`] = WA, E.days.push(WA);
       }), (E.days.some((h) => h.state >= P) || P === 0) && s.push(E);
     } catch (E) {
       g && console.warn(`Fel vid allergen ${D}:`, E);
@@ -2591,7 +2591,7 @@ async function gn(n, A) {
         }) : (h = H.toLocaleDateString(C, {
           weekday: t ? "short" : "long"
         }), h = h.charAt(0).toUpperCase() + h.slice(1)), a && (h = h.toUpperCase());
-        const w = U < 0 ? 0 : Math.min(Math.round(U), 6), G = U < 0 ? d : l[w] || String(U);
+        const v = U < 0 ? 0 : Math.min(Math.round(U), 6), G = U < 0 ? d : l[v] || String(U);
         p[`day${k}`] = {
           name: p.allergenCapitalized,
           day: h,
@@ -2876,30 +2876,30 @@ async function nn(n, A) {
       ), o[u])
         D.allergenCapitalized = o[u];
       else {
-        const h = CA[E] || E, w = J(`card.allergen.${h}`, a);
-        D.allergenCapitalized = w !== `card.allergen.${h}` ? w : C(u);
+        const h = CA[E] || E, v = J(`card.allergen.${h}`, a);
+        D.allergenCapitalized = v !== `card.allergen.${h}` ? v : C(u);
       }
       if (A.allergens_abbreviated) {
-        const h = CA[E] || E, w = c[u];
-        D.allergenShort = w || J(`editor.phrases_short.${h}`, a) || D.allergenCapitalized;
+        const h = CA[E] || E, v = c[u];
+        D.allergenShort = v || J(`editor.phrases_short.${h}`, a) || D.allergenCapitalized;
       } else
         D.allergenShort = D.allergenCapitalized;
       const m = $(A.city);
       let y = `sensor.pollen_${m}_${E}`;
       if (!n.states[y]) {
         const h = Object.keys(n.states).filter(
-          (w) => w.startsWith(`sensor.pollen_${m}_`) && w.includes(E)
+          (v) => v.startsWith(`sensor.pollen_${m}_`) && v.includes(E)
         );
         if (h.length === 1) y = h[0];
         else continue;
       }
       const j = n.states[y];
       if (!((p = j == null ? void 0 : j.attributes) != null && p.forecast)) throw "Missing forecast";
-      const B = j.attributes.forecast, O = Array.isArray(B) ? B.reduce((h, w) => {
-        const G = w.time || w.datetime;
-        return h[G] = w, h;
+      const B = j.attributes.forecast, O = Array.isArray(B) ? B.reduce((h, v) => {
+        const G = v.time || v.datetime;
+        return h[G] = v, h;
       }, {}) : B, U = Object.keys(O).sort(
-        (h, w) => e(h) - e(w)
+        (h, v) => e(h) - e(v)
       ).filter((h) => e(h) >= t);
       let H = [];
       if (U.length >= M)
@@ -2909,11 +2909,11 @@ async function nn(n, A) {
         let h = U.length > 0 ? e(U[U.length - 1]) : t;
         for (; H.length < M; ) {
           h = new Date(h.getTime() + 864e5);
-          const w = h.getFullYear(), G = String(h.getMonth() + 1).padStart(2, "0"), F = String(h.getDate()).padStart(2, "0");
-          H.push(`${w}-${G}-${F}T00:00:00`);
+          const v = h.getFullYear(), G = String(h.getMonth() + 1).padStart(2, "0"), F = String(h.getDate()).padStart(2, "0");
+          H.push(`${v}-${G}-${F}T00:00:00`);
         }
       }
-      H.forEach((h, w) => {
+      H.forEach((h, v) => {
         const G = O[h] || {}, F = P(G.level), N = e(h), X = Math.round((N - t) / 864e5);
         let Y;
         l ? R[X] != null ? Y = R[X] : X >= 0 && X <= 2 ? Y = J(`card.days.${X}`, a) : Y = N.toLocaleDateString(i, {
@@ -2928,7 +2928,7 @@ async function nn(n, A) {
           state: F,
           state_text: F < 0 ? f : b[F]
         };
-        D[`day${w}`] = AA, D.days.push(AA);
+        D[`day${v}`] = AA, D.days.push(AA);
       }), (D.days.some((h) => h.state >= Q) || Q === 0) && g.push(D);
     } catch (D) {
       console.warn(`[PP] Fel vid allergen ${u}:`, D);
@@ -3370,15 +3370,15 @@ class tn extends iA {
       });
   }
   _renderMinimalHtml() {
-    return v`
-      ${this.header ? v`<div class="card-header">${this.header}</div>` : ""}
+    return w`
+      ${this.header ? w`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
         <div class="flex-container">
           ${(this.sensors || []).map((g) => {
       var t, a, i, l, d, S, r, o, c;
       const I = ((t = g.day0) == null ? void 0 : t.state_text) ?? "", C = ((a = g.day0) == null ? void 0 : a.state) ?? "";
       let e = "";
-      return (i = this.config) != null && i.show_text_allergen && (e += (l = this.config) != null && l.allergens_abbreviated ? g.allergenShort ?? "" : g.allergenCapitalized ?? ""), (d = this.config) != null && d.show_value_text && ((S = this.config) != null && S.show_value_numeric) ? (e && (e += ": "), e += `${I} (${C})`) : (r = this.config) != null && r.show_value_text ? (e && (e += ": "), e += I) : (o = this.config) != null && o.show_value_numeric && (e && (e += " "), e += `(${C})`), v`
+      return (i = this.config) != null && i.show_text_allergen && (e += (l = this.config) != null && l.allergens_abbreviated ? g.allergenShort ?? "" : g.allergenCapitalized ?? ""), (d = this.config) != null && d.show_value_text && ((S = this.config) != null && S.show_value_numeric) ? (e && (e += ": "), e += `${I} (${C})`) : (r = this.config) != null && r.show_value_text ? (e && (e += ": "), e += I) : (o = this.config) != null && o.show_value_numeric && (e && (e += " "), e += `(${C})`), w`
               <div class="sensor">
                 <img
                   class="box"
@@ -3387,7 +3387,7 @@ class tn extends iA {
         (c = g.day0) == null ? void 0 : c.state
       )}"
                 />
-                ${e ? v`<span class="short-text">${e}</span>` : ""}
+                ${e ? w`<span class="short-text">${e}</span>` : ""}
               </div>
             `;
     })}
@@ -3397,8 +3397,8 @@ class tn extends iA {
   }
   _renderNormalHtml() {
     const g = !!this.config.days_boldfaced, I = this.displayCols;
-    return this.debug && console.debug("Display columns:", I), v`
-      ${this.header ? v`<div class="card-header">${this.header}</div>` : ""}
+    return this.debug && console.debug("Display columns:", I), w`
+      ${this.header ? w`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
         <table class="forecast">
           <thead>
@@ -3407,7 +3407,7 @@ class tn extends iA {
               ${I.map(
       (C) => {
         var e;
-        return v`
+        return w`
                   <th style="font-weight: ${g ? "bold" : "normal"}">
                     ${((e = this.sensors[0].days[C]) == null ? void 0 : e.day) || ""}
                   </th>
@@ -3419,7 +3419,7 @@ class tn extends iA {
           ${this.sensors.map(
       (C) => {
         var e;
-        return v`
+        return w`
               <!-- Rad 1: bara ikoner -->
               <tr class="allergen-icon-row" valign="top">
                 <td>
@@ -3434,13 +3434,13 @@ class tn extends iA {
                 ${I.map(
           (t) => {
             var a, i;
-            return v`
+            return w`
                     <td>
                       <div class="icon-wrapper">
                         <img
                           src="${this._getImageSrc("", (a = C.days[t]) == null ? void 0 : a.state)}"
                         />
-                        ${this.config.show_value_numeric_in_circle ? v`<span class="circle-overlay">
+                        ${this.config.show_value_numeric_in_circle ? w`<span class="circle-overlay">
                               ${((i = C.days[t]) == null ? void 0 : i.state) ?? ""}
                             </span>` : ""}
                       </div>
@@ -3450,7 +3450,7 @@ class tn extends iA {
         )}
               </tr>
               <!-- Rad 2: allergennamn + text/nummer under dagarna -->
-              ${this.config.show_text_allergen || this.config.show_value_text || this.config.show_value_numeric ? v`
+              ${this.config.show_text_allergen || this.config.show_value_text || this.config.show_value_numeric ? w`
                     <tr class="allergen-text-row" valign="top">
                       <td>
                         ${this.config.show_text_allergen ? this.config.allergens_abbreviated ? C.allergenShort : C.allergenCapitalized : ""}
@@ -3459,7 +3459,7 @@ class tn extends iA {
           var d, S;
           const a = ((d = C.days[t]) == null ? void 0 : d.state_text) || "", i = (S = C.days[t]) == null ? void 0 : S.state;
           let l = "";
-          return this.config.show_value_text && this.config.show_value_numeric ? l = `${a} (${i})` : this.config.show_value_text ? l = a : this.config.show_value_numeric && (l = String(i)), v`<td>${l}</td>`;
+          return this.config.show_value_text && this.config.show_value_numeric ? l = `${a} (${i})` : this.config.show_value_text ? l = a : this.config.show_value_numeric && (l = String(i)), w`<td>${l}</td>`;
         })}
                     </tr>
                   ` : ""}
@@ -3472,9 +3472,9 @@ class tn extends iA {
   }
   render() {
     var a, i;
-    if (!this.config) return v``;
+    if (!this.config) return w``;
     if (this.config.integration === "silam" && this.config.mode === "hourly" && !this._forecastEvent)
-      return v`
+      return w`
         <ha-card>
           <div style="padding: 1em; text-align: center;">
             ${this._t("card.loading_hourly_forecast") || "Laddar timprognos..."}
@@ -3487,12 +3487,12 @@ class tn extends iA {
     else {
       const l = `card.integration.${this.config.integration}`, d = this._t(l);
       let S = "";
-      this._availableSensorCount === 0 ? S = this._t("card.error_no_sensors") : S = this._t("card.error_filtered_sensors"), g = v`<div class="card-error">${S} (${d})</div>`;
+      this._availableSensorCount === 0 ? S = this._t("card.error_no_sensors") : S = this._t("card.error_filtered_sensors"), g = w`<div class="card-error">${S} (${d})</div>`;
     }
     const I = this.config.tap_action || null, C = (i = (a = this.config.background_color) == null ? void 0 : a.trim) != null && i.call(a) ? `background-color: ${this.config.background_color.trim()};` : "";
     this.debug && console.debug("[Card] Background style:", C);
     const e = I && I.type && I.type !== "none" ? "pointer" : "auto", t = `${C} cursor: ${e};`;
-    return v`
+    return w`
       <ha-card
         style="${t}"
         @click="${I && I.type && I.type !== "none" ? this._handleTapAction : null}"
@@ -3690,6 +3690,7 @@ class an extends iA {
         const r = Object.keys(this._hass.states);
         r.some((o) => o.startsWith("sensor.pollen_")) ? l = "pp" : r.some((o) => o.startsWith("sensor.polleninformation_")) ? l = "peu" : r.some((o) => o.startsWith("sensor.pollenflug_")) ? l = "dwd" : r.some((o) => o.startsWith("sensor.silam_pollen_")) && (l = "silam"), this._userConfig.integration = l, this.debug && console.debug("[Editor] auto-detected integration:", l);
       }
+      l === "silam" && !this._userConfig.mode && (this._userConfig.mode = "daily");
       const d = rn(l);
       let S = DA(d, this._userConfig);
       if (this._userConfig.hasOwnProperty("pollen_threshold") || (S.pollen_threshold = d.pollen_threshold, this.debug && console.debug(
@@ -3758,7 +3759,7 @@ class an extends iA {
       (o) => o.startsWith("sensor.silam_pollen_")
     );
     let a = this._userConfig.integration;
-    g || (I.length ? a = "pp" : e.length ? a = "peu" : C.length ? a = "dwd" : t.length && (a = "silam"), this._userConfig.integration = a);
+    g || (I.length ? a = "pp" : e.length ? a = "peu" : C.length ? a = "dwd" : t.length && (a = "silam"), this._userConfig.integration = a), a === "silam" && !this._userConfig.mode && (this._userConfig.mode = "daily");
     const i = a === "dwd" ? V : a === "peu" ? T : a === "silam" ? K : L;
     let l = DA(i, this._userConfig);
     this._userConfig.hasOwnProperty("pollen_threshold") || (l.pollen_threshold = i.pollen_threshold, this.debug && console.debug(
@@ -3892,7 +3893,7 @@ class an extends iA {
       },
       ...this._config
     }, g = A.integration === "dwd" ? V.allergens : A.integration === "peu" ? T.allergens : A.integration === "silam" ? K.allergens : L.allergens, I = A.integration === "dwd" ? 4 : A.integration === "peu" ? 5 : 7, C = A.integration === "dwd" ? { min: 0, max: 3, step: 0.5 } : A.integration === "peu" ? { min: 0, max: 4, step: 1 } : { min: 0, max: 6, step: 1 };
-    return v`
+    return w`
       <div class="card-config">
         <!-- Återställ-knapp -->
         <div class="preset-buttons">
@@ -3924,7 +3925,7 @@ class an extends iA {
         </ha-formfield>
 
         <!-- Stad (PP, PEU) eller Region (DWD) eller plats (SILAM) -->
-        ${A.integration === "pp" ? v`
+        ${A.integration === "pp" ? w`
               <ha-formfield label="${this._t("city")}">
                 <ha-select
                   .value=${A.city || ""}
@@ -3932,13 +3933,13 @@ class an extends iA {
                   @closed=${(e) => e.stopPropagation()}
                 >
                   ${this.installedCities.map(
-      (e) => v`<mwc-list-item .value=${e}
+      (e) => w`<mwc-list-item .value=${e}
                         >${e}</mwc-list-item
                       >`
     )}
                 </ha-select>
               </ha-formfield>
-            ` : A.integration === "peu" ? v`
+            ` : A.integration === "peu" ? w`
                 <ha-formfield label="${this._t("location")}">
                   <ha-select
                     .value=${A.location || ""}
@@ -3946,13 +3947,13 @@ class an extends iA {
                     @closed=${(e) => e.stopPropagation()}
                   >
                     ${this.installedPeuLocations.map(
-      ([e, t]) => v`<mwc-list-item .value=${e}
+      ([e, t]) => w`<mwc-list-item .value=${e}
                           >${t}</mwc-list-item
                         >`
     )}
                   </ha-select>
                 </ha-formfield>
-              ` : A.integration === "silam" ? v`
+              ` : A.integration === "silam" ? w`
                   <ha-formfield label="${this._t("location")}">
                     <ha-select
                       .value=${A.location || ""}
@@ -3960,13 +3961,13 @@ class an extends iA {
                       @closed=${(e) => e.stopPropagation()}
                     >
                       ${this.installedSilamLocations.map(
-      ([e, t]) => v`<mwc-list-item .value=${e}
+      ([e, t]) => w`<mwc-list-item .value=${e}
                             >${t}</mwc-list-item
                           >`
     )}
                     </ha-select>
                   </ha-formfield>
-                ` : v`
+                ` : w`
                   <ha-formfield label="${this._t("region_id")}">
                     <ha-select
                       .value=${A.region_id || ""}
@@ -3974,7 +3975,7 @@ class an extends iA {
                       @closed=${(e) => e.stopPropagation()}
                     >
                       ${this.installedRegionIds.map(
-      (e) => v`
+      (e) => w`
                           <mwc-list-item .value=${e}>
                             ${e} — ${hg[e] || e}
                           </mwc-list-item>
@@ -4036,6 +4037,19 @@ class an extends iA {
           </div>
         </ha-formfield>
         <!-- Layout-switchar -->
+        ${A.integration === "silam" ? w`
+              <ha-formfield label="Mode">
+                <ha-select
+                  .value=${A.mode || "daily"}
+                  @selected=${(e) => this._updateConfig("mode", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  <mwc-list-item value="daily">Daily</mwc-list-item>
+                  <mwc-list-item value="twice daily">Twice daily</mwc-list-item>
+                  <mwc-list-item value="hourly">Hourly</mwc-list-item>
+                </ha-select>
+              </ha-formfield>
+            ` : ""}
         <ha-formfield label="${this._t("minimal")}">
           <ha-switch
             .checked=${A.minimal}
@@ -4109,13 +4123,15 @@ class an extends iA {
           ></ha-switch>
         </ha-formfield>
 
-        <!-- Antal dagar -->
+        <!-- Antal dagar / kolumner / timmar -->
         <div class="slider-row">
-          <div class="slider-text">${this._t("days_to_show")}</div>
+          <div class="slider-text">
+            ${A.integration === "silam" && A.mode === "twice daily" ? this._t("columns_to_show") : A.integration === "silam" && A.mode === "hourly" ? this._t("hours_to_show") : this._t("days_to_show")}
+          </div>
           <div class="slider-value">${A.days_to_show}</div>
           <ha-slider
             min="0"
-            max="6"
+            max="${A.integration === "silam" && A.mode === "hourly" ? 8 : 6}"
             step="1"
             .value=${A.days_to_show}
             @input=${(e) => this._updateConfig("days_to_show", Number(e.target.value))}
@@ -4148,7 +4164,7 @@ class an extends iA {
       "name_ascending",
       "name_descending"
     ].map(
-      (e) => v`<mwc-list-item .value=${e}
+      (e) => w`<mwc-list-item .value=${e}
                   >${e.replace("_", " ")}</mwc-list-item
                 >`
     )}
@@ -4168,7 +4184,7 @@ class an extends iA {
           <summary>${this._t("allergens")}</summary>
           <div class="allergens-group">
             ${g.map(
-      (e) => v`
+      (e) => w`
                 <ha-formfield .label=${e}>
                   <ha-checkbox
                     .checked=${A.allergens.includes(e)}
@@ -4189,7 +4205,7 @@ class an extends iA {
               @closed=${(e) => e.stopPropagation()}
             >
               ${FC.map(
-      (e) => v`
+      (e) => w`
                   <mwc-list-item .value=${e}>
                     ${new Intl.DisplayNames([this._lang], {
         type: "language"
@@ -4208,7 +4224,7 @@ class an extends iA {
         <details>
           <summary>${this._t("phrases_full")}</summary>
           ${g.map(
-      (e) => v`
+      (e) => w`
               <ha-formfield .label=${e}>
                 <ha-textfield
                   .value=${A.phrases.full[e] || ""}
@@ -4227,7 +4243,7 @@ class an extends iA {
         <details>
           <summary>${this._t("phrases_short")}</summary>
           ${g.map(
-      (e) => v`
+      (e) => w`
               <ha-formfield .label=${e}>
                 <ha-textfield
                   .value=${A.phrases.short[e] || ""}
@@ -4246,7 +4262,7 @@ class an extends iA {
         <details>
           <summary>${this._t("phrases_levels")}</summary>
           ${Array.from({ length: I }, (e, t) => t).map(
-      (e) => v`
+      (e) => w`
               <ha-formfield .label=${e}>
                 <ha-textfield
                   .value=${A.phrases.levels[e] || ""}
@@ -4264,7 +4280,7 @@ class an extends iA {
         <details>
           <summary>${this._t("phrases_days")}</summary>
           ${[0, 1, 2].map(
-      (e) => v`
+      (e) => w`
               <ha-formfield .label=${e}>
                 <ha-textfield
                   .value=${A.phrases.days[e] || ""}
@@ -4303,7 +4319,7 @@ class an extends iA {
     }}
           ></ha-switch>
         </ha-formfield>
-        ${this._tapType !== "none" ? v`
+        ${this._tapType !== "none" ? w`
               <div style="margin-top: 10px;">
                 <label>Action type</label>
                 <ha-select
@@ -4332,7 +4348,7 @@ class an extends iA {
                   >
                 </ha-select>
               </div>
-              ${this._tapType === "more-info" ? v`
+              ${this._tapType === "more-info" ? w`
                     <ha-formfield label="Entity">
                       <ha-textfield
                         .value=${this._tapEntity}
@@ -4345,7 +4361,7 @@ class an extends iA {
                       ></ha-textfield>
                     </ha-formfield>
                   ` : ""}
-              ${this._tapType === "navigate" ? v`
+              ${this._tapType === "navigate" ? w`
                     <ha-formfield label="Navigation path">
                       <ha-textfield
                         .value=${this._tapNavigation}
@@ -4358,7 +4374,7 @@ class an extends iA {
                       ></ha-textfield>
                     </ha-formfield>
                   ` : ""}
-              ${this._tapType === "call-service" ? v`
+              ${this._tapType === "call-service" ? w`
                     <ha-formfield label="Service (e.g. light.turn_on)">
                       <ha-textfield
                         .value=${this._tapService}

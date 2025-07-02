@@ -290,6 +290,7 @@ class PollenPrognosCardEditor extends LitElement {
         this._userConfig.integration !== undefined
           ? this._userConfig.integration
           : this._config.integration;
+
       if (!this._integrationExplicit && this._hass) {
         const all = Object.keys(this._hass.states);
         if (all.some((id) => id.startsWith("sensor.pollen_"))) {
@@ -306,6 +307,11 @@ class PollenPrognosCardEditor extends LitElement {
         this._userConfig.integration = integration;
         if (this.debug)
           console.debug("[Editor] auto-detected integration:", integration);
+      }
+
+      // 9.1 Sätt default mode för silam om inte satt
+      if (integration === "silam" && !this._userConfig.mode) {
+        this._userConfig.mode = "daily";
       }
 
       // 10. Bygg config från stub + userConfig (bara EN gång!)
@@ -491,6 +497,11 @@ class PollenPrognosCardEditor extends LitElement {
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
       this._userConfig.integration = integration;
+    }
+
+    // 1.1) Sätt default mode för silam om inte satt
+    if (integration === "silam" && !this._userConfig.mode) {
+      this._userConfig.mode = "daily";
     }
 
     // 2) Slå ihop stub + användar-config
@@ -984,6 +995,21 @@ class PollenPrognosCardEditor extends LitElement {
           </div>
         </ha-formfield>
         <!-- Layout-switchar -->
+        ${c.integration === "silam"
+          ? html`
+              <ha-formfield label="Mode">
+                <ha-select
+                  .value=${c.mode || "daily"}
+                  @selected=${(e) => this._updateConfig("mode", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  <mwc-list-item value="daily">Daily</mwc-list-item>
+                  <mwc-list-item value="twice daily">Twice daily</mwc-list-item>
+                  <mwc-list-item value="hourly">Hourly</mwc-list-item>
+                </ha-select>
+              </ha-formfield>
+            `
+          : ""}
         <ha-formfield label="${this._t("minimal")}">
           <ha-switch
             .checked=${c.minimal}
@@ -1067,13 +1093,19 @@ class PollenPrognosCardEditor extends LitElement {
           ></ha-switch>
         </ha-formfield>
 
-        <!-- Antal dagar -->
+        <!-- Antal dagar / kolumner / timmar -->
         <div class="slider-row">
-          <div class="slider-text">${this._t("days_to_show")}</div>
+          <div class="slider-text">
+            ${c.integration === "silam" && c.mode === "twice daily"
+              ? this._t("columns_to_show")
+              : c.integration === "silam" && c.mode === "hourly"
+                ? this._t("hours_to_show")
+                : this._t("days_to_show")}
+          </div>
           <div class="slider-value">${c.days_to_show}</div>
           <ha-slider
             min="0"
-            max="6"
+            max="${c.integration === "silam" && c.mode === "hourly" ? 8 : 6}"
             step="1"
             .value=${c.days_to_show}
             @input=${(e) =>
