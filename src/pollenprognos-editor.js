@@ -526,6 +526,9 @@ class PollenPrognosCardEditor extends LitElement {
           base.pollen_threshold,
         );
     }
+
+    merged.sort = merged.sort || "value_ascending";
+
     this._config = merged;
 
     // 3) Fyll installerade regioner/städer
@@ -819,12 +822,17 @@ class PollenPrognosCardEditor extends LitElement {
           ? { min: 0, max: 4, step: 1 }
           : { min: 0, max: 6, step: 1 };
 
-    const sortOptions = [
-      this._t("sort_value_ascending"),
-      this._t("sort_value_descending"),
-      this._t("sort_name_ascending"),
-      this._t("sort_name_descending"),
+    const SORT_VALUES = [
+      "value_ascending",
+      "value_descending",
+      "name_ascending",
+      "name_descending",
     ];
+
+    const sortOptions = SORT_VALUES.map((opt) => ({
+      value: opt,
+      label: this._t(`sort_${opt}`),
+    }));
 
     return html`
       <div class="card-config">
@@ -1157,10 +1165,8 @@ class PollenPrognosCardEditor extends LitElement {
             @closed=${(e) => e.stopPropagation()}
           >
             ${sortOptions.map(
-              (o) =>
-                html`<mwc-list-item .value=${o}
-                  >${o.replace("_", " ")}</mwc-list-item
-                >`,
+              ({ value, label }) =>
+                html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
             )}
           </ha-select>
         </ha-formfield>
