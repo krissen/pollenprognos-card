@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -11,6 +12,11 @@ ICON_OK = "✅"
 ICON_WARN = "⚠️"
 ICON_ADD = "➕"
 ICON_DEL = "❌"
+
+JS_FILES_TO_SCAN = [
+        Path(__file__).parent.parent / "src/pollenprognos-card.js",
+        Path(__file__).parent.parent / "src/pollenprognos-editor.js",
+]
 
 def load_json(path):
     with open(path, encoding="utf-8") as f:
@@ -41,10 +47,39 @@ def find_missing_and_redundant():
                 redundant_per_lang[file.stem].append(key)
     return master, missing_per_lang, redundant_per_lang
 
+def find_used_keys_in_js():
+    used_keys = set()
+    for js_file in JS_FILES_TO_SCAN:
+        if js_file.exists():
+            content = js_file.read_text(encoding="utf-8")
+            # Prefix: editor. för -editor.js, card. för -card.js, annars ingen
+            if js_file.name.endswith("-editor.js"):
+                prefix = "editor."
+            elif js_file.name.endswith("-card.js"):
+                prefix = "card."
+            else:
+                prefix = ""
+            # Hitta alla this._t("key") och this._t('key')
+            matches = re.findall(r'this\._t\(\s*["\']([a-zA-Z0-9_.-]+)["\']\s*\)', content)
+            for match in matches:
+                if not match.startswith("editor.") and not match.startswith("card."):
+                    used_keys.add(f"{prefix}{match}")
+                else:
+                    used_keys.add(match)
+    return used_keys
+
 def scan_missing():
     master, missing_per_lang, redundant_per_lang = find_missing_and_redundant()
 
-    # Rapportera saknade
+    # Kolla vilka nycklar som används i JS men saknas i en.json
+    used_keys = find_used_keys_in_js()
+    missing_in_master = sorted(used_keys - set(master.keys()))
+    if missing_in_master:
+        print(f"{ICON_WARN} Nycklar som används i JS men saknas i {MASTER}:")
+        for key in missing_in_master:
+            print(f"  {ICON_WARN} '{key}' används i JS-filer men finns ej i {MASTER}")
+
+    # Rapportera saknade per språk
     if not missing_per_lang:
         print(f"{ICON_OK} Alla språkfiler har alla nycklar från master.")
     else:
@@ -64,9 +99,6 @@ def scan_missing():
         print(f"\n{ICON_DEL} Överflödiga nycklar (finns ej i {MASTER}):")
         for key, langs in all_redundant_keys.items():
             print(f"  {ICON_DEL} '{key}' finns i: {', '.join(langs)}")
-        # print(f"\nVill du ta bort dessa nycklar automatiskt, kör:")
-        # print(f"  python3 {Path(__file__).name} clean\n")
-
 def gen_translation_json():
     master, missing_per_lang, _ = find_missing_and_redundant()
     output = defaultdict(dict)
