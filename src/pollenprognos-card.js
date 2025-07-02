@@ -36,7 +36,7 @@ class PollenPrognosCard extends LitElement {
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
     } else if (filtered.length > 0 && filtered[0].days) {
-      daysCount = filtered[0].days.length;
+      daysCount = Math.min(filtered[0].days.length, cfg.days_to_show);
     }
     this.days_to_show = daysCount;
     this.displayCols = Array.from({ length: daysCount }, (_, i) => i);
