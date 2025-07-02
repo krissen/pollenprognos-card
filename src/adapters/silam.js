@@ -303,8 +303,22 @@ export async function fetchForecast(hass, config) {
   return sensors;
 }
 
-export async function fetchHourlyForecast(hass, config) {
+export async function fetchHourlyForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
+
+  if (forecastEvent) {
+    if (debug) {
+      console.debug(
+        "[SILAM][fetchHourlyForecast] forecastEvent MOTTAGET!",
+        forecastEvent,
+      );
+    }
+  } else {
+    if (debug) {
+      console.debug("[SILAM][fetchHourlyForecast] forecastEvent ÄR NULL!");
+    }
+  }
+
   const lang = detectLang(hass, config.date_locale);
   const locale =
     config.date_locale ||
@@ -338,7 +352,7 @@ export async function fetchHourlyForecast(hass, config) {
     if (
       id.startsWith("weather.silam_pollen_") &&
       id.includes(locationSlug) &&
-      id.endsWith("_pollenprognos_beta")
+      id.endsWith("forecast")
     ) {
       weatherEntity = id;
       break;
@@ -360,33 +374,43 @@ export async function fetchHourlyForecast(hass, config) {
       );
     return [];
   }
-  const entity = hass.states[weatherEntity];
+
+  // === NYTT: forecast-array tas primärt från forecastEvent, annars entity.attributes.forecast ===
+  let forecastArr = null;
   if (
-    !entity?.attributes?.forecast ||
-    !Array.isArray(entity.attributes.forecast)
+    forecastEvent &&
+    forecastEvent.forecast &&
+    Array.isArray(forecastEvent.forecast)
   ) {
+    forecastArr = forecastEvent.forecast;
+    if (debug)
+      console.debug(
+        "[SILAM][fetchHourlyForecast] forecastEvent används! forecast-array längd:",
+        forecastArr.length,
+        "forecastEvent:",
+        forecastEvent,
+      );
+  } else {
+    const entity = hass.states[weatherEntity];
+    if (
+      entity?.attributes?.forecast &&
+      Array.isArray(entity.attributes.forecast)
+    ) {
+      forecastArr = entity.attributes.forecast;
+      if (debug)
+        console.debug(
+          "[SILAM][fetchHourlyForecast] Fallback till entity.attributes.forecast! forecast-array längd:",
+          forecastArr.length,
+        );
+    }
+  }
+  if (!forecastArr || !Array.isArray(forecastArr) || forecastArr.length === 0) {
     if (debug)
       console.warn(
-        "[SILAM][fetchHourlyForecast] Ingen forecast-array på entity:",
+        "[SILAM][fetchHourlyForecast] Ingen forecast-array kunde hittas för entity:",
         weatherEntity,
-        "entity-attributer:",
-        entity?.attributes,
       );
     return [];
-  }
-  const forecastArr = entity.attributes.forecast;
-
-  if (debug) {
-    console.debug(
-      "[SILAM][fetchHourlyForecast] Forecast-array längd:",
-      forecastArr.length,
-    );
-    if (forecastArr.length > 0) {
-      console.debug(
-        "[SILAM][fetchHourlyForecast] Första forecast-objektet:",
-        forecastArr[0],
-      );
-    }
   }
 
   // DRY: Centrala phrases/labels/levels
@@ -406,11 +430,11 @@ export async function fetchHourlyForecast(hass, config) {
   const sensors = [];
   for (const allergen of allergens) {
     try {
-      if (debug) {
-        console.debug(
-          `[SILAM][fetchHourlyForecast] Loop allergen: '${allergen}'`,
-        );
-      }
+      // if (debug) {
+      //   console.debug(
+      //     `[SILAM][fetchHourlyForecast] Loop allergen: '${allergen}'`,
+      //   );
+      // }
       const dict = {};
       dict.days = [];
       dict.allergenReplaced = allergen;
@@ -431,16 +455,16 @@ export async function fetchHourlyForecast(hass, config) {
         // Här måste vi kolla pollen_<allergen>
         const key = `pollen_${allergen}`;
         const pollenVal = Number(f[key]);
-        if (debug) {
-          console.debug(
-            `[SILAM][fetchHourlyForecast] forecast[${i}] key: ${key} → värde:`,
-            f[key],
-            "(num)",
-            pollenVal,
-            "obj:",
-            f,
-          );
-        }
+        // if (debug) {
+        //   console.debug(
+        //     `[SILAM][fetchHourlyForecast] forecast[${i}] key: ${key} → värde:`,
+        //     f[key],
+        //     "(num)",
+        //     pollenVal,
+        //     "obj:",
+        //     f,
+        //   );
+        // }
         const scaled = grainsToLevel(allergen, pollenVal);
         const stateText =
           scaled < 0 ? noInfoLabel : levelNames[scaled] || String(scaled);
@@ -476,7 +500,8 @@ export async function fetchHourlyForecast(hass, config) {
     }
   }
 
-  if (debug)
+  if (debug) {
     console.debug("[SILAM][fetchHourlyForecast] Klar. sensors:", sensors);
+  }
   return sensors;
 }
