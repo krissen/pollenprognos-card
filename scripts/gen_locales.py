@@ -7,28 +7,28 @@ from pathlib import Path
 LOCALES_DIR = Path(__file__).parent.parent / "src/locales"
 MASTER = "en.json"
 
+ICON_OK = "✅"
+ICON_WARN = "⚠️"
+ICON_ADD = "➕"
+ICON_DEL = "❌"
 
 def load_json(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
-
 def save_json(path, data):
-    # Spara med alfabetisk ordning
     with open(path, "w", encoding="utf-8") as f:
         json.dump(dict(sorted(data.items())), f, ensure_ascii=False, indent=2)
 
-
-def scan_missing():
+def find_missing_and_redundant():
     files = sorted([f for f in LOCALES_DIR.glob("*.json")])
     master_path = LOCALES_DIR / MASTER
     if not master_path.exists():
-        print(f"Master file {master_path} not found")
+        print(f"{ICON_WARN} Master file {master_path} not found.")
         sys.exit(1)
     master = load_json(master_path)
-
-    # Samla saknade nycklar per språk
     missing_per_lang = defaultdict(list)
+    redundant_per_lang = defaultdict(list)
     for file in files:
         if file.name == MASTER:
             continue
@@ -36,31 +36,51 @@ def scan_missing():
         for key in master:
             if key not in data:
                 missing_per_lang[file.stem].append(key)
+        for key in data:
+            if key not in master:
+                redundant_per_lang[file.stem].append(key)
+    return master, missing_per_lang, redundant_per_lang
 
+def scan_missing():
+    master, missing_per_lang, redundant_per_lang = find_missing_and_redundant()
+
+    # Rapportera saknade
     if not missing_per_lang:
-        print("✔ Alla språkfiler har alla nycklar från master")
-        return
+        print(f"{ICON_OK} Alla språkfiler har alla nycklar från master.")
+    else:
+        print(f"{ICON_ADD} Saknade nycklar:")
+        for key in master:
+            saknas_i = [lang for lang, keys in missing_per_lang.items() if key in keys]
+            if saknas_i:
+                print(
+                    f"  {ICON_WARN} '{key}' (\"{master[key]}\" i {MASTER}) saknas i: {', '.join(saknas_i)}"
+                )
+    # Rapportera redundanta (överflödiga)
+    all_redundant_keys = defaultdict(list)
+    for lang, keys in redundant_per_lang.items():
+        for key in keys:
+            all_redundant_keys[key].append(lang)
+    if all_redundant_keys:
+        print(f"\n{ICON_DEL} Överflödiga nycklar (finns ej i {MASTER}):")
+        for key, langs in all_redundant_keys.items():
+            print(f"  {ICON_DEL} '{key}' finns i: {', '.join(langs)}")
+        # print(f"\nVill du ta bort dessa nycklar automatiskt, kör:")
+        # print(f"  python3 {Path(__file__).name} clean\n")
 
-    # Rapportera
-    for key in master:
-        saknas_i = [lang for lang, keys in missing_per_lang.items() if key in keys]
-        if saknas_i:
-            print(
-                f"Nyckel '{key}' (\"{master[key]}\" i {MASTER}) saknas i: {', '.join(saknas_i)}"
-            )
-
-    # Skapa format för översättning
+def gen_translation_json():
+    master, missing_per_lang, _ = find_missing_and_redundant()
     output = defaultdict(dict)
     for lang, keys in missing_per_lang.items():
         for key in keys:
             output[lang][key] = master[key]
     if output:
-        print("\n\n# Översätt följande nycklar till respektive språk:\n")
+        print("\n# Översätt nedan till respektive språk:\n")
         print(json.dumps(output, ensure_ascii=False, indent=2))
         print("\n---")
-        print("Då översättningen är klar, spara JSON till fil och kör:\n")
-        print("  python3 gen_locales.py update path/till/oversattning.json")
-
+        print("Spara översättningarna till fil och kör:\n")
+        print(f"  python3 {Path(__file__).name} update path/till/oversattning.json\n")
+    else:
+        print(f"{ICON_OK} Alla språkfiler har redan alla nycklar från master.")
 
 def update_with_translation(json_path, force=False):
     with open(json_path, encoding="utf-8") as f:
@@ -68,7 +88,7 @@ def update_with_translation(json_path, force=False):
     for lang, keys in translation.items():
         loc_file = LOCALES_DIR / (lang + ".json")
         if not loc_file.exists():
-            print(f"Varnar: Språkfil saknas: {loc_file}")
+            print(f"{ICON_WARN} Språkfil saknas: {loc_file}")
             continue
         data = load_json(loc_file)
         count_new = 0
@@ -84,34 +104,85 @@ def update_with_translation(json_path, force=False):
                     count_updated += 1
         if count_new or (force and count_updated):
             save_json(loc_file, data)
-            msg = f"{lang}.json: {count_new} nya nycklar inlagda"
+            msg = f"{ICON_OK} {lang}.json: {count_new} nya nycklar inlagda"
             if force and count_updated:
                 msg += f", {count_updated} uppdaterade (force=True)"
             print(msg)
         else:
-            msg = f"{lang}.json: inga nya nycklar inlagda"
+            msg = f"{ICON_OK} {lang}.json: inga nya nycklar inlagda"
             if force:
                 msg += " (force=True)"
             print(msg)
 
+def delete_redundant():
+    _, _, redundant_per_lang = find_missing_and_redundant()
+    files = sorted([f for f in LOCALES_DIR.glob("*.json")])
+    master_path = LOCALES_DIR / MASTER
+    master = load_json(master_path)
+    total_removed = 0
+    for file in files:
+        if file.name == MASTER:
+            continue
+        data = load_json(file)
+        redundant = [key for key in data if key not in master]
+        if redundant:
+            for key in redundant:
+                del data[key]
+            save_json(file, data)
+            print(f"{ICON_DEL} {file.name}: tog bort {len(redundant)} överflödiga nycklar: {', '.join(redundant)}")
+            total_removed += len(redundant)
+        else:
+            print(f"{ICON_OK} {file.name}: inga överflödiga nycklar.")
+    if total_removed == 0:
+        print(f"{ICON_OK} Inga överflödiga nycklar att ta bort.")
+    else:
+        print(f"{ICON_DEL} Totalt borttagna nycklar: {total_removed}")
 
 if __name__ == "__main__":
-    # Argumenthantering: stöd för --force (eller -f) som sista argument
+    # Argumenthantering: identifiera vilka kommandon som ska köras
+    cmds = []
+    update_file = None
     force = False
-    args = sys.argv
-    if "--force" in args:
-        force = True
-        args.remove("--force")
-    elif "-f" in args:
-        force = True
-        args.remove("-f")
-    if len(args) == 1 or args[1] == "scan":
-        scan_missing()
-    elif args[1] == "update" and len(args) == 3:
-        update_with_translation(args[2], force=force)
-    else:
+    args = sys.argv[1:]  # Ta bort scriptnamnet
+
+    # Identifiera kommandon och filargument
+    for i, arg in enumerate(args):
+        arg_l = arg.lower()
+        if arg_l in ("scan", "gen", "update", "clean"):
+            cmds.append(arg_l)
+        elif arg_l in ("--force", "-f"):
+            force = True
+        elif arg.endswith(".json"):
+            update_file = arg
+        # Ignorera okända, så vi kan lägga till fler i framtiden
+
+    if not cmds:
+        cmds = ["scan"]  # default
+
+    # Alltid i given ordning
+    for cmd in cmds:
+        if cmd == "scan":
+            scan_missing()
+        elif cmd == "gen":
+            gen_translation_json()
+        elif cmd == "update":
+            if update_file:
+                update_with_translation(update_file, force=force)
+            else:
+                print(f"{ICON_WARN} Ingen översättningsfil angiven till update.")
+        elif cmd == "clean":
+            delete_redundant()
+        else:
+            print(f"{ICON_WARN} Okänt kommando: {cmd}")
+
+    if not cmds or all(cmd not in ("scan", "gen", "update", "clean") for cmd in cmds):
         print(
-            "Usage:\n"
-            "  python3 gen_locales.py scan\n"
-            "  python3 gen_locales.py update oversattning.json [--force|-f]"
+            "\nUsage:\n"
+            f"  python3 {Path(__file__).name} scan\n"
+            f"  python3 {Path(__file__).name} gen\n"
+            f"  python3 {Path(__file__).name} update oversattning.json [--force|-f]\n"
+            f"  python3 {Path(__file__).name} clean\n"
+            "\nDu kan kombinera flera kommandon i valfri ordning, t.ex.:\n"
+            f"  python3 {Path(__file__).name} update oversattning.json clean\n"
         )
+
