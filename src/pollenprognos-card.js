@@ -82,7 +82,7 @@ class PollenPrognosCard extends LitElement {
             this._forecastEvent = event;
             // Kör fetch direkt!
             this._updateSensorsAfterForecastEvent();
-            this.requestUpdate();
+            // this.requestUpdate();
           },
           {
             type: "weather/subscribe_forecast",
@@ -114,8 +114,18 @@ class PollenPrognosCard extends LitElement {
         adapter
           .fetchHourlyForecast(this._hass, this.config, this._forecastEvent)
           .then((sensors) => {
-            this.sensors = sensors;
-            this.requestUpdate();
+            const availableSensors = findAvailableSensors(
+              this.config,
+              this._hass,
+              this.debug,
+            );
+            this._updateSensorsAndColumns(
+              sensors,
+              availableSensors,
+              this.config,
+            );
+            // this.sensors = sensors;
+            // this.requestUpdate();
           });
       }
     }
@@ -710,7 +720,7 @@ class PollenPrognosCard extends LitElement {
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
         });
     }
-    this.requestUpdate();
+    // this.requestUpdate();
   }
 
   _renderMinimalHtml() {
