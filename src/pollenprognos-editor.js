@@ -55,7 +55,36 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   _hasSilamWeatherEntity(location) {
-    if (!this._hass || !location) return false;
+    if (!this._hass) return false;
+    if (!location) {
+      // Fallback: Hitta alla möjliga platser (unika, sorterade)
+      const candidates = Object.keys(this._hass.states)
+        .filter((id) => id.startsWith("weather.silam_pollen_"))
+        .map((id) =>
+          id.replace(/^weather\.silam_pollen_/, "").replace(/_.+$/, ""),
+        )
+        .filter((v, i, a) => a.indexOf(v) === i) // unika
+        .sort();
+      if (this.debug) {
+        console.debug(
+          "[Editor] _hasSilamWeatherEntity: found locations:",
+          candidates,
+        );
+      }
+      if (candidates.length > 0) {
+        if (this.debug)
+          console.debug(
+            "[Editor] _hasSilamWeatherEntity: using fallback location",
+            candidates[0],
+          );
+        // returnera true om du bara vill signalera "OK"
+        // return candidates[0]; // om du vill använda värdet
+        return true;
+      }
+      if (this.debug)
+        console.debug("[Editor] _hasSilamWeatherEntity: no candidates");
+      return false;
+    }
     const lang = this._config?.date_locale?.split("-")[0] || "en";
     const suffixes =
       silamAllergenMap.weather_suffixes?.[lang] ||
