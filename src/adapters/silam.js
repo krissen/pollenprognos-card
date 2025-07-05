@@ -368,7 +368,7 @@ export async function fetchHourlyForecast(hass, config, forecastEvent = null) {
     return [];
   }
 
-  // === NYTT: forecast-array tas primärt från forecastEvent, annars entity.attributes.forecast ===
+  // forecast-array tas primärt från forecastEvent, annars entity.attributes.forecast
   let forecastArr = null;
   if (
     forecastEvent &&
