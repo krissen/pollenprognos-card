@@ -114,7 +114,7 @@ def main():
                     names_by_lang[key] = {}
                 names_by_lang[key][lang] = info.get("name", key)
 
-    # NYTT: Hämta möjliga weather-suffixar per locale
+    # Hämta möjliga weather-suffixar per locale
     weather_suffixes = {}
     for fname in os.listdir(TRANSLATIONS_DIR):
         if not fname.endswith(".json"):

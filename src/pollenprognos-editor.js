@@ -860,7 +860,7 @@ class PollenPrognosCardEditor extends LitElement {
         if (value === "hourly" || value === "twice_daily") {
           cfg.days_to_show = 8;
           cfg.show_empty_days = false;
-          // cfg.show_empty_days = false; // om du vill
+          // cfg.show_empty_days = false;
         } else if (value === "daily") {
           cfg.days_to_show = 2;
         }
