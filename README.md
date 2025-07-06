@@ -35,7 +35,7 @@ A Lovelace card to display the sensor data from any of the following integration
 
 ## Requirements
 
-Pollenprognos-card needs one of the two supported sensor integrations; [Pollenprognos](https://github.com/JohNan/homeassistant-pollenprognos), [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug), [Polleninformation EU](https://github.com/krissen/polleninformation) or [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen).
+Pollenprognos-card needs one of the four supported sensor integrations; [Pollenprognos](https://github.com/JohNan/homeassistant-pollenprognos), [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug), [Polleninformation EU](https://github.com/krissen/polleninformation) or [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen).
 
 - [Home Assistant Pollenprognos integration](https://github.com/JohNan/homeassistant-pollenprognos)  
   **Note,** for `homeassistant-pollenprognos` v1.1.0 and higher, you need v1.0.6 or above of this card.  
@@ -111,7 +111,7 @@ Below are some other Lovelace cards and integrations for pollen forecasts. Each 
 
 ---
 
-None of these cards support fully dynamic string localization or two-adapter fallback (PP + DWD) with a built-in UI editor. The **pollenprognos-card** you are using combines both data sources, supports HACS & the Lovelace editor, and is fully localizable via simple JSON files.
+None of these cards support fully dynamic string localization or four adapters (PP; DWD; PEU; SILAM) with a built-in UI editor. The **pollenprognos-card** you are using combines both data sources, supports HACS & the Lovelace editor, and is fully localizable via simple JSON files.
 
 ## Localization
 
@@ -469,7 +469,7 @@ This is a fork of [pollen-card](https://github.com/nidayand/lovelace-pollen-card
 ---
 
 [hacs]: https://hacs.xyz
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[hacsbadge]: https://img.shields.io/badge/HACS-Official-blue.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/krissen/pollenprognos-card.svg?style=for-the-badge
 [maintenance-shield]: https://img.shields.io/badge/maintainer-%40krissen-blue.svg?style=for-the-badge
 [releases-shield]: https://img.shields.io/github/release/krissen/pollenprognos-card.svg?style=for-the-badge
