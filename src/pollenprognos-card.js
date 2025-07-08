@@ -67,8 +67,9 @@ class PollenPrognosCard extends LitElement {
         silamAllergenMap.weather_suffixes?.en ||
         [];
       if (this.debug) {
-        const allWeather = Object.keys(this._hass.states).filter((id) =>
-          id.startsWith("weather.silam_pollen_"),
+        const allWeather = Object.keys(this._hass.states).filter(
+          (id) =>
+            typeof id === "string" && id.startsWith("weather.silam_pollen_"),
         );
         console.debug(
           "[Card][Debug] Alla weather-entities i hass.states:",
@@ -281,16 +282,19 @@ class PollenPrognosCard extends LitElement {
     // Sensordetektion
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
-        id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
+        typeof id === "string" &&
+        id.startsWith("sensor.pollen_") &&
+        !id.startsWith("sensor.pollenflug_"),
     );
-    const dwdStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.pollenflug_"),
+    const dwdStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
     );
-    const peuStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.polleninformation_"),
+    const peuStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
-    const silamStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.silam_pollen_"),
+    const silamStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
     );
 
     if (this.debug) {
@@ -451,8 +455,12 @@ class PollenPrognosCard extends LitElement {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
         // Hitta alla peu-entities
-        const peuEntities = Object.values(hass.states).filter((s) =>
-          s.entity_id.startsWith("sensor.polleninformation_"),
+        const peuEntities = Object.values(hass.states).filter(
+          (s) =>
+            s &&
+            typeof s === "object" &&
+            typeof s.entity_id === "string" &&
+            s.entity_id.startsWith("sensor.polleninformation_"),
         );
         // Hitta entity där slug-attribut eller entity_id matchar cfg.location
         const match = peuEntities.find((s) => {
@@ -494,16 +502,20 @@ class PollenPrognosCard extends LitElement {
         );
         // Hämta alla silam-entities med giltig allergen
         const silamEntities = Object.values(hass.states).filter((s) => {
-          if (!s.entity_id.startsWith("sensor.silam_pollen_")) return false;
+          if (
+            !s ||
+            typeof s !== "object" ||
+            typeof s.entity_id !== "string" ||
+            !s.entity_id.startsWith("sensor.silam_pollen_")
+          )
+            return false;
           const match = s.entity_id.match(
             /^sensor\.silam_pollen_(.*)_([^_]+)$/,
           );
           if (!match) return false;
           const allergenSlug = match[2];
-          // Uteslut index och liknande
           return SilamValidAllergenSlugs.has(allergenSlug);
         });
-
         const wantedSlug = slugify(cfg.location || "");
 
         // Hitta första entity med samma slugificerade location

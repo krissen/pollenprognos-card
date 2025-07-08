@@ -55,15 +55,23 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   _hasSilamWeatherEntity(location) {
-    if (!this._hass) return false;
+    if (
+      !this._hass ||
+      !this._hass.states ||
+      typeof this._hass.states !== "object"
+    )
+      return false;
     if (!location) {
       // Fallback: Hitta alla möjliga platser (unika, sorterade)
       const candidates = Object.keys(this._hass.states)
-        .filter((id) => id.startsWith("weather.silam_pollen_"))
+        .filter(
+          (id) =>
+            typeof id === "string" && id.startsWith("weather.silam_pollen_"),
+        )
         .map((id) =>
           id.replace(/^weather\.silam_pollen_/, "").replace(/_.+$/, ""),
         )
-        .filter((v, i, a) => a.indexOf(v) === i) // unika
+        .filter((v, i, a) => a.indexOf(v) === i)
         .sort();
       if (this.debug) {
         console.debug(
@@ -77,8 +85,6 @@ class PollenPrognosCardEditor extends LitElement {
             "[Editor] _hasSilamWeatherEntity: using fallback location",
             candidates[0],
           );
-        // returnera true om du bara vill signalera "OK"
-        // return candidates[0]; // om du vill använda värdet
         return true;
       }
       if (this.debug)
@@ -97,7 +103,9 @@ class PollenPrognosCardEditor extends LitElement {
     }
     // Fallback: om det finns något weather.silam_pollen_{loc}_*
     const prefix = `weather.silam_pollen_${loc}_`;
-    return Object.keys(this._hass.states).some((id) => id.startsWith(prefix));
+    return Object.keys(this._hass.states).some(
+      (id) => typeof id === "string" && id.startsWith(prefix),
+    );
   }
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
@@ -340,15 +348,33 @@ class PollenPrognosCardEditor extends LitElement {
 
       if (!this._integrationExplicit && this._hass) {
         const all = Object.keys(this._hass.states);
-        if (all.some((id) => id.startsWith("sensor.pollen_"))) {
+        if (
+          all.some(
+            (id) => typeof id === "string" && id.startsWith("sensor.pollen_"),
+          )
+        ) {
           integration = "pp";
         } else if (
-          all.some((id) => id.startsWith("sensor.polleninformation_"))
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              id.startsWith("sensor.polleninformation_"),
+          )
         ) {
           integration = "peu";
-        } else if (all.some((id) => id.startsWith("sensor.pollenflug_"))) {
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+          )
+        ) {
           integration = "dwd";
-        } else if (all.some((id) => id.startsWith("sensor.silam_pollen_"))) {
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
+          )
+        ) {
           integration = "silam";
         }
         this._userConfig.integration = integration;
@@ -424,17 +450,23 @@ class PollenPrognosCardEditor extends LitElement {
       // 16. Uppdatera listor för cities/regions om hass finns
       if (this._hass) {
         const all = Object.keys(this._hass.states);
+
         this.installedRegionIds = Array.from(
           new Set(
             all
-              .filter((id) => id.startsWith("sensor.pollenflug_"))
+              .filter(
+                (id) =>
+                  typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+              )
               .map((id) => id.split("_").pop()),
           ),
         ).sort((a, b) => Number(a) - Number(b));
+
         const ppKeys = new Set(
           all
             .filter(
               (id) =>
+                typeof id === "string" &&
                 id.startsWith("sensor.pollen_") &&
                 !id.startsWith("sensor.pollenflug_"),
             )
@@ -442,6 +474,7 @@ class PollenPrognosCardEditor extends LitElement {
               id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
             ),
         );
+
         this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
           ppKeys.has(
             c
@@ -452,7 +485,6 @@ class PollenPrognosCardEditor extends LitElement {
           ),
         ).sort();
       }
-
       // 17. Auto-välj city/region om inte explicit
       if (!this._integrationExplicit) {
         if (
@@ -524,18 +556,23 @@ class PollenPrognosCardEditor extends LitElement {
     // Hitta alla sensor-ID för PP, DWD, PEU och SILAM
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
-        id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
-    );
-    const dwdStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.pollenflug_"),
-    );
-    const peuStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.polleninformation_"),
-    );
-    const silamStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.silam_pollen_"),
+        typeof id === "string" &&
+        id.startsWith("sensor.pollen_") &&
+        !id.startsWith("sensor.pollenflug_"),
     );
 
+    const dwdStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+    );
+
+    const peuStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
+    );
+
+    const silamStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
+    );
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
     if (!explicit) {
@@ -603,24 +640,29 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedPeuLocations = Array.from(
       new Map(
         Object.values(hass.states)
-          .filter((s) => s.entity_id.startsWith("sensor.polleninformation_"))
+          .filter(
+            (s) =>
+              s &&
+              typeof s === "object" &&
+              typeof s.entity_id === "string" &&
+              s.entity_id.startsWith("sensor.polleninformation_"),
+          )
           .map((s) => {
             const locationSlug =
-              s.attributes.location_slug ||
+              s.attributes?.location_slug ||
               s.entity_id
                 .replace("sensor.polleninformation_", "")
                 .replace(/_[^_]+$/, "");
             const title =
-              s.attributes.location_title ||
-              s.attributes.friendly_name?.match(/\((.*?)\)/)?.[1] ||
+              s.attributes?.location_title ||
+              (typeof s.attributes?.friendly_name === "string"
+                ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
+                : undefined) ||
               locationSlug;
-            // DEBUG:
-            // console.log("[PEU] entity_id:", s.entity_id, "| location_slug:", s.attributes.location_slug, "| selected locationSlug:", locationSlug, "| title:", title);
             return [locationSlug, title];
           }),
       ),
     );
-
     const lang =
       (this.config &&
         this.config.date_locale &&
@@ -678,7 +720,13 @@ class PollenPrognosCardEditor extends LitElement {
       new Map(
         Object.values(hass.states)
           .filter((s) => {
-            if (!s.entity_id.startsWith("sensor.silam_pollen_")) return false;
+            if (
+              !s ||
+              typeof s !== "object" ||
+              typeof s.entity_id !== "string" ||
+              !s.entity_id.startsWith("sensor.silam_pollen_")
+            )
+              return false;
             const match = s.entity_id.match(
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
@@ -707,15 +755,16 @@ class PollenPrognosCardEditor extends LitElement {
             return SilamValidAllergenSlugs.has(allergenSlug);
           })
           .map((s) => {
-            const match = s.entity_id.match(
-              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
-            );
+            const match =
+              typeof s.entity_id === "string"
+                ? s.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/)
+                : null;
             const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
             const locationSlug = slugify(rawLocation);
 
             let title =
-              s.attributes.location_title ||
-              (s.attributes.friendly_name
+              s.attributes?.location_title ||
+              (typeof s.attributes?.friendly_name === "string"
                 ? s.attributes.friendly_name
                     .replace(/^SILAM Pollen\s*-?\s*/i, "")
                     .replace(/\s+\p{L}+$/u, "")
@@ -743,7 +792,6 @@ class PollenPrognosCardEditor extends LitElement {
           }),
       ),
     );
-
     // 4) Auto-välj första region/stad om användaren inte satt något
     if (!this._initDone) {
       if (
