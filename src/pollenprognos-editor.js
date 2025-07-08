@@ -887,7 +887,7 @@ class PollenPrognosCardEditor extends LitElement {
           cfg.show_empty_days = false;
           // cfg.show_empty_days = false;
         } else if (value === "daily") {
-          cfg.days_to_show = 2;
+          cfg.days_to_show = 5;
         }
       }
       // Tvinga mode till daily om location saknar weather-entity

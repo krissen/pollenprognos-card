@@ -188,7 +188,7 @@
   },
   "weather_suffixes": {
     "nl": [
-      "forecast"
+      "forecast_beta"
     ],
     "de": [
       "pollen_vorhersage_beta"
@@ -200,16 +200,16 @@
       "siitepolyennuste_beta"
     ],
     "sk": [
-      "predpoved"
+      "predpoved_beta"
     ],
     "en": [
-      "forecast"
+      "pollen_forecast_beta"
     ],
     "it": [
       "previsione_del_polline_beta"
     ],
     "cs": [
-      "predpoved"
+      "predpoved_beta"
     ],
     "no": [
       "pollenprognose_beta"
