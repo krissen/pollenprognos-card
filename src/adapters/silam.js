@@ -181,6 +181,7 @@ export async function fetchForecast(hass, config) {
         continue;
       }
       const sensor = hass.states[sensorId];
+      dict.entity_id = sensorId;
 
       // Läs state + forecast/tomorrow
       const mainVal = Number(sensor.state);

@@ -159,6 +159,7 @@ export async function fetchForecast(hass, config) {
       }
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";
+      dict.entity_id = sensorId;
 
       // Forecast-hantering: forecast är en array med datumobjekt
       const rawForecast = sensor.attributes.forecast;

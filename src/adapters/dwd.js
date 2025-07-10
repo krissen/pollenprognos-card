@@ -131,6 +131,7 @@ export async function fetchForecast(hass, config) {
         else continue;
       }
       const sensor = hass.states[sensorId];
+      dict.entity_id = sensorId;
 
       // Råvärden
       const todayVal = testVal(sensor.state);
