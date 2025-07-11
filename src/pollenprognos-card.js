@@ -185,13 +185,40 @@ class PollenPrognosCard extends LitElement {
               cutout: `${100 - thickness}%`,
               responsive: false,
               maintainAspectRatio: false,
+              animation: {
+                duration: 0,
+                animateRotate: false,
+                animateScale: false,
+                easing: "linear",
+              },
+              transitions: {
+                active: {
+                  animation: {
+                    duration: 0,
+                    animateRotate: false,
+                    animateScale: false,
+                    easing: "linear",
+                  },
+                },
+                show: {
+                  animations: {
+                    numbers: { duration: 0, easing: "linear" },
+                    colors: { duration: 0, easing: "linear" },
+                  },
+                },
+                hide: {
+                  animations: {
+                    numbers: { duration: 0, easing: "linear" },
+                    colors: { duration: 0, easing: "linear" },
+                  },
+                },
+              },
               plugins: {
                 legend: { display: false },
                 tooltip: { enabled: false },
               },
             },
           });
-
           // Add to cache
           this._chartCache.set(container.id, chart);
         } else {
@@ -1395,6 +1422,26 @@ class PollenPrognosCard extends LitElement {
         margin-top: 2px;
         word-break: break-word;
         white-space: normal;
+      }
+      .pollen-img,
+      .level-circle {
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 16px;
+        min-height: 16px;
+        object-fit: contain;
+        margin: 0 auto 6px auto;
+        display: block;
+        vertical-align: middle;
+      }
+      .level-value-text {
+        max-width: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        text-align: center;
+        white-space: nowrap;
       }
     `;
   }

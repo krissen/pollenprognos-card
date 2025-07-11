@@ -3271,6 +3271,34 @@ class Qg extends oA {
               cutout: `${100 - r}%`,
               responsive: !1,
               maintainAspectRatio: !1,
+              animation: {
+                duration: 0,
+                animateRotate: !1,
+                animateScale: !1,
+                easing: "linear"
+              },
+              transitions: {
+                active: {
+                  animation: {
+                    duration: 0,
+                    animateRotate: !1,
+                    animateScale: !1,
+                    easing: "linear"
+                  }
+                },
+                show: {
+                  animations: {
+                    numbers: { duration: 0, easing: "linear" },
+                    colors: { duration: 0, easing: "linear" }
+                  }
+                },
+                hide: {
+                  animations: {
+                    numbers: { duration: 0, easing: "linear" },
+                    colors: { duration: 0, easing: "linear" }
+                  }
+                }
+              },
               plugins: {
                 legend: { display: !1 },
                 tooltip: { enabled: !1 }
@@ -3985,6 +4013,26 @@ class Qg extends oA {
         margin-top: 2px;
         word-break: break-word;
         white-space: normal;
+      }
+      .pollen-img,
+      .level-circle {
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 16px;
+        min-height: 16px;
+        object-fit: contain;
+        margin: 0 auto 6px auto;
+        display: block;
+        vertical-align: middle;
+      }
+      .level-value-text {
+        max-width: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        text-align: center;
+        white-space: nowrap;
       }
     `;
   }
