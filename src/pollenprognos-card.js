@@ -37,55 +37,151 @@ class PollenPrognosCard extends LitElement {
   _forecastUnsub = null; // Unsubscribe-funktion
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
+  _chartCache = new Map();
+
   _renderLevelCircle(
     level,
-    { colors, emptyColor, gapColor, thickness, gap, size, decimals },
+    {
+      colors = [
+        "#ffeb3b",
+        "#ffc107",
+        "#ff9800",
+        "#ff5722",
+        "#e64a19",
+        "#d32f2f",
+      ],
+      emptyColor = "var(--divider-color)",
+      gapColor = "var(--card-background-color)",
+      thickness = 60,
+      gap = 5,
+      size = 40,
+    },
   ) {
-    // Skapa ett canvas-element dynamiskt
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    // Create a unique key for this chart configuration
+    const allergen = arguments[2] || "default";
+    const dayIndex = arguments[3] || 0;
+    const chartId = `chart-${allergen}-${dayIndex}-${level}`;
 
-    // Skapa Chart.js-donut i canvas med level och options
-    // Fyll i segment enligt level
-    const numSegments = colors.length;
-    const data = Array(numSegments).fill(1);
-    const bg = Array(numSegments)
-      .fill(emptyColor)
-      .map((c, i) => (i < level ? colors[i] : emptyColor));
-    const bc = Array(numSegments).fill(gapColor);
+    // Use a reference element that will be populated in firstUpdated or updated
+    return html`
+      <div
+        id="${chartId}"
+        class="level-circle"
+        style="display: inline-block; width: ${size}px; height: ${size}px;"
+        .level="${level}"
+        .colors="${JSON.stringify(colors)}"
+        .emptyColor="${emptyColor}"
+        .gapColor="${gapColor}"
+        .thickness="${thickness}"
+        .gap="${gap}"
+        .size="${size}"
+      ></div>
+    `;
+  }
 
-    const chart = new Chart(canvas.getContext("2d"), {
-      type: "doughnut",
-      data: {
-        labels: Array(numSegments).fill(""),
-        datasets: [
-          {
-            data,
-            backgroundColor: bg,
-            borderColor: bc,
-            borderWidth: gap,
-          },
-        ],
-      },
-      options: {
-        rotation: -Math.PI / 2,
-        cutout: `${100 - thickness}%`,
-        responsive: false,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { enabled: false },
-        },
-      },
+  // Add this lifecycle method to create/update charts after render
+  updated(changedProps) {
+    // Handle forecast subscription
+    if (changedProps.has("config") || changedProps.has("_hass")) {
+      this._subscribeForecastIfNeeded();
+    }
+
+    // After rendering, find all chart containers and create/update charts
+    this.updateComplete.then(() => {
+      this.renderRoot.querySelectorAll(".level-circle").forEach((container) => {
+        // Extract properties from the container
+        const level = Number(container.level || 0);
+        const colors = JSON.parse(container.colors || "[]");
+        const emptyColor = container.emptyColor;
+        const gapColor = container.gapColor;
+        const thickness = Number(container.thickness);
+        const gap = Number(container.gap);
+        const size = Number(container.size);
+
+        // Check if we already have a chart for this container
+        let chart = this._chartCache.get(container.id);
+
+        if (!chart) {
+          // Create canvas if it doesn't exist
+          container.innerHTML = "";
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          container.appendChild(canvas);
+
+          // Number of segments
+          const numSegments = colors.length;
+
+          // Create data arrays
+          const data = Array(numSegments).fill(1);
+          const bg = Array(numSegments)
+            .fill(emptyColor)
+            .map((c, i) => (i < level ? colors[i] : emptyColor));
+          const bc = Array(numSegments).fill(gapColor);
+
+          // Create new chart
+          chart = new Chart(canvas.getContext("2d"), {
+            type: "doughnut",
+            data: {
+              labels: Array(numSegments).fill(""),
+              datasets: [
+                {
+                  data,
+                  backgroundColor: bg,
+                  borderColor: bc,
+                  borderWidth: gap,
+                },
+              ],
+            },
+            options: {
+              rotation: -Math.PI / 2,
+              cutout: `${100 - thickness}%`,
+              responsive: false,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false },
+              },
+            },
+          });
+
+          // Add to cache
+          this._chartCache.set(container.id, chart);
+        } else {
+          // Update existing chart if level changed
+          const datasets = chart.data.datasets;
+          if (datasets && datasets[0]) {
+            const bg = Array(datasets[0].backgroundColor.length)
+              .fill(emptyColor)
+              .map((c, i) => (i < level ? colors[i] : emptyColor));
+
+            datasets[0].backgroundColor = bg;
+            chart.update("none"); // Update without animation
+          }
+        }
+      });
     });
 
-    // Returnera canvas-elementet som lit-html (använd direkt i render)
-    return html`<span
-      class="level-circle"
-      style="display: inline-block; width: ${size}px; height: ${size}px;"
-      >${canvas}</span
-    >`;
+    // Call parent's updated if it exists
+    if (super.updated) super.updated(changedProps);
+  }
+  // Clean up charts when component is disconnected
+  disconnectedCallback() {
+    super.disconnectedCallback();
+
+    // Handle forecast unsubscription as before
+    if (this._forecastUnsub) {
+      Promise.resolve(this._forecastUnsub).then((fn) => {
+        if (typeof fn === "function") fn();
+      });
+      this._forecastUnsub = null;
+    }
+
+    // Destroy all charts
+    this._chartCache.forEach((chart) => {
+      chart.destroy();
+    });
+    this._chartCache.clear();
   }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
@@ -207,14 +303,6 @@ class PollenPrognosCard extends LitElement {
       });
       this._forecastUnsub = null;
     }
-  }
-
-  // Kör om subscription om config eller hass ändras!
-  updated(changedProps) {
-    if (changedProps.has("config") || changedProps.has("_hass")) {
-      this._subscribeForecastIfNeeded();
-    }
-    if (super.updated) super.updated(changedProps);
   }
 
   get debug() {
@@ -852,7 +940,10 @@ class PollenPrognosCard extends LitElement {
       this.config.levels_gap_color ?? "var(--card-background-color)";
     const thickness = this.config.levels_thickness ?? 60;
     const gap = this.config.levels_gap ?? 5;
-    const size = this.config.levels_size ?? 100;
+    const size = Math.min(
+      100,
+      Math.max(40, Number(this.config.icon_size) || 80),
+    ); // Use icon_size but with constraints
     const decimals = this.config.levels_decimals ?? 0;
 
     if (this.debug) {
@@ -914,15 +1005,19 @@ class PollenPrognosCard extends LitElement {
                   ${cols.map(
                     (i) => html`
                       <td>
-                        ${this._renderLevelCircle(sensor.days[i]?.state ?? 0, {
-                          colors,
-                          emptyColor,
-                          gapColor,
-                          thickness,
-                          gap,
-                          size,
-                          decimals,
-                        })}
+                        ${this._renderLevelCircle(
+                          Number(sensor.days[i]?.state) || 0,
+                          {
+                            colors,
+                            emptyColor,
+                            gapColor,
+                            thickness,
+                            gap,
+                            size,
+                          },
+                          sensor.allergenReplaced,
+                          i,
+                        )}
                       </td>
                     `,
                   )}
@@ -1084,14 +1179,14 @@ class PollenPrognosCard extends LitElement {
       /* normalhtml */
       .forecast {
         width: 100%; /* Fyll hela kortet! */
-        table-layout: fixed; /* Alla kolumner blir lika breda */
+        table-layout: fixed;
         border-collapse: separate;
         border-spacing: 0 2px;
         margin: 0 auto;
       }
       .forecast th,
       .forecast td {
-        vertical-align: middle; /* Lägg till! */
+        vertical-align: middle;
         min-width: 36px;
         /* Sätt ingen max-width – då tillåts kolumnerna expandera */
         padding: 2px 2px;
@@ -1108,7 +1203,7 @@ class PollenPrognosCard extends LitElement {
         display: block;
         margin: 0 auto;
         text-align: center;
-        position: relative; /* <- Detta är det viktiga! */
+        position: relative;
       }
 
       .day-header {
@@ -1141,6 +1236,14 @@ class PollenPrognosCard extends LitElement {
 
       .pollen-img {
         display: block;
+        width: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        min-width: 16px;
+        height: auto;
+        margin: 0 auto 6px auto;
+      }
+
+      .level-circle {
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
         min-width: 16px;
