@@ -47,11 +47,9 @@
   "editor.days_abbreviated": "Abbreviate weekdays",
   "editor.days_boldfaced": "Bold weekdays",
   "editor.days_relative": "Relative days (today/tomorrow)",
-  "editor.to_show_days": "Days to show",
-  "editor.to_show_columns": "Columns to show",
-  "editor.to_show_hours": "Hours to show",
   "editor.days_uppercase": "Uppercase weekdays",
   "editor.debug": "Debug",
+  "editor.icon_size": "Icon size (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",
@@ -61,8 +59,8 @@
   "editor.location": "Location",
   "editor.minimal": "Minimal",
   "editor.mode": "Mode",
-  "editor.mode_hourly": "Hourly",
   "editor.mode_daily": "Daily",
+  "editor.mode_hourly": "Hourly",
   "editor.mode_twice_daily": "Twice daily",
   "editor.no_information": "No information",
   "editor.phrases": "Phrases",
@@ -136,5 +134,8 @@
   "editor.title": "Card title",
   "editor.title_automatic": "Automatic title",
   "editor.title_hide": "Hide title",
-  "editor.title_placeholder": "(automatic)"
+  "editor.title_placeholder": "(automatic)",
+  "editor.to_show_columns": "Columns to show",
+  "editor.to_show_days": "Days to show",
+  "editor.to_show_hours": "Hours to show"
 }

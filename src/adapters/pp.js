@@ -19,6 +19,7 @@ export const stubConfigPP = {
   ],
   minimal: false,
   background_color: "",
+  icon_size: "48",
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,
@@ -146,6 +147,7 @@ export async function fetchForecast(hass, config) {
       }
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";
+      dict.entity_id = sensorId;
 
       // Build forecastMap
       const rawForecast = sensor.attributes.forecast;

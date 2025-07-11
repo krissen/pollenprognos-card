@@ -24,6 +24,7 @@ export const stubConfigDWD = {
   ],
   minimal: false,
   background_color: "",
+  icon_size: "48",
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,
@@ -131,6 +132,7 @@ export async function fetchForecast(hass, config) {
         else continue;
       }
       const sensor = hass.states[sensorId];
+      dict.entity_id = sensorId;
 
       // Råvärden
       const todayVal = testVal(sensor.state);

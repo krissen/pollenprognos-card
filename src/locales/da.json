@@ -49,6 +49,7 @@
   "editor.days_relative": "Relative dage (i dag/i morgen)",
   "editor.days_uppercase": "Store bogstaver på ugedage",
   "editor.debug": "Fejlfinding",
+  "editor.icon_size": "Ikonstørrelse (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",

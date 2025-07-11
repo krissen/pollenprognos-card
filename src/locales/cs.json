@@ -49,6 +49,7 @@
   "editor.days_relative": "Relativní dny (dnes/zítra)",
   "editor.days_uppercase": "Velká písmena dny v týdnu",
   "editor.debug": "Ladění",
+  "editor.icon_size": "Velikost ikony (px)",
   "editor.integration": "Integrace",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",
