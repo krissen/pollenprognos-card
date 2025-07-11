@@ -21,12 +21,72 @@ import {
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
+import {
+  Chart,
+  ArcElement,
+  DoughnutController,
+  Tooltip,
+  Legend,
+} from "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.esm.js";
 
+// Chart.js registreren
+Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   _forecastUnsub = null; // Unsubscribe-funktion
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
+
+  _renderLevelCircle(
+    level,
+    { colors, emptyColor, gapColor, thickness, gap, size, decimals },
+  ) {
+    // Skapa ett canvas-element dynamiskt
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+
+    // Skapa Chart.js-donut i canvas med level och options
+    // Fyll i segment enligt level
+    const numSegments = colors.length;
+    const data = Array(numSegments).fill(1);
+    const bg = Array(numSegments)
+      .fill(emptyColor)
+      .map((c, i) => (i < level ? colors[i] : emptyColor));
+    const bc = Array(numSegments).fill(gapColor);
+
+    const chart = new Chart(canvas.getContext("2d"), {
+      type: "doughnut",
+      data: {
+        labels: Array(numSegments).fill(""),
+        datasets: [
+          {
+            data,
+            backgroundColor: bg,
+            borderColor: bc,
+            borderWidth: gap,
+          },
+        ],
+      },
+      options: {
+        rotation: -Math.PI / 2,
+        cutout: `${100 - thickness}%`,
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+      },
+    });
+
+    // Returnera canvas-elementet som lit-html (använd direkt i render)
+    return html`<span
+      class="level-circle"
+      style="display: inline-block; width: ${size}px; height: ${size}px;"
+      >${canvas}</span
+    >`;
+  }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
     this.sensors = filtered;
@@ -787,6 +847,21 @@ class PollenPrognosCard extends LitElement {
   _renderNormalHtml() {
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
+    const colors = this.config.levels_colors ?? [
+      "#ffeb3b",
+      "#ffc107",
+      "#ff9800",
+      "#ff5722",
+      "#e64a19",
+      "#d32f2f",
+    ];
+    const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
+    const gapColor =
+      this.config.levels_gap_color ?? "var(--card-background-color)";
+    const thickness = this.config.levels_thickness ?? 60;
+    const gap = this.config.levels_gap ?? 5;
+    const size = this.config.levels_size ?? 100;
+    const decimals = this.config.levels_decimals ?? 0;
 
     if (this.debug) {
       console.debug("Display columns:", cols);
@@ -847,20 +922,15 @@ class PollenPrognosCard extends LitElement {
                   ${cols.map(
                     (i) => html`
                       <td>
-                        <div class="icon-wrapper-disabled">
-                          <img
-                            class="pollen-img"
-                            src="${this._getImageSrc(
-                              "",
-                              sensor.days[i]?.state,
-                            )}"
-                          />
-                          ${this.config.show_value_numeric_in_circle
-                            ? html`<span class="circle-overlay">
-                                ${sensor.days[i]?.state ?? ""}
-                              </span>`
-                            : ""}
-                        </div>
+                        ${this._renderLevelCircle(sensor.days[i]?.state ?? 0, {
+                          colors,
+                          emptyColor,
+                          gapColor,
+                          thickness,
+                          gap,
+                          size,
+                          decimals,
+                        })}
                       </td>
                     `,
                   )}
