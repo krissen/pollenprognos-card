@@ -39,7 +39,6 @@ class PollenPrognosCard extends LitElement {
 
   _chartCache = new Map();
 
-  // In the _renderLevelCircle method, add the level value as an attribute
   _renderLevelCircle(
     level,
     {
@@ -77,13 +76,47 @@ class PollenPrognosCard extends LitElement {
         .gap="${gap}"
         .size="${size}"
         .showValue="${this.config && this.config.show_value_numeric_in_circle}"
+        .fontWeight="${this.config?.levels_text_weight || "normal"}"
+        .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
+        .textColor="${this.config?.levels_text_color ||
+        "var(--primary-text-color)"}"
       ></div>
     `;
   }
 
-  // In the updated method, modify the chart creation/update to handle text display
+  // In the updated() method, update the part that adds the text to the chart:
+  // Add the text overlay if showValue is true
+  if(showValue) {
+    const valueText = document.createElement("div");
+    valueText.className = "level-value-text";
+    valueText.textContent = level;
+
+    // Improved positioning and styling
+    valueText.style.position = "absolute";
+    valueText.style.top = "50%";
+    valueText.style.left = "50%";
+    valueText.style.transform = "translate(-50%, -50%)";
+
+    // Get custom styling from container attributes
+    const fontWeight = container.fontWeight || "normal"; // Default to normal instead of bold
+    const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2; // Smaller default ratio
+    const textColor = container.textColor || "var(--primary-text-color)";
+
+    // Apply custom styling
+    valueText.style.fontSize = `${size * fontSizeRatio}px`;
+    valueText.style.fontWeight = fontWeight;
+    valueText.style.color = textColor;
+
+    // For small sizes, add extra adjustments
+    if (size < 42) {
+      valueText.style.lineHeight = "1";
+      valueText.style.height = "1em"; // Fix height for small sizes
+    }
+
+    container.appendChild(valueText);
+  }
+
   updated(changedProps) {
-    // NUMMER ETT
     // Handle forecast subscription
     if (changedProps.has("config") || changedProps.has("_hass")) {
       this._subscribeForecastIfNeeded();
@@ -101,6 +134,11 @@ class PollenPrognosCard extends LitElement {
         const gap = Number(container.gap);
         const size = Number(container.size);
         const showValue = container.showValue;
+
+        // Get custom styling from container attributes
+        const fontWeight = container.fontWeight || "normal";
+        const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2;
+        const textColor = container.textColor || "var(--primary-text-color)";
 
         // Check if we already have a chart for this container
         let chart = this._chartCache.get(container.id);
@@ -174,13 +212,24 @@ class PollenPrognosCard extends LitElement {
           const valueText = document.createElement("div");
           valueText.className = "level-value-text";
           valueText.textContent = level;
+
+          // Improved positioning and styling
           valueText.style.position = "absolute";
           valueText.style.top = "50%";
           valueText.style.left = "50%";
           valueText.style.transform = "translate(-50%, -50%)";
-          valueText.style.fontSize = `${size * 0.35}px`;
-          valueText.style.fontWeight = "bold";
-          valueText.style.color = "var(--primary-text-color)";
+
+          // Apply custom styling
+          valueText.style.fontSize = `${size * fontSizeRatio}px`;
+          valueText.style.fontWeight = fontWeight;
+          valueText.style.color = textColor;
+
+          // For small sizes, add extra adjustments
+          if (size < 42) {
+            valueText.style.lineHeight = "1";
+            valueText.style.height = "1em"; // Fix height for small sizes
+          }
+
           container.appendChild(valueText);
         }
       });
@@ -189,7 +238,6 @@ class PollenPrognosCard extends LitElement {
     // Call parent's updated if it exists
     if (super.updated) super.updated(changedProps);
   }
-
   // Clean up charts when component is disconnected
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -969,7 +1017,6 @@ class PollenPrognosCard extends LitElement {
       100,
       Math.max(40, Number(this.config.icon_size) || 80),
     ); // Use icon_size but with constraints
-    const decimals = this.config.levels_decimals ?? 0;
 
     if (this.debug) {
       console.debug("Display columns:", cols);
