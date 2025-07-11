@@ -99,10 +99,13 @@ class PollenPrognosCardEditor extends LitElement {
     const prefix = `weather.silam_pollen_${loc}_`;
     return Object.keys(this._hass.states).some((id) => id.startsWith(prefix));
   }
+
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
-    this.setConfig({ integration: this._config.integration });
+    // Sätt integration och type explicit
+    const integration = this._config?.integration ?? "pp";
+    this.setConfig({ integration, type: "custom:pollenprognos-card" });
   }
 
   _resetPhrases(lang) {
