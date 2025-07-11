@@ -1117,6 +1117,27 @@ class PollenPrognosCardEditor extends LitElement {
             />
           </div>
         </ha-formfield>
+        <ha-formfield label="${this._t("icon_size")}">
+          <ha-slider
+            min="16"
+            max="128"
+            step="1"
+            .value=${c.icon_size ?? 48}
+            @input=${(e) =>
+              this._updateConfig("icon_size", Number(e.target.value))}
+            style="width: 120px;"
+          ></ha-slider>
+          <ha-textfield
+            .value=${c.icon_size ?? 48}
+            type="number"
+            min="16"
+            max="128"
+            step="1"
+            @input=${(e) =>
+              this._updateConfig("icon_size", Number(e.target.value))}
+            style="width: 80px;"
+          ></ha-textfield>
+        </ha-formfield>
         <!-- Layout-switchar -->
         ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
           ? html`

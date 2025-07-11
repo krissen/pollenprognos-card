@@ -256,15 +256,15 @@ class PollenPrognosCard extends LitElement {
     // Spara enbart tillåtna fält
     const allowedFields = Object.keys(stub).concat([
       "allergens",
+      "icon_size",
       "city",
       "location",
       "region_id",
       "tap_action",
-      "debug", // om du vill ha det
+      "debug",
       "title",
       "days_to_show",
       "date_locale",
-      // lägg till fler globala configfält om det behövs
     ]);
     // Kopiera endast tillåtna fält från användarens config
     let cleanedUserConfig = {};
@@ -769,7 +769,7 @@ class PollenPrognosCard extends LitElement {
             return html`
               <div class="sensor">
                 <img
-                  class="box"
+                  class="pollen-img"
                   src="${this._getImageSrc(
                     sensor.allergenReplaced,
                     sensor.day0?.state,
@@ -837,7 +837,7 @@ class PollenPrognosCard extends LitElement {
                 <tr class="allergen-icon-row" valign="top">
                   <td>
                     <img
-                      class="allergen"
+                      class="pollen-img"
                       src="${this._getImageSrc(
                         sensor.allergenReplaced,
                         sensor.days[0]?.state,
@@ -847,8 +847,9 @@ class PollenPrognosCard extends LitElement {
                   ${cols.map(
                     (i) => html`
                       <td>
-                        <div class="icon-wrapper">
+                        <div class="icon-wrapper-disabled">
                           <img
+                            class="pollen-img"
                             src="${this._getImageSrc(
                               "",
                               sensor.days[i]?.state,
@@ -952,8 +953,15 @@ class PollenPrognosCard extends LitElement {
       tapAction && tapAction.type && tapAction.type !== "none"
         ? "pointer"
         : "auto";
+
     // Sätt ihop bakgrund och cursor
-    const cardStyle = `${bgStyle} cursor: ${cursorStyle};`;
+    const imgSize =
+      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
+    const cardStyle = `
+      ${bgStyle}
+      cursor: ${cursorStyle};
+      --pollen-icon-size: ${imgSize}px;
+    `;
 
     return html`
       <ha-card
@@ -1058,10 +1066,10 @@ class PollenPrognosCard extends LitElement {
 
       .icon-wrapper img {
         display: block;
-        margin: 0 auto; /* Viktigt! */
+        margin: 0 auto;
         width: 70%;
         height: auto;
-        max-width: 60px; /* ev. maxbredd */
+        max-width: 60px;
         min-width: 18px;
       }
 
@@ -1070,7 +1078,16 @@ class PollenPrognosCard extends LitElement {
         height: auto;
         display: block;
         margin: 0 auto;
-        max-width: 40px;
+        max-width: 60px;
+      }
+
+      .pollen-img {
+        display: block;
+        width: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        min-width: 16px;
+        height: auto;
+        margin: 0 auto 6px auto;
       }
 
       .forecast-content {
@@ -1137,15 +1154,6 @@ class PollenPrognosCard extends LitElement {
         min-width: 80px;
         max-width: 180px;
         margin: 0 4px;
-      }
-
-      .sensor img.box {
-        display: block;
-        width: 80%; /* Växer tillgängligt utrymme */
-        max-width: 55px; /* Största tillåtna storlek */
-        min-width: 36px; /* Minsta tillåtna storlek */
-        height: auto;
-        margin: 0 auto 6px auto; /* Luft mellan bild och text */
       }
 
       .short-text {
