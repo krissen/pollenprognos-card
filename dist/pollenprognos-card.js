@@ -2476,7 +2476,7 @@ const Nt = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   ],
   minimal: !1,
   background_color: "",
-  icon_size: "",
+  icon_size: "48",
   show_text_allergen: !0,
   show_value_text: !0,
   show_value_numeric: !1,
@@ -2653,8 +2653,8 @@ const b = {
   ],
   minimal: !1,
   mode: "daily",
-  background_color: "48",
-  icon_size: "",
+  background_color: "",
+  icon_size: "48",
   show_text_allergen: !0,
   show_value_text: !0,
   show_value_numeric: !1,
@@ -3955,7 +3955,10 @@ class sg extends oA {
     return Object.keys(this._hass.states).some((C) => C.startsWith(o));
   }
   _resetAll() {
-    this.debug && console.debug("[Editor] resetAll"), this._userConfig = {}, this.setConfig({ integration: this._config.integration });
+    var e;
+    this.debug && console.debug("[Editor] resetAll"), this._userConfig = {};
+    const A = ((e = this._config) == null ? void 0 : e.integration) ?? "pp";
+    this.setConfig({ integration: A, type: "custom:pollenprognos-card" });
   }
   _resetPhrases(A) {
     this.debug && console.debug("[Editor] resetPhrases – lang:", A), this._updateConfig("date_locale", A);
