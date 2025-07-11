@@ -1136,7 +1136,238 @@ class PollenPrognosCardEditor extends LitElement {
             : ""}
         </details>
 
-        <!-- Allergener -->
+        <!-- Titel (manuellt) -->
+        <ha-formfield label="${this._t("title")}">
+          <ha-textfield
+            .value=${typeof c.title === "string"
+              ? c.title
+              : c.title === false
+                ? "(false)"
+                : ""}
+            placeholder="${this._t("title_placeholder")}"
+            .disabled=${c.title === false}
+            @input=${(e) => {
+              const val = e.target.value;
+              // Om tom: gå till auto
+              if (val.trim() === "") {
+                this._updateConfig("title", true);
+              } else {
+                // Spara som string
+                this._updateConfig("title", val);
+              }
+            }}
+          ></ha-textfield>
+        </ha-formfield>
+        <!-- Bakgrundsfärg -->
+        <ha-formfield label="${this._t("background_color")}">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <ha-textfield
+              .value=${c.background_color || ""}
+              placeholder="${this._t("background_color_placeholder") ||
+              "#ffffff"}"
+              @input=${(e) =>
+                this._updateConfig("background_color", e.target.value)}
+              style="width: 120px;"
+            ></ha-textfield>
+            <input
+              type="color"
+              .value=${c.background_color &&
+              /^#[0-9a-fA-F]{6}$/.test(c.background_color)
+                ? c.background_color
+                : "#ffffff"}
+              @input=${(e) =>
+                this._updateConfig("background_color", e.target.value)}
+              style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
+              title="${this._t("background_color_picker") || "Pick color"}"
+            />
+          </div>
+        </ha-formfield>
+        <ha-formfield label="${this._t("icon_size")}">
+          <ha-slider
+            min="16"
+            max="128"
+            step="1"
+            .value=${c.icon_size ?? 48}
+            @input=${(e) =>
+              this._updateConfig("icon_size", Number(e.target.value))}
+            style="width: 120px;"
+          ></ha-slider>
+          <ha-textfield
+            .value=${c.icon_size ?? 48}
+            type="number"
+            min="16"
+            max="128"
+            step="1"
+            @input=${(e) =>
+              this._updateConfig("icon_size", Number(e.target.value))}
+            style="width: 80px;"
+          ></ha-textfield>
+        </ha-formfield>
+        <!-- Layout-switchar -->
+        ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
+          ? html`
+              <ha-formfield label="${this._t("mode")}">
+                <ha-select
+                  .value=${c.mode || "daily"}
+                  @selected=${(e) => this._updateConfig("mode", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  <mwc-list-item value="daily"
+                    >${this._t("mode_daily")}</mwc-list-item
+                  >
+                  <mwc-list-item value="twice_daily"
+                    >${this._t("mode_twice_daily")}</mwc-list-item
+                  >
+                  <mwc-list-item value="hourly"
+                    >${this._t("mode_hourly")}</mwc-list-item
+                  >
+                </ha-select>
+              </ha-formfield>
+            `
+          : ""}
+        <ha-formfield label="${this._t("minimal")}">
+          <ha-switch
+            .checked=${c.minimal}
+            @change=${(e) => this._updateConfig("minimal", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("allergens_abbreviated")}">
+          <ha-switch
+            .checked=${c.allergens_abbreviated}
+            @change=${(e) =>
+              this._updateConfig("allergens_abbreviated", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <!-- Nya switchar för text och värde -->
+        <ha-formfield label="${this._t("show_text_allergen")}">
+          <ha-switch
+            .checked=${c.show_text_allergen}
+            @change=${(e) =>
+              this._updateConfig("show_text_allergen", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_value_text")}">
+          <ha-switch
+            .checked=${c.show_value_text}
+            @change=${(e) =>
+              this._updateConfig("show_value_text", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_value_numeric")}">
+          <ha-switch
+            .checked=${c.show_value_numeric}
+            @change=${(e) =>
+              this._updateConfig("show_value_numeric", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
+          <ha-switch
+            .checked=${c.show_value_numeric_in_circle}
+            @change=${(e) =>
+              this._updateConfig(
+                "show_value_numeric_in_circle",
+                e.target.checked,
+              )}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_empty_days")}">
+          <ha-switch
+            .checked=${c.show_empty_days}
+            @change=${(e) =>
+              this._updateConfig("show_empty_days", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+
+        <!-- Dag-inställningar -->
+        <ha-formfield label="${this._t("days_relative")}">
+          <ha-switch
+            .checked=${c.days_relative}
+            @change=${(e) =>
+              this._updateConfig("days_relative", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("days_abbreviated")}">
+          <ha-switch
+            .checked=${c.days_abbreviated}
+            @change=${(e) =>
+              this._updateConfig("days_abbreviated", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("days_uppercase")}">
+          <ha-switch
+            .checked=${c.days_uppercase}
+            @change=${(e) =>
+              this._updateConfig("days_uppercase", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("days_boldfaced")}">
+          <ha-switch
+            .checked=${c.days_boldfaced}
+            @change=${(e) =>
+              this._updateConfig("days_boldfaced", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+
+        <!-- Antal dagar / kolumner / timmar -->
+        <div class="slider-row">
+          <div class="slider-text">
+            ${c.integration === "silam" && c.mode === "twice_daily"
+              ? this._t("to_show_columns")
+              : c.integration === "silam" && c.mode === "hourly"
+                ? this._t("to_show_hours")
+                : this._t("to_show_days")}
+          </div>
+          <div class="slider-value">${c.days_to_show}</div>
+          <ha-slider
+            min="0"
+            max="${c.integration === "silam" &&
+            (c.mode === "hourly" || c.mode === "twice_daily")
+              ? 8
+              : 6}"
+            step="1"
+            .value=${c.days_to_show}
+            @input=${(e) =>
+              this._updateConfig("days_to_show", Number(e.target.value))}
+          ></ha-slider>
+        </div>
+
+        <!-- Tröskel -->
+        <div class="slider-row">
+          <div class="slider-text">${this._t("pollen_threshold")}</div>
+          <div class="slider-value">${c.pollen_threshold}</div>
+          <ha-slider
+            min="${thresholdParams.min}"
+            max="${thresholdParams.max}"
+            step="${thresholdParams.step}"
+            .value=${c.pollen_threshold}
+            @input=${(e) =>
+              this._updateConfig("pollen_threshold", Number(e.target.value))}
+          ></ha-slider>
+        </div>
+
+        <!-- Sortering -->
+        <ha-formfield label="${this._t("sort")}">
+          <ha-select
+            .value=${c.sort}
+            @selected=${(e) => this._updateConfig("sort", e.target.value)}
+            @closed=${(e) => e.stopPropagation()}
+          >
+            ${sortOptions.map(
+              ({ value, label }) =>
+                html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
+            )}
+          </ha-select>
+        </ha-formfield>
+
+        <!-- Språk-inställning -->
+        <ha-formfield label="${this._t("locale")}">
+          <ha-textfield
+            .value=${c.date_locale}
+            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- Allergener (detaljerad) -->
         <details>
           <summary>${this._t("summary_allergens")}</summary>
           <div class="allergens-group">
