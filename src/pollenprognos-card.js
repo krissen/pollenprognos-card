@@ -39,6 +39,7 @@ class PollenPrognosCard extends LitElement {
 
   _chartCache = new Map();
 
+  // In the _renderLevelCircle method, add the level value as an attribute
   _renderLevelCircle(
     level,
     {
@@ -67,7 +68,7 @@ class PollenPrognosCard extends LitElement {
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px;"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;"
         .level="${level}"
         .colors="${JSON.stringify(colors)}"
         .emptyColor="${emptyColor}"
@@ -75,12 +76,14 @@ class PollenPrognosCard extends LitElement {
         .thickness="${thickness}"
         .gap="${gap}"
         .size="${size}"
+        .showValue="${this.config && this.config.show_value_numeric_in_circle}"
       ></div>
     `;
   }
 
-  // Add this lifecycle method to create/update charts after render
+  // In the updated method, modify the chart creation/update to handle text display
   updated(changedProps) {
+    // NUMMER ETT
     // Handle forecast subscription
     if (changedProps.has("config") || changedProps.has("_hass")) {
       this._subscribeForecastIfNeeded();
@@ -97,9 +100,15 @@ class PollenPrognosCard extends LitElement {
         const thickness = Number(container.thickness);
         const gap = Number(container.gap);
         const size = Number(container.size);
+        const showValue = container.showValue;
 
         // Check if we already have a chart for this container
         let chart = this._chartCache.get(container.id);
+
+        // Make sure no old text is left behind
+        if (container.querySelector(".level-value-text")) {
+          container.querySelector(".level-value-text").remove();
+        }
 
         if (!chart) {
           // Create canvas if it doesn't exist
@@ -159,12 +168,28 @@ class PollenPrognosCard extends LitElement {
             chart.update("none"); // Update without animation
           }
         }
+
+        // Add the text overlay if showValue is true
+        if (showValue) {
+          const valueText = document.createElement("div");
+          valueText.className = "level-value-text";
+          valueText.textContent = level;
+          valueText.style.position = "absolute";
+          valueText.style.top = "50%";
+          valueText.style.left = "50%";
+          valueText.style.transform = "translate(-50%, -50%)";
+          valueText.style.fontSize = `${size * 0.35}px`;
+          valueText.style.fontWeight = "bold";
+          valueText.style.color = "var(--primary-text-color)";
+          container.appendChild(valueText);
+        }
       });
     });
 
     // Call parent's updated if it exists
     if (super.updated) super.updated(changedProps);
   }
+
   // Clean up charts when component is disconnected
   disconnectedCallback() {
     super.disconnectedCallback();
