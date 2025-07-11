@@ -49,6 +49,7 @@
   "editor.days_relative": "Relativa dagar (idag/imorgon)",
   "editor.days_uppercase": "Versaler veckodagar",
   "editor.debug": "Debug",
+  "editor.icon_size": "Ikonstorlek (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",

@@ -49,6 +49,7 @@
   "editor.days_relative": "Относительные дни (сегодня/завтра)",
   "editor.days_uppercase": "ЗАГЛАВНЫМИ буквами дни недели",
   "editor.debug": "Отладка",
+  "editor.icon_size": "Размер значка (пикс.)",
   "editor.integration": "Интеграция",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",

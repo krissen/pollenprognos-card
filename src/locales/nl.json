@@ -49,6 +49,7 @@
   "editor.days_relative": "Relatieve dagen (vandaag/morgen)",
   "editor.days_uppercase": "Hoofdletters voor weekdagen",
   "editor.debug": "Debug",
+  "editor.icon_size": "Pictogramgrootte (px)",
   "editor.integration": "Integratie",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",

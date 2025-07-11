@@ -49,6 +49,7 @@
   "editor.days_relative": "Relative Tage (heute/morgen)",
   "editor.days_uppercase": "Wochentage groß",
   "editor.debug": "Debug",
+  "editor.icon_size": "Symbolgröße (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",
