@@ -13,6 +13,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import {
   DWD_REGIONS,
@@ -42,19 +43,12 @@ class PollenPrognosCard extends LitElement {
   _renderLevelCircle(
     level,
     {
-      colors = [
-        "#ffeb3b",
-        "#ffc107",
-        "#ff9800",
-        "#ff5722",
-        "#e64a19",
-        "#d32f2f",
-      ],
-      emptyColor = "rgba(200, 200, 200, 0.15)",
-      gapColor = "var(--card-background-color)",
-      thickness = 60,
-      gap = 5,
-      size = 40,
+      colors = LEVELS_DEFAULTS.levels_colors,
+      emptyColor = LEVELS_DEFAULTS.levels_empty_color,
+      gapColor = LEVELS_DEFAULTS.levels_gap_color,
+      thickness = LEVELS_DEFAULTS.levels_thickness,
+      gap = LEVELS_DEFAULTS.levels_gap,
+      size = 100,
     },
   ) {
     // Create a unique key for this chart configuration

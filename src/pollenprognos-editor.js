@@ -3,6 +3,7 @@ import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
 import { slugify } from "./utils/slugify.js";
+import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
@@ -18,26 +19,6 @@ import {
 } from "./constants.js";
 
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
-
-// Default values for levels_* options, from sixdegrees
-const LEVELS_DEFAULTS = {
-  levels_colors: [
-    "#ffeb3b",
-    "#ffc107",
-    "#ff9800",
-    "#ff5722",
-    "#e64a19",
-    "#d32f2f",
-  ],
-  levels_empty_color: "rgba(200, 200, 200, 0.15)",
-  levels_gap_color: "var(--card-background-color)",
-  levels_thickness: 60,
-  levels_gap: 1,
-  levels_size: 100,
-  levels_text_weight: "normal",
-  levels_text_size: 0.3,
-  levels_text_color: "var(--primary-text-color)",
-};
 
 // Recursive merge utility
 const deepMerge = (target, source) => {
@@ -1382,34 +1363,6 @@ class PollenPrognosCardEditor extends LitElement {
               title="${this._t("levels_reset")}"
               @click=${() =>
                 this._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap)}
-              style="margin-left: 8px;"
-              >↺</mwc-button
-            >
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_size")}">
-            <ha-slider
-              min="40"
-              max="200"
-              step="1"
-              .value=${c.levels_size}
-              @input=${(e) =>
-                this._updateConfig("levels_size", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              type="number"
-              .value=${c.levels_size}
-              @input=${(e) =>
-                this._updateConfig("levels_size", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-            <mwc-button
-              dense
-              outlined
-              title="${this._t("levels_reset")}"
-              @click=${() =>
-                this._updateConfig("levels_size", LEVELS_DEFAULTS.levels_size)}
               style="margin-left: 8px;"
               >↺</mwc-button
             >
