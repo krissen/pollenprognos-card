@@ -1,6 +1,7 @@
 // src/adapters/peu.js
 import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -29,22 +30,7 @@ export const stubConfigPEU = {
   minimal: false,
   background_color: "",
   icon_size: "48",
-  levels_colors: [
-    "#ffeb3b",
-    "#ffc107",
-    "#ff9800",
-    "#ff5722",
-    "#e64a19",
-    "#d32f2f",
-  ],
-  levels_empty_color: "rgba(200, 200, 200, 0.15)",
-  levels_gap_color: "var(--card-background-color)",
-  levels_thickness: 60,
-  levels_gap: 1,
-  levels_size: 100,
-  levels_text_weight: "normal",
-  levels_text_size: 0.2,
-  levels_text_color: "var(--primary-text-color)",
+  ...LEVELS_DEFAULTS,
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,
