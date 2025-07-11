@@ -2375,10 +2375,10 @@ const NI = "state_tomorrow", _I = "state_in_2_days", $I = "state_today_desc", Ag
     "#e64a19",
     "#d32f2f"
   ],
-  levels_empty_color: "var(--divider-color)",
+  levels_empty_color: "rgba(200, 200, 200, 0.15)",
   levels_gap_color: "var(--card-background-color)",
   levels_thickness: 60,
-  levels_gap: 5,
+  levels_gap: 1,
   levels_size: 100,
   levels_decimals: 0,
   show_text_allergen: !0,
@@ -2520,10 +2520,10 @@ const tg = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     "#e64a19",
     "#d32f2f"
   ],
-  levels_empty_color: "var(--divider-color)",
+  levels_empty_color: "rgba(200, 200, 200, 0.15)",
   levels_gap_color: "var(--card-background-color)",
   levels_thickness: 60,
-  levels_gap: 5,
+  levels_gap: 1,
   levels_size: 100,
   levels_decimals: 0,
   show_text_allergen: !0,
@@ -2712,10 +2712,10 @@ const W = {
     "#e64a19",
     "#d32f2f"
   ],
-  levels_empty_color: "var(--divider-color)",
+  levels_empty_color: "rgba(200, 200, 200, 0.15)",
   levels_gap_color: "var(--card-background-color)",
   levels_thickness: 60,
-  levels_gap: 5,
+  levels_gap: 1,
   levels_size: 100,
   levels_decimals: 0,
   mode: "daily",
@@ -3094,10 +3094,10 @@ const ng = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     "#e64a19",
     "#d32f2f"
   ],
-  levels_empty_color: "var(--divider-color)",
+  levels_empty_color: "rgba(200, 200, 200, 0.15)",
   levels_gap_color: "var(--card-background-color)",
   levels_thickness: 60,
-  levels_gap: 5,
+  levels_gap: 1,
   levels_size: 100,
   levels_decimals: 0,
   show_text_allergen: !0,
@@ -3318,7 +3318,7 @@ class Cg extends rA {
       "#e64a19",
       "#d32f2f"
     ],
-    emptyColor: I = "var(--divider-color)",
+    emptyColor: I = "rgba(200, 200, 200, 0.15)",
     gapColor: o = "var(--card-background-color)",
     thickness: l = 60,
     gap: t = 5,
@@ -4109,10 +4109,10 @@ const N = {
     "#e64a19",
     "#d32f2f"
   ],
-  levels_empty_color: "var(--divider-color)",
+  levels_empty_color: "rgba(200, 200, 200, 0.15)",
   levels_gap_color: "var(--card-background-color)",
   levels_thickness: 60,
-  levels_gap: 5,
+  levels_gap: 1,
   levels_size: 100,
   levels_decimals: 0
 }, QA = (g, A) => {
@@ -4606,211 +4606,216 @@ class Bg extends rA {
             />
           </div>
         </ha-formfield>
-        <h3>${this._t("levels_header")}</h3>
+        <details>
+          <summary>${this._t("levels_header")}</summary>
 
-        <ha-formfield label="${this._t("levels_colors")}">
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            ${A.levels_colors.map(
+          <ha-formfield label="${this._t("levels_colors")}">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${A.levels_colors.map(
       (t, r) => K`
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <input
-                    type="color"
-                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(t) ? t : "#000000"}
-                    @input=${(s) => {
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input
+                      type="color"
+                      .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(t) ? t : "#000000"}
+                      @input=${(s) => {
         const a = [...A.levels_colors];
         a[r] = s.target.value, this._updateConfig("levels_colors", a);
       }}
-                    style="width: 28px; height: 28px; border: none; background: none;"
-                  />
-                  <ha-textfield
-                    .value=${t}
-                    placeholder="${this._t("levels_colors_placeholder")}"
-                    @input=${(s) => {
+                      style="width: 28px; height: 28px; border: none; background: none;"
+                    />
+                    <ha-textfield
+                      .value=${t}
+                      placeholder="${this._t("levels_colors_placeholder")}"
+                      @input=${(s) => {
         const a = [...A.levels_colors];
         a[r] = s.target.value, this._updateConfig("levels_colors", a);
       }}
-                    style="width: 100px;"
-                  ></ha-textfield>
-                  <mwc-button
-                    dense
-                    outlined
-                    title="${this._t("levels_reset")}"
-                    @click=${() => {
+                      style="width: 100px;"
+                    ></ha-textfield>
+                    <mwc-button
+                      dense
+                      outlined
+                      title="${this._t("levels_reset")}"
+                      @click=${() => {
         const s = [...A.levels_colors];
         s[r] = N.levels_colors[r], this._updateConfig("levels_colors", s);
       }}
-                    style="margin-left: 8px;"
-                    >↺</mwc-button
-                  >
-                </div>
-              `
+                      style="margin-left: 8px;"
+                      >↺</mwc-button
+                    >
+                  </div>
+                `
     )}
-          </div>
-        </ha-formfield>
+            </div>
+          </ha-formfield>
 
-        <ha-formfield label="${this._t("levels_empty_color")}">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input
-              type="color"
-              .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+          <ha-formfield label="${this._t("levels_empty_color")}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                type="color"
+                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
       A.levels_empty_color
     ) ? A.levels_empty_color : "#cccccc"}
-              @input=${(t) => this._updateConfig("levels_empty_color", t.target.value)}
-              style="width: 28px; height: 28px; border: none; background: none;"
-            />
-            <ha-textfield
-              .value=${A.levels_empty_color}
-              placeholder="${this._t("levels_colors_placeholder")}"
-              @input=${(t) => this._updateConfig("levels_empty_color", t.target.value)}
-              style="width: 100px;"
-            ></ha-textfield>
-            <mwc-button
-              dense
-              outlined
-              title="${this._t("levels_reset")}"
-              @click=${() => this._updateConfig(
+                @input=${(t) => this._updateConfig("levels_empty_color", t.target.value)}
+                style="width: 28px; height: 28px; border: none; background: none;"
+              />
+              <ha-textfield
+                .value=${A.levels_empty_color}
+                placeholder="${this._t("levels_colors_placeholder")}"
+                @input=${(t) => this._updateConfig("levels_empty_color", t.target.value)}
+                style="width: 100px;"
+              ></ha-textfield>
+              <mwc-button
+                dense
+                outlined
+                title="${this._t("levels_reset")}"
+                @click=${() => this._updateConfig(
       "levels_empty_color",
       N.levels_empty_color
     )}
-              style="margin-left: 8px;"
-              >↺</mwc-button
-            >
-          </div>
-        </ha-formfield>
+                style="margin-left: 8px;"
+                >↺</mwc-button
+              >
+            </div>
+          </ha-formfield>
 
-        <ha-formfield label="${this._t("levels_gap_color")}">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <input
-              type="color"
-              .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(A.levels_gap_color) ? A.levels_gap_color : "#ffffff"}
-              @input=${(t) => this._updateConfig("levels_gap_color", t.target.value)}
-              style="width: 28px; height: 28px; border: none; background: none;"
-            />
+          <ha-formfield label="${this._t("levels_gap_color")}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                type="color"
+                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+      A.levels_gap_color
+    ) ? A.levels_gap_color : "#ffffff"}
+                @input=${(t) => this._updateConfig("levels_gap_color", t.target.value)}
+                style="width: 28px; height: 28px; border: none; background: none;"
+              />
+              <ha-textfield
+                .value=${A.levels_gap_color}
+                placeholder="${this._t("levels_colors_placeholder")}"
+                @input=${(t) => this._updateConfig("levels_gap_color", t.target.value)}
+                style="width: 100px;"
+              ></ha-textfield>
+              <mwc-button
+                dense
+                outlined
+                title="${this._t("levels_reset")}"
+                @click=${() => this._updateConfig(
+      "levels_gap_color",
+      N.levels_gap_color
+    )}
+                style="margin-left: 8px;"
+                >↺</mwc-button
+              >
+            </div>
+          </ha-formfield>
+
+          <ha-formfield label="${this._t("levels_thickness")}">
+            <ha-slider
+              min="10"
+              max="90"
+              step="1"
+              .value=${A.levels_thickness}
+              @input=${(t) => this._updateConfig("levels_thickness", Number(t.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
             <ha-textfield
-              .value=${A.levels_gap_color}
-              placeholder="${this._t("levels_colors_placeholder")}"
-              @input=${(t) => this._updateConfig("levels_gap_color", t.target.value)}
-              style="width: 100px;"
+              type="number"
+              .value=${A.levels_thickness}
+              @input=${(t) => this._updateConfig("levels_thickness", Number(t.target.value))}
+              style="width: 80px;"
             ></ha-textfield>
             <mwc-button
               dense
               outlined
               title="${this._t("levels_reset")}"
               @click=${() => this._updateConfig(
-      "levels_gap_color",
-      N.levels_gap_color
+      "levels_thickness",
+      N.levels_thickness
     )}
               style="margin-left: 8px;"
               >↺</mwc-button
             >
-          </div>
-        </ha-formfield>
+          </ha-formfield>
 
-        <ha-formfield label="${this._t("levels_thickness")}">
-          <ha-slider
-            min="10"
-            max="90"
-            step="1"
-            .value=${A.levels_thickness}
-            @input=${(t) => this._updateConfig("levels_thickness", Number(t.target.value))}
-            style="width: 120px;"
-          ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${A.levels_thickness}
-            @input=${(t) => this._updateConfig("levels_thickness", Number(t.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-          <mwc-button
-            dense
-            outlined
-            title="${this._t("levels_reset")}"
-            @click=${() => this._updateConfig(
-      "levels_thickness",
-      N.levels_thickness
-    )}
-            style="margin-left: 8px;"
-            >↺</mwc-button
-          >
-        </ha-formfield>
+          <ha-formfield label="${this._t("levels_gap")}">
+            <ha-slider
+              min="0"
+              max="20"
+              step="1"
+              .value=${A.levels_gap}
+              @input=${(t) => this._updateConfig("levels_gap", Number(t.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${A.levels_gap}
+              @input=${(t) => this._updateConfig("levels_gap", Number(t.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+            <mwc-button
+              dense
+              outlined
+              title="${this._t("levels_reset")}"
+              @click=${() => this._updateConfig("levels_gap", N.levels_gap)}
+              style="margin-left: 8px;"
+              >↺</mwc-button
+            >
+          </ha-formfield>
 
-        <ha-formfield label="${this._t("levels_gap")}">
-          <ha-slider
-            min="0"
-            max="20"
-            step="1"
-            .value=${A.levels_gap}
-            @input=${(t) => this._updateConfig("levels_gap", Number(t.target.value))}
-            style="width: 120px;"
-          ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${A.levels_gap}
-            @input=${(t) => this._updateConfig("levels_gap", Number(t.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-          <mwc-button
-            dense
-            outlined
-            title="${this._t("levels_reset")}"
-            @click=${() => this._updateConfig("levels_gap", N.levels_gap)}
-            style="margin-left: 8px;"
-            >↺</mwc-button
-          >
-        </ha-formfield>
+          <ha-formfield label="${this._t("levels_size")}">
+            <ha-slider
+              min="40"
+              max="200"
+              step="1"
+              .value=${A.levels_size}
+              @input=${(t) => this._updateConfig("levels_size", Number(t.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${A.levels_size}
+              @input=${(t) => this._updateConfig("levels_size", Number(t.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+            <mwc-button
+              dense
+              outlined
+              title="${this._t("levels_reset")}"
+              @click=${() => this._updateConfig("levels_size", N.levels_size)}
+              style="margin-left: 8px;"
+              >↺</mwc-button
+            >
+          </ha-formfield>
 
-        <ha-formfield label="${this._t("levels_size")}">
-          <ha-slider
-            min="40"
-            max="200"
-            step="1"
-            .value=${A.levels_size}
-            @input=${(t) => this._updateConfig("levels_size", Number(t.target.value))}
-            style="width: 120px;"
-          ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${A.levels_size}
-            @input=${(t) => this._updateConfig("levels_size", Number(t.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-          <mwc-button
-            dense
-            outlined
-            title="${this._t("levels_reset")}"
-            @click=${() => this._updateConfig("levels_size", N.levels_size)}
-            style="margin-left: 8px;"
-            >↺</mwc-button
-          >
-        </ha-formfield>
-
-        <ha-formfield label="${this._t("levels_decimals")}">
-          <ha-slider
-            min="0"
-            max="5"
-            step="1"
-            .value=${A.levels_decimals}
-            @input=${(t) => this._updateConfig("levels_decimals", Number(t.target.value))}
-            style="width: 120px;"
-          ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${A.levels_decimals}
-            @input=${(t) => this._updateConfig("levels_decimals", Number(t.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-          <mwc-button
-            dense
-            outlined
-            title="${this._t("levels_reset")}"
-            @click=${() => this._updateConfig(
+          <ha-formfield label="${this._t("levels_decimals")}">
+            <ha-slider
+              min="0"
+              max="5"
+              step="1"
+              .value=${A.levels_decimals}
+              @input=${(t) => this._updateConfig("levels_decimals", Number(t.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${A.levels_decimals}
+              @input=${(t) => this._updateConfig("levels_decimals", Number(t.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+            <mwc-button
+              dense
+              outlined
+              title="${this._t("levels_reset")}"
+              @click=${() => this._updateConfig(
       "levels_decimals",
       N.levels_decimals
     )}
-            style="margin-left: 8px;"
-            >↺</mwc-button
-          >
-        </ha-formfield>
+              style="margin-left: 8px;"
+              >↺</mwc-button
+            >
+          </ha-formfield>
+        </details>
+
         <ha-formfield label="${this._t("icon_size")}">
           <ha-slider
             min="16"

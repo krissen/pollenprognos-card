@@ -50,7 +50,7 @@ class PollenPrognosCard extends LitElement {
         "#e64a19",
         "#d32f2f",
       ],
-      emptyColor = "var(--divider-color)",
+      emptyColor = "rgba(200, 200, 200, 0.15)",
       gapColor = "var(--card-background-color)",
       thickness = 60,
       gap = 5,
