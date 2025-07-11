@@ -21,6 +21,8 @@ export const stubConfigSILAM = {
   ],
   minimal: false,
   mode: "daily",
+  background_color: "",
+  icon_size: "48",
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,

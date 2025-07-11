@@ -49,6 +49,7 @@
   "editor.days_relative": "Suhteelliset päivät (tänään/huomenna)",
   "editor.days_uppercase": "Isot kirjaimet viikonpäivissä",
   "editor.debug": "Debuggaus",
+  "editor.icon_size": "Kuvakkeen koko (px)",
   "editor.integration": "Integraatio",
   "editor.integration.dwd": "DWD Pollenflug",
   "editor.integration.peu": "Polleninformation EU",

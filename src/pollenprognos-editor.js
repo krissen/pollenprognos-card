@@ -99,10 +99,13 @@ class PollenPrognosCardEditor extends LitElement {
     const prefix = `weather.silam_pollen_${loc}_`;
     return Object.keys(this._hass.states).some((id) => id.startsWith(prefix));
   }
+
   _resetAll() {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
-    this.setConfig({ integration: this._config.integration });
+    // Sätt integration och type explicit
+    const integration = this._config?.integration ?? "pp";
+    this.setConfig({ integration, type: "custom:pollenprognos-card" });
   }
 
   _resetPhrases(lang) {
@@ -1116,6 +1119,27 @@ class PollenPrognosCardEditor extends LitElement {
               title="${this._t("background_color_picker") || "Pick color"}"
             />
           </div>
+        </ha-formfield>
+        <ha-formfield label="${this._t("icon_size")}">
+          <ha-slider
+            min="16"
+            max="128"
+            step="1"
+            .value=${c.icon_size ?? 48}
+            @input=${(e) =>
+              this._updateConfig("icon_size", Number(e.target.value))}
+            style="width: 120px;"
+          ></ha-slider>
+          <ha-textfield
+            .value=${c.icon_size ?? 48}
+            type="number"
+            min="16"
+            max="128"
+            step="1"
+            @input=${(e) =>
+              this._updateConfig("icon_size", Number(e.target.value))}
+            style="width: 80px;"
+          ></ha-textfield>
         </ha-formfield>
         <!-- Layout-switchar -->
         ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
