@@ -34,7 +34,9 @@ const LEVELS_DEFAULTS = {
   levels_thickness: 60,
   levels_gap: 1,
   levels_size: 100,
-  levels_decimals: 0,
+  levels_text_weight: "normal",
+  levels_text_size: 0.3,
+  levels_text_color: "var(--primary-text-color)",
 };
 
 // Recursive merge utility
@@ -1365,35 +1367,59 @@ class PollenPrognosCardEditor extends LitElement {
             >
           </ha-formfield>
 
-          <ha-formfield label="${this._t("levels_decimals")}">
+          <ha-formfield label="${this._t("levels_text_weight")}">
+            <ha-select
+              .value=${c.levels_text_weight || "normal"}
+              @selected=${(e) =>
+                this._updateConfig("levels_text_weight", e.target.value)}
+              @closed=${(e) => e.stopPropagation()}
+            >
+              <mwc-list-item value="normal">Normal</mwc-list-item>
+              <mwc-list-item value="500">Medium</mwc-list-item>
+              <mwc-list-item value="bold">Bold</mwc-list-item>
+            </ha-select>
+          </ha-formfield>
+
+          <ha-formfield label="${this._t("levels_text_size")}">
             <ha-slider
-              min="0"
-              max="5"
-              step="1"
-              .value=${c.levels_decimals}
+              min="0.1"
+              max="0.5"
+              step="0.05"
+              .value=${c.levels_text_size || 0.3}
               @input=${(e) =>
-                this._updateConfig("levels_decimals", Number(e.target.value))}
+                this._updateConfig("levels_text_size", Number(e.target.value))}
               style="width: 120px;"
             ></ha-slider>
             <ha-textfield
               type="number"
-              .value=${c.levels_decimals}
+              .value=${c.levels_text_size || 0.3}
               @input=${(e) =>
-                this._updateConfig("levels_decimals", Number(e.target.value))}
+                this._updateConfig("levels_text_size", Number(e.target.value))}
               style="width: 80px;"
             ></ha-textfield>
-            <mwc-button
-              dense
-              outlined
-              title="${this._t("levels_reset")}"
-              @click=${() =>
-                this._updateConfig(
-                  "levels_decimals",
-                  LEVELS_DEFAULTS.levels_decimals,
-                )}
-              style="margin-left: 8px;"
-              >↺</mwc-button
-            >
+          </ha-formfield>
+
+          <ha-formfield label="${this._t("levels_text_color")}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                type="color"
+                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                  c.levels_text_color || "",
+                )
+                  ? c.levels_text_color
+                  : "#000000"}
+                @input=${(e) =>
+                  this._updateConfig("levels_text_color", e.target.value)}
+                style="width: 28px; height: 28px; border: none; background: none;"
+              />
+              <ha-textfield
+                .value=${c.levels_text_color || ""}
+                placeholder="var(--primary-text-color)"
+                @input=${(e) =>
+                  this._updateConfig("levels_text_color", e.target.value)}
+                style="width: 100px;"
+              ></ha-textfield>
+            </div>
           </ha-formfield>
         </details>
 
