@@ -2631,7 +2631,7 @@ const oI = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   show_value_text: !0,
   show_value_numeric: !1,
   show_value_numeric_in_circle: !1,
-  show_empty_days: !0,
+  show_empty_days: !1,
   debug: !1,
   days_to_show: 4,
   days_relative: !0,
