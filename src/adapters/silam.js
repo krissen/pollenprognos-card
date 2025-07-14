@@ -24,6 +24,7 @@ export const stubConfigSILAM = {
   mode: "daily",
   background_color: "",
   icon_size: "48",
+  text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   mode: "daily",
   show_text_allergen: true,
@@ -46,9 +47,9 @@ export const stubConfigSILAM = {
 };
 
 export const SILAM_THRESHOLDS = {
-  birch: [5, 25, 50, 100, 500, 1000, 5000],
-  grass: [5, 25, 50, 100, 500, 1000, 5000],
-  hazel: [5, 25, 50, 100, 500, 1000, 5000],
+  birch: [1, 25, 50, 100, 500, 1000, 5000],
+  grass: [1, 25, 50, 100, 500, 1000, 5000],
+  hazel: [1, 25, 50, 100, 500, 1000, 5000],
   alder: [1, 10, 25, 50, 100, 500, 1000],
   ragweed: [1, 10, 25, 50, 100, 500, 1000],
   mugwort: [1, 10, 25, 50, 100, 500, 1000],

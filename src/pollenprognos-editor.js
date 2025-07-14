@@ -968,66 +968,49 @@ class PollenPrognosCardEditor extends LitElement {
           </mwc-button>
         </div>
 
-        <!-- Integration -->
-        <ha-formfield label="${this._t("integration")}">
-          <ha-select
-            .value=${c.integration}
-            @selected=${(e) =>
-              this._updateConfig("integration", e.target.value)}
-            @closed=${(e) => e.stopPropagation()}
-          >
-            <mwc-list-item value="pp"
-              >${this._t("integration.pp")}</mwc-list-item
+        <!-- Integration och plats -->
+        <details open>
+          <summary>${this._t("summary_integration_and_place")}</summary>
+          <ha-formfield label="${this._t("integration")}">
+            <ha-select
+              .value=${c.integration}
+              @selected=${(e) =>
+                this._updateConfig("integration", e.target.value)}
+              @closed=${(e) => e.stopPropagation()}
             >
-            <mwc-list-item value="peu"
-              >${this._t("integration.peu")}</mwc-list-item
-            >
-            <mwc-list-item value="dwd"
-              >${this._t("integration.dwd")}</mwc-list-item
-            >
-            <mwc-list-item value="silam"
-              >${this._t("integration.silam")}</mwc-list-item
-            >
-          </ha-select>
-        </ha-formfield>
-
-        <!-- Stad (PP, PEU) eller Region (DWD) eller plats (SILAM) -->
-        ${c.integration === "pp"
-          ? html`
-              <ha-formfield label="${this._t("city")}">
-                <ha-select
-                  .value=${c.city || ""}
-                  @selected=${(e) => this._updateConfig("city", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  ${this.installedCities.map(
-                    (city) =>
-                      html`<mwc-list-item .value=${city}
-                        >${city}</mwc-list-item
-                      >`,
-                  )}
-                </ha-select>
-              </ha-formfield>
-            `
-          : c.integration === "peu"
+              <mwc-list-item value="pp"
+                >${this._t("integration.pp")}</mwc-list-item
+              >
+              <mwc-list-item value="peu"
+                >${this._t("integration.peu")}</mwc-list-item
+              >
+              <mwc-list-item value="dwd"
+                >${this._t("integration.dwd")}</mwc-list-item
+              >
+              <mwc-list-item value="silam"
+                >${this._t("integration.silam")}</mwc-list-item
+              >
+            </ha-select>
+          </ha-formfield>
+          ${c.integration === "pp"
             ? html`
-                <ha-formfield label="${this._t("location")}">
+                <ha-formfield label="${this._t("city")}">
                   <ha-select
-                    .value=${c.location || ""}
+                    .value=${c.city || ""}
                     @selected=${(e) =>
-                      this._updateConfig("location", e.target.value)}
+                      this._updateConfig("city", e.target.value)}
                     @closed=${(e) => e.stopPropagation()}
                   >
-                    ${this.installedPeuLocations.map(
-                      ([slug, title]) =>
-                        html`<mwc-list-item .value=${slug}
-                          >${title}</mwc-list-item
+                    ${this.installedCities.map(
+                      (city) =>
+                        html`<mwc-list-item .value=${city}
+                          >${city}</mwc-list-item
                         >`,
                     )}
                   </ha-select>
                 </ha-formfield>
               `
-            : c.integration === "silam"
+            : c.integration === "peu"
               ? html`
                   <ha-formfield label="${this._t("location")}">
                     <ha-select
@@ -1036,7 +1019,7 @@ class PollenPrognosCardEditor extends LitElement {
                         this._updateConfig("location", e.target.value)}
                       @closed=${(e) => e.stopPropagation()}
                     >
-                      ${this.installedSilamLocations.map(
+                      ${this.installedPeuLocations.map(
                         ([slug, title]) =>
                           html`<mwc-list-item .value=${slug}
                             >${title}</mwc-list-item
@@ -1045,525 +1028,69 @@ class PollenPrognosCardEditor extends LitElement {
                     </ha-select>
                   </ha-formfield>
                 `
-              : html`
-                  <ha-formfield label="${this._t("region_id")}">
-                    <ha-select
-                      .value=${c.region_id || ""}
-                      @selected=${(e) =>
-                        this._updateConfig("region_id", e.target.value)}
-                      @closed=${(e) => e.stopPropagation()}
+              : c.integration === "silam"
+                ? html`
+                    <ha-formfield label="${this._t("location")}">
+                      <ha-select
+                        .value=${c.location || ""}
+                        @selected=${(e) =>
+                          this._updateConfig("location", e.target.value)}
+                        @closed=${(e) => e.stopPropagation()}
+                      >
+                        ${this.installedSilamLocations.map(
+                          ([slug, title]) =>
+                            html`<mwc-list-item .value=${slug}
+                              >${title}</mwc-list-item
+                            >`,
+                        )}
+                      </ha-select>
+                    </ha-formfield>
+                  `
+                : html`
+                    <ha-formfield label="${this._t("region_id")}">
+                      <ha-select
+                        .value=${c.region_id || ""}
+                        @selected=${(e) =>
+                          this._updateConfig("region_id", e.target.value)}
+                        @closed=${(e) => e.stopPropagation()}
+                      >
+                        ${this.installedRegionIds.map(
+                          (id) => html`
+                            <mwc-list-item .value=${id}>
+                              ${id} — ${DWD_REGIONS[id] || id}
+                            </mwc-list-item>
+                          `,
+                        )}
+                      </ha-select>
+                    </ha-formfield>
+                  `}
+          ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
+            ? html`
+                <ha-formfield label="${this._t("mode")}">
+                  <ha-select
+                    .value=${c.mode || "daily"}
+                    @selected=${(e) =>
+                      this._updateConfig("mode", e.target.value)}
+                    @closed=${(e) => e.stopPropagation()}
+                  >
+                    <mwc-list-item value="daily"
+                      >${this._t("mode_daily")}</mwc-list-item
                     >
-                      ${this.installedRegionIds.map(
-                        (id) => html`
-                          <mwc-list-item .value=${id}>
-                            ${id} — ${DWD_REGIONS[id] || id}
-                          </mwc-list-item>
-                        `,
-                      )}
-                    </ha-select>
-                  </ha-formfield>
-                `}
-        <!-- Title toggles -->
-        <div style="display:flex; gap:8px; align-items:center;">
-          <!-- Hide -->
-          <ha-formfield label="${this._t("title_hide")}">
-            <ha-checkbox
-              .checked=${c.title === false}
-              @change=${(e) => {
-                if (e.target.checked) {
-                  // Sätt HIDE, rensa övrigt
-                  this._updateConfig("title", false);
-                } else {
-                  // Om man avbockar, gå till auto
-                  this._updateConfig("title", true);
-                }
-              }}
-            ></ha-checkbox>
-          </ha-formfield>
-          <!-- Automatic -->
-          <ha-formfield label="${this._t("title_automatic")}">
-            <ha-checkbox
-              .checked=${c.title === true || c.title === undefined}
-              @change=${(e) => {
-                if (e.target.checked) {
-                  this._updateConfig("title", true);
-                } else {
-                  // Om man avbockar, gå till manual
-                  // (töm textruta)
-                  this._updateConfig("title", "");
-                }
-              }}
-            ></ha-checkbox>
-          </ha-formfield>
-        </div>
-
-        <!-- Titel (manuellt) -->
-        <ha-formfield label="${this._t("title")}">
-          <ha-textfield
-            .value=${typeof c.title === "string"
-              ? c.title
-              : c.title === false
-                ? "(false)"
-                : ""}
-            placeholder="${this._t("title_placeholder")}"
-            .disabled=${c.title === false}
-            @input=${(e) => {
-              const val = e.target.value;
-              // Om tom: gå till auto
-              if (val.trim() === "") {
-                this._updateConfig("title", true);
-              } else {
-                // Spara som string
-                this._updateConfig("title", val);
-              }
-            }}
-          ></ha-textfield>
-        </ha-formfield>
-        <!-- Bakgrundsfärg -->
-        <ha-formfield label="${this._t("background_color")}">
-          <div style="display:flex; gap:8px; align-items:center;">
-            <ha-textfield
-              .value=${c.background_color || ""}
-              placeholder="${this._t("background_color_placeholder") ||
-              "#ffffff"}"
-              @input=${(e) =>
-                this._updateConfig("background_color", e.target.value)}
-              style="width: 120px;"
-            ></ha-textfield>
-            <input
-              type="color"
-              .value=${c.background_color &&
-              /^#[0-9a-fA-F]{6}$/.test(c.background_color)
-                ? c.background_color
-                : "#ffffff"}
-              @input=${(e) =>
-                this._updateConfig("background_color", e.target.value)}
-              style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
-              title="${this._t("background_color_picker") || "Pick color"}"
-            />
-          </div>
-        </ha-formfield>
-        <details>
-          <summary>${this._t("levels_header")}</summary>
-
-          <ha-formfield label="${this._t("levels_colors")}">
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              ${c.levels_colors.map(
-                (col, i) => html`
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <input
-                      type="color"
-                      .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
-                        ? col
-                        : "#000000"}
-                      @input=${(e) => {
-                        const newColors = [...c.levels_colors];
-                        newColors[i] = e.target.value;
-                        this._updateConfig("levels_colors", newColors);
-                      }}
-                      style="width: 28px; height: 28px; border: none; background: none;"
-                    />
-                    <ha-textfield
-                      .value=${col}
-                      placeholder="${this._t("levels_colors_placeholder")}"
-                      @input=${(e) => {
-                        const newColors = [...c.levels_colors];
-                        newColors[i] = e.target.value;
-                        this._updateConfig("levels_colors", newColors);
-                      }}
-                      style="width: 100px;"
-                    ></ha-textfield>
-                    <mwc-button
-                      dense
-                      outlined
-                      title="${this._t("levels_reset")}"
-                      @click=${() => {
-                        const newColors = [...c.levels_colors];
-                        newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
-                        this._updateConfig("levels_colors", newColors);
-                      }}
-                      style="margin-left: 8px;"
-                      >↺</mwc-button
+                    <mwc-list-item value="twice_daily"
+                      >${this._t("mode_twice_daily")}</mwc-list-item
                     >
-                  </div>
-                `,
-              )}
-            </div>
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_empty_color")}">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input
-                type="color"
-                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                  c.levels_empty_color,
-                )
-                  ? c.levels_empty_color
-                  : "#cccccc"}
-                @input=${(e) =>
-                  this._updateConfig("levels_empty_color", e.target.value)}
-                style="width: 28px; height: 28px; border: none; background: none;"
-              />
-              <ha-textfield
-                .value=${c.levels_empty_color}
-                placeholder="${this._t("levels_colors_placeholder")}"
-                @input=${(e) =>
-                  this._updateConfig("levels_empty_color", e.target.value)}
-                style="width: 100px;"
-              ></ha-textfield>
-              <mwc-button
-                dense
-                outlined
-                title="${this._t("levels_reset")}"
-                @click=${() =>
-                  this._updateConfig(
-                    "levels_empty_color",
-                    LEVELS_DEFAULTS.levels_empty_color,
-                  )}
-                style="margin-left: 8px;"
-                >↺</mwc-button
-              >
-            </div>
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_gap_color")}">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input
-                type="color"
-                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                  c.levels_gap_color,
-                )
-                  ? c.levels_gap_color
-                  : "#ffffff"}
-                @input=${(e) =>
-                  this._updateConfig("levels_gap_color", e.target.value)}
-                style="width: 28px; height: 28px; border: none; background: none;"
-              />
-              <ha-textfield
-                .value=${c.levels_gap_color}
-                placeholder="${this._t("levels_colors_placeholder")}"
-                @input=${(e) =>
-                  this._updateConfig("levels_gap_color", e.target.value)}
-                style="width: 100px;"
-              ></ha-textfield>
-              <mwc-button
-                dense
-                outlined
-                title="${this._t("levels_reset")}"
-                @click=${() =>
-                  this._updateConfig(
-                    "levels_gap_color",
-                    LEVELS_DEFAULTS.levels_gap_color,
-                  )}
-                style="margin-left: 8px;"
-                >↺</mwc-button
-              >
-            </div>
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_thickness")}">
-            <ha-slider
-              min="10"
-              max="90"
-              step="1"
-              .value=${c.levels_thickness}
-              @input=${(e) =>
-                this._updateConfig("levels_thickness", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              type="number"
-              .value=${c.levels_thickness}
-              @input=${(e) =>
-                this._updateConfig("levels_thickness", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-            <mwc-button
-              dense
-              outlined
-              title="${this._t("levels_reset")}"
-              @click=${() =>
-                this._updateConfig(
-                  "levels_thickness",
-                  LEVELS_DEFAULTS.levels_thickness,
-                )}
-              style="margin-left: 8px;"
-              >↺</mwc-button
-            >
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_gap")}">
-            <ha-slider
-              min="0"
-              max="20"
-              step="1"
-              .value=${c.levels_gap}
-              @input=${(e) =>
-                this._updateConfig("levels_gap", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              type="number"
-              .value=${c.levels_gap}
-              @input=${(e) =>
-                this._updateConfig("levels_gap", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-            <mwc-button
-              dense
-              outlined
-              title="${this._t("levels_reset")}"
-              @click=${() =>
-                this._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap)}
-              style="margin-left: 8px;"
-              >↺</mwc-button
-            >
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_text_weight")}">
-            <ha-select
-              .value=${c.levels_text_weight || "normal"}
-              @selected=${(e) =>
-                this._updateConfig("levels_text_weight", e.target.value)}
-              @closed=${(e) => e.stopPropagation()}
-            >
-              <mwc-list-item value="normal">Normal</mwc-list-item>
-              <mwc-list-item value="500">Medium</mwc-list-item>
-              <mwc-list-item value="bold">Bold</mwc-list-item>
-            </ha-select>
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_text_size")}">
-            <ha-slider
-              min="0.1"
-              max="0.5"
-              step="0.05"
-              .value=${c.levels_text_size || 0.3}
-              @input=${(e) =>
-                this._updateConfig("levels_text_size", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              type="number"
-              .value=${c.levels_text_size || 0.3}
-              @input=${(e) =>
-                this._updateConfig("levels_text_size", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-          </ha-formfield>
-
-          <ha-formfield label="${this._t("levels_text_color")}">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input
-                type="color"
-                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                  c.levels_text_color || "",
-                )
-                  ? c.levels_text_color
-                  : "#000000"}
-                @input=${(e) =>
-                  this._updateConfig("levels_text_color", e.target.value)}
-                style="width: 28px; height: 28px; border: none; background: none;"
-              />
-              <ha-textfield
-                .value=${c.levels_text_color || ""}
-                placeholder="var(--primary-text-color)"
-                @input=${(e) =>
-                  this._updateConfig("levels_text_color", e.target.value)}
-                style="width: 100px;"
-              ></ha-textfield>
-            </div>
-          </ha-formfield>
+                    <mwc-list-item value="hourly"
+                      >${this._t("mode_hourly")}</mwc-list-item
+                    >
+                  </ha-select>
+                </ha-formfield>
+              `
+            : ""}
         </details>
 
-        <ha-formfield label="${this._t("icon_size")}">
-          <ha-slider
-            min="16"
-            max="128"
-            step="1"
-            .value=${c.icon_size ?? 48}
-            @input=${(e) =>
-              this._updateConfig("icon_size", Number(e.target.value))}
-            style="width: 120px;"
-          ></ha-slider>
-          <ha-textfield
-            .value=${c.icon_size ?? 48}
-            type="number"
-            min="16"
-            max="128"
-            step="1"
-            @input=${(e) =>
-              this._updateConfig("icon_size", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-        </ha-formfield>
-        <!-- Layout-switchar -->
-        ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
-          ? html`
-              <ha-formfield label="${this._t("mode")}">
-                <ha-select
-                  .value=${c.mode || "daily"}
-                  @selected=${(e) => this._updateConfig("mode", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  <mwc-list-item value="daily"
-                    >${this._t("mode_daily")}</mwc-list-item
-                  >
-                  <mwc-list-item value="twice_daily"
-                    >${this._t("mode_twice_daily")}</mwc-list-item
-                  >
-                  <mwc-list-item value="hourly"
-                    >${this._t("mode_hourly")}</mwc-list-item
-                  >
-                </ha-select>
-              </ha-formfield>
-            `
-          : ""}
-        <ha-formfield label="${this._t("minimal")}">
-          <ha-switch
-            .checked=${c.minimal}
-            @change=${(e) => this._updateConfig("minimal", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("allergens_abbreviated")}">
-          <ha-switch
-            .checked=${c.allergens_abbreviated}
-            @change=${(e) =>
-              this._updateConfig("allergens_abbreviated", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <!-- Nya switchar för text och värde -->
-        <ha-formfield label="${this._t("show_text_allergen")}">
-          <ha-switch
-            .checked=${c.show_text_allergen}
-            @change=${(e) =>
-              this._updateConfig("show_text_allergen", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("show_value_text")}">
-          <ha-switch
-            .checked=${c.show_value_text}
-            @change=${(e) =>
-              this._updateConfig("show_value_text", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("show_value_numeric")}">
-          <ha-switch
-            .checked=${c.show_value_numeric}
-            @change=${(e) =>
-              this._updateConfig("show_value_numeric", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
-          <ha-switch
-            .checked=${c.show_value_numeric_in_circle}
-            @change=${(e) =>
-              this._updateConfig(
-                "show_value_numeric_in_circle",
-                e.target.checked,
-              )}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("show_empty_days")}">
-          <ha-switch
-            .checked=${c.show_empty_days}
-            @change=${(e) =>
-              this._updateConfig("show_empty_days", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-
-        <!-- Dag-inställningar -->
-        <ha-formfield label="${this._t("days_relative")}">
-          <ha-switch
-            .checked=${c.days_relative}
-            @change=${(e) =>
-              this._updateConfig("days_relative", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("days_abbreviated")}">
-          <ha-switch
-            .checked=${c.days_abbreviated}
-            @change=${(e) =>
-              this._updateConfig("days_abbreviated", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("days_uppercase")}">
-          <ha-switch
-            .checked=${c.days_uppercase}
-            @change=${(e) =>
-              this._updateConfig("days_uppercase", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="${this._t("days_boldfaced")}">
-          <ha-switch
-            .checked=${c.days_boldfaced}
-            @change=${(e) =>
-              this._updateConfig("days_boldfaced", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-
-        <!-- Antal dagar / kolumner / timmar -->
-        <div class="slider-row">
-          <div class="slider-text">
-            ${c.integration === "silam" && c.mode === "twice_daily"
-              ? this._t("to_show_columns")
-              : c.integration === "silam" && c.mode === "hourly"
-                ? this._t("to_show_hours")
-                : this._t("to_show_days")}
-          </div>
-          <div class="slider-value">${c.days_to_show}</div>
-          <ha-slider
-            min="0"
-            max="${c.integration === "silam" &&
-            (c.mode === "hourly" || c.mode === "twice_daily")
-              ? 8
-              : 6}"
-            step="1"
-            .value=${c.days_to_show}
-            @input=${(e) =>
-              this._updateConfig("days_to_show", Number(e.target.value))}
-          ></ha-slider>
-        </div>
-
-        <!-- Tröskel -->
-        <div class="slider-row">
-          <div class="slider-text">${this._t("pollen_threshold")}</div>
-          <div class="slider-value">${c.pollen_threshold}</div>
-          <ha-slider
-            min="${thresholdParams.min}"
-            max="${thresholdParams.max}"
-            step="${thresholdParams.step}"
-            .value=${c.pollen_threshold}
-            @input=${(e) =>
-              this._updateConfig("pollen_threshold", Number(e.target.value))}
-          ></ha-slider>
-        </div>
-
-        <!-- Sortering -->
-        <ha-formfield label="${this._t("sort")}">
-          <ha-select
-            .value=${c.sort}
-            @selected=${(e) => this._updateConfig("sort", e.target.value)}
-            @closed=${(e) => e.stopPropagation()}
-          >
-            ${sortOptions.map(
-              ({ value, label }) =>
-                html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
-            )}
-          </ha-select>
-        </ha-formfield>
-
-        <!-- Språk-inställning -->
-        <ha-formfield label="${this._t("locale")}">
-          <ha-textfield
-            .value=${c.date_locale}
-            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- Allergener (detaljerad) -->
+        <!-- Allergener -->
         <details>
-          <summary>${this._t("allergens")}</summary>
+          <summary>${this._t("summary_allergens")}</summary>
           <div class="allergens-group">
             ${allergens.map(
               (key) => html`
@@ -1578,253 +1105,778 @@ class PollenPrognosCardEditor extends LitElement {
             )}
           </div>
         </details>
-        <!-- Fraser -->
-        <h3>${this._t("phrases")}</h3>
-        <div class="preset-buttons">
-          <ha-formfield label="${this._t("phrases_translate_all")}">
+
+        <!-- Funktionella inställningar -->
+        <details>
+          <summary>${this._t("summary_functional_settings")}</summary>
+          <div class="slider-row">
+            <div class="slider-text">
+              ${c.integration === "silam" && c.mode === "twice_daily"
+                ? this._t("to_show_columns")
+                : c.integration === "silam" && c.mode === "hourly"
+                  ? this._t("to_show_hours")
+                  : this._t("to_show_days")}
+            </div>
+            <div class="slider-value">${c.days_to_show}</div>
+            <ha-slider
+              min="0"
+              max="${c.integration === "silam" &&
+              (c.mode === "hourly" || c.mode === "twice_daily")
+                ? 8
+                : 6}"
+              step="1"
+              .value=${c.days_to_show}
+              @input=${(e) =>
+                this._updateConfig("days_to_show", Number(e.target.value))}
+            ></ha-slider>
+          </div>
+          <div class="slider-row">
+            <div class="slider-text">${this._t("pollen_threshold")}</div>
+            <div class="slider-value">${c.pollen_threshold}</div>
+            <ha-slider
+              min="${thresholdParams.min}"
+              max="${thresholdParams.max}"
+              step="${thresholdParams.step}"
+              .value=${c.pollen_threshold}
+              @input=${(e) =>
+                this._updateConfig("pollen_threshold", Number(e.target.value))}
+            ></ha-slider>
+          </div>
+          <ha-formfield label="${this._t("sort")}">
             <ha-select
-              .value=${this._selectedPhraseLang}
-              @selected=${(e) => (this._selectedPhraseLang = e.target.value)}
+              .value=${c.sort}
+              @selected=${(e) => this._updateConfig("sort", e.target.value)}
               @closed=${(e) => e.stopPropagation()}
             >
-              ${SUPPORTED_LOCALES.map(
-                (code) => html`
-                  <mwc-list-item .value=${code}>
-                    ${new Intl.DisplayNames([this._lang], {
-                      type: "language",
-                    }).of(code) || code}
-                  </mwc-list-item>
-                `,
+              ${sortOptions.map(
+                ({ value, label }) =>
+                  html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
               )}
             </ha-select>
           </ha-formfield>
-          <mwc-button
-            @click=${() => this._resetPhrases(this._selectedPhraseLang)}
-          >
-            ${this._t("phrases_apply")}
-          </mwc-button>
-        </div>
-        <details>
-          <summary>${this._t("phrases_full")}</summary>
-          ${allergens.map(
-            (a) => html`
-              <ha-formfield .label=${a}>
-                <ha-textfield
-                  .value=${c.phrases.full[a] || ""}
-                  @input=${(e) => {
-                    const p = {
-                      ...c.phrases,
-                      full: { ...c.phrases.full, [a]: e.target.value },
-                    };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
         </details>
+
+        <!-- Utseende och layout -->
         <details>
-          <summary>${this._t("phrases_short")}</summary>
-          ${allergens.map(
-            (a) => html`
-              <ha-formfield .label=${a}>
-                <ha-textfield
-                  .value=${c.phrases.short[a] || ""}
-                  @input=${(e) => {
-                    const p = {
-                      ...c.phrases,
-                      short: { ...c.phrases.short, [a]: e.target.value },
-                    };
-                    this._updateConfig("phrases", p);
+          <summary>${this._t("summary_appearance_and_layout")}</summary>
+
+          <!-- Titel och header -->
+          <details open>
+            <summary>${this._t("summary_title_and_header")}</summary>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <ha-formfield label="${this._t("title_hide")}">
+                <ha-checkbox
+                  .checked=${c.title === false}
+                  @change=${(e) => {
+                    if (e.target.checked) {
+                      this._updateConfig("title", false);
+                    } else {
+                      this._updateConfig("title", true);
+                    }
                   }}
-                ></ha-textfield>
+                ></ha-checkbox>
               </ha-formfield>
-            `,
-          )}
+              <ha-formfield label="${this._t("title_automatic")}">
+                <ha-checkbox
+                  .checked=${c.title === true || c.title === undefined}
+                  @change=${(e) => {
+                    if (e.target.checked) {
+                      this._updateConfig("title", true);
+                    } else {
+                      this._updateConfig("title", "");
+                    }
+                  }}
+                ></ha-checkbox>
+              </ha-formfield>
+            </div>
+            <ha-formfield label="${this._t("title")}">
+              <ha-textfield
+                .value=${typeof c.title === "string"
+                  ? c.title
+                  : c.title === false
+                    ? "(false)"
+                    : ""}
+                placeholder="${this._t("title_placeholder")}"
+                .disabled=${c.title === false}
+                @input=${(e) => {
+                  const val = e.target.value;
+                  if (val.trim() === "") {
+                    this._updateConfig("title", true);
+                  } else {
+                    this._updateConfig("title", val);
+                  }
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+          </details>
+
+          <!-- Visningsswitchar för data -->
+          <details open>
+            <summary>${this._t("summary_data_view_settings")}</summary>
+            <ha-formfield label="${this._t("allergens_abbreviated")}">
+              <ha-switch
+                .checked=${c.allergens_abbreviated}
+                @change=${(e) =>
+                  this._updateConfig("allergens_abbreviated", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_text_allergen")}">
+              <ha-switch
+                .checked=${c.show_text_allergen}
+                @change=${(e) =>
+                  this._updateConfig("show_text_allergen", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_value_text")}">
+              <ha-switch
+                .checked=${c.show_value_text}
+                @change=${(e) =>
+                  this._updateConfig("show_value_text", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_value_numeric")}">
+              <ha-switch
+                .checked=${c.show_value_numeric}
+                @change=${(e) =>
+                  this._updateConfig("show_value_numeric", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
+              <ha-switch
+                .checked=${c.show_value_numeric_in_circle}
+                @change=${(e) =>
+                  this._updateConfig(
+                    "show_value_numeric_in_circle",
+                    e.target.checked,
+                  )}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_empty_days")}">
+              <ha-switch
+                .checked=${c.show_empty_days}
+                @change=${(e) =>
+                  this._updateConfig("show_empty_days", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+          </details>
+
+          <!-- Dag-inställningar -->
+          <details open>
+            <summary>${this._t("summary_day_view_settings")}</summary>
+            <ha-formfield label="${this._t("days_relative")}">
+              <ha-switch
+                .checked=${c.days_relative}
+                @change=${(e) =>
+                  this._updateConfig("days_relative", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("days_abbreviated")}">
+              <ha-switch
+                .checked=${c.days_abbreviated}
+                @change=${(e) =>
+                  this._updateConfig("days_abbreviated", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("days_uppercase")}">
+              <ha-switch
+                .checked=${c.days_uppercase}
+                @change=${(e) =>
+                  this._updateConfig("days_uppercase", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("days_boldfaced")}">
+              <ha-switch
+                .checked=${c.days_boldfaced}
+                @change=${(e) =>
+                  this._updateConfig("days_boldfaced", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+          </details>
+
+          <details open>
+            <summary>${this._t("summary_card_layout_and_colors")}</summary>
+
+            <ha-formfield label="${this._t("minimal")}">
+              <ha-switch
+                .checked=${c.minimal}
+                @change=${(e) =>
+                  this._updateConfig("minimal", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("background_color")}">
+              <div style="display:flex; gap:8px; align-items:center;">
+                <ha-textfield
+                  .value=${c.background_color || ""}
+                  placeholder="${this._t("background_color_placeholder") ||
+                  "#ffffff"}"
+                  @input=${(e) =>
+                    this._updateConfig("background_color", e.target.value)}
+                  style="width: 120px;"
+                ></ha-textfield>
+                <input
+                  type="color"
+                  .value=${c.background_color &&
+                  /^#[0-9a-fA-F]{6}$/.test(c.background_color)
+                    ? c.background_color
+                    : "#ffffff"}
+                  @input=${(e) =>
+                    this._updateConfig("background_color", e.target.value)}
+                  style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
+                  title="${this._t("background_color_picker") || "Pick color"}"
+                />
+              </div>
+            </ha-formfield>
+            <ha-formfield label="${this._t("icon_size")}">
+              <ha-slider
+                min="16"
+                max="128"
+                step="1"
+                .value=${c.icon_size ?? 48}
+                @input=${(e) =>
+                  this._updateConfig("icon_size", Number(e.target.value))}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                .value=${c.icon_size ?? 48}
+                type="number"
+                min="16"
+                max="128"
+                step="1"
+                @input=${(e) =>
+                  this._updateConfig("icon_size", Number(e.target.value))}
+                style="width: 80px;"
+              ></ha-textfield>
+            </ha-formfield>
+            <ha-formfield label="${this._t("text_size_ratio")}">
+              <ha-slider
+                min="0.5"
+                max="2"
+                step="0.05"
+                .value=${c.text_size_ratio ?? 1}
+                @input=${(e) =>
+                  this._updateConfig("text_size_ratio", Number(e.target.value))}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                .value=${c.text_size_ratio ?? 1}
+                min="0.5"
+                max="2"
+                step="0.05"
+                @input=${(e) =>
+                  this._updateConfig("text_size_ratio", Number(e.target.value))}
+                style="width: 80px;"
+              ></ha-textfield>
+            </ha-formfield>
+          </details>
+          <details>
+            <summary>${this._t("levels_header")}</summary>
+
+            <ha-formfield label="${this._t("levels_colors")}">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${c.levels_colors.map(
+                  (col, i) => html`
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <input
+                        type="color"
+                        .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
+                          ? col
+                          : "#000000"}
+                        @input=${(e) => {
+                          const newColors = [...c.levels_colors];
+                          newColors[i] = e.target.value;
+                          this._updateConfig("levels_colors", newColors);
+                        }}
+                        style="width: 28px; height: 28px; border: none; background: none;"
+                      />
+                      <ha-textfield
+                        .value=${col}
+                        placeholder="${this._t("levels_colors_placeholder")}"
+                        @input=${(e) => {
+                          const newColors = [...c.levels_colors];
+                          newColors[i] = e.target.value;
+                          this._updateConfig("levels_colors", newColors);
+                        }}
+                        style="width: 100px;"
+                      ></ha-textfield>
+                      <mwc-button
+                        dense
+                        outlined
+                        title="${this._t("levels_reset")}"
+                        @click=${() => {
+                          const newColors = [...c.levels_colors];
+                          newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
+                          this._updateConfig("levels_colors", newColors);
+                        }}
+                        style="margin-left: 8px;"
+                        >↺</mwc-button
+                      >
+                    </div>
+                  `,
+                )}
+              </div>
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_empty_color")}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input
+                  type="color"
+                  .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                    c.levels_empty_color,
+                  )
+                    ? c.levels_empty_color
+                    : "#cccccc"}
+                  @input=${(e) =>
+                    this._updateConfig("levels_empty_color", e.target.value)}
+                  style="width: 28px; height: 28px; border: none; background: none;"
+                />
+                <ha-textfield
+                  .value=${c.levels_empty_color}
+                  placeholder="${this._t("levels_colors_placeholder")}"
+                  @input=${(e) =>
+                    this._updateConfig("levels_empty_color", e.target.value)}
+                  style="width: 100px;"
+                ></ha-textfield>
+                <mwc-button
+                  dense
+                  outlined
+                  title="${this._t("levels_reset")}"
+                  @click=${() =>
+                    this._updateConfig(
+                      "levels_empty_color",
+                      LEVELS_DEFAULTS.levels_empty_color,
+                    )}
+                  style="margin-left: 8px;"
+                  >↺</mwc-button
+                >
+              </div>
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_gap_color")}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input
+                  type="color"
+                  .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                    c.levels_gap_color,
+                  )
+                    ? c.levels_gap_color
+                    : "#ffffff"}
+                  @input=${(e) =>
+                    this._updateConfig("levels_gap_color", e.target.value)}
+                  style="width: 28px; height: 28px; border: none; background: none;"
+                />
+                <ha-textfield
+                  .value=${c.levels_gap_color}
+                  placeholder="${this._t("levels_colors_placeholder")}"
+                  @input=${(e) =>
+                    this._updateConfig("levels_gap_color", e.target.value)}
+                  style="width: 100px;"
+                ></ha-textfield>
+                <mwc-button
+                  dense
+                  outlined
+                  title="${this._t("levels_reset")}"
+                  @click=${() =>
+                    this._updateConfig(
+                      "levels_gap_color",
+                      LEVELS_DEFAULTS.levels_gap_color,
+                    )}
+                  style="margin-left: 8px;"
+                  >↺</mwc-button
+                >
+              </div>
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_thickness")}">
+              <ha-slider
+                min="10"
+                max="90"
+                step="1"
+                .value=${c.levels_thickness}
+                @input=${(e) =>
+                  this._updateConfig(
+                    "levels_thickness",
+                    Number(e.target.value),
+                  )}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                .value=${c.levels_thickness}
+                @input=${(e) =>
+                  this._updateConfig(
+                    "levels_thickness",
+                    Number(e.target.value),
+                  )}
+                style="width: 80px;"
+              ></ha-textfield>
+              <mwc-button
+                dense
+                outlined
+                title="${this._t("levels_reset")}"
+                @click=${() =>
+                  this._updateConfig(
+                    "levels_thickness",
+                    LEVELS_DEFAULTS.levels_thickness,
+                  )}
+                style="margin-left: 8px;"
+                >↺</mwc-button
+              >
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_gap")}">
+              <ha-slider
+                min="0"
+                max="20"
+                step="1"
+                .value=${c.levels_gap}
+                @input=${(e) =>
+                  this._updateConfig("levels_gap", Number(e.target.value))}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                .value=${c.levels_gap}
+                @input=${(e) =>
+                  this._updateConfig("levels_gap", Number(e.target.value))}
+                style="width: 80px;"
+              ></ha-textfield>
+              <mwc-button
+                dense
+                outlined
+                title="${this._t("levels_reset")}"
+                @click=${() =>
+                  this._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap)}
+                style="margin-left: 8px;"
+                >↺</mwc-button
+              >
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_text_weight")}">
+              <ha-select
+                .value=${c.levels_text_weight || "normal"}
+                @selected=${(e) =>
+                  this._updateConfig("levels_text_weight", e.target.value)}
+                @closed=${(e) => e.stopPropagation()}
+              >
+                <mwc-list-item value="normal">Normal</mwc-list-item>
+                <mwc-list-item value="500">Medium</mwc-list-item>
+                <mwc-list-item value="bold">Bold</mwc-list-item>
+              </ha-select>
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_text_size")}">
+              <ha-slider
+                min="0.1"
+                max="0.5"
+                step="0.05"
+                .value=${c.levels_text_size || 0.3}
+                @input=${(e) =>
+                  this._updateConfig(
+                    "levels_text_size",
+                    Number(e.target.value),
+                  )}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                .value=${c.levels_text_size || 0.3}
+                @input=${(e) =>
+                  this._updateConfig(
+                    "levels_text_size",
+                    Number(e.target.value),
+                  )}
+                style="width: 80px;"
+              ></ha-textfield>
+            </ha-formfield>
+
+            <ha-formfield label="${this._t("levels_text_color")}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input
+                  type="color"
+                  .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                    c.levels_text_color || "",
+                  )
+                    ? c.levels_text_color
+                    : "#000000"}
+                  @input=${(e) =>
+                    this._updateConfig("levels_text_color", e.target.value)}
+                  style="width: 28px; height: 28px; border: none; background: none;"
+                />
+                <ha-textfield
+                  .value=${c.levels_text_color || ""}
+                  placeholder="var(--primary-text-color)"
+                  @input=${(e) =>
+                    this._updateConfig("levels_text_color", e.target.value)}
+                  style="width: 100px;"
+                ></ha-textfield>
+              </div>
+            </ha-formfield>
+          </details>
         </details>
+
+        <!-- Översättningar och textsträngar -->
         <details>
-          <summary>${this._t("phrases_levels")}</summary>
-          ${Array.from({ length: numLevels }, (_, i) => i).map(
-            (i) => html`
-              <ha-formfield .label=${i}>
-                <ha-textfield
-                  .value=${c.phrases.levels[i] || ""}
-                  @input=${(e) => {
-                    const lv = [...c.phrases.levels];
-                    lv[i] = e.target.value;
-                    const p = { ...c.phrases, levels: lv };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
+          <summary>${this._t("summary_translation_and_strings")}</summary>
+          <ha-formfield label="${this._t("locale")}">
+            <ha-textfield
+              .value=${c.date_locale}
+              @input=${(e) => this._updateConfig("date_locale", e.target.value)}
+            ></ha-textfield>
+          </ha-formfield>
+          <h3>${this._t("phrases")}</h3>
+          <div class="preset-buttons">
+            <ha-formfield label="${this._t("phrases_translate_all")}">
+              <ha-select
+                .value=${this._selectedPhraseLang}
+                @selected=${(e) => (this._selectedPhraseLang = e.target.value)}
+                @closed=${(e) => e.stopPropagation()}
+              >
+                ${SUPPORTED_LOCALES.map(
+                  (code) => html`
+                    <mwc-list-item .value=${code}>
+                      ${new Intl.DisplayNames([this._lang], {
+                        type: "language",
+                      }).of(code) || code}
+                    </mwc-list-item>
+                  `,
+                )}
+              </ha-select>
+            </ha-formfield>
+            <mwc-button
+              @click=${() => this._resetPhrases(this._selectedPhraseLang)}
+            >
+              ${this._t("phrases_apply")}
+            </mwc-button>
+          </div>
+          <details>
+            <summary>${this._t("phrases_full")}</summary>
+            ${allergens.map(
+              (a) => html`
+                <ha-formfield .label=${a}>
+                  <ha-textfield
+                    .value=${c.phrases.full[a] || ""}
+                    @input=${(e) => {
+                      const p = {
+                        ...c.phrases,
+                        full: { ...c.phrases.full, [a]: e.target.value },
+                      };
+                      this._updateConfig("phrases", p);
+                    }}
+                  ></ha-textfield>
+                </ha-formfield>
+              `,
+            )}
+          </details>
+          <details>
+            <summary>${this._t("phrases_short")}</summary>
+            ${allergens.map(
+              (a) => html`
+                <ha-formfield .label=${a}>
+                  <ha-textfield
+                    .value=${c.phrases.short[a] || ""}
+                    @input=${(e) => {
+                      const p = {
+                        ...c.phrases,
+                        short: { ...c.phrases.short, [a]: e.target.value },
+                      };
+                      this._updateConfig("phrases", p);
+                    }}
+                  ></ha-textfield>
+                </ha-formfield>
+              `,
+            )}
+          </details>
+          <details>
+            <summary>${this._t("phrases_levels")}</summary>
+            ${Array.from({ length: numLevels }, (_, i) => i).map(
+              (i) => html`
+                <ha-formfield .label=${i}>
+                  <ha-textfield
+                    .value=${c.phrases.levels[i] || ""}
+                    @input=${(e) => {
+                      const lv = [...c.phrases.levels];
+                      lv[i] = e.target.value;
+                      const p = { ...c.phrases, levels: lv };
+                      this._updateConfig("phrases", p);
+                    }}
+                  ></ha-textfield>
+                </ha-formfield>
+              `,
+            )}
+          </details>
+          <details>
+            <summary>${this._t("phrases_days")}</summary>
+            ${[0, 1, 2].map(
+              (i) => html`
+                <ha-formfield .label=${i}>
+                  <ha-textfield
+                    .value=${c.phrases.days[i] || ""}
+                    @input=${(e) => {
+                      const dd = { ...c.phrases.days, [i]: e.target.value };
+                      this._updateConfig("phrases", { ...c.phrases, days: dd });
+                    }}
+                  ></ha-textfield>
+                </ha-formfield>
+              `,
+            )}
+          </details>
+          <ha-formfield label="${this._t("no_information")}">
+            <ha-textfield
+              .value=${c.phrases.no_information || ""}
+              @input=${(e) =>
+                this._updateConfig("phrases", {
+                  ...c.phrases,
+                  no_information: e.target.value,
+                })}
+            ></ha-textfield>
+          </ha-formfield>
         </details>
-        <details>
-          <summary>${this._t("phrases_days")}</summary>
-          ${[0, 1, 2].map(
-            (i) => html`
-              <ha-formfield .label=${i}>
-                <ha-textfield
-                  .value=${c.phrases.days[i] || ""}
-                  @input=${(e) => {
-                    const dd = { ...c.phrases.days, [i]: e.target.value };
-                    this._updateConfig("phrases", { ...c.phrases, days: dd });
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
-        </details>
-        <ha-formfield label="${this._t("no_information")}">
-          <ha-textfield
-            .value=${c.phrases.no_information || ""}
-            @input=${(e) =>
-              this._updateConfig("phrases", {
-                ...c.phrases,
-                no_information: e.target.value,
-              })}
-          ></ha-textfield>
-        </ha-formfield>
 
         <!-- Tap Action -->
-        <h3>${this._t("tap_action")}</h3>
-        <ha-formfield label="${this._t("tap_action_enable")}">
-          <ha-switch
-            .checked=${this._tapType !== "none"}
-            @change=${(e) => {
-              if (e.target.checked) {
-                this._tapType = "more-info";
-                this._updateConfig("tap_action", {
-                  ...this._config.tap_action,
-                  type: "more-info",
-                });
-              } else {
-                this._tapType = "none";
-                this._updateConfig("tap_action", {
-                  ...this._config.tap_action,
-                  type: "none",
-                });
-              }
-              this.requestUpdate();
-            }}
-          ></ha-switch>
-        </ha-formfield>
-        ${this._tapType !== "none"
-          ? html`
-              <div style="margin-top: 10px;">
-                <label>Action type</label>
-                <ha-select
-                  .value=${this._tapType}
-                  @selected=${(e) => {
-                    this._tapType = e.target.value;
-                    let tapAction = { type: this._tapType };
-                    if (this._tapType === "more-info")
-                      tapAction.entity = this._tapEntity;
-                    if (this._tapType === "navigate")
-                      tapAction.navigation_path = this._tapNavigation;
-                    if (this._tapType === "call-service") {
-                      tapAction.service = this._tapService;
-                      try {
-                        tapAction.service_data = JSON.parse(
-                          this._tapServiceData || "{}",
-                        );
-                      } catch {
-                        tapAction.service_data = {};
+        <details>
+          <summary>${this._t("summary_card_interactivity")}</summary>
+          <h3>${this._t("tap_action")}</h3>
+          <ha-formfield label="${this._t("tap_action_enable")}">
+            <ha-switch
+              .checked=${this._tapType !== "none"}
+              @change=${(e) => {
+                if (e.target.checked) {
+                  this._tapType = "more-info";
+                  this._updateConfig("tap_action", {
+                    ...this._config.tap_action,
+                    type: "more-info",
+                  });
+                } else {
+                  this._tapType = "none";
+                  this._updateConfig("tap_action", {
+                    ...this._config.tap_action,
+                    type: "none",
+                  });
+                }
+                this.requestUpdate();
+              }}
+            ></ha-switch>
+          </ha-formfield>
+          ${this._tapType !== "none"
+            ? html`
+                <div style="margin-top: 10px;">
+                  <label>Action type</label>
+                  <ha-select
+                    .value=${this._tapType}
+                    @selected=${(e) => {
+                      this._tapType = e.target.value;
+                      let tapAction = { type: this._tapType };
+                      if (this._tapType === "more-info")
+                        tapAction.entity = this._tapEntity;
+                      if (this._tapType === "navigate")
+                        tapAction.navigation_path = this._tapNavigation;
+                      if (this._tapType === "call-service") {
+                        tapAction.service = this._tapService;
+                        try {
+                          tapAction.service_data = JSON.parse(
+                            this._tapServiceData || "{}",
+                          );
+                        } catch {
+                          tapAction.service_data = {};
+                        }
                       }
-                    }
-                    this._updateConfig("tap_action", tapAction);
-                    this.requestUpdate();
-                  }}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  <mwc-list-item value="more-info">More Info</mwc-list-item>
-                  <mwc-list-item value="navigate">Navigate</mwc-list-item>
-                  <mwc-list-item value="call-service"
-                    >Call Service</mwc-list-item
+                      this._updateConfig("tap_action", tapAction);
+                      this.requestUpdate();
+                    }}
+                    @closed=${(e) => e.stopPropagation()}
                   >
-                </ha-select>
-              </div>
-              ${this._tapType === "more-info"
-                ? html`
-                    <ha-formfield label="Entity">
-                      <ha-textfield
-                        .value=${this._tapEntity}
-                        @input=${(e) => {
-                          this._tapEntity = e.target.value;
-                          this._updateConfig("tap_action", {
-                            type: "more-info",
-                            entity: this._tapEntity,
-                          });
-                        }}
-                      ></ha-textfield>
-                    </ha-formfield>
-                  `
-                : ""}
-              ${this._tapType === "navigate"
-                ? html`
-                    <ha-formfield label="Navigation path">
-                      <ha-textfield
-                        .value=${this._tapNavigation}
-                        @input=${(e) => {
-                          this._tapNavigation = e.target.value;
-                          this._updateConfig("tap_action", {
-                            type: "navigate",
-                            navigation_path: this._tapNavigation,
-                          });
-                        }}
-                      ></ha-textfield>
-                    </ha-formfield>
-                  `
-                : ""}
-              ${this._tapType === "call-service"
-                ? html`
-                    <ha-formfield label="Service (e.g. light.turn_on)">
-                      <ha-textfield
-                        .value=${this._tapService}
-                        @input=${(e) => {
-                          this._tapService = e.target.value;
-                          let data = {};
-                          try {
-                            data = JSON.parse(this._tapServiceData || "{}");
-                          } catch {}
-                          this._updateConfig("tap_action", {
-                            type: "call-service",
-                            service: this._tapService,
-                            service_data: data,
-                          });
-                        }}
-                      ></ha-textfield>
-                    </ha-formfield>
-                    <ha-formfield label="Service data (JSON)">
-                      <ha-textfield
-                        .value=${this._tapServiceData}
-                        @input=${(e) => {
-                          this._tapServiceData = e.target.value;
-                          let data = {};
-                          try {
-                            data = JSON.parse(this._tapServiceData || "{}");
-                          } catch {}
-                          this._updateConfig("tap_action", {
-                            type: "call-service",
-                            service: this._tapService,
-                            service_data: data,
-                          });
-                        }}
-                      ></ha-textfield>
-                    </ha-formfield>
-                  `
-                : ""}
-            `
-          : ""}
+                    <mwc-list-item value="more-info">More Info</mwc-list-item>
+                    <mwc-list-item value="navigate">Navigate</mwc-list-item>
+                    <mwc-list-item value="call-service"
+                      >Call Service</mwc-list-item
+                    >
+                  </ha-select>
+                </div>
+                ${this._tapType === "more-info"
+                  ? html`
+                      <ha-formfield label="Entity">
+                        <ha-textfield
+                          .value=${this._tapEntity}
+                          @input=${(e) => {
+                            this._tapEntity = e.target.value;
+                            this._updateConfig("tap_action", {
+                              type: "more-info",
+                              entity: this._tapEntity,
+                            });
+                          }}
+                        ></ha-textfield>
+                      </ha-formfield>
+                    `
+                  : ""}
+                ${this._tapType === "navigate"
+                  ? html`
+                      <ha-formfield label="Navigation path">
+                        <ha-textfield
+                          .value=${this._tapNavigation}
+                          @input=${(e) => {
+                            this._tapNavigation = e.target.value;
+                            this._updateConfig("tap_action", {
+                              type: "navigate",
+                              navigation_path: this._tapNavigation,
+                            });
+                          }}
+                        ></ha-textfield>
+                      </ha-formfield>
+                    `
+                  : ""}
+                ${this._tapType === "call-service"
+                  ? html`
+                      <ha-formfield label="Service (e.g. light.turn_on)">
+                        <ha-textfield
+                          .value=${this._tapService}
+                          @input=${(e) => {
+                            this._tapService = e.target.value;
+                            let data = {};
+                            try {
+                              data = JSON.parse(this._tapServiceData || "{}");
+                            } catch {}
+                            this._updateConfig("tap_action", {
+                              type: "call-service",
+                              service: this._tapService,
+                              service_data: data,
+                            });
+                          }}
+                        ></ha-textfield>
+                      </ha-formfield>
+                      <ha-formfield label="Service data (JSON)">
+                        <ha-textfield
+                          .value=${this._tapServiceData}
+                          @input=${(e) => {
+                            this._tapServiceData = e.target.value;
+                            let data = {};
+                            try {
+                              data = JSON.parse(this._tapServiceData || "{}");
+                            } catch {}
+                            this._updateConfig("tap_action", {
+                              type: "call-service",
+                              service: this._tapService,
+                              service_data: data,
+                            });
+                          }}
+                        ></ha-textfield>
+                      </ha-formfield>
+                    `
+                  : ""}
+              `
+            : ""}
+        </details>
 
         <!-- Debug -->
-        <ha-formfield label="${this._t("debug")}">
-          <ha-switch
-            .checked=${c.debug}
-            @change=${(e) => this._updateConfig("debug", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
+        <details>
+          <summary>${this._t("summary_advanced")}</summary>
+          <ha-formfield label="${this._t("debug")}">
+            <ha-switch
+              .checked=${c.debug}
+              @change=${(e) => this._updateConfig("debug", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+        </details>
       </div>
     `;
   }
@@ -1882,6 +1934,30 @@ class PollenPrognosCardEditor extends LitElement {
       }
       .slider-row ha-slider {
         width: 100%;
+      }
+      details {
+        margin-bottom: 8px;
+        border-radius: 4px;
+      }
+
+      details summary {
+        font-weight: bold;
+        cursor: pointer;
+        background: #f6f6f6;
+        border-radius: 4px;
+        padding: 4px 8px;
+        border: 1px solid #ddd;
+      }
+
+      details details {
+        margin-left: 16px;
+        background: #f9f9f9;
+        border-left: 2px solid #bcd;
+      }
+
+      details details summary {
+        background: #f0f7fc;
+        border: 1px solid #cde;
       }
     `;
   }
