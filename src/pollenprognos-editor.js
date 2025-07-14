@@ -1161,7 +1161,7 @@ class PollenPrognosCardEditor extends LitElement {
           <summary>${this._t("summary_appearance_and_layout")}</summary>
 
           <!-- Titel och header -->
-          <details>
+          <details open>
             <summary>${this._t("summary_title_and_header")}</summary>
             <div style="display:flex; gap:8px; align-items:center;">
               <ha-formfield label="${this._t("title_hide")}">
@@ -1211,7 +1211,7 @@ class PollenPrognosCardEditor extends LitElement {
           </details>
 
           <!-- Visningsswitchar för data -->
-          <details>
+          <details open>
             <summary>${this._t("summary_data_view_settings")}</summary>
             <ha-formfield label="${this._t("allergens_abbreviated")}">
               <ha-switch
@@ -1261,7 +1261,7 @@ class PollenPrognosCardEditor extends LitElement {
           </details>
 
           <!-- Dag-inställningar -->
-          <details>
+          <details open>
             <summary>${this._t("summary_day_view_settings")}</summary>
             <ha-formfield label="${this._t("days_relative")}">
               <ha-switch
@@ -1293,71 +1293,82 @@ class PollenPrognosCardEditor extends LitElement {
             </ha-formfield>
           </details>
 
-          <ha-formfield label="${this._t("background_color")}">
-            <div style="display:flex; gap:8px; align-items:center;">
-              <ha-textfield
-                .value=${c.background_color || ""}
-                placeholder="${this._t("background_color_placeholder") ||
-                "#ffffff"}"
+          <details open>
+            <summary>${this._t("summary_card_layout_and_colors")}</summary>
+
+            <ha-formfield label="${this._t("minimal")}">
+              <ha-switch
+                .checked=${c.minimal}
+                @change=${(e) =>
+                  this._updateConfig("minimal", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("background_color")}">
+              <div style="display:flex; gap:8px; align-items:center;">
+                <ha-textfield
+                  .value=${c.background_color || ""}
+                  placeholder="${this._t("background_color_placeholder") ||
+                  "#ffffff"}"
+                  @input=${(e) =>
+                    this._updateConfig("background_color", e.target.value)}
+                  style="width: 120px;"
+                ></ha-textfield>
+                <input
+                  type="color"
+                  .value=${c.background_color &&
+                  /^#[0-9a-fA-F]{6}$/.test(c.background_color)
+                    ? c.background_color
+                    : "#ffffff"}
+                  @input=${(e) =>
+                    this._updateConfig("background_color", e.target.value)}
+                  style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
+                  title="${this._t("background_color_picker") || "Pick color"}"
+                />
+              </div>
+            </ha-formfield>
+            <ha-formfield label="${this._t("icon_size")}">
+              <ha-slider
+                min="16"
+                max="128"
+                step="1"
+                .value=${c.icon_size ?? 48}
                 @input=${(e) =>
-                  this._updateConfig("background_color", e.target.value)}
+                  this._updateConfig("icon_size", Number(e.target.value))}
                 style="width: 120px;"
-              ></ha-textfield>
-              <input
-                type="color"
-                .value=${c.background_color &&
-                /^#[0-9a-fA-F]{6}$/.test(c.background_color)
-                  ? c.background_color
-                  : "#ffffff"}
+              ></ha-slider>
+              <ha-textfield
+                .value=${c.icon_size ?? 48}
+                type="number"
+                min="16"
+                max="128"
+                step="1"
                 @input=${(e) =>
-                  this._updateConfig("background_color", e.target.value)}
-                style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
-                title="${this._t("background_color_picker") || "Pick color"}"
-              />
-            </div>
-          </ha-formfield>
-          <ha-formfield label="${this._t("icon_size")}">
-            <ha-slider
-              min="16"
-              max="128"
-              step="1"
-              .value=${c.icon_size ?? 48}
-              @input=${(e) =>
-                this._updateConfig("icon_size", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              .value=${c.icon_size ?? 48}
-              type="number"
-              min="16"
-              max="128"
-              step="1"
-              @input=${(e) =>
-                this._updateConfig("icon_size", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-          </ha-formfield>
-          <ha-formfield label="Datum-/textstorlek">
-            <ha-slider
-              min="0.5"
-              max="2"
-              step="0.05"
-              .value=${c.text_size_ratio ?? 1}
-              @input=${(e) =>
-                this._updateConfig("text_size_ratio", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              type="number"
-              .value=${c.text_size_ratio ?? 1}
-              min="0.5"
-              max="2"
-              step="0.05"
-              @input=${(e) =>
-                this._updateConfig("text_size_ratio", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-          </ha-formfield>
+                  this._updateConfig("icon_size", Number(e.target.value))}
+                style="width: 80px;"
+              ></ha-textfield>
+            </ha-formfield>
+            <ha-formfield label="${this._t("text_size_ratio")}">
+              <ha-slider
+                min="0.5"
+                max="2"
+                step="0.05"
+                .value=${c.text_size_ratio ?? 1}
+                @input=${(e) =>
+                  this._updateConfig("text_size_ratio", Number(e.target.value))}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                .value=${c.text_size_ratio ?? 1}
+                min="0.5"
+                max="2"
+                step="0.05"
+                @input=${(e) =>
+                  this._updateConfig("text_size_ratio", Number(e.target.value))}
+                style="width: 80px;"
+              ></ha-textfield>
+            </ha-formfield>
+          </details>
           <details>
             <summary>${this._t("levels_header")}</summary>
 
@@ -1602,12 +1613,6 @@ class PollenPrognosCardEditor extends LitElement {
               </div>
             </ha-formfield>
           </details>
-          <ha-formfield label="${this._t("minimal")}">
-            <ha-switch
-              .checked=${c.minimal}
-              @change=${(e) => this._updateConfig("minimal", e.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
         </details>
 
         <!-- Översättningar och textsträngar -->
@@ -1929,6 +1934,30 @@ class PollenPrognosCardEditor extends LitElement {
       }
       .slider-row ha-slider {
         width: 100%;
+      }
+      details {
+        margin-bottom: 8px;
+        border-radius: 4px;
+      }
+
+      details summary {
+        font-weight: bold;
+        cursor: pointer;
+        background: #f6f6f6;
+        border-radius: 4px;
+        padding: 4px 8px;
+        border: 1px solid #ddd;
+      }
+
+      details details {
+        margin-left: 16px;
+        background: #f9f9f9;
+        border-left: 2px solid #bcd;
+      }
+
+      details details summary {
+        background: #f0f7fc;
+        border: 1px solid #cde;
       }
     `;
   }
