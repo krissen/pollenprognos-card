@@ -9,7 +9,7 @@ export const LEVELS_DEFAULTS = {
     "#FF001C",
   ],
   levels_empty_color: "rgba(200, 200, 200, 0.15)",
-  levels_gap_color: "var(--card-background-color)",
+  levels_gap_color: "rgba(200, 200, 200, 1)",
   levels_thickness: 60,
   levels_gap: 1,
   levels_text_weight: "normal",
