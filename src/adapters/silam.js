@@ -24,6 +24,7 @@ export const stubConfigSILAM = {
   mode: "daily",
   background_color: "",
   icon_size: "48",
+  text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   mode: "daily",
   show_text_allergen: true,

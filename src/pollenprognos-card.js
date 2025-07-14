@@ -95,6 +95,7 @@ class PollenPrognosCard extends LitElement {
     const fontWeight = container.fontWeight || "normal"; // Default to normal instead of bold
     const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2; // Smaller default ratio
     const textColor = container.textColor || "var(--primary-text-color)";
+    const textSizeRatio = this.config?.text_size_ratio ?? 1;
 
     // Apply custom styling
     valueText.style.fontSize = `${size * fontSizeRatio}px`;
@@ -453,8 +454,23 @@ class PollenPrognosCard extends LitElement {
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < min) lvl = min;
     if (lvl > max) lvl = max;
+
+    // if (this.debug) {
+    //   console.debug(
+    //     `[getImageSrc] allergenReplaced=${allergenReplaced} state=${state} scaled=${scaled} lvl=${lvl}`,
+    //   );
+    // }
+
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
     const specific = images[`${key}_${lvl}_png`];
+
+    // if (this.debug) {
+    //   console.debug(
+    //     `[getImageSrc] key=${key} specific=${!!specific} images[${key}_${lvl}_png]`,
+    //     images[`${key}_${lvl}_png`],
+    //   );
+    // }
+
     return specific || images[`${lvl}_png`];
   }
 
@@ -982,6 +998,8 @@ class PollenPrognosCard extends LitElement {
   }
 
   _renderMinimalHtml() {
+    const textSizeRatio = this.config?.text_size_ratio ?? 1;
+
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
@@ -1017,7 +1035,13 @@ class PollenPrognosCard extends LitElement {
                     sensor.day0?.state,
                   )}"
                 />
-                ${label ? html`<span class="short-text">${label}</span>` : ""}
+                ${label
+                  ? html`<span
+                      class="short-text"
+                      style="font-size: ${1.0 * textSizeRatio}em;"
+                      >${label}</span
+                    >`
+                  : ""}
               </div>
             `;
           })}
@@ -1027,6 +1051,7 @@ class PollenPrognosCard extends LitElement {
   }
 
   _renderNormalHtml() {
+    const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
     const colors = this.config.levels_colors ?? [
@@ -1074,7 +1099,10 @@ class PollenPrognosCard extends LitElement {
                       <div
                         style="display: flex; flex-direction: column; align-items: center;"
                       >
-                        <span class="day-header">
+                        <span
+                          class="day-header"
+                          style="font-size: ${1.0 * textSizeRatio}em;"
+                        >
                           ${this.sensors[0].days[i]?.day || ""}
                         </span>
                         ${this.config.mode === "twice_daily" &&
@@ -1130,11 +1158,13 @@ class PollenPrognosCard extends LitElement {
                   ? html`
                       <tr class="allergen-text-row">
                         <td>
-                          ${this.config.show_text_allergen
-                            ? this.config.allergens_abbreviated
-                              ? sensor.allergenShort
-                              : sensor.allergenCapitalized
-                            : ""}
+                          <span style="font-size: ${1.0 * textSizeRatio}em;">
+                            ${this.config.show_text_allergen
+                              ? this.config.allergens_abbreviated
+                                ? sensor.allergenShort
+                                : sensor.allergenCapitalized
+                              : ""}
+                          </span>
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
@@ -1150,7 +1180,11 @@ class PollenPrognosCard extends LitElement {
                           } else if (this.config.show_value_numeric) {
                             content = String(num);
                           }
-                          return html`<td>${content}</td>`;
+                          return html`<td>
+                            <span style="font-size: ${1.0 * textSizeRatio}em;"
+                              >${content}</span
+                            >
+                          </td>`;
                         })}
                       </tr>
                     `
