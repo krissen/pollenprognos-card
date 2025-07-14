@@ -31,7 +31,7 @@ export const stubConfigSILAM = {
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
-  show_empty_days: true,
+  show_empty_days: false,
   debug: false,
   days_to_show: 2,
   days_relative: true,
