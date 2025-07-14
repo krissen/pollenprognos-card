@@ -4825,43 +4825,174 @@ class ar extends ne {
               ` : ""}
         </details>
 
-        <!-- Titel och header -->
+        <!-- Allergener -->
         <details>
-          <summary>${this._t("summary_title_and_header")}</summary>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <ha-formfield label="${this._t("title_hide")}">
-              <ha-checkbox
-                .checked=${e.title === !1}
-                @change=${(i) => {
-      i.target.checked ? this._updateConfig("title", !1) : this._updateConfig("title", !0);
-    }}
-              ></ha-checkbox>
-            </ha-formfield>
-            <ha-formfield label="${this._t("title_automatic")}">
-              <ha-checkbox
-                .checked=${e.title === !0 || e.title === void 0}
-                @change=${(i) => {
-      i.target.checked ? this._updateConfig("title", !0) : this._updateConfig("title", "");
-    }}
-              ></ha-checkbox>
-            </ha-formfield>
+          <summary>${this._t("summary_allergens")}</summary>
+          <div class="allergens-group">
+            ${A.map(
+      (i) => O`
+                <ha-formfield .label=${i}>
+                  <ha-checkbox
+                    .checked=${e.allergens.includes(i)}
+                    @change=${(s) => this._onAllergenToggle(i, s.target.checked)}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `
+    )}
           </div>
-          <ha-formfield label="${this._t("title")}">
-            <ha-textfield
-              .value=${typeof e.title == "string" ? e.title : e.title === !1 ? "(false)" : ""}
-              placeholder="${this._t("title_placeholder")}"
-              .disabled=${e.title === !1}
-              @input=${(i) => {
-      const s = i.target.value;
-      s.trim() === "" ? this._updateConfig("title", !0) : this._updateConfig("title", s);
-    }}
-            ></ha-textfield>
+        </details>
+
+        <!-- Funktionella inställningar -->
+        <details>
+          <summary>${this._t("summary_functional_settings")}</summary>
+          <div class="slider-row">
+            <div class="slider-text">
+              ${e.integration === "silam" && e.mode === "twice_daily" ? this._t("to_show_columns") : e.integration === "silam" && e.mode === "hourly" ? this._t("to_show_hours") : this._t("to_show_days")}
+            </div>
+            <div class="slider-value">${e.days_to_show}</div>
+            <ha-slider
+              min="0"
+              max="${e.integration === "silam" && (e.mode === "hourly" || e.mode === "twice_daily") ? 8 : 6}"
+              step="1"
+              .value=${e.days_to_show}
+              @input=${(i) => this._updateConfig("days_to_show", Number(i.target.value))}
+            ></ha-slider>
+          </div>
+          <div class="slider-row">
+            <div class="slider-text">${this._t("pollen_threshold")}</div>
+            <div class="slider-value">${e.pollen_threshold}</div>
+            <ha-slider
+              min="${o.min}"
+              max="${o.max}"
+              step="${o.step}"
+              .value=${e.pollen_threshold}
+              @input=${(i) => this._updateConfig("pollen_threshold", Number(i.target.value))}
+            ></ha-slider>
+          </div>
+          <ha-formfield label="${this._t("sort")}">
+            <ha-select
+              .value=${e.sort}
+              @selected=${(i) => this._updateConfig("sort", i.target.value)}
+              @closed=${(i) => i.stopPropagation()}
+            >
+              ${a.map(
+      ({ value: i, label: s }) => O`<mwc-list-item .value=${i}>${s}</mwc-list-item>`
+    )}
+            </ha-select>
           </ha-formfield>
         </details>
 
         <!-- Utseende och layout -->
         <details>
           <summary>${this._t("summary_appearance_and_layout")}</summary>
+
+          <!-- Titel och header -->
+          <details>
+            <summary>${this._t("summary_title_and_header")}</summary>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <ha-formfield label="${this._t("title_hide")}">
+                <ha-checkbox
+                  .checked=${e.title === !1}
+                  @change=${(i) => {
+      i.target.checked ? this._updateConfig("title", !1) : this._updateConfig("title", !0);
+    }}
+                ></ha-checkbox>
+              </ha-formfield>
+              <ha-formfield label="${this._t("title_automatic")}">
+                <ha-checkbox
+                  .checked=${e.title === !0 || e.title === void 0}
+                  @change=${(i) => {
+      i.target.checked ? this._updateConfig("title", !0) : this._updateConfig("title", "");
+    }}
+                ></ha-checkbox>
+              </ha-formfield>
+            </div>
+            <ha-formfield label="${this._t("title")}">
+              <ha-textfield
+                .value=${typeof e.title == "string" ? e.title : e.title === !1 ? "(false)" : ""}
+                placeholder="${this._t("title_placeholder")}"
+                .disabled=${e.title === !1}
+                @input=${(i) => {
+      const s = i.target.value;
+      s.trim() === "" ? this._updateConfig("title", !0) : this._updateConfig("title", s);
+    }}
+              ></ha-textfield>
+            </ha-formfield>
+          </details>
+
+          <!-- Visningsswitchar för data -->
+          <details>
+            <summary>${this._t("summary_data_view_settings")}</summary>
+            <ha-formfield label="${this._t("allergens_abbreviated")}">
+              <ha-switch
+                .checked=${e.allergens_abbreviated}
+                @change=${(i) => this._updateConfig("allergens_abbreviated", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_text_allergen")}">
+              <ha-switch
+                .checked=${e.show_text_allergen}
+                @change=${(i) => this._updateConfig("show_text_allergen", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_value_text")}">
+              <ha-switch
+                .checked=${e.show_value_text}
+                @change=${(i) => this._updateConfig("show_value_text", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_value_numeric")}">
+              <ha-switch
+                .checked=${e.show_value_numeric}
+                @change=${(i) => this._updateConfig("show_value_numeric", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
+              <ha-switch
+                .checked=${e.show_value_numeric_in_circle}
+                @change=${(i) => this._updateConfig(
+      "show_value_numeric_in_circle",
+      i.target.checked
+    )}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("show_empty_days")}">
+              <ha-switch
+                .checked=${e.show_empty_days}
+                @change=${(i) => this._updateConfig("show_empty_days", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+          </details>
+
+          <!-- Dag-inställningar -->
+          <details>
+            <summary>${this._t("summary_day_view_settings")}</summary>
+            <ha-formfield label="${this._t("days_relative")}">
+              <ha-switch
+                .checked=${e.days_relative}
+                @change=${(i) => this._updateConfig("days_relative", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("days_abbreviated")}">
+              <ha-switch
+                .checked=${e.days_abbreviated}
+                @change=${(i) => this._updateConfig("days_abbreviated", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("days_uppercase")}">
+              <ha-switch
+                .checked=${e.days_uppercase}
+                @change=${(i) => this._updateConfig("days_uppercase", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+            <ha-formfield label="${this._t("days_boldfaced")}">
+              <ha-switch
+                .checked=${e.days_boldfaced}
+                @change=${(i) => this._updateConfig("days_boldfaced", i.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
+          </details>
+
           <ha-formfield label="${this._t("background_color")}">
             <div style="display:flex; gap:8px; align-items:center;">
               <ha-textfield
@@ -5139,136 +5270,6 @@ class ar extends ne {
               @change=${(i) => this._updateConfig("minimal", i.target.checked)}
             ></ha-switch>
           </ha-formfield>
-        </details>
-
-        <!-- Funktionella inställningar -->
-        <details>
-          <summary>${this._t("summary_functional_settings")}</summary>
-          <div class="slider-row">
-            <div class="slider-text">
-              ${e.integration === "silam" && e.mode === "twice_daily" ? this._t("to_show_columns") : e.integration === "silam" && e.mode === "hourly" ? this._t("to_show_hours") : this._t("to_show_days")}
-            </div>
-            <div class="slider-value">${e.days_to_show}</div>
-            <ha-slider
-              min="0"
-              max="${e.integration === "silam" && (e.mode === "hourly" || e.mode === "twice_daily") ? 8 : 6}"
-              step="1"
-              .value=${e.days_to_show}
-              @input=${(i) => this._updateConfig("days_to_show", Number(i.target.value))}
-            ></ha-slider>
-          </div>
-          <div class="slider-row">
-            <div class="slider-text">${this._t("pollen_threshold")}</div>
-            <div class="slider-value">${e.pollen_threshold}</div>
-            <ha-slider
-              min="${o.min}"
-              max="${o.max}"
-              step="${o.step}"
-              .value=${e.pollen_threshold}
-              @input=${(i) => this._updateConfig("pollen_threshold", Number(i.target.value))}
-            ></ha-slider>
-          </div>
-          <ha-formfield label="${this._t("sort")}">
-            <ha-select
-              .value=${e.sort}
-              @selected=${(i) => this._updateConfig("sort", i.target.value)}
-              @closed=${(i) => i.stopPropagation()}
-            >
-              ${a.map(
-      ({ value: i, label: s }) => O`<mwc-list-item .value=${i}>${s}</mwc-list-item>`
-    )}
-            </ha-select>
-          </ha-formfield>
-        </details>
-
-        <!-- Visningsswitchar för data -->
-        <details>
-          <summary>${this._t("summary_data_view_settings")}</summary>
-          <ha-formfield label="${this._t("allergens_abbreviated")}">
-            <ha-switch
-              .checked=${e.allergens_abbreviated}
-              @change=${(i) => this._updateConfig("allergens_abbreviated", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_text_allergen")}">
-            <ha-switch
-              .checked=${e.show_text_allergen}
-              @change=${(i) => this._updateConfig("show_text_allergen", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_value_text")}">
-            <ha-switch
-              .checked=${e.show_value_text}
-              @change=${(i) => this._updateConfig("show_value_text", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_value_numeric")}">
-            <ha-switch
-              .checked=${e.show_value_numeric}
-              @change=${(i) => this._updateConfig("show_value_numeric", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
-            <ha-switch
-              .checked=${e.show_value_numeric_in_circle}
-              @change=${(i) => this._updateConfig(
-      "show_value_numeric_in_circle",
-      i.target.checked
-    )}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_empty_days")}">
-            <ha-switch
-              .checked=${e.show_empty_days}
-              @change=${(i) => this._updateConfig("show_empty_days", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-        </details>
-
-        <!-- Dag-inställningar -->
-        <details>
-          <summary>${this._t("summary_day_view_settings")}</summary>
-          <ha-formfield label="${this._t("days_relative")}">
-            <ha-switch
-              .checked=${e.days_relative}
-              @change=${(i) => this._updateConfig("days_relative", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("days_abbreviated")}">
-            <ha-switch
-              .checked=${e.days_abbreviated}
-              @change=${(i) => this._updateConfig("days_abbreviated", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("days_uppercase")}">
-            <ha-switch
-              .checked=${e.days_uppercase}
-              @change=${(i) => this._updateConfig("days_uppercase", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("days_boldfaced")}">
-            <ha-switch
-              .checked=${e.days_boldfaced}
-              @change=${(i) => this._updateConfig("days_boldfaced", i.target.checked)}
-            ></ha-switch>
-          </ha-formfield>
-        </details>
-
-        <!-- Allergener -->
-        <details>
-          <summary>${this._t("summary_allergens")}</summary>
-          <div class="allergens-group">
-            ${A.map(
-      (i) => O`
-                <ha-formfield .label=${i}>
-                  <ha-checkbox
-                    .checked=${e.allergens.includes(i)}
-                    @change=${(s) => this._onAllergenToggle(i, s.target.checked)}
-                  ></ha-checkbox>
-                </ha-formfield>
-              `
-    )}
-          </div>
         </details>
 
         <!-- Översättningar och textsträngar -->
