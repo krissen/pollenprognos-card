@@ -5,16 +5,6 @@
  * Each entry’s value is the imported PNG, which Rollup will inline as base64.
  */
 
-// Global icons
-import img_minus1 from "./images/-1.png";
-import img_0 from "./images/0.png";
-import img_1 from "./images/1.png";
-import img_2 from "./images/2.png";
-import img_3 from "./images/3.png";
-import img_4 from "./images/4.png";
-import img_5 from "./images/5.png";
-import img_6 from "./images/6.png";
-
 // Alder (Al)
 import img_alder_0 from "./images/alder_0.png";
 import img_alder_1 from "./images/alder_1.png";
