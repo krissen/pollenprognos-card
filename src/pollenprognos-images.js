@@ -184,16 +184,6 @@ import img_willow_6 from "./images/willow_6.png";
 import img_willow_minus1 from "./images/willow_-1.png";
 
 export const images = {
-  // global
-  "-1_png": img_minus1,
-  "0_png": img_0,
-  "1_png": img_1,
-  "2_png": img_2,
-  "3_png": img_3,
-  "4_png": img_4,
-  "5_png": img_5,
-  "6_png": img_6,
-
   // alder
   "alder_-1_png": img_alder_minus1,
   alder_0_png: img_alder_0,
