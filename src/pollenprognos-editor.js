@@ -1254,6 +1254,254 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
+            <details>
+              <summary>${this._t("levels_header")}</summary>
+              <ha-formfield label="${this._t("levels_colors")}">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  ${c.levels_colors.map(
+                    (col, i) => html`
+                      <div
+                        style="display: flex; align-items: center; gap: 8px;"
+                      >
+                        <input
+                          type="color"
+                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
+                            ? col
+                            : "#000000"}
+                          @input=${(e) => {
+                            const newColors = [...c.levels_colors];
+                            newColors[i] = e.target.value;
+                            this._updateConfig("levels_colors", newColors);
+                          }}
+                          style="width: 28px; height: 28px; border: none; background: none;"
+                        />
+                        <ha-textfield
+                          .value=${col}
+                          placeholder="${this._t("levels_colors_placeholder")}"
+                          @input=${(e) => {
+                            const newColors = [...c.levels_colors];
+                            newColors[i] = e.target.value;
+                            this._updateConfig("levels_colors", newColors);
+                          }}
+                          style="width: 100px;"
+                        ></ha-textfield>
+                        <mwc-button
+                          dense
+                          outlined
+                          title="${this._t("levels_reset")}"
+                          @click=${() => {
+                            const newColors = [...c.levels_colors];
+                            newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
+                            this._updateConfig("levels_colors", newColors);
+                          }}
+                          style="margin-left: 8px;"
+                          >↺</mwc-button
+                        >
+                      </div>
+                    `,
+                  )}
+                </div>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_empty_color")}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    type="color"
+                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                      c.levels_empty_color,
+                    )
+                      ? c.levels_empty_color
+                      : "#cccccc"}
+                    @input=${(e) =>
+                      this._updateConfig("levels_empty_color", e.target.value)}
+                    style="width: 28px; height: 28px; border: none; background: none;"
+                  />
+                  <ha-textfield
+                    .value=${c.levels_empty_color}
+                    placeholder="${this._t("levels_colors_placeholder")}"
+                    @input=${(e) =>
+                      this._updateConfig("levels_empty_color", e.target.value)}
+                    style="width: 100px;"
+                  ></ha-textfield>
+                  <mwc-button
+                    dense
+                    outlined
+                    title="${this._t("levels_reset")}"
+                    @click=${() =>
+                      this._updateConfig(
+                        "levels_empty_color",
+                        LEVELS_DEFAULTS.levels_empty_color,
+                      )}
+                    style="margin-left: 8px;"
+                    >↺</mwc-button
+                  >
+                </div>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_gap_color")}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    type="color"
+                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                      c.levels_gap_color,
+                    )
+                      ? c.levels_gap_color
+                      : "#ffffff"}
+                    @input=${(e) =>
+                      this._updateConfig("levels_gap_color", e.target.value)}
+                    style="width: 28px; height: 28px; border: none; background: none;"
+                  />
+                  <ha-textfield
+                    .value=${c.levels_gap_color}
+                    placeholder="${this._t("levels_colors_placeholder")}"
+                    @input=${(e) =>
+                      this._updateConfig("levels_gap_color", e.target.value)}
+                    style="width: 100px;"
+                  ></ha-textfield>
+                  <mwc-button
+                    dense
+                    outlined
+                    title="${this._t("levels_reset")}"
+                    @click=${() =>
+                      this._updateConfig(
+                        "levels_gap_color",
+                        LEVELS_DEFAULTS.levels_gap_color,
+                      )}
+                    style="margin-left: 8px;"
+                    >↺</mwc-button
+                  >
+                </div>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_thickness")}">
+                <ha-slider
+                  min="10"
+                  max="90"
+                  step="1"
+                  .value=${c.levels_thickness}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_thickness",
+                      Number(e.target.value),
+                    )}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.levels_thickness}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_thickness",
+                      Number(e.target.value),
+                    )}
+                  style="width: 80px;"
+                ></ha-textfield>
+                <mwc-button
+                  dense
+                  outlined
+                  title="${this._t("levels_reset")}"
+                  @click=${() =>
+                    this._updateConfig(
+                      "levels_thickness",
+                      LEVELS_DEFAULTS.levels_thickness,
+                    )}
+                  style="margin-left: 8px;"
+                  >↺</mwc-button
+                >
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_gap")}">
+                <ha-slider
+                  min="0"
+                  max="20"
+                  step="1"
+                  .value=${c.levels_gap}
+                  @input=${(e) =>
+                    this._updateConfig("levels_gap", Number(e.target.value))}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.levels_gap}
+                  @input=${(e) =>
+                    this._updateConfig("levels_gap", Number(e.target.value))}
+                  style="width: 80px;"
+                ></ha-textfield>
+                <mwc-button
+                  dense
+                  outlined
+                  title="${this._t("levels_reset")}"
+                  @click=${() =>
+                    this._updateConfig(
+                      "levels_gap",
+                      LEVELS_DEFAULTS.levels_gap,
+                    )}
+                  style="margin-left: 8px;"
+                  >↺</mwc-button
+                >
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_text_weight")}">
+                <ha-select
+                  .value=${c.levels_text_weight || "normal"}
+                  @selected=${(e) =>
+                    this._updateConfig("levels_text_weight", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
+                >
+                  <mwc-list-item value="normal">Normal</mwc-list-item>
+                  <mwc-list-item value="500">Medium</mwc-list-item>
+                  <mwc-list-item value="bold">Bold</mwc-list-item>
+                </ha-select>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_text_size")}">
+                <ha-slider
+                  min="0.1"
+                  max="0.5"
+                  step="0.05"
+                  .value=${c.levels_text_size || 0.3}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_text_size",
+                      Number(e.target.value),
+                    )}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.levels_text_size || 0.3}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_text_size",
+                      Number(e.target.value),
+                    )}
+                  style="width: 80px;"
+                ></ha-textfield>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_text_color")}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    type="color"
+                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                      c.levels_text_color || "",
+                    )
+                      ? c.levels_text_color
+                      : "#000000"}
+                    @input=${(e) =>
+                      this._updateConfig("levels_text_color", e.target.value)}
+                    style="width: 28px; height: 28px; border: none; background: none;"
+                  />
+                  <ha-textfield
+                    .value=${c.levels_text_color || ""}
+                    placeholder="var(--primary-text-color)"
+                    @input=${(e) =>
+                      this._updateConfig("levels_text_color", e.target.value)}
+                    style="width: 100px;"
+                  ></ha-textfield>
+                </div>
+              </ha-formfield>
+            </details>
           </details>
 
           <!-- Display Switches -->
@@ -1733,29 +1981,43 @@ class PollenPrognosCardEditor extends LitElement {
         width: 100%;
       }
       details {
-        margin-bottom: 8px;
-        border-radius: 4px;
+        margin-bottom: 16px; /* Increased for more space */
+        border-radius: 6px; /* Slightly larger radius */
+        padding: 8px 0 0 0; /* Add top padding for air */
       }
+
+      /* Indent all direct children of details except summary and nested details */
+      details > *:not(summary):not(details) {
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
       details summary {
         font-weight: bold;
         cursor: pointer;
         background: var(--card-background-color, #f6f6f6);
-        border-radius: 4px;
-        padding: 4px 8px;
+        border-radius: 6px;
+        padding: 10px 16px; /* More padding for air */
         border: 1px solid var(--divider-color, #ddd);
         color: var(--primary-text-color, #222);
+        margin-bottom: 4px; /* Space below summary */
       }
 
       details details {
-        margin-left: 16px;
+        margin-left: 24px; /* More indent */
+        margin-right: 24px; /* More indent */
         background: var(--secondary-background-color, #f9f9f9);
         border-left: 2px solid var(--primary-color, #bcd);
+        padding: 8px 0 8px 8px; /* More padding inside nested details */
       }
 
       details details summary {
         background: var(--ha-card-background, #f0f7fc);
         border: 1px solid var(--ha-card-border-color, #cde);
         color: var(--primary-text-color, #222);
+        margin-bottom: 4px;
+        padding: 8px 12px;
+        border-radius: 5px;
       }
     `;
   }
