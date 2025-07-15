@@ -2218,25 +2218,26 @@ class PollenPrognosCardEditor extends LitElement {
         margin-bottom: 8px;
         border-radius: 4px;
       }
-
       details summary {
         font-weight: bold;
         cursor: pointer;
-        background: #f6f6f6;
+        background: var(--card-background-color, #f6f6f6);
         border-radius: 4px;
         padding: 4px 8px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--divider-color, #ddd);
+        color: var(--primary-text-color, #222);
       }
 
       details details {
         margin-left: 16px;
-        background: #f9f9f9;
-        border-left: 2px solid #bcd;
+        background: var(--secondary-background-color, #f9f9f9);
+        border-left: 2px solid var(--primary-color, #bcd);
       }
 
       details details summary {
-        background: #f0f7fc;
-        border: 1px solid #cde;
+        background: var(--ha-card-background, #f0f7fc);
+        border: 1px solid var(--ha-card-border-color, #cde);
+        color: var(--primary-text-color, #222);
       }
     `;
   }

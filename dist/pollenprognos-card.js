@@ -270,7 +270,7 @@ re[Ve] = !0, re.elementProperties = /* @__PURE__ */ new Map(), re.elementStyles 
 var ve;
 const pe = window, le = pe.trustedTypes, Xe = le ? le.createPolicy("lit-html", { createHTML: (s) => s }) : void 0, Ye = "$lit$", $ = `lit$${(Math.random() + "").slice(9)}$`, Ii = "?" + $, vi = `<${Ii}>`, te = document, de = () => te.createComment(""), he = (s) => s === null || typeof s != "object" && typeof s != "function", Ei = Array.isArray, xi = (s) => Ei(s) || typeof (s == null ? void 0 : s[Symbol.iterator]) == "function", xe = `[ 	
 \f\r]`, Ee = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ze = /-->/g, Le = />/g, ie = RegExp(`>|${xe}(?:([^\\s"'>=/]+)(${xe}*=${xe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Ne = /'/g, _e = /"/g, ci = /^(?:script|style|textarea|title)$/i, Oi = (s) => (e, ...i) => ({ _$litType$: s, strings: e, values: i }), z = Oi(1), ne = Symbol.for("lit-noChange"), P = Symbol.for("lit-nothing"), $e = /* @__PURE__ */ new WeakMap(), Ae = te.createTreeWalker(te, 129, null, !1);
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Ne = /'/g, _e = /"/g, ci = /^(?:script|style|textarea|title)$/i, Oi = (s) => (e, ...i) => ({ _$litType$: s, strings: e, values: i }), z = Oi(1), ne = Symbol.for("lit-noChange"), y = Symbol.for("lit-nothing"), $e = /* @__PURE__ */ new WeakMap(), Ae = te.createTreeWalker(te, 129, null, !1);
 function di(s, e) {
   if (!Array.isArray(s) || !s.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Xe !== void 0 ? Xe.createHTML(e) : e;
@@ -370,7 +370,7 @@ class zi {
 class Be {
   constructor(e, i, t, o) {
     var a;
-    this.type = 2, this._$AH = P, this._$AN = void 0, this._$AA = e, this._$AB = i, this._$AM = t, this.options = o, this._$Cp = (a = o == null ? void 0 : o.isConnected) === null || a === void 0 || a;
+    this.type = 2, this._$AH = y, this._$AN = void 0, this._$AA = e, this._$AB = i, this._$AM = t, this.options = o, this._$Cp = (a = o == null ? void 0 : o.isConnected) === null || a === void 0 || a;
   }
   get _$AU() {
     var e, i;
@@ -388,7 +388,7 @@ class Be {
     return this._$AB;
   }
   _$AI(e, i = this) {
-    e = ge(this, e, i), he(e) ? e === P || e == null || e === "" ? (this._$AH !== P && this._$AR(), this._$AH = P) : e !== this._$AH && e !== ne && this._(e) : e._$litType$ !== void 0 ? this.g(e) : e.nodeType !== void 0 ? this.$(e) : xi(e) ? this.T(e) : this._(e);
+    e = ge(this, e, i), he(e) ? e === y || e == null || e === "" ? (this._$AH !== y && this._$AR(), this._$AH = y) : e !== this._$AH && e !== ne && this._(e) : e._$litType$ !== void 0 ? this.g(e) : e.nodeType !== void 0 ? this.$(e) : xi(e) ? this.T(e) : this._(e);
   }
   k(e) {
     return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -397,7 +397,7 @@ class Be {
     this._$AH !== e && (this._$AR(), this._$AH = this.k(e));
   }
   _(e) {
-    this._$AH !== P && he(this._$AH) ? this._$AA.nextSibling.data = e : this.$(te.createTextNode(e)), this._$AH = e;
+    this._$AH !== y && he(this._$AH) ? this._$AA.nextSibling.data = e : this.$(te.createTextNode(e)), this._$AH = e;
   }
   g(e) {
     var i;
@@ -433,7 +433,7 @@ class Be {
 }
 class Ue {
   constructor(e, i, t, o, a) {
-    this.type = 1, this._$AH = P, this._$AN = void 0, this.element = e, this.name = i, this._$AM = o, this.options = a, t.length > 2 || t[0] !== "" || t[1] !== "" ? (this._$AH = Array(t.length - 1).fill(new String()), this.strings = t) : this._$AH = P;
+    this.type = 1, this._$AH = y, this._$AN = void 0, this.element = e, this.name = i, this._$AM = o, this.options = a, t.length > 2 || t[0] !== "" || t[1] !== "" ? (this._$AH = Array(t.length - 1).fill(new String()), this.strings = t) : this._$AH = y;
   }
   get tagName() {
     return this.element.tagName;
@@ -448,12 +448,12 @@ class Ue {
     else {
       const A = e;
       let r, g;
-      for (e = a[0], r = 0; r < a.length - 1; r++) g = ge(this, A[t + r], i, r), g === ne && (g = this._$AH[r]), n || (n = !he(g) || g !== this._$AH[r]), g === P ? e = P : e !== P && (e += (g ?? "") + a[r + 1]), this._$AH[r] = g;
+      for (e = a[0], r = 0; r < a.length - 1; r++) g = ge(this, A[t + r], i, r), g === ne && (g = this._$AH[r]), n || (n = !he(g) || g !== this._$AH[r]), g === y ? e = y : e !== y && (e += (g ?? "") + a[r + 1]), this._$AH[r] = g;
     }
     n && !o && this.j(e);
   }
   j(e) {
-    e === P ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
+    e === y ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }
 class qi extends Ue {
@@ -461,7 +461,7 @@ class qi extends Ue {
     super(...arguments), this.type = 3;
   }
   j(e) {
-    this.element[this.name] = e === P ? void 0 : e;
+    this.element[this.name] = e === y ? void 0 : e;
   }
 }
 const Vi = le ? le.emptyScript : "";
@@ -470,7 +470,7 @@ class Yi extends Ue {
     super(...arguments), this.type = 4;
   }
   j(e) {
-    e && e !== P ? this.element.setAttribute(this.name, Vi) : this.element.removeAttribute(this.name);
+    e && e !== y ? this.element.setAttribute(this.name, Vi) : this.element.removeAttribute(this.name);
   }
 }
 class Ki extends Ue {
@@ -479,8 +479,8 @@ class Ki extends Ue {
   }
   _$AI(e, i = this) {
     var t;
-    if ((e = (t = ge(this, e, i, 0)) !== null && t !== void 0 ? t : P) === ne) return;
-    const o = this._$AH, a = e === P && o !== P || e.capture !== o.capture || e.once !== o.once || e.passive !== o.passive, n = e !== P && (o === P || a);
+    if ((e = (t = ge(this, e, i, 0)) !== null && t !== void 0 ? t : y) === ne) return;
+    const o = this._$AH, a = e === y && o !== y || e.capture !== o.capture || e.once !== o.once || e.passive !== o.passive, n = e !== y && (o === y || a);
     a && this.element.removeEventListener(this.name, this, o), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
   handleEvent(e) {
@@ -2585,7 +2585,7 @@ function ee(s) {
 function ue(s) {
   return s.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
-const w = {
+const P = {
   levels_colors: [
     "#FFE55A",
     "#FFC84E",
@@ -2618,7 +2618,7 @@ const w = {
   background_color: "",
   icon_size: "48",
   text_size_ratio: 1,
-  ...w,
+  ...P,
   show_text_allergen: !0,
   show_value_text: !0,
   show_value_numeric: !1,
@@ -2700,7 +2700,7 @@ async function Zo(s, e) {
           }) : (C = x.date.toLocaleDateString(a, {
             weekday: A ? "short" : "long"
           }), C = C.charAt(0).toUpperCase() + C.slice(1)), r && (C = C.toUpperCase());
-          const m = f.attributes[j === 0 ? Wo : j === 1 ? To : Xo] || "", D = x.level * 2, y = Math.min(Math.max(Math.round(D), 0), 6), L = y < 0 ? Q : I[y] || m;
+          const m = f.attributes[j === 0 ? Wo : j === 1 ? To : Xo] || "", D = x.level * 2, w = Math.min(Math.max(Math.round(D), 0), 6), L = w < 0 ? Q : I[w] || m;
           d[`day${j}`] = {
             name: d.allergenCapitalized,
             day: C,
@@ -2751,7 +2751,7 @@ const Lo = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   background_color: "",
   icon_size: "48",
   text_size_ratio: 1,
-  ...w,
+  ...P,
   show_text_allergen: !0,
   show_value_text: !0,
   show_value_numeric: !1,
@@ -2816,8 +2816,8 @@ async function No(s, e) {
         const C = G.filter((m) => {
           const D = m.match(/^sensor\.polleninformation_(.+)_(.+)$/);
           if (!D) return !1;
-          const y = D[1], L = D[2];
-          return (!B || y === B) && L === f;
+          const w = D[1], L = D[2];
+          return (!B || w === B) && L === f;
         });
         if (C.length === 1) M = C[0];
         else continue;
@@ -2839,13 +2839,13 @@ async function No(s, e) {
         let C = x.length > 0 ? new Date(x[x.length - 1]) : p;
         for (; j.length < v; ) {
           C = new Date(C.getTime() + 864e5);
-          const m = C.getFullYear(), D = String(C.getMonth() + 1).padStart(2, "0"), y = String(C.getDate()).padStart(2, "0");
-          j.push(`${m}-${D}-${y}T00:00:00`);
+          const m = C.getFullYear(), D = String(C.getMonth() + 1).padStart(2, "0"), w = String(C.getDate()).padStart(2, "0");
+          j.push(`${m}-${D}-${w}T00:00:00`);
         }
       }
       j.forEach((C, m) => {
-        const D = H[C] || {}, y = R(D.level);
-        if (y !== null && y >= 0) {
+        const D = H[C] || {}, w = R(D.level);
+        if (w !== null && w >= 0) {
           const L = new Date(C), W = Math.round((L - p) / 864e5);
           let N;
           a ? Q[W] != null ? N = Q[W] : W >= 0 && W <= 2 ? N = K(`card.days.${W}`, t) : N = L.toLocaleDateString(o, {
@@ -2855,11 +2855,11 @@ async function No(s, e) {
             weekday: n ? "short" : "long"
           }), N = N.charAt(0).toUpperCase() + N.slice(1)), A && (N = N.toUpperCase());
           let Ce;
-          y < 2 ? Ce = Math.floor(y * 6 / 4) : Ce = Math.ceil(y * 6 / 4);
+          w < 2 ? Ce = Math.floor(w * 6 / 4) : Ce = Math.ceil(w * 6 / 4);
           const ye = {
             name: k.allergenCapitalized,
             day: N,
-            state: y,
+            state: w,
             state_text: Ce < 0 ? I : K(`card.levels.${Ce}`, t)
           };
           k[`day${m}`] = ye, k.days.push(ye);
@@ -2931,7 +2931,7 @@ const T = {
   background_color: "",
   icon_size: "48",
   text_size_ratio: 1,
-  ...LEVELS_DEFAULTS,
+  ...P,
   show_text_allergen: !0,
   show_value_text: !0,
   show_value_numeric: !1,
@@ -3300,7 +3300,7 @@ const or = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   background_color: "",
   icon_size: "48",
   text_size_ratio: 1,
-  ...w,
+  ...P,
   show_text_allergen: !0,
   show_value_text: !0,
   show_value_numeric: !1,
@@ -3393,12 +3393,12 @@ async function sr(s, e) {
         }
       }
       x.forEach((O, C) => {
-        const m = J[O] || {}, D = v(m.level), y = a(O), L = Math.round((y - n) / 864e5);
+        const m = J[O] || {}, D = v(m.level), w = a(O), L = Math.round((w - n) / 864e5);
         let W;
-        if (g ? p[L] != null ? W = p[L] : L >= 0 && L <= 2 ? W = K(`card.days.${L}`, A) : W = y.toLocaleDateString(r, {
+        if (g ? p[L] != null ? W = p[L] : L >= 0 && L <= 2 ? W = K(`card.days.${L}`, A) : W = w.toLocaleDateString(r, {
           day: "numeric",
           month: "short"
-        }) : (W = y.toLocaleDateString(r, {
+        }) : (W = w.toLocaleDateString(r, {
           weekday: E ? "short" : "long"
         }), W = W.charAt(0).toUpperCase() + W.slice(1)), c && (W = W.toUpperCase()), D !== null) {
           const N = {
@@ -3511,11 +3511,11 @@ class ar extends ae {
     this.days_to_show = 4, this.displayCols = [], this.header = "", this._initDone = !1, this._userConfig = {}, this.sensors = [], this.tapAction = null;
   }
   _renderLevelCircle(i, {
-    colors: t = w.levels_colors,
-    emptyColor: o = w.levels_empty_color,
-    gapColor: a = w.levels_gap_color,
-    thickness: n = w.levels_thickness,
-    gap: A = w.levels_gap,
+    colors: t = P.levels_colors,
+    emptyColor: o = P.levels_empty_color,
+    gapColor: a = P.levels_gap_color,
+    thickness: n = P.levels_thickness,
+    gap: A = P.levels_gap,
     size: r = 100
   }) {
     var l, I, Q;
@@ -4461,7 +4461,7 @@ class nr extends ae {
     try {
       this.debug && console.debug("[Editor] ▶️ setConfig INCOMING:", e), e.phrases && (this._userConfig.phrases = e.phrases);
       const o = e.integration === "dwd" ? X.allergens.length : e.integration === "peu" ? Z.allergens.length : e.integration === "silam" ? T.allergens.length : b.allergens.length, a = { ...e };
-      Object.entries(w).forEach(([l, I]) => {
+      Object.entries(P).forEach(([l, I]) => {
         l in a || (a[l] = I);
       }), Array.isArray(e.allergens) && e.allergens.length < o && (this._userConfig.allergens = [...e.allergens], this._allergensExplicit = !0, this.debug && console.debug(
         "[Editor] saved user-chosen allergens:",
@@ -4492,9 +4492,9 @@ class nr extends ae {
       g === "silam" && !this._userConfig.mode && (this._userConfig.mode = "daily");
       const E = lr(g);
       let c = ce(E, this._userConfig);
-      if (Object.entries(w).forEach(([l, I]) => {
+      if (Object.entries(P).forEach(([l, I]) => {
         l in c || (c[l] = I);
-      }), Object.entries(w).forEach(([l, I]) => {
+      }), Object.entries(P).forEach(([l, I]) => {
         c[l] === I && delete c[l];
       }), this._userConfig.hasOwnProperty("pollen_threshold") || (c.pollen_threshold = E.pollen_threshold, this.debug && console.debug(
         "[Editor] reset pollen_threshold to stub:",
@@ -4719,7 +4719,7 @@ class nr extends ae {
         days: {},
         no_information: ""
       },
-      ...w,
+      ...P,
       ...this._config
     }, i = e.integration === "dwd" ? X.allergens : e.integration === "peu" ? Z.allergens : e.integration === "silam" ? T.allergens : b.allergens, t = e.integration === "dwd" ? 4 : e.integration === "peu" ? 5 : 7, o = e.integration === "dwd" ? { min: 0, max: 3, step: 0.5 } : e.integration === "peu" ? { min: 0, max: 4, step: 1 } : { min: 0, max: 6, step: 1 }, n = [
       "value_ascending",
@@ -5298,7 +5298,7 @@ class nr extends ae {
                         title="${this._t("levels_reset")}"
                         @click=${() => {
         const g = [...e.levels_colors];
-        g[r] = w.levels_colors[r], this._updateConfig("levels_colors", g);
+        g[r] = P.levels_colors[r], this._updateConfig("levels_colors", g);
       }}
                         style="margin-left: 8px;"
                         >↺</mwc-button
@@ -5331,7 +5331,7 @@ class nr extends ae {
                   title="${this._t("levels_reset")}"
                   @click=${() => this._updateConfig(
       "levels_empty_color",
-      w.levels_empty_color
+      P.levels_empty_color
     )}
                   style="margin-left: 8px;"
                   >↺</mwc-button
@@ -5361,7 +5361,7 @@ class nr extends ae {
                   title="${this._t("levels_reset")}"
                   @click=${() => this._updateConfig(
       "levels_gap_color",
-      w.levels_gap_color
+      P.levels_gap_color
     )}
                   style="margin-left: 8px;"
                   >↺</mwc-button
@@ -5396,7 +5396,7 @@ class nr extends ae {
                 title="${this._t("levels_reset")}"
                 @click=${() => this._updateConfig(
       "levels_thickness",
-      w.levels_thickness
+      P.levels_thickness
     )}
                 style="margin-left: 8px;"
                 >↺</mwc-button
@@ -5422,7 +5422,7 @@ class nr extends ae {
                 dense
                 outlined
                 title="${this._t("levels_reset")}"
-                @click=${() => this._updateConfig("levels_gap", w.levels_gap)}
+                @click=${() => this._updateConfig("levels_gap", P.levels_gap)}
                 style="margin-left: 8px;"
                 >↺</mwc-button
               >
@@ -5786,25 +5786,26 @@ class nr extends ae {
         margin-bottom: 8px;
         border-radius: 4px;
       }
-
       details summary {
         font-weight: bold;
         cursor: pointer;
-        background: #f6f6f6;
+        background: var(--card-background-color, #f6f6f6);
         border-radius: 4px;
         padding: 4px 8px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--divider-color, #ddd);
+        color: var(--primary-text-color, #222);
       }
 
       details details {
         margin-left: 16px;
-        background: #f9f9f9;
-        border-left: 2px solid #bcd;
+        background: var(--secondary-background-color, #f9f9f9);
+        border-left: 2px solid var(--primary-color, #bcd);
       }
 
       details details summary {
-        background: #f0f7fc;
-        border: 1px solid #cde;
+        background: var(--ha-card-background, #f0f7fc);
+        border: 1px solid var(--ha-card-border-color, #cde);
+        color: var(--primary-text-color, #222);
       }
     `;
   }

@@ -2,6 +2,7 @@
 import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { findSilamWeatherEntity } from "../utils/silam.js";
+import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
