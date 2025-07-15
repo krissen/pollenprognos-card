@@ -2012,7 +2012,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       details details summary {
-        background: var(--ha-card-background, #f0f7fc);
+        background: var(--card-background-color, #f0f7fc);
         border: 1px solid var(--ha-card-border-color, #cde);
         color: var(--primary-text-color, #222);
         margin-bottom: 4px;
