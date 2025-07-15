@@ -310,11 +310,7 @@ class PollenPrognosCard extends LitElement {
       this._forecastUnsub = null;
     }
 
-    if (
-      this.config.integration === "silam" &&
-      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
-      this.config.location
-    ) {
+    if (this.config.integration === "silam" && this.config.location) {
       const locationSlug = this.config.location.toLowerCase();
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       const suffixes =
@@ -322,8 +318,9 @@ class PollenPrognosCard extends LitElement {
         silamAllergenMap.weather_suffixes?.en ||
         [];
       if (this.debug) {
-        const allWeather = Object.keys(this._hass.states).filter((id) =>
-          id.startsWith("weather.silam_pollen_"),
+        const allWeather = Object.keys(this._hass.states).filter(
+          (id) =>
+            typeof id === "string" && id.startsWith("weather.silam_pollen_"),
         );
         console.debug(
           "[Card][Debug] Alla weather-entities i hass.states:",
@@ -333,9 +330,11 @@ class PollenPrognosCard extends LitElement {
         console.debug("[Card][Debug] Suffixes:", suffixes);
       }
       const entityId = findSilamWeatherEntity(this._hass, locationSlug, lang);
-      let forecastType = "hourly";
+      let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
+      } else if (this.config && this.config.mode === "hourly") {
+        forecastType = "hourly";
       }
       if (entityId) {
         this._forecastUnsub = this._hass.connection.subscribeMessage(
@@ -373,28 +372,21 @@ class PollenPrognosCard extends LitElement {
     if (
       this.config &&
       this.config.integration === "silam" &&
-      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
-      if (typeof adapter.fetchHourlyForecast === "function") {
-        adapter
-          .fetchHourlyForecast(this._hass, this.config, this._forecastEvent)
-          .then((sensors) => {
-            const availableSensors = findAvailableSensors(
-              this.config,
-              this._hass,
-              this.debug,
-            );
-            this._updateSensorsAndColumns(
-              sensors,
-              availableSensors,
-              this.config,
-            );
-            // this.sensors = sensors;
-            // this.requestUpdate();
-          });
-      }
+      adapter
+        .fetchForecast(this._hass, this.config, this._forecastEvent)
+        .then((sensors) => {
+          const availableSensors = findAvailableSensors(
+            this.config,
+            this._hass,
+            this.debug,
+          );
+          this._updateSensorsAndColumns(sensors, availableSensors, this.config);
+          // this.sensors = sensors;
+          // this.requestUpdate();
+        });
     }
   }
 
@@ -548,16 +540,19 @@ class PollenPrognosCard extends LitElement {
     // Sensordetektion
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
-        id.startsWith("sensor.pollen_") && !id.startsWith("sensor.pollenflug_"),
+        typeof id === "string" &&
+        id.startsWith("sensor.pollen_") &&
+        !id.startsWith("sensor.pollenflug_"),
     );
-    const dwdStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.pollenflug_"),
+    const dwdStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
     );
-    const peuStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.polleninformation_"),
+    const peuStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
-    const silamStates = Object.keys(hass.states).filter((id) =>
-      id.startsWith("sensor.silam_pollen_"),
+    const silamStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
     );
 
     if (this.debug) {
@@ -718,8 +713,12 @@ class PollenPrognosCard extends LitElement {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
         // Hitta alla peu-entities
-        const peuEntities = Object.values(hass.states).filter((s) =>
-          s.entity_id.startsWith("sensor.polleninformation_"),
+        const peuEntities = Object.values(hass.states).filter(
+          (s) =>
+            s &&
+            typeof s === "object" &&
+            typeof s.entity_id === "string" &&
+            s.entity_id.startsWith("sensor.polleninformation_"),
         );
         // Hitta entity där slug-attribut eller entity_id matchar cfg.location
         const match = peuEntities.find((s) => {
@@ -761,16 +760,20 @@ class PollenPrognosCard extends LitElement {
         );
         // Hämta alla silam-entities med giltig allergen
         const silamEntities = Object.values(hass.states).filter((s) => {
-          if (!s.entity_id.startsWith("sensor.silam_pollen_")) return false;
+          if (
+            !s ||
+            typeof s !== "object" ||
+            typeof s.entity_id !== "string" ||
+            !s.entity_id.startsWith("sensor.silam_pollen_")
+          )
+            return false;
           const match = s.entity_id.match(
             /^sensor\.silam_pollen_(.*)_([^_]+)$/,
           );
           if (!match) return false;
           const allergenSlug = match[2];
-          // Uteslut index och liknande
           return SilamValidAllergenSlugs.has(allergenSlug);
         });
-
         const wantedSlug = slugify(cfg.location || "");
 
         // Hitta första entity med samma slugificerade location
@@ -812,18 +815,13 @@ class PollenPrognosCard extends LitElement {
     // Hämta prognos via rätt adapter
     const adapter = ADAPTERS[cfg.integration] || PP;
     let fetchPromise = null;
-    if (
-      cfg.integration === "silam" &&
-      (cfg.mode === "hourly" || cfg.mode === "twice_daily") &&
-      typeof adapter.fetchHourlyForecast === "function"
-    ) {
+    if (cfg.integration === "silam") {
       if (!this._forecastEvent) {
         if (this.debug) {
           console.debug(
             "[Card] Forecast mode: väntar på forecast-event innan fetch.",
           );
         }
-        // Visa laddar, gör inget mer nu
         return;
       }
       if (!this._forecastEvent) {
@@ -838,16 +836,10 @@ class PollenPrognosCard extends LitElement {
         this.requestUpdate();
         return;
       }
-
-      fetchPromise = adapter.fetchHourlyForecast(
-        hass,
-        cfg,
-        this._forecastEvent,
-      );
+      fetchPromise = adapter.fetchForecast(hass, cfg, this._forecastEvent);
     } else {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
-
     if (fetchPromise) {
       return fetchPromise
         .then((sensors) => {
@@ -1200,11 +1192,7 @@ class PollenPrognosCard extends LitElement {
   render() {
     if (!this.config) return html``;
 
-    if (
-      this.config.integration === "silam" &&
-      (this.config.mode === "hourly" || this.config.mode === "twice_daily") &&
-      !this._forecastEvent
-    ) {
+    if (this.config.integration === "silam" && !this._forecastEvent) {
       return html`
         <ha-card>
           <div style="padding: 1em; text-align: center;">

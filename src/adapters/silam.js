@@ -2,7 +2,6 @@
 import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { findSilamWeatherEntity } from "../utils/silam.js";
-import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -26,12 +25,11 @@ export const stubConfigSILAM = {
   icon_size: "48",
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
-  mode: "daily",
   show_text_allergen: true,
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
-  show_empty_days: false,
+  show_empty_days: true,
   debug: false,
   days_to_show: 2,
   days_relative: true,
@@ -47,9 +45,9 @@ export const stubConfigSILAM = {
 };
 
 export const SILAM_THRESHOLDS = {
-  birch: [1, 25, 50, 100, 500, 1000, 5000],
-  grass: [1, 25, 50, 100, 500, 1000, 5000],
-  hazel: [1, 25, 50, 100, 500, 1000, 5000],
+  birch: [5, 25, 50, 100, 500, 1000, 5000],
+  grass: [5, 25, 50, 100, 500, 1000, 5000],
+  hazel: [5, 25, 50, 100, 500, 1000, 5000],
   alder: [1, 10, 25, 50, 100, 500, 1000],
   ragweed: [1, 10, 25, 50, 100, 500, 1000],
   mugwort: [1, 10, 25, 50, 100, 500, 1000],

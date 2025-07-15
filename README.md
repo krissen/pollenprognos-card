@@ -47,7 +47,8 @@ For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
 - [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen)  
   **Notes:**
   - Do not change sensor names from the integration's defaults. The card expects sensors like `sensor.silam_pollen_ambrosia` and the like (ie., the defaults).
-  - For silam_pollen, you need v2.3.0 or higher of this card.
+  - For silam_pollen >=v0.2.7, you need v2.4.1 or higher of this card.
+  - For silam_pollan <v0.2.7, you need v2.3.0–v2.4.0 of this card.
 
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)  
   **Notes:**
