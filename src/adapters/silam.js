@@ -2,6 +2,7 @@
 import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { findSilamWeatherEntity } from "../utils/silam.js";
+import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -45,9 +46,16 @@ export const stubConfigSILAM = {
 };
 
 export const SILAM_THRESHOLDS = {
-  birch: [5, 25, 50, 100, 500, 1000, 5000],
-  grass: [5, 25, 50, 100, 500, 1000, 5000],
-  hazel: [5, 25, 50, 100, 500, 1000, 5000],
+  // birch: [5, 25, 50, 100, 500, 1000, 5000],
+  // grass: [5, 25, 50, 100, 500, 1000, 5000],
+  // hazel: [5, 25, 50, 100, 500, 1000, 5000],
+  // The above is the correct level thresholds
+  // The below has lower thresholds specifically for the first, lowest level.
+  // Just seemed odd to have documented pollen levels, but tell the user that
+  // there is *none.*
+  birch: [1, 25, 50, 100, 500, 1000, 5000],
+  grass: [1, 25, 50, 100, 500, 1000, 5000],
+  hazel: [1, 25, 50, 100, 500, 1000, 5000],
   alder: [1, 10, 25, 50, 100, 500, 1000],
   ragweed: [1, 10, 25, 50, 100, 500, 1000],
   mugwort: [1, 10, 25, 50, 100, 500, 1000],
