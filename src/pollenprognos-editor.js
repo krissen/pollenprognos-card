@@ -1290,6 +1290,37 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
+            <details open>
+              <summary>${this._t("summary_minimal")}</summary>
+              <ha-formfield label="${this._t("minimal")}">
+                <ha-switch
+                  .checked=${c.minimal}
+                  @change=${(e) =>
+                    this._updateConfig("minimal", e.target.checked)}
+                ></ha-switch>
+              </ha-formfield>
+              <ha-formfield label="${this._t("minimal_gap")}">
+                <ha-slider
+                  min="0"
+                  max="100"
+                  step="1"
+                  .value=${c.minimal_gap ?? 35}
+                  @input=${(e) =>
+                    this._updateConfig("minimal_gap", Number(e.target.value))}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.minimal_gap ?? 35}
+                  min="0"
+                  max="100"
+                  step="1"
+                  @input=${(e) =>
+                    this._updateConfig("minimal_gap", Number(e.target.value))}
+                  style="width: 80px;"
+                ></ha-textfield>
+              </ha-formfield>
+            </details>
             <details>
               <summary>${this._t("levels_header")}</summary>
               <ha-formfield label="${this._t("levels_colors")}">
@@ -1543,34 +1574,6 @@ class PollenPrognosCardEditor extends LitElement {
           <!-- Display Switches -->
           <details open>
             <summary>${this._t("summary_data_view_settings")}</summary>
-            <ha-formfield label="${this._t("minimal")}">
-              <ha-switch
-                .checked=${c.minimal}
-                @change=${(e) =>
-                  this._updateConfig("minimal", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("minimal_gap")}">
-              <ha-slider
-                min="0"
-                max="100"
-                step="1"
-                .value=${c.minimal_gap ?? 35}
-                @input=${(e) =>
-                  this._updateConfig("minimal_gap", Number(e.target.value))}
-                style="width: 120px;"
-              ></ha-slider>
-              <ha-textfield
-                type="number"
-                .value=${c.minimal_gap ?? 35}
-                min="0"
-                max="100"
-                step="1"
-                @input=${(e) =>
-                  this._updateConfig("minimal_gap", Number(e.target.value))}
-                style="width: 80px;"
-              ></ha-textfield>
-            </ha-formfield>
             <ha-formfield label="${this._t("allergens_abbreviated")}">
               <ha-switch
                 .checked=${c.allergens_abbreviated}
@@ -1985,39 +1988,56 @@ class PollenPrognosCardEditor extends LitElement {
 
   static get styles() {
     return css`
+      /* pollenprognos-card-editor styles */
+
+      /* Main container for card config */
       .card-config {
         display: flex;
         flex-direction: column;
         gap: 12px;
         padding: 16px;
       }
+
+      /* Formfield and details spacing */
       ha-formfield,
       details {
         margin-bottom: 8px;
       }
+
+      /* Allergens group styling */
       .allergens-group {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
       }
+
+      /* Details summary styling */
       details summary {
         cursor: pointer;
         font-weight: bold;
         margin: 8px 0;
       }
+
+      /* Slider styling */
       ha-slider {
         width: 100%;
       }
+
+      /* Select styling */
       ha-select {
         width: 100%;
         --mdc-theme-primary: var(--primary-color);
       }
+
+      /* Preset buttons styling */
       .preset-buttons {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 16px;
       }
+
+      /* Slider row layout */
       .slider-row {
         display: grid;
         grid-template-columns: auto 3ch 1fr;
@@ -2025,18 +2045,26 @@ class PollenPrognosCardEditor extends LitElement {
         gap: 8px;
         margin-bottom: 8px;
       }
+
+      /* Slider text label */
       .slider-text {
-        /* etikett, naturlig bredd */
+        /* label, natural width */
       }
+
+      /* Slider value styling */
       .slider-value {
-        /* värdet får alltid 3 teckenplats (t.ex. "0,5" / "1  ") */
+        /* always 3ch wide for value (e.g. "0,5" / "1  ") */
         font-family: monospace;
         text-align: right;
         width: 3ch;
       }
+
+      /* Slider within slider-row */
       .slider-row ha-slider {
         width: 100%;
       }
+
+      /* Details section spacing and background */
       details {
         margin-bottom: 16px; /* Increased for more space */
         border-radius: 6px; /* Slightly larger radius */
@@ -2049,6 +2077,7 @@ class PollenPrognosCardEditor extends LitElement {
         margin-right: 24px;
       }
 
+      /* Details summary style */
       details summary {
         font-weight: bold;
         cursor: pointer;
@@ -2060,6 +2089,7 @@ class PollenPrognosCardEditor extends LitElement {
         margin-bottom: 4px; /* Space below summary */
       }
 
+      /* Nested details styling */
       details details {
         margin-left: 24px; /* More indent */
         margin-right: 24px; /* More indent */
@@ -2068,6 +2098,7 @@ class PollenPrognosCardEditor extends LitElement {
         padding: 8px 0 8px 8px; /* More padding inside nested details */
       }
 
+      /* Nested details summary styling */
       details details summary {
         background: var(--card-background-color, #f0f7fc);
         border: 1px solid var(--ha-card-border-color, #cde);
@@ -2075,6 +2106,123 @@ class PollenPrognosCardEditor extends LitElement {
         margin-bottom: 4px;
         padding: 8px 12px;
         border-radius: 5px;
+      }
+
+      /* --- Toggle (ha-switch) and boolean control styles --- */
+
+      /*
+  This section ensures that the clickable area (hitbox) for boolean toggles (ha-switch)
+  matches the visible toggle size and does not expand unnecessarily. 
+  The goal is DRY/KISS: no excessive click area, and only the toggle and label are clickable.
+*/
+
+      /* Remove any default margin/padding around the switch inside ha-formfield */
+      ha-formfield > ha-switch,
+      ha-formfield > .mdc-form-field > ha-switch {
+        margin: 0;
+        padding: 0;
+        width: auto;
+        min-width: 0;
+        box-sizing: content-box;
+      }
+
+      /* Remove extra padding/margin on ha-formfield itself */
+      ha-formfield {
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+      }
+
+      /* Minimize ripple/overlay area if present (Material Web ripple) */
+      .mdc-form-field__ripple {
+        width: auto !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        border-radius: 16px !important;
+        /* Only as large as the toggle itself */
+      }
+
+      /* Reduce spacing between toggles in settings group */
+      details .ha-formfield {
+        margin-bottom: 2px;
+      }
+
+      /* Remove extra background/overlay on focus/active */
+      ha-switch:focus,
+      ha-switch:active {
+        box-shadow: none;
+        outline: none;
+      }
+
+      /* Ensure toggles have standard size and spacing */
+      ha-switch {
+        vertical-align: middle;
+        /* If needed, override width/height for consistent appearance */
+        width: 36px;
+        height: 20px;
+        /* Remove any extra border or background */
+        background: none;
+        border: none;
+        box-sizing: border-box;
+      }
+
+      /* Label alignment with switch */
+      ha-formfield label,
+      ha-formfield .mdc-label {
+        vertical-align: middle;
+        margin-left: 8px;
+        margin-right: 0;
+        padding: 0;
+      }
+
+      /* End of boolean control styles */
+      /* --- Numeric input box width and padding fix for ha-textfield --- */
+
+      /*
+        Ensures that all ha-textfield elements used for numeric input
+        (such as minimal_gap, icon size, text size, etc) display at least
+        three digits clearly, without white space truncating the value.
+        This patch sets width and internal padding. Applies to all number-type
+        ha-textfield elements in the editor.
+*/
+      ha-textfield[type="number"] {
+        /* Set a specific width to fit at least three digits and controls */
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+        /* Remove extra margin and padding */
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        /* Set font size for clarity */
+        font-size: 1.1em;
+      }
+
+      /* Ensure the input itself inherits width and font size */
+      ha-textfield[type="number"] input[type="number"] {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        font-size: 1.1em;
+        box-sizing: border-box;
+        padding: 2px 8px;
+        /* Remove border/background if needed */
+        background: none;
+        border: none;
+      }
+
+      /*
+  Slider row input: force numeric box to be visible and aligned
+  (applies to all numeric ha-textfield within .slider-row)
+*/
+      .slider-row ha-textfield[type="number"] {
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+        font-size: 1.1em;
+        margin: 0;
+        padding: 0;
       }
     `;
   }
