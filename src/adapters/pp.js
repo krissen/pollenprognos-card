@@ -19,6 +19,7 @@ export const stubConfigPP = {
     "Sälg och viden",
   ],
   minimal: false,
+  minimal_gap: 35,
   background_color: "",
   icon_size: "48",
   text_size_ratio: 1,

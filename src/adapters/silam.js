@@ -21,6 +21,7 @@ export const stubConfigSILAM = {
     "ragweed",
   ],
   minimal: false,
+  minimal_gap: 35,
   mode: "daily",
   background_color: "",
   icon_size: "48",

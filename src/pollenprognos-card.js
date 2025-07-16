@@ -995,7 +995,10 @@ class PollenPrognosCard extends LitElement {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
-        <div class="flex-container">
+        <div
+          class="flex-container"
+          style="gap: ${this.config?.minimal_gap ?? 35}px;"
+        >
           ${(this.sensors || []).map((sensor) => {
             const txt = sensor.day0?.state_text ?? "";
             const num = sensor.day0?.state ?? "";
@@ -1019,7 +1022,7 @@ class PollenPrognosCard extends LitElement {
               label += `(${num})`;
             }
             return html`
-              <div class="sensor">
+              <div class="sensor minimal">
                 <img
                   class="pollen-img"
                   src="${this._getImageSrc(
@@ -1423,16 +1426,6 @@ class PollenPrognosCard extends LitElement {
         line-height: 1.2;
       }
 
-      /* minimalhtml */
-
-      .flex-container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center; /* Centrerar alla .sensor-block på raden */
-        gap: 12px 16px; /* Luft mellan bilder, justera fritt */
-        width: 100%;
-      }
-
       .sensor {
         display: flex;
         flex-direction: column; /* Stapla bild och text VERTIKALT */
@@ -1442,6 +1435,26 @@ class PollenPrognosCard extends LitElement {
         min-width: 80px;
         max-width: 180px;
         margin: 0 4px;
+      }
+
+      /* minimalhtml */
+
+      .flex-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center; /* Center all .sensor-block on the row */
+        width: 100%;
+      }
+
+      .sensor.minimal {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        flex: 0 1 auto; /* Allow blocks to shrink tightly */
+        min-width: 0; /* Allow as narrow as possible */
+        max-width: none; /* No max width */
+        margin: 0; /* No extra spacing, only gap from flex-container */
       }
 
       .short-text {

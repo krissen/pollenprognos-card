@@ -1550,6 +1550,27 @@ class PollenPrognosCardEditor extends LitElement {
                   this._updateConfig("minimal", e.target.checked)}
               ></ha-switch>
             </ha-formfield>
+            <ha-formfield label="${this._t("minimal_gap")}">
+              <ha-slider
+                min="0"
+                max="100"
+                step="1"
+                .value=${c.minimal_gap ?? 35}
+                @input=${(e) =>
+                  this._updateConfig("minimal_gap", Number(e.target.value))}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                .value=${c.minimal_gap ?? 35}
+                min="0"
+                max="100"
+                step="1"
+                @input=${(e) =>
+                  this._updateConfig("minimal_gap", Number(e.target.value))}
+                style="width: 80px;"
+              ></ha-textfield>
+            </ha-formfield>
             <ha-formfield label="${this._t("allergens_abbreviated")}">
               <ha-switch
                 .checked=${c.allergens_abbreviated}
