@@ -69,6 +69,7 @@
   "editor.locale": "Kieliasetus",
   "editor.location": "Sijainti",
   "editor.minimal": "Minimaalinen",
+  "editor.minimal_gap": "Minimal: väli allergeenien välillä (px)",
   "editor.mode": "Tila",
   "editor.mode_daily": "Päivittäin",
   "editor.mode_hourly": "Tunneittain",

@@ -69,6 +69,7 @@
   "editor.locale": "Язык",
   "editor.location": "Местоположение",
   "editor.minimal": "Минимал",
+  "editor.minimal_gap": "Минимал: расстояние между аллергенами (пикс.)",
   "editor.mode": "Режим",
   "editor.mode_daily": "Ежедневный",
   "editor.mode_hourly": "Почасовой",

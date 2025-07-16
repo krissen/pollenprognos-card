@@ -69,6 +69,7 @@
   "editor.locale": "Jazyk",
   "editor.location": "Poloha",
   "editor.minimal": "Minimální",
+  "editor.minimal_gap": "Minimal: mezera mezi alergeny (px)",
   "editor.mode": "Režim",
   "editor.mode_daily": "Denně",
   "editor.mode_hourly": "Hodinově",

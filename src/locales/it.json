@@ -69,6 +69,7 @@
   "editor.locale": "Lingua",
   "editor.location": "Località",
   "editor.minimal": "Minimale",
+  "editor.minimal_gap": "Minimal: distanza tra gli allergeni (px)",
   "editor.mode": "Modalità",
   "editor.mode_daily": "Giornaliero",
   "editor.mode_hourly": "Ogni ora",

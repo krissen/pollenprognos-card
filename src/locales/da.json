@@ -69,6 +69,7 @@
   "editor.locale": "Sprog",
   "editor.location": "Placering",
   "editor.minimal": "Minimal",
+  "editor.minimal_gap": "Minimal: afstand mellem allergener (px)",
   "editor.mode": "Tilstand",
   "editor.mode_daily": "Dagligt",
   "editor.mode_hourly": "Hver time",

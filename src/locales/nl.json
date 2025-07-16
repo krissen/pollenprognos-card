@@ -69,6 +69,7 @@
   "editor.locale": "Taal",
   "editor.location": "Locatie",
   "editor.minimal": "Minimaal",
+  "editor.minimal_gap": "Minimal: afstand tussen allergenen (px)",
   "editor.mode": "Modus",
   "editor.mode_daily": "Dagelijks",
   "editor.mode_hourly": "Elk uur",

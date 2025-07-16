@@ -69,6 +69,7 @@
   "editor.locale": "Språk",
   "editor.location": "Sted",
   "editor.minimal": "Minimal",
+  "editor.minimal_gap": "Minimal: avstand mellom allergener (px)",
   "editor.mode": "Modus",
   "editor.mode_daily": "Daglig",
   "editor.mode_hourly": "Hver time",
