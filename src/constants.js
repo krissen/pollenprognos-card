@@ -74,6 +74,19 @@ export const ALLERGEN_TRANSLATION = {
   lime: "lime",
   mold_spores: "mold_spores",
   nettle_and_pellitory: "nettle_and_pellitory",
+  // Add PEU (new API) English names
+  "fungal spores": "mold_spores",
+  grasses: "grass",
+  "cypress family": "cypress",
+  "nettle family": "nettle_and_pellitory",
+  "plane tree": "plane",
+  rye: "rye",
+  ragweed: "ragweed",
+  birch: "birch",
+  alder: "alder",
+  hazel: "hazel",
+  mugwort: "mugwort",
+  olive: "olive",
 };
 
 export const PP_POSSIBLE_CITIES = [

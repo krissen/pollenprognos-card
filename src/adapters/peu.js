@@ -14,7 +14,7 @@ export const stubConfigPEU = {
     "birch",
     "cypress",
     "elm",
-    "grass",
+    "grasses",
     "hazel",
     "lime",
     "mold_spores",

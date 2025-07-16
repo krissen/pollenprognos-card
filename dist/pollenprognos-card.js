@@ -2757,7 +2757,7 @@ const Lr = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     "birch",
     "cypress",
     "elm",
-    "grass",
+    "grasses",
     "hazel",
     "lime",
     "mold_spores",
@@ -3166,7 +3166,20 @@ const to = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   cypress: "cypress",
   lime: "lime",
   mold_spores: "mold_spores",
-  nettle_and_pellitory: "nettle_and_pellitory"
+  nettle_and_pellitory: "nettle_and_pellitory",
+  // Add PEU (new API) English names
+  "fungal spores": "mold_spores",
+  grasses: "grass",
+  "cypress family": "cypress",
+  "nettle family": "nettle_and_pellitory",
+  "plane tree": "plane",
+  rye: "rye",
+  ragweed: "ragweed",
+  birch: "birch",
+  alder: "alder",
+  hazel: "hazel",
+  mugwort: "mugwort",
+  olive: "olive"
 }, je = [
   "Borlänge",
   "Bräkne-Hoby",
