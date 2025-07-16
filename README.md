@@ -42,13 +42,14 @@ Pollenprognos-card needs one of the four supported sensor integrations; [Pollenp
 For `homeassistant-pollenprognos` <1.1.0, use <=v1.0.5 of `pollenprognos-card`.
 
 - [Polleninformation EU](https://github.com/krissen/polleninformation)  
-  **Note,** for polleninformation, you need v2.2.0 or higher of this card.
+  **Note,** for polleninformation >= v0.4.0, you need >=v2.4.2 of this card.  
+  For polleninformation <=v0.3.1, you need v2.2.0–v2.4.1 of this card.
 
 - [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen)  
   **Notes:**
   - Do not change sensor names from the integration's defaults. The card expects sensors like `sensor.silam_pollen_ambrosia` and the like (ie., the defaults).
   - For silam_pollen >=v0.2.7, you need v2.4.1 or higher of this card.
-  - For silam_pollan <v0.2.7, you need v2.3.0–v2.4.0 of this card.
+  - For silam_pollen <v0.2.7, you need v2.3.0–v2.4.0 of this card.
 
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)  
   **Notes:**
@@ -178,13 +179,14 @@ See example under "Custom text for allergens, values etc", below.
 | `levels_text_weight`       | `string`           | `normal`                 | Font weight for the value inside the level circle. E.g. `normal`, `500`, or `bold`.                                                             |
 | `icon_size` | `integer` | `48` | Icon size in pixels for allergen images and level circles. Range: 16–128. |
 | `text_size_ratio` | `number` | `1` | Multiplier for text size in allergen labels and headers. Use to scale text throughout the card. (e.g. `1.0` for default, `1.2` for 20% larger text) |
-| `allergens`         | `array<string>`     | *(integration default)* | Which pollen types to include. Keys must match your sensor IDs. Defaults differ by integration.                                                                                                                                                                                                                                                                                                                               |
+| `allergens`         | `array<string>`     | *(integration default)* | Which pollen types to include. Keys must match your sensor IDs. Defaults differ by integration. See [Valid allergen keys](#valid-allergen-keys) below for details. |
 | `days_to_show`      | `integer`           | `4` (`pp`) <br> `2` (`dwd`) | **Number of columns to show**. <br>For most integrations, this sets the number of days (including today). <br>For SILAM, this sets the number of columns: **hours** (`hourly` mode), or **half-days** (`twice_daily` mode). <br>For PEU, it determines the number of forecast columns.                                                                                                                                            |
 | `days_relative`     | `boolean`           | `true`              | Use relative labels (“Today”, “Tomorrow”) for the first three days; after that, locale weekday names.                                                                                                                                                                                                                                                                                                                         |
 | `days_abbreviated`  | `boolean`           | `false`             | Abbreviate weekday names (e.g. “Mon” instead of “Monday”) when using absolute labels.                                                                                                                                                                                                                                                                                                                                         |
 | `days_uppercase`    | `boolean`           | `false`             | Render weekday labels in uppercase.                                                                                                                                                                                                                                                                                                                                                                                            |
 | `days_boldfaced`    | `boolean`           | `false`             | Render weekday labels in bold.                                                                                                                                                                                                                                                                                                                                                                                                |
 | `minimal`           | `boolean`           | `false`             | Use the compact “minimal” layout.                                                                                                                                                                                                                                                                                                                                                                                             |
+| `minimal_gap`        | `integer`           | `35`                 | Horizontal gap (in pixels) between icons in minimal layout. Only relevant if `minimal: true`. |
 | `background_color`  | `string`            | *(empty)*           | Sets the background color of the card. Any valid CSS color. If omitted, uses theme default.                                                                                                                                                                                                                                                                                                                                  |
 | `allergens_abbreviated` | `boolean`      | `false`             | Show allergen short names (`phrases.allergen_short.*`) instead of full names.                                                                                                                                                                                                                                                                                                          |
 | `show_text_allergen`| `boolean`           | `false`             | Show allergen name as text.                                                                                                                                                                                                                                                                                                                                                            |
@@ -203,6 +205,78 @@ See example under "Custom text for allergens, values etc", below.
 | `phrases.levels`    | `<array<string>>`   | *(integration default)* | Custom level names for intensity indexes 0–6.                                                                                                                                                                                                                                                                                                                                          |
 | `phrases.days`      | `<object<number,string>>` | `{}`           | Override labels for day-offsets (0=Today, 1=Tomorrow, etc). Beyond those, uses locale weekday names.                                                                                                                                                                                                                                            |
 | `phrases.no_information` | `string`       | `"(Ingen information)"` | Text to show when there is no pollen information.                                                                                                                                                                                                                                                                                                                                      |
+
+## Valid allergen keys
+
+These are the valid `allergens` keys for each integration.  
+**You must use these keys exactly as shown, matching your integration and sensor setup.**
+
+### Pollenprognos (PP)
+
+Swedish keys, matching the sensor names from the Pollenprognos integration.
+
+```
+Al
+Alm
+Bok
+Björk
+Ek
+Malörtsambrosia
+Gråbo
+Gräs
+Hassel
+Sälg och viden
+```
+
+### DWD Pollenflug
+
+German (DWD) keys, as used in DWD sensor integration.
+
+```
+erle
+ambrosia
+esche
+birke
+hasel
+gräser
+beifuss
+roggen
+```
+
+### Polleninformation EU (PEU)
+
+English keys, as delivered by the PEU integration (new API). Use these exactly as provided by the integration.
+
+```
+fungal spores
+grasses
+cypress family
+nettle family
+mugwort
+alder
+hazel
+birch
+plane tree
+rye
+olive
+ragweed
+```
+
+### SILAM Pollen Allergy Sensor
+
+English keys, matching the master allergen slugs for SILAM.
+
+```
+alder
+birch
+grass
+hazel
+mugwort
+olive
+ragweed
+```
+
+If you use any other value, the card will not find a matching sensor or may not display the allergen. In the editor UI, pressing `Reset all` would also reset allergen keys according to the integration (all valid allergens being pre-selected).
 
 ## Examples
 

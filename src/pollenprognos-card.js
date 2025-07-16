@@ -15,6 +15,7 @@ import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
+import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
@@ -35,6 +36,7 @@ Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
+  _fetchDebounceTimer = null; // Debounce timer for fetchForecast
   _forecastUnsub = null; // Unsubscribe-funktion
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
@@ -76,6 +78,47 @@ class PollenPrognosCard extends LitElement {
         "var(--primary-text-color)"}"
       ></div>
     `;
+  }
+
+  /**
+   * Debounced wrapper for forecast fetch.
+   * Ensures fetch is only performed once within debounce interval.
+   */
+  _debouncedFetchForecast(...args) {
+    if (this._fetchDebounceTimer) {
+      clearTimeout(this._fetchDebounceTimer);
+      this._fetchDebounceTimer = null;
+    }
+    this._fetchDebounceTimer = setTimeout(() => {
+      this._fetchDebounceTimer = null;
+      this._fetchForecastNow(...args);
+    }, 200);
+  }
+
+  /**
+   * Performs forecast fetch immediately.
+   * Used internally by the debounced wrapper.
+   */
+  _fetchForecastNow(hass, cfg, forecastEvent) {
+    const adapter = ADAPTERS[cfg.integration] || PP;
+    let fetchPromise = null;
+    if (cfg.integration === "silam") {
+      if (!forecastEvent) return;
+      fetchPromise = adapter.fetchForecast(hass, cfg, forecastEvent);
+    } else {
+      fetchPromise = adapter.fetchForecast(hass, cfg);
+    }
+    if (fetchPromise) {
+      fetchPromise
+        .then((sensors) => {
+          const availableSensors = findAvailableSensors(cfg, hass, this.debug);
+          this._updateSensorsAndColumns(sensors, availableSensors, cfg);
+        })
+        .catch((err) => {
+          console.error("[Card] Error fetching pollen forecast:", err);
+          if (this.debug) console.debug("[Card] fetchForecast error:", err);
+        });
+    }
   }
 
   // In the updated() method, update the part that adds the text to the chart:
@@ -280,17 +323,29 @@ class PollenPrognosCard extends LitElement {
   }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
-    this.sensors = filtered;
-    this._availableSensorCount = availableSensors.length;
-
+    // Calculate expected values for comparison
     let daysCount = 0;
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
     } else if (filtered.length > 0 && filtered[0].days) {
       daysCount = Math.min(filtered[0].days.length, cfg.days_to_show);
     }
+    const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
+
+    // Only update if any relevant value has changed
+    if (
+      deepEqual(this.sensors, filtered) &&
+      this._availableSensorCount === availableSensors.length &&
+      this.days_to_show === daysCount &&
+      deepEqual(this.displayCols, expectedDisplayCols)
+    ) {
+      return;
+    }
+
+    this.sensors = filtered;
+    this._availableSensorCount = availableSensors.length;
     this.days_to_show = daysCount;
-    this.displayCols = Array.from({ length: daysCount }, (_, i) => i);
+    this.displayCols = expectedDisplayCols;
 
     if (this.debug) {
       console.debug("Days to show:", this.days_to_show);
@@ -298,7 +353,6 @@ class PollenPrognosCard extends LitElement {
     }
     this.requestUpdate();
   }
-
   _subscribeForecastIfNeeded() {
     if (!this.config || !this._hass) return;
 
@@ -374,19 +428,11 @@ class PollenPrognosCard extends LitElement {
       this.config.integration === "silam" &&
       this._forecastEvent
     ) {
-      const adapter = ADAPTERS[this.config.integration] || PP;
-      adapter
-        .fetchForecast(this._hass, this.config, this._forecastEvent)
-        .then((sensors) => {
-          const availableSensors = findAvailableSensors(
-            this.config,
-            this._hass,
-            this.debug,
-          );
-          this._updateSensorsAndColumns(sensors, availableSensors, this.config);
-          // this.sensors = sensors;
-          // this.requestUpdate();
-        });
+      this._debouncedFetchForecast(
+        this._hass,
+        this.config,
+        this._forecastEvent,
+      );
     }
   }
 
@@ -487,6 +533,9 @@ class PollenPrognosCard extends LitElement {
   // }
 
   setConfig(config) {
+    // Skip update if config is unchanged
+    if (deepEqual(this._userConfig, config)) return;
+
     // Kopiera användarens config
     this._userConfig = { ...config };
     this.tapAction = config.tap_action || null;
@@ -527,11 +576,16 @@ class PollenPrognosCard extends LitElement {
 
     this._initDone = false;
     if (this._hass) {
-      this.hass = this._hass;
+      this._debouncedFetchForecast(
+        this._hass,
+        this.config,
+        this._forecastEvent,
+      );
     }
   }
 
   set hass(hass) {
+    if (this._hass === hass) return;
     this._hass = hass;
     const explicit = !!this._integrationExplicit;
     if (this.debug)
@@ -694,6 +748,9 @@ class PollenPrognosCard extends LitElement {
       console.debug("[Card][Debug] Allergens i config:", cfg.allergens);
     }
 
+    // Debounced fetch instead of direct fetch
+    this._debouncedFetchForecast(this._hass, this.config, this._forecastEvent);
+
     // Header
     if (
       cfg.title === "false" ||
@@ -811,182 +868,6 @@ class PollenPrognosCard extends LitElement {
       this.header = `${this._t("card.header_prefix")} ${loc}`;
       if (this.debug) console.debug("[Card] header set to:", this.header);
     }
-
-    // Hämta prognos via rätt adapter
-    const adapter = ADAPTERS[cfg.integration] || PP;
-    let fetchPromise = null;
-    if (cfg.integration === "silam") {
-      if (!this._forecastEvent) {
-        if (this.debug) {
-          console.debug(
-            "[Card] Forecast mode: väntar på forecast-event innan fetch.",
-          );
-        }
-        return;
-      }
-      if (!this._forecastEvent) {
-        this.sensors = [];
-        this.days_to_show = 0;
-        this.displayCols = [];
-        if (this.debug) {
-          console.debug(
-            "[Card] Forecast mode: forecast-event saknas, nollställer sensordata och visar laddar...",
-          );
-        }
-        this.requestUpdate();
-        return;
-      }
-      fetchPromise = adapter.fetchForecast(hass, cfg, this._forecastEvent);
-    } else {
-      fetchPromise = adapter.fetchForecast(hass, cfg);
-    }
-    if (fetchPromise) {
-      return fetchPromise
-        .then((sensors) => {
-          if (this.debug) {
-            console.debug("[Card][Debug] Sensors före filtrering:", sensors);
-            console.debug(
-              "[Card][Debug] Förväntade allergener från config:",
-              cfg.allergens,
-            );
-          }
-
-          if (this.debug) {
-            console.debug(
-              "[Card][Debug] Alla tillgängliga hass.states:",
-              Object.keys(hass.states),
-            );
-            console.debug("[Card] Användaren har valt city:", cfg.city);
-            console.debug(
-              "[Card] Användaren har valt allergener:",
-              cfg.allergens,
-            );
-            console.debug("[Card] Användaren har valt plats:", cfg.location);
-          }
-
-          const availableSensors = findAvailableSensors(cfg, hass, this.debug);
-          const availableSensorCount = availableSensors.length;
-
-          // --- AUTODETECT HASS-SLUG-SPRÅK FÖR SILAM ---
-          let silamReverse = {};
-          if (cfg.integration === "silam") {
-            // Alla silam-entiteter för platsen
-            const silamStates = Object.keys(hass.states).filter((id) => {
-              const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              return m && m[1] === (cfg.location || "");
-            });
-
-            // Loopa igenom alla sensors och alla mapping-språk
-            for (const eid of silamStates) {
-              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              if (!m) continue;
-              const haSlug = m[2];
-              // Gå igenom alla språk och leta master-slug
-              let found = false;
-              for (const [lang, mapping] of Object.entries(
-                silamAllergenMap.mapping,
-              )) {
-                if (mapping[haSlug]) {
-                  silamReverse[mapping[haSlug]] = haSlug;
-                  found = true;
-                  break; // sluta efter första träff (det räcker, unikt per system)
-                }
-              }
-              // Om ingen träff – debugga gärna
-              if (!found && this.debug) {
-                console.debug(
-                  `[Card][SILAM] Hittade ingen mapping för haSlug: '${haSlug}'`,
-                );
-              }
-            }
-            if (this.debug) {
-              console.debug(
-                "[Card][SILAM] silamReverse byggd baserat på existerande sensors:",
-                silamReverse,
-              );
-            }
-          }
-
-          // Filtrera adapterns sensors så att endast de finns i availableSensors
-          let filtered = sensors.filter((s) => {
-            if (
-              cfg.integration === "silam" &&
-              silamReverse &&
-              (!cfg.mode || cfg.mode === "daily")
-            ) {
-              const loc = cfg.location || "";
-              // Mappar master->haSlug för entity_id
-              const key =
-                silamReverse[s.allergenReplaced] || s.allergenReplaced;
-              const id = `sensor.silam_pollen_${loc}_${key}`;
-              if (this.debug) {
-                console.debug(
-                  `[Card][Debug][SILAM filter] allergenReplaced: '${s.allergenReplaced}', key: '${key}', id: '${id}', available: ${availableSensors.includes(id)}`,
-                );
-              }
-              return availableSensors.includes(id);
-            }
-            return true; // fallback: visa alla
-          });
-
-          // Endast *normalisering/namn*-filtrering för de andra integrationerna!
-          if (
-            Array.isArray(cfg.allergens) &&
-            cfg.allergens.length > 0 &&
-            cfg.integration !== "silam"
-          ) {
-            let allowed;
-            let getKey;
-            if (integration === "dwd") {
-              allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
-              getKey = (s) => normalizeDWD(s.allergenReplaced || "");
-            } else {
-              if (this.debug) {
-                console.debug(
-                  "[Card][Debug] Använder normalisering för allergener:",
-                  cfg.allergens,
-                );
-              }
-              allowed = new Set(cfg.allergens.map((a) => normalize(a)));
-              getKey = (s) => normalize(s.allergenReplaced || "");
-            }
-            filtered = filtered.filter((s) => {
-              const allergenKey = getKey(s);
-              const ok = allowed.has(allergenKey);
-              if (!ok && this.debug) {
-                console.debug(
-                  `[Card][Debug] Sensor '${allergenKey}' är EJ tillåten (ej i allowed)`,
-                  s,
-                );
-              }
-              return ok;
-            });
-          }
-
-          const explicitLocation = this._integrationExplicit && !!cfg.location;
-          const noAvailableSensors = availableSensorCount === 0;
-
-          if (explicitLocation && noAvailableSensors) {
-            this._explicitLocationNoSensors = true;
-            this._updateSensorsAndColumns([], [], cfg);
-            if (this.debug) {
-              console.warn(
-                `[Card] Ingen sensor hittad för explicit vald plats: '${cfg.location}'`,
-              );
-            }
-            return;
-          } else {
-            this._explicitLocationNoSensors = false;
-            this._updateSensorsAndColumns(filtered, availableSensors, cfg);
-          }
-        })
-
-        .catch((err) => {
-          console.error("[Card] Error fetching pollen forecast:", err);
-          if (this.debug) console.debug("[Card] fetchForecast error:", err);
-        });
-    }
-    // this.requestUpdate();
   }
 
   _renderMinimalHtml() {
@@ -995,7 +876,10 @@ class PollenPrognosCard extends LitElement {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
-        <div class="flex-container">
+        <div
+          class="flex-container"
+          style="gap: ${this.config?.minimal_gap ?? 35}px;"
+        >
           ${(this.sensors || []).map((sensor) => {
             const txt = sensor.day0?.state_text ?? "";
             const num = sensor.day0?.state ?? "";
@@ -1019,7 +903,7 @@ class PollenPrognosCard extends LitElement {
               label += `(${num})`;
             }
             return html`
-              <div class="sensor">
+              <div class="sensor minimal">
                 <img
                   class="pollen-img"
                   src="${this._getImageSrc(
@@ -1423,16 +1307,6 @@ class PollenPrognosCard extends LitElement {
         line-height: 1.2;
       }
 
-      /* minimalhtml */
-
-      .flex-container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center; /* Centrerar alla .sensor-block på raden */
-        gap: 12px 16px; /* Luft mellan bilder, justera fritt */
-        width: 100%;
-      }
-
       .sensor {
         display: flex;
         flex-direction: column; /* Stapla bild och text VERTIKALT */
@@ -1442,6 +1316,26 @@ class PollenPrognosCard extends LitElement {
         min-width: 80px;
         max-width: 180px;
         margin: 0 4px;
+      }
+
+      /* minimalhtml */
+
+      .flex-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        /* No font-size set here */
+      }
+      .sensor.minimal {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        flex: 0 1 auto; /* Allow blocks to shrink tightly */
+        min-width: 0; /* Allow as narrow as possible */
+        max-width: none; /* No max width */
+        margin: 0; /* No extra spacing, only gap from flex-container */
       }
 
       .short-text {

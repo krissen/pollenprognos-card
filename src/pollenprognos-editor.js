@@ -3,6 +3,7 @@ import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
 import { slugify } from "./utils/slugify.js";
+import { deepEqual } from "./utils/confcompare.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
@@ -558,13 +559,17 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 19. Dispatch’a så att HA-editorn ritar om formuläret med nya värden
-      this.dispatchEvent(
-        new CustomEvent("config-changed", {
-          detail: { config: this._config },
-          bubbles: true,
-          composed: true,
-        }),
-      );
+      // Only dispatch if config actually changed, to avoid UI blinking/loops
+      if (!deepEqual(this._config, merged)) {
+        this._config = merged;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }
       this.requestUpdate();
       this._prevIntegration = incomingInt;
       this._initDone = true;
@@ -638,221 +643,226 @@ class PollenPrognosCardEditor extends LitElement {
 
     merged.sort = merged.sort || "value_ascending";
 
-    this._config = merged;
+    // Only dispatch if config actually changed, to avoid UI blinking/loops
+    if (!deepEqual(this._config, merged)) {
+      this._config = merged;
 
-    // 3) Fyll installerade regioner/städer
-    this.installedRegionIds = Array.from(
-      new Set(dwdStates.map((id) => id.split("_").pop())),
-    ).sort((a, b) => Number(a) - Number(b));
+      // 3) Fyll installerade regioner/städer
+      this.installedRegionIds = Array.from(
+        new Set(dwdStates.map((id) => id.split("_").pop())),
+      ).sort((a, b) => Number(a) - Number(b));
 
-    const uniqKeys = Array.from(
-      new Set(
-        ppStates.map((id) =>
-          id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+      const uniqKeys = Array.from(
+        new Set(
+          ppStates.map((id) =>
+            id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+          ),
         ),
-      ),
-    );
-    this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
-      uniqKeys.includes(
-        city
-          .toLowerCase()
-          .replace(/[åä]/g, "a")
-          .replace(/ö/g, "o")
-          .replace(/[-\s]/g, "_"),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
+      );
+      this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
+        uniqKeys.includes(
+          city
+            .toLowerCase()
+            .replace(/[åä]/g, "a")
+            .replace(/ö/g, "o")
+            .replace(/[-\s]/g, "_"),
+        ),
+      ).sort((a, b) => a.localeCompare(b));
 
-    this.installedPeuLocations = Array.from(
-      new Map(
-        Object.values(hass.states)
-          .filter(
-            (s) =>
-              s &&
-              typeof s === "object" &&
-              typeof s.entity_id === "string" &&
-              s.entity_id.startsWith("sensor.polleninformation_"),
-          )
-          .map((s) => {
-            const locationSlug =
-              s.attributes?.location_slug ||
-              s.entity_id
-                .replace("sensor.polleninformation_", "")
-                .replace(/_[^_]+$/, "");
-            const title =
-              s.attributes?.location_title ||
-              (typeof s.attributes?.friendly_name === "string"
-                ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
-                : undefined) ||
-              locationSlug;
-            return [locationSlug, title];
-          }),
-      ),
-    );
-    const lang =
-      (this.config &&
-        this.config.date_locale &&
-        this.config.date_locale.slice(0, 2)) ||
-      (this._hass && this._hass.language) ||
-      "en";
+      this.installedPeuLocations = Array.from(
+        new Map(
+          Object.values(hass.states)
+            .filter(
+              (s) =>
+                s &&
+                typeof s === "object" &&
+                typeof s.entity_id === "string" &&
+                s.entity_id.startsWith("sensor.polleninformation_"),
+            )
+            .map((s) => {
+              const locationSlug =
+                s.attributes?.location_slug ||
+                s.entity_id
+                  .replace("sensor.polleninformation_", "")
+                  .replace(/_[^_]+$/, "");
+              const title =
+                s.attributes?.location_title ||
+                (typeof s.attributes?.friendly_name === "string"
+                  ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
+                  : undefined) ||
+                locationSlug;
+              return [locationSlug, title];
+            }),
+        ),
+      );
+      const lang =
+        (this.config &&
+          this.config.date_locale &&
+          this.config.date_locale.slice(0, 2)) ||
+        (this._hass && this._hass.language) ||
+        "en";
 
-    const pollenAllergens = [
-      "alder",
-      "birch",
-      "grass",
-      "hazel",
-      "mugwort",
-      "olive",
-      "ragweed",
-    ];
+      const pollenAllergens = [
+        "alder",
+        "birch",
+        "grass",
+        "hazel",
+        "mugwort",
+        "olive",
+        "ragweed",
+      ];
 
-    if (this.debug) {
-      // Logga mapping för samtliga språk
-      console.debug("[SilamAllergenMap.mapping]", silamAllergenMap.mapping);
+      if (this.debug) {
+        // Logga mapping för samtliga språk
+        console.debug("[SilamAllergenMap.mapping]", silamAllergenMap.mapping);
 
-      // Logga vilka engelska allergener som används för filtrering
-      console.debug("[pollenAllergens]", pollenAllergens);
+        // Logga vilka engelska allergener som används för filtrering
+        console.debug("[pollenAllergens]", pollenAllergens);
 
-      // Bygg upp och logga ALLA möjliga allergen-slugs per språk/allergen
-      for (const [lang, langMap] of Object.entries(silamAllergenMap.mapping)) {
-        for (const [localSlug, engAllergen] of Object.entries(langMap)) {
-          console.debug(`[Mapping] ${lang}: ${localSlug} → ${engAllergen}`);
+        // Bygg upp och logga ALLA möjliga allergen-slugs per språk/allergen
+        for (const [lang, langMap] of Object.entries(
+          silamAllergenMap.mapping,
+        )) {
+          for (const [localSlug, engAllergen] of Object.entries(langMap)) {
+            console.debug(`[Mapping] ${lang}: ${localSlug} → ${engAllergen}`);
+          }
         }
+
+        // Logga vilka slugs som räknas som giltiga för denna omgång
+        const debugSlugs = Object.values(silamAllergenMap.mapping).flatMap(
+          (langMap) =>
+            Object.entries(langMap)
+              .filter(([localSlug, engAllergen]) =>
+                pollenAllergens.includes(engAllergen),
+              )
+              .map(([localSlug]) => localSlug),
+        );
+        console.debug("[SilamValidAllergenSlugs]", debugSlugs);
       }
 
-      // Logga vilka slugs som räknas som giltiga för denna omgång
-      const debugSlugs = Object.values(silamAllergenMap.mapping).flatMap(
-        (langMap) =>
+      const SilamValidAllergenSlugs = new Set(
+        Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
           Object.entries(langMap)
             .filter(([localSlug, engAllergen]) =>
               pollenAllergens.includes(engAllergen),
             )
             .map(([localSlug]) => localSlug),
+        ),
       );
-      console.debug("[SilamValidAllergenSlugs]", debugSlugs);
-    }
 
-    const SilamValidAllergenSlugs = new Set(
-      Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
-        Object.entries(langMap)
-          .filter(([localSlug, engAllergen]) =>
-            pollenAllergens.includes(engAllergen),
-          )
-          .map(([localSlug]) => localSlug),
-      ),
-    );
-
-    this.installedSilamLocations = Array.from(
-      new Map(
-        Object.values(hass.states)
-          .filter((s) => {
-            if (
-              !s ||
-              typeof s !== "object" ||
-              typeof s.entity_id !== "string" ||
-              !s.entity_id.startsWith("sensor.silam_pollen_")
-            )
-              return false;
-            const match = s.entity_id.match(
-              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
-            );
-            if (!match) {
-              if (this.debug) {
-                console.debug("[Filter] Skip (no match):", s.entity_id);
+      this.installedSilamLocations = Array.from(
+        new Map(
+          Object.values(hass.states)
+            .filter((s) => {
+              if (
+                !s ||
+                typeof s !== "object" ||
+                typeof s.entity_id !== "string" ||
+                !s.entity_id.startsWith("sensor.silam_pollen_")
+              )
+                return false;
+              const match = s.entity_id.match(
+                /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+              );
+              if (!match) {
+                if (this.debug) {
+                  console.debug("[Filter] Skip (no match):", s.entity_id);
+                }
+                return false;
               }
-              return false;
-            }
-            const rawLocation = match[1];
-            const allergenSlug = match[2];
+              const rawLocation = match[1];
+              const allergenSlug = match[2];
 
-            if (this.debug) {
-              console.debug(
-                "[Filter] entity_id:",
-                s.entity_id,
-                "| rawLocation:",
-                rawLocation,
-                "| allergenSlug:",
-                allergenSlug,
-                "| validAllergen:",
-                SilamValidAllergenSlugs.has(allergenSlug),
-              );
-            }
+              if (this.debug) {
+                console.debug(
+                  "[Filter] entity_id:",
+                  s.entity_id,
+                  "| rawLocation:",
+                  rawLocation,
+                  "| allergenSlug:",
+                  allergenSlug,
+                  "| validAllergen:",
+                  SilamValidAllergenSlugs.has(allergenSlug),
+                );
+              }
 
-            return SilamValidAllergenSlugs.has(allergenSlug);
-          })
-          .map((s) => {
-            const match =
-              typeof s.entity_id === "string"
-                ? s.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/)
-                : null;
-            const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
-            const locationSlug = slugify(rawLocation);
+              return SilamValidAllergenSlugs.has(allergenSlug);
+            })
+            .map((s) => {
+              const match =
+                typeof s.entity_id === "string"
+                  ? s.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/)
+                  : null;
+              const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
+              const locationSlug = slugify(rawLocation);
 
-            let title =
-              s.attributes?.location_title ||
-              (typeof s.attributes?.friendly_name === "string"
-                ? s.attributes.friendly_name
-                    .replace(/^SILAM Pollen\s*-?\s*/i, "")
-                    .replace(/\s+\p{L}+$/u, "")
-                    .trim()
-                : "") ||
-              rawLocation;
+              let title =
+                s.attributes?.location_title ||
+                (typeof s.attributes?.friendly_name === "string"
+                  ? s.attributes.friendly_name
+                      .replace(/^SILAM Pollen\s*-?\s*/i, "")
+                      .replace(/\s+\p{L}+$/u, "")
+                      .trim()
+                  : "") ||
+                rawLocation;
 
-            title = title.replace(/^[-\s]+/, "");
-            title = title.charAt(0).toUpperCase() + title.slice(1);
+              title = title.replace(/^[-\s]+/, "");
+              title = title.charAt(0).toUpperCase() + title.slice(1);
 
-            if (this.debug) {
-              console.debug(
-                "[Map] entity_id:",
-                s.entity_id,
-                "| rawLocation:",
-                rawLocation,
-                "| slugified locationSlug:",
-                locationSlug,
-                "| title:",
-                title,
-              );
-            }
+              if (this.debug) {
+                console.debug(
+                  "[Map] entity_id:",
+                  s.entity_id,
+                  "| rawLocation:",
+                  rawLocation,
+                  "| slugified locationSlug:",
+                  locationSlug,
+                  "| title:",
+                  title,
+                );
+              }
 
-            return [locationSlug, title];
-          }),
-      ),
-    );
-    // 4) Auto-välj första region/stad om användaren inte satt något
-    if (!this._initDone) {
-      if (
-        integration === "dwd" &&
-        !this._userConfig.region_id &&
-        this.installedRegionIds.length
-      ) {
-        this._config.region_id = this.installedRegionIds[0];
+              return [locationSlug, title];
+            }),
+        ),
+      );
+      // 4) Auto-välj första region/stad om användaren inte satt något
+      if (!this._initDone) {
+        if (
+          integration === "dwd" &&
+          !this._userConfig.region_id &&
+          this.installedRegionIds.length
+        ) {
+          this._config.region_id = this.installedRegionIds[0];
+        }
+        if (
+          integration === "pp" &&
+          !this._userConfig.city &&
+          this.installedCities.length
+        ) {
+          this._config.city = this.installedCities[0];
+        }
+        if (
+          integration === "silam" &&
+          !this._userConfig.location &&
+          this.installedSilamLocations.length
+        ) {
+          this._config.location = this.installedSilamLocations[0][0];
+        }
       }
-      if (
-        integration === "pp" &&
-        !this._userConfig.city &&
-        this.installedCities.length
-      ) {
-        this._config.city = this.installedCities[0];
-      }
-      if (
-        integration === "silam" &&
-        !this._userConfig.location &&
-        this.installedSilamLocations.length
-      ) {
-        this._config.location = this.installedSilamLocations[0][0];
-      }
+
+      // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
-    this._initDone = true;
-
-    // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
-    this.dispatchEvent(
-      new CustomEvent("config-changed", {
-        detail: { config: this._config },
-        bubbles: true,
-        composed: true,
-      }),
-    );
 
     this.requestUpdate();
+    this._initDone = true;
   }
 
   _onAllergenToggle(allergen, checked) {
@@ -947,15 +957,18 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     cfg.type = this._config.type;
-    this._config = cfg;
-    if (this.debug) console.debug("[Editor] updated _config:", this._config);
-    this.dispatchEvent(
-      new CustomEvent("config-changed", {
-        detail: { config: this._config },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    // Only dispatch if config actually changed, to avoid UI blinking/loops
+    if (!deepEqual(this._config, cfg)) {
+      this._config = cfg;
+      if (this.debug) console.debug("[Editor] updated _config:", this._config);
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
   }
 
   render() {
@@ -1254,6 +1267,37 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
+            <details open>
+              <summary>${this._t("summary_minimal")}</summary>
+              <ha-formfield label="${this._t("minimal")}">
+                <ha-switch
+                  .checked=${c.minimal}
+                  @change=${(e) =>
+                    this._updateConfig("minimal", e.target.checked)}
+                ></ha-switch>
+              </ha-formfield>
+              <ha-formfield label="${this._t("minimal_gap")}">
+                <ha-slider
+                  min="0"
+                  max="100"
+                  step="1"
+                  .value=${c.minimal_gap ?? 35}
+                  @input=${(e) =>
+                    this._updateConfig("minimal_gap", Number(e.target.value))}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.minimal_gap ?? 35}
+                  min="0"
+                  max="100"
+                  step="1"
+                  @input=${(e) =>
+                    this._updateConfig("minimal_gap", Number(e.target.value))}
+                  style="width: 80px;"
+                ></ha-textfield>
+              </ha-formfield>
+            </details>
             <details>
               <summary>${this._t("levels_header")}</summary>
               <ha-formfield label="${this._t("levels_colors")}">
@@ -1507,13 +1551,6 @@ class PollenPrognosCardEditor extends LitElement {
           <!-- Display Switches -->
           <details open>
             <summary>${this._t("summary_data_view_settings")}</summary>
-            <ha-formfield label="${this._t("minimal")}">
-              <ha-switch
-                .checked=${c.minimal}
-                @change=${(e) =>
-                  this._updateConfig("minimal", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
             <ha-formfield label="${this._t("allergens_abbreviated")}">
               <ha-switch
                 .checked=${c.allergens_abbreviated}
@@ -1928,39 +1965,56 @@ class PollenPrognosCardEditor extends LitElement {
 
   static get styles() {
     return css`
+      /* pollenprognos-card-editor styles */
+
+      /* Main container for card config */
       .card-config {
         display: flex;
         flex-direction: column;
         gap: 12px;
         padding: 16px;
       }
+
+      /* Formfield and details spacing */
       ha-formfield,
       details {
         margin-bottom: 8px;
       }
+
+      /* Allergens group styling */
       .allergens-group {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
       }
+
+      /* Details summary styling */
       details summary {
         cursor: pointer;
         font-weight: bold;
         margin: 8px 0;
       }
+
+      /* Slider styling */
       ha-slider {
         width: 100%;
       }
+
+      /* Select styling */
       ha-select {
         width: 100%;
         --mdc-theme-primary: var(--primary-color);
       }
+
+      /* Preset buttons styling */
       .preset-buttons {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 16px;
       }
+
+      /* Slider row layout */
       .slider-row {
         display: grid;
         grid-template-columns: auto 3ch 1fr;
@@ -1968,18 +2022,26 @@ class PollenPrognosCardEditor extends LitElement {
         gap: 8px;
         margin-bottom: 8px;
       }
+
+      /* Slider text label */
       .slider-text {
-        /* etikett, naturlig bredd */
+        /* label, natural width */
       }
+
+      /* Slider value styling */
       .slider-value {
-        /* värdet får alltid 3 teckenplats (t.ex. "0,5" / "1  ") */
+        /* always 3ch wide for value (e.g. "0,5" / "1  ") */
         font-family: monospace;
         text-align: right;
         width: 3ch;
       }
+
+      /* Slider within slider-row */
       .slider-row ha-slider {
         width: 100%;
       }
+
+      /* Details section spacing and background */
       details {
         margin-bottom: 16px; /* Increased for more space */
         border-radius: 6px; /* Slightly larger radius */
@@ -1992,6 +2054,7 @@ class PollenPrognosCardEditor extends LitElement {
         margin-right: 24px;
       }
 
+      /* Details summary style */
       details summary {
         font-weight: bold;
         cursor: pointer;
@@ -2003,6 +2066,7 @@ class PollenPrognosCardEditor extends LitElement {
         margin-bottom: 4px; /* Space below summary */
       }
 
+      /* Nested details styling */
       details details {
         margin-left: 24px; /* More indent */
         margin-right: 24px; /* More indent */
@@ -2011,6 +2075,7 @@ class PollenPrognosCardEditor extends LitElement {
         padding: 8px 0 8px 8px; /* More padding inside nested details */
       }
 
+      /* Nested details summary styling */
       details details summary {
         background: var(--card-background-color, #f0f7fc);
         border: 1px solid var(--ha-card-border-color, #cde);
@@ -2018,6 +2083,123 @@ class PollenPrognosCardEditor extends LitElement {
         margin-bottom: 4px;
         padding: 8px 12px;
         border-radius: 5px;
+      }
+
+      /* --- Toggle (ha-switch) and boolean control styles --- */
+
+      /*
+  This section ensures that the clickable area (hitbox) for boolean toggles (ha-switch)
+  matches the visible toggle size and does not expand unnecessarily. 
+  The goal is DRY/KISS: no excessive click area, and only the toggle and label are clickable.
+*/
+
+      /* Remove any default margin/padding around the switch inside ha-formfield */
+      ha-formfield > ha-switch,
+      ha-formfield > .mdc-form-field > ha-switch {
+        margin: 0;
+        padding: 0;
+        width: auto;
+        min-width: 0;
+        box-sizing: content-box;
+      }
+
+      /* Remove extra padding/margin on ha-formfield itself */
+      ha-formfield {
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+      }
+
+      /* Minimize ripple/overlay area if present (Material Web ripple) */
+      .mdc-form-field__ripple {
+        width: auto !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        border-radius: 16px !important;
+        /* Only as large as the toggle itself */
+      }
+
+      /* Reduce spacing between toggles in settings group */
+      details .ha-formfield {
+        margin-bottom: 2px;
+      }
+
+      /* Remove extra background/overlay on focus/active */
+      ha-switch:focus,
+      ha-switch:active {
+        box-shadow: none;
+        outline: none;
+      }
+
+      /* Ensure toggles have standard size and spacing */
+      ha-switch {
+        vertical-align: middle;
+        /* If needed, override width/height for consistent appearance */
+        width: 36px;
+        height: 20px;
+        /* Remove any extra border or background */
+        background: none;
+        border: none;
+        box-sizing: border-box;
+      }
+
+      /* Label alignment with switch */
+      ha-formfield label,
+      ha-formfield .mdc-label {
+        vertical-align: middle;
+        margin-left: 8px;
+        margin-right: 0;
+        padding: 0;
+      }
+
+      /* End of boolean control styles */
+      /* --- Numeric input box width and padding fix for ha-textfield --- */
+
+      /*
+        Ensures that all ha-textfield elements used for numeric input
+        (such as minimal_gap, icon size, text size, etc) display at least
+        three digits clearly, without white space truncating the value.
+        This patch sets width and internal padding. Applies to all number-type
+        ha-textfield elements in the editor.
+*/
+      ha-textfield[type="number"] {
+        /* Set a specific width to fit at least three digits and controls */
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+        /* Remove extra margin and padding */
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        /* Set font size for clarity */
+        font-size: 1.1em;
+      }
+
+      /* Ensure the input itself inherits width and font size */
+      ha-textfield[type="number"] input[type="number"] {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        font-size: 1.1em;
+        box-sizing: border-box;
+        padding: 2px 8px;
+        /* Remove border/background if needed */
+        background: none;
+        border: none;
+      }
+
+      /*
+  Slider row input: force numeric box to be visible and aligned
+  (applies to all numeric ha-textfield within .slider-row)
+*/
+      .slider-row ha-textfield[type="number"] {
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+        font-size: 1.1em;
+        margin: 0;
+        padding: 0;
       }
     `;
   }

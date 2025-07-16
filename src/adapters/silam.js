@@ -21,6 +21,7 @@ export const stubConfigSILAM = {
     "ragweed",
   ],
   minimal: false,
+  minimal_gap: 35,
   mode: "daily",
   background_color: "",
   icon_size: "48",
@@ -30,9 +31,9 @@ export const stubConfigSILAM = {
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
-  show_empty_days: true,
+  show_empty_days: false,
   debug: false,
-  days_to_show: 2,
+  days_to_show: 5,
   days_relative: true,
   days_abbreviated: false,
   days_uppercase: false,
@@ -116,7 +117,7 @@ export function getAllergenNames(allergen, phrases, lang) {
   return { allergenCapitalized, allergenShort };
 }
 
-export async function fetchForecast(hass, config) {
+export async function fetchForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
   const lang = detectLang(hass, config.date_locale);
   const locale =
@@ -135,47 +136,53 @@ export async function fetchForecast(hass, config) {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const days_to_show = config.days_to_show ?? stubConfigSILAM.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
 
-  // Alla silam-sensorer
+  // Hitta weather-entity
   const locationSlug = (config.location || "").toLowerCase();
-  const silamStates = Object.keys(hass.states).filter((id) => {
-    const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-    return m && m[1] === locationSlug;
-  });
+  const weatherEntity = findSilamWeatherEntity(hass, locationSlug, locale);
 
-  // Bygg lookup: ALLA språk, så vi hittar master-key oavsett HA-språk
-  const sensorLookup = {};
-  for (const eid of silamStates) {
-    const match = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-    if (!match) continue;
-    const haSlug = match[2];
-    let found = false;
-    for (const [langKey, mapping] of Object.entries(silamAllergenMap.mapping)) {
-      if (mapping[haSlug]) {
-        const masterSlug = mapping[haSlug];
-        sensorLookup[masterSlug] = eid;
-        found = true;
-        break;
-      }
-    }
-    if (!found && debug) {
-      console.debug(
-        `[SILAM][fetchForecast] Hittade ingen master-key för haSlug: '${haSlug}'`,
-      );
-    }
+  if (!weatherEntity || !hass.states[weatherEntity]) {
+    if (debug)
+      console.warn("[SILAM] Ingen weather-entity hittad:", weatherEntity);
+    return [];
+  }
+
+  const entity = hass.states[weatherEntity];
+  const allergens = config.allergens || stubConfigSILAM.allergens;
+
+  // Forecast-array: från forecastEvent om det finns, annars från entity
+  let forecastArr = [];
+  if (
+    forecastEvent &&
+    forecastEvent.forecast &&
+    Array.isArray(forecastEvent.forecast)
+  ) {
+    forecastArr = forecastEvent.forecast;
+  } else if (Array.isArray(entity.attributes.forecast)) {
+    forecastArr = entity.attributes.forecast;
+  }
+
+  // Hur många dagar/kolumner som ska visas
+  // För daily används dag0 + första n forecast, för hourly/twice_daily används forecast direkt
+  let maxItems;
+  if (config.mode === "hourly" || config.mode === "twice_daily") {
+    maxItems = Math.min(forecastArr.length, days_to_show);
+  } else {
+    maxItems = Math.min(forecastArr.length + 1, days_to_show);
   }
 
   const sensors = [];
-  for (const allergen of config.allergens) {
+  for (const allergen of allergens) {
     try {
       const dict = {};
       dict.days = [];
       dict.allergenReplaced = allergen;
 
-      // Centralt namn- och label-uppslag
+      // Namn-uppslag
       const { allergenCapitalized, allergenShort } = getAllergenNames(
         allergen,
         phrases,
@@ -186,95 +193,69 @@ export async function fetchForecast(hass, config) {
         ? allergenShort
         : allergenCapitalized;
 
-      const sensorId = sensorLookup[allergen];
-      if (!sensorId || !hass.states[sensorId]) {
-        if (debug)
-          console.debug(`[SILAM] Ingen sensor för ${allergen}:`, sensorId);
-        continue;
-      }
-      const sensor = hass.states[sensorId];
-      dict.entity_id = sensorId;
-
-      // Läs state + forecast/tomorrow
-      const mainVal = Number(sensor.state);
-      let forecasts = [];
-      if (
-        sensor.attributes &&
-        sensor.attributes.forecast &&
-        Array.isArray(sensor.attributes.forecast)
-      ) {
-        forecasts = sensor.attributes.forecast
-          .map((f) => ({
-            date: new Date(f.datetime || f.time),
-            value: Number(f.value),
-          }))
-          .filter(
-            (f) => !isNaN(f.value) && f.date instanceof Date && !isNaN(f.date),
-          );
-        forecasts.sort((a, b) => a.date - b.date);
-      }
-
-      // Bygg dag-objekt (här sker konverteringen!)
+      // Samla nivåer per dag/kolumn (olika för daily och övriga lägen)
       let stateList = [];
-      stateList.push(grainsToLevel(allergen, mainVal));
-
-      // Försök forecast-array
-      if (
-        sensor.attributes &&
-        Array.isArray(sensor.attributes.forecast) &&
-        sensor.attributes.forecast.length > 0
-      ) {
-        for (let i = 1; i < days_to_show; ++i) {
-          const dt = new Date(today.getTime() + i * 86400000);
-          const forecast = sensor.attributes.forecast.find(
-            (f) =>
-              Math.abs(
-                new Date(f.datetime || f.time).getTime() - dt.getTime(),
-              ) <
-              12 * 3600 * 1000,
-          );
-          const forecastVal = forecast
-            ? grainsToLevel(allergen, Number(forecast.value))
-            : -1;
-          stateList.push(forecastVal);
+      if (config.mode === "hourly" || config.mode === "twice_daily") {
+        for (let i = 0; i < maxItems; ++i) {
+          const forecast = forecastArr[i];
+          const pollenVal = forecast
+            ? Number(forecast[`pollen_${allergen}`])
+            : NaN;
+          stateList.push(grainsToLevel(allergen, pollenVal));
         }
       } else {
-        // Saknar forecast-array
-        if (days_to_show > 1 && sensor.attributes?.tomorrow !== undefined) {
-          stateList.push(
-            grainsToLevel(allergen, Number(sensor.attributes.tomorrow)),
-          );
-        } else if (days_to_show > 1) {
-          stateList.push(-1);
-        }
-        while (stateList.length < days_to_show) {
-          stateList.push(-1);
+        // Dag 0: aktuellt värde från entity
+        const currentVal = Number(entity.attributes[`pollen_${allergen}`]);
+        stateList.push(grainsToLevel(allergen, currentVal));
+        // Dag 1…n: forecast
+        for (let i = 1; i < maxItems; ++i) {
+          const forecast = forecastArr[i - 1];
+          const pollenVal = forecast
+            ? Number(forecast[`pollen_${allergen}`])
+            : NaN;
+          stateList.push(grainsToLevel(allergen, pollenVal));
         }
       }
 
-      if (
-        stateList.length < days_to_show &&
-        sensor.attributes?.tomorrow !== undefined
-      ) {
-        stateList[1] =
-          grainsToLevel(allergen, Number(sensor.attributes.tomorrow)) || -1;
-      }
-
-      for (let i = 0; i < days_to_show; ++i) {
+      // Fyll dag-objekt för kortet
+      for (let i = 0; i < maxItems; ++i) {
         const scaled = stateList[i];
-        if (scaled !== null && scaled >= 0) {
-          const d = new Date(today.getTime() + i * 86400000);
-          const diff = i;
-          let label;
+        let label, icon;
+        let d;
+        if (config.mode === "hourly" || config.mode === "twice_daily") {
+          if (
+            forecastArr[i] &&
+            (forecastArr[i].datetime || forecastArr[i].time)
+          ) {
+            d = new Date(forecastArr[i].datetime || forecastArr[i].time);
+          } else {
+            d = new Date(today.getTime() + i * 3600000); // fallback
+          }
+          if (config.mode === "twice_daily") {
+            const weekday = d.toLocaleDateString(locale, { weekday: "short" });
+            label = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+            icon =
+              i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
+            if (daysUppercase) label = label.toUpperCase();
+          } else {
+            label =
+              d.toLocaleTimeString(locale, {
+                hour: "2-digit",
+                minute: "2-digit",
+              }) || "";
+            icon = null;
+          }
+        } else {
+          d = new Date(today.getTime() + i * 86400000);
           if (!daysRelative) {
             label = d.toLocaleDateString(locale, {
               weekday: dayAbbrev ? "short" : "long",
             });
             label = label.charAt(0).toUpperCase() + label.slice(1);
-          } else if (userDays[diff] != null) {
-            label = userDays[diff];
-          } else if (diff >= 0 && diff <= 2) {
-            label = t(`card.days.${diff}`, lang);
+          } else if (userDays[i] != null) {
+            label = userDays[i];
+          } else if (i >= 0 && i <= 2) {
+            label = t(`card.days.${i}`, lang);
           } else {
             label = d.toLocaleDateString(locale, {
               day: "numeric",
@@ -282,19 +263,21 @@ export async function fetchForecast(hass, config) {
             });
           }
           if (daysUppercase) label = label.toUpperCase();
-
-          const lvlIndex = scaled < 0 ? 0 : Math.min(Math.round(scaled), 6);
-          const stateText =
-            scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled);
-
-          dict[`day${i}`] = {
-            name: dict.allergenCapitalized,
-            day: label,
-            state: scaled,
-            state_text: stateText,
-          };
-          dict.days.push(dict[`day${i}`]);
+          icon = null;
         }
+
+        const lvlIndex = scaled < 0 ? 0 : Math.min(Math.round(scaled), 6);
+        const stateText =
+          scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled);
+
+        dict[`day${i}`] = {
+          name: dict.allergenCapitalized,
+          day: label,
+          icon: icon,
+          state: scaled,
+          state_text: stateText,
+        };
+        dict.days.push(dict[`day${i}`]);
       }
 
       const meets = dict.days.some((d) => d.state >= pollen_threshold);
@@ -304,6 +287,7 @@ export async function fetchForecast(hass, config) {
     }
   }
 
+  // Sortering
   sensors.sort(
     {
       value_ascending: (a, b) => a.day0.state - b.day0.state,
@@ -316,202 +300,5 @@ export async function fetchForecast(hass, config) {
   );
 
   if (debug) console.debug("[SILAM] fetchForecast klar:", sensors);
-  return sensors;
-}
-
-export async function fetchHourlyForecast(hass, config, forecastEvent = null) {
-  const debug = Boolean(config.debug);
-
-  if (forecastEvent) {
-    if (debug) {
-      console.debug(
-        "[SILAM][fetchHourlyForecast] forecastEvent MOTTAGET!",
-        forecastEvent,
-      );
-    }
-  } else {
-    if (debug) {
-      console.debug("[SILAM][fetchHourlyForecast] forecastEvent ÄR NULL!");
-    }
-  }
-
-  const lang = detectLang(hass, config.date_locale);
-  const locale =
-    config.date_locale ||
-    hass.locale?.language ||
-    hass.language ||
-    `${lang}-${lang.toUpperCase()}`;
-  const pollen_threshold =
-    config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
-
-  // Visa alla weather-entities om debug
-  if (debug) {
-    const weatherEntities = Object.keys(hass.states).filter((id) =>
-      id.startsWith("weather.silam_pollen_"),
-    );
-    console.debug(
-      "[SILAM][fetchHourlyForecast] Alla weather-entities i hass:",
-      weatherEntities,
-    );
-    console.debug(
-      "[SILAM][fetchHourlyForecast] config.location:",
-      config.location,
-      "-> locationSlug:",
-      (config.location || "").toLowerCase(),
-    );
-  }
-
-  // Identifiera weather-entity: auto-detect, eller ge i config (eller bygg från location)
-  let locationSlug = (config.location || "").toLowerCase();
-  const weatherEntity = findSilamWeatherEntity(hass, locationSlug, locale);
-
-  if (debug) {
-    console.debug(
-      "[SILAM][fetchHourlyForecast] Matchad weatherEntity:",
-      weatherEntity,
-    );
-  }
-
-  if (!weatherEntity) {
-    if (debug)
-      console.warn(
-        "[SILAM][fetchHourlyForecast] Ingen weather-entity hittad för locationSlug:",
-        locationSlug,
-      );
-    return [];
-  }
-
-  // forecast-array tas primärt från forecastEvent, annars entity.attributes.forecast
-  let forecastArr = null;
-  if (
-    forecastEvent &&
-    forecastEvent.forecast &&
-    Array.isArray(forecastEvent.forecast)
-  ) {
-    forecastArr = forecastEvent.forecast;
-    if (debug)
-      console.debug(
-        "[SILAM][fetchHourlyForecast] forecastEvent används! forecast-array längd:",
-        forecastArr.length,
-        "forecastEvent:",
-        forecastEvent,
-      );
-  } else {
-    const entity = hass.states[weatherEntity];
-    if (
-      entity?.attributes?.forecast &&
-      Array.isArray(entity.attributes.forecast)
-    ) {
-      forecastArr = entity.attributes.forecast;
-      if (debug)
-        console.debug(
-          "[SILAM][fetchHourlyForecast] Fallback till entity.attributes.forecast! forecast-array längd:",
-          forecastArr.length,
-        );
-    }
-  }
-  if (!forecastArr || !Array.isArray(forecastArr) || forecastArr.length === 0) {
-    if (debug)
-      console.warn(
-        "[SILAM][fetchHourlyForecast] Ingen forecast-array kunde hittas för entity:",
-        weatherEntity,
-      );
-    return [];
-  }
-
-  // DRY: Centrala phrases/labels/levels
-  const phrases = getPhrases(config, lang);
-  const levelNames = getLevelNames(phrases, lang);
-  const noInfoLabel = phrases.no_information;
-  const allergens = config.allergens || stubConfigSILAM.allergens;
-
-  if (debug) {
-    console.debug(
-      "[SILAM][fetchHourlyForecast] Allergens att loopa över:",
-      allergens,
-    );
-  }
-
-  // Bygg sensors-array (en per allergen)
-  const sensors = [];
-  for (const allergen of allergens) {
-    try {
-      // if (debug) {
-      //   console.debug(
-      //     `[SILAM][fetchHourlyForecast] Loop allergen: '${allergen}'`,
-      //   );
-      // }
-      const dict = {};
-      dict.days = [];
-      dict.allergenReplaced = allergen;
-
-      // Centralt namn- och label-uppslag
-      const { allergenCapitalized, allergenShort } = getAllergenNames(
-        allergen,
-        phrases,
-        lang,
-      );
-      dict.allergenCapitalized = allergenCapitalized;
-      dict.allergenShort = config.allergens_abbreviated
-        ? allergenShort
-        : allergenCapitalized;
-
-      for (let i = 0; i < forecastArr.length; ++i) {
-        const f = forecastArr[i];
-        const key = `pollen_${allergen}`;
-        const pollenVal = Number(f[key]);
-        const scaled = grainsToLevel(allergen, pollenVal);
-        if (scaled !== null && scaled >= 0) {
-          const stateText =
-            scaled < 0 ? noInfoLabel : levelNames[scaled] || String(scaled);
-          const d = new Date(f.datetime || f.time);
-
-          let dayLabel, dayIcon;
-          if (config.mode === "twice_daily") {
-            const weekday = d.toLocaleDateString(locale, { weekday: "short" });
-            dayLabel = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-            dayIcon =
-              i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
-            // console.debug("Icon: ", dayIcon);
-            if (config.days_uppercase) dayLabel = dayLabel.toUpperCase();
-          } else {
-            dayLabel =
-              d.toLocaleTimeString(locale, {
-                hour: "2-digit",
-                minute: "2-digit",
-              }) || "";
-            dayIcon = null;
-          }
-
-          dict[`day${i}`] = {
-            name: dict.allergenCapitalized,
-            day: dayLabel,
-            icon: dayIcon,
-            state: scaled,
-            state_text: stateText,
-          };
-          dict.days.push(dict[`day${i}`]);
-        }
-      }
-      // Filtrera på threshold som vanligt
-      const meets = dict.days.some((d) => d.state >= pollen_threshold);
-      if (debug) {
-        console.debug(
-          `[SILAM][fetchHourlyForecast] Resultat för allergen ${allergen}:`,
-          dict,
-          "meets:",
-          meets,
-        );
-      }
-      if (meets || pollen_threshold === 0) sensors.push(dict);
-    } catch (e) {
-      if (debug)
-        console.warn(`[SILAM][hourly] Fel vid allergen ${allergen}:`, e);
-    }
-  }
-
-  if (debug) {
-    console.debug("[SILAM][fetchHourlyForecast] Klar. sensors:", sensors);
-  }
   return sensors;
 }
