@@ -15,6 +15,7 @@ import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
+import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
@@ -280,17 +281,29 @@ class PollenPrognosCard extends LitElement {
   }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
-    this.sensors = filtered;
-    this._availableSensorCount = availableSensors.length;
-
+    // Calculate expected values for comparison
     let daysCount = 0;
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
     } else if (filtered.length > 0 && filtered[0].days) {
       daysCount = Math.min(filtered[0].days.length, cfg.days_to_show);
     }
+    const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
+
+    // Only update if any relevant value has changed
+    if (
+      deepEqual(this.sensors, filtered) &&
+      this._availableSensorCount === availableSensors.length &&
+      this.days_to_show === daysCount &&
+      deepEqual(this.displayCols, expectedDisplayCols)
+    ) {
+      return;
+    }
+
+    this.sensors = filtered;
+    this._availableSensorCount = availableSensors.length;
     this.days_to_show = daysCount;
-    this.displayCols = Array.from({ length: daysCount }, (_, i) => i);
+    this.displayCols = expectedDisplayCols;
 
     if (this.debug) {
       console.debug("Days to show:", this.days_to_show);
@@ -298,7 +311,6 @@ class PollenPrognosCard extends LitElement {
     }
     this.requestUpdate();
   }
-
   _subscribeForecastIfNeeded() {
     if (!this.config || !this._hass) return;
 
@@ -487,6 +499,9 @@ class PollenPrognosCard extends LitElement {
   // }
 
   setConfig(config) {
+    // Skip update if config is unchanged
+    if (deepEqual(this._userConfig, config)) return;
+
     // Kopiera användarens config
     this._userConfig = { ...config };
     this.tapAction = config.tap_action || null;
@@ -532,6 +547,7 @@ class PollenPrognosCard extends LitElement {
   }
 
   set hass(hass) {
+    if (this._hass === hass) return;
     this._hass = hass;
     const explicit = !!this._integrationExplicit;
     if (this.debug)

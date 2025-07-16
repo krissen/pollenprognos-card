@@ -3,6 +3,7 @@ import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
 import { slugify } from "./utils/slugify.js";
+import { deepEqual } from "./utils/confcompare.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
@@ -48,30 +49,6 @@ const getStubConfig = (integration) =>
       : integration === "silam"
         ? stubConfigSILAM
         : stubConfigPP;
-
-// Shallow deep-compare helper for config objects (order-insensitive for arrays, shallow for objects)
-function configsEqual(a, b) {
-  // Quick reference equality
-  if (a === b) return true;
-  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
-  const aKeys = Object.keys(a),
-    bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  for (let k of aKeys) {
-    if (!(k in b)) return false;
-    // Compare arrays shallowly and unordered
-    if (Array.isArray(a[k]) && Array.isArray(b[k])) {
-      if (a[k].length !== b[k].length) return false;
-      if ([...a[k]].sort().join(",") !== [...b[k]].sort().join(","))
-        return false;
-    } else if (typeof a[k] === "object" && typeof b[k] === "object") {
-      if (!configsEqual(a[k], b[k])) return false;
-    } else if (a[k] !== b[k]) {
-      return false;
-    }
-  }
-  return true;
-}
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -583,7 +560,7 @@ class PollenPrognosCardEditor extends LitElement {
 
       // 19. Dispatch’a så att HA-editorn ritar om formuläret med nya värden
       // Only dispatch if config actually changed, to avoid UI blinking/loops
-      if (!configsEqual(this._config, merged)) {
+      if (!deepEqual(this._config, merged)) {
         this._config = merged;
         this.dispatchEvent(
           new CustomEvent("config-changed", {
@@ -667,7 +644,7 @@ class PollenPrognosCardEditor extends LitElement {
     merged.sort = merged.sort || "value_ascending";
 
     // Only dispatch if config actually changed, to avoid UI blinking/loops
-    if (!configsEqual(this._config, merged)) {
+    if (!deepEqual(this._config, merged)) {
       this._config = merged;
 
       // 3) Fyll installerade regioner/städer
@@ -981,7 +958,7 @@ class PollenPrognosCardEditor extends LitElement {
     }
     cfg.type = this._config.type;
     // Only dispatch if config actually changed, to avoid UI blinking/loops
-    if (!configsEqual(this._config, cfg)) {
+    if (!deepEqual(this._config, cfg)) {
       this._config = cfg;
       if (this.debug) console.debug("[Editor] updated _config:", this._config);
       this.dispatchEvent(
