@@ -49,6 +49,30 @@ const getStubConfig = (integration) =>
         ? stubConfigSILAM
         : stubConfigPP;
 
+// Shallow deep-compare helper for config objects (order-insensitive for arrays, shallow for objects)
+function configsEqual(a, b) {
+  // Quick reference equality
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
+  const aKeys = Object.keys(a),
+    bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (let k of aKeys) {
+    if (!(k in b)) return false;
+    // Compare arrays shallowly and unordered
+    if (Array.isArray(a[k]) && Array.isArray(b[k])) {
+      if (a[k].length !== b[k].length) return false;
+      if ([...a[k]].sort().join(",") !== [...b[k]].sort().join(","))
+        return false;
+    } else if (typeof a[k] === "object" && typeof b[k] === "object") {
+      if (!configsEqual(a[k], b[k])) return false;
+    } else if (a[k] !== b[k]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
     // return true;
@@ -558,13 +582,17 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 19. Dispatch’a så att HA-editorn ritar om formuläret med nya värden
-      this.dispatchEvent(
-        new CustomEvent("config-changed", {
-          detail: { config: this._config },
-          bubbles: true,
-          composed: true,
-        }),
-      );
+      // Only dispatch if config actually changed, to avoid UI blinking/loops
+      if (!configsEqual(this._config, merged)) {
+        this._config = merged;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }
       this.requestUpdate();
       this._prevIntegration = incomingInt;
       this._initDone = true;
@@ -638,221 +666,226 @@ class PollenPrognosCardEditor extends LitElement {
 
     merged.sort = merged.sort || "value_ascending";
 
-    this._config = merged;
+    // Only dispatch if config actually changed, to avoid UI blinking/loops
+    if (!configsEqual(this._config, merged)) {
+      this._config = merged;
 
-    // 3) Fyll installerade regioner/städer
-    this.installedRegionIds = Array.from(
-      new Set(dwdStates.map((id) => id.split("_").pop())),
-    ).sort((a, b) => Number(a) - Number(b));
+      // 3) Fyll installerade regioner/städer
+      this.installedRegionIds = Array.from(
+        new Set(dwdStates.map((id) => id.split("_").pop())),
+      ).sort((a, b) => Number(a) - Number(b));
 
-    const uniqKeys = Array.from(
-      new Set(
-        ppStates.map((id) =>
-          id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+      const uniqKeys = Array.from(
+        new Set(
+          ppStates.map((id) =>
+            id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+          ),
         ),
-      ),
-    );
-    this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
-      uniqKeys.includes(
-        city
-          .toLowerCase()
-          .replace(/[åä]/g, "a")
-          .replace(/ö/g, "o")
-          .replace(/[-\s]/g, "_"),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
+      );
+      this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
+        uniqKeys.includes(
+          city
+            .toLowerCase()
+            .replace(/[åä]/g, "a")
+            .replace(/ö/g, "o")
+            .replace(/[-\s]/g, "_"),
+        ),
+      ).sort((a, b) => a.localeCompare(b));
 
-    this.installedPeuLocations = Array.from(
-      new Map(
-        Object.values(hass.states)
-          .filter(
-            (s) =>
-              s &&
-              typeof s === "object" &&
-              typeof s.entity_id === "string" &&
-              s.entity_id.startsWith("sensor.polleninformation_"),
-          )
-          .map((s) => {
-            const locationSlug =
-              s.attributes?.location_slug ||
-              s.entity_id
-                .replace("sensor.polleninformation_", "")
-                .replace(/_[^_]+$/, "");
-            const title =
-              s.attributes?.location_title ||
-              (typeof s.attributes?.friendly_name === "string"
-                ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
-                : undefined) ||
-              locationSlug;
-            return [locationSlug, title];
-          }),
-      ),
-    );
-    const lang =
-      (this.config &&
-        this.config.date_locale &&
-        this.config.date_locale.slice(0, 2)) ||
-      (this._hass && this._hass.language) ||
-      "en";
+      this.installedPeuLocations = Array.from(
+        new Map(
+          Object.values(hass.states)
+            .filter(
+              (s) =>
+                s &&
+                typeof s === "object" &&
+                typeof s.entity_id === "string" &&
+                s.entity_id.startsWith("sensor.polleninformation_"),
+            )
+            .map((s) => {
+              const locationSlug =
+                s.attributes?.location_slug ||
+                s.entity_id
+                  .replace("sensor.polleninformation_", "")
+                  .replace(/_[^_]+$/, "");
+              const title =
+                s.attributes?.location_title ||
+                (typeof s.attributes?.friendly_name === "string"
+                  ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
+                  : undefined) ||
+                locationSlug;
+              return [locationSlug, title];
+            }),
+        ),
+      );
+      const lang =
+        (this.config &&
+          this.config.date_locale &&
+          this.config.date_locale.slice(0, 2)) ||
+        (this._hass && this._hass.language) ||
+        "en";
 
-    const pollenAllergens = [
-      "alder",
-      "birch",
-      "grass",
-      "hazel",
-      "mugwort",
-      "olive",
-      "ragweed",
-    ];
+      const pollenAllergens = [
+        "alder",
+        "birch",
+        "grass",
+        "hazel",
+        "mugwort",
+        "olive",
+        "ragweed",
+      ];
 
-    if (this.debug) {
-      // Logga mapping för samtliga språk
-      console.debug("[SilamAllergenMap.mapping]", silamAllergenMap.mapping);
+      if (this.debug) {
+        // Logga mapping för samtliga språk
+        console.debug("[SilamAllergenMap.mapping]", silamAllergenMap.mapping);
 
-      // Logga vilka engelska allergener som används för filtrering
-      console.debug("[pollenAllergens]", pollenAllergens);
+        // Logga vilka engelska allergener som används för filtrering
+        console.debug("[pollenAllergens]", pollenAllergens);
 
-      // Bygg upp och logga ALLA möjliga allergen-slugs per språk/allergen
-      for (const [lang, langMap] of Object.entries(silamAllergenMap.mapping)) {
-        for (const [localSlug, engAllergen] of Object.entries(langMap)) {
-          console.debug(`[Mapping] ${lang}: ${localSlug} → ${engAllergen}`);
+        // Bygg upp och logga ALLA möjliga allergen-slugs per språk/allergen
+        for (const [lang, langMap] of Object.entries(
+          silamAllergenMap.mapping,
+        )) {
+          for (const [localSlug, engAllergen] of Object.entries(langMap)) {
+            console.debug(`[Mapping] ${lang}: ${localSlug} → ${engAllergen}`);
+          }
         }
+
+        // Logga vilka slugs som räknas som giltiga för denna omgång
+        const debugSlugs = Object.values(silamAllergenMap.mapping).flatMap(
+          (langMap) =>
+            Object.entries(langMap)
+              .filter(([localSlug, engAllergen]) =>
+                pollenAllergens.includes(engAllergen),
+              )
+              .map(([localSlug]) => localSlug),
+        );
+        console.debug("[SilamValidAllergenSlugs]", debugSlugs);
       }
 
-      // Logga vilka slugs som räknas som giltiga för denna omgång
-      const debugSlugs = Object.values(silamAllergenMap.mapping).flatMap(
-        (langMap) =>
+      const SilamValidAllergenSlugs = new Set(
+        Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
           Object.entries(langMap)
             .filter(([localSlug, engAllergen]) =>
               pollenAllergens.includes(engAllergen),
             )
             .map(([localSlug]) => localSlug),
+        ),
       );
-      console.debug("[SilamValidAllergenSlugs]", debugSlugs);
-    }
 
-    const SilamValidAllergenSlugs = new Set(
-      Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
-        Object.entries(langMap)
-          .filter(([localSlug, engAllergen]) =>
-            pollenAllergens.includes(engAllergen),
-          )
-          .map(([localSlug]) => localSlug),
-      ),
-    );
-
-    this.installedSilamLocations = Array.from(
-      new Map(
-        Object.values(hass.states)
-          .filter((s) => {
-            if (
-              !s ||
-              typeof s !== "object" ||
-              typeof s.entity_id !== "string" ||
-              !s.entity_id.startsWith("sensor.silam_pollen_")
-            )
-              return false;
-            const match = s.entity_id.match(
-              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
-            );
-            if (!match) {
-              if (this.debug) {
-                console.debug("[Filter] Skip (no match):", s.entity_id);
+      this.installedSilamLocations = Array.from(
+        new Map(
+          Object.values(hass.states)
+            .filter((s) => {
+              if (
+                !s ||
+                typeof s !== "object" ||
+                typeof s.entity_id !== "string" ||
+                !s.entity_id.startsWith("sensor.silam_pollen_")
+              )
+                return false;
+              const match = s.entity_id.match(
+                /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+              );
+              if (!match) {
+                if (this.debug) {
+                  console.debug("[Filter] Skip (no match):", s.entity_id);
+                }
+                return false;
               }
-              return false;
-            }
-            const rawLocation = match[1];
-            const allergenSlug = match[2];
+              const rawLocation = match[1];
+              const allergenSlug = match[2];
 
-            if (this.debug) {
-              console.debug(
-                "[Filter] entity_id:",
-                s.entity_id,
-                "| rawLocation:",
-                rawLocation,
-                "| allergenSlug:",
-                allergenSlug,
-                "| validAllergen:",
-                SilamValidAllergenSlugs.has(allergenSlug),
-              );
-            }
+              if (this.debug) {
+                console.debug(
+                  "[Filter] entity_id:",
+                  s.entity_id,
+                  "| rawLocation:",
+                  rawLocation,
+                  "| allergenSlug:",
+                  allergenSlug,
+                  "| validAllergen:",
+                  SilamValidAllergenSlugs.has(allergenSlug),
+                );
+              }
 
-            return SilamValidAllergenSlugs.has(allergenSlug);
-          })
-          .map((s) => {
-            const match =
-              typeof s.entity_id === "string"
-                ? s.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/)
-                : null;
-            const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
-            const locationSlug = slugify(rawLocation);
+              return SilamValidAllergenSlugs.has(allergenSlug);
+            })
+            .map((s) => {
+              const match =
+                typeof s.entity_id === "string"
+                  ? s.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/)
+                  : null;
+              const rawLocation = match ? match[1].replace(/^[-\s]+/, "") : "";
+              const locationSlug = slugify(rawLocation);
 
-            let title =
-              s.attributes?.location_title ||
-              (typeof s.attributes?.friendly_name === "string"
-                ? s.attributes.friendly_name
-                    .replace(/^SILAM Pollen\s*-?\s*/i, "")
-                    .replace(/\s+\p{L}+$/u, "")
-                    .trim()
-                : "") ||
-              rawLocation;
+              let title =
+                s.attributes?.location_title ||
+                (typeof s.attributes?.friendly_name === "string"
+                  ? s.attributes.friendly_name
+                      .replace(/^SILAM Pollen\s*-?\s*/i, "")
+                      .replace(/\s+\p{L}+$/u, "")
+                      .trim()
+                  : "") ||
+                rawLocation;
 
-            title = title.replace(/^[-\s]+/, "");
-            title = title.charAt(0).toUpperCase() + title.slice(1);
+              title = title.replace(/^[-\s]+/, "");
+              title = title.charAt(0).toUpperCase() + title.slice(1);
 
-            if (this.debug) {
-              console.debug(
-                "[Map] entity_id:",
-                s.entity_id,
-                "| rawLocation:",
-                rawLocation,
-                "| slugified locationSlug:",
-                locationSlug,
-                "| title:",
-                title,
-              );
-            }
+              if (this.debug) {
+                console.debug(
+                  "[Map] entity_id:",
+                  s.entity_id,
+                  "| rawLocation:",
+                  rawLocation,
+                  "| slugified locationSlug:",
+                  locationSlug,
+                  "| title:",
+                  title,
+                );
+              }
 
-            return [locationSlug, title];
-          }),
-      ),
-    );
-    // 4) Auto-välj första region/stad om användaren inte satt något
-    if (!this._initDone) {
-      if (
-        integration === "dwd" &&
-        !this._userConfig.region_id &&
-        this.installedRegionIds.length
-      ) {
-        this._config.region_id = this.installedRegionIds[0];
+              return [locationSlug, title];
+            }),
+        ),
+      );
+      // 4) Auto-välj första region/stad om användaren inte satt något
+      if (!this._initDone) {
+        if (
+          integration === "dwd" &&
+          !this._userConfig.region_id &&
+          this.installedRegionIds.length
+        ) {
+          this._config.region_id = this.installedRegionIds[0];
+        }
+        if (
+          integration === "pp" &&
+          !this._userConfig.city &&
+          this.installedCities.length
+        ) {
+          this._config.city = this.installedCities[0];
+        }
+        if (
+          integration === "silam" &&
+          !this._userConfig.location &&
+          this.installedSilamLocations.length
+        ) {
+          this._config.location = this.installedSilamLocations[0][0];
+        }
       }
-      if (
-        integration === "pp" &&
-        !this._userConfig.city &&
-        this.installedCities.length
-      ) {
-        this._config.city = this.installedCities[0];
-      }
-      if (
-        integration === "silam" &&
-        !this._userConfig.location &&
-        this.installedSilamLocations.length
-      ) {
-        this._config.location = this.installedSilamLocations[0][0];
-      }
+
+      // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
-    this._initDone = true;
-
-    // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
-    this.dispatchEvent(
-      new CustomEvent("config-changed", {
-        detail: { config: this._config },
-        bubbles: true,
-        composed: true,
-      }),
-    );
 
     this.requestUpdate();
+    this._initDone = true;
   }
 
   _onAllergenToggle(allergen, checked) {
@@ -947,15 +980,18 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     cfg.type = this._config.type;
-    this._config = cfg;
-    if (this.debug) console.debug("[Editor] updated _config:", this._config);
-    this.dispatchEvent(
-      new CustomEvent("config-changed", {
-        detail: { config: this._config },
-        bubbles: true,
-        composed: true,
-      }),
-    );
+    // Only dispatch if config actually changed, to avoid UI blinking/loops
+    if (!configsEqual(this._config, cfg)) {
+      this._config = cfg;
+      if (this.debug) console.debug("[Editor] updated _config:", this._config);
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
   }
 
   render() {
