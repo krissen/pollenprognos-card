@@ -106,10 +106,9 @@ export async function fetchForecast(hass, config) {
   );
   let locationSlug = config.location;
   if (!locationSlug && peuStates.length) {
-    // Ta första unika platsen som standard
-    locationSlug = peuStates[0]
-      .slice("sensor.polleninformation_".length)
-      .split("_")[0];
+    // Extract full location slug (everything after "sensor.polleninformation_" and before last "_<allergen>")
+    const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+    locationSlug = match ? match[1] : "";
   }
   // Lista platser om vi vill visa i editorn (kan samlas ihop)
   // const availableLocations = Array.from(new Set(peuStates.map(id => id.split("_")[2])));

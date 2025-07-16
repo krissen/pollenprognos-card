@@ -785,7 +785,8 @@ class PollenPrognosCard extends LitElement {
             s.entity_id
               .replace("sensor.polleninformation_", "")
               .replace(/_[^_]+$/, "");
-          return slug === cfg.location;
+          // Always slugify both sides for matching!
+          return slugify(slug) === slugify(cfg.location || "");
         });
         let title = "";
         if (match) {

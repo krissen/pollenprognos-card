@@ -1,5 +1,6 @@
 // src/utils/sensors.js
 import { normalize, normalizeDWD } from "./normalize.js";
+import { slugify } from "./slugify.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -43,7 +44,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (exists) sensors.push(sensorId);
     }
   } else if (integration === "peu") {
-    const locationSlug = (cfg.location || "").toLowerCase();
+    const locationSlug = slugify(cfg.location || "");
     for (const allergen of cfg.allergens || []) {
       const allergenSlug = normalize(allergen);
       let sensorId = locationSlug
@@ -51,7 +52,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         : null;
       let exists = sensorId && hass.states[sensorId];
       if (!exists) {
-        // Fallback: sök efter exakt match på slug
+        // Fallback: search for exact slug match
         const cands = Object.keys(hass.states).filter((id) => {
           const m = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
           if (!m) return false;
