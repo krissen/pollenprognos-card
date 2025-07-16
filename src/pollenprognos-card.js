@@ -1442,10 +1442,10 @@ class PollenPrognosCard extends LitElement {
       .flex-container {
         display: flex;
         flex-wrap: wrap;
-        justify-content: center; /* Center all .sensor-block on the row */
+        justify-content: center;
         width: 100%;
+        /* No font-size set here */
       }
-
       .sensor.minimal {
         display: flex;
         flex-direction: column;
