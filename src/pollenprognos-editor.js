@@ -5,6 +5,7 @@ import { normalize } from "./utils/normalize.js";
 import { slugify } from "./utils/slugify.js";
 import { deepEqual } from "./utils/confcompare.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
+import { COSMETIC_FIELDS } from "./constants.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
@@ -558,9 +559,18 @@ class PollenPrognosCardEditor extends LitElement {
         this._tapServiceData = "";
       }
 
-      // 19. Dispatch’a så att HA-editorn ritar om formuläret med nya värden
-      // Only dispatch if config actually changed, to avoid UI blinking/loops
-      if (!deepEqual(this._config, merged)) {
+      // Only dispatch config-changed if config has actually changed
+      // This avoids unnecessary reloads or loading blink on cosmetic-only changes.
+      const prevConfig = this._config || {};
+      // Calculate which keys actually changed
+      const changedKeys = Object.keys(merged).filter(
+        (k) => !deepEqual(merged[k], prevConfig[k]),
+      );
+      // If only cosmetic fields changed, do NOT dispatch config-changed (avoids loading blink)
+      const onlyCosmetic =
+        changedKeys.length > 0 &&
+        changedKeys.every((k) => COSMETIC_FIELDS.includes(k));
+      if (!onlyCosmetic && !deepEqual(prevConfig, merged)) {
         this._config = merged;
         this.dispatchEvent(
           new CustomEvent("config-changed", {
@@ -569,6 +579,8 @@ class PollenPrognosCardEditor extends LitElement {
             composed: true,
           }),
         );
+      } else {
+        this._config = merged;
       }
       this.requestUpdate();
       this._prevIntegration = incomingInt;
@@ -957,7 +969,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     cfg.type = this._config.type;
-    // Only dispatch if config actually changed, to avoid UI blinking/loops
+
     if (!deepEqual(this._config, cfg)) {
       this._config = cfg;
       if (this.debug) console.debug("[Editor] updated _config:", this._config);
@@ -968,6 +980,8 @@ class PollenPrognosCardEditor extends LitElement {
           composed: true,
         }),
       );
+    } else {
+      this._config = cfg;
     }
   }
 

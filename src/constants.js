@@ -113,3 +113,26 @@ export const PP_POSSIBLE_CITIES = [
   "Västervik",
   "Östersund",
 ];
+
+export const COSMETIC_FIELDS = [
+  "icon_size",
+  "background_color",
+  "levels_colors",
+  "levels_empty_color",
+  "levels_gap_color",
+  "levels_thickness",
+  "levels_gap",
+  "levels_text_color",
+  "levels_text_size",
+  "levels_text_weight",
+  "minimal",
+  "show_text_allergen",
+  "show_value_text",
+  "show_value_numeric",
+  "show_value_numeric_in_circle",
+  "allergens_abbreviated",
+  "days_boldfaced",
+  "text_size_ratio",
+  "minimal_gap",
+  "title",
+];

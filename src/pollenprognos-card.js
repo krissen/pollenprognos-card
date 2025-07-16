@@ -11,6 +11,7 @@ import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
+import { COSMETIC_FIELDS } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -36,6 +37,7 @@ Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
+  _isLoaded = false; // True when fetch is done (success or error)
   _fetchDebounceTimer = null; // Debounce timer for fetchForecast
   _forecastUnsub = null; // Unsubscribe-funktion
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
@@ -85,6 +87,7 @@ class PollenPrognosCard extends LitElement {
    * Ensures fetch is only performed once within debounce interval.
    */
   _debouncedFetchForecast(...args) {
+    this._isLoaded = false;
     if (this._fetchDebounceTimer) {
       clearTimeout(this._fetchDebounceTimer);
       this._fetchDebounceTimer = null;
@@ -103,7 +106,11 @@ class PollenPrognosCard extends LitElement {
     const adapter = ADAPTERS[cfg.integration] || PP;
     let fetchPromise = null;
     if (cfg.integration === "silam") {
-      if (!forecastEvent) return;
+      if (!forecastEvent) {
+        // Mark as loaded even if nothing fetched
+        this._isLoaded = true;
+        return;
+      }
       fetchPromise = adapter.fetchForecast(hass, cfg, forecastEvent);
     } else {
       fetchPromise = adapter.fetchForecast(hass, cfg);
@@ -113,11 +120,16 @@ class PollenPrognosCard extends LitElement {
         .then((sensors) => {
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
           this._updateSensorsAndColumns(sensors, availableSensors, cfg);
+          this._isLoaded = true;
         })
         .catch((err) => {
+          this._isLoaded = true;
           console.error("[Card] Error fetching pollen forecast:", err);
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
         });
+    } else {
+      // No fetchPromise, treat as loaded
+      this._isLoaded = true;
     }
   }
 
@@ -473,6 +485,7 @@ class PollenPrognosCard extends LitElement {
       displayCols: { state: true },
       header: { state: true },
       tapAction: {},
+      _isLoaded: { type: Boolean, state: true },
     };
   }
 
@@ -528,23 +541,16 @@ class PollenPrognosCard extends LitElement {
     return document.createElement("pollenprognos-card-editor");
   }
 
-  // static getStubConfig() {
-  //   return stubConfigPP;
-  // }
-
   setConfig(config) {
     // Skip update if config is unchanged
     if (deepEqual(this._userConfig, config)) return;
 
-    // Kopiera användarens config
-    this._userConfig = { ...config };
+    // Explicit integration
+    this._integrationExplicit = config.hasOwnProperty("integration");
     this.tapAction = config.tap_action || null;
 
-    // Markera explicit integration
-    this._integrationExplicit = config.hasOwnProperty("integration");
-
-    // Byt till relevant stub för integration och nollställ övriga fält
-    let integration = this._userConfig.integration;
+    // Select relevant stub for integration
+    let integration = config.integration;
     let stub;
     if (integration === "pp") stub = stubConfigPP;
     else if (integration === "peu") stub = stubConfigPEU;
@@ -552,7 +558,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") stub = stubConfigSILAM;
     else stub = stubConfigPP;
 
-    // Spara enbart tillåtna fält
+    // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
       "allergens",
       "icon_size",
@@ -565,15 +571,34 @@ class PollenPrognosCard extends LitElement {
       "days_to_show",
       "date_locale",
     ]);
-    // Kopiera endast tillåtna fält från användarens config
     let cleanedUserConfig = {};
     for (const k of allowedFields) {
-      if (k in this._userConfig) cleanedUserConfig[k] = this._userConfig[k];
+      if (k in config) cleanedUserConfig[k] = config[k];
     }
 
-    // Starta om config från stub, plus user-params
-    this._userConfig = { ...stub, ...cleanedUserConfig, integration };
+    // Build final config from stub + cleaned user params
+    const nextConfig = { ...stub, ...cleanedUserConfig, integration };
 
+    // --- Detect cosmetic-only updates (e.g. icon_size, text_size_ratio) ---
+    const prevConfig = this.config || {};
+    const changedKeys = Object.keys(cleanedUserConfig).filter(
+      (k) => !deepEqual(cleanedUserConfig[k], prevConfig[k]),
+    );
+    const onlyCosmetic =
+      changedKeys.length > 0 &&
+      changedKeys.every((k) => COSMETIC_FIELDS.includes(k));
+    if (onlyCosmetic) {
+      // Cosmetic-only: update config, stay loaded, re-render
+      this._userConfig = { ...config };
+      this.config = nextConfig;
+      this._isLoaded = true;
+      this.requestUpdate();
+      return;
+    }
+
+    // If data-driven change: update userConfig, config, and fetch new data
+    this._userConfig = { ...config };
+    this.config = nextConfig;
     this._initDone = false;
     if (this._hass) {
       this._debouncedFetchForecast(
@@ -583,7 +608,6 @@ class PollenPrognosCard extends LitElement {
       );
     }
   }
-
   set hass(hass) {
     if (this._hass === hass) return;
     this._hass = hass;
@@ -748,7 +772,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("[Card][Debug] Allergens i config:", cfg.allergens);
     }
 
-    // Debounced fetch instead of direct fetch
+    // Initial fetch of forecast with current config
     this._debouncedFetchForecast(this._hass, this.config, this._forecastEvent);
 
     // Header
@@ -1077,7 +1101,8 @@ class PollenPrognosCard extends LitElement {
   render() {
     if (!this.config) return html``;
 
-    if (this.config.integration === "silam" && !this._forecastEvent) {
+    // Visa laddningsruta endast om vi INTE är laddade och saknar sensorer
+    if (!this._isLoaded && (!this.sensors || !this.sensors.length)) {
       return html`
         <ha-card>
           <div style="padding: 1em; text-align: center;">
@@ -1087,8 +1112,8 @@ class PollenPrognosCard extends LitElement {
       `;
     }
 
-    let cardContent;
-    if (!this.sensors.length) {
+    // Visa felruta endast om vi är laddade och saknar sensorer
+    if (this._isLoaded && (!this.sensors || !this.sensors.length)) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
       let errorMsg = "";
@@ -1097,36 +1122,33 @@ class PollenPrognosCard extends LitElement {
       } else {
         errorMsg = this._t("card.error_filtered_sensors");
       }
-      cardContent = html`<div class="card-error">${errorMsg} (${name})</div>`;
-    } else {
-      cardContent = this.config.minimal
-        ? this._renderMinimalHtml()
-        : this._renderNormalHtml();
+      return html`
+        <ha-card>
+          <div class="card-error">${errorMsg} (${name})</div>
+        </ha-card>
+      `;
     }
 
-    const tapAction = this.config.tap_action || null;
+    // Rendera alltid sensors om de finns, oavsett laddningstillstånd
+    const cardContent = this.config.minimal
+      ? this._renderMinimalHtml()
+      : this._renderNormalHtml();
 
-    // Lägg till background-color om satt
+    const tapAction = this.config.tap_action || null;
     const bgStyle = this.config.background_color?.trim?.()
       ? `background-color: ${this.config.background_color.trim()};`
       : "";
-    if (this.debug) {
-      console.debug("[Card] Background style:", bgStyle);
-    }
-    // Sätt style för cursor
     const cursorStyle =
       tapAction && tapAction.type && tapAction.type !== "none"
         ? "pointer"
         : "auto";
-
-    // Sätt ihop bakgrund och cursor
     const imgSize =
       Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
     const cardStyle = `
-      ${bgStyle}
-      cursor: ${cursorStyle};
-      --pollen-icon-size: ${imgSize}px;
-    `;
+    ${bgStyle}
+    cursor: ${cursorStyle};
+    --pollen-icon-size: ${imgSize}px;
+  `;
 
     return html`
       <ha-card
@@ -1139,7 +1161,6 @@ class PollenPrognosCard extends LitElement {
       </ha-card>
     `;
   }
-
   getCardSize() {
     return this.sensors.length + 1;
   }
