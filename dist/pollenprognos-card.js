@@ -3746,7 +3746,7 @@ class ar extends ae {
       return;
     }
     this._userConfig = { ...i }, this.config = A, !this._versionLogged && this.config.show_version !== !1 && (console.info(
-      "%c🤧 Pollenprognos Card: version 3932e6b",
+      "%c🤧 Pollenprognos Card: version cdbd0bc",
       "background:#f0e68c;color:#000;padding:2px 4px;border-radius:2px;"
     ), this._versionLogged = !0), this._initDone = !1, this._hass && (this.hass = this._hass);
   }
@@ -5585,7 +5585,7 @@ class gr extends ae {
             ></ha-switch>
           </ha-formfield>
           <div class="version-info">
-            ${this._t("card_version")}: ${"3932e6b"}
+            ${this._t("card_version")}: ${"cdbd0bc"}
           </div>
         </details>
       </div>
