@@ -1972,6 +1972,13 @@ class PollenPrognosCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("debug", e.target.checked)}
             ></ha-switch>
           </ha-formfield>
+          <ha-formfield label="${this._t("show_version")}">
+            <ha-switch
+              .checked=${c.show_version !== false}
+              @change=${(e) =>
+                this._updateConfig("show_version", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
         </details>
       </div>
     `;
