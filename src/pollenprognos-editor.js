@@ -592,6 +592,7 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   set hass(hass) {
+    if (this._hass === hass) return; // Avoid unnecessary work
     this._hass = hass;
     const explicit = this._integrationExplicit;
 

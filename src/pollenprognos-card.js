@@ -141,10 +141,9 @@ class PollenPrognosCard extends LitElement {
         // Check if we already have a chart for this container
         let chart = this._chartCache.get(container.id);
 
-        // Make sure no old text is left behind
-        if (container.querySelector(".level-value-text")) {
-          container.querySelector(".level-value-text").remove();
-        }
+        // Remove previously added text element, if any
+        const existingText = container.querySelector(".level-value-text");
+        if (existingText) existingText.remove();
 
         if (!chart) {
           // Create canvas if it doesn't exist
@@ -267,7 +266,7 @@ class PollenPrognosCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
 
-    // Handle forecast unsubscription as before
+    // Clean up forecast subscription
     if (this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub).then((fn) => {
         if (typeof fn === "function") fn();
@@ -275,7 +274,7 @@ class PollenPrognosCard extends LitElement {
       this._forecastUnsub = null;
     }
 
-    // Destroy all charts
+    // Destroy cached charts
     this._chartCache.forEach((chart) => {
       chart.destroy();
     });
@@ -404,15 +403,7 @@ class PollenPrognosCard extends LitElement {
     }
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._forecastUnsub) {
-      Promise.resolve(this._forecastUnsub).then((fn) => {
-        if (typeof fn === "function") fn();
-      });
-      this._forecastUnsub = null;
-    }
-  }
+
 
   get debug() {
     // return true;
