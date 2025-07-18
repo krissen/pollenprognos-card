@@ -219,13 +219,13 @@ Swedish keys, matching the sensor names from the Pollenprognos integration.
 ```
 Al
 Alm
-Bok
 Björk
+Bok
 Ek
-Malörtsambrosia
-Gråbo
 Gräs
+Gråbo
 Hassel
+Malörtsambrosia
 Sälg och viden
 ```
 
@@ -234,13 +234,13 @@ Sälg och viden
 German (DWD) keys, as used in DWD sensor integration.
 
 ```
-erle
 ambrosia
-esche
-birke
-hasel
-gräser
 beifuss
+birke
+erle
+esche
+gräser
+hasel
 roggen
 ```
 
@@ -249,18 +249,24 @@ roggen
 English keys, as delivered by the PEU integration (new API). Use these exactly as provided by the integration.
 
 ```
-fungal spores
-grasses
-cypress family
-nettle family
-mugwort
 alder
-hazel
+ash
+beech
 birch
-plane tree
-rye
+cypress_family
+elm
+fungal_spores
+grasses
+hazel
+lime
+mugwort
+nettle_family
+oak
 olive
+plane_tree
 ragweed
+rye
+willow
 ```
 
 ### SILAM Pollen Allergy Sensor
