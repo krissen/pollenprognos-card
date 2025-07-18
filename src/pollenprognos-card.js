@@ -558,7 +558,7 @@ class PollenPrognosCard extends LitElement {
     this.config = nextConfig;
     if (!this._versionLogged && this.config.show_version !== false) {
       console.info(
-        `%c🤧 Pollenprognos Card version ${__VERSION__}`,
+        `%c🤧 Pollenprognos Card: version ${__VERSION__}`,
         "background:#f0e68c;color:#000;padding:2px 4px;border-radius:2px;",
       );
       this._versionLogged = true;
