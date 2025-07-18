@@ -12,6 +12,8 @@ jobs:
     steps:
       # 1) Check out the code
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       # 2) Install dependencies and build
       - name: Build the file

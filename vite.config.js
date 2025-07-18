@@ -2,9 +2,19 @@
 import { defineConfig } from "vite";
 import legacy from "@vitejs/plugin-legacy";
 import { resolve } from "path";
+import { execSync } from "child_process";
 
 export default defineConfig(({ command }) => {
   const isServe = command === "serve";
+
+  let version = "";
+  try {
+    version = execSync("git describe --exact-match --tags")
+      .toString()
+      .trim();
+  } catch (e) {
+    version = execSync("git rev-parse --short HEAD").toString().trim();
+  }
 
   return {
     plugins: [
@@ -14,6 +24,10 @@ export default defineConfig(({ command }) => {
           targets: ["defaults", "not IE 11"],
         }),
     ].filter(Boolean),
+
+    define: {
+      __VERSION__: JSON.stringify(version),
+    },
 
     build: {
       lib: {
