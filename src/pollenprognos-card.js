@@ -41,6 +41,7 @@ class PollenPrognosCard extends LitElement {
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
   _chartCache = new Map();
+  _versionLogged = false;
 
   _renderLevelCircle(
     level,
@@ -140,10 +141,9 @@ class PollenPrognosCard extends LitElement {
         // Check if we already have a chart for this container
         let chart = this._chartCache.get(container.id);
 
-        // Make sure no old text is left behind
-        if (container.querySelector(".level-value-text")) {
-          container.querySelector(".level-value-text").remove();
-        }
+        // Remove previously added text element, if any
+        const existingText = container.querySelector(".level-value-text");
+        if (existingText) existingText.remove();
 
         if (!chart) {
           // Create canvas if it doesn't exist
@@ -266,7 +266,7 @@ class PollenPrognosCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
 
-    // Handle forecast unsubscription as before
+    // Clean up forecast subscription
     if (this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub).then((fn) => {
         if (typeof fn === "function") fn();
@@ -274,7 +274,7 @@ class PollenPrognosCard extends LitElement {
       this._forecastUnsub = null;
     }
 
-    // Destroy all charts
+    // Destroy cached charts
     this._chartCache.forEach((chart) => {
       chart.destroy();
     });
@@ -403,15 +403,7 @@ class PollenPrognosCard extends LitElement {
     }
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._forecastUnsub) {
-      Promise.resolve(this._forecastUnsub).then((fn) => {
-        if (typeof fn === "function") fn();
-      });
-      this._forecastUnsub = null;
-    }
-  }
+
 
   get debug() {
     // return true;
@@ -522,6 +514,7 @@ class PollenPrognosCard extends LitElement {
       "region_id",
       "tap_action",
       "debug",
+      "show_version",
       "title",
       "days_to_show",
       "date_locale",
@@ -554,6 +547,13 @@ class PollenPrognosCard extends LitElement {
     // If data-driven change: update userConfig, config, and fetch new data
     this._userConfig = { ...config };
     this.config = nextConfig;
+    if (!this._versionLogged && this.config.show_version !== false) {
+      console.info(
+        `%c🤧 Pollenprognos Card: version ${__VERSION__}`,
+        "background:#f0e68c;color:#000;padding:2px 4px;border-radius:2px;",
+      );
+      this._versionLogged = true;
+    }
     this._initDone = false;
     if (this._hass) {
       this.hass = this._hass;

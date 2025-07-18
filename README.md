@@ -200,6 +200,7 @@ See example under "Custom text for allergens, values etc", below.
 | `date_locale`       | `string`            | `"sv-SE"` (`pp`) <br> `"de-DE"` (`dwd`) | IETF locale for formatting weekdays (e.g. `en-GB`, `de-DE`).                                                                                                                                                                                                                                                                                                                           |
 | `tap_action`         | `<object>`           | *(empty)*           | Lovelace "tap action" configuration object, e.g. `{type: "more-info", entity: "sensor.x"}`. See Lovelace docs for supported actions. |
 | `debug`             | `boolean`           | `false`             | Enable verbose console logging.                                                                                                                                                                                                                                                                                                                                                        |
+| `show_version`      | `boolean`           | `true`              | Log card version to the browser console on first load. |
 | `phrases.full`      | `<object>`          | `{}`                | Map original allergen keys to full-length names.                                                                                                                                                                                                                                                                                                                                       |
 | `phrases.short`     | `<object>`          | `{}`                | Map original allergen keys to short display names.                                                                                                                                                                                                                                                                                                                                     |
 | `phrases.levels`    | `<array<string>>`   | *(integration default)* | Custom level names for intensity indexes 0–6.                                                                                                                                                                                                                                                                                                                                          |
@@ -218,13 +219,13 @@ Swedish keys, matching the sensor names from the Pollenprognos integration.
 ```
 Al
 Alm
-Bok
 Björk
+Bok
 Ek
-Malörtsambrosia
-Gråbo
 Gräs
+Gråbo
 Hassel
+Malörtsambrosia
 Sälg och viden
 ```
 
@@ -233,13 +234,13 @@ Sälg och viden
 German (DWD) keys, as used in DWD sensor integration.
 
 ```
-erle
 ambrosia
-esche
-birke
-hasel
-gräser
 beifuss
+birke
+erle
+esche
+gräser
+hasel
 roggen
 ```
 
@@ -248,18 +249,24 @@ roggen
 English keys, as delivered by the PEU integration (new API). Use these exactly as provided by the integration.
 
 ```
-fungal spores
-grasses
-cypress family
-nettle family
-mugwort
 alder
-hazel
+ash
+beech
 birch
-plane tree
-rye
+cypress_family
+elm
+fungal_spores
+grasses
+hazel
+lime
+mugwort
+nettle_family
+oak
 olive
+plane_tree
 ragweed
+rye
+willow
 ```
 
 ### SILAM Pollen Allergy Sensor

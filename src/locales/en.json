@@ -49,6 +49,8 @@
   "editor.days_relative": "Relative days (today/tomorrow)",
   "editor.days_uppercase": "Uppercase weekdays",
   "editor.debug": "Debug",
+  "editor.show_version": "Log version to console",
+  "editor.card_version": "Pollenprognos Card version",
   "editor.icon_size": "Icon size (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
