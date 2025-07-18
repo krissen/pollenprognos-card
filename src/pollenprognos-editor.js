@@ -1979,6 +1979,9 @@ class PollenPrognosCardEditor extends LitElement {
                 this._updateConfig("show_version", e.target.checked)}
             ></ha-switch>
           </ha-formfield>
+          <div class="version-info">
+            ${this._t("card_version")}: ${__VERSION__}
+          </div>
         </details>
       </div>
     `;
@@ -2144,6 +2147,13 @@ class PollenPrognosCardEditor extends LitElement {
       /* Reduce spacing between toggles in settings group */
       details .ha-formfield {
         margin-bottom: 2px;
+      }
+
+      /* Display the current card version */
+      .version-info {
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
       }
 
       /* Remove extra background/overlay on focus/active */

@@ -49,6 +49,8 @@
   "editor.days_relative": "Relativa dagar (idag/imorgon)",
   "editor.days_uppercase": "Versaler veckodagar",
   "editor.debug": "Debug",
+  "editor.show_version": "Logga version i konsolen",
+  "editor.card_version": "Kortversion",
   "editor.icon_size": "Ikonstorlek (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
