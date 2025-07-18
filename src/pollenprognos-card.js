@@ -41,6 +41,7 @@ class PollenPrognosCard extends LitElement {
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
   _chartCache = new Map();
+  _versionLogged = false;
 
   _renderLevelCircle(
     level,
@@ -522,6 +523,7 @@ class PollenPrognosCard extends LitElement {
       "region_id",
       "tap_action",
       "debug",
+      "show_version",
       "title",
       "days_to_show",
       "date_locale",
@@ -554,6 +556,10 @@ class PollenPrognosCard extends LitElement {
     // If data-driven change: update userConfig, config, and fetch new data
     this._userConfig = { ...config };
     this.config = nextConfig;
+    if (!this._versionLogged && this.config.show_version !== false) {
+      console.info(`Pollenprognos Card version ${__VERSION__}`);
+      this._versionLogged = true;
+    }
     this._initDone = false;
     if (this._hass) {
       this.hass = this._hass;
