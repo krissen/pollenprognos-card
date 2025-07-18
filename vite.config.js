@@ -9,13 +9,14 @@ export default defineConfig(({ command }) => {
 
   let version = "";
   try {
-    version = execSync("git describe --exact-match --tags")
+    version = execSync("git describe --exact-match --tags", {
+      stdio: ["pipe", "pipe", "ignore"],
+    })
       .toString()
       .trim();
   } catch (e) {
     version = execSync("git rev-parse --short HEAD").toString().trim();
   }
-
   return {
     plugins: [
       // Kör legacy-plugin endast i dev (vite serve), inte i build
