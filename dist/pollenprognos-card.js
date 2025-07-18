@@ -767,7 +767,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Barva pozadí",
   "editor.background_color_picker": "Vybrat barvu",
   "editor.background_color_placeholder": "např. #ffeecc nebo var(--my-color)",
-  "editor.card_version": "Verze karty",
+  "editor.card_version": "Verze karty s pylovou předpovědí",
   "editor.city": "Město",
   "editor.days_abbreviated": "Zkrátit dny v týdnu",
   "editor.days_boldfaced": "Zvýraznit dny v týdnu",
@@ -937,7 +937,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Baggrundsfarve",
   "editor.background_color_picker": "Vælg farve",
   "editor.background_color_placeholder": "f.eks. #ffeecc eller var(--my-color)",
-  "editor.card_version": "Kortversion",
+  "editor.card_version": "Pollenprognosekortets version",
   "editor.city": "By",
   "editor.days_abbreviated": "Forkort ugedage",
   "editor.days_boldfaced": "Fremhæv ugedage",
@@ -1107,14 +1107,13 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Hintergrundfarbe",
   "editor.background_color_picker": "Farbe auswählen",
   "editor.background_color_placeholder": "z.B. #ffeecc oder var(--my-color)",
+  "editor.card_version": "Version der Pollenprognose-Karte",
   "editor.city": "Stadt",
   "editor.days_abbreviated": "Wochentage abkürzen",
   "editor.days_boldfaced": "Wochentage fett",
   "editor.days_relative": "Relative Tage (heute/morgen)",
   "editor.days_uppercase": "Wochentage groß",
   "editor.debug": "Debug",
-  "editor.show_version": "Version in der Konsole protokollieren",
-  "editor.card_version": "Kartenversion",
   "editor.icon_size": "Symbolgröße (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
@@ -1202,6 +1201,7 @@ const ne = (s, e = "_") => {
   "editor.show_value_numeric": "Wert als Zahl anzeigen",
   "editor.show_value_numeric_in_circle": "Numerischen Wert im Kreis anzeigen",
   "editor.show_value_text": "Wert als Text anzeigen",
+  "editor.show_version": "Version in der Konsole protokollieren",
   "editor.sort": "Sortierung",
   "editor.sort_name_ascending": "Name, aufsteigend",
   "editor.sort_name_descending": "Name, absteigend",
@@ -1284,7 +1284,7 @@ const ne = (s, e = "_") => {
   "editor.days_uppercase": "Uppercase weekdays",
   "editor.debug": "Debug",
   "editor.show_version": "Log version to console",
-  "editor.card_version": "Card version",
+  "editor.card_version": "Pollenprognos Card version",
   "editor.icon_size": "Icon size (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
@@ -1447,7 +1447,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Taustaväri",
   "editor.background_color_picker": "Valitse väri",
   "editor.background_color_placeholder": "esim. #ffeecc tai var(--my-color)",
-  "editor.card_version": "Kortin versio",
+  "editor.card_version": "Siitepölyennustekortin versio",
   "editor.city": "Kaupunki",
   "editor.days_abbreviated": "Lyhennä viikonpäivät",
   "editor.days_boldfaced": "Korosta viikonpäivät",
@@ -1617,7 +1617,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Colore di sfondo",
   "editor.background_color_picker": "Scegli colore",
   "editor.background_color_placeholder": "es. #ffeecc o var(--my-color)",
-  "editor.card_version": "Versione della scheda",
+  "editor.card_version": "Versione della scheda previsione pollini",
   "editor.city": "Città",
   "editor.days_abbreviated": "Abbrevia giorni della settimana",
   "editor.days_boldfaced": "Grassetto giorni della settimana",
@@ -1787,7 +1787,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Achtergrondkleur",
   "editor.background_color_picker": "Kies kleur",
   "editor.background_color_placeholder": "bijv. #ffeecc of var(--my-color)",
-  "editor.card_version": "Kaartversie",
+  "editor.card_version": "Versie van de pollenvoorspellingskaart",
   "editor.city": "Stad",
   "editor.days_abbreviated": "Weekdagen afkorten",
   "editor.days_boldfaced": "Weekdagen vetgedrukt",
@@ -1957,7 +1957,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Bakgrunnsfarge",
   "editor.background_color_picker": "Velg farge",
   "editor.background_color_placeholder": "f.eks. #ffeecc eller var(--my-color)",
-  "editor.card_version": "Kortversjon",
+  "editor.card_version": "Versjon av pollenprognosekortet",
   "editor.city": "By",
   "editor.days_abbreviated": "Forkort ukedager",
   "editor.days_boldfaced": "Uthev ukedager",
@@ -2127,7 +2127,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Цвет фона",
   "editor.background_color_picker": "Выбрать цвет",
   "editor.background_color_placeholder": "например, #ffeecc или var(--my-color)",
-  "editor.card_version": "Версия карточки",
+  "editor.card_version": "Версия карточки прогноза пыльцы",
   "editor.city": "Город",
   "editor.days_abbreviated": "Сокращать дни недели",
   "editor.days_boldfaced": "Выделять дни недели",
@@ -2297,7 +2297,7 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Farba pozadia",
   "editor.background_color_picker": "Vybrať farbu",
   "editor.background_color_placeholder": "napr. #ffeecc alebo var(--my-color)",
-  "editor.card_version": "Verzia karty",
+  "editor.card_version": "Verzia karty peľovej predpovede",
   "editor.city": "Mesto",
   "editor.days_abbreviated": "Skrátiť dni v týždni",
   "editor.days_boldfaced": "Zvýrazniť dni v týždni",
@@ -2467,14 +2467,13 @@ const ne = (s, e = "_") => {
   "editor.background_color": "Bakgrundsfärg",
   "editor.background_color_picker": "Välj färg",
   "editor.background_color_placeholder": "t.ex. #ffeecc eller var(--my-color)",
+  "editor.card_version": "Version av pollenprognoskortet",
   "editor.city": "Stad",
   "editor.days_abbreviated": "Förkorta veckodagar",
   "editor.days_boldfaced": "Fetstil veckodagar",
   "editor.days_relative": "Relativa dagar (idag/imorgon)",
   "editor.days_uppercase": "Versaler veckodagar",
   "editor.debug": "Debug",
-  "editor.show_version": "Logga version i konsolen",
-  "editor.card_version": "Kortversion",
   "editor.icon_size": "Ikonstorlek (px)",
   "editor.integration": "Integration",
   "editor.integration.dwd": "DWD Pollenflug",
@@ -2562,6 +2561,7 @@ const ne = (s, e = "_") => {
   "editor.show_value_numeric": "Visa värde, numeriskt",
   "editor.show_value_numeric_in_circle": "Visa numeriskt värde inuti cirklarna",
   "editor.show_value_text": "Visa värde, text",
+  "editor.show_version": "Logga version i konsolen",
   "editor.sort": "Sortering",
   "editor.sort_name_ascending": "namn, stigande",
   "editor.sort_name_descending": "namn, fallande",
@@ -3746,7 +3746,7 @@ class ar extends ae {
       return;
     }
     this._userConfig = { ...i }, this.config = A, !this._versionLogged && this.config.show_version !== !1 && (console.info(
-      "%c🤧 Pollenprognos Card: version 9ebaf3b",
+      "%c🤧 Pollenprognos Card: version 4c68cdf",
       "background:#f0e68c;color:#000;padding:2px 4px;border-radius:2px;"
     ), this._versionLogged = !0), this._initDone = !1, this._hass && (this.hass = this._hass);
   }
@@ -5585,7 +5585,7 @@ class gr extends ae {
             ></ha-switch>
           </ha-formfield>
           <div class="version-info">
-            ${this._t("card_version")}: ${"9ebaf3b"}
+            ${this._t("card_version")}: ${"4c68cdf"}
           </div>
         </details>
       </div>

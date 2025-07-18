@@ -43,7 +43,7 @@
   "editor.background_color": "Farba pozadia",
   "editor.background_color_picker": "Vybrať farbu",
   "editor.background_color_placeholder": "napr. #ffeecc alebo var(--my-color)",
-  "editor.card_version": "Verzia karty",
+  "editor.card_version": "Verzia karty peľovej predpovede",
   "editor.city": "Mesto",
   "editor.days_abbreviated": "Skrátiť dni v týždni",
   "editor.days_boldfaced": "Zvýrazniť dni v týždni",

@@ -43,7 +43,7 @@
   "editor.background_color": "Baggrundsfarve",
   "editor.background_color_picker": "Vælg farve",
   "editor.background_color_placeholder": "f.eks. #ffeecc eller var(--my-color)",
-  "editor.card_version": "Kortversion",
+  "editor.card_version": "Pollenprognosekortets version",
   "editor.city": "By",
   "editor.days_abbreviated": "Forkort ugedage",
   "editor.days_boldfaced": "Fremhæv ugedage",

@@ -43,7 +43,7 @@
   "editor.background_color": "Цвет фона",
   "editor.background_color_picker": "Выбрать цвет",
   "editor.background_color_placeholder": "например, #ffeecc или var(--my-color)",
-  "editor.card_version": "Версия карточки",
+  "editor.card_version": "Версия карточки прогноза пыльцы",
   "editor.city": "Город",
   "editor.days_abbreviated": "Сокращать дни недели",
   "editor.days_boldfaced": "Выделять дни недели",

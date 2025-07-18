@@ -43,7 +43,7 @@
   "editor.background_color": "Achtergrondkleur",
   "editor.background_color_picker": "Kies kleur",
   "editor.background_color_placeholder": "bijv. #ffeecc of var(--my-color)",
-  "editor.card_version": "Kaartversie",
+  "editor.card_version": "Versie van de pollenvoorspellingskaart",
   "editor.city": "Stad",
   "editor.days_abbreviated": "Weekdagen afkorten",
   "editor.days_boldfaced": "Weekdagen vetgedrukt",

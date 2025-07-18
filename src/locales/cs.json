@@ -43,7 +43,7 @@
   "editor.background_color": "Barva pozadí",
   "editor.background_color_picker": "Vybrat barvu",
   "editor.background_color_placeholder": "např. #ffeecc nebo var(--my-color)",
-  "editor.card_version": "Verze karty",
+  "editor.card_version": "Verze karty s pylovou předpovědí",
   "editor.city": "Město",
   "editor.days_abbreviated": "Zkrátit dny v týdnu",
   "editor.days_boldfaced": "Zvýraznit dny v týdnu",

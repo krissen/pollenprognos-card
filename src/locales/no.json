@@ -43,7 +43,7 @@
   "editor.background_color": "Bakgrunnsfarge",
   "editor.background_color_picker": "Velg farge",
   "editor.background_color_placeholder": "f.eks. #ffeecc eller var(--my-color)",
-  "editor.card_version": "Kortversjon",
+  "editor.card_version": "Versjon av pollenprognosekortet",
   "editor.city": "By",
   "editor.days_abbreviated": "Forkort ukedager",
   "editor.days_boldfaced": "Uthev ukedager",

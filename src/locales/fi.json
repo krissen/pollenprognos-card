@@ -43,7 +43,7 @@
   "editor.background_color": "Taustaväri",
   "editor.background_color_picker": "Valitse väri",
   "editor.background_color_placeholder": "esim. #ffeecc tai var(--my-color)",
-  "editor.card_version": "Kortin versio",
+  "editor.card_version": "Siitepölyennustekortin versio",
   "editor.city": "Kaupunki",
   "editor.days_abbreviated": "Lyhennä viikonpäivät",
   "editor.days_boldfaced": "Korosta viikonpäivät",
