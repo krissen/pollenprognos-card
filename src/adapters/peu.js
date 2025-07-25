@@ -76,7 +76,9 @@ export async function fetchForecast(hass, config) {
   const fullPhrases = phrases.full;
   const shortPhrases = phrases.short;
   const userLevels = phrases.levels;
-  const defaultNumLevels = 5; // För PEU: 0–4
+  // Levels from PEU are 0–4 but scaled to 0–6 in the card. Use seven labels
+  // so that custom phrases can replace all possible values.
+  const defaultNumLevels = 7;
   const levelNames =
     Array.isArray(userLevels) && userLevels.length === defaultNumLevels
       ? userLevels
@@ -240,7 +242,7 @@ export async function fetchForecast(hass, config) {
             state_text:
               scaledLevel < 0
                 ? noInfoLabel
-                : t(`card.levels.${scaledLevel}`, lang),
+                : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
           };
 
           dict[`day${idx}`] = dayObj;
