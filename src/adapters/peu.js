@@ -76,15 +76,23 @@ export async function fetchForecast(hass, config) {
   const fullPhrases = phrases.full;
   const shortPhrases = phrases.short;
   const userLevels = phrases.levels;
-  // Levels from PEU are 0–4 but scaled to 0–6 in the card. Use seven labels
-  // so that custom phrases can replace all possible values.
-  const defaultNumLevels = 7;
-  const levelNames =
-    Array.isArray(userLevels) && userLevels.length === defaultNumLevels
-      ? userLevels
-      : Array.from({ length: defaultNumLevels }, (_, i) =>
-          t(`card.levels.${i}`, lang),
-        );
+  // Levels from PEU are reported as 0–4 but scaled to 0–6 in the card.
+  // Accept either five or seven custom names and map them to the 0–6 scale.
+  const defaultNumLevels = 5; // original scale
+  const levelNamesDefault = Array.from({ length: 7 }, (_, i) =>
+    t(`card.levels.${i}`, lang),
+  );
+  let levelNames = levelNamesDefault.slice();
+  if (Array.isArray(userLevels)) {
+    if (userLevels.length === 7) {
+      levelNames = userLevels.slice();
+    } else if (userLevels.length === defaultNumLevels) {
+      const map = [0, 1, 3, 5, 6];
+      map.forEach((lvl, idx) => {
+        if (userLevels[idx]) levelNames[lvl] = userLevels[idx];
+      });
+    }
+  }
   const noInfoLabel = phrases.no_information || t("card.no_information", lang);
   const userDays = phrases.days;
 
