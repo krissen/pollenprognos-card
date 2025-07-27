@@ -11,7 +11,7 @@ import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { COSMETIC_FIELDS, MAX_LEVEL_VALUE } from "./constants.js";
+import { COSMETIC_FIELDS } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -444,7 +444,9 @@ class PollenPrognosCard extends LitElement {
       scaled = raw * 2;
       max = 6;
     } else if (this.config.integration === "peu") {
-      scaled = Math.round((raw * 6) / 4); // Skala peu 0–4 till 0–6 för bild
+      // Map PEU levels 0–4 to the card scale 0–6 using the
+      // same logic as in the adapter for text strings.
+      scaled = raw < 2 ? Math.floor((raw * 6) / 4) : Math.ceil((raw * 6) / 4);
       max = 6;
       min = 0;
     }
@@ -1086,8 +1088,10 @@ class PollenPrognosCard extends LitElement {
       "#e64a19",
       "#d32f2f",
     ];
-    const maxLevel = MAX_LEVEL_VALUE[this.config.integration] ?? 6;
-    const colors = rawColors.slice(0, maxLevel);
+    // Number of segments in the level circle depends on the integration.
+    // PEU only uses four segments while all others use six.
+    const segments = this.config.integration === "peu" ? 4 : 6;
+    const colors = rawColors.slice(0, segments);
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
     const gapColor =
       this.config.levels_gap_color ?? "var(--card-background-color)";
@@ -1159,19 +1163,31 @@ class PollenPrognosCard extends LitElement {
                   ${cols.map(
                     (i) => html`
                       <td>
-                        ${this._renderLevelCircle(
-                          Number(sensor.days[i]?.state) || 0,
-                          {
-                            colors,
-                            emptyColor,
-                            gapColor,
-                            thickness,
-                            gap,
-                            size,
-                          },
-                          sensor.allergenReplaced,
-                          i,
-                        )}
+                        ${(() => {
+                          const raw = Number(sensor.days[i]?.state) || 0;
+                          let levelVal = raw;
+                          if (this.config.integration === "dwd") {
+                            levelVal = raw * 2; // scale 0–3 to 0–6
+                          } else if (this.config.integration === "peu") {
+                            levelVal =
+                              raw < 2
+                                ? Math.floor((raw * 6) / 4)
+                                : Math.ceil((raw * 6) / 4); // scale 0–4 to 0–6
+                          }
+                          return this._renderLevelCircle(
+                            levelVal,
+                            {
+                              colors,
+                              emptyColor,
+                              gapColor,
+                              thickness,
+                              gap,
+                              size,
+                            },
+                            sensor.allergenReplaced,
+                            i,
+                          );
+                        })()}
                       </td>
                     `,
                   )}
