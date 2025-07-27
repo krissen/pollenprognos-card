@@ -12,6 +12,7 @@ export const ADAPTERS = {
   silam: SILAM,
 };
 
+
 export const DWD_REGIONS = {
   11: "Schleswig-Holstein und Hamburg",
   12: "Schleswig-Holstein und Hamburg",
@@ -124,6 +125,7 @@ export const COSMETIC_FIELDS = [
   "levels_gap",
   "levels_text_color",
   "levels_text_size",
+  "levels_icon_ratio",
   "levels_text_weight",
   "minimal",
   "show_text_allergen",

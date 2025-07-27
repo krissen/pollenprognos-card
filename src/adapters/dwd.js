@@ -2,6 +2,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
+import { buildLevelNames } from "../utils/level-names.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -71,10 +72,7 @@ export async function fetchForecast(hass, config) {
   const fullPhrases = phrases.full || {};
   const shortPhrases = phrases.short || {};
   const userLevels = phrases.levels;
-  const levelNames =
-    Array.isArray(userLevels) && userLevels.length === 7
-      ? userLevels
-      : Array.from({ length: 7 }, (_, i) => t(`card.levels.${i}`, lang));
+  const levelNames = buildLevelNames(userLevels, lang);
   const noInfoLabel = phrases.no_information || t("card.no_information", lang);
   const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;

@@ -126,6 +126,8 @@ class PollenPrognosCard extends LitElement {
         // Extract properties from the container
         const level = Number(container.level || 0);
         const colors = JSON.parse(container.colors || "[]");
+        const numSegments = colors.length;
+        const safeLevel = Math.min(level, numSegments);
         const emptyColor = container.emptyColor;
         const gapColor = container.gapColor;
         const thickness = Number(container.thickness);
@@ -153,14 +155,11 @@ class PollenPrognosCard extends LitElement {
           canvas.height = size;
           container.appendChild(canvas);
 
-          // Number of segments
-          const numSegments = colors.length;
-
           // Create data arrays
           const data = Array(numSegments).fill(1);
           const bg = Array(numSegments)
             .fill(emptyColor)
-            .map((c, i) => (i < level ? colors[i] : emptyColor));
+            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
           const bc = Array(numSegments).fill(gapColor);
 
           // Create new chart
@@ -224,7 +223,7 @@ class PollenPrognosCard extends LitElement {
           if (datasets && datasets[0]) {
             const bg = Array(datasets[0].backgroundColor.length)
               .fill(emptyColor)
-              .map((c, i) => (i < level ? colors[i] : emptyColor));
+              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
 
             datasets[0].backgroundColor = bg;
             chart.update("none"); // Update without animation
@@ -436,19 +435,28 @@ class PollenPrognosCard extends LitElement {
     };
   }
 
+  /**
+   * Scale a raw numeric level to the 0–6 range used by the card.
+   * DWD uses half steps up to 3 and PEU uses full steps up to 4.
+   * All other integrations already report 0–6 directly.
+   */
+  _scaleLevel(raw) {
+    const val = Number(raw);
+    if (isNaN(val)) return val;
+    if (this.config.integration === "dwd") return val * 2;
+    if (this.config.integration === "peu") {
+      const map = [0, 1, 3, 5, 6];
+      const idx = Math.max(0, Math.min(Math.round(val), map.length - 1));
+      return map[idx];
+    }
+    return val;
+  }
+
   _getImageSrc(allergenReplaced, state) {
     const raw = Number(state);
-    let scaled = raw;
-    let min = -1,
-      max = 6;
-    if (this.config.integration === "dwd") {
-      scaled = raw * 2;
-      max = 6;
-    } else if (this.config.integration === "peu") {
-      scaled = Math.round((raw * 6) / 4); // Skala peu 0–4 till 0–6 för bild
-      max = 6;
-      min = 0;
-    }
+    let scaled = this._scaleLevel(raw);
+    let min = this.config.integration === "peu" ? 0 : -1;
+    const max = 6;
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < min) lvl = min;
     if (lvl > max) lvl = max;
@@ -1079,7 +1087,7 @@ class PollenPrognosCard extends LitElement {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
-    const colors = this.config.levels_colors ?? [
+    const rawColors = this.config.levels_colors ?? [
       "#ffeb3b",
       "#ffc107",
       "#ff9800",
@@ -1087,15 +1095,18 @@ class PollenPrognosCard extends LitElement {
       "#e64a19",
       "#d32f2f",
     ];
+    // Number of segments in the level circle depends on the integration.
+    // PEU only uses four segments while all others use six.
+    const segments = this.config.integration === "peu" ? 4 : 6;
+    const colors = rawColors.slice(0, segments);
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
     const gapColor =
       this.config.levels_gap_color ?? "var(--card-background-color)";
     const thickness = this.config.levels_thickness ?? 60;
     const gap = this.config.levels_gap ?? 5;
-    const size = Math.min(
-      100,
-      Math.max(40, Number(this.config.icon_size) || 80),
-    ); // Use icon_size but with constraints
+    const iconSize = Number(this.config.icon_size) || 48;
+    const iconRatio = Number(this.config.levels_icon_ratio) || 1;
+    const size = Math.min(100, Math.max(1, iconSize * iconRatio));
 
     if (this.debug) {
       console.debug("Display columns:", cols);
@@ -1159,19 +1170,23 @@ class PollenPrognosCard extends LitElement {
                   ${cols.map(
                     (i) => html`
                       <td>
-                        ${this._renderLevelCircle(
-                          Number(sensor.days[i]?.state) || 0,
-                          {
-                            colors,
-                            emptyColor,
-                            gapColor,
-                            thickness,
-                            gap,
-                            size,
-                          },
-                          sensor.allergenReplaced,
-                          i,
-                        )}
+                        ${(() => {
+                          const raw = Number(sensor.days[i]?.state) || 0;
+                          const levelVal = this._scaleLevel(raw);
+                          return this._renderLevelCircle(
+                            levelVal,
+                            {
+                              colors,
+                              emptyColor,
+                              gapColor,
+                              thickness,
+                              gap,
+                              size,
+                            },
+                            sensor.allergenReplaced,
+                            i,
+                          );
+                        })()}
                       </td>
                     `,
                   )}
@@ -1395,7 +1410,7 @@ class PollenPrognosCard extends LitElement {
         display: block;
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
-        min-width: 16px;
+        min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
       }
@@ -1403,7 +1418,7 @@ class PollenPrognosCard extends LitElement {
       .level-circle {
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
-        min-width: 16px;
+        min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
       }
@@ -1497,8 +1512,8 @@ class PollenPrognosCard extends LitElement {
         height: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
         max-height: var(--pollen-icon-size, 48px);
-        min-width: 16px;
-        min-height: 16px;
+        min-width: 0;
+        min-height: 0;
         object-fit: contain;
         margin: 0 auto 6px auto;
         display: block;

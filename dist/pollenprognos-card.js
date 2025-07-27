@@ -280,10 +280,10 @@ const Yi = (s, e) => {
   let o, n = e === 2 ? "<svg>" : "", a = Be;
   for (let A = 0; A < i; A++) {
     const r = s[A];
-    let g, E, I = -1, l = 0;
-    for (; l < r.length && (a.lastIndex = l, E = a.exec(r), E !== null); ) l = a.lastIndex, a === Be ? E[1] === "!--" ? a = Ze : E[1] !== void 0 ? a = Le : E[2] !== void 0 ? (ci.test(E[2]) && (o = RegExp("</" + E[2], "g")), a = te) : E[3] !== void 0 && (a = te) : a === te ? E[0] === ">" ? (a = o ?? Be, I = -1) : E[1] === void 0 ? I = -2 : (I = a.lastIndex - E[2].length, g = E[1], a = E[3] === void 0 ? te : E[3] === '"' ? _e : Ne) : a === _e || a === Ne ? a = te : a === Ze || a === Le ? a = Be : (a = te, o = void 0);
+    let g, I, E = -1, l = 0;
+    for (; l < r.length && (a.lastIndex = l, I = a.exec(r), I !== null); ) l = a.lastIndex, a === Be ? I[1] === "!--" ? a = Ze : I[1] !== void 0 ? a = Le : I[2] !== void 0 ? (ci.test(I[2]) && (o = RegExp("</" + I[2], "g")), a = te) : I[3] !== void 0 && (a = te) : a === te ? I[0] === ">" ? (a = o ?? Be, E = -1) : I[1] === void 0 ? E = -2 : (E = a.lastIndex - I[2].length, g = I[1], a = I[3] === void 0 ? te : I[3] === '"' ? _e : Ne) : a === _e || a === Ne ? a = te : a === Ze || a === Le ? a = Be : (a = te, o = void 0);
     const c = a === te && s[A + 1].startsWith("/>") ? " " : "";
-    n += a === Be ? r + zi : I >= 0 ? (t.push(g), r.slice(0, I) + je + r.slice(I) + ee + c) : r + ee + (I === -2 ? (t.push(void 0), A) : c);
+    n += a === Be ? r + zi : E >= 0 ? (t.push(g), r.slice(0, E) + je + r.slice(E) + ee + c) : r + ee + (E === -2 ? (t.push(void 0), A) : c);
   }
   return [di(s, n + (s[i] || "<?>") + (e === 2 ? "</svg>" : "")), t];
 };
@@ -292,36 +292,36 @@ class Re {
     let o;
     this.parts = [];
     let n = 0, a = 0;
-    const A = e.length - 1, r = this.parts, [g, E] = Yi(e, i);
+    const A = e.length - 1, r = this.parts, [g, I] = Yi(e, i);
     if (this.el = Re.createElement(g, t), oe.currentNode = this.el.content, i === 2) {
-      const I = this.el.content, l = I.firstChild;
-      l.remove(), I.append(...l.childNodes);
+      const E = this.el.content, l = E.firstChild;
+      l.remove(), E.append(...l.childNodes);
     }
     for (; (o = oe.nextNode()) !== null && r.length < A; ) {
       if (o.nodeType === 1) {
         if (o.hasAttributes()) {
-          const I = [];
+          const E = [];
           for (const l of o.getAttributeNames()) if (l.endsWith(je) || l.startsWith(ee)) {
-            const c = E[a++];
-            if (I.push(l), c !== void 0) {
-              const R = o.getAttribute(c.toLowerCase() + je).split(ee), d = /([.?@])?(.*)/.exec(c);
-              r.push({ type: 1, index: n, name: d[2], strings: R, ctor: d[1] === "." ? mi : d[1] === "?" ? ji : d[1] === "@" ? Gi : xe });
+            const c = I[a++];
+            if (E.push(l), c !== void 0) {
+              const R = o.getAttribute(c.toLowerCase() + je).split(ee), Q = /([.?@])?(.*)/.exec(c);
+              r.push({ type: 1, index: n, name: Q[2], strings: R, ctor: Q[1] === "." ? mi : Q[1] === "?" ? ji : Q[1] === "@" ? Gi : xe });
             } else r.push({ type: 6, index: n });
           }
-          for (const l of I) o.removeAttribute(l);
+          for (const l of E) o.removeAttribute(l);
         }
         if (ci.test(o.tagName)) {
-          const I = o.textContent.split(ee), l = I.length - 1;
+          const E = o.textContent.split(ee), l = E.length - 1;
           if (l > 0) {
             o.textContent = ge ? ge.emptyScript : "";
-            for (let c = 0; c < l; c++) o.append(I[c], ke()), oe.nextNode(), r.push({ type: 2, index: ++n });
-            o.append(I[l], ke());
+            for (let c = 0; c < l; c++) o.append(E[c], ke()), oe.nextNode(), r.push({ type: 2, index: ++n });
+            o.append(E[l], ke());
           }
         }
       } else if (o.nodeType === 8) if (o.data === Ii) r.push({ type: 2, index: n });
       else {
-        let I = -1;
-        for (; (I = o.data.indexOf(ee, I + 1)) !== -1; ) r.push({ type: 7, index: n }), I += ee.length - 1;
+        let E = -1;
+        for (; (E = o.data.indexOf(ee, E + 1)) !== -1; ) r.push({ type: 7, index: n }), E += ee.length - 1;
       }
       n++;
     }
@@ -355,8 +355,8 @@ class Ki {
     let a = oe.nextNode(), A = 0, r = 0, g = o[0];
     for (; g !== void 0; ) {
       if (A === g.index) {
-        let E;
-        g.type === 2 ? E = new pe(a, a.nextSibling, this, e) : g.type === 1 ? E = new g.ctor(a, g.name, g.strings, this, e) : g.type === 6 && (E = new Fi(a, this, e)), this._$AV.push(E), g = o[++r];
+        let I;
+        g.type === 2 ? I = new pe(a, a.nextSibling, this, e) : g.type === 1 ? I = new g.ctor(a, g.name, g.strings, this, e) : g.type === 6 && (I = new Fi(a, this, e)), this._$AV.push(I), g = o[++r];
       }
       A !== (g == null ? void 0 : g.index) && (a = oe.nextNode(), A++);
     }
@@ -1300,6 +1300,7 @@ const ae = (s, e = "_") => {
   "editor.levels_reset": "Reset to default",
   "editor.levels_text_color": "Text color (inner circle)",
   "editor.levels_text_size": "Text size (inner circle, % of normal)",
+  "editor.levels_icon_ratio": "Levels icon ratio",
   "editor.levels_text_weight": "Text weight (inner circle)",
   "editor.levels_thickness": "Thickness (%)",
   "editor.locale": "Locale",
@@ -2644,6 +2645,7 @@ const y = {
   levels_gap: 1,
   levels_text_weight: "normal",
   levels_text_size: 0.2,
+  levels_icon_ratio: 1,
   levels_text_color: "var(--primary-text-color)"
 }, Xo = "state_tomorrow", Zo = "state_in_2_days", Lo = "state_today_desc", No = "state_tomorrow_desc", _o = "state_in_2_days_desc", T = {
   integration: "dwd",
@@ -2690,81 +2692,81 @@ const y = {
   }
 };
 async function $o(s, e) {
-  const i = !!e.debug, t = (B) => B.charAt(0).toUpperCase() + B.slice(1), o = Ae(s, e.date_locale), n = e.date_locale || T.date_locale, a = e.days_relative !== !1, A = !!e.days_abbreviated, r = !!e.days_uppercase, g = e.phrases || {}, E = g.full || {}, I = g.short || {}, l = g.levels, c = Array.isArray(l) && l.length === 7 ? l : Array.from({ length: 7 }, (B, S) => H(`card.levels.${S}`, o)), R = g.no_information || H("card.no_information", o), d = g.days || {}, p = e.days_to_show ?? T.days_to_show, Q = e.pollen_threshold ?? T.pollen_threshold;
+  const i = !!e.debug, t = (B) => B.charAt(0).toUpperCase() + B.slice(1), o = Ae(s, e.date_locale), n = e.date_locale || T.date_locale, a = e.days_relative !== !1, A = !!e.days_abbreviated, r = !!e.days_uppercase, g = e.phrases || {}, I = g.full || {}, E = g.short || {}, l = g.levels, c = Array.isArray(l) && l.length === 7 ? l : Array.from({ length: 7 }, (B, p) => H(`card.levels.${p}`, o)), R = g.no_information || H("card.no_information", o), Q = g.days || {}, k = e.days_to_show ?? T.days_to_show, d = e.pollen_threshold ?? T.pollen_threshold;
   i && console.debug("DWD adapter: start fetchForecast", { config: e, lang: o });
-  const Y = (B) => {
-    const S = Number(B);
-    return isNaN(S) ? -1 : S;
-  }, K = /* @__PURE__ */ new Date();
-  K.setHours(0, 0, 0, 0);
-  const m = [];
+  const m = (B) => {
+    const p = Number(B);
+    return isNaN(p) ? -1 : p;
+  }, q = /* @__PURE__ */ new Date();
+  q.setHours(0, 0, 0, 0);
+  const V = [];
   for (const B of e.allergens)
     try {
-      const S = {}, u = Je(B);
-      S.allergenReplaced = u;
-      const h = se[u] || u, U = E[B];
+      const p = {}, u = Je(B);
+      p.allergenReplaced = u;
+      const h = se[u] || u, U = I[B];
       if (U)
-        S.allergenCapitalized = U;
+        p.allergenCapitalized = U;
       else {
         const j = `card.allergen.${se[u] || u}`, v = H(j, o);
-        S.allergenCapitalized = v !== j ? v : t(B);
+        p.allergenCapitalized = v !== j ? v : t(B);
       }
       if (e.allergens_abbreviated) {
-        const q = I[B];
-        S.allergenShort = q || H(`editor.phrases_short.${h}`, o) || S.allergenCapitalized;
+        const Y = E[B];
+        p.allergenShort = Y || H(`editor.phrases_short.${h}`, o) || p.allergenCapitalized;
       } else
-        S.allergenShort = S.allergenCapitalized;
+        p.allergenShort = p.allergenCapitalized;
       let G = e.region_id ? `sensor.pollenflug_${u}_${e.region_id}` : null;
       if (!G || !s.states[G]) {
-        const q = Object.keys(s.states).filter(
+        const Y = Object.keys(s.states).filter(
           (j) => j.startsWith(`sensor.pollenflug_${u}_`)
         );
-        if (q.length === 1) G = q[0];
+        if (Y.length === 1) G = Y[0];
         else continue;
       }
       const f = s.states[G];
-      S.entity_id = G;
-      const C = Y(f.state), x = Y(f.attributes[Xo]), k = Y(f.attributes[Zo]), O = [
-        { date: K, level: C },
-        { date: new Date(K.getTime() + 864e5), level: x },
-        { date: new Date(K.getTime() + 2 * 864e5), level: k }
+      p.entity_id = G;
+      const C = m(f.state), x = m(f.attributes[Xo]), S = m(f.attributes[Zo]), O = [
+        { date: q, level: C },
+        { date: new Date(q.getTime() + 864e5), level: x },
+        { date: new Date(q.getTime() + 2 * 864e5), level: S }
       ];
-      for (; O.length < p; ) {
-        const q = O.length;
+      for (; O.length < k; ) {
+        const Y = O.length;
         O.push({
-          date: new Date(K.getTime() + q * 864e5),
+          date: new Date(q.getTime() + Y * 864e5),
           level: -1
         });
       }
-      S.days = [], O.forEach((q, j) => {
-        if (q.level !== null && q.level >= 0) {
-          const v = Math.round((q.date - K) / 864e5);
+      p.days = [], O.forEach((Y, j) => {
+        if (Y.level !== null && Y.level >= 0) {
+          const v = Math.round((Y.date - q) / 864e5);
           let z;
-          a ? d[v] !== void 0 ? z = d[v] : v >= 0 && v <= 2 ? z = H(`card.days.${v}`, o) : z = q.date.toLocaleDateString(n, {
+          a ? Q[v] !== void 0 ? z = Q[v] : v >= 0 && v <= 2 ? z = H(`card.days.${v}`, o) : z = Y.date.toLocaleDateString(n, {
             day: "numeric",
             month: "short"
-          }) : (z = q.date.toLocaleDateString(n, {
+          }) : (z = Y.date.toLocaleDateString(n, {
             weekday: A ? "short" : "long"
           }), z = z.charAt(0).toUpperCase() + z.slice(1)), r && (z = z.toUpperCase());
-          const L = f.attributes[j === 0 ? Lo : j === 1 ? No : _o] || "", V = q.level * 2, F = Math.min(Math.max(Math.round(V), 0), 6), b = F < 0 ? R : c[F] || L;
-          S[`day${j}`] = {
-            name: S.allergenCapitalized,
+          const L = f.attributes[j === 0 ? Lo : j === 1 ? No : _o] || "", K = Y.level * 2, F = Math.min(Math.max(Math.round(K), 0), 6), b = F < 0 ? R : c[F] || L;
+          p[`day${j}`] = {
+            name: p.allergenCapitalized,
             day: z,
-            state: q.level,
+            state: Y.level,
             state_text: b
-          }, S.days.push(S[`day${j}`]);
+          }, p.days.push(p[`day${j}`]);
         }
-      }), (O.slice(0, p).some((q) => q.level >= Q) || Q === 0) && m.push(S);
-    } catch (S) {
-      console.warn(`DWD adapter error for allergen ${B}:`, S);
+      }), (O.slice(0, k).some((Y) => Y.level >= d) || d === 0) && V.push(p);
+    } catch (p) {
+      console.warn(`DWD adapter error for allergen ${B}:`, p);
     }
-  return m.sort(
+  return V.sort(
     {
-      value_ascending: (B, S) => B.day0.state - S.day0.state,
-      value_descending: (B, S) => S.day0.state - B.day0.state,
-      name_descending: (B, S) => S.allergenCapitalized.localeCompare(B.allergenCapitalized)
-    }[e.sort] || ((B, S) => S.day0.state - B.day0.state)
-  ), i && console.debug("DWD adapter complete sensors:", m), m;
+      value_ascending: (B, p) => B.day0.state - p.day0.state,
+      value_descending: (B, p) => p.day0.state - B.day0.state,
+      name_descending: (B, p) => p.allergenCapitalized.localeCompare(B.allergenCapitalized)
+    }[e.sort] || ((B, p) => p.day0.state - B.day0.state)
+  ), i && console.debug("DWD adapter complete sensors:", V), V;
 }
 const er = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
@@ -2827,25 +2829,25 @@ async function ir(s, e) {
     days: {},
     no_information: "",
     ...e.phrases || {}
-  }, g = r.full, E = r.short, I = r.levels, l = 5;
+  }, g = r.full, I = r.short, E = r.levels, l = 5;
   let R = Array.from(
     { length: 7 },
     (f, C) => H(`card.levels.${C}`, t)
   ).slice();
-  Array.isArray(I) && (I.length === 7 ? R = I.slice() : I.length === l && [0, 1, 3, 5, 6].forEach((C, x) => {
-    I[x] && (R[C] = I[x]);
+  Array.isArray(E) && (E.length === 7 ? R = E.slice() : E.length === l && [0, 1, 3, 5, 6].forEach((C, x) => {
+    E[x] && (R[C] = E[x]);
   }));
-  const d = r.no_information || H("card.no_information", t), p = r.days, Q = e.integration === "dwd" ? 3 : e.integration === "peu" ? 4 : 6, Y = (f) => {
+  const Q = r.no_information || H("card.no_information", t), k = r.days, d = e.integration === "dwd" ? 3 : e.integration === "peu" ? 4 : 6, m = (f) => {
     const C = Number(f);
-    return isNaN(C) || C < 0 ? -1 : C > Q ? Q : C;
-  }, K = /* @__PURE__ */ new Date();
-  K.setHours(0, 0, 0, 0);
-  const m = e.days_to_show ?? Z.days_to_show, B = e.pollen_threshold ?? Z.pollen_threshold, S = Object.keys(s.states).filter(
+    return isNaN(C) || C < 0 ? -1 : C > d ? d : C;
+  }, q = /* @__PURE__ */ new Date();
+  q.setHours(0, 0, 0, 0);
+  const V = e.days_to_show ?? Z.days_to_show, B = e.pollen_threshold ?? Z.pollen_threshold, p = Object.keys(s.states).filter(
     (f) => f.startsWith("sensor.polleninformation_")
   );
   let u = e.location;
-  if (!u && S.length) {
-    const f = S[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+  if (!u && p.length) {
+    const f = p[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
     u = f ? f[1] : "";
   }
   const h = [];
@@ -2857,52 +2859,52 @@ async function ir(s, e) {
       if (C.allergenReplaced = x, g[x])
         C.allergenCapitalized = g[x];
       else {
-        const V = se[x] || x, F = H(`card.allergen.${V}`, t);
-        C.allergenCapitalized = F !== `card.allergen.${V}` ? F : x.charAt(0).toUpperCase() + x.slice(1);
+        const K = se[x] || x, F = H(`card.allergen.${K}`, t);
+        C.allergenCapitalized = F !== `card.allergen.${K}` ? F : x.charAt(0).toUpperCase() + x.slice(1);
       }
       if (e.allergens_abbreviated) {
-        const V = E[x];
-        C.allergenShort = V || H(`editor.phrases_short.${x}`, t) || C.allergenCapitalized;
+        const K = I[x];
+        C.allergenShort = K || H(`editor.phrases_short.${x}`, t) || C.allergenCapitalized;
       } else
         C.allergenShort = C.allergenCapitalized;
-      let k = u ? `sensor.polleninformation_${u}_${x}` : null;
-      if (!k || !s.states[k]) {
-        const V = S.filter((F) => {
+      let S = u ? `sensor.polleninformation_${u}_${x}` : null;
+      if (!S || !s.states[S]) {
+        const K = p.filter((F) => {
           const b = F.match(/^sensor\.polleninformation_(.+)_(.+)$/);
           if (!b) return !1;
           const D = b[1], $ = b[2];
           return (!u || D === u) && $ === x;
         });
-        if (V.length === 1) k = V[0];
+        if (K.length === 1) S = K[0];
         else continue;
       }
-      const O = s.states[k];
+      const O = s.states[S];
       if (!((G = O == null ? void 0 : O.attributes) != null && G.forecast)) throw "Missing forecast";
-      C.entity_id = k;
-      const M = O.attributes.forecast, q = Array.isArray(M) ? M.reduce((V, F) => {
+      C.entity_id = S;
+      const M = O.attributes.forecast, Y = Array.isArray(M) ? M.reduce((K, F) => {
         const b = F.time || F.datetime;
-        return V[b] = F, V;
-      }, {}) : {}, v = Object.keys(q).sort(
-        (V, F) => new Date(V) - new Date(F)
-      ).filter((V) => new Date(V) >= K);
+        return K[b] = F, K;
+      }, {}) : {}, v = Object.keys(Y).sort(
+        (K, F) => new Date(K) - new Date(F)
+      ).filter((K) => new Date(K) >= q);
       let z = [];
-      if (v.length >= m)
-        z = v.slice(0, m);
+      if (v.length >= V)
+        z = v.slice(0, V);
       else {
         z = v.slice();
-        let V = v.length > 0 ? new Date(v[v.length - 1]) : K;
-        for (; z.length < m; ) {
-          V = new Date(V.getTime() + 864e5);
-          const F = V.getFullYear(), b = String(V.getMonth() + 1).padStart(2, "0"), D = String(V.getDate()).padStart(2, "0");
+        let K = v.length > 0 ? new Date(v[v.length - 1]) : q;
+        for (; z.length < V; ) {
+          K = new Date(K.getTime() + 864e5);
+          const F = K.getFullYear(), b = String(K.getMonth() + 1).padStart(2, "0"), D = String(K.getDate()).padStart(2, "0");
           z.push(`${F}-${b}-${D}T00:00:00`);
         }
       }
-      z.forEach((V, F) => {
-        const b = q[V] || {}, D = Y(b.level);
+      z.forEach((K, F) => {
+        const b = Y[K] || {}, D = m(b.level);
         if (D !== null && D >= 0) {
-          const $ = new Date(V), de = Math.round(($ - K) / 864e5);
+          const $ = new Date(K), de = Math.round(($ - q) / 864e5);
           let N;
-          n ? p[de] != null ? N = p[de] : de >= 0 && de <= 2 ? N = H(`card.days.${de}`, t) : N = $.toLocaleDateString(o, {
+          n ? k[de] != null ? N = k[de] : de >= 0 && de <= 2 ? N = H(`card.days.${de}`, t) : N = $.toLocaleDateString(o, {
             day: "numeric",
             month: "short"
           }) : (N = $.toLocaleDateString(o, {
@@ -2914,11 +2916,11 @@ async function ir(s, e) {
             name: C.allergenCapitalized,
             day: N,
             state: D,
-            state_text: Qe < 0 ? d : R[Qe] || H(`card.levels.${Qe}`, t)
+            state_text: Qe < 0 ? Q : R[Qe] || H(`card.levels.${Qe}`, t)
           };
           C[`day${F}`] = ye, C.days.push(ye);
         }
-      }), (C.days.some((V) => V.state >= B) || B === 0) && h.push(C);
+      }), (C.days.some((K) => K.state >= B) || B === 0) && h.push(C);
     } catch (C) {
       i && console.warn(`Fel vid allergen ${f}:`, C);
     }
@@ -2941,32 +2943,32 @@ const Ar = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   weather_suffixes: rr
 };
 function Qi(s, e, i) {
-  var r, g, E;
+  var r, g, I;
   if (!s || !e) return null;
   const t = e.toLowerCase();
   let o = /* @__PURE__ */ new Set();
   const n = ((r = P.weather_suffixes) == null ? void 0 : r[i]) || ((g = P.weather_suffixes) == null ? void 0 : g[i == null ? void 0 : i.split("-")[0]]) || [];
-  for (const I of n) {
-    o.add(I);
-    const l = `weather.silam_pollen_${t}_${I}`;
+  for (const E of n) {
+    o.add(E);
+    const l = `weather.silam_pollen_${t}_${E}`;
     if (l in s.states) return l;
   }
-  for (const I of ((E = P.weather_suffixes) == null ? void 0 : E.en) || []) {
-    if (o.has(I)) continue;
-    o.add(I);
-    const l = `weather.silam_pollen_${t}_${I}`;
+  for (const E of ((I = P.weather_suffixes) == null ? void 0 : I.en) || []) {
+    if (o.has(E)) continue;
+    o.add(E);
+    const l = `weather.silam_pollen_${t}_${E}`;
     if (l in s.states) return l;
   }
   const a = Array.from(
     new Set(Object.values(P.weather_suffixes).flat())
   );
-  for (const I of a) {
-    if (o.has(I)) continue;
-    const l = `weather.silam_pollen_${t}_${I}`;
+  for (const E of a) {
+    if (o.has(E)) continue;
+    const l = `weather.silam_pollen_${t}_${E}`;
     if (l in s.states) return l;
   }
   const A = `weather.silam_pollen_${t}_`;
-  return Object.keys(s.states).find((I) => I.startsWith(A)) || null;
+  return Object.keys(s.states).find((E) => E.startsWith(A)) || null;
 }
 const X = {
   integration: "silam",
@@ -3047,18 +3049,18 @@ function ki(s, e, i) {
 }
 async function sr(s, e, i = null) {
   var u;
-  const t = !!e.debug, o = Ae(s, e.date_locale), n = e.date_locale || ((u = s.locale) == null ? void 0 : u.language) || s.language || `${o}-${o.toUpperCase()}`, a = e.days_relative !== !1, A = !!e.days_abbreviated, r = !!e.days_uppercase, g = Bi(e, o), E = Ci(g, o), I = g.no_information, l = g.days, c = /* @__PURE__ */ new Date();
+  const t = !!e.debug, o = Ae(s, e.date_locale), n = e.date_locale || ((u = s.locale) == null ? void 0 : u.language) || s.language || `${o}-${o.toUpperCase()}`, a = e.days_relative !== !1, A = !!e.days_abbreviated, r = !!e.days_uppercase, g = Bi(e, o), I = Ci(g, o), E = g.no_information, l = g.days, c = /* @__PURE__ */ new Date();
   c.setHours(0, 0, 0, 0);
-  const R = e.days_to_show ?? X.days_to_show, d = e.pollen_threshold ?? X.pollen_threshold, p = (e.location || "").toLowerCase(), Q = Qi(s, p, n);
-  if (!Q || !s.states[Q])
-    return t && console.warn("[SILAM] Ingen weather-entity hittad:", Q), [];
-  const Y = s.states[Q], K = e.allergens || X.allergens;
-  let m = [];
-  i && i.forecast && Array.isArray(i.forecast) ? m = i.forecast : Array.isArray(Y.attributes.forecast) && (m = Y.attributes.forecast);
+  const R = e.days_to_show ?? X.days_to_show, Q = e.pollen_threshold ?? X.pollen_threshold, k = (e.location || "").toLowerCase(), d = Qi(s, k, n);
+  if (!d || !s.states[d])
+    return t && console.warn("[SILAM] Ingen weather-entity hittad:", d), [];
+  const m = s.states[d], q = e.allergens || X.allergens;
+  let V = [];
+  i && i.forecast && Array.isArray(i.forecast) ? V = i.forecast : Array.isArray(m.attributes.forecast) && (V = m.attributes.forecast);
   let B;
-  e.mode === "hourly" || e.mode === "twice_daily" ? B = Math.min(m.length, R) : B = Math.min(m.length + 1, R);
-  const S = [];
-  for (const h of K)
+  e.mode === "hourly" || e.mode === "twice_daily" ? B = Math.min(V.length, R) : B = Math.min(V.length + 1, R);
+  const p = [];
+  for (const h of q)
     try {
       const U = {};
       U.days = [], U.allergenReplaced = h;
@@ -3070,58 +3072,58 @@ async function sr(s, e, i = null) {
       U.allergenCapitalized = G, U.allergenShort = e.allergens_abbreviated ? f : G;
       let C = [];
       if (e.mode === "hourly" || e.mode === "twice_daily")
-        for (let k = 0; k < B; ++k) {
-          const O = m[k], M = O ? Number(O[`pollen_${h}`]) : NaN;
+        for (let S = 0; S < B; ++S) {
+          const O = V[S], M = O ? Number(O[`pollen_${h}`]) : NaN;
           C.push(Ue(h, M));
         }
       else {
-        const k = Number(Y.attributes[`pollen_${h}`]);
-        C.push(Ue(h, k));
+        const S = Number(m.attributes[`pollen_${h}`]);
+        C.push(Ue(h, S));
         for (let O = 1; O < B; ++O) {
-          const M = m[O - 1], q = M ? Number(M[`pollen_${h}`]) : NaN;
-          C.push(Ue(h, q));
+          const M = V[O - 1], Y = M ? Number(M[`pollen_${h}`]) : NaN;
+          C.push(Ue(h, Y));
         }
       }
-      for (let k = 0; k < B; ++k) {
-        const O = C[k];
-        let M, q, j;
+      for (let S = 0; S < B; ++S) {
+        const O = C[S];
+        let M, Y, j;
         if (e.mode === "hourly" || e.mode === "twice_daily")
-          if (m[k] && (m[k].datetime || m[k].time) ? j = new Date(m[k].datetime || m[k].time) : j = new Date(c.getTime() + k * 36e5), e.mode === "twice_daily") {
+          if (V[S] && (V[S].datetime || V[S].time) ? j = new Date(V[S].datetime || V[S].time) : j = new Date(c.getTime() + S * 36e5), e.mode === "twice_daily") {
             const L = j.toLocaleDateString(n, { weekday: "short" });
-            M = L.charAt(0).toUpperCase() + L.slice(1), q = k % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down", r && (M = M.toUpperCase());
+            M = L.charAt(0).toUpperCase() + L.slice(1), Y = S % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down", r && (M = M.toUpperCase());
           } else
             M = j.toLocaleTimeString(n, {
               hour: "2-digit",
               minute: "2-digit"
-            }) || "", q = null;
+            }) || "", Y = null;
         else
-          j = new Date(c.getTime() + k * 864e5), a ? l[k] != null ? M = l[k] : k >= 0 && k <= 2 ? M = H(`card.days.${k}`, o) : M = j.toLocaleDateString(n, {
+          j = new Date(c.getTime() + S * 864e5), a ? l[S] != null ? M = l[S] : S >= 0 && S <= 2 ? M = H(`card.days.${S}`, o) : M = j.toLocaleDateString(n, {
             day: "numeric",
             month: "short"
           }) : (M = j.toLocaleDateString(n, {
             weekday: A ? "short" : "long"
-          }), M = M.charAt(0).toUpperCase() + M.slice(1)), r && (M = M.toUpperCase()), q = null;
-        const v = O < 0 ? 0 : Math.min(Math.round(O), 6), z = O < 0 ? I : E[v] || String(O);
-        U[`day${k}`] = {
+          }), M = M.charAt(0).toUpperCase() + M.slice(1)), r && (M = M.toUpperCase()), Y = null;
+        const v = O < 0 ? 0 : Math.min(Math.round(O), 6), z = O < 0 ? E : I[v] || String(O);
+        U[`day${S}`] = {
           name: U.allergenCapitalized,
           day: M,
-          icon: q,
+          icon: Y,
           state: O,
           state_text: z
-        }, U.days.push(U[`day${k}`]);
+        }, U.days.push(U[`day${S}`]);
       }
-      (U.days.some((k) => k.state >= d) || d === 0) && S.push(U);
+      (U.days.some((S) => S.state >= Q) || Q === 0) && p.push(U);
     } catch (U) {
       t && console.warn(`[SILAM] Fel vid allergen ${h}:`, U);
     }
-  return S.sort(
+  return p.sort(
     {
       value_ascending: (h, U) => h.day0.state - U.day0.state,
       value_descending: (h, U) => U.day0.state - h.day0.state,
       name_ascending: (h, U) => h.allergenCapitalized.localeCompare(U.allergenCapitalized),
       name_descending: (h, U) => U.allergenCapitalized.localeCompare(h.allergenCapitalized)
     }[e.sort] || ((h, U) => U.day0.state - h.day0.state)
-  ), t && console.debug("[SILAM] fetchForecast klar:", S), S;
+  ), t && console.debug("[SILAM] fetchForecast klar:", p), p;
 }
 const nr = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
@@ -3244,6 +3246,7 @@ const nr = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   "levels_gap",
   "levels_text_color",
   "levels_text_size",
+  "levels_icon_ratio",
   "levels_text_weight",
   "minimal",
   "show_text_allergen",
@@ -3296,27 +3299,27 @@ const nr = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" }
 };
 async function lr(s, e) {
-  var B, S;
+  var B, p;
   const i = [], t = !!e.debug, o = (u) => u.charAt(0).toUpperCase() + u.slice(1), n = (u) => {
     const [h] = u.split("T"), [U, G, f] = h.split("-").map(Number);
     return new Date(U, G - 1, f);
   }, a = /* @__PURE__ */ new Date();
   a.setHours(0, 0, 0, 0);
-  const A = Ae(s, e.date_locale), r = e.date_locale || ((B = s.locale) == null ? void 0 : B.language) || s.language || `${A}-${A.toUpperCase()}`, g = e.days_relative !== !1, E = !!e.days_abbreviated, I = !!e.days_uppercase, l = {
+  const A = Ae(s, e.date_locale), r = e.date_locale || ((B = s.locale) == null ? void 0 : B.language) || s.language || `${A}-${A.toUpperCase()}`, g = e.days_relative !== !1, I = !!e.days_abbreviated, E = !!e.days_uppercase, l = {
     full: {},
     short: {},
     levels: [],
     days: {},
     no_information: "",
     ...e.phrases || {}
-  }, c = l.full, R = l.short, d = l.levels, p = Array.isArray(d) && d.length === 7 ? d : Array.from({ length: 7 }, (u, h) => H(`card.levels.${h}`, A));
+  }, c = l.full, R = l.short, Q = l.levels, k = Array.isArray(Q) && Q.length === 7 ? Q : Array.from({ length: 7 }, (u, h) => H(`card.levels.${h}`, A));
   l.no_information || H("card.no_information", A);
-  const Q = l.days;
+  const d = l.days;
   t && console.debug("PP.fetchForecast — start", { city: e.city, lang: A });
-  const Y = (u) => {
+  const m = (u) => {
     const h = Number(u);
     return isNaN(h) || h < 0 ? null : h > 6 ? 6 : h;
-  }, K = e.days_to_show ?? W.days_to_show, m = e.pollen_threshold ?? W.pollen_threshold;
+  }, q = e.days_to_show ?? W.days_to_show, V = e.pollen_threshold ?? W.pollen_threshold;
   for (const u of e.allergens)
     try {
       const h = {};
@@ -3348,44 +3351,44 @@ async function lr(s, e) {
         else continue;
       }
       const C = s.states[f];
-      if (!((S = C == null ? void 0 : C.attributes) != null && S.forecast)) throw "Missing forecast";
+      if (!((p = C == null ? void 0 : C.attributes) != null && p.forecast)) throw "Missing forecast";
       h.entity_id = f;
-      const x = C.attributes.forecast, k = Array.isArray(x) ? x.reduce((v, z) => {
+      const x = C.attributes.forecast, S = Array.isArray(x) ? x.reduce((v, z) => {
         const L = z.time || z.datetime;
         return v[L] = z, v;
-      }, {}) : x, M = Object.keys(k).sort(
+      }, {}) : x, M = Object.keys(S).sort(
         (v, z) => n(v) - n(z)
       ).filter((v) => n(v) >= a);
-      let q = [];
-      if (M.length >= K)
-        q = M.slice(0, K);
+      let Y = [];
+      if (M.length >= q)
+        Y = M.slice(0, q);
       else {
-        q = M.slice();
+        Y = M.slice();
         let v = M.length > 0 ? n(M[M.length - 1]) : a;
-        for (; q.length < K; ) {
+        for (; Y.length < q; ) {
           v = new Date(v.getTime() + 864e5);
-          const z = v.getFullYear(), L = String(v.getMonth() + 1).padStart(2, "0"), V = String(v.getDate()).padStart(2, "0");
-          q.push(`${z}-${L}-${V}T00:00:00`);
+          const z = v.getFullYear(), L = String(v.getMonth() + 1).padStart(2, "0"), K = String(v.getDate()).padStart(2, "0");
+          Y.push(`${z}-${L}-${K}T00:00:00`);
         }
       }
-      q.forEach((v, z) => {
-        const L = k[v] || {}, V = Y(L.level), F = n(v), b = Math.round((F - a) / 864e5);
+      Y.forEach((v, z) => {
+        const L = S[v] || {}, K = m(L.level), F = n(v), b = Math.round((F - a) / 864e5);
         let D;
-        if (g ? Q[b] != null ? D = Q[b] : b >= 0 && b <= 2 ? D = H(`card.days.${b}`, A) : D = F.toLocaleDateString(r, {
+        if (g ? d[b] != null ? D = d[b] : b >= 0 && b <= 2 ? D = H(`card.days.${b}`, A) : D = F.toLocaleDateString(r, {
           day: "numeric",
           month: "short"
         }) : (D = F.toLocaleDateString(r, {
-          weekday: E ? "short" : "long"
-        }), D = D.charAt(0).toUpperCase() + D.slice(1)), I && (D = D.toUpperCase()), V !== null) {
+          weekday: I ? "short" : "long"
+        }), D = D.charAt(0).toUpperCase() + D.slice(1)), E && (D = D.toUpperCase()), K !== null) {
           const $ = {
             name: h.allergenCapitalized,
             day: D,
-            state: V,
-            state_text: p[V]
+            state: K,
+            state_text: k[K]
           };
           h[`day${z}`] = $, h.days.push($);
         }
-      }), (h.days.some((v) => v.state >= m) || m === 0) && i.push(h);
+      }), (h.days.some((v) => v.state >= V) || V === 0) && i.push(h);
     } catch (h) {
       console.warn(`[PP] Fel vid allergen ${u}:`, h);
     }
@@ -3415,7 +3418,7 @@ function ri(s, e, i = !1) {
       let A = s.region_id ? `sensor.pollenflug_${a}_${s.region_id}` : null, r = A && e.states[A];
       if (!r) {
         const g = Object.keys(e.states).filter(
-          (E) => E.startsWith(`sensor.pollenflug_${a}_`)
+          (I) => I.startsWith(`sensor.pollenflug_${a}_`)
         );
         g.length === 1 && (A = g[0], r = !0);
       }
@@ -3429,13 +3432,13 @@ function ri(s, e, i = !1) {
       const A = ie(a);
       let r = n ? `sensor.polleninformation_${n}_${A}` : null, g = r && e.states[r];
       if (!g) {
-        const E = Object.keys(e.states).filter((I) => {
-          const l = I.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+        const I = Object.keys(e.states).filter((E) => {
+          const l = E.match(/^sensor\.polleninformation_(.+)_(.+)$/);
           if (!l) return !1;
           const c = l[1], R = l[2];
           return (!n || c === n) && R === A;
         });
-        E.length === 1 && (r = E[0], g = !0);
+        I.length === 1 && (r = I[0], g = !0);
       }
       i && console.debug(
         `[findAvailableSensors][peu] allergen: '${a}', locationSlug: '${n}', allergenSlug: '${A}', sensorId: '${r}', exists: ${!!g}`
@@ -3446,14 +3449,14 @@ function ri(s, e, i = !1) {
     for (const a of s.allergens || []) {
       let A = null;
       for (const r of Object.values(P.mapping)) {
-        const g = Object.entries(r).reduce((E, [I, l]) => (E[l] = I, E), {});
+        const g = Object.entries(r).reduce((I, [E, l]) => (I[l] = E, I), {});
         if (g[a]) {
-          const E = g[a], I = `sensor.silam_pollen_${n}_${E}`;
-          if (e.states[I]) {
-            A = E, i && console.debug(
-              `[findAvailableSensors][silam] allergen: '${a}', locationSlug: '${n}', hassSlug: '${A}', sensorId: '${I}', exists: true`,
-              e.states[I]
-            ), o.push(I);
+          const I = g[a], E = `sensor.silam_pollen_${n}_${I}`;
+          if (e.states[E]) {
+            A = I, i && console.debug(
+              `[findAvailableSensors][silam] allergen: '${a}', locationSlug: '${n}', hassSlug: '${A}', sensorId: '${E}', exists: true`,
+              e.states[E]
+            ), o.push(E);
             break;
           }
         }
@@ -3513,10 +3516,10 @@ class gr extends le {
     size: r = 100
   }) {
     var l, c, R;
-    const g = arguments[2] || "default", E = arguments[3] || 0, I = `chart-${g}-${E}-${i}`;
+    const g = arguments[2] || "default", I = arguments[3] || 0, E = `chart-${g}-${I}-${i}`;
     return J`
       <div
-        id="${I}"
+        id="${E}"
         class="level-circle"
         style="display: inline-block; width: ${r}px; height: ${r}px; position: relative;"
         .level="${i}"
@@ -3545,28 +3548,28 @@ class gr extends le {
   updated(i) {
     (i.has("config") || i.has("_hass")) && this._subscribeForecastIfNeeded(), this.updateComplete.then(() => {
       this.renderRoot.querySelectorAll(".level-circle").forEach((t) => {
-        const o = Number(t.level || 0), n = JSON.parse(t.colors || "[]"), a = t.emptyColor, A = t.gapColor, r = Number(t.thickness), g = Number(t.gap), E = Number(t.size), I = t.showValue, l = t.fontWeight || "normal", c = parseFloat(t.fontSizeRatio) || 0.2, R = t.textColor || "var(--primary-text-color)";
-        let d = this._chartCache.get(t.id);
-        const p = t.querySelector(".level-value-text");
-        if (p && p.remove(), d) {
-          const Q = d.data.datasets;
-          if (Q && Q[0]) {
-            const Y = Array(Q[0].backgroundColor.length).fill(a).map((K, m) => m < o ? n[m] : a);
-            Q[0].backgroundColor = Y, d.update("none");
+        const o = Number(t.level || 0), n = JSON.parse(t.colors || "[]"), a = t.emptyColor, A = t.gapColor, r = Number(t.thickness), g = Number(t.gap), I = Number(t.size), E = t.showValue, l = t.fontWeight || "normal", c = parseFloat(t.fontSizeRatio) || 0.2, R = t.textColor || "var(--primary-text-color)";
+        let Q = this._chartCache.get(t.id);
+        const k = t.querySelector(".level-value-text");
+        if (k && k.remove(), Q) {
+          const d = Q.data.datasets;
+          if (d && d[0]) {
+            const m = Array(d[0].backgroundColor.length).fill(a).map((q, V) => V < o ? n[V] : a);
+            d[0].backgroundColor = m, Q.update("none");
           }
         } else {
           t.innerHTML = "";
-          const Q = document.createElement("canvas");
-          Q.width = E, Q.height = E, t.appendChild(Q);
-          const Y = n.length, K = Array(Y).fill(1), m = Array(Y).fill(a).map((S, u) => u < o ? n[u] : a), B = Array(Y).fill(A);
-          d = new ni(Q.getContext("2d"), {
+          const d = document.createElement("canvas");
+          d.width = I, d.height = I, t.appendChild(d);
+          const m = n.length, q = Array(m).fill(1), V = Array(m).fill(a).map((p, u) => u < o ? n[u] : a), B = Array(m).fill(A);
+          Q = new ni(d.getContext("2d"), {
             type: "doughnut",
             data: {
-              labels: Array(Y).fill(""),
+              labels: Array(m).fill(""),
               datasets: [
                 {
-                  data: K,
-                  backgroundColor: m,
+                  data: q,
+                  backgroundColor: V,
                   borderColor: B,
                   borderWidth: g
                 }
@@ -3610,11 +3613,11 @@ class gr extends le {
                 tooltip: { enabled: !1 }
               }
             }
-          }), this._chartCache.set(t.id, d);
+          }), this._chartCache.set(t.id, Q);
         }
-        if (I) {
-          const Q = document.createElement("div");
-          Q.className = "level-value-text", Q.textContent = o, Q.style.position = "absolute", Q.style.top = "50%", Q.style.left = "50%", Q.style.transform = "translate(-50%, -50%)", Q.style.fontSize = `${E * c}px`, Q.style.fontWeight = l, Q.style.color = R, E < 42 && (Q.style.lineHeight = "1", Q.style.height = "1em"), t.appendChild(Q);
+        if (E) {
+          const d = document.createElement("div");
+          d.className = "level-value-text", d.textContent = o, d.style.position = "absolute", d.style.top = "50%", d.style.left = "50%", d.style.transform = "translate(-50%, -50%)", d.style.fontSize = `${I * c}px`, d.style.fontWeight = l, d.style.color = R, I < 42 && (d.style.lineHeight = "1", d.style.height = "1em"), t.appendChild(d);
         }
       });
     }), super.updated && super.updated(i);
@@ -3640,27 +3643,27 @@ class gr extends le {
     }), this._forecastUnsub = null), this.config.integration === "silam" && this.config.location)) {
       const a = this.config.location.toLowerCase(), A = ((t = (i = this.config) == null ? void 0 : i.date_locale) == null ? void 0 : t.split("-")[0]) || "en", r = ((o = P.weather_suffixes) == null ? void 0 : o[A]) || ((n = P.weather_suffixes) == null ? void 0 : n.en) || [];
       if (this.debug) {
-        const I = Object.keys(this._hass.states).filter(
+        const E = Object.keys(this._hass.states).filter(
           (l) => typeof l == "string" && l.startsWith("weather.silam_pollen_")
         );
         console.debug(
           "[Card][Debug] Alla weather-entities i hass.states:",
-          I
+          E
         ), console.debug("[Card][Debug] locationSlug:", a), console.debug("[Card][Debug] Suffixes:", r);
       }
       const g = Qi(this._hass, a, A);
-      let E = "daily";
-      this.config && this.config.mode === "twice_daily" ? E = "twice_daily" : this.config && this.config.mode === "hourly" && (E = "hourly"), g ? (this._forecastUnsub = this._hass.connection.subscribeMessage(
-        (I) => {
+      let I = "daily";
+      this.config && this.config.mode === "twice_daily" ? I = "twice_daily" : this.config && this.config.mode === "hourly" && (I = "hourly"), g ? (this._forecastUnsub = this._hass.connection.subscribeMessage(
+        (E) => {
           this.debug && console.debug(
             "[Card][subscribeForecast] forecastEvent RECEIVED:",
-            I
-          ), this._forecastEvent = I, this._updateSensorsAfterForecastEvent();
+            E
+          ), this._forecastEvent = E, this._updateSensorsAfterForecastEvent();
         },
         {
           type: "weather/subscribe_forecast",
           entity_id: g,
-          forecast_type: E
+          forecast_type: I
         }
       ), this.debug && console.debug("[Card][subscribeForecast] Subscribed for", g)) : this.debug && console.debug(
         "[Card] Hittar ingen weather-entity för location",
@@ -3735,22 +3738,22 @@ class gr extends le {
       "date_locale"
     ]);
     let a = {};
-    for (const I of n)
-      I in i && (a[I] = i[I]);
+    for (const E of n)
+      E in i && (a[E] = i[E]);
     const A = { ...o, ...a, integration: t }, r = this.config || {}, g = Object.keys(a).filter(
-      (I) => !_(a[I], r[I])
+      (E) => !_(a[E], r[E])
     );
-    if (g.length > 0 && g.every((I) => Ri.includes(I))) {
+    if (g.length > 0 && g.every((E) => Ri.includes(E))) {
       this._userConfig = { ...i }, this.config = A, this._isLoaded = !0, this.requestUpdate();
       return;
     }
     this._userConfig = { ...i }, this.config = A, !this._versionLogged && this.config.show_version !== !1 && (console.info(
-      "%c🤧 Pollenprognos Card: version f9007b1",
+      "%c🤧 Pollenprognos Card: version 561e178",
       "background:#f0e68c;color:#000;padding:2px 4px;border-radius:2px;"
     ), this._versionLogged = !0), this._initDone = !1, this._hass && (this.hass = this._hass);
   }
   set hass(i) {
-    var d, p, Q, Y, K, m;
+    var Q, k, d, m, q, V;
     if (this._hass === i) return;
     this._hass = i;
     const t = !!this._integrationExplicit;
@@ -3769,35 +3772,35 @@ class gr extends le {
     t || (o.length ? r = "pp" : a.length ? r = "peu" : n.length ? r = "dwd" : A.length && (r = "silam"));
     let g;
     r === "dwd" ? g = T : r === "peu" ? g = Z : r === "pp" ? g = W : r === "silam" ? g = X : console.error("Unknown integration:", r);
-    const { allergens: E, ...I } = this._userConfig, l = {
+    const { allergens: I, ...E } = this._userConfig, l = {
       ...g,
-      ...I,
+      ...E,
       integration: r
     };
-    if (this._integrationExplicit && Array.isArray(E) && E.length > 0 ? (this.debug && console.debug(
+    if (this._integrationExplicit && Array.isArray(I) && I.length > 0 ? (this.debug && console.debug(
       "[Card] Explicit integration (",
       r,
       "); using user-defined allergens:",
-      E
-    ), l.allergens = E) : (this.debug && console.debug(
+      I
+    ), l.allergens = I) : (this.debug && console.debug(
       "[Card] Using stub allergens for integration:",
       r
     ), r === "pp" ? l.allergens = W.allergens : r === "peu" ? l.allergens = Z.allergens : r === "dwd" ? l.allergens = T.allergens : r === "silam" && (l.allergens = X.allergens)), !l.hasOwnProperty("date_locale")) {
-      const B = Ae(i, null), S = ((p = (d = this._hass) == null ? void 0 : d.locale) == null ? void 0 : p.language) || ((Q = this._hass) == null ? void 0 : Q.language) || `${B}-${B.toUpperCase()}`;
-      l.date_locale = S, this.debug && console.debug("[Card] auto-filling date_locale:", l.date_locale);
+      const B = Ae(i, null), p = ((k = (Q = this._hass) == null ? void 0 : Q.locale) == null ? void 0 : k.language) || ((d = this._hass) == null ? void 0 : d.language) || `${B}-${B.toUpperCase()}`;
+      l.date_locale = p, this.debug && console.debug("[Card] auto-filling date_locale:", l.date_locale);
     }
     if (r === "dwd" && !l.region_id && n.length)
       l.region_id = Array.from(
         new Set(n.map((B) => B.split("_").pop()))
-      ).sort((B, S) => Number(B) - Number(S))[0], this.debug && console.debug("[Card] Auto-set region_id:", l.region_id);
+      ).sort((B, p) => Number(B) - Number(p))[0], this.debug && console.debug("[Card] Auto-set region_id:", l.region_id);
     else if (r === "pp" && !l.city && o.length)
       l.city = o[0].slice(14).replace(/_[^_]+$/, ""), this.debug && console.debug("[Card] Auto-set city:", l.city);
     else if (r === "peu" && !l.location && a.length) {
       const B = Array.from(
         new Set(
-          a.map((S) => {
+          a.map((p) => {
             var h;
-            return (((h = i.states[S]) == null ? void 0 : h.attributes) || {}).location_slug || null;
+            return (((h = i.states[p]) == null ? void 0 : h.attributes) || {}).location_slug || null;
           }).filter(Boolean)
         )
       );
@@ -3809,8 +3812,8 @@ class gr extends le {
     } else if (r === "silam" && !l.location && A.length) {
       const B = Array.from(
         new Set(
-          A.map((S) => {
-            const u = S.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+          A.map((p) => {
+            const u = p.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
             return u ? u[1] : null;
           }).filter(Boolean)
         )
@@ -3839,11 +3842,11 @@ class gr extends le {
         let h = "";
         if (u) {
           const U = u.attributes;
-          h = U.location_title || ((K = (Y = U.friendly_name) == null ? void 0 : Y.match(/\((.*?)\)/)) == null ? void 0 : K[1]) || l.location;
+          h = U.location_title || ((q = (m = U.friendly_name) == null ? void 0 : m.match(/\((.*?)\)/)) == null ? void 0 : q[1]) || l.location;
         }
         B = h || l.location || "";
       } else if (r === "silam") {
-        const S = [
+        const p = [
           "alder",
           "birch",
           "grass",
@@ -3854,7 +3857,7 @@ class gr extends le {
         ], u = new Set(
           Object.values(P.mapping).flatMap(
             (C) => Object.entries(C).filter(
-              ([x, k]) => S.includes(k)
+              ([x, S]) => p.includes(S)
             ).map(([x]) => x)
           )
         ), h = Object.values(i.states).filter((C) => {
@@ -3864,21 +3867,21 @@ class gr extends le {
             /^sensor\.silam_pollen_(.*)_([^_]+)$/
           );
           if (!x) return !1;
-          const k = x[2];
-          return u.has(k);
+          const S = x[2];
+          return u.has(S);
         }), U = ae(l.location || ""), G = h.find((C) => {
-          const k = C.entity_id.replace("sensor.silam_pollen_", "").replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
-          return ae(k) === U;
+          const S = C.entity_id.replace("sensor.silam_pollen_", "").replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
+          return ae(S) === U;
         });
         let f = "";
         if (G) {
           const C = G.attributes;
-          f = C.location_title || ((m = C.friendly_name) == null ? void 0 : m.replace(/^SILAM Pollen\s*-?\s*/i, "").replace(new RegExp("\\s+\\p{L}+$", "u"), "").trim()) || l.location, f = f.replace(/^[-\s]+/, "");
+          f = C.location_title || ((V = C.friendly_name) == null ? void 0 : V.replace(/^SILAM Pollen\s*-?\s*/i, "").replace(new RegExp("\\s+\\p{L}+$", "u"), "").trim()) || l.location, f = f.replace(/^[-\s]+/, "");
         }
         B = f || l.location || "";
       } else
         B = Fe.find(
-          (S) => S.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_") === l.city
+          (p) => p.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_") === l.city
         ) || l.city;
       this.header = `${this._t("card.header_prefix")} ${B}`, this.debug && console.debug("[Card] header set to:", this.header);
     }
@@ -3912,19 +3915,19 @@ class gr extends le {
           "[Card] Användaren har valt allergener:",
           l.allergens
         ), console.debug("[Card] Användaren har valt plats:", l.location));
-        const S = ri(l, i, this.debug), u = S.length;
+        const p = ri(l, i, this.debug), u = p.length;
         let h = {};
         if (l.integration === "silam") {
           const C = Object.keys(i.states).filter((x) => {
-            const k = x.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-            return k && k[1] === (l.location || "");
+            const S = x.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+            return S && S[1] === (l.location || "");
           });
           for (const x of C) {
-            const k = x.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-            if (!k) continue;
-            const O = k[2];
+            const S = x.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+            if (!S) continue;
+            const O = S[2];
             let M = !1;
-            for (const [q, j] of Object.entries(
+            for (const [Y, j] of Object.entries(
               P.mapping
             ))
               if (j[O]) {
@@ -3942,23 +3945,23 @@ class gr extends le {
         }
         let U = B.filter((C) => {
           if (l.integration === "silam" && h && (!l.mode || l.mode === "daily")) {
-            const x = l.location || "", k = h[C.allergenReplaced] || C.allergenReplaced, O = `sensor.silam_pollen_${x}_${k}`;
+            const x = l.location || "", S = h[C.allergenReplaced] || C.allergenReplaced, O = `sensor.silam_pollen_${x}_${S}`;
             return this.debug && console.debug(
-              `[Card][Debug][SILAM filter] allergenReplaced: '${C.allergenReplaced}', key: '${k}', id: '${O}', available: ${S.includes(O)}`
-            ), S.includes(O);
+              `[Card][Debug][SILAM filter] allergenReplaced: '${C.allergenReplaced}', key: '${S}', id: '${O}', available: ${p.includes(O)}`
+            ), p.includes(O);
           }
           return !0;
         });
         if (Array.isArray(l.allergens) && l.allergens.length > 0 && l.integration !== "silam") {
           let C, x;
-          r === "dwd" ? (C = new Set(l.allergens.map((k) => Je(k))), x = (k) => Je(k.allergenReplaced || "")) : (this.debug && console.debug(
+          r === "dwd" ? (C = new Set(l.allergens.map((S) => Je(S))), x = (S) => Je(S.allergenReplaced || "")) : (this.debug && console.debug(
             "[Card][Debug] Använder normalisering för allergener:",
             l.allergens
-          ), C = new Set(l.allergens.map((k) => ie(k))), x = (k) => ie(k.allergenReplaced || "")), U = U.filter((k) => {
-            const O = x(k), M = C.has(O);
+          ), C = new Set(l.allergens.map((S) => ie(S))), x = (S) => ie(S.allergenReplaced || "")), U = U.filter((S) => {
+            const O = x(S), M = C.has(O);
             return !M && this.debug && console.debug(
               `[Card][Debug] Sensor '${O}' är EJ tillåten (ej i allowed)`,
-              k
+              S
             ), M;
           });
         }
@@ -3968,7 +3971,7 @@ class gr extends le {
           );
           return;
         } else
-          this._explicitLocationNoSensors = !1, this._updateSensorsAndColumns(U, S, l);
+          this._explicitLocationNoSensors = !1, this._updateSensorsAndColumns(U, p, l);
       }).catch((B) => {
         console.error("[Card] Error fetching pollen forecast:", B), this.debug && console.debug("[Card] fetchForecast error:", B);
       });
@@ -3984,16 +3987,16 @@ class gr extends le {
           style="gap: ${((o = this.config) == null ? void 0 : o.minimal_gap) ?? 35}px;"
         >
           ${(this.sensors || []).map((n) => {
-      var g, E, I, l, c, R, d, p, Q;
-      const a = ((g = n.day0) == null ? void 0 : g.state_text) ?? "", A = ((E = n.day0) == null ? void 0 : E.state) ?? "";
+      var g, I, E, l, c, R, Q, k, d;
+      const a = ((g = n.day0) == null ? void 0 : g.state_text) ?? "", A = ((I = n.day0) == null ? void 0 : I.state) ?? "";
       let r = "";
-      return (I = this.config) != null && I.show_text_allergen && (r += (l = this.config) != null && l.allergens_abbreviated ? n.allergenShort ?? "" : n.allergenCapitalized ?? ""), (c = this.config) != null && c.show_value_text && ((R = this.config) != null && R.show_value_numeric) ? (r && (r += ": "), r += `${a} (${A})`) : (d = this.config) != null && d.show_value_text ? (r && (r += ": "), r += a) : (p = this.config) != null && p.show_value_numeric && (r && (r += " "), r += `(${A})`), J`
+      return (E = this.config) != null && E.show_text_allergen && (r += (l = this.config) != null && l.allergens_abbreviated ? n.allergenShort ?? "" : n.allergenCapitalized ?? ""), (c = this.config) != null && c.show_value_text && ((R = this.config) != null && R.show_value_numeric) ? (r && (r += ": "), r += `${a} (${A})`) : (Q = this.config) != null && Q.show_value_text ? (r && (r += ": "), r += a) : (k = this.config) != null && k.show_value_numeric && (r && (r += " "), r += `(${A})`), J`
               <div class="sensor minimal">
                 <img
                   class="pollen-img"
                   src="${this._getImageSrc(
         n.allergenReplaced,
-        (Q = n.day0) == null ? void 0 : Q.state
+        (d = n.day0) == null ? void 0 : d.state
       )}"
                 />
                 ${r ? J`<span
@@ -4009,18 +4012,15 @@ class gr extends le {
     `;
   }
   _renderNormalHtml() {
-    var I;
-    const i = ((I = this.config) == null ? void 0 : I.text_size_ratio) ?? 1, t = !!this.config.days_boldfaced, o = this.displayCols, n = this.config.levels_colors ?? [
+    var c;
+    const i = ((c = this.config) == null ? void 0 : c.text_size_ratio) ?? 1, t = !!this.config.days_boldfaced, o = this.displayCols, n = this.config.levels_colors ?? [
       "#ffeb3b",
       "#ffc107",
       "#ff9800",
       "#ff5722",
       "#e64a19",
       "#d32f2f"
-    ], a = this.config.levels_empty_color ?? "var(--divider-color)", A = this.config.levels_gap_color ?? "var(--card-background-color)", r = this.config.levels_thickness ?? 60, g = this.config.levels_gap ?? 5, E = Math.min(
-      100,
-      Math.max(40, Number(this.config.icon_size) || 80)
-    );
+    ], a = this.config.levels_empty_color ?? "var(--divider-color)", A = this.config.levels_gap_color ?? "var(--card-background-color)", r = this.config.levels_thickness ?? 60, g = this.config.levels_gap ?? 5, I = Number(this.config.icon_size) || 48, E = Number(this.config.levels_icon_ratio) || 1, l = Math.min(100, Math.max(1, I * E));
     return this.debug && console.debug("Display columns:", o), J`
       ${this.header ? J`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
@@ -4035,8 +4035,8 @@ class gr extends le {
               <tr>
                 <th></th>
                 ${o.map(
-      (l) => {
-        var c, R;
+      (R) => {
+        var Q, k;
         return J`
                     <th
                       style="font-weight: ${t ? "bold" : "normal"}; text-align: center;"
@@ -4048,10 +4048,10 @@ class gr extends le {
                           class="day-header"
                           style="font-size: ${1 * i}em;"
                         >
-                          ${((c = this.sensors[0].days[l]) == null ? void 0 : c.day) || ""}
+                          ${((Q = this.sensors[0].days[R]) == null ? void 0 : Q.day) || ""}
                         </span>
-                        ${this.config.mode === "twice_daily" && ((R = this.sensors[0].days[l]) != null && R.icon) ? J`<ha-icon
-                              icon="${this.sensors[0].days[l].icon}"
+                        ${this.config.mode === "twice_daily" && ((k = this.sensors[0].days[R]) != null && k.icon) ? J`<ha-icon
+                              icon="${this.sensors[0].days[R].icon}"
                               style="margin-top: 2px;"
                             ></ha-icon>` : ""}
                       </div>
@@ -4062,8 +4062,8 @@ class gr extends le {
               </tr>
             </thead>
             ${this.sensors.map(
-      (l) => {
-        var c;
+      (R) => {
+        var Q;
         return J`
                 <!-- Rad 1: bara ikoner -->
                 <tr class="allergen-icon-row" valign="top">
@@ -4071,28 +4071,28 @@ class gr extends le {
                     <img
                       class="pollen-img"
                       src="${this._getImageSrc(
-          l.allergenReplaced,
-          (c = l.days[0]) == null ? void 0 : c.state
+          R.allergenReplaced,
+          (Q = R.days[0]) == null ? void 0 : Q.state
         )}"
                     />
                   </td>
                   ${o.map(
-          (R) => {
+          (k) => {
             var d;
             return J`
                       <td>
                         ${this._renderLevelCircle(
-              Number((d = l.days[R]) == null ? void 0 : d.state) || 0,
+              Number((d = R.days[k]) == null ? void 0 : d.state) || 0,
               {
                 colors: n,
                 emptyColor: a,
                 gapColor: A,
                 thickness: r,
                 gap: g,
-                size: E
+                size: l
               },
-              l.allergenReplaced,
-              R
+              R.allergenReplaced,
+              k
             )}
                       </td>
                     `;
@@ -4104,16 +4104,16 @@ class gr extends le {
                       <tr class="allergen-text-row">
                         <td>
                           <span style="font-size: ${1 * i}em;">
-                            ${this.config.show_text_allergen ? this.config.allergens_abbreviated ? l.allergenShort : l.allergenCapitalized : ""}
+                            ${this.config.show_text_allergen ? this.config.allergens_abbreviated ? R.allergenShort : R.allergenCapitalized : ""}
                           </span>
                         </td>
-                        ${o.map((R) => {
-          var Y, K;
-          const d = ((Y = l.days[R]) == null ? void 0 : Y.state_text) || "", p = (K = l.days[R]) == null ? void 0 : K.state;
-          let Q = "";
-          return this.config.show_value_text && this.config.show_value_numeric ? Q = `${d} (${p})` : this.config.show_value_text ? Q = d : this.config.show_value_numeric && (Q = String(p)), J`<td>
+                        ${o.map((k) => {
+          var V, B;
+          const d = ((V = R.days[k]) == null ? void 0 : V.state_text) || "", m = (B = R.days[k]) == null ? void 0 : B.state;
+          let q = "";
+          return this.config.show_value_text && this.config.show_value_numeric ? q = `${d} (${m})` : this.config.show_value_text ? q = d : this.config.show_value_numeric && (q = String(m)), J`<td>
                             <span style="font-size: ${1 * i}em;"
-                              >${Q}</span
+                              >${q}</span
                             >
                           </td>`;
         })}
@@ -4139,11 +4139,11 @@ class gr extends le {
         </ha-card>
       `;
     if (this._isLoaded && (!this.sensors || !this.sensors.length)) {
-      const E = `card.integration.${this.config.integration}`, I = this._t(E);
+      const I = `card.integration.${this.config.integration}`, E = this._t(I);
       let l = "";
       return this._availableSensorCount === 0 ? l = this._t("card.error_no_sensors") : l = this._t("card.error_filtered_sensors"), J`
         <ha-card>
-          <div class="card-error">${l} (${I})</div>
+          <div class="card-error">${l} (${E})</div>
         </ha-card>
       `;
     }
@@ -4262,7 +4262,7 @@ class gr extends le {
         display: block;
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
-        min-width: 16px;
+        min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
       }
@@ -4270,7 +4270,7 @@ class gr extends le {
       .level-circle {
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
-        min-width: 16px;
+        min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
       }
@@ -4364,8 +4364,8 @@ class gr extends le {
         height: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
         max-height: var(--pollen-icon-size, 48px);
-        min-width: 16px;
-        min-height: 16px;
+        min-width: 0;
+        min-height: 0;
         object-fit: contain;
         margin: 0 auto 6px auto;
         display: block;
@@ -4399,25 +4399,25 @@ class Er extends le {
     if (!this._hass || !this._hass.states || typeof this._hass.states != "object")
       return !1;
     if (!e) {
-      const E = Object.keys(this._hass.states).filter(
-        (I) => typeof I == "string" && I.startsWith("weather.silam_pollen_")
+      const I = Object.keys(this._hass.states).filter(
+        (E) => typeof E == "string" && E.startsWith("weather.silam_pollen_")
       ).map(
-        (I) => I.replace(/^weather\.silam_pollen_/, "").replace(/_.+$/, "")
-      ).filter((I, l, c) => c.indexOf(I) === l).sort();
+        (E) => E.replace(/^weather\.silam_pollen_/, "").replace(/_.+$/, "")
+      ).filter((E, l, c) => c.indexOf(E) === l).sort();
       return this.debug && console.debug(
         "[Editor] _hasSilamWeatherEntity: found locations:",
-        E
-      ), E.length > 0 ? (this.debug && console.debug(
+        I
+      ), I.length > 0 ? (this.debug && console.debug(
         "[Editor] _hasSilamWeatherEntity: using fallback location",
-        E[0]
+        I[0]
       ), !0) : (this.debug && console.debug("[Editor] _hasSilamWeatherEntity: no candidates"), !1);
     }
     const i = ((A = (a = this._config) == null ? void 0 : a.date_locale) == null ? void 0 : A.split("-")[0]) || "en", t = ((r = P.weather_suffixes) == null ? void 0 : r[i]) || ((g = P.weather_suffixes) == null ? void 0 : g.en) || [], o = e.toLowerCase();
-    for (const E of t)
-      if (`weather.silam_pollen_${o}_${E}` in this._hass.states) return !0;
+    for (const I of t)
+      if (`weather.silam_pollen_${o}_${I}` in this._hass.states) return !0;
     const n = `weather.silam_pollen_${o}_`;
     return Object.keys(this._hass.states).some(
-      (E) => typeof E == "string" && E.startsWith(n)
+      (I) => typeof I == "string" && I.startsWith(n)
     );
   }
   _resetAll() {
@@ -4430,12 +4430,12 @@ class Er extends le {
     this.debug && console.debug("[Editor] resetPhrases – lang:", e), this._updateConfig("date_locale", e);
     const i = this._config.integration === "dwd" ? T.allergens : this._config.integration === "peu" ? Z.allergens : this._config.integration === "silam" ? X.allergens : W.allergens, t = {}, o = {};
     i.forEach((g) => {
-      const E = ie(g), I = se[E] || E;
-      t[g] = H(`editor.phrases_full.${I}`, e), o[g] = H(`editor.phrases_short.${I}`, e);
+      const I = ie(g), E = se[I] || I;
+      t[g] = H(`editor.phrases_full.${E}`, e), o[g] = H(`editor.phrases_short.${E}`, e);
     });
     const n = this._config.integration === "dwd" ? 4 : this._config.integration === "peu" ? 5 : (this._config.integration === "silam", 7), a = Array.from(
       { length: n },
-      (g, E) => H(`editor.phrases_levels.${E}`, e)
+      (g, I) => H(`editor.phrases_levels.${I}`, e)
     ), A = {
       0: H("editor.phrases_days.0", e),
       1: H("editor.phrases_days.1", e),
@@ -4478,8 +4478,8 @@ class Er extends le {
     try {
       this.debug && console.debug("[Editor] ▶️ setConfig INCOMING:", e), e.phrases && (this._userConfig.phrases = e.phrases);
       const o = e.integration === "dwd" ? T.allergens.length : e.integration === "peu" ? Z.allergens.length : e.integration === "silam" ? X.allergens.length : W.allergens.length, n = { ...e };
-      Object.entries(y).forEach(([d, p]) => {
-        d in n || (n[d] = p);
+      Object.entries(y).forEach(([Q, k]) => {
+        Q in n || (n[Q] = k);
       }), Array.isArray(e.allergens) && e.allergens.length < o && (this._userConfig.allergens = [...e.allergens], this._allergensExplicit = !0, this.debug && console.debug(
         "[Editor] saved user-chosen allergens:",
         this._userConfig.allergens
@@ -4495,62 +4495,62 @@ class Er extends le {
       !this._localeExplicit && n.date_locale === r && (this.debug && console.debug("[Editor] dropped stub date_locale"), delete n.date_locale), this._userConfig = Ce(this._userConfig, n), this._thresholdExplicit = this._userConfig.hasOwnProperty("pollen_threshold"), this._allergensExplicit = this._userConfig.hasOwnProperty("allergens"), this._integrationExplicit = this._userConfig.hasOwnProperty("integration"), this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show"), this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
       let g = this._userConfig.integration !== void 0 ? this._userConfig.integration : this._config.integration;
       if (!this._integrationExplicit && this._hass) {
-        const d = Object.keys(this._hass.states);
-        d.some(
-          (p) => typeof p == "string" && p.startsWith("sensor.pollen_")
-        ) ? g = "pp" : d.some(
-          (p) => typeof p == "string" && p.startsWith("sensor.polleninformation_")
-        ) ? g = "peu" : d.some(
-          (p) => typeof p == "string" && p.startsWith("sensor.pollenflug_")
-        ) ? g = "dwd" : d.some(
-          (p) => typeof p == "string" && p.startsWith("sensor.silam_pollen_")
+        const Q = Object.keys(this._hass.states);
+        Q.some(
+          (k) => typeof k == "string" && k.startsWith("sensor.pollen_")
+        ) ? g = "pp" : Q.some(
+          (k) => typeof k == "string" && k.startsWith("sensor.polleninformation_")
+        ) ? g = "peu" : Q.some(
+          (k) => typeof k == "string" && k.startsWith("sensor.pollenflug_")
+        ) ? g = "dwd" : Q.some(
+          (k) => typeof k == "string" && k.startsWith("sensor.silam_pollen_")
         ) && (g = "silam"), this._userConfig.integration = g, this.debug && console.debug("[Editor] auto-detected integration:", g);
       }
       g === "silam" && !this._userConfig.mode && (this._userConfig.mode = "daily");
-      const E = Ir(g);
-      let I = Ce(E, this._userConfig);
-      if (Object.entries(y).forEach(([d, p]) => {
-        d in I || (I[d] = p);
-      }), Object.entries(y).forEach(([d, p]) => {
-        I[d] === p && delete I[d];
-      }), this._userConfig.hasOwnProperty("pollen_threshold") || (I.pollen_threshold = E.pollen_threshold, this.debug && console.debug(
+      const I = Ir(g);
+      let E = Ce(I, this._userConfig);
+      if (Object.entries(y).forEach(([Q, k]) => {
+        Q in E || (E[Q] = k);
+      }), Object.entries(y).forEach(([Q, k]) => {
+        E[Q] === k && delete E[Q];
+      }), this._userConfig.hasOwnProperty("pollen_threshold") || (E.pollen_threshold = I.pollen_threshold, this.debug && console.debug(
         "[Editor] reset pollen_threshold to stub:",
-        E.pollen_threshold
-      )), I.allergens = Array.isArray(this._userConfig.allergens) ? this._userConfig.allergens : E.allergens, I.integration = g, I.type = "custom:pollenprognos-card", this._config = I, this._prevIntegration = g, this.debug && console.debug(
+        I.pollen_threshold
+      )), E.allergens = Array.isArray(this._userConfig.allergens) ? this._userConfig.allergens : I.allergens, E.integration = g, E.type = "custom:pollenprognos-card", this._config = E, this._prevIntegration = g, this.debug && console.debug(
         "[Editor][F] slutgiltigt this._config.allergens:",
         this._config.allergens
-      ), this._daysExplicit || (this._config.days_to_show = E.days_to_show, this.debug && console.debug(
+      ), this._daysExplicit || (this._config.days_to_show = I.days_to_show, this.debug && console.debug(
         "[Editor] reset days_to_show to stub:",
-        E.days_to_show
+        I.days_to_show
       )), !this._localeExplicit) {
-        const d = Ae(this._hass, null), p = ((t = (i = this._hass) == null ? void 0 : i.locale) == null ? void 0 : t.language) || `${d}-${d.toUpperCase()}`;
-        this._config.date_locale = p, this.debug && console.debug(
+        const Q = Ae(this._hass, null), k = ((t = (i = this._hass) == null ? void 0 : i.locale) == null ? void 0 : t.language) || `${Q}-${Q.toUpperCase()}`;
+        this._config.date_locale = k, this.debug && console.debug(
           "[Editor] autofilled date_locale:",
-          p,
+          k,
           "(HA language was:",
-          d,
+          Q,
           ")"
         );
       }
       if (this._initDone = !1, this._hass) {
-        const d = Object.keys(this._hass.states);
+        const Q = Object.keys(this._hass.states);
         this.installedRegionIds = Array.from(
           new Set(
-            d.filter(
-              (Q) => typeof Q == "string" && Q.startsWith("sensor.pollenflug_")
-            ).map((Q) => Q.split("_").pop())
+            Q.filter(
+              (d) => typeof d == "string" && d.startsWith("sensor.pollenflug_")
+            ).map((d) => d.split("_").pop())
           )
-        ).sort((Q, Y) => Number(Q) - Number(Y));
-        const p = new Set(
-          d.filter(
-            (Q) => typeof Q == "string" && Q.startsWith("sensor.pollen_") && !Q.startsWith("sensor.pollenflug_")
+        ).sort((d, m) => Number(d) - Number(m));
+        const k = new Set(
+          Q.filter(
+            (d) => typeof d == "string" && d.startsWith("sensor.pollen_") && !d.startsWith("sensor.pollenflug_")
           ).map(
-            (Q) => Q.slice(14).replace(/_[^_]+$/, "")
+            (d) => d.slice(14).replace(/_[^_]+$/, "")
           )
         );
         this.installedCities = Fe.filter(
-          (Q) => p.has(
-            Q.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_")
+          (d) => k.has(
+            d.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_")
           )
         ).sort();
       }
@@ -4559,16 +4559,16 @@ class Er extends le {
         null,
         2
       )) : (this._tapType = "none", this._tapEntity = "", this._tapNavigation = "", this._tapService = "", this._tapServiceData = "");
-      const l = this._config || {}, c = Object.keys(I).filter(
-        (d) => !_(I[d], l[d])
+      const l = this._config || {}, c = Object.keys(E).filter(
+        (Q) => !_(E[Q], l[Q])
       );
-      !(c.length > 0 && c.every((d) => Ri.includes(d))) && !_(l, I) ? (this._config = I, this.dispatchEvent(
+      !(c.length > 0 && c.every((Q) => Ri.includes(Q))) && !_(l, E) ? (this._config = E, this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._config },
           bubbles: !0,
           composed: !0
         })
-      )) : this._config = I, this.requestUpdate(), this._prevIntegration = A, this._initDone = !0;
+      )) : this._config = E, this.requestUpdate(), this._prevIntegration = A, this._initDone = !0;
     } catch (o) {
       throw console.error("pollenprognos-card-editor: Fel i setConfig:", o, e), o;
     }
@@ -4577,13 +4577,13 @@ class Er extends le {
     if (this._hass === e) return;
     this._hass = e;
     const i = this._integrationExplicit, t = Object.keys(e.states).filter(
-      (E) => typeof E == "string" && E.startsWith("sensor.pollen_") && !E.startsWith("sensor.pollenflug_")
+      (I) => typeof I == "string" && I.startsWith("sensor.pollen_") && !I.startsWith("sensor.pollenflug_")
     ), o = Object.keys(e.states).filter(
-      (E) => typeof E == "string" && E.startsWith("sensor.pollenflug_")
+      (I) => typeof I == "string" && I.startsWith("sensor.pollenflug_")
     ), n = Object.keys(e.states).filter(
-      (E) => typeof E == "string" && E.startsWith("sensor.polleninformation_")
+      (I) => typeof I == "string" && I.startsWith("sensor.polleninformation_")
     ), a = Object.keys(e.states).filter(
-      (E) => typeof E == "string" && E.startsWith("sensor.silam_pollen_")
+      (I) => typeof I == "string" && I.startsWith("sensor.silam_pollen_")
     );
     let A = this._userConfig.integration;
     i || (t.length ? A = "pp" : n.length ? A = "peu" : o.length ? A = "dwd" : a.length && (A = "silam"), this._userConfig.integration = A), A === "silam" && !this._userConfig.mode && (this._userConfig.mode = "daily");
@@ -4596,7 +4596,7 @@ class Er extends le {
       this._config = g, this.installedRegionIds = Array.from(
         new Set(o.map((c) => c.split("_").pop()))
       ).sort((c, R) => Number(c) - Number(R));
-      const E = Array.from(
+      const I = Array.from(
         new Set(
           t.map(
             (c) => c.slice(14).replace(/_[^_]+$/, "")
@@ -4604,7 +4604,7 @@ class Er extends le {
         )
       );
       this.installedCities = Fe.filter(
-        (c) => E.includes(
+        (c) => I.includes(
           c.toLowerCase().replace(/[åä]/g, "a").replace(/ö/g, "o").replace(/[-\s]/g, "_")
         )
       ).sort((c, R) => c.localeCompare(R)), this.installedPeuLocations = Array.from(
@@ -4612,13 +4612,13 @@ class Er extends le {
           Object.values(e.states).filter(
             (c) => c && typeof c == "object" && typeof c.entity_id == "string" && c.entity_id.startsWith("sensor.polleninformation_")
           ).map((c) => {
-            var p, Q, Y, K;
-            const R = ((p = c.attributes) == null ? void 0 : p.location_slug) || c.entity_id.replace("sensor.polleninformation_", "").replace(/_[^_]+$/, ""), d = ((Q = c.attributes) == null ? void 0 : Q.location_title) || (typeof ((Y = c.attributes) == null ? void 0 : Y.friendly_name) == "string" ? (K = c.attributes.friendly_name.match(/\((.*?)\)/)) == null ? void 0 : K[1] : void 0) || R;
-            return [R, d];
+            var k, d, m, q;
+            const R = ((k = c.attributes) == null ? void 0 : k.location_slug) || c.entity_id.replace("sensor.polleninformation_", "").replace(/_[^_]+$/, ""), Q = ((d = c.attributes) == null ? void 0 : d.location_title) || (typeof ((m = c.attributes) == null ? void 0 : m.friendly_name) == "string" ? (q = c.attributes.friendly_name.match(/\((.*?)\)/)) == null ? void 0 : q[1] : void 0) || R;
+            return [R, Q];
           })
         )
       ), this.config && this.config.date_locale && this.config.date_locale.slice(0, 2) || this._hass && this._hass.language;
-      const I = [
+      const E = [
         "alder",
         "birch",
         "grass",
@@ -4628,23 +4628,23 @@ class Er extends le {
         "ragweed"
       ];
       if (this.debug) {
-        console.debug("[SilamAllergenMap.mapping]", P.mapping), console.debug("[pollenAllergens]", I);
-        for (const [R, d] of Object.entries(
+        console.debug("[SilamAllergenMap.mapping]", P.mapping), console.debug("[pollenAllergens]", E);
+        for (const [R, Q] of Object.entries(
           P.mapping
         ))
-          for (const [p, Q] of Object.entries(d))
-            console.debug(`[Mapping] ${R}: ${p} → ${Q}`);
+          for (const [k, d] of Object.entries(Q))
+            console.debug(`[Mapping] ${R}: ${k} → ${d}`);
         const c = Object.values(P.mapping).flatMap(
           (R) => Object.entries(R).filter(
-            ([d, p]) => I.includes(p)
-          ).map(([d]) => d)
+            ([Q, k]) => E.includes(k)
+          ).map(([Q]) => Q)
         );
         console.debug("[SilamValidAllergenSlugs]", c);
       }
       const l = new Set(
         Object.values(P.mapping).flatMap(
           (c) => Object.entries(c).filter(
-            ([R, d]) => I.includes(d)
+            ([R, Q]) => E.includes(Q)
           ).map(([R]) => R)
         )
       );
@@ -4658,31 +4658,31 @@ class Er extends le {
             );
             if (!R)
               return this.debug && console.debug("[Filter] Skip (no match):", c.entity_id), !1;
-            const d = R[1], p = R[2];
+            const Q = R[1], k = R[2];
             return this.debug && console.debug(
               "[Filter] entity_id:",
               c.entity_id,
               "| rawLocation:",
-              d,
+              Q,
               "| allergenSlug:",
-              p,
+              k,
               "| validAllergen:",
-              l.has(p)
-            ), l.has(p);
+              l.has(k)
+            ), l.has(k);
           }).map((c) => {
-            var Y, K;
-            const R = typeof c.entity_id == "string" ? c.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/) : null, d = R ? R[1].replace(/^[-\s]+/, "") : "", p = ae(d);
-            let Q = ((Y = c.attributes) == null ? void 0 : Y.location_title) || (typeof ((K = c.attributes) == null ? void 0 : K.friendly_name) == "string" ? c.attributes.friendly_name.replace(/^SILAM Pollen\s*-?\s*/i, "").replace(new RegExp("\\s+\\p{L}+$", "u"), "").trim() : "") || d;
-            return Q = Q.replace(/^[-\s]+/, ""), Q = Q.charAt(0).toUpperCase() + Q.slice(1), this.debug && console.debug(
+            var m, q;
+            const R = typeof c.entity_id == "string" ? c.entity_id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/) : null, Q = R ? R[1].replace(/^[-\s]+/, "") : "", k = ae(Q);
+            let d = ((m = c.attributes) == null ? void 0 : m.location_title) || (typeof ((q = c.attributes) == null ? void 0 : q.friendly_name) == "string" ? c.attributes.friendly_name.replace(/^SILAM Pollen\s*-?\s*/i, "").replace(new RegExp("\\s+\\p{L}+$", "u"), "").trim() : "") || Q;
+            return d = d.replace(/^[-\s]+/, ""), d = d.charAt(0).toUpperCase() + d.slice(1), this.debug && console.debug(
               "[Map] entity_id:",
               c.entity_id,
               "| rawLocation:",
-              d,
+              Q,
               "| slugified locationSlug:",
-              p,
+              k,
               "| title:",
-              Q
-            ), [p, Q];
+              d
+            ), [k, d];
           })
         )
       ), this._initDone || (A === "dwd" && !this._userConfig.region_id && this.installedRegionIds.length && (this._config.region_id = this.installedRegionIds[0]), A === "pp" && !this._userConfig.city && this.installedCities.length && (this._config.city = this.installedCities[0]), A === "silam" && !this._userConfig.location && this.installedSilamLocations.length && (this._config.location = this.installedSilamLocations[0][0])), this.dispatchEvent(
@@ -4867,8 +4867,11 @@ class Er extends le {
               ` : ""}
         </details>
 
+
+        <details open>
+          <summary>${this._t("summary_appearance_and_layout")}</summary>
         <!-- Title -->
-        <details>
+        <details open>
           <summary>${this._t("summary_title_and_header")}</summary>
           <div style="display:flex; gap:8px; align-items:center;">
             <ha-formfield label="${this._t("title_hide")}">
@@ -4900,9 +4903,6 @@ class Er extends le {
             ></ha-textfield>
           </ha-formfield>
         </details>
-
-        <details open>
-          <summary>${this._t("summary_appearance_and_layout")}</summary>
           <details open>
             <summary>${this._t("summary_card_layout_and_colors")}</summary>
             <ha-formfield label="${this._t("background_color")}">
@@ -5001,8 +5001,8 @@ class Er extends le {
                           type="color"
                           .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(A) ? A : "#000000"}
                           @input=${(g) => {
-        const E = [...e.levels_colors];
-        E[r] = g.target.value, this._updateConfig("levels_colors", E);
+        const I = [...e.levels_colors];
+        I[r] = g.target.value, this._updateConfig("levels_colors", I);
       }}
                           style="width: 28px; height: 28px; border: none; background: none;"
                         />
@@ -5010,8 +5010,8 @@ class Er extends le {
                           .value=${A}
                           placeholder="${this._t("levels_colors_placeholder")}"
                           @input=${(g) => {
-        const E = [...e.levels_colors];
-        E[r] = g.target.value, this._updateConfig("levels_colors", E);
+        const I = [...e.levels_colors];
+        I[r] = g.target.value, this._updateConfig("levels_colors", I);
       }}
                           style="width: 100px;"
                         ></ha-textfield>
@@ -5183,6 +5183,29 @@ class Er extends le {
                   .value=${e.levels_text_size || 0.3}
                   @input=${(A) => this._updateConfig(
       "levels_text_size",
+      Number(A.target.value)
+    )}
+                  style="width: 80px;"
+                ></ha-textfield>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_icon_ratio")}">
+                <ha-slider
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                  .value=${e.levels_icon_ratio || 1}
+                  @input=${(A) => this._updateConfig(
+      "levels_icon_ratio",
+      Number(A.target.value)
+    )}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${e.levels_icon_ratio || 1}
+                  @input=${(A) => this._updateConfig(
+      "levels_icon_ratio",
       Number(A.target.value)
     )}
                   style="width: 80px;"
@@ -5420,8 +5443,8 @@ class Er extends le {
                     @input=${(r) => {
         const g = [...e.phrases.levels];
         g[A] = r.target.value;
-        const E = { ...e.phrases, levels: g };
-        this._updateConfig("phrases", E);
+        const I = { ...e.phrases, levels: g };
+        this._updateConfig("phrases", I);
       }}
                   ></ha-textfield>
                 </ha-formfield>
@@ -5585,7 +5608,7 @@ class Er extends le {
             ></ha-switch>
           </ha-formfield>
           <div class="version-info">
-            ${this._t("card_version")}: ${"f9007b1"}
+            ${this._t("card_version")}: ${"561e178"}
           </div>
         </details>
       </div>

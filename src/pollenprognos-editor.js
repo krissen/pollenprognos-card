@@ -1163,8 +1163,11 @@ class PollenPrognosCardEditor extends LitElement {
             : ""}
         </details>
 
+
+        <details open>
+          <summary>${this._t("summary_appearance_and_layout")}</summary>
         <!-- Title -->
-        <details>
+        <details open>
           <summary>${this._t("summary_title_and_header")}</summary>
           <div style="display:flex; gap:8px; align-items:center;">
             <ha-formfield label="${this._t("title_hide")}">
@@ -1212,9 +1215,6 @@ class PollenPrognosCardEditor extends LitElement {
             ></ha-textfield>
           </ha-formfield>
         </details>
-
-        <details open>
-          <summary>${this._t("summary_appearance_and_layout")}</summary>
           <details open>
             <summary>${this._t("summary_card_layout_and_colors")}</summary>
             <ha-formfield label="${this._t("background_color")}">
@@ -1532,6 +1532,31 @@ class PollenPrognosCardEditor extends LitElement {
                   @input=${(e) =>
                     this._updateConfig(
                       "levels_text_size",
+                      Number(e.target.value),
+                    )}
+                  style="width: 80px;"
+                ></ha-textfield>
+              </ha-formfield>
+
+              <ha-formfield label="${this._t("levels_icon_ratio")}">
+                <ha-slider
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                  .value=${c.levels_icon_ratio || 1}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_icon_ratio",
+                      Number(e.target.value),
+                    )}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.levels_icon_ratio || 1}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_icon_ratio",
                       Number(e.target.value),
                     )}
                   style="width: 80px;"
