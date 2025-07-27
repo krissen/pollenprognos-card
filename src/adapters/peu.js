@@ -2,6 +2,7 @@
 import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
+import { buildLevelNames } from "../utils/level-names.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -85,11 +86,12 @@ export async function fetchForecast(hass, config) {
   let levelNames = levelNamesDefault.slice();
   if (Array.isArray(userLevels)) {
     if (userLevels.length === 7) {
-      levelNames = userLevels.slice();
+      levelNames = buildLevelNames(userLevels, lang);
     } else if (userLevels.length === defaultNumLevels) {
       const map = [0, 1, 3, 5, 6];
       map.forEach((lvl, idx) => {
-        if (userLevels[idx]) levelNames[lvl] = userLevels[idx];
+        const val = userLevels[idx];
+        if (val != null && val !== "") levelNames[lvl] = val;
       });
     }
   }
