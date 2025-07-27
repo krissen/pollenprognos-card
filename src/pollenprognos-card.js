@@ -1092,10 +1092,9 @@ class PollenPrognosCard extends LitElement {
       this.config.levels_gap_color ?? "var(--card-background-color)";
     const thickness = this.config.levels_thickness ?? 60;
     const gap = this.config.levels_gap ?? 5;
-    const size = Math.min(
-      100,
-      Math.max(40, Number(this.config.icon_size) || 80),
-    ); // Use icon_size but with constraints
+    const iconSize = Number(this.config.icon_size) || 48;
+    const iconRatio = Number(this.config.levels_icon_ratio) || 1;
+    const size = Math.min(100, Math.max(1, iconSize * iconRatio));
 
     if (this.debug) {
       console.debug("Display columns:", cols);
@@ -1395,7 +1394,7 @@ class PollenPrognosCard extends LitElement {
         display: block;
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
-        min-width: 16px;
+        min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
       }
@@ -1403,7 +1402,7 @@ class PollenPrognosCard extends LitElement {
       .level-circle {
         width: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
-        min-width: 16px;
+        min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
       }
@@ -1497,8 +1496,8 @@ class PollenPrognosCard extends LitElement {
         height: var(--pollen-icon-size, 48px);
         max-width: var(--pollen-icon-size, 48px);
         max-height: var(--pollen-icon-size, 48px);
-        min-width: 16px;
-        min-height: 16px;
+        min-width: 0;
+        min-height: 0;
         object-fit: contain;
         margin: 0 auto 6px auto;
         display: block;

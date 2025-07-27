@@ -66,6 +66,7 @@
   "editor.levels_reset": "Reset to default",
   "editor.levels_text_color": "Text color (inner circle)",
   "editor.levels_text_size": "Text size (inner circle, % of normal)",
+  "editor.levels_icon_ratio": "Levels icon ratio",
   "editor.levels_text_weight": "Text weight (inner circle)",
   "editor.levels_thickness": "Thickness (%)",
   "editor.locale": "Locale",
