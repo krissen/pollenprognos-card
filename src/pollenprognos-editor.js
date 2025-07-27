@@ -1163,8 +1163,11 @@ class PollenPrognosCardEditor extends LitElement {
             : ""}
         </details>
 
+
+        <details open>
+          <summary>${this._t("summary_appearance_and_layout")}</summary>
         <!-- Title -->
-        <details>
+        <details open>
           <summary>${this._t("summary_title_and_header")}</summary>
           <div style="display:flex; gap:8px; align-items:center;">
             <ha-formfield label="${this._t("title_hide")}">
@@ -1212,9 +1215,6 @@ class PollenPrognosCardEditor extends LitElement {
             ></ha-textfield>
           </ha-formfield>
         </details>
-
-        <details open>
-          <summary>${this._t("summary_appearance_and_layout")}</summary>
           <details open>
             <summary>${this._t("summary_card_layout_and_colors")}</summary>
             <ha-formfield label="${this._t("background_color")}">
