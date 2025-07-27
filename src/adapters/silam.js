@@ -3,6 +3,7 @@ import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { findSilamWeatherEntity } from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
+import { buildLevelNames } from "../utils/level-names.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -92,9 +93,7 @@ export function getPhrases(config, lang) {
 }
 
 export function getLevelNames(phrases, lang) {
-  return Array.isArray(phrases.levels) && phrases.levels.length === 7
-    ? phrases.levels
-    : Array.from({ length: 7 }, (_, i) => t(`card.levels.${i}`, lang));
+  return buildLevelNames(phrases.levels, lang);
 }
 
 export function getAllergenNames(allergen, phrases, lang) {
