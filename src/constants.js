@@ -12,13 +12,6 @@ export const ADAPTERS = {
   silam: SILAM,
 };
 
-// Maximum numeric level for each integration
-export const MAX_LEVEL_VALUE = {
-  pp: 6,
-  dwd: 3,
-  peu: 4,
-  silam: 6,
-};
 
 export const DWD_REGIONS = {
   11: "Schleswig-Holstein und Hamburg",
