@@ -25,6 +25,7 @@ Additional documentation:
 | `levels_gap` | `integer` | `1` | Gap width between segments. |
 | `levels_text_color` | `string` | `var(--primary-text-color)` | Color for the value inside the level circle. |
 | `levels_text_size` | `number` | `0.3` | Size of the numeric value inside the circle relative to icon size. |
+| `levels_icon_ratio` | `number` | `1` | Multiplier applied to `icon_size` for the level circles. |
 | `levels_text_weight` | `string` | `normal` | Font weight for the value inside the circle. |
 | `icon_size` | `integer` | `48` | Icon size in pixels. |
 | `text_size_ratio` | `number` | `1` | Global text scaling factor. |

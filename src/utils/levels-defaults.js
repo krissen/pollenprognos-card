@@ -14,5 +14,6 @@ export const LEVELS_DEFAULTS = {
   levels_gap: 1,
   levels_text_weight: "normal",
   levels_text_size: 0.2,
+  levels_icon_ratio: 1,
   levels_text_color: "var(--primary-text-color)",
 };

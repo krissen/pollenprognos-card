@@ -124,6 +124,7 @@ export const COSMETIC_FIELDS = [
   "levels_gap",
   "levels_text_color",
   "levels_text_size",
+  "levels_icon_ratio",
   "levels_text_weight",
   "minimal",
   "show_text_allergen",

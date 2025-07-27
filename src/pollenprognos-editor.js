@@ -1538,6 +1538,31 @@ class PollenPrognosCardEditor extends LitElement {
                 ></ha-textfield>
               </ha-formfield>
 
+              <ha-formfield label="${this._t("levels_icon_ratio")}">
+                <ha-slider
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                  .value=${c.levels_icon_ratio || 1}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_icon_ratio",
+                      Number(e.target.value),
+                    )}
+                  style="width: 120px;"
+                ></ha-slider>
+                <ha-textfield
+                  type="number"
+                  .value=${c.levels_icon_ratio || 1}
+                  @input=${(e) =>
+                    this._updateConfig(
+                      "levels_icon_ratio",
+                      Number(e.target.value),
+                    )}
+                  style="width: 80px;"
+                ></ha-textfield>
+              </ha-formfield>
+
               <ha-formfield label="${this._t("levels_text_color")}">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <input
