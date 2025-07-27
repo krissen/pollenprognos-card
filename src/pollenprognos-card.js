@@ -435,21 +435,28 @@ class PollenPrognosCard extends LitElement {
     };
   }
 
+  /**
+   * Scale a raw numeric level to the 0–6 range used by the card.
+   * DWD uses half steps up to 3 and PEU uses full steps up to 4.
+   * All other integrations already report 0–6 directly.
+   */
+  _scaleLevel(raw) {
+    const val = Number(raw);
+    if (isNaN(val)) return val;
+    if (this.config.integration === "dwd") return val * 2;
+    if (this.config.integration === "peu") {
+      const map = [0, 1, 3, 5, 6];
+      const idx = Math.max(0, Math.min(Math.round(val), map.length - 1));
+      return map[idx];
+    }
+    return val;
+  }
+
   _getImageSrc(allergenReplaced, state) {
     const raw = Number(state);
-    let scaled = raw;
-    let min = -1,
-      max = 6;
-    if (this.config.integration === "dwd") {
-      scaled = raw * 2;
-      max = 6;
-    } else if (this.config.integration === "peu") {
-      // Map PEU levels 0–4 to the card scale 0–6 using the
-      // same logic as in the adapter for text strings.
-      scaled = raw < 2 ? Math.floor((raw * 6) / 4) : Math.ceil((raw * 6) / 4);
-      max = 6;
-      min = 0;
-    }
+    let scaled = this._scaleLevel(raw);
+    let min = this.config.integration === "peu" ? 0 : -1;
+    const max = 6;
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < min) lvl = min;
     if (lvl > max) lvl = max;
@@ -1165,15 +1172,7 @@ class PollenPrognosCard extends LitElement {
                       <td>
                         ${(() => {
                           const raw = Number(sensor.days[i]?.state) || 0;
-                          let levelVal = raw;
-                          if (this.config.integration === "dwd") {
-                            levelVal = raw * 2; // scale 0–3 to 0–6
-                          } else if (this.config.integration === "peu") {
-                            levelVal =
-                              raw < 2
-                                ? Math.floor((raw * 6) / 4)
-                                : Math.ceil((raw * 6) / 4); // scale 0–4 to 0–6
-                          }
+                          const levelVal = this._scaleLevel(raw);
                           return this._renderLevelCircle(
                             levelVal,
                             {
