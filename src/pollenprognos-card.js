@@ -11,7 +11,7 @@ import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { COSMETIC_FIELDS } from "./constants.js";
+import { COSMETIC_FIELDS, MAX_LEVEL_VALUE } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -126,6 +126,8 @@ class PollenPrognosCard extends LitElement {
         // Extract properties from the container
         const level = Number(container.level || 0);
         const colors = JSON.parse(container.colors || "[]");
+        const numSegments = colors.length;
+        const safeLevel = Math.min(level, numSegments);
         const emptyColor = container.emptyColor;
         const gapColor = container.gapColor;
         const thickness = Number(container.thickness);
@@ -153,14 +155,11 @@ class PollenPrognosCard extends LitElement {
           canvas.height = size;
           container.appendChild(canvas);
 
-          // Number of segments
-          const numSegments = colors.length;
-
           // Create data arrays
           const data = Array(numSegments).fill(1);
           const bg = Array(numSegments)
             .fill(emptyColor)
-            .map((c, i) => (i < level ? colors[i] : emptyColor));
+            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
           const bc = Array(numSegments).fill(gapColor);
 
           // Create new chart
@@ -224,7 +223,7 @@ class PollenPrognosCard extends LitElement {
           if (datasets && datasets[0]) {
             const bg = Array(datasets[0].backgroundColor.length)
               .fill(emptyColor)
-              .map((c, i) => (i < level ? colors[i] : emptyColor));
+              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
 
             datasets[0].backgroundColor = bg;
             chart.update("none"); // Update without animation
@@ -1079,7 +1078,7 @@ class PollenPrognosCard extends LitElement {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
-    const colors = this.config.levels_colors ?? [
+    const rawColors = this.config.levels_colors ?? [
       "#ffeb3b",
       "#ffc107",
       "#ff9800",
@@ -1087,6 +1086,8 @@ class PollenPrognosCard extends LitElement {
       "#e64a19",
       "#d32f2f",
     ];
+    const maxLevel = MAX_LEVEL_VALUE[this.config.integration] ?? 6;
+    const colors = rawColors.slice(0, maxLevel);
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
     const gapColor =
       this.config.levels_gap_color ?? "var(--card-background-color)";
