@@ -444,10 +444,9 @@ class PollenPrognosCard extends LitElement {
       scaled = raw * 2;
       max = 6;
     } else if (this.config.integration === "peu") {
-      // Map PEU levels 0–4 to the card scale 0–6 using the
-      // same logic as in the adapter for text strings.
-      scaled = raw < 2 ? Math.floor((raw * 6) / 4) : Math.ceil((raw * 6) / 4);
-      max = 6;
+      // PEU no longer scales values, the circle max level is four.
+      scaled = raw;
+      max = 4;
       min = 0;
     }
     let lvl = Math.round(scaled);
@@ -1169,10 +1168,8 @@ class PollenPrognosCard extends LitElement {
                           if (this.config.integration === "dwd") {
                             levelVal = raw * 2; // scale 0–3 to 0–6
                           } else if (this.config.integration === "peu") {
-                            levelVal =
-                              raw < 2
-                                ? Math.floor((raw * 6) / 4)
-                                : Math.ceil((raw * 6) / 4); // scale 0–4 to 0–6
+                            // Use the raw PEU value; the circle max is four.
+                            levelVal = raw;
                           }
                           return this._renderLevelCircle(
                             levelVal,

@@ -151,6 +151,7 @@
   "editor.show_text_allergen": "Show text, allergen",
   "editor.show_value_numeric": "Show value, numeric",
   "editor.show_value_numeric_in_circle": "Show numeric value in the circles",
+  "editor.numeric_state_raw_risk": "Show raw value (allergy risk)",
   "editor.show_value_text": "Show value, text",
   "editor.sort": "Sort order",
   "editor.sort_name_ascending": "name, ascending",

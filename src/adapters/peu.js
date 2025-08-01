@@ -40,6 +40,7 @@ export const stubConfigPEU = {
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
+  numeric_state_raw_risk: false,
   show_empty_days: false,
   debug: false,
   show_version: true,
@@ -241,20 +242,22 @@ export async function fetchForecast(hass, config) {
                 minute: "2-digit",
               }) || "";
           }
-          const rawVal =
-            entry.numeric_state ??
-            entry.numeric_state_raw ??
-            entry.level ??
-            entry.condition ??
-            entry.named_state;
-          const scaledLevel = indexToLevel(rawVal);
+          let state = Number(
+            entry.numeric_state ?? entry.numeric_state_raw ?? entry.level ?? -1,
+          );
+          if (
+            allergenSlug === "allergy_risk" &&
+            config.numeric_state_raw_risk &&
+            entry.numeric_state_raw != null
+          ) {
+            state = Number(entry.numeric_state_raw);
+          }
+          const scaledLevel = indexToLevel(state);
           const dayObj = {
             name: dict.allergenCapitalized,
             day: label,
             icon,
-            state: Number(
-              entry.numeric_state ?? entry.numeric_state_raw ?? entry.level ?? -1,
-            ),
+            state,
             state_text:
               scaledLevel < 0
                 ? noInfoLabel
@@ -296,7 +299,14 @@ export async function fetchForecast(hass, config) {
 
         forecastDates.forEach((dateStr, idx) => {
           const raw = forecastMap[dateStr] || {};
-          const level = testVal(raw.level);
+          let level = testVal(raw.level);
+          if (
+            allergenSlug === "allergy_risk" &&
+            config.numeric_state_raw_risk &&
+            raw.numeric_state_raw != null
+          ) {
+            level = testVal(raw.numeric_state_raw);
+          }
           if (level !== null && level >= 0) {
             const d = new Date(dateStr);
             const diff = Math.round((d - today) / 86400000);
