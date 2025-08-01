@@ -716,6 +716,7 @@ class PollenPrognosCardEditor extends LitElement {
         "en";
 
       const pollenAllergens = [
+        "allergy_risk",
         "alder",
         "birch",
         "grass",

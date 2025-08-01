@@ -87,6 +87,8 @@ export const ALLERGEN_TRANSLATION = {
   hazel: "hazel",
   mugwort: "mugwort",
   olive: "olive",
+  allergy_risk: "allergy_risk",
+  index: "allergy_risk",
 };
 
 export const PP_POSSIBLE_CITIES = [

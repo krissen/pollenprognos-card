@@ -9,6 +9,7 @@ export const stubConfigPEU = {
   integration: "peu",
   location: "",
   allergens: [
+    "allergy_risk",
     "alder",
     "ash",
     "beech",
