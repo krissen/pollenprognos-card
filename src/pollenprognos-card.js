@@ -53,6 +53,7 @@ class PollenPrognosCard extends LitElement {
       gap = LEVELS_DEFAULTS.levels_gap,
       size = 100,
     },
+    numericValue,
   ) {
     // Create a unique key for this chart configuration
     const allergen = arguments[2] || "default";
@@ -73,6 +74,7 @@ class PollenPrognosCard extends LitElement {
         .gap="${gap}"
         .size="${size}"
         .showValue="${this.config && this.config.show_value_numeric_in_circle}"
+        data-numeric-value="${numericValue ?? ''}"
         .fontWeight="${this.config?.levels_text_weight || "normal"}"
         .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
         .textColor="${this.config?.levels_text_color ||
@@ -83,10 +85,10 @@ class PollenPrognosCard extends LitElement {
 
   // In the updated() method, update the part that adds the text to the chart:
   // Add the text overlay if showValue is true
-  if(showValue) {
+  if (showValue) {
     const valueText = document.createElement("div");
     valueText.className = "level-value-text";
-    valueText.textContent = level;
+    valueText.textContent = container.dataset.numericValue || level;
 
     // Improved positioning and styling
     valueText.style.position = "absolute";
@@ -234,7 +236,7 @@ class PollenPrognosCard extends LitElement {
         if (showValue) {
           const valueText = document.createElement("div");
           valueText.className = "level-value-text";
-          valueText.textContent = level;
+          valueText.textContent = container.dataset.numericValue || level;
 
           // Improved positioning and styling
           valueText.style.position = "absolute";
@@ -1165,6 +1167,8 @@ class PollenPrognosCard extends LitElement {
                       <td>
                         ${(() => {
                           const raw = Number(sensor.days[i]?.state) || 0;
+                          const numericDisp =
+                            sensor.days[i]?.numeric ?? sensor.days[i]?.state;
                           let levelVal = raw;
                           if (this.config.integration === "dwd") {
                             levelVal = raw * 2; // scale 0–3 to 0–6
@@ -1186,6 +1190,7 @@ class PollenPrognosCard extends LitElement {
                             },
                             sensor.allergenReplaced,
                             i,
+                            numericDisp,
                           );
                         })()}
                       </td>
@@ -1209,7 +1214,8 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          const num = sensor.days[i]?.state;
+                          const num =
+                            sensor.days[i]?.numeric ?? sensor.days[i]?.state;
                           let content = "";
                           if (
                             this.config.show_value_text &&

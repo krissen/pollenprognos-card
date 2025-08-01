@@ -1684,6 +1684,20 @@ class PollenPrognosCardEditor extends LitElement {
                   )}
               ></ha-switch>
             </ha-formfield>
+            ${c.integration === "peu"
+              ? html`
+                  <ha-formfield label="${this._t("numeric_state_raw_risk")}">
+                    <ha-switch
+                      .checked=${c.numeric_state_raw_risk}
+                      @change=${(e) =>
+                        this._updateConfig(
+                          "numeric_state_raw_risk",
+                          e.target.checked,
+                        )}
+                    ></ha-switch>
+                  </ha-formfield>
+                `
+              : ""}
             <ha-formfield label="${this._t("show_empty_days")}">
               <ha-switch
                 .checked=${c.show_empty_days}

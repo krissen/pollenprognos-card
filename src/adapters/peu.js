@@ -40,6 +40,7 @@ export const stubConfigPEU = {
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
+  numeric_state_raw_risk: false,
   show_empty_days: false,
   debug: false,
   show_version: true,
@@ -248,6 +249,9 @@ export async function fetchForecast(hass, config) {
             entry.condition ??
             entry.named_state;
           const scaledLevel = indexToLevel(rawVal);
+          const numeric = config.numeric_state_raw_risk
+            ? entry.numeric_state_raw ?? entry.numeric_state
+            : entry.numeric_state ?? entry.numeric_state_raw;
           const dayObj = {
             name: dict.allergenCapitalized,
             day: label,
@@ -255,6 +259,7 @@ export async function fetchForecast(hass, config) {
             state: Number(
               entry.numeric_state ?? entry.numeric_state_raw ?? entry.level ?? -1,
             ),
+            numeric,
             state_text:
               scaledLevel < 0
                 ? noInfoLabel
@@ -326,15 +331,22 @@ export async function fetchForecast(hass, config) {
               scaledLevel = Math.ceil((level * 6) / 4);
             }
 
-            const dayObj = {
-              name: dict.allergenCapitalized,
-              day: label,
-              state: level,
-              state_text:
-                scaledLevel < 0
-                  ? noInfoLabel
-                  : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
-            };
+          const numeric =
+            allergenSlug === "allergy_risk"
+              ? config.numeric_state_raw_risk
+                ? raw.numeric_state_raw ?? raw.numeric_state
+                : raw.numeric_state ?? raw.numeric_state_raw
+              : undefined;
+          const dayObj = {
+            name: dict.allergenCapitalized,
+            day: label,
+            state: level,
+            ...(numeric != null ? { numeric } : {}),
+            state_text:
+              scaledLevel < 0
+                ? noInfoLabel
+                : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
+          };
 
             dict[`day${idx}`] = dayObj;
             dict.days.push(dayObj);
