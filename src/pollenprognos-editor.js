@@ -874,9 +874,31 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   _onAllergenToggle(allergen, checked) {
+    if (
+      this._config.integration === "peu" &&
+      this._config.mode !== "daily" &&
+      allergen !== "allergy_risk" &&
+      checked
+    ) {
+      this._updateConfig("mode", "daily");
+    }
     const set = new Set(this._config.allergens);
     checked ? set.add(allergen) : set.delete(allergen);
     this._updateConfig("allergens", [...set]);
+  }
+
+  _toggleSelectAllAllergens(allergens) {
+    const current = new Set(this._config.allergens);
+    const allSelected = allergens.every((a) => current.has(a));
+    if (
+      this._config.integration === "peu" &&
+      this._config.mode !== "daily" &&
+      !allSelected
+    ) {
+      this._updateConfig("mode", "daily");
+    }
+    const newSet = allSelected ? [] : allergens;
+    this._updateConfig("allergens", [...newSet]);
   }
 
   _updateConfig(prop, value) {
@@ -1741,6 +1763,11 @@ class PollenPrognosCardEditor extends LitElement {
               `,
             )}
           </div>
+          <div class="preset-buttons">
+            <mwc-button @click=${() => this._toggleSelectAllAllergens(allergens)}>
+              ${this._t("select_all_allergens")}
+            </mwc-button>
+          </div>
           <div class="slider-row">
             <div class="slider-text">${this._t("pollen_threshold")}</div>
             <div class="slider-value">${c.pollen_threshold}</div>
@@ -1765,6 +1792,20 @@ class PollenPrognosCardEditor extends LitElement {
               )}
             </ha-select>
           </ha-formfield>
+          ${(c.integration === "peu" || c.integration === "silam")
+            ? html`
+                <ha-formfield
+                  label="${c.integration === "silam"
+                    ? this._t("index_top")
+                    : this._t("allergy_risk_top")}">
+                  <ha-checkbox
+                    .checked=${c.allergy_risk_top}
+                    @change=${(e) =>
+                      this._updateConfig("allergy_risk_top", e.target.checked)}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `
+            : ""}
         </details>
 
         <!-- Översättningar och textsträngar -->

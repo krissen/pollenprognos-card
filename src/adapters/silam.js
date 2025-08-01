@@ -42,6 +42,7 @@ export const stubConfigSILAM = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
+  allergy_risk_top: false,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
@@ -345,6 +346,16 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         b.allergenCapitalized.localeCompare(a.allergenCapitalized),
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
   );
+
+  if (config.allergy_risk_top) {
+    const idx = sensors.findIndex(
+      (s) => s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
+    );
+    if (idx > 0) {
+      const [special] = sensors.splice(idx, 1);
+      sensors.unshift(special);
+    }
+  }
 
   if (debug) console.debug("[SILAM] fetchForecast klar:", sensors);
   return sensors;
