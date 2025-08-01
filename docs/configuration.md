@@ -17,7 +17,7 @@ Additional documentation:
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code. |
 | `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors. |
-| `mode` *(SILAM only)* | `string` | `daily` | Forecast mode for SILAM: `daily`, `hourly` or `twice_daily`. |
+| `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. |
 | `levels_colors` | `array<string>` | `["#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#e64a19", "#d32f2f"]` | Colors for the segments in the level circle. |
 | `levels_empty_color` | `string` | `rgba(200, 200, 200, 0.15)` | Color for empty segments. |
 | `levels_gap_color` | `string` | `var(--card-background-color)` | Color for gaps in the level circle. |
@@ -89,6 +89,7 @@ roggen
 
 ### Polleninformation EU (PEU)
 ```
+allergy_risk
 alder
 ash
 beech

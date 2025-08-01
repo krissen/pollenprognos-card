@@ -389,8 +389,8 @@ class PollenPrognosCardEditor extends LitElement {
           console.debug("[Editor] auto-detected integration:", integration);
       }
 
-      // 9.1 Sätt default mode för silam om inte satt
-      if (integration === "silam" && !this._userConfig.mode) {
+      // 9.1 Set default mode for SILAM and PEU if not specified
+      if ((integration === "silam" || integration === "peu") && !this._userConfig.mode) {
         this._userConfig.mode = "daily";
       }
 
@@ -620,8 +620,8 @@ class PollenPrognosCardEditor extends LitElement {
       this._userConfig.integration = integration;
     }
 
-    // 1.1) Sätt default mode för silam om inte satt
-    if (integration === "silam" && !this._userConfig.mode) {
+    // 1.1) Set default mode for SILAM and PEU if not specified
+    if ((integration === "silam" || integration === "peu") && !this._userConfig.mode) {
       this._userConfig.mode = "daily";
     }
 
@@ -946,14 +946,16 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
-      // Om vi just bytte mode för silam, och days_to_show ska justeras, inkludera det också:
-      if (this._config.integration === "silam" && prop === "mode") {
-        if (value === "hourly" || value === "twice_daily") {
+      // Adjust related settings when switching mode
+      if ((this._config.integration === "silam" || this._config.integration === "peu") && prop === "mode") {
+        if (value !== "daily") {
           cfg.days_to_show = 8;
           cfg.show_empty_days = false;
-          // cfg.show_empty_days = false;
-        } else if (value === "daily") {
-          cfg.days_to_show = 5;
+          if (this._config.integration === "peu") {
+            cfg.allergens = ["allergy_risk"];
+          }
+        } else {
+          cfg.days_to_show = this._config.integration === "silam" ? 5 : 4;
         }
       }
       // Tvinga mode till daily om location saknar weather-entity
@@ -1155,7 +1157,43 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </ha-formfield>
               `
-            : ""}
+            : c.integration === "peu"
+              ? html`
+                  <ha-formfield label="${this._t("mode")}">
+                    <ha-select
+                      .value=${c.mode || "daily"}
+                      @selected=${(e) =>
+                        this._updateConfig("mode", e.target.value)}
+                      @closed=${(e) => e.stopPropagation()}
+                    >
+                      <mwc-list-item value="daily"
+                        >${this._t("mode_daily")}</mwc-list-item
+                      >
+                      <mwc-list-item value="twice_daily"
+                        >${this._t("mode_twice_daily")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly"
+                        >${this._t("mode_hourly")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_second"
+                        >${this._t("mode_hourly_second")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_third"
+                        >${this._t("mode_hourly_third")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_fourth"
+                        >${this._t("mode_hourly_fourth")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_sixth"
+                        >${this._t("mode_hourly_sixth")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_eighth"
+                        >${this._t("mode_hourly_eighth")}</mwc-list-item
+                      >
+                    </ha-select>
+                  </ha-formfield>
+                `
+              : ""}
         </details>
 
 
@@ -1668,19 +1706,16 @@ class PollenPrognosCardEditor extends LitElement {
             <!-- Columns/Days/Threshold/Sort -->
             <div class="slider-row">
               <div class="slider-text">
-                ${c.integration === "silam" && c.mode === "twice_daily"
+                ${(c.integration === "silam" || c.integration === "peu") && c.mode === "twice_daily"
                   ? this._t("to_show_columns")
-                  : c.integration === "silam" && c.mode === "hourly"
+                  : (c.integration === "silam" || c.integration === "peu") && c.mode !== "daily"
                     ? this._t("to_show_hours")
                     : this._t("to_show_days")}
               </div>
               <div class="slider-value">${c.days_to_show}</div>
               <ha-slider
                 min="0"
-                max="${c.integration === "silam" &&
-                (c.mode === "hourly" || c.mode === "twice_daily")
-                  ? 8
-                  : 6}"
+                max="${(c.integration === "silam" || c.integration === "peu") && c.mode !== "daily" ? 8 : 6}"
                 step="1"
                 .value=${c.days_to_show}
                 @input=${(e) =>
