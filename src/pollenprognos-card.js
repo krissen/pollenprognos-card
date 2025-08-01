@@ -53,6 +53,7 @@ class PollenPrognosCard extends LitElement {
       gap = LEVELS_DEFAULTS.levels_gap,
       size = 100,
     },
+    displayValue,
   ) {
     // Create a unique key for this chart configuration
     const allergen = arguments[2] || "default";
@@ -66,6 +67,7 @@ class PollenPrognosCard extends LitElement {
         class="level-circle"
         style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;"
         .level="${level}"
+        .displayValue="${displayValue}"
         .colors="${JSON.stringify(colors)}"
         .emptyColor="${emptyColor}"
         .gapColor="${gapColor}"
@@ -125,6 +127,8 @@ class PollenPrognosCard extends LitElement {
       this.renderRoot.querySelectorAll(".level-circle").forEach((container) => {
         // Extract properties from the container
         const level = Number(container.level || 0);
+        const displayValue =
+          container.displayValue != null ? container.displayValue : level;
         const colors = JSON.parse(container.colors || "[]");
         const numSegments = colors.length;
         const safeLevel = Math.min(level, numSegments);
@@ -234,7 +238,7 @@ class PollenPrognosCard extends LitElement {
         if (showValue) {
           const valueText = document.createElement("div");
           valueText.className = "level-value-text";
-          valueText.textContent = level;
+          valueText.textContent = displayValue;
 
           // Improved positioning and styling
           valueText.style.position = "absolute";
@@ -1186,6 +1190,7 @@ class PollenPrognosCard extends LitElement {
                             },
                             sensor.allergenReplaced,
                             i,
+                            raw,
                           );
                         })()}
                       </td>
