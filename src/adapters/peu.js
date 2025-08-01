@@ -40,6 +40,7 @@ export const stubConfigPEU = {
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
+  numeric_state_raw_risk: false,
   show_empty_days: false,
   debug: false,
   show_version: true,
@@ -241,9 +242,13 @@ export async function fetchForecast(hass, config) {
                 minute: "2-digit",
               }) || "";
           }
+          const useRaw =
+            allergenSlug === "allergy_risk" && config.numeric_state_raw_risk;
+          const numericVal = useRaw
+            ? entry.numeric_state_raw
+            : entry.numeric_state;
           const rawVal =
-            entry.numeric_state ??
-            entry.numeric_state_raw ??
+            numericVal ??
             entry.level ??
             entry.condition ??
             entry.named_state;
@@ -252,9 +257,7 @@ export async function fetchForecast(hass, config) {
             name: dict.allergenCapitalized,
             day: label,
             icon,
-            state: Number(
-              entry.numeric_state ?? entry.numeric_state_raw ?? entry.level ?? -1,
-            ),
+            state: Number(numericVal ?? entry.level ?? -1),
             state_text:
               scaledLevel < 0
                 ? noInfoLabel
@@ -296,6 +299,11 @@ export async function fetchForecast(hass, config) {
 
         forecastDates.forEach((dateStr, idx) => {
           const raw = forecastMap[dateStr] || {};
+          const useRaw =
+            allergenSlug === "allergy_risk" && config.numeric_state_raw_risk;
+          const numericVal = useRaw
+            ? raw.numeric_state_raw ?? raw.numeric_state
+            : raw.numeric_state ?? raw.numeric_state_raw;
           const level = testVal(raw.level);
           if (level !== null && level >= 0) {
             const d = new Date(dateStr);
@@ -329,7 +337,7 @@ export async function fetchForecast(hass, config) {
             const dayObj = {
               name: dict.allergenCapitalized,
               day: label,
-              state: level,
+              state: Number(numericVal ?? level),
               state_text:
                 scaledLevel < 0
                   ? noInfoLabel

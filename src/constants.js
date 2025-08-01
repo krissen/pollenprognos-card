@@ -134,6 +134,7 @@ export const COSMETIC_FIELDS = [
   "show_value_text",
   "show_value_numeric",
   "show_value_numeric_in_circle",
+  "numeric_state_raw_risk",
   "allergens_abbreviated",
   "days_boldfaced",
   "text_size_ratio",
