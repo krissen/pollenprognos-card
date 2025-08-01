@@ -9,7 +9,6 @@ export const stubConfigPEU = {
   integration: "peu",
   location: "",
   allergens: [
-    "allergy_risk",
     "alder",
     "ash",
     "beech",
@@ -54,6 +53,12 @@ export const stubConfigPEU = {
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
 };
+
+// All possible allergens for the PEU integration
+export const PEU_ALLERGENS = [
+  "allergy_risk",
+  ...stubConfigPEU.allergens,
+];
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);

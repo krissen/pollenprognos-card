@@ -13,7 +13,6 @@ export const stubConfigSILAM = {
   integration: "silam",
   location: "",
   allergens: [
-    "allergy_risk",
     "alder",
     "birch",
     "grass",
@@ -48,6 +47,12 @@ export const stubConfigSILAM = {
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
 };
+
+// All possible allergens for the SILAM integration
+export const SILAM_ALLERGENS = [
+  ...stubConfigSILAM.allergens,
+  "allergy_risk",
+];
 
 export const SILAM_THRESHOLDS = {
   // birch: [5, 25, 50, 100, 500, 1000, 5000],
