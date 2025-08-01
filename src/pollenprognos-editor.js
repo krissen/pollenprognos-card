@@ -10,8 +10,8 @@ import { COSMETIC_FIELDS } from "./constants.js";
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { stubConfigPEU } from "./adapters/peu.js";
-import { stubConfigSILAM } from "./adapters/silam.js";
+import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
+import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -130,9 +130,9 @@ class PollenPrognosCardEditor extends LitElement {
       this._config.integration === "dwd"
         ? stubConfigDWD.allergens
         : this._config.integration === "peu"
-          ? stubConfigPEU.allergens
+          ? PEU_ALLERGENS
           : this._config.integration === "silam"
-            ? stubConfigSILAM.allergens
+            ? SILAM_ALLERGENS
             : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
@@ -233,15 +233,9 @@ class PollenPrognosCardEditor extends LitElement {
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
       if (config.phrases) this._userConfig.phrases = config.phrases;
 
-      // 1. Identifiera stub-längd och skapa kopia av inkommande config
-      const stubLen =
-        config.integration === "dwd"
-          ? stubConfigDWD.allergens.length
-          : config.integration === "peu"
-            ? stubConfigPEU.allergens.length
-            : config.integration === "silam"
-              ? stubConfigSILAM.allergens.length
-              : stubConfigPP.allergens.length;
+      // 1. Identify stub values and clone incoming config
+      const baseDefaults = getStubConfig(config.integration || "pp");
+      const stubAllergens = baseDefaults.allergens;
       const incoming = { ...config };
 
       // Insert default for levels_* if missing
@@ -251,10 +245,10 @@ class PollenPrognosCardEditor extends LitElement {
         }
       });
 
-      // 2. Om användaren tidigare valt färre allergener än stub, spara undan dessa
+      // 2. Save user-provided allergens if they differ from defaults
       if (
         Array.isArray(config.allergens) &&
-        config.allergens.length < stubLen
+        !deepEqual(config.allergens, stubAllergens)
       ) {
         this._userConfig.allergens = [...config.allergens];
         this._allergensExplicit = true;
@@ -1004,9 +998,9 @@ class PollenPrognosCardEditor extends LitElement {
       c.integration === "dwd"
         ? stubConfigDWD.allergens
         : c.integration === "peu"
-          ? stubConfigPEU.allergens
+          ? PEU_ALLERGENS
           : c.integration === "silam"
-            ? stubConfigSILAM.allergens
+            ? SILAM_ALLERGENS
             : stubConfigPP.allergens;
 
     const numLevels =
