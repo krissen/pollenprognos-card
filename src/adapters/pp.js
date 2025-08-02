@@ -39,6 +39,7 @@ export const stubConfigPP = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
+  allergy_risk_top: true,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,

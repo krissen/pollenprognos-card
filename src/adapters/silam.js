@@ -4,6 +4,7 @@ import { normalize } from "../utils/normalize.js";
 import { findSilamWeatherEntity } from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { ALLERGEN_TRANSLATION } from "../constants.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -42,11 +43,15 @@ export const stubConfigSILAM = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
+  index_top: true,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
 };
+
+// All possible allergens for the SILAM integration
+export const SILAM_ALLERGENS = [...stubConfigSILAM.allergens, "index"];
 
 export const SILAM_THRESHOLDS = {
   // birch: [5, 25, 50, 100, 500, 1000, 5000],
@@ -76,6 +81,28 @@ export function grainsToLevel(allergen, grains) {
   if (grains <= arr[4]) return 4;
   if (grains <= arr[5]) return 5;
   return 6;
+}
+
+export function indexToLevel(val) {
+  if (val == null) return -1;
+  const scale = [0, 1, 3, 5, 6];
+  const map = {
+    very_low: 0,
+    low: 1,
+    moderate: 2,
+    high: 3,
+    very_high: 4,
+  };
+  if (typeof val === "string") {
+    const idx = map[val.toLowerCase()];
+    return idx == null ? -1 : scale[Math.max(0, Math.min(idx, 4))];
+  }
+  const num = Number(val);
+  if (!isNaN(num)) {
+    const idx = Math.max(0, Math.min(Math.round(num), 4));
+    return scale[idx];
+  }
+  return -1;
 }
 
 export function getPhrases(config, lang) {
@@ -152,7 +179,12 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   }
 
   const entity = hass.states[weatherEntity];
-  const allergens = config.allergens || stubConfigSILAM.allergens;
+  const rawAllergens = config.allergens || stubConfigSILAM.allergens;
+  const allergens = rawAllergens.map((raw) => {
+    const norm = normalize(raw);
+    // Translate user-facing slugs (e.g. 'index') to internal canonicals
+    return ALLERGEN_TRANSLATION[norm] || norm;
+  });
 
   // Forecast-array: från forecastEvent om det finns, annars från entity
   let forecastArr = [];
@@ -192,28 +224,56 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       dict.allergenShort = config.allergens_abbreviated
         ? allergenShort
         : allergenCapitalized;
+      if (allergen === "allergy_risk") {
+        const name = silamAllergenMap.names?.allergy_risk?.[lang] || "Index";
+        dict.allergenCapitalized = name;
+        dict.allergenShort = name;
+      }
 
       // Samla nivåer per dag/kolumn (olika för daily och övriga lägen)
       let stateList = [];
-      if (config.mode === "hourly" || config.mode === "twice_daily") {
-        for (let i = 0; i < maxItems; ++i) {
-          const forecast = forecastArr[i];
-          const pollenVal = forecast
-            ? Number(forecast[`pollen_${allergen}`])
-            : NaN;
-          stateList.push(grainsToLevel(allergen, pollenVal));
+      if (allergen === "allergy_risk") {
+        if (config.mode === "hourly" || config.mode === "twice_daily") {
+          for (let i = 0; i < maxItems; ++i) {
+            const forecast = forecastArr[i];
+            const val = forecast
+              ? forecast.index ?? forecast.pollen_index
+              : null;
+            stateList.push(indexToLevel(val));
+          }
+        } else {
+          const currentVal =
+            entity.attributes.index ??
+            entity.attributes.pollen_index ??
+            entity.state;
+          stateList.push(indexToLevel(currentVal));
+          for (let i = 1; i < maxItems; ++i) {
+            const forecast = forecastArr[i - 1];
+            const val = forecast
+              ? forecast.index ?? forecast.pollen_index
+              : null;
+            stateList.push(indexToLevel(val));
+          }
         }
       } else {
-        // Dag 0: aktuellt värde från entity
-        const currentVal = Number(entity.attributes[`pollen_${allergen}`]);
-        stateList.push(grainsToLevel(allergen, currentVal));
-        // Dag 1…n: forecast
-        for (let i = 1; i < maxItems; ++i) {
-          const forecast = forecastArr[i - 1];
-          const pollenVal = forecast
-            ? Number(forecast[`pollen_${allergen}`])
-            : NaN;
-          stateList.push(grainsToLevel(allergen, pollenVal));
+        if (config.mode === "hourly" || config.mode === "twice_daily") {
+          for (let i = 0; i < maxItems; ++i) {
+            const forecast = forecastArr[i];
+            const pollenVal = forecast
+              ? Number(forecast[`pollen_${allergen}`])
+              : NaN;
+            stateList.push(grainsToLevel(allergen, pollenVal));
+          }
+        } else {
+          const currentVal = Number(entity.attributes[`pollen_${allergen}`]);
+          stateList.push(grainsToLevel(allergen, currentVal));
+          for (let i = 1; i < maxItems; ++i) {
+            const forecast = forecastArr[i - 1];
+            const pollenVal = forecast
+              ? Number(forecast[`pollen_${allergen}`])
+              : NaN;
+            stateList.push(grainsToLevel(allergen, pollenVal));
+          }
         }
       }
 
@@ -298,6 +358,17 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         b.allergenCapitalized.localeCompare(a.allergenCapitalized),
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
   );
+
+  if (config.index_top || config.allergy_risk_top) {
+    const idx = sensors.findIndex(
+      (s) =>
+        s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
+    );
+    if (idx > 0) {
+      const [special] = sensors.splice(idx, 1);
+      sensors.unshift(special);
+    }
+  }
 
   if (debug) console.debug("[SILAM] fetchForecast klar:", sensors);
   return sensors;

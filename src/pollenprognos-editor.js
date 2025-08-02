@@ -10,8 +10,8 @@ import { COSMETIC_FIELDS } from "./constants.js";
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { stubConfigPEU } from "./adapters/peu.js";
-import { stubConfigSILAM } from "./adapters/silam.js";
+import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
+import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -130,9 +130,9 @@ class PollenPrognosCardEditor extends LitElement {
       this._config.integration === "dwd"
         ? stubConfigDWD.allergens
         : this._config.integration === "peu"
-          ? stubConfigPEU.allergens
+          ? PEU_ALLERGENS
           : this._config.integration === "silam"
-            ? stubConfigSILAM.allergens
+            ? SILAM_ALLERGENS
             : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
@@ -143,8 +143,10 @@ class PollenPrognosCardEditor extends LitElement {
     rawKeys.forEach((raw) => {
       const normKey = normalize(raw); // ex 'alm' eller 'erle'
       const canonKey = ALLERGEN_TRANSLATION[normKey] || normKey; // t.ex. 'alder'
-      full[raw] = t(`editor.phrases_full.${canonKey}`, lang);
-      short[raw] = t(`editor.phrases_short.${canonKey}`, lang);
+      // Use the SILAM-specific name 'index' instead of 'allergy_risk'
+      const transKey = normKey === "index" ? "index" : canonKey;
+      full[raw] = t(`editor.phrases_full.${transKey}`, lang);
+      short[raw] = t(`editor.phrases_short.${transKey}`, lang);
     });
 
     // Levels och days hämtas precis som tidigare
@@ -233,15 +235,9 @@ class PollenPrognosCardEditor extends LitElement {
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
       if (config.phrases) this._userConfig.phrases = config.phrases;
 
-      // 1. Identifiera stub-längd och skapa kopia av inkommande config
-      const stubLen =
-        config.integration === "dwd"
-          ? stubConfigDWD.allergens.length
-          : config.integration === "peu"
-            ? stubConfigPEU.allergens.length
-            : config.integration === "silam"
-              ? stubConfigSILAM.allergens.length
-              : stubConfigPP.allergens.length;
+      // 1. Identify stub values and clone incoming config
+      const baseDefaults = getStubConfig(config.integration || "pp");
+      const stubAllergens = baseDefaults.allergens;
       const incoming = { ...config };
 
       // Insert default for levels_* if missing
@@ -251,10 +247,10 @@ class PollenPrognosCardEditor extends LitElement {
         }
       });
 
-      // 2. Om användaren tidigare valt färre allergener än stub, spara undan dessa
+      // 2. Save user-provided allergens if they differ from defaults
       if (
         Array.isArray(config.allergens) &&
-        config.allergens.length < stubLen
+        !deepEqual(config.allergens, stubAllergens)
       ) {
         this._userConfig.allergens = [...config.allergens];
         this._allergensExplicit = true;
@@ -395,8 +391,8 @@ class PollenPrognosCardEditor extends LitElement {
           console.debug("[Editor] auto-detected integration:", integration);
       }
 
-      // 9.1 Sätt default mode för silam om inte satt
-      if (integration === "silam" && !this._userConfig.mode) {
+      // 9.1 Set default mode for SILAM and PEU if not specified
+      if ((integration === "silam" || integration === "peu") && !this._userConfig.mode) {
         this._userConfig.mode = "daily";
       }
 
@@ -626,8 +622,8 @@ class PollenPrognosCardEditor extends LitElement {
       this._userConfig.integration = integration;
     }
 
-    // 1.1) Sätt default mode för silam om inte satt
-    if (integration === "silam" && !this._userConfig.mode) {
+    // 1.1) Set default mode for SILAM and PEU if not specified
+    if ((integration === "silam" || integration === "peu") && !this._userConfig.mode) {
       this._userConfig.mode = "daily";
     }
 
@@ -716,6 +712,7 @@ class PollenPrognosCardEditor extends LitElement {
         "en";
 
       const pollenAllergens = [
+        "allergy_risk",
         "alder",
         "birch",
         "grass",
@@ -879,9 +876,31 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   _onAllergenToggle(allergen, checked) {
+    if (
+      this._config.integration === "peu" &&
+      this._config.mode !== "daily" &&
+      allergen !== "allergy_risk" &&
+      checked
+    ) {
+      this._updateConfig("mode", "daily");
+    }
     const set = new Set(this._config.allergens);
     checked ? set.add(allergen) : set.delete(allergen);
     this._updateConfig("allergens", [...set]);
+  }
+
+  _toggleSelectAllAllergens(allergens) {
+    const current = new Set(this._config.allergens);
+    const allSelected = allergens.every((a) => current.has(a));
+    if (
+      this._config.integration === "peu" &&
+      this._config.mode !== "daily" &&
+      !allSelected
+    ) {
+      this._updateConfig("mode", "daily");
+    }
+    const newSet = allSelected ? [] : allergens;
+    this._updateConfig("allergens", [...newSet]);
   }
 
   _updateConfig(prop, value) {
@@ -936,6 +955,8 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.allergens;
         delete newUser.days_to_show;
         delete newUser.pollen_threshold;
+        delete newUser.allergy_risk_top;
+        delete newUser.index_top;
         this._allergensExplicit = false;
       }
       const base =
@@ -951,14 +972,16 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
-      // Om vi just bytte mode för silam, och days_to_show ska justeras, inkludera det också:
-      if (this._config.integration === "silam" && prop === "mode") {
-        if (value === "hourly" || value === "twice_daily") {
+      // Adjust related settings when switching mode
+      if ((this._config.integration === "silam" || this._config.integration === "peu") && prop === "mode") {
+        if (value !== "daily") {
           cfg.days_to_show = 8;
           cfg.show_empty_days = false;
-          // cfg.show_empty_days = false;
-        } else if (value === "daily") {
-          cfg.days_to_show = 5;
+          if (this._config.integration === "peu") {
+            cfg.allergens = ["allergy_risk"];
+          }
+        } else {
+          cfg.days_to_show = this._config.integration === "silam" ? 5 : 4;
         }
       }
       // Tvinga mode till daily om location saknar weather-entity
@@ -1003,9 +1026,9 @@ class PollenPrognosCardEditor extends LitElement {
       c.integration === "dwd"
         ? stubConfigDWD.allergens
         : c.integration === "peu"
-          ? stubConfigPEU.allergens
+          ? PEU_ALLERGENS
           : c.integration === "silam"
-            ? stubConfigSILAM.allergens
+            ? SILAM_ALLERGENS
             : stubConfigPP.allergens;
 
     const numLevels =
@@ -1160,7 +1183,43 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </ha-formfield>
               `
-            : ""}
+            : c.integration === "peu"
+              ? html`
+                  <ha-formfield label="${this._t("mode")}">
+                    <ha-select
+                      .value=${c.mode || "daily"}
+                      @selected=${(e) =>
+                        this._updateConfig("mode", e.target.value)}
+                      @closed=${(e) => e.stopPropagation()}
+                    >
+                      <mwc-list-item value="daily"
+                        >${this._t("mode_daily")}</mwc-list-item
+                      >
+                      <mwc-list-item value="twice_daily"
+                        >${this._t("mode_twice_daily")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly"
+                        >${this._t("mode_hourly")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_second"
+                        >${this._t("mode_hourly_second")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_third"
+                        >${this._t("mode_hourly_third")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_fourth"
+                        >${this._t("mode_hourly_fourth")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_sixth"
+                        >${this._t("mode_hourly_sixth")}</mwc-list-item
+                      >
+                      <mwc-list-item value="hourly_eighth"
+                        >${this._t("mode_hourly_eighth")}</mwc-list-item
+                      >
+                    </ha-select>
+                  </ha-formfield>
+                `
+              : ""}
         </details>
 
 
@@ -1629,6 +1688,21 @@ class PollenPrognosCardEditor extends LitElement {
                   )}
               ></ha-switch>
             </ha-formfield>
+            ${c.integration === "peu"
+              ? html`
+                  <ha-formfield
+                    label="${this._t("numeric_state_raw_risk")}">
+                    <ha-switch
+                      .checked=${c.numeric_state_raw_risk}
+                      @change=${(e) =>
+                        this._updateConfig(
+                          "numeric_state_raw_risk",
+                          e.target.checked,
+                        )}
+                    ></ha-switch>
+                  </ha-formfield>
+                `
+              : ""}
             <ha-formfield label="${this._t("show_empty_days")}">
               <ha-switch
                 .checked=${c.show_empty_days}
@@ -1673,19 +1747,16 @@ class PollenPrognosCardEditor extends LitElement {
             <!-- Columns/Days/Threshold/Sort -->
             <div class="slider-row">
               <div class="slider-text">
-                ${c.integration === "silam" && c.mode === "twice_daily"
+                ${(c.integration === "silam" || c.integration === "peu") && c.mode === "twice_daily"
                   ? this._t("to_show_columns")
-                  : c.integration === "silam" && c.mode === "hourly"
+                  : (c.integration === "silam" || c.integration === "peu") && c.mode !== "daily"
                     ? this._t("to_show_hours")
                     : this._t("to_show_days")}
               </div>
               <div class="slider-value">${c.days_to_show}</div>
               <ha-slider
                 min="0"
-                max="${c.integration === "silam" &&
-                (c.mode === "hourly" || c.mode === "twice_daily")
-                  ? 8
-                  : 6}"
+                max="${(c.integration === "silam" || c.integration === "peu") && c.mode !== "daily" ? 8 : 6}"
                 step="1"
                 .value=${c.days_to_show}
                 @input=${(e) =>
@@ -1711,6 +1782,11 @@ class PollenPrognosCardEditor extends LitElement {
               `,
             )}
           </div>
+          <div class="preset-buttons">
+            <mwc-button @click=${() => this._toggleSelectAllAllergens(allergens)}>
+              ${this._t("select_all_allergens")}
+            </mwc-button>
+          </div>
           <div class="slider-row">
             <div class="slider-text">${this._t("pollen_threshold")}</div>
             <div class="slider-value">${c.pollen_threshold}</div>
@@ -1735,6 +1811,27 @@ class PollenPrognosCardEditor extends LitElement {
               )}
             </ha-select>
           </ha-formfield>
+          ${(c.integration === "peu" || c.integration === "silam")
+            ? html`
+                <ha-formfield
+                  label="${c.integration === "silam"
+                    ? this._t("index_top")
+                    : this._t("allergy_risk_top")}">
+                  <ha-checkbox
+                    .checked=${
+                      c.integration === "silam" ? c.index_top : c.allergy_risk_top
+                    }
+                    @change=${(e) =>
+                      this._updateConfig(
+                        c.integration === "silam"
+                          ? "index_top"
+                          : "allergy_risk_top",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `
+            : ""}
         </details>
 
         <!-- Översättningar och textsträngar -->

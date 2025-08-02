@@ -53,10 +53,11 @@ class PollenPrognosCard extends LitElement {
       gap = LEVELS_DEFAULTS.levels_gap,
       size = 100,
     },
+    allergen = "default",
+    dayIndex = 0,
+    displayLevel = level,
   ) {
     // Create a unique key for this chart configuration
-    const allergen = arguments[2] || "default";
-    const dayIndex = arguments[3] || 0;
     const chartId = `chart-${allergen}-${dayIndex}-${level}`;
 
     // Use a reference element that will be populated in firstUpdated or updated
@@ -66,6 +67,7 @@ class PollenPrognosCard extends LitElement {
         class="level-circle"
         style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;"
         .level="${level}"
+        .displayLevel="${displayLevel}"
         .colors="${JSON.stringify(colors)}"
         .emptyColor="${emptyColor}"
         .gapColor="${gapColor}"
@@ -75,43 +77,9 @@ class PollenPrognosCard extends LitElement {
         .showValue="${this.config && this.config.show_value_numeric_in_circle}"
         .fontWeight="${this.config?.levels_text_weight || "normal"}"
         .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
-        .textColor="${this.config?.levels_text_color ||
-        "var(--primary-text-color)"}"
+        .textColor="${this.config?.levels_text_color || "var(--primary-text-color)"}"
       ></div>
     `;
-  }
-
-  // In the updated() method, update the part that adds the text to the chart:
-  // Add the text overlay if showValue is true
-  if(showValue) {
-    const valueText = document.createElement("div");
-    valueText.className = "level-value-text";
-    valueText.textContent = level;
-
-    // Improved positioning and styling
-    valueText.style.position = "absolute";
-    valueText.style.top = "50%";
-    valueText.style.left = "50%";
-    valueText.style.transform = "translate(-50%, -50%)";
-
-    // Get custom styling from container attributes
-    const fontWeight = container.fontWeight || "normal"; // Default to normal instead of bold
-    const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2; // Smaller default ratio
-    const textColor = container.textColor || "var(--primary-text-color)";
-    const textSizeRatio = this.config?.text_size_ratio ?? 1;
-
-    // Apply custom styling
-    valueText.style.fontSize = `${size * fontSizeRatio}px`;
-    valueText.style.fontWeight = fontWeight;
-    valueText.style.color = textColor;
-
-    // For small sizes, add extra adjustments
-    if (size < 42) {
-      valueText.style.lineHeight = "1";
-      valueText.style.height = "1em"; // Fix height for small sizes
-    }
-
-    container.appendChild(valueText);
   }
 
   updated(changedProps) {
@@ -125,6 +93,8 @@ class PollenPrognosCard extends LitElement {
       this.renderRoot.querySelectorAll(".level-circle").forEach((container) => {
         // Extract properties from the container
         const level = Number(container.level || 0);
+        // Value to display inside the circle; defaults to the normalized level.
+        const displayLevel = Number(container.displayLevel ?? level);
         const colors = JSON.parse(container.colors || "[]");
         const numSegments = colors.length;
         const safeLevel = Math.min(level, numSegments);
@@ -234,7 +204,8 @@ class PollenPrognosCard extends LitElement {
         if (showValue) {
           const valueText = document.createElement("div");
           valueText.className = "level-value-text";
-          valueText.textContent = level;
+          // Show the raw value if provided; otherwise the normalized level.
+          valueText.textContent = displayLevel;
 
           // Improved positioning and styling
           valueText.style.position = "absolute";
@@ -435,28 +406,20 @@ class PollenPrognosCard extends LitElement {
     };
   }
 
-  /**
-   * Scale a raw numeric level to the 0–6 range used by the card.
-   * DWD uses half steps up to 3 and PEU uses full steps up to 4.
-   * All other integrations already report 0–6 directly.
-   */
-  _scaleLevel(raw) {
-    const val = Number(raw);
-    if (isNaN(val)) return val;
-    if (this.config.integration === "dwd") return val * 2;
-    if (this.config.integration === "peu") {
-      const map = [0, 1, 3, 5, 6];
-      const idx = Math.max(0, Math.min(Math.round(val), map.length - 1));
-      return map[idx];
-    }
-    return val;
-  }
-
   _getImageSrc(allergenReplaced, state) {
     const raw = Number(state);
-    let scaled = this._scaleLevel(raw);
-    let min = this.config.integration === "peu" ? 0 : -1;
-    const max = 6;
+    let scaled = raw;
+    let min = -1,
+      max = 6;
+    if (this.config.integration === "dwd") {
+      scaled = raw * 2;
+      max = 6;
+    } else if (this.config.integration === "peu") {
+      // PEU no longer scales values, the circle max level is four.
+      scaled = raw;
+      max = 4;
+      min = 0;
+    }
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < min) lvl = min;
     if (lvl > max) lvl = max;
@@ -1039,7 +1002,9 @@ class PollenPrognosCard extends LitElement {
         >
           ${(this.sensors || []).map((sensor) => {
             const txt = sensor.day0?.state_text ?? "";
-            const num = sensor.day0?.state ?? "";
+            // Use display_state when available, falling back to the normalized state.
+            const num =
+              sensor.day0?.display_state ?? sensor.day0?.state ?? "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
@@ -1171,8 +1136,19 @@ class PollenPrognosCard extends LitElement {
                     (i) => html`
                       <td>
                         ${(() => {
-                          const raw = Number(sensor.days[i]?.state) || 0;
-                          const levelVal = this._scaleLevel(raw);
+                          const normalized = Number(sensor.days[i]?.state) || 0;
+                          // Value to display inside the circle; defaults to normalized.
+                          const displayVal =
+                            Number(
+                              sensor.days[i]?.display_state ?? normalized,
+                            );
+                          let levelVal = normalized;
+                          if (this.config.integration === "dwd") {
+                            levelVal = normalized * 2; // scale 0–3 to 0–6
+                          } else if (this.config.integration === "peu") {
+                            // PEU levels already span 0–4.
+                            levelVal = normalized;
+                          }
                           return this._renderLevelCircle(
                             levelVal,
                             {
@@ -1185,6 +1161,7 @@ class PollenPrognosCard extends LitElement {
                             },
                             sensor.allergenReplaced,
                             i,
+                            displayVal,
                           );
                         })()}
                       </td>
@@ -1208,7 +1185,10 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          const num = sensor.days[i]?.state;
+                          // Prefer display_state when available to show raw values.
+                          const num =
+                            sensor.days[i]?.display_state ??
+                            sensor.days[i]?.state;
                           let content = "";
                           if (
                             this.config.show_value_text &&

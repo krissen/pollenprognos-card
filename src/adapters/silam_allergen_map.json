@@ -7,7 +7,8 @@
       "hazelaar": "hazel",
       "bijvoet": "mugwort",
       "olijf": "olive",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     },
     "de": {
       "erle": "alder",
@@ -15,7 +16,8 @@
       "gras": "grass",
       "hasel": "hazel",
       "beifu": "mugwort",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     },
     "ru": {
       "": "ragweed"
@@ -27,7 +29,8 @@
       "pahkinaleppa": "hazel",
       "siankarsamo": "mugwort",
       "oliivi": "olive",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     },
     "sk": {
       "jelsa": "alder",
@@ -36,7 +39,8 @@
       "lieska": "hazel",
       "palina": "mugwort",
       "olivovnik": "olive",
-      "ambrozia": "ragweed"
+      "ambrozia": "ragweed",
+      "index": "allergy_risk"
     },
     "en": {
       "alder": "alder",
@@ -45,7 +49,8 @@
       "hazel": "hazel",
       "mugwort": "mugwort",
       "olive": "olive",
-      "ragweed": "ragweed"
+      "ragweed": "ragweed",
+      "index": "allergy_risk"
     },
     "it": {
       "ontano": "alder",
@@ -54,7 +59,8 @@
       "nocciolo": "hazel",
       "artemisia": "mugwort",
       "oliva": "olive",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     },
     "cs": {
       "olse": "alder",
@@ -63,7 +69,8 @@
       "liska": "hazel",
       "pelynek": "mugwort",
       "olivovnik": "olive",
-      "ambrozie": "ragweed"
+      "ambrozie": "ragweed",
+      "index": "allergy_risk"
     },
     "no": {
       "al": "alder",
@@ -72,7 +79,8 @@
       "hassel": "hazel",
       "malurt": "mugwort",
       "oliven": "olive",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     },
     "da": {
       "al": "alder",
@@ -81,7 +89,8 @@
       "hassel": "hazel",
       "malurt": "mugwort",
       "oliven": "olive",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     },
     "sv": {
       "al": "alder",
@@ -90,7 +99,8 @@
       "hassel": "hazel",
       "malort": "mugwort",
       "oliv": "olive",
-      "ambrosia": "ragweed"
+      "ambrosia": "ragweed",
+      "index": "allergy_risk"
     }
   },
   "names": {
@@ -184,6 +194,19 @@
       "no": "Ambrosia",
       "da": "Ambrosia",
       "sv": "Ambrosia"
+    },
+    "allergy_risk": {
+      "nl": "Index",
+      "de": "Index",
+      "ru": "Index",
+      "fi": "Index",
+      "sk": "Index",
+      "en": "Index",
+      "it": "Index",
+      "cs": "Index",
+      "no": "Index",
+      "da": "Index",
+      "sv": "Index"
     }
   },
   "weather_suffixes": {

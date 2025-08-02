@@ -183,6 +183,16 @@ import img_willow_5 from "./images/willow_5.png";
 import img_willow_6 from "./images/willow_6.png";
 import img_willow_minus1 from "./images/willow_-1.png";
 
+// Allergy risk / Index
+import img_allergy_risk_0 from "./images/allergy_risk_0.png";
+import img_allergy_risk_1 from "./images/allergy_risk_1.png";
+import img_allergy_risk_2 from "./images/allergy_risk_2.png";
+import img_allergy_risk_3 from "./images/allergy_risk_3.png";
+import img_allergy_risk_4 from "./images/allergy_risk_4.png";
+import img_allergy_risk_5 from "./images/allergy_risk_5.png";
+import img_allergy_risk_6 from "./images/allergy_risk_6.png";
+import img_allergy_risk_minus1 from "./images/allergy_risk_-1.png";
+
 export const images = {
   // alder
   "alder_-1_png": img_alder_minus1,
@@ -363,4 +373,14 @@ export const images = {
   willow_4_png: img_willow_4,
   willow_5_png: img_willow_5,
   willow_6_png: img_willow_6,
+
+  // allergy_risk / index
+  "allergy_risk_-1_png": img_allergy_risk_minus1,
+  allergy_risk_0_png: img_allergy_risk_0,
+  allergy_risk_1_png: img_allergy_risk_1,
+  allergy_risk_2_png: img_allergy_risk_2,
+  allergy_risk_3_png: img_allergy_risk_3,
+  allergy_risk_4_png: img_allergy_risk_4,
+  allergy_risk_5_png: img_allergy_risk_5,
+  allergy_risk_6_png: img_allergy_risk_6,
 };
