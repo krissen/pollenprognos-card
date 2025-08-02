@@ -47,6 +47,8 @@ Additional documentation:
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
+| `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
+| `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
 | `tap_action` | `object` | *(empty)* | Lovelace tap action configuration. |

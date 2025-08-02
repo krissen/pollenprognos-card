@@ -50,6 +50,12 @@ integration: pp       # auto-detected if omitted
 city: Stockholm       # adapter specific option
 ```
 
+### Special sensors
+
+Some integrations expose a combined allergy risk or index sensor. Use
+`allergy_risk_top` with Polleninformation EU or `index_top` with SILAM to
+pin this sensor at the top of the list.
+
 ## Configuration reference
 
 More details, including all options and example snippets, are available in the documentation:
