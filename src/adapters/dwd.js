@@ -44,7 +44,7 @@ export const stubConfigDWD = {
   days_boldfaced: false,
   pollen_threshold: 0.5,
   sort: "value_descending",
-  allergy_risk_top: false,
+  allergy_risk_top: true,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,

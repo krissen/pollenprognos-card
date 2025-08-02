@@ -51,7 +51,7 @@ export const stubConfigPEU = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
-  allergy_risk_top: false,
+  allergy_risk_top: true,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
@@ -59,10 +59,7 @@ export const stubConfigPEU = {
 };
 
 // All possible allergens for the PEU integration
-export const PEU_ALLERGENS = [
-  "allergy_risk",
-  ...stubConfigPEU.allergens,
-];
+export const PEU_ALLERGENS = ["allergy_risk", ...stubConfigPEU.allergens];
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
@@ -227,8 +224,8 @@ export async function fetchForecast(hass, config) {
           const d = entry.time
             ? new Date(entry.time)
             : entry.datetime
-            ? new Date(entry.datetime)
-            : new Date(today.getTime() + i * step * 3600000);
+              ? new Date(entry.datetime)
+              : new Date(today.getTime() + i * step * 3600000);
           let label;
           let icon = null;
           if (mode === "twice_daily") {
@@ -236,7 +233,8 @@ export async function fetchForecast(hass, config) {
               .toLocaleDateString(locale, { weekday: "short" })
               .replace(/^./, (c) => c.toUpperCase());
             if (daysUppercase) label = label.toUpperCase();
-            icon = i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
+            icon =
+              i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
           } else {
             label =
               d.toLocaleTimeString(locale, {
@@ -249,7 +247,10 @@ export async function fetchForecast(hass, config) {
           // By default the value shown to the user is the normalized state.
           let displayState = state;
           // For allergy risk we may optionally show the raw value instead.
-          if (allergenSlug === "allergy_risk" && config.numeric_state_raw_risk) {
+          if (
+            allergenSlug === "allergy_risk" &&
+            config.numeric_state_raw_risk
+          ) {
             displayState = Number(
               entry.numeric_state_raw ?? entry.level_raw ?? displayState,
             );
@@ -265,7 +266,8 @@ export async function fetchForecast(hass, config) {
             state_text:
               scaledLevel < 0
                 ? noInfoLabel
-                : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
+                : levelNames[scaledLevel] ||
+                  t(`card.levels.${scaledLevel}`, lang),
           };
           dict[`day${i}`] = dayObj;
           dict.days.push(dayObj);
@@ -309,7 +311,10 @@ export async function fetchForecast(hass, config) {
           let displayLevel = level;
           // When requested we expose the raw value, which may exceed the
           // normalized 0–4 scale, purely for user display.
-          if (allergenSlug === "allergy_risk" && config.numeric_state_raw_risk) {
+          if (
+            allergenSlug === "allergy_risk" &&
+            config.numeric_state_raw_risk
+          ) {
             if (raw.numeric_state_raw != null) {
               displayLevel = Number(raw.numeric_state_raw);
             } else if (raw.level_raw != null) {
@@ -354,9 +359,10 @@ export async function fetchForecast(hass, config) {
               state_text:
                 scaledLevel < 0
                   ? noInfoLabel
-                  : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
+                  : levelNames[scaledLevel] ||
+                    t(`card.levels.${scaledLevel}`, lang),
             };
-            
+
             dict[`day${idx}`] = dayObj;
             dict.days.push(dayObj);
           }
@@ -385,7 +391,8 @@ export async function fetchForecast(hass, config) {
 
   if (config.allergy_risk_top) {
     const idx = sensors.findIndex(
-      (s) => s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
+      (s) =>
+        s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
     );
     if (idx > 0) {
       const [special] = sensors.splice(idx, 1);

@@ -43,7 +43,7 @@ export const stubConfigSILAM = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
-  index_top: false,
+  index_top: true,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
@@ -51,10 +51,7 @@ export const stubConfigSILAM = {
 };
 
 // All possible allergens for the SILAM integration
-export const SILAM_ALLERGENS = [
-  ...stubConfigSILAM.allergens,
-  "index",
-];
+export const SILAM_ALLERGENS = [...stubConfigSILAM.allergens, "index"];
 
 export const SILAM_THRESHOLDS = {
   // birch: [5, 25, 50, 100, 500, 1000, 5000],
@@ -228,8 +225,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         ? allergenShort
         : allergenCapitalized;
       if (allergen === "allergy_risk") {
-        const name =
-          silamAllergenMap.names?.allergy_risk?.[lang] || "Index";
+        const name = silamAllergenMap.names?.allergy_risk?.[lang] || "Index";
         dict.allergenCapitalized = name;
         dict.allergenShort = name;
       }
@@ -240,16 +236,22 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         if (config.mode === "hourly" || config.mode === "twice_daily") {
           for (let i = 0; i < maxItems; ++i) {
             const forecast = forecastArr[i];
-            const val = forecast ? forecast.index ?? forecast.pollen_index : null;
+            const val = forecast
+              ? forecast.index ?? forecast.pollen_index
+              : null;
             stateList.push(indexToLevel(val));
           }
         } else {
           const currentVal =
-            entity.attributes.index ?? entity.attributes.pollen_index ?? entity.state;
+            entity.attributes.index ??
+            entity.attributes.pollen_index ??
+            entity.state;
           stateList.push(indexToLevel(currentVal));
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
-            const val = forecast ? forecast.index ?? forecast.pollen_index : null;
+            const val = forecast
+              ? forecast.index ?? forecast.pollen_index
+              : null;
             stateList.push(indexToLevel(val));
           }
         }
@@ -257,7 +259,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         if (config.mode === "hourly" || config.mode === "twice_daily") {
           for (let i = 0; i < maxItems; ++i) {
             const forecast = forecastArr[i];
-            const pollenVal = forecast ? Number(forecast[`pollen_${allergen}`]) : NaN;
+            const pollenVal = forecast
+              ? Number(forecast[`pollen_${allergen}`])
+              : NaN;
             stateList.push(grainsToLevel(allergen, pollenVal));
           }
         } else {
@@ -265,7 +269,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           stateList.push(grainsToLevel(allergen, currentVal));
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
-            const pollenVal = forecast ? Number(forecast[`pollen_${allergen}`]) : NaN;
+            const pollenVal = forecast
+              ? Number(forecast[`pollen_${allergen}`])
+              : NaN;
             stateList.push(grainsToLevel(allergen, pollenVal));
           }
         }
@@ -355,7 +361,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   if (config.index_top || config.allergy_risk_top) {
     const idx = sensors.findIndex(
-      (s) => s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
+      (s) =>
+        s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
     );
     if (idx > 0) {
       const [special] = sensors.splice(idx, 1);
