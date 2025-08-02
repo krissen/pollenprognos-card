@@ -224,7 +224,9 @@ export async function fetchForecast(hass, config) {
         );
         for (let i = 0; i < maxItems; ++i) {
           const entry = rawForecast[i * step] || {};
-          const d = entry.datetime
+          const d = entry.time
+            ? new Date(entry.time)
+            : entry.datetime
             ? new Date(entry.datetime)
             : new Date(today.getTime() + i * step * 3600000);
           let label;
@@ -243,14 +245,18 @@ export async function fetchForecast(hass, config) {
               }) || "";
           }
           let state = Number(
-            entry.numeric_state ?? entry.numeric_state_raw ?? entry.level ?? -1,
+            entry.numeric_state ??
+              entry.numeric_state_raw ??
+              entry.level_raw ??
+              entry.level ??
+              -1,
           );
-          if (
-            allergenSlug === "allergy_risk" &&
-            config.numeric_state_raw_risk &&
-            entry.numeric_state_raw != null
-          ) {
-            state = Number(entry.numeric_state_raw);
+          if (allergenSlug === "allergy_risk" && config.numeric_state_raw_risk) {
+            if (entry.numeric_state_raw != null) {
+              state = Number(entry.numeric_state_raw);
+            } else if (entry.level_raw != null) {
+              state = Number(entry.level_raw);
+            }
           }
           const scaledLevel = indexToLevel(state);
           const dayObj = {
@@ -300,12 +306,12 @@ export async function fetchForecast(hass, config) {
         forecastDates.forEach((dateStr, idx) => {
           const raw = forecastMap[dateStr] || {};
           let level = testVal(raw.level);
-          if (
-            allergenSlug === "allergy_risk" &&
-            config.numeric_state_raw_risk &&
-            raw.numeric_state_raw != null
-          ) {
-            level = testVal(raw.numeric_state_raw);
+          if (allergenSlug === "allergy_risk" && config.numeric_state_raw_risk) {
+            if (raw.numeric_state_raw != null) {
+              level = testVal(raw.numeric_state_raw);
+            } else if (raw.level_raw != null) {
+              level = testVal(raw.level_raw);
+            }
           }
           if (level !== null && level >= 0) {
             const d = new Date(dateStr);

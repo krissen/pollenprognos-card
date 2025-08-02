@@ -43,7 +43,7 @@ Additional documentation:
 | `show_value_text` | `boolean` | `false` (PP) / `true` (DWD) | Show pollen intensity as text. |
 | `show_value_numeric` | `boolean` | `false` | Show numeric pollen value. |
 | `show_value_numeric_in_circle` | `boolean` | `false` | Place numeric value inside the circle. |
-| `numeric_state_raw_risk` | `boolean` | `false` | Use `numeric_state_raw` for the allergy risk value (PEU only). |
+| `numeric_state_raw_risk` | `boolean` | `false` | Use the raw allergy risk value (PEU only). |
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
