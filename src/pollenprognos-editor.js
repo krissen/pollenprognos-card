@@ -143,8 +143,10 @@ class PollenPrognosCardEditor extends LitElement {
     rawKeys.forEach((raw) => {
       const normKey = normalize(raw); // ex 'alm' eller 'erle'
       const canonKey = ALLERGEN_TRANSLATION[normKey] || normKey; // t.ex. 'alder'
-      full[raw] = t(`editor.phrases_full.${canonKey}`, lang);
-      short[raw] = t(`editor.phrases_short.${canonKey}`, lang);
+      // Use the SILAM-specific name 'index' instead of 'allergy_risk'
+      const transKey = normKey === "index" ? "index" : canonKey;
+      full[raw] = t(`editor.phrases_full.${transKey}`, lang);
+      short[raw] = t(`editor.phrases_short.${transKey}`, lang);
     });
 
     // Levels och days hämtas precis som tidigare
@@ -953,6 +955,8 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.allergens;
         delete newUser.days_to_show;
         delete newUser.pollen_threshold;
+        delete newUser.allergy_risk_top;
+        delete newUser.index_top;
         this._allergensExplicit = false;
       }
       const base =
@@ -1814,9 +1818,16 @@ class PollenPrognosCardEditor extends LitElement {
                     ? this._t("index_top")
                     : this._t("allergy_risk_top")}">
                   <ha-checkbox
-                    .checked=${c.allergy_risk_top}
+                    .checked=${
+                      c.integration === "silam" ? c.index_top : c.allergy_risk_top
+                    }
                     @change=${(e) =>
-                      this._updateConfig("allergy_risk_top", e.target.checked)}
+                      this._updateConfig(
+                        c.integration === "silam"
+                          ? "index_top"
+                          : "allergy_risk_top",
+                        e.target.checked,
+                      )}
                   ></ha-checkbox>
                 </ha-formfield>
               `

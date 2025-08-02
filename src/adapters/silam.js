@@ -4,6 +4,7 @@ import { normalize } from "../utils/normalize.js";
 import { findSilamWeatherEntity } from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { ALLERGEN_TRANSLATION } from "../constants.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -42,7 +43,7 @@ export const stubConfigSILAM = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
-  allergy_risk_top: false,
+  index_top: false,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
@@ -52,7 +53,7 @@ export const stubConfigSILAM = {
 // All possible allergens for the SILAM integration
 export const SILAM_ALLERGENS = [
   ...stubConfigSILAM.allergens,
-  "allergy_risk",
+  "index",
 ];
 
 export const SILAM_THRESHOLDS = {
@@ -181,7 +182,12 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   }
 
   const entity = hass.states[weatherEntity];
-  const allergens = config.allergens || stubConfigSILAM.allergens;
+  const rawAllergens = config.allergens || stubConfigSILAM.allergens;
+  const allergens = rawAllergens.map((raw) => {
+    const norm = normalize(raw);
+    // Translate user-facing slugs (e.g. 'index') to internal canonicals
+    return ALLERGEN_TRANSLATION[norm] || norm;
+  });
 
   // Forecast-array: från forecastEvent om det finns, annars från entity
   let forecastArr = [];
@@ -347,7 +353,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
   );
 
-  if (config.allergy_risk_top) {
+  if (config.index_top || config.allergy_risk_top) {
     const idx = sensors.findIndex(
       (s) => s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
     );

@@ -120,6 +120,7 @@ hazel
 mugwort
 olive
 ragweed
+index
 ```
 
 ## Example snippets
