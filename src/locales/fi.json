@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Tekstin koko (sisäympyrä, % normaalista)",
   "editor.levels_text_weight": "Tekstin paksuus (sisäympyrä)",
   "editor.levels_thickness": "Paksuus (%)",
+  "editor.link_to_sensors": "Yhdistä allergeenit sensoreihin",
   "editor.locale": "Kieliasetus",
   "editor.location": "Sijainti",
   "editor.minimal": "Minimitila",
