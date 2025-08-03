@@ -392,7 +392,10 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 9.1 Set default mode for SILAM and PEU if not specified
-      if ((integration === "silam" || integration === "peu") && !this._userConfig.mode) {
+      if (
+        (integration === "silam" || integration === "peu") &&
+        !this._userConfig.mode
+      ) {
         this._userConfig.mode = "daily";
       }
 
@@ -623,7 +626,10 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     // 1.1) Set default mode for SILAM and PEU if not specified
-    if ((integration === "silam" || integration === "peu") && !this._userConfig.mode) {
+    if (
+      (integration === "silam" || integration === "peu") &&
+      !this._userConfig.mode
+    ) {
       this._userConfig.mode = "daily";
     }
 
@@ -973,7 +979,11 @@ class PollenPrognosCardEditor extends LitElement {
     } else {
       cfg = { ...this._config, [prop]: value };
       // Adjust related settings when switching mode
-      if ((this._config.integration === "silam" || this._config.integration === "peu") && prop === "mode") {
+      if (
+        (this._config.integration === "silam" ||
+          this._config.integration === "peu") &&
+        prop === "mode"
+      ) {
         if (value !== "daily") {
           cfg.days_to_show = 8;
           cfg.show_empty_days = false;
@@ -1222,58 +1232,57 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
         </details>
 
-
         <details open>
           <summary>${this._t("summary_appearance_and_layout")}</summary>
-        <!-- Title -->
-        <details open>
-          <summary>${this._t("summary_title_and_header")}</summary>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <ha-formfield label="${this._t("title_hide")}">
-              <ha-checkbox
-                .checked=${c.title === false}
-                @change=${(e) => {
-                  if (e.target.checked) {
-                    this._updateConfig("title", false);
-                  } else {
+          <!-- Title -->
+          <details open>
+            <summary>${this._t("summary_title_and_header")}</summary>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <ha-formfield label="${this._t("title_hide")}">
+                <ha-checkbox
+                  .checked=${c.title === false}
+                  @change=${(e) => {
+                    if (e.target.checked) {
+                      this._updateConfig("title", false);
+                    } else {
+                      this._updateConfig("title", true);
+                    }
+                  }}
+                ></ha-checkbox>
+              </ha-formfield>
+              <ha-formfield label="${this._t("title_automatic")}">
+                <ha-checkbox
+                  .checked=${c.title === true || c.title === undefined}
+                  @change=${(e) => {
+                    if (e.target.checked) {
+                      this._updateConfig("title", true);
+                    } else {
+                      this._updateConfig("title", "");
+                    }
+                  }}
+                ></ha-checkbox>
+              </ha-formfield>
+            </div>
+            <ha-formfield label="${this._t("title")}">
+              <ha-textfield
+                .value=${typeof c.title === "string"
+                  ? c.title
+                  : c.title === false
+                    ? "(false)"
+                    : ""}
+                placeholder="${this._t("title_placeholder")}"
+                .disabled=${c.title === false}
+                @input=${(e) => {
+                  const val = e.target.value;
+                  if (val.trim() === "") {
                     this._updateConfig("title", true);
+                  } else {
+                    this._updateConfig("title", val);
                   }
                 }}
-              ></ha-checkbox>
+              ></ha-textfield>
             </ha-formfield>
-            <ha-formfield label="${this._t("title_automatic")}">
-              <ha-checkbox
-                .checked=${c.title === true || c.title === undefined}
-                @change=${(e) => {
-                  if (e.target.checked) {
-                    this._updateConfig("title", true);
-                  } else {
-                    this._updateConfig("title", "");
-                  }
-                }}
-              ></ha-checkbox>
-            </ha-formfield>
-          </div>
-          <ha-formfield label="${this._t("title")}">
-            <ha-textfield
-              .value=${typeof c.title === "string"
-                ? c.title
-                : c.title === false
-                  ? "(false)"
-                  : ""}
-              placeholder="${this._t("title_placeholder")}"
-              .disabled=${c.title === false}
-              @input=${(e) => {
-                const val = e.target.value;
-                if (val.trim() === "") {
-                  this._updateConfig("title", true);
-                } else {
-                  this._updateConfig("title", val);
-                }
-              }}
-            ></ha-textfield>
-          </ha-formfield>
-        </details>
+          </details>
           <details open>
             <summary>${this._t("summary_card_layout_and_colors")}</summary>
             <ha-formfield label="${this._t("background_color")}">
@@ -1690,8 +1699,7 @@ class PollenPrognosCardEditor extends LitElement {
             </ha-formfield>
             ${c.integration === "peu"
               ? html`
-                  <ha-formfield
-                    label="${this._t("numeric_state_raw_risk")}">
+                  <ha-formfield label="${this._t("numeric_state_raw_risk")}">
                     <ha-switch
                       .checked=${c.numeric_state_raw_risk}
                       @change=${(e) =>
@@ -1747,16 +1755,21 @@ class PollenPrognosCardEditor extends LitElement {
             <!-- Columns/Days/Threshold/Sort -->
             <div class="slider-row">
               <div class="slider-text">
-                ${(c.integration === "silam" || c.integration === "peu") && c.mode === "twice_daily"
+                ${(c.integration === "silam" || c.integration === "peu") &&
+                c.mode === "twice_daily"
                   ? this._t("to_show_columns")
-                  : (c.integration === "silam" || c.integration === "peu") && c.mode !== "daily"
+                  : (c.integration === "silam" || c.integration === "peu") &&
+                      c.mode !== "daily"
                     ? this._t("to_show_hours")
                     : this._t("to_show_days")}
               </div>
               <div class="slider-value">${c.days_to_show}</div>
               <ha-slider
                 min="0"
-                max="${(c.integration === "silam" || c.integration === "peu") && c.mode !== "daily" ? 8 : 6}"
+                max="${(c.integration === "silam" || c.integration === "peu") &&
+                c.mode !== "daily"
+                  ? 8
+                  : 6}"
                 step="1"
                 .value=${c.days_to_show}
                 @input=${(e) =>
@@ -1783,7 +1796,9 @@ class PollenPrognosCardEditor extends LitElement {
             )}
           </div>
           <div class="preset-buttons">
-            <mwc-button @click=${() => this._toggleSelectAllAllergens(allergens)}>
+            <mwc-button
+              @click=${() => this._toggleSelectAllAllergens(allergens)}
+            >
               ${this._t("select_all_allergens")}
             </mwc-button>
           </div>
@@ -1811,16 +1826,17 @@ class PollenPrognosCardEditor extends LitElement {
               )}
             </ha-select>
           </ha-formfield>
-          ${(c.integration === "peu" || c.integration === "silam")
+          ${c.integration === "peu" || c.integration === "silam"
             ? html`
                 <ha-formfield
                   label="${c.integration === "silam"
                     ? this._t("index_top")
-                    : this._t("allergy_risk_top")}">
+                    : this._t("allergy_risk_top")}"
+                >
                   <ha-checkbox
-                    .checked=${
-                      c.integration === "silam" ? c.index_top : c.allergy_risk_top
-                    }
+                    .checked=${c.integration === "silam"
+                      ? c.index_top
+                      : c.allergy_risk_top}
                     @change=${(e) =>
                       this._updateConfig(
                         c.integration === "silam"
@@ -1956,6 +1972,13 @@ class PollenPrognosCardEditor extends LitElement {
         <details>
           <summary>${this._t("summary_card_interactivity")}</summary>
           <h3>${this._t("tap_action")}</h3>
+          <ha-formfield label="${this._t("link_to_sensors")}">
+            <ha-switch
+              .checked=${c.link_to_sensors !== false}
+              @change=${(e) =>
+                this._updateConfig("link_to_sensors", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
           <ha-formfield label="${this._t("tap_action_enable")}">
             <ha-switch
               .checked=${this._tapType !== "none"}

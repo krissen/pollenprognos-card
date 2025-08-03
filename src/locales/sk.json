@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Veľkosť textu (vnútorný kruh, % normálu)",
   "editor.levels_text_weight": "Hrúbka textu (vnútorný kruh)",
   "editor.levels_thickness": "Hrúbka (%)",
+  "editor.link_to_sensors": "Prepojiť alergény so senzormi",
   "editor.locale": "Jazyk",
   "editor.location": "Poloha",
   "editor.minimal": "Minimálny režim",

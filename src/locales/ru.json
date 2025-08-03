@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Размер текста (внутренний круг, % от нормы)",
   "editor.levels_text_weight": "Начертание текста (внутренний круг)",
   "editor.levels_thickness": "Толщина (%)",
+  "editor.link_to_sensors": "Связать аллергены с датчиками",
   "editor.locale": "Язык",
   "editor.location": "Местоположение",
   "editor.minimal": "Минимальный режим",

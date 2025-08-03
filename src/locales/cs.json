@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Velikost textu (vnitřní kruh, % z normálu)",
   "editor.levels_text_weight": "Tloušťka textu (vnitřní kruh)",
   "editor.levels_thickness": "Tloušťka (%)",
+  "editor.link_to_sensors": "Propojit alergeny se senzory",
   "editor.locale": "Jazyk",
   "editor.location": "Poloha",
   "editor.minimal": "Minimální režim",

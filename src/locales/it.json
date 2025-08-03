@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Dimensione testo (cerchio interno, % del normale)",
   "editor.levels_text_weight": "Peso testo (cerchio interno)",
   "editor.levels_thickness": "Spessore (%)",
+  "editor.link_to_sensors": "Collega allergeni ai sensori",
   "editor.locale": "Lingua",
   "editor.location": "Località",
   "editor.minimal": "Modalità minimale",

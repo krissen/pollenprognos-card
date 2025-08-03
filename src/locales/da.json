@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Tekststørrelse (indre cirkel, % af normal)",
   "editor.levels_text_weight": "Teksttykkelse (indre cirkel)",
   "editor.levels_thickness": "Tykkelse (%)",
+  "editor.link_to_sensors": "Knyt allergener til sensorer",
   "editor.locale": "Sprog",
   "editor.location": "Placering",
   "editor.minimal": "Minimal tilstand",

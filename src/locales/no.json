@@ -72,6 +72,7 @@
   "editor.levels_text_size": "Tekststørrelse (indre sirkel, % av normal)",
   "editor.levels_text_weight": "Teksttykkelse (indre sirkel)",
   "editor.levels_thickness": "Tykkelse (%)",
+  "editor.link_to_sensors": "Koble allergener til sensorer",
   "editor.locale": "Språk",
   "editor.location": "Sted",
   "editor.minimal": "Minimal modus",

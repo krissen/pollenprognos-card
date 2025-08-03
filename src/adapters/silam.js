@@ -45,6 +45,7 @@ export const stubConfigSILAM = {
   sort: "value_descending",
   index_top: true,
   allergens_abbreviated: false,
+  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
@@ -229,6 +230,27 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         dict.allergenCapitalized = name;
         dict.allergenShort = name;
       }
+
+      // Attempt to find the matching sensor entity for this allergen
+      let sensorId = null;
+      for (const mapping of Object.values(silamAllergenMap.mapping)) {
+        const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
+          acc[master] = ha;
+          return acc;
+        }, {});
+        if (inverse[allergen]) {
+          const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
+          if (hass.states[candidate]) {
+            sensorId = candidate;
+            break;
+          }
+        }
+      }
+      if (!sensorId) {
+        const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
+        if (hass.states[fallback]) sensorId = fallback;
+      }
+      dict.entity_id = sensorId;
 
       // Samla nivåer per dag/kolumn (olika för daily och övriga lägen)
       let stateList = [];
