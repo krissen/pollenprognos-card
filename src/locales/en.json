@@ -55,6 +55,8 @@
   "editor.debug": "Debug",
   "editor.entity_prefix": "Entity prefix",
   "editor.entity_suffix": "Entity suffix",
+  "editor.entity_prefix_placeholder": "Type 'null' for no prefix",
+  "editor.entity_suffix_placeholder": "Type 'null' for no suffix",
   "editor.icon_size": "Icon size (px)",
   "editor.index_top": "Index top of list",
   "editor.integration": "Integration",
