@@ -1189,35 +1189,6 @@ class PollenPrognosCardEditor extends LitElement {
                       </ha-select>
                     </ha-formfield>
                   `}
-          <details>
-            <summary>${this._t("summary_entity_prefix_suffix")}</summary>
-            <ha-formfield label="${this._t("entity_prefix")}">
-              <ha-textfield
-                .value=${c.entity_prefix || ""}
-                @input=${(e) => {
-                  const val = e.target.value;
-                  // Allow the literal string "null" to represent an empty prefix
-                  this._updateConfig(
-                    "entity_prefix",
-                    val.toLowerCase() === "null" ? "" : val,
-                  );
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-            <ha-formfield label="${this._t("entity_suffix")}">
-              <ha-textfield
-                .value=${c.entity_suffix || ""}
-                @input=${(e) => {
-                  const val = e.target.value;
-                  // Allow "null" to explicitly clear the suffix as well
-                  this._updateConfig(
-                    "entity_suffix",
-                    val.toLowerCase() === "null" ? "" : val,
-                  );
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-          </details>
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
@@ -1276,6 +1247,35 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-formfield>
                 `
               : ""}
+          <details>
+            <summary>${this._t("summary_entity_prefix_suffix")}</summary>
+            <ha-formfield label="${this._t("entity_prefix")}">
+              <ha-textfield
+                .value=${c.entity_prefix || ""}
+                @input=${(e) => {
+                  const val = e.target.value;
+                  // Allow the literal string "null" to represent an empty prefix
+                  this._updateConfig(
+                    "entity_prefix",
+                    val.toLowerCase() === "null" ? "" : val,
+                  );
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+            <ha-formfield label="${this._t("entity_suffix")}">
+              <ha-textfield
+                .value=${c.entity_suffix || ""}
+                @input=${(e) => {
+                  const val = e.target.value;
+                  // Allow "null" to explicitly clear the suffix as well
+                  this._updateConfig(
+                    "entity_suffix",
+                    val.toLowerCase() === "null" ? "" : val,
+                  );
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+          </details>
         </details>
 
         <details open>
