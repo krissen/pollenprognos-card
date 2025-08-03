@@ -175,35 +175,46 @@ export async function fetchForecast(hass, config) {
 
       // Find sensor
       let sensorId;
-      if (mode !== "daily" && allergenSlug === "allergy_risk") {
-        sensorId = locationSlug
-          ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
-          : null;
+      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
+        const base = config.entity_prefix || "";
+        const suffix =
+          mode !== "daily" && allergenSlug === "allergy_risk"
+            ? "allergy_risk_hourly"
+            : allergenSlug;
+        sensorId = `sensor.${base}${suffix}`;
+        if (!hass.states[sensorId]) continue;
       } else {
-        sensorId = locationSlug
-          ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
-          : null;
-      }
-      if (!sensorId || !hass.states[sensorId]) {
-        // Leta fallback-sensor bland peuStates
-        const cands = peuStates.filter((id) => {
-          const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
-          if (!match) return false;
-          const loc = match[1];
-          const allergen = match[2];
-          if (mode !== "daily" && allergenSlug === "allergy_risk") {
+        if (mode !== "daily" && allergenSlug === "allergy_risk") {
+          sensorId = locationSlug
+            ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
+            : null;
+        } else {
+          sensorId = locationSlug
+            ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
+            : null;
+        }
+        if (!sensorId || !hass.states[sensorId]) {
+          // Leta fallback-sensor bland peuStates
+          const cands = peuStates.filter((id) => {
+            const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+            if (!match) return false;
+            const loc = match[1];
+            const allergen = match[2];
+            if (mode !== "daily" && allergenSlug === "allergy_risk") {
+              return (
+                (!locationSlug || loc === locationSlug) &&
+                allergen === "allergy_risk_hourly"
+              );
+            }
             return (
               (!locationSlug || loc === locationSlug) &&
-              allergen === "allergy_risk_hourly"
+              allergen === allergenSlug
             );
-          }
-          return (
-            (!locationSlug || loc === locationSlug) && allergen === allergenSlug
-          );
-        });
+          });
 
-        if (cands.length === 1) sensorId = cands[0];
-        else continue;
+          if (cands.length === 1) sensorId = cands[0];
+          else continue;
+        }
       }
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";

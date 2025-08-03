@@ -666,58 +666,60 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // Automatisk region/stad/location
-    if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
-      cfg.region_id = Array.from(
-        new Set(dwdStates.map((id) => id.split("_").pop())),
-      ).sort((a, b) => Number(a) - Number(b))[0];
-      if (this.debug)
-        console.debug("[Card] Auto-set region_id:", cfg.region_id);
-    } else if (integration === "pp" && !cfg.city && ppStates.length) {
-      cfg.city = ppStates[0]
-        .slice("sensor.pollen_".length)
-        .replace(/_[^_]+$/, "");
-      if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (integration === "peu" && !cfg.location && peuStates.length) {
-      // Samla alla location_slug från entity attributes (om de finns)
-      const peuLocations = Array.from(
-        new Set(
-          peuStates
-            .map((eid) => {
-              const attr = hass.states[eid]?.attributes || {};
-              return attr.location_slug || null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = peuLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][PEU] Auto-set location (location_slug):",
-          cfg.location,
-          peuLocations,
+    // Automatisk region/stad/location (om ingen egen prefix används)
+    if (!Object.prototype.hasOwnProperty.call(cfg, "entity_prefix")) {
+      if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
+        cfg.region_id = Array.from(
+          new Set(dwdStates.map((id) => id.split("_").pop())),
+        ).sort((a, b) => Number(a) - Number(b))[0];
+        if (this.debug)
+          console.debug("[Card] Auto-set region_id:", cfg.region_id);
+      } else if (integration === "pp" && !cfg.city && ppStates.length) {
+        cfg.city = ppStates[0]
+          .slice("sensor.pollen_".length)
+          .replace(/_[^_]+$/, "");
+        if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
+      } else if (integration === "peu" && !cfg.location && peuStates.length) {
+        // Samla alla location_slug från entity attributes (om de finns)
+        const peuLocations = Array.from(
+          new Set(
+            peuStates
+              .map((eid) => {
+                const attr = hass.states[eid]?.attributes || {};
+                return attr.location_slug || null;
+              })
+              .filter(Boolean),
+          ),
         );
-    } else if (integration === "silam" && !cfg.location && silamStates.length) {
-      // Samla alla unika location-namn från entity_id
-      const silamLocations = Array.from(
-        new Set(
-          silamStates
-            .map((eid) => {
-              // sensor.silam_pollen_<location>_<allergen>
-              // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
-              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = silamLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][SILAM] Auto-set location (location):",
-          cfg.location,
-          silamLocations,
+        cfg.location = peuLocations[0] || null;
+        if (this.debug)
+          console.debug(
+            "[Card][PEU] Auto-set location (location_slug):",
+            cfg.location,
+            peuLocations,
+          );
+      } else if (integration === "silam" && !cfg.location && silamStates.length) {
+        // Samla alla unika location-namn från entity_id
+        const silamLocations = Array.from(
+          new Set(
+            silamStates
+              .map((eid) => {
+                // sensor.silam_pollen_<location>_<allergen>
+                // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
+                const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                return m ? m[1] : null;
+              })
+              .filter(Boolean),
+          ),
         );
+        cfg.location = silamLocations[0] || null;
+        if (this.debug)
+          console.debug(
+            "[Card][SILAM] Auto-set location (location):",
+            cfg.location,
+            silamLocations,
+          );
+      }
     }
 
     // Spara config och header
@@ -844,7 +846,9 @@ class PollenPrognosCard extends LitElement {
                 .replace(/[-\s]/g, "_") === cfg.city,
           ) || cfg.city;
       }
-      this.header = `${this._t("card.header_prefix")} ${loc}`;
+      this.header = loc
+        ? `${this._t("card.header_prefix")} ${loc}`
+        : this._t("card.header_prefix");
       if (this.debug) console.debug("[Card] header set to:", this.header);
     }
 

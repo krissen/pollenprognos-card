@@ -6,6 +6,45 @@ import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type
 export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];
+
+  // Custom prefix: user-defined entity name prefix overrides automatic lookup
+  if (Object.prototype.hasOwnProperty.call(cfg, "entity_prefix")) {
+    const prefix = cfg.entity_prefix || "";
+    for (const allergen of cfg.allergens || []) {
+      let slug;
+      if (integration === "dwd") {
+        slug = normalizeDWD(allergen);
+      } else if (integration === "silam") {
+        slug = null;
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inv[allergen]) {
+            slug = inv[allergen];
+            break;
+          }
+        }
+        if (!slug) slug = normalize(allergen);
+      } else {
+        slug = normalize(allergen);
+      }
+      const sensorId = `sensor.${prefix}${slug}`;
+      const exists = !!hass.states[sensorId];
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][custom] allergen: '${allergen}', slug: '${slug}', sensorId: '${sensorId}', exists: ${exists}`,
+        );
+      }
+      if (exists) sensors.push(sensorId);
+    }
+    if (debug) {
+      console.debug("[findAvailableSensors] Found sensors (", sensors.length, ") :", sensors);
+    }
+    return sensors;
+  }
+
   if (integration === "pp") {
     const cityKey = normalize(cfg.city || "");
     for (const allergen of cfg.allergens || []) {

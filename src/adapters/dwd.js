@@ -126,15 +126,21 @@ export async function fetchForecast(hass, config) {
       }
 
       // Hitta sensor
-      let sensorId = config.region_id
-        ? `sensor.pollenflug_${rawKey}_${config.region_id}`
-        : null;
-      if (!sensorId || !hass.states[sensorId]) {
-        const candidates = Object.keys(hass.states).filter((id) =>
-          id.startsWith(`sensor.pollenflug_${rawKey}_`),
-        );
-        if (candidates.length === 1) sensorId = candidates[0];
-        else continue;
+      let sensorId;
+      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
+        sensorId = `sensor.${config.entity_prefix || ""}${rawKey}`;
+        if (!hass.states[sensorId]) continue;
+      } else {
+        sensorId = config.region_id
+          ? `sensor.pollenflug_${rawKey}_${config.region_id}`
+          : null;
+        if (!sensorId || !hass.states[sensorId]) {
+          const candidates = Object.keys(hass.states).filter((id) =>
+            id.startsWith(`sensor.pollenflug_${rawKey}_`),
+          );
+          if (candidates.length === 1) sensorId = candidates[0];
+          else continue;
+        }
       }
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;

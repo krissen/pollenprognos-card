@@ -959,6 +959,7 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.city;
         delete newUser.region_id;
         delete newUser.location;
+        delete newUser.entity_prefix;
         delete newUser.mode;
         delete newUser.allergens;
         delete newUser.days_to_show;
@@ -1171,9 +1172,15 @@ class PollenPrognosCardEditor extends LitElement {
                               ${id} — ${DWD_REGIONS[id] || id}
                             </mwc-list-item>`,
                         )}
-                      </ha-select>
-                    </ha-formfield>
-                  `}
+                  </ha-select>
+                </ha-formfield>
+              `}
+          <ha-formfield label="${this._t("entity_prefix")}">
+            <ha-textfield
+              .value=${c.entity_prefix || ""}
+              @input=${(e) => this._updateConfig("entity_prefix", e.target.value)}
+            ></ha-textfield>
+          </ha-formfield>
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">

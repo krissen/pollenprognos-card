@@ -74,6 +74,7 @@
   "editor.levels_thickness": "Thickness (%)",
   "editor.locale": "Locale",
   "editor.location": "Location",
+  "editor.entity_prefix": "Entity prefix",
   "editor.minimal": "Minimal mode",
   "editor.minimal_gap": "Gap between allergens (px)",
   "editor.summary_minimal": "Minimal",

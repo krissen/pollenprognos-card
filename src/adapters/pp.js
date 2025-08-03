@@ -141,14 +141,20 @@ export async function fetchForecast(hass, config) {
       }
       // Sensor lookup
       const cityKey = normalize(config.city);
-      let sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
-      if (!hass.states[sensorId]) {
-        const cands = Object.keys(hass.states).filter(
-          (id) =>
-            id.startsWith(`sensor.pollen_${cityKey}_`) && id.includes(rawKey),
-        );
-        if (cands.length === 1) sensorId = cands[0];
-        else continue;
+      let sensorId;
+      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
+        sensorId = `sensor.${config.entity_prefix || ""}${rawKey}`;
+        if (!hass.states[sensorId]) continue;
+      } else {
+        sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
+        if (!hass.states[sensorId]) {
+          const cands = Object.keys(hass.states).filter(
+            (id) =>
+              id.startsWith(`sensor.pollen_${cityKey}_`) && id.includes(rawKey),
+          );
+          if (cands.length === 1) sensorId = cands[0];
+          else continue;
+        }
       }
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";
