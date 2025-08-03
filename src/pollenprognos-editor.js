@@ -196,8 +196,9 @@ class PollenPrognosCardEditor extends LitElement {
     };
   }
 
+  // Use Home Assistant's language for editor strings
   get _lang() {
-    return detectLang(this._hass, this._config.date_locale);
+    return detectLang(this._hass);
   }
 
   _t(key) {
@@ -206,19 +207,19 @@ class PollenPrognosCardEditor extends LitElement {
 
   constructor() {
     super();
-    // Sätt ALLT till neutrala värden, oavsett state på this._hass eller this._config
+    // Set everything to neutral values regardless of hass or config state
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
     // this._config = stubConfigPP;
-    this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
+    this._config = {}; // Empty – will be set by setConfig or hass
     this.installedCities = [];
     this.installedPeuLocations = [];
     this.installedSilamLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
-    // Säkra att _selectedPhraseLang alltid får fallback om ingen hass eller locale finns
+    // Ensure _selectedPhraseLang always has a fallback if no hass or locale exists
     this._selectedPhraseLang = "sv";
     this._allergensExplicit = false;
     this._origAllergensSet = false;
