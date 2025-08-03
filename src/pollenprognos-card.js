@@ -56,6 +56,8 @@ class PollenPrognosCard extends LitElement {
     allergen = "default",
     dayIndex = 0,
     displayLevel = level,
+    entityId = null,
+    clickable = true,
   ) {
     // Create a unique key for this chart configuration
     const chartId = `chart-${allergen}-${dayIndex}-${level}`;
@@ -65,7 +67,9 @@ class PollenPrognosCard extends LitElement {
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
+          clickable && entityId ? " cursor: pointer;" : ""
+        }"
         .level="${level}"
         .displayLevel="${displayLevel}"
         .colors="${JSON.stringify(colors)}"
@@ -78,8 +82,23 @@ class PollenPrognosCard extends LitElement {
         .fontWeight="${this.config?.levels_text_weight || "normal"}"
         .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
         .textColor="${this.config?.levels_text_color || "var(--primary-text-color)"}"
+        @click=${(e) => {
+          if (clickable && entityId) {
+            e.stopPropagation();
+            this._openEntity(entityId);
+          }
+        }}
       ></div>
     `;
+  }
+
+  _openEntity(entityId) {
+    const ev = new CustomEvent("hass-more-info", {
+      bubbles: true,
+      composed: true,
+      detail: { entityId },
+    });
+    this.dispatchEvent(ev);
   }
 
   updated(changedProps) {
@@ -1032,6 +1051,17 @@ class PollenPrognosCard extends LitElement {
                     sensor.allergenReplaced,
                     sensor.day0?.state,
                   )}"
+                  style="${
+                    this.config.link_to_sensors !== false && sensor.entity_id
+                      ? "cursor: pointer;"
+                      : ""
+                  }"
+                  @click=${(e) => {
+                    if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                      e.stopPropagation();
+                      this._openEntity(sensor.entity_id);
+                    }
+                  }}
                 />
                 ${label
                   ? html`<span
@@ -1130,6 +1160,17 @@ class PollenPrognosCard extends LitElement {
                         sensor.allergenReplaced,
                         sensor.days[0]?.state,
                       )}"
+                      style="${
+                        this.config.link_to_sensors !== false && sensor.entity_id
+                          ? "cursor: pointer;"
+                          : ""
+                      }"
+                      @click=${(e) => {
+                        if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                          e.stopPropagation();
+                          this._openEntity(sensor.entity_id);
+                        }
+                      }}
                     />
                   </td>
                   ${cols.map(
@@ -1162,6 +1203,8 @@ class PollenPrognosCard extends LitElement {
                             sensor.allergenReplaced,
                             i,
                             displayVal,
+                            sensor.entity_id,
+                            this.config.link_to_sensors !== false,
                           );
                         })()}
                       </td>

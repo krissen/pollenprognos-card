@@ -1688,6 +1688,13 @@ class PollenPrognosCardEditor extends LitElement {
                   )}
               ></ha-switch>
             </ha-formfield>
+            <ha-formfield label="${this._t("link_to_sensors")}">
+              <ha-switch
+                .checked=${c.link_to_sensors !== false}
+                @change=${(e) =>
+                  this._updateConfig("link_to_sensors", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
             ${c.integration === "peu"
               ? html`
                   <ha-formfield
