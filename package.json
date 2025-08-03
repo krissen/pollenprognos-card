@@ -14,7 +14,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "lit": "^2.8.0",
-    "intl-messageformat": "^10.5.20"
+    "intl-messageformat": "^10.7.16",
+    "lit": "^2.8.0"
   }
 }
