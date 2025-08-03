@@ -666,60 +666,57 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // Automatic region/city/location detection only when user did not define a prefix
-    if (!Object.prototype.hasOwnProperty.call(this._userConfig, "entity_prefix")) {
-      if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
-        cfg.region_id = Array.from(
-          new Set(dwdStates.map((id) => id.split("_").pop())),
-        ).sort((a, b) => Number(a) - Number(b))[0];
-        if (this.debug)
-          console.debug("[Card] Auto-set region_id:", cfg.region_id);
-      } else if (integration === "pp" && !cfg.city && ppStates.length) {
-        cfg.city = ppStates[0]
-          .slice("sensor.pollen_".length)
-          .replace(/_[^_]+$/, "");
-        if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-      } else if (integration === "peu" && !cfg.location && peuStates.length) {
-        // Samla alla location_slug från entity attributes (om de finns)
-        const peuLocations = Array.from(
-          new Set(
-            peuStates
-              .map((eid) => {
-                const attr = hass.states[eid]?.attributes || {};
-                return attr.location_slug || null;
-              })
-              .filter(Boolean),
-          ),
+    // Automatic region/city/location detection unless manual mode is selected
+    if (integration === "dwd" && cfg.region_id !== "manual" && !cfg.region_id && dwdStates.length) {
+      cfg.region_id = Array.from(
+        new Set(dwdStates.map((id) => id.split("_").pop())),
+      ).sort((a, b) => Number(a) - Number(b))[0];
+      if (this.debug) console.debug("[Card] Auto-set region_id:", cfg.region_id);
+    } else if (integration === "pp" && cfg.city !== "manual" && !cfg.city && ppStates.length) {
+      cfg.city = ppStates[0]
+        .slice("sensor.pollen_".length)
+        .replace(/_[^_]+$/, "");
+      if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
+    } else if (integration === "peu" && cfg.location !== "manual" && !cfg.location && peuStates.length) {
+      // Samla alla location_slug från entity attributes (om de finns)
+      const peuLocations = Array.from(
+        new Set(
+          peuStates
+            .map((eid) => {
+              const attr = hass.states[eid]?.attributes || {};
+              return attr.location_slug || null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = peuLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][PEU] Auto-set location (location_slug):",
+          cfg.location,
+          peuLocations,
         );
-        cfg.location = peuLocations[0] || null;
-        if (this.debug)
-          console.debug(
-            "[Card][PEU] Auto-set location (location_slug):",
-            cfg.location,
-            peuLocations,
-          );
-      } else if (integration === "silam" && !cfg.location && silamStates.length) {
-        // Samla alla unika location-namn från entity_id
-        const silamLocations = Array.from(
-          new Set(
-            silamStates
-              .map((eid) => {
-                // sensor.silam_pollen_<location>_<allergen>
-                // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
-                const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                return m ? m[1] : null;
-              })
-              .filter(Boolean),
-          ),
+    } else if (integration === "silam" && cfg.location !== "manual" && !cfg.location && silamStates.length) {
+      // Samla alla unika location-namn från entity_id
+      const silamLocations = Array.from(
+        new Set(
+          silamStates
+            .map((eid) => {
+              // sensor.silam_pollen_<location>_<allergen>
+              // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
+              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = silamLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][SILAM] Auto-set location (location):",
+          cfg.location,
+          silamLocations,
         );
-        cfg.location = silamLocations[0] || null;
-        if (this.debug)
-          console.debug(
-            "[Card][SILAM] Auto-set location (location):",
-            cfg.location,
-            silamLocations,
-          );
-      }
     }
 
     // Spara config och header
@@ -747,9 +744,12 @@ class PollenPrognosCard extends LitElement {
     } else {
       let loc = "";
       if (integration === "dwd") {
-        loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
+        loc =
+          cfg.region_id && cfg.region_id !== "manual"
+            ? DWD_REGIONS[cfg.region_id] || cfg.region_id
+            : "";
       } else if (integration === "peu") {
-        // Hitta alla peu-entities
+        // Collect all PEU entities to determine location automatically.
         const peuEntities = Object.values(hass.states).filter(
           (s) =>
             s &&
@@ -757,26 +757,58 @@ class PollenPrognosCard extends LitElement {
             typeof s.entity_id === "string" &&
             s.entity_id.startsWith("sensor.polleninformation_"),
         );
-        // Hitta entity där slug-attribut eller entity_id matchar cfg.location
-        const match = peuEntities.find((s) => {
-          const attr = s.attributes || {};
-          const slug =
-            attr.location_slug ||
-            s.entity_id
-              .replace("sensor.polleninformation_", "")
-              .replace(/_[^_]+$/, "");
-          // Always slugify both sides for matching!
-          return slugify(slug) === slugify(cfg.location || "");
-        });
+        const wantedSlug =
+          cfg.location && cfg.location !== "manual"
+            ? slugify(cfg.location)
+            : "";
         let title = "";
+        let match = null;
+        if (wantedSlug) {
+          // Find entity matching the configured location slug.
+          match = peuEntities.find((s) => {
+            const attr = s.attributes || {};
+            const slug =
+              attr.location_slug ||
+              s.entity_id
+                .replace("sensor.polleninformation_", "")
+                .replace(/_[^_]+$/, "");
+            return slugify(slug) === wantedSlug;
+          });
+        } else {
+          // No location configured – determine if all sensors belong to one place.
+          const locations = Array.from(
+            new Set(
+              peuEntities.map((s) => {
+                const attr = s.attributes || {};
+                const slug =
+                  attr.location_slug ||
+                  s.entity_id
+                    .replace("sensor.polleninformation_", "")
+                    .replace(/_[^_]+$/, "");
+                return slugify(slug);
+              }),
+            ),
+          );
+          if (locations.length === 1) {
+            match = peuEntities.find((s) => {
+              const attr = s.attributes || {};
+              const slug =
+                attr.location_slug ||
+                s.entity_id
+                  .replace("sensor.polleninformation_", "")
+                  .replace(/_[^_]+$/, "");
+              return slugify(slug) === locations[0];
+            });
+          }
+        }
         if (match) {
-          const attr = match.attributes;
+          const attr = match.attributes || {};
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-            cfg.location;
+            "";
         }
-        loc = title || cfg.location || "";
+        loc = wantedSlug ? title || cfg.location || "" : title;
       } else if (integration === "silam") {
         const pollenAllergens = [
           "alder",
@@ -812,14 +844,21 @@ class PollenPrognosCard extends LitElement {
           const allergenSlug = match[2];
           return SilamValidAllergenSlugs.has(allergenSlug);
         });
-        const wantedSlug = slugify(cfg.location || "");
+        const wantedSlug =
+          cfg.location && cfg.location !== "manual"
+            ? slugify(cfg.location)
+            : "";
 
         // Hitta första entity med samma slugificerade location
-        const match = silamEntities.find((s) => {
-          const eid = s.entity_id.replace("sensor.silam_pollen_", "");
-          const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
-          return slugify(locPart) === wantedSlug;
-        });
+        const match = wantedSlug
+          ? silamEntities.find((s) => {
+              const eid = s.entity_id.replace("sensor.silam_pollen_", "");
+              const locPart = eid
+                .replace(/_[^_]+$/, "")
+                .replace(/^[-\s]+/, "");
+              return slugify(locPart) === wantedSlug;
+            })
+          : null;
 
         let title = "";
         if (match) {
@@ -834,17 +873,30 @@ class PollenPrognosCard extends LitElement {
           title = title.replace(/^[-\s]+/, "");
         }
 
-        loc = title || cfg.location || "";
+        loc = wantedSlug ? title || cfg.location || "" : title;
       } else {
-        loc =
-          PP_POSSIBLE_CITIES.find(
-            (n) =>
-              n
-                .toLowerCase()
-                .replace(/[åä]/g, "a")
-                .replace(/ö/g, "o")
-                .replace(/[-\s]/g, "_") === cfg.city,
-          ) || cfg.city;
+        // Pollenprognos integration (PP): resolve city automatically when unset.
+        const matchCity = (slug) =>
+          PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
+        if (cfg.city && cfg.city !== "manual") {
+          loc = matchCity(cfg.city);
+        } else {
+          const ppStates = Object.keys(hass.states).filter((id) =>
+            /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+          );
+          const cities = Array.from(
+            new Set(
+              ppStates.map((id) =>
+                id.replace("sensor.pollen_", "").replace(/_[^_]+$/, ""),
+              ),
+            ),
+          );
+          if (cities.length === 1) {
+            loc = matchCity(cities[0]);
+          } else {
+            loc = "";
+          }
+        }
       }
       this.header = loc
         ? `${this._t("card.header_prefix")} ${loc}`

@@ -9,9 +9,9 @@ import { indexToLevel } from "./silam.js";
 export const stubConfigPEU = {
   integration: "peu",
   location: "",
-  // Optional entity naming, null means default integration format
-  entity_prefix: null,
-  entity_suffix: null,
+  // Optional entity naming used when location is "manual"
+  entity_prefix: "",
+  entity_suffix: "",
   allergens: [
     "alder",
     "ash",
@@ -138,8 +138,8 @@ export async function fetchForecast(hass, config) {
   const peuStates = Object.keys(hass.states).filter((id) =>
     id.startsWith("sensor.polleninformation_"),
   );
-  let locationSlug = config.location;
-  if (!locationSlug && peuStates.length) {
+  let locationSlug = config.location === "manual" ? "" : config.location;
+  if (!locationSlug && config.location !== "manual" && peuStates.length) {
     // Extract full location slug (everything after "sensor.polleninformation_" and before last "_<allergen>")
     const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
     locationSlug = match ? match[1] : "";
@@ -178,8 +178,8 @@ export async function fetchForecast(hass, config) {
 
       // Find sensor
       let sensorId;
-      if (config.entity_prefix != null) {
-        const prefix = config.entity_prefix;
+      if (config.location === "manual") {
+        const prefix = config.entity_prefix || "";
         const coreSlug =
           mode !== "daily" && allergenSlug === "allergy_risk"
             ? "allergy_risk_hourly"
