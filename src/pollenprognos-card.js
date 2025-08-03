@@ -111,7 +111,10 @@ class PollenPrognosCard extends LitElement {
 
     // After rendering, find all chart containers and create/update charts
     this.updateComplete.then(() => {
-      this.renderRoot.querySelectorAll(".level-circle").forEach((container) => {
+      const containers = this.renderRoot.querySelectorAll(".level-circle");
+      const activeIds = new Set();
+      containers.forEach((container) => {
+        activeIds.add(container.id);
         // Extract properties from the container
         const level = Number(container.level || 0);
         // Value to display inside the circle; defaults to the normalized level.
@@ -131,15 +134,19 @@ class PollenPrognosCard extends LitElement {
         const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2;
         const textColor = container.textColor || "var(--primary-text-color)";
 
-        // Check if we already have a chart for this container
+        // Check if a chart already exists for this container
         let chart = this._chartCache.get(container.id);
 
-        // Remove previously added text element, if any
+        // Remove old text overlay, if any
         const existingText = container.querySelector(".level-value-text");
         if (existingText) existingText.remove();
 
-        if (!chart) {
-          // Create canvas if it doesn't exist
+        // If the chart is missing or attached to a removed element, recreate it
+        if (!chart || !container.contains(chart.canvas)) {
+          if (chart) {
+            // Destroy chart linked to a stale container
+            chart.destroy();
+          }
           container.innerHTML = "";
           const canvas = document.createElement("canvas");
           canvas.width = size;
@@ -153,7 +160,7 @@ class PollenPrognosCard extends LitElement {
             .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
           const bc = Array(numSegments).fill(gapColor);
 
-          // Create new chart
+          // Create new chart bound to the fresh canvas
           chart = new Chart(canvas.getContext("2d"), {
             type: "doughnut",
             data: {
@@ -206,7 +213,7 @@ class PollenPrognosCard extends LitElement {
               },
             },
           });
-          // Add to cache
+          // Store chart reference for later updates
           this._chartCache.set(container.id, chart);
         } else {
           // Update existing chart if level changed
@@ -246,6 +253,13 @@ class PollenPrognosCard extends LitElement {
           }
 
           container.appendChild(valueText);
+        }
+      });
+      // Clean up charts that no longer have a matching container
+      this._chartCache.forEach((cachedChart, id) => {
+        if (!activeIds.has(id)) {
+          cachedChart.destroy();
+          this._chartCache.delete(id);
         }
       });
     });
