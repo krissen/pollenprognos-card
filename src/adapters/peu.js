@@ -9,6 +9,9 @@ import { indexToLevel } from "./silam.js";
 export const stubConfigPEU = {
   integration: "peu",
   location: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
+  entity_suffix: null,
   allergens: [
     "alder",
     "ash",
@@ -175,13 +178,14 @@ export async function fetchForecast(hass, config) {
 
       // Find sensor
       let sensorId;
-      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
-        const base = config.entity_prefix || "";
-        const suffix =
+      if (config.entity_prefix != null) {
+        const prefix = config.entity_prefix;
+        const coreSlug =
           mode !== "daily" && allergenSlug === "allergy_risk"
             ? "allergy_risk_hourly"
             : allergenSlug;
-        sensorId = `sensor.${base}${suffix}`;
+        const suffix = config.entity_suffix || "";
+        sensorId = `sensor.${prefix}${coreSlug}${suffix}`;
         if (!hass.states[sensorId]) continue;
       } else {
         if (mode !== "daily" && allergenSlug === "allergy_risk") {

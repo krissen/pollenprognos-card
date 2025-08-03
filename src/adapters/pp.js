@@ -7,6 +7,9 @@ import { buildLevelNames } from "../utils/level-names.js";
 export const stubConfigPP = {
   integration: "pp",
   city: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
+  entity_suffix: null,
   allergens: [
     "Al",
     "Alm",
@@ -142,8 +145,10 @@ export async function fetchForecast(hass, config) {
       // Sensor lookup
       const cityKey = normalize(config.city);
       let sensorId;
-      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
-        sensorId = `sensor.${config.entity_prefix || ""}${rawKey}`;
+      if (config.entity_prefix != null) {
+        const prefix = config.entity_prefix;
+        const suffix = config.entity_suffix || "";
+        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
         if (!hass.states[sensorId]) continue;
       } else {
         sensorId = `sensor.pollen_${cityKey}_${rawKey}`;

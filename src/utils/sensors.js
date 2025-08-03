@@ -7,9 +7,16 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];
 
-  // Custom prefix: user-defined entity name prefix overrides automatic lookup
-  if (Object.prototype.hasOwnProperty.call(cfg, "entity_prefix")) {
-    const prefix = cfg.entity_prefix || "";
+  // Custom prefix (including empty string) overrides automatic lookup
+  if (cfg.entity_prefix != null) {
+    const prefix = cfg.entity_prefix;
+    // Decide suffix: explicit entity_suffix wins, otherwise reuse region_id
+    const suffix =
+      cfg.entity_suffix != null
+        ? cfg.entity_suffix || ""
+        : cfg.region_id
+          ? `_${cfg.region_id}`
+          : "";
     for (const allergen of cfg.allergens || []) {
       let slug;
       if (integration === "dwd") {
@@ -30,11 +37,22 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       } else {
         slug = normalize(allergen);
       }
-      const sensorId = `sensor.${prefix}${slug}`;
-      const exists = !!hass.states[sensorId];
+      let sensorId = `sensor.${prefix}${slug}${suffix}`;
+      let exists = !!hass.states[sensorId];
+      if (!exists && suffix === "") {
+        // Fallback: try to find a unique candidate starting with the prefix and slug
+        const base = `sensor.${prefix}${slug}`;
+        const candidates = Object.keys(hass.states).filter((id) =>
+          id.startsWith(base),
+        );
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+          exists = true;
+        }
+      }
       if (debug) {
         console.debug(
-          `[findAvailableSensors][custom] allergen: '${allergen}', slug: '${slug}', sensorId: '${sensorId}', exists: ${exists}`,
+          `[findAvailableSensors][custom] allergen: '${allergen}', slug: '${slug}', suffix: '${suffix}', sensorId: '${sensorId}', exists: ${exists}`,
         );
       }
       if (exists) sensors.push(sensorId);

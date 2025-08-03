@@ -960,6 +960,7 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.region_id;
         delete newUser.location;
         delete newUser.entity_prefix;
+        delete newUser.entity_suffix;
         delete newUser.mode;
         delete newUser.allergens;
         delete newUser.days_to_show;
@@ -981,6 +982,19 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
+      // Reset custom prefix/suffix when picking an auto-detected location.
+      // Ignore empty values to avoid wiping the first typed character when
+      // the location field is programmatically cleared.
+      if (["city", "region_id", "location"].includes(prop) && value) {
+        cfg.entity_prefix = null;
+        cfg.entity_suffix = null;
+      }
+      // Clear location when user enters a custom prefix or suffix
+      if (["entity_prefix", "entity_suffix"].includes(prop)) {
+        for (const key of ["city", "region_id", "location"]) {
+          if (key in cfg) cfg[key] = "";
+        }
+      }
       // Adjust related settings when switching mode
       if (
         (this._config.integration === "silam" ||
@@ -1172,15 +1186,9 @@ class PollenPrognosCardEditor extends LitElement {
                               ${id} — ${DWD_REGIONS[id] || id}
                             </mwc-list-item>`,
                         )}
-                  </ha-select>
-                </ha-formfield>
-              `}
-          <ha-formfield label="${this._t("entity_prefix")}">
-            <ha-textfield
-              .value=${c.entity_prefix || ""}
-              @input=${(e) => this._updateConfig("entity_prefix", e.target.value)}
-            ></ha-textfield>
-          </ha-formfield>
+                      </ha-select>
+                    </ha-formfield>
+                  `}
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
@@ -1239,6 +1247,35 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-formfield>
                 `
               : ""}
+          <details>
+            <summary>${this._t("summary_entity_prefix_suffix")}</summary>
+            <ha-formfield label="${this._t("entity_prefix")}">
+              <ha-textfield
+                .value=${c.entity_prefix || ""}
+                @input=${(e) => {
+                  const val = e.target.value;
+                  // Allow the literal string "null" to represent an empty prefix
+                  this._updateConfig(
+                    "entity_prefix",
+                    val.toLowerCase() === "null" ? "" : val,
+                  );
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+            <ha-formfield label="${this._t("entity_suffix")}">
+              <ha-textfield
+                .value=${c.entity_suffix || ""}
+                @input=${(e) => {
+                  const val = e.target.value;
+                  // Allow "null" to explicitly clear the suffix as well
+                  this._updateConfig(
+                    "entity_suffix",
+                    val.toLowerCase() === "null" ? "" : val,
+                  );
+                }}
+              ></ha-textfield>
+            </ha-formfield>
+          </details>
         </details>
 
         <details open>

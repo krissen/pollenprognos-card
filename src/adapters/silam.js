@@ -13,6 +13,9 @@ import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" }
 export const stubConfigSILAM = {
   integration: "silam",
   location: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
+  entity_suffix: null,
   allergens: [
     "alder",
     "birch",
@@ -233,7 +236,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
       // Attempt to find the matching sensor entity for this allergen
       let sensorId = null;
-      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
+      if (config.entity_prefix != null) {
         let slug = null;
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
           const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
@@ -246,7 +249,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           }
         }
         slug = slug || allergen;
-        const candidate = `sensor.${config.entity_prefix || ""}${slug}`;
+        const prefix = config.entity_prefix;
+        const suffix = config.entity_suffix || "";
+        const candidate = `sensor.${prefix}${slug}${suffix}`;
         if (hass.states[candidate]) sensorId = candidate;
       } else {
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
