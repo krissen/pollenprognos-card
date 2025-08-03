@@ -67,9 +67,10 @@ class PollenPrognosCard extends LitElement {
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
-          clickable && entityId ? " cursor: pointer;" : ""
-        }"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
+        entityId
+          ? " cursor: pointer;"
+          : ""}"
         .level="${level}"
         .displayLevel="${displayLevel}"
         .colors="${JSON.stringify(colors)}"
@@ -81,7 +82,8 @@ class PollenPrognosCard extends LitElement {
         .showValue="${this.config && this.config.show_value_numeric_in_circle}"
         .fontWeight="${this.config?.levels_text_weight || "normal"}"
         .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
-        .textColor="${this.config?.levels_text_color || "var(--primary-text-color)"}"
+        .textColor="${this.config?.levels_text_color ||
+        "var(--primary-text-color)"}"
         @click=${(e) => {
           if (clickable && entityId) {
             e.stopPropagation();
@@ -391,8 +393,6 @@ class PollenPrognosCard extends LitElement {
         });
     }
   }
-
-
 
   get debug() {
     // return true;
@@ -1022,8 +1022,7 @@ class PollenPrognosCard extends LitElement {
           ${(this.sensors || []).map((sensor) => {
             const txt = sensor.day0?.state_text ?? "";
             // Use display_state when available, falling back to the normalized state.
-            const num =
-              sensor.day0?.display_state ?? sensor.day0?.state ?? "";
+            const num = sensor.day0?.display_state ?? sensor.day0?.state ?? "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
@@ -1051,13 +1050,15 @@ class PollenPrognosCard extends LitElement {
                     sensor.allergenReplaced,
                     sensor.day0?.state,
                   )}"
-                  style="${
-                    this.config.link_to_sensors !== false && sensor.entity_id
-                      ? "cursor: pointer;"
-                      : ""
-                  }"
+                  style="${this.config.link_to_sensors !== false &&
+                  sensor.entity_id
+                    ? "cursor: pointer;"
+                    : ""}"
                   @click=${(e) => {
-                    if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                    if (
+                      this.config.link_to_sensors !== false &&
+                      sensor.entity_id
+                    ) {
                       e.stopPropagation();
                       this._openEntity(sensor.entity_id);
                     }
@@ -1160,13 +1161,15 @@ class PollenPrognosCard extends LitElement {
                         sensor.allergenReplaced,
                         sensor.days[0]?.state,
                       )}"
-                      style="${
-                        this.config.link_to_sensors !== false && sensor.entity_id
-                          ? "cursor: pointer;"
-                          : ""
-                      }"
+                      style="${this.config.link_to_sensors !== false &&
+                      sensor.entity_id
+                        ? "cursor: pointer;"
+                        : ""}"
                       @click=${(e) => {
-                        if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                        if (
+                          this.config.link_to_sensors !== false &&
+                          sensor.entity_id
+                        ) {
                           e.stopPropagation();
                           this._openEntity(sensor.entity_id);
                         }
@@ -1179,10 +1182,9 @@ class PollenPrognosCard extends LitElement {
                         ${(() => {
                           const normalized = Number(sensor.days[i]?.state) || 0;
                           // Value to display inside the circle; defaults to normalized.
-                          const displayVal =
-                            Number(
-                              sensor.days[i]?.display_state ?? normalized,
-                            );
+                          const displayVal = Number(
+                            sensor.days[i]?.display_state ?? normalized,
+                          );
                           let levelVal = normalized;
                           if (this.config.integration === "dwd") {
                             levelVal = normalized * 2; // scale 0–3 to 0–6
@@ -1332,7 +1334,8 @@ class PollenPrognosCard extends LitElement {
     e.preventDefault?.();
     e.stopPropagation?.();
     const action = this.tapAction.type || "more-info";
-    let entity = this.tapAction.entity || "camera.pollen";
+    // Use sun.sun as a fallback, since it always exists in Home Assistant.
+    let entity = this.tapAction.entity || "sun.sun";
     switch (action) {
       case "more-info":
         this._fire("hass-more-info", { entityId: entity });
