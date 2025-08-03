@@ -6,6 +6,63 @@ import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type
 export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];
+
+  // Custom prefix (including empty string) overrides automatic lookup
+  if (cfg.entity_prefix != null) {
+    const prefix = cfg.entity_prefix;
+    // Decide suffix: explicit entity_suffix wins, otherwise reuse region_id
+    const suffix =
+      cfg.entity_suffix != null
+        ? cfg.entity_suffix || ""
+        : cfg.region_id
+          ? `_${cfg.region_id}`
+          : "";
+    for (const allergen of cfg.allergens || []) {
+      let slug;
+      if (integration === "dwd") {
+        slug = normalizeDWD(allergen);
+      } else if (integration === "silam") {
+        slug = null;
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inv[allergen]) {
+            slug = inv[allergen];
+            break;
+          }
+        }
+        if (!slug) slug = normalize(allergen);
+      } else {
+        slug = normalize(allergen);
+      }
+      let sensorId = `sensor.${prefix}${slug}${suffix}`;
+      let exists = !!hass.states[sensorId];
+      if (!exists && suffix === "") {
+        // Fallback: try to find a unique candidate starting with the prefix and slug
+        const base = `sensor.${prefix}${slug}`;
+        const candidates = Object.keys(hass.states).filter((id) =>
+          id.startsWith(base),
+        );
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+          exists = true;
+        }
+      }
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][custom] allergen: '${allergen}', slug: '${slug}', suffix: '${suffix}', sensorId: '${sensorId}', exists: ${exists}`,
+        );
+      }
+      if (exists) sensors.push(sensorId);
+    }
+    if (debug) {
+      console.debug("[findAvailableSensors] Found sensors (", sensors.length, ") :", sensors);
+    }
+    return sensors;
+  }
+
   if (integration === "pp") {
     const cityKey = normalize(cfg.city || "");
     for (const allergen of cfg.allergens || []) {

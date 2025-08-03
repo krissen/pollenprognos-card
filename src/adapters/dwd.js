@@ -14,6 +14,9 @@ const ATTR_DESC_IN_2_DAYS = "state_in_2_days_desc";
 export const stubConfigDWD = {
   integration: "dwd",
   region_id: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
+  entity_suffix: null,
   allergens: [
     "erle",
     "ambrosia",
@@ -125,16 +128,40 @@ export async function fetchForecast(hass, config) {
         dict.allergenShort = dict.allergenCapitalized;
       }
 
-      // Hitta sensor
-      let sensorId = config.region_id
-        ? `sensor.pollenflug_${rawKey}_${config.region_id}`
-        : null;
-      if (!sensorId || !hass.states[sensorId]) {
-        const candidates = Object.keys(hass.states).filter((id) =>
-          id.startsWith(`sensor.pollenflug_${rawKey}_`),
-        );
-        if (candidates.length === 1) sensorId = candidates[0];
-        else continue;
+      // Find sensor entity
+      let sensorId;
+      if (config.entity_prefix != null) {
+        const prefix = config.entity_prefix;
+        // Use explicit suffix if given, otherwise reuse region_id
+        const suffix =
+          config.entity_suffix != null
+            ? config.entity_suffix || ""
+            : config.region_id
+              ? `_${config.region_id}`
+              : "";
+        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
+        if (!hass.states[sensorId]) {
+          if (suffix === "") {
+            // Fallback: search for a unique candidate starting with prefix and slug
+            const base = `sensor.${prefix}${rawKey}`;
+            const candidates = Object.keys(hass.states).filter((id) =>
+              id.startsWith(base),
+            );
+            if (candidates.length === 1) sensorId = candidates[0];
+            else continue;
+          } else continue;
+        }
+      } else {
+        sensorId = config.region_id
+          ? `sensor.pollenflug_${rawKey}_${config.region_id}`
+          : null;
+        if (!sensorId || !hass.states[sensorId]) {
+          const candidates = Object.keys(hass.states).filter((id) =>
+            id.startsWith(`sensor.pollenflug_${rawKey}_`),
+          );
+          if (candidates.length === 1) sensorId = candidates[0];
+          else continue;
+        }
       }
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;

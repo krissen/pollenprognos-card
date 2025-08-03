@@ -13,6 +13,9 @@ import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" }
 export const stubConfigSILAM = {
   integration: "silam",
   location: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
+  entity_suffix: null,
   allergens: [
     "alder",
     "birch",
@@ -233,22 +236,41 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
       // Attempt to find the matching sensor entity for this allergen
       let sensorId = null;
-      for (const mapping of Object.values(silamAllergenMap.mapping)) {
-        const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
-          acc[master] = ha;
-          return acc;
-        }, {});
-        if (inverse[allergen]) {
-          const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
-          if (hass.states[candidate]) {
-            sensorId = candidate;
+      if (config.entity_prefix != null) {
+        let slug = null;
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inverse[allergen]) {
+            slug = inverse[allergen];
             break;
           }
         }
-      }
-      if (!sensorId) {
-        const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
-        if (hass.states[fallback]) sensorId = fallback;
+        slug = slug || allergen;
+        const prefix = config.entity_prefix;
+        const suffix = config.entity_suffix || "";
+        const candidate = `sensor.${prefix}${slug}${suffix}`;
+        if (hass.states[candidate]) sensorId = candidate;
+      } else {
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inverse[allergen]) {
+            const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
+            if (hass.states[candidate]) {
+              sensorId = candidate;
+              break;
+            }
+          }
+        }
+        if (!sensorId) {
+          const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
+          if (hass.states[fallback]) sensorId = fallback;
+        }
       }
       dict.entity_id = sensorId;
 

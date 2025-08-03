@@ -7,6 +7,9 @@ import { buildLevelNames } from "../utils/level-names.js";
 export const stubConfigPP = {
   integration: "pp",
   city: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
+  entity_suffix: null,
   allergens: [
     "Al",
     "Alm",
@@ -141,14 +144,22 @@ export async function fetchForecast(hass, config) {
       }
       // Sensor lookup
       const cityKey = normalize(config.city);
-      let sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
-      if (!hass.states[sensorId]) {
-        const cands = Object.keys(hass.states).filter(
-          (id) =>
-            id.startsWith(`sensor.pollen_${cityKey}_`) && id.includes(rawKey),
-        );
-        if (cands.length === 1) sensorId = cands[0];
-        else continue;
+      let sensorId;
+      if (config.entity_prefix != null) {
+        const prefix = config.entity_prefix;
+        const suffix = config.entity_suffix || "";
+        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
+        if (!hass.states[sensorId]) continue;
+      } else {
+        sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
+        if (!hass.states[sensorId]) {
+          const cands = Object.keys(hass.states).filter(
+            (id) =>
+              id.startsWith(`sensor.pollen_${cityKey}_`) && id.includes(rawKey),
+          );
+          if (cands.length === 1) sensorId = cands[0];
+          else continue;
+        }
       }
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";
