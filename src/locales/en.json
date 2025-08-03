@@ -75,6 +75,7 @@
   "editor.locale": "Locale",
   "editor.location": "Location",
   "editor.entity_prefix": "Entity prefix",
+  "editor.entity_suffix": "Entity suffix",
   "editor.minimal": "Minimal mode",
   "editor.minimal_gap": "Gap between allergens (px)",
   "editor.summary_minimal": "Minimal",

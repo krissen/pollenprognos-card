@@ -8,14 +8,15 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   let sensors = [];
 
   // Custom prefix: user-defined entity name prefix overrides automatic lookup
-  if (Object.prototype.hasOwnProperty.call(cfg, "entity_prefix")) {
-    const prefix = cfg.entity_prefix || "";
+  if (cfg.entity_prefix) {
+    const prefix = cfg.entity_prefix;
     // Decide suffix: explicit entity_suffix wins, otherwise reuse region_id
-    const suffix = Object.prototype.hasOwnProperty.call(cfg, "entity_suffix")
-      ? cfg.entity_suffix || ""
-      : cfg.region_id
-        ? `_${cfg.region_id}`
-        : "";
+    const suffix =
+      cfg.entity_suffix != null
+        ? cfg.entity_suffix || ""
+        : cfg.region_id
+          ? `_${cfg.region_id}`
+          : "";
     for (const allergen of cfg.allergens || []) {
       let slug;
       if (integration === "dwd") {

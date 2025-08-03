@@ -14,6 +14,8 @@ const ATTR_DESC_IN_2_DAYS = "state_in_2_days_desc";
 export const stubConfigDWD = {
   integration: "dwd",
   region_id: "",
+  entity_prefix: "",
+  entity_suffix: null,
   allergens: [
     "erle",
     "ambrosia",
@@ -127,17 +129,15 @@ export async function fetchForecast(hass, config) {
 
       // Find sensor entity
       let sensorId;
-      if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
-        const prefix = config.entity_prefix || "";
+      if (config.entity_prefix) {
+        const prefix = config.entity_prefix;
         // Use explicit suffix if given, otherwise reuse region_id
-        const suffix = Object.prototype.hasOwnProperty.call(
-          config,
-          "entity_suffix",
-        )
-          ? config.entity_suffix || ""
-          : config.region_id
-            ? `_${config.region_id}`
-            : "";
+        const suffix =
+          config.entity_suffix != null
+            ? config.entity_suffix || ""
+            : config.region_id
+              ? `_${config.region_id}`
+              : "";
         sensorId = `sensor.${prefix}${rawKey}${suffix}`;
         if (!hass.states[sensorId]) {
           if (suffix === "") {

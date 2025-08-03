@@ -960,6 +960,7 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.region_id;
         delete newUser.location;
         delete newUser.entity_prefix;
+        delete newUser.entity_suffix;
         delete newUser.mode;
         delete newUser.allergens;
         delete newUser.days_to_show;
@@ -1179,6 +1180,12 @@ class PollenPrognosCardEditor extends LitElement {
             <ha-textfield
               .value=${c.entity_prefix || ""}
               @input=${(e) => this._updateConfig("entity_prefix", e.target.value)}
+            ></ha-textfield>
+          </ha-formfield>
+          <ha-formfield label="${this._t("entity_suffix")}">
+            <ha-textfield
+              .value=${c.entity_suffix || ""}
+              @input=${(e) => this._updateConfig("entity_suffix", e.target.value)}
             ></ha-textfield>
           </ha-formfield>
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
