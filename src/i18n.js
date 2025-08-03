@@ -16,8 +16,9 @@ for (const filePath in localeModules) {
 const DEFAULT = "en";
 
 // Helper to resolve dot separated keys inside nested objects.
+// Looks up flat translation keys like "card.header_prefix"
 function resolveKey(obj, path) {
-  return path.split(".").reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), obj);
+  return obj[path];
 }
 
 // Detect the best language based on Home Assistant settings and an optional override.
