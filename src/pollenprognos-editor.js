@@ -220,8 +220,8 @@ class PollenPrognosCardEditor extends LitElement {
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
-    // Säkra att _selectedPhraseLang alltid får fallback om ingen hass eller locale finns
-    this._selectedPhraseLang = "sv";
+    // Ensure phrase language defaults to a sensible locale
+    this._selectedPhraseLang = detectLang();
     this._allergensExplicit = false;
     this._origAllergensSet = false;
     this._userAllergens = null;
@@ -236,6 +236,8 @@ class PollenPrognosCardEditor extends LitElement {
     try {
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
       if (config.phrases) this._userConfig.phrases = config.phrases;
+      // Default language for phrases uses locale or falls back to Home Assistant
+      this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
 
       // 1. Identify stub values and clone incoming config
       const baseDefaults = getStubConfig(config.integration || "pp");
@@ -596,6 +598,10 @@ class PollenPrognosCardEditor extends LitElement {
     if (this._hass === hass) return; // Avoid unnecessary work
     this._hass = hass;
     const explicit = this._integrationExplicit;
+    if (!this._initDone) {
+      // Default dropdown language mirrors locale or Home Assistant setting
+      this._selectedPhraseLang = detectLang(hass, this._config.date_locale);
+    }
 
     // Hitta alla sensor-ID för PP, DWD, PEU och SILAM
     const ppStates = Object.keys(hass.states).filter(
@@ -1252,6 +1258,7 @@ class PollenPrognosCardEditor extends LitElement {
             <ha-formfield label="${this._t("entity_prefix")}">
               <ha-textfield
                 .value=${c.entity_prefix || ""}
+                placeholder="${this._t("entity_prefix_placeholder")}" 
                 @input=${(e) => {
                   const val = e.target.value;
                   // Allow the literal string "null" to represent an empty prefix
@@ -1265,6 +1272,7 @@ class PollenPrognosCardEditor extends LitElement {
             <ha-formfield label="${this._t("entity_suffix")}">
               <ha-textfield
                 .value=${c.entity_suffix || ""}
+                placeholder="${this._t("entity_suffix_placeholder")}" 
                 @input=${(e) => {
                   const val = e.target.value;
                   // Allow "null" to explicitly clear the suffix as well
