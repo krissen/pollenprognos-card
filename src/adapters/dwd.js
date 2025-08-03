@@ -125,11 +125,31 @@ export async function fetchForecast(hass, config) {
         dict.allergenShort = dict.allergenCapitalized;
       }
 
-      // Hitta sensor
+      // Find sensor entity
       let sensorId;
       if (Object.prototype.hasOwnProperty.call(config, "entity_prefix")) {
-        sensorId = `sensor.${config.entity_prefix || ""}${rawKey}`;
-        if (!hass.states[sensorId]) continue;
+        const prefix = config.entity_prefix || "";
+        // Use explicit suffix if given, otherwise reuse region_id
+        const suffix = Object.prototype.hasOwnProperty.call(
+          config,
+          "entity_suffix",
+        )
+          ? config.entity_suffix || ""
+          : config.region_id
+            ? `_${config.region_id}`
+            : "";
+        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
+        if (!hass.states[sensorId]) {
+          if (suffix === "") {
+            // Fallback: search for a unique candidate starting with prefix and slug
+            const base = `sensor.${prefix}${rawKey}`;
+            const candidates = Object.keys(hass.states).filter((id) =>
+              id.startsWith(base),
+            );
+            if (candidates.length === 1) sensorId = candidates[0];
+            else continue;
+          } else continue;
+        }
       } else {
         sensorId = config.region_id
           ? `sensor.pollenflug_${rawKey}_${config.region_id}`
