@@ -65,7 +65,7 @@ class PollenPrognosCardEditor extends LitElement {
     )
       return false;
     if (!location) {
-      // Fallback: Hitta alla möjliga platser (unika, sorterade)
+      // Fallback: find all possible locations (unique, sorted)
       const candidates = Object.keys(this._hass.states)
         .filter(
           (id) =>
@@ -94,7 +94,8 @@ class PollenPrognosCardEditor extends LitElement {
         console.debug("[Editor] _hasSilamWeatherEntity: no candidates");
       return false;
     }
-    const lang = this._config?.date_locale?.split("-")[0] || "en";
+    // Use Home Assistant language when checking for weather entities.
+    const lang = detectLang(this._hass);
     const suffixes =
       silamAllergenMap.weather_suffixes?.[lang] ||
       silamAllergenMap.weather_suffixes?.en ||
@@ -104,7 +105,7 @@ class PollenPrognosCardEditor extends LitElement {
       const entityId = `weather.silam_pollen_${loc}_${suffix}`;
       if (entityId in this._hass.states) return true;
     }
-    // Fallback: om det finns något weather.silam_pollen_{loc}_*
+    // Fallback: check for any weather.silam_pollen_{loc}_* entity
     const prefix = `weather.silam_pollen_${loc}_`;
     return Object.keys(this._hass.states).some(
       (id) => typeof id === "string" && id.startsWith(prefix),
@@ -196,8 +197,9 @@ class PollenPrognosCardEditor extends LitElement {
     };
   }
 
+  // Editor translations always follow the Home Assistant language.
   get _lang() {
-    return detectLang(this._hass, this._config.date_locale);
+    return detectLang(this._hass);
   }
 
   _t(key) {
