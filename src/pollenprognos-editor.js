@@ -982,6 +982,11 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
+      // Reset custom prefix/suffix when picking an auto-detected location
+      if (["city", "region_id", "location"].includes(prop)) {
+        cfg.entity_prefix = null;
+        cfg.entity_suffix = null;
+      }
       // Adjust related settings when switching mode
       if (
         (this._config.integration === "silam" ||
