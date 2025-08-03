@@ -62,28 +62,28 @@ class PollenPrognosCard extends LitElement {
     // Create a unique key for this chart configuration
     const chartId = `chart-${allergen}-${dayIndex}-${level}`;
 
-    // Use a reference element that will be populated in firstUpdated or updated
+    // Use attributes instead of properties so values persist if DOM is cloned
     return html`
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
-        entityId
-          ? " cursor: pointer;"
-          : ""}"
-        .level="${level}"
-        .displayLevel="${displayLevel}"
-        .colors="${JSON.stringify(colors)}"
-        .emptyColor="${emptyColor}"
-        .gapColor="${gapColor}"
-        .thickness="${thickness}"
-        .gap="${gap}"
-        .size="${size}"
-        .showValue="${this.config && this.config.show_value_numeric_in_circle}"
-        .fontWeight="${this.config?.levels_text_weight || "normal"}"
-        .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
-        .textColor="${this.config?.levels_text_color ||
-        "var(--primary-text-color)"}"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
+          clickable && entityId ? " cursor: pointer;" : ""
+        }"
+        data-level="${level}"
+        data-display-level="${displayLevel}"
+        data-colors='${JSON.stringify(colors)}'
+        data-empty-color="${emptyColor}"
+        data-gap-color="${gapColor}"
+        data-thickness="${thickness}"
+        data-gap="${gap}"
+        data-size="${size}"
+        data-show-value="${this.config && this.config.show_value_numeric_in_circle}"
+        data-font-weight="${this.config?.levels_text_weight || "normal"}"
+        data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
+        data-text-color="${
+          this.config?.levels_text_color || "var(--primary-text-color)"
+        }"
         @click=${(e) => {
           if (clickable && entityId) {
             e.stopPropagation();
@@ -115,24 +115,28 @@ class PollenPrognosCard extends LitElement {
       const activeIds = new Set();
       containers.forEach((container) => {
         activeIds.add(container.id);
-        // Extract properties from the container
-        const level = Number(container.level || 0);
-        // Value to display inside the circle; defaults to the normalized level.
-        const displayLevel = Number(container.displayLevel ?? level);
-        const colors = JSON.parse(container.colors || "[]");
+        // Extract values from data attributes
+        const level = Number(container.dataset.level || 0);
+        // Value to display inside the circle; defaults to the normalized level
+        const displayLevel = Number(
+          container.dataset.displayLevel ?? level,
+        );
+        const colors = JSON.parse(container.dataset.colors || "[]");
         const numSegments = colors.length;
         const safeLevel = Math.min(level, numSegments);
-        const emptyColor = container.emptyColor;
-        const gapColor = container.gapColor;
-        const thickness = Number(container.thickness);
-        const gap = Number(container.gap);
-        const size = Number(container.size);
-        const showValue = container.showValue;
+        const emptyColor = container.dataset.emptyColor;
+        const gapColor = container.dataset.gapColor;
+        const thickness = Number(container.dataset.thickness);
+        const gap = Number(container.dataset.gap);
+        const size = Number(container.dataset.size);
+        const showValue = container.dataset.showValue === "true";
 
-        // Get custom styling from container attributes
-        const fontWeight = container.fontWeight || "normal";
-        const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2;
-        const textColor = container.textColor || "var(--primary-text-color)";
+        // Get custom styling from data attributes
+        const fontWeight = container.dataset.fontWeight || "normal";
+        const fontSizeRatio =
+          parseFloat(container.dataset.fontSizeRatio) || 0.2;
+        const textColor =
+          container.dataset.textColor || "var(--primary-text-color)";
 
         // Check if a chart already exists for this container
         let chart = this._chartCache.get(container.id);
