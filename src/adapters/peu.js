@@ -9,7 +9,8 @@ import { indexToLevel } from "./silam.js";
 export const stubConfigPEU = {
   integration: "peu",
   location: "",
-  entity_prefix: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
   entity_suffix: null,
   allergens: [
     "alder",
@@ -177,7 +178,7 @@ export async function fetchForecast(hass, config) {
 
       // Find sensor
       let sensorId;
-      if (config.entity_prefix) {
+      if (config.entity_prefix != null) {
         const prefix = config.entity_prefix;
         const coreSlug =
           mode !== "daily" && allergenSlug === "allergy_risk"

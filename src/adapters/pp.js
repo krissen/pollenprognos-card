@@ -7,7 +7,8 @@ import { buildLevelNames } from "../utils/level-names.js";
 export const stubConfigPP = {
   integration: "pp",
   city: "",
-  entity_prefix: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
   entity_suffix: null,
   allergens: [
     "Al",
@@ -144,7 +145,7 @@ export async function fetchForecast(hass, config) {
       // Sensor lookup
       const cityKey = normalize(config.city);
       let sensorId;
-      if (config.entity_prefix) {
+      if (config.entity_prefix != null) {
         const prefix = config.entity_prefix;
         const suffix = config.entity_suffix || "";
         sensorId = `sensor.${prefix}${rawKey}${suffix}`;

@@ -7,8 +7,8 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];
 
-  // Custom prefix: user-defined entity name prefix overrides automatic lookup
-  if (cfg.entity_prefix) {
+  // Custom prefix (including empty string) overrides automatic lookup
+  if (cfg.entity_prefix != null) {
     const prefix = cfg.entity_prefix;
     // Decide suffix: explicit entity_suffix wins, otherwise reuse region_id
     const suffix =

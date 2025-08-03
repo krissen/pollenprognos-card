@@ -14,7 +14,8 @@ const ATTR_DESC_IN_2_DAYS = "state_in_2_days_desc";
 export const stubConfigDWD = {
   integration: "dwd",
   region_id: "",
-  entity_prefix: "",
+  // Optional entity naming, null means default integration format
+  entity_prefix: null,
   entity_suffix: null,
   allergens: [
     "erle",
@@ -129,7 +130,7 @@ export async function fetchForecast(hass, config) {
 
       // Find sensor entity
       let sensorId;
-      if (config.entity_prefix) {
+      if (config.entity_prefix != null) {
         const prefix = config.entity_prefix;
         // Use explicit suffix if given, otherwise reuse region_id
         const suffix =

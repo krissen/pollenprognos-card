@@ -666,8 +666,8 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // Automatic region/city/location detection when no custom prefix is set
-    if (!cfg.entity_prefix) {
+    // Automatic region/city/location detection only when user did not define a prefix
+    if (!Object.prototype.hasOwnProperty.call(this._userConfig, "entity_prefix")) {
       if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
         cfg.region_id = Array.from(
           new Set(dwdStates.map((id) => id.split("_").pop())),
