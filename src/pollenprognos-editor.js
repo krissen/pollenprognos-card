@@ -988,17 +988,11 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
-      // Reset custom prefix/suffix when picking an auto-detected location.
-      // Ignore empty values to avoid wiping the first typed character when
-      // the location field is programmatically cleared.
-      if (["city", "region_id", "location"].includes(prop) && value) {
-        cfg.entity_prefix = null;
-        cfg.entity_suffix = null;
-      }
-      // Clear location when user enters a custom prefix or suffix
-      if (["entity_prefix", "entity_suffix"].includes(prop)) {
-        for (const key of ["city", "region_id", "location"]) {
-          if (key in cfg) cfg[key] = "";
+      // Reset custom prefix/suffix when switching away from manual mode
+      if (["city", "region_id", "location"].includes(prop)) {
+        if (value !== "manual") {
+          cfg.entity_prefix = "";
+          cfg.entity_suffix = "";
         }
       }
       // Adjust related settings when switching mode
@@ -1133,12 +1127,18 @@ class PollenPrognosCardEditor extends LitElement {
                       this._updateConfig("city", e.target.value)}
                     @closed=${(e) => e.stopPropagation()}
                   >
+                    <mwc-list-item value=""
+                      >${this._t("location_autodetect")}</mwc-list-item
+                    >
                     ${this.installedCities.map(
                       (city) =>
                         html`<mwc-list-item .value=${city}
                           >${city}</mwc-list-item
                         >`,
                     )}
+                    <mwc-list-item value="manual"
+                      >${this._t("location_manual")}</mwc-list-item
+                    >
                   </ha-select>
                 </ha-formfield>
               `
@@ -1151,12 +1151,18 @@ class PollenPrognosCardEditor extends LitElement {
                         this._updateConfig("location", e.target.value)}
                       @closed=${(e) => e.stopPropagation()}
                     >
+                      <mwc-list-item value=""
+                        >${this._t("location_autodetect")}</mwc-list-item
+                      >
                       ${this.installedPeuLocations.map(
                         ([slug, title]) =>
                           html`<mwc-list-item .value=${slug}
                             >${title}</mwc-list-item
                           >`,
                       )}
+                      <mwc-list-item value="manual"
+                        >${this._t("location_manual")}</mwc-list-item
+                      >
                     </ha-select>
                   </ha-formfield>
                 `
@@ -1169,12 +1175,18 @@ class PollenPrognosCardEditor extends LitElement {
                           this._updateConfig("location", e.target.value)}
                         @closed=${(e) => e.stopPropagation()}
                       >
+                        <mwc-list-item value=""
+                          >${this._t("location_autodetect")}</mwc-list-item
+                        >
                         ${this.installedSilamLocations.map(
                           ([slug, title]) =>
                             html`<mwc-list-item .value=${slug}
                               >${title}</mwc-list-item
                             >`,
                         )}
+                        <mwc-list-item value="manual"
+                          >${this._t("location_manual")}</mwc-list-item
+                        >
                       </ha-select>
                     </ha-formfield>
                   `
@@ -1186,12 +1198,18 @@ class PollenPrognosCardEditor extends LitElement {
                           this._updateConfig("region_id", e.target.value)}
                         @closed=${(e) => e.stopPropagation()}
                       >
+                        <mwc-list-item value=""
+                          >${this._t("location_autodetect")}</mwc-list-item
+                        >
                         ${this.installedRegionIds.map(
                           (id) =>
                             html`<mwc-list-item .value=${id}>
                               ${id} — ${DWD_REGIONS[id] || id}
                             </mwc-list-item>`,
                         )}
+                        <mwc-list-item value="manual"
+                          >${this._t("location_manual")}</mwc-list-item
+                        >
                       </ha-select>
                     </ha-formfield>
                   `}
@@ -1253,37 +1271,46 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-formfield>
                 `
               : ""}
-          <details>
-            <summary>${this._t("summary_entity_prefix_suffix")}</summary>
-            <ha-formfield label="${this._t("entity_prefix")}">
-              <ha-textfield
-                .value=${c.entity_prefix || ""}
-                placeholder="${this._t("entity_prefix_placeholder")}" 
-                @input=${(e) => {
-                  const val = e.target.value;
-                  // Allow the literal string "null" to represent an empty prefix
-                  this._updateConfig(
-                    "entity_prefix",
-                    val.toLowerCase() === "null" ? "" : val,
-                  );
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-            <ha-formfield label="${this._t("entity_suffix")}">
-              <ha-textfield
-                .value=${c.entity_suffix || ""}
-                placeholder="${this._t("entity_suffix_placeholder")}" 
-                @input=${(e) => {
-                  const val = e.target.value;
-                  // Allow "null" to explicitly clear the suffix as well
-                  this._updateConfig(
-                    "entity_suffix",
-                    val.toLowerCase() === "null" ? "" : val,
-                  );
-                }}
-              ></ha-textfield>
-            </ha-formfield>
-          </details>
+          ${
+            (c.integration === "pp" && c.city === "manual") ||
+            (c.integration === "dwd" && c.region_id === "manual") ||
+            ((c.integration === "peu" || c.integration === "silam") &&
+              c.location === "manual")
+              ? html`
+                  <details>
+                    <summary>
+                      ${this._t("summary_entity_prefix_suffix")}
+                    </summary>
+                    <ha-formfield label="${this._t("entity_prefix")}">
+                      <ha-textfield
+                        .value=${c.entity_prefix || ""}
+                        placeholder="${this._t(
+                          "entity_prefix_placeholder",
+                        )}"
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "entity_prefix",
+                            e.target.value,
+                          )}
+                      ></ha-textfield>
+                    </ha-formfield>
+                    <ha-formfield label="${this._t("entity_suffix")}">
+                      <ha-textfield
+                        .value=${c.entity_suffix || ""}
+                        placeholder="${this._t(
+                          "entity_suffix_placeholder",
+                        )}"
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "entity_suffix",
+                            e.target.value,
+                          )}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  </details>
+                `
+              : ""
+          }
         </details>
 
         <details open>

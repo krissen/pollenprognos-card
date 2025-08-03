@@ -14,11 +14,11 @@ Additional documentation:
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
 | `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu` or `silam`. If omitted the card tries to detect the correct integration. |
-| `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs. |
-| `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code. |
-| `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors. |
-| `entity_prefix` | `string` | *(auto)* | Prefix for sensor entity IDs when sensors use custom names. Use an empty string for entities like `sensor.mugwort`. In the UI editor, enter `null` to save an empty prefix. Setting a custom prefix or suffix clears any `city`, `region_id`, or `location` value so it does not override the custom names. |
-| `entity_suffix` | `string` | *(auto)* | Optional suffix after the allergen slug. Reuses `region_id` for DWD when left empty. Enter `null` in the UI editor to leave it empty. |
+| `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
+| `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
+| `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
+| `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
+| `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.4.8** or newer. |
 | `levels_colors` | `array<string>` | `["#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#e64a19", "#d32f2f"]` | Colors for the segments in the level circle. |
 | `levels_empty_color` | `string` | `rgba(200, 200, 200, 0.15)` | Color for empty segments. |

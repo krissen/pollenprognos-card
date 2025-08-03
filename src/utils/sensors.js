@@ -7,16 +7,14 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];
 
-  // Custom prefix (including empty string) overrides automatic lookup
-  if (cfg.entity_prefix != null) {
-    const prefix = cfg.entity_prefix;
-    // Decide suffix: explicit entity_suffix wins, otherwise reuse region_id
-    const suffix =
-      cfg.entity_suffix != null
-        ? cfg.entity_suffix || ""
-        : cfg.region_id
-          ? `_${cfg.region_id}`
-          : "";
+  // Manual mode: use custom prefix/suffix regardless of integration
+  const manual =
+    cfg.city === "manual" ||
+    cfg.region_id === "manual" ||
+    cfg.location === "manual";
+  if (manual) {
+    const prefix = cfg.entity_prefix || "";
+    const suffix = cfg.entity_suffix || "";
     for (const allergen of cfg.allergens || []) {
       let slug;
       if (integration === "dwd") {
@@ -58,7 +56,12 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (exists) sensors.push(sensorId);
     }
     if (debug) {
-      console.debug("[findAvailableSensors] Found sensors (", sensors.length, ") :", sensors);
+      console.debug(
+        "[findAvailableSensors] Found sensors (",
+        sensors.length,
+        ") :",
+        sensors,
+      );
     }
     return sensors;
   }

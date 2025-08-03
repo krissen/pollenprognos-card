@@ -13,9 +13,9 @@ import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" }
 export const stubConfigSILAM = {
   integration: "silam",
   location: "",
-  // Optional entity naming, null means default integration format
-  entity_prefix: null,
-  entity_suffix: null,
+  // Optional entity naming used when location is "manual"
+  entity_prefix: "",
+  entity_suffix: "",
   allergens: [
     "alder",
     "birch",
@@ -173,7 +173,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
 
   // Hitta weather-entity
-  const locationSlug = (config.location || "").toLowerCase();
+  const locationSlug =
+    config.location === "manual" ? "" : (config.location || "").toLowerCase();
   const weatherEntity = findSilamWeatherEntity(hass, locationSlug, locale);
 
   if (!weatherEntity || !hass.states[weatherEntity]) {
@@ -236,7 +237,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
       // Attempt to find the matching sensor entity for this allergen
       let sensorId = null;
-      if (config.entity_prefix != null) {
+      if (config.location === "manual") {
         let slug = null;
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
           const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
@@ -249,7 +250,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           }
         }
         slug = slug || allergen;
-        const prefix = config.entity_prefix;
+        const prefix = config.entity_prefix || "";
         const suffix = config.entity_suffix || "";
         const candidate = `sensor.${prefix}${slug}${suffix}`;
         if (hass.states[candidate]) sensorId = candidate;
