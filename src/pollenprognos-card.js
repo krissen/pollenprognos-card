@@ -749,7 +749,7 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
       } else if (integration === "peu") {
-        // Hitta alla peu-entities
+        // Collect all PEU entities to determine location automatically.
         const peuEntities = Object.values(hass.states).filter(
           (s) =>
             s &&
@@ -757,24 +757,53 @@ class PollenPrognosCard extends LitElement {
             typeof s.entity_id === "string" &&
             s.entity_id.startsWith("sensor.polleninformation_"),
         );
-        // Hitta entity där slug-attribut eller entity_id matchar cfg.location
-        const match = peuEntities.find((s) => {
-          const attr = s.attributes || {};
-          const slug =
-            attr.location_slug ||
-            s.entity_id
-              .replace("sensor.polleninformation_", "")
-              .replace(/_[^_]+$/, "");
-          // Always slugify both sides for matching!
-          return slugify(slug) === slugify(cfg.location || "");
-        });
+        const wantedSlug = slugify(cfg.location || "");
         let title = "";
+        let match = null;
+        if (wantedSlug) {
+          // Find entity matching the configured location slug.
+          match = peuEntities.find((s) => {
+            const attr = s.attributes || {};
+            const slug =
+              attr.location_slug ||
+              s.entity_id
+                .replace("sensor.polleninformation_", "")
+                .replace(/_[^_]+$/, "");
+            return slugify(slug) === wantedSlug;
+          });
+        } else {
+          // No location configured – determine if all sensors belong to one place.
+          const locations = Array.from(
+            new Set(
+              peuEntities.map((s) => {
+                const attr = s.attributes || {};
+                const slug =
+                  attr.location_slug ||
+                  s.entity_id
+                    .replace("sensor.polleninformation_", "")
+                    .replace(/_[^_]+$/, "");
+                return slugify(slug);
+              }),
+            ),
+          );
+          if (locations.length === 1) {
+            match = peuEntities.find((s) => {
+              const attr = s.attributes || {};
+              const slug =
+                attr.location_slug ||
+                s.entity_id
+                  .replace("sensor.polleninformation_", "")
+                  .replace(/_[^_]+$/, "");
+              return slugify(slug) === locations[0];
+            });
+          }
+        }
         if (match) {
-          const attr = match.attributes;
+          const attr = match.attributes || {};
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-            cfg.location;
+            "";
         }
         loc = title || cfg.location || "";
       } else if (integration === "silam") {
@@ -836,15 +865,28 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else {
-        loc =
-          PP_POSSIBLE_CITIES.find(
-            (n) =>
-              n
-                .toLowerCase()
-                .replace(/[åä]/g, "a")
-                .replace(/ö/g, "o")
-                .replace(/[-\s]/g, "_") === cfg.city,
-          ) || cfg.city;
+        // Pollenprognos integration (PP): resolve city automatically when unset.
+        const matchCity = (slug) =>
+          PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
+        if (cfg.city) {
+          loc = matchCity(cfg.city);
+        } else {
+          const ppStates = Object.keys(hass.states).filter((id) =>
+            /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+          );
+          const cities = Array.from(
+            new Set(
+              ppStates.map((id) =>
+                id.replace("sensor.pollen_", "").replace(/_[^_]+$/, ""),
+              ),
+            ),
+          );
+          if (cities.length === 1) {
+            loc = matchCity(cities[0]);
+          } else {
+            loc = "";
+          }
+        }
       }
       this.header = loc
         ? `${this._t("card.header_prefix")} ${loc}`

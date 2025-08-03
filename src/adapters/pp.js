@@ -143,7 +143,18 @@ export async function fetchForecast(hass, config) {
         dict.allergenShort = dict.allergenCapitalized;
       }
       // Sensor lookup
-      const cityKey = normalize(config.city);
+      // Normalize city key; allow empty before user selection.
+      let cityKey = normalize(config.city || "");
+      // Autodetect city from existing sensors if not provided.
+      if (!cityKey) {
+        const ppStates = Object.keys(hass.states).filter((id) =>
+          id.startsWith("sensor.pollen_") && /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+        );
+        if (ppStates.length) {
+          const m = ppStates[0].match(/^sensor\.pollen_(.+)_[^_]+$/);
+          cityKey = m ? m[1] : "";
+        }
+      }
       let sensorId;
       if (config.entity_prefix != null) {
         const prefix = config.entity_prefix;
@@ -151,11 +162,12 @@ export async function fetchForecast(hass, config) {
         sensorId = `sensor.${prefix}${rawKey}${suffix}`;
         if (!hass.states[sensorId]) continue;
       } else {
-        sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
-        if (!hass.states[sensorId]) {
+        sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
+        if (!sensorId || !hass.states[sensorId]) {
+          const base = cityKey ? `sensor.pollen_${cityKey}_` : "sensor.pollen_";
           const cands = Object.keys(hass.states).filter(
             (id) =>
-              id.startsWith(`sensor.pollen_${cityKey}_`) && id.includes(rawKey),
+              id.startsWith(base) && id.endsWith(`_${rawKey}`),
           );
           if (cands.length === 1) sensorId = cands[0];
           else continue;
