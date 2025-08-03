@@ -62,28 +62,28 @@ class PollenPrognosCard extends LitElement {
     // Create a unique key for this chart configuration
     const chartId = `chart-${allergen}-${dayIndex}-${level}`;
 
-    // Use a reference element that will be populated in firstUpdated or updated
+    // Use attributes instead of properties so values persist if DOM is cloned
     return html`
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
-        entityId
-          ? " cursor: pointer;"
-          : ""}"
-        .level="${level}"
-        .displayLevel="${displayLevel}"
-        .colors="${JSON.stringify(colors)}"
-        .emptyColor="${emptyColor}"
-        .gapColor="${gapColor}"
-        .thickness="${thickness}"
-        .gap="${gap}"
-        .size="${size}"
-        .showValue="${this.config && this.config.show_value_numeric_in_circle}"
-        .fontWeight="${this.config?.levels_text_weight || "normal"}"
-        .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
-        .textColor="${this.config?.levels_text_color ||
-        "var(--primary-text-color)"}"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
+          clickable && entityId ? " cursor: pointer;" : ""
+        }"
+        data-level="${level}"
+        data-display-level="${displayLevel}"
+        data-colors='${JSON.stringify(colors)}'
+        data-empty-color="${emptyColor}"
+        data-gap-color="${gapColor}"
+        data-thickness="${thickness}"
+        data-gap="${gap}"
+        data-size="${size}"
+        data-show-value="${this.config && this.config.show_value_numeric_in_circle}"
+        data-font-weight="${this.config?.levels_text_weight || "normal"}"
+        data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
+        data-text-color="${
+          this.config?.levels_text_color || "var(--primary-text-color)"
+        }"
         @click=${(e) => {
           if (clickable && entityId) {
             e.stopPropagation();
@@ -103,156 +103,172 @@ class PollenPrognosCard extends LitElement {
     this.dispatchEvent(ev);
   }
 
+  /**
+   * Build or refresh all level-circle charts in the current DOM.
+   * Chart options are stored as data attributes so charts can be
+   * reconstructed after the DOM is cloned or replaced.
+   */
+  _rebuildCharts() {
+    const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
+    const activeIds = new Set();
+
+    containers.forEach((container) => {
+      activeIds.add(container.id);
+
+      // Extract values from data attributes
+      const level = Number(container.dataset.level || 0);
+      const displayLevel = Number(container.dataset.displayLevel ?? level);
+      const colors = JSON.parse(container.dataset.colors || "[]");
+      const numSegments = colors.length;
+      const safeLevel = Math.min(level, numSegments);
+      const emptyColor = container.dataset.emptyColor;
+      const gapColor = container.dataset.gapColor;
+      const thickness = Number(container.dataset.thickness);
+      const gap = Number(container.dataset.gap);
+      const size = Number(container.dataset.size);
+      const showValue = container.dataset.showValue === "true";
+
+      // Get custom styling from data attributes
+      const fontWeight = container.dataset.fontWeight || "normal";
+      const fontSizeRatio = parseFloat(container.dataset.fontSizeRatio) || 0.2;
+      const textColor = container.dataset.textColor || "var(--primary-text-color)";
+
+      // Retrieve existing chart if it exists
+      let chart = this._chartCache.get(container.id);
+
+      // Remove old text overlay, if any
+      const existingText = container.querySelector(".level-value-text");
+      if (existingText) existingText.remove();
+
+      // Recreate chart if missing or detached
+      if (!chart || !container.contains(chart.canvas)) {
+        if (chart) chart.destroy();
+        container.innerHTML = "";
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        container.appendChild(canvas);
+
+        const data = Array(numSegments).fill(1);
+        const bg = Array(numSegments)
+          .fill(emptyColor)
+          .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
+        const bc = Array(numSegments).fill(gapColor);
+
+        chart = new Chart(canvas.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: Array(numSegments).fill(""),
+            datasets: [
+              {
+                data,
+                backgroundColor: bg,
+                borderColor: bc,
+                borderWidth: gap,
+              },
+            ],
+          },
+          options: {
+            rotation: -Math.PI / 2,
+            cutout: `${100 - thickness}%`,
+            responsive: false,
+            maintainAspectRatio: false,
+            animation: {
+              duration: 0,
+              animateRotate: false,
+              animateScale: false,
+              easing: "linear",
+            },
+            transitions: {
+              active: {
+                animation: {
+                  duration: 0,
+                  animateRotate: false,
+                  animateScale: false,
+                  easing: "linear",
+                },
+              },
+              show: {
+                animations: {
+                  numbers: { duration: 0, easing: "linear" },
+                  colors: { duration: 0, easing: "linear" },
+                },
+              },
+              hide: {
+                animations: {
+                  numbers: { duration: 0, easing: "linear" },
+                  colors: { duration: 0, easing: "linear" },
+                },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false },
+            },
+          },
+        });
+
+        this._chartCache.set(container.id, chart);
+      } else {
+        // Update existing chart if level changed
+        const datasets = chart.data.datasets;
+        if (datasets && datasets[0]) {
+          const bg = Array(datasets[0].backgroundColor.length)
+            .fill(emptyColor)
+            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
+
+          datasets[0].backgroundColor = bg;
+          chart.update("none");
+        }
+      }
+
+      // Add numeric text overlay if requested
+      if (showValue) {
+        const valueText = document.createElement("div");
+        valueText.className = "level-value-text";
+        valueText.textContent = displayLevel;
+        valueText.style.position = "absolute";
+        valueText.style.top = "50%";
+        valueText.style.left = "50%";
+        valueText.style.transform = "translate(-50%, -50%)";
+        valueText.style.fontSize = `${size * fontSizeRatio}px`;
+        valueText.style.fontWeight = fontWeight;
+        valueText.style.color = textColor;
+        if (size < 42) {
+          valueText.style.lineHeight = "1";
+          valueText.style.height = "1em";
+        }
+        container.appendChild(valueText);
+      }
+    });
+
+    // Remove charts whose containers disappeared
+    this._chartCache.forEach((cachedChart, id) => {
+      if (!activeIds.has(id)) {
+        cachedChart.destroy();
+        this._chartCache.delete(id);
+      }
+    });
+  }
+
   updated(changedProps) {
     // Handle forecast subscription
     if (changedProps.has("config") || changedProps.has("_hass")) {
       this._subscribeForecastIfNeeded();
     }
 
-    // After rendering, find all chart containers and create/update charts
-    this.updateComplete.then(() => {
-      this.renderRoot.querySelectorAll(".level-circle").forEach((container) => {
-        // Extract properties from the container
-        const level = Number(container.level || 0);
-        // Value to display inside the circle; defaults to the normalized level.
-        const displayLevel = Number(container.displayLevel ?? level);
-        const colors = JSON.parse(container.colors || "[]");
-        const numSegments = colors.length;
-        const safeLevel = Math.min(level, numSegments);
-        const emptyColor = container.emptyColor;
-        const gapColor = container.gapColor;
-        const thickness = Number(container.thickness);
-        const gap = Number(container.gap);
-        const size = Number(container.size);
-        const showValue = container.showValue;
-
-        // Get custom styling from container attributes
-        const fontWeight = container.fontWeight || "normal";
-        const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2;
-        const textColor = container.textColor || "var(--primary-text-color)";
-
-        // Check if we already have a chart for this container
-        let chart = this._chartCache.get(container.id);
-
-        // Remove previously added text element, if any
-        const existingText = container.querySelector(".level-value-text");
-        if (existingText) existingText.remove();
-
-        if (!chart) {
-          // Create canvas if it doesn't exist
-          container.innerHTML = "";
-          const canvas = document.createElement("canvas");
-          canvas.width = size;
-          canvas.height = size;
-          container.appendChild(canvas);
-
-          // Create data arrays
-          const data = Array(numSegments).fill(1);
-          const bg = Array(numSegments)
-            .fill(emptyColor)
-            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-          const bc = Array(numSegments).fill(gapColor);
-
-          // Create new chart
-          chart = new Chart(canvas.getContext("2d"), {
-            type: "doughnut",
-            data: {
-              labels: Array(numSegments).fill(""),
-              datasets: [
-                {
-                  data,
-                  backgroundColor: bg,
-                  borderColor: bc,
-                  borderWidth: gap,
-                },
-              ],
-            },
-            options: {
-              rotation: -Math.PI / 2,
-              cutout: `${100 - thickness}%`,
-              responsive: false,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 0,
-                animateRotate: false,
-                animateScale: false,
-                easing: "linear",
-              },
-              transitions: {
-                active: {
-                  animation: {
-                    duration: 0,
-                    animateRotate: false,
-                    animateScale: false,
-                    easing: "linear",
-                  },
-                },
-                show: {
-                  animations: {
-                    numbers: { duration: 0, easing: "linear" },
-                    colors: { duration: 0, easing: "linear" },
-                  },
-                },
-                hide: {
-                  animations: {
-                    numbers: { duration: 0, easing: "linear" },
-                    colors: { duration: 0, easing: "linear" },
-                  },
-                },
-              },
-              plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false },
-              },
-            },
-          });
-          // Add to cache
-          this._chartCache.set(container.id, chart);
-        } else {
-          // Update existing chart if level changed
-          const datasets = chart.data.datasets;
-          if (datasets && datasets[0]) {
-            const bg = Array(datasets[0].backgroundColor.length)
-              .fill(emptyColor)
-              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-
-            datasets[0].backgroundColor = bg;
-            chart.update("none"); // Update without animation
-          }
-        }
-
-        // Add the text overlay if showValue is true
-        if (showValue) {
-          const valueText = document.createElement("div");
-          valueText.className = "level-value-text";
-          // Show the raw value if provided; otherwise the normalized level.
-          valueText.textContent = displayLevel;
-
-          // Improved positioning and styling
-          valueText.style.position = "absolute";
-          valueText.style.top = "50%";
-          valueText.style.left = "50%";
-          valueText.style.transform = "translate(-50%, -50%)";
-
-          // Apply custom styling
-          valueText.style.fontSize = `${size * fontSizeRatio}px`;
-          valueText.style.fontWeight = fontWeight;
-          valueText.style.color = textColor;
-
-          // For small sizes, add extra adjustments
-          if (size < 42) {
-            valueText.style.lineHeight = "1";
-            valueText.style.height = "1em"; // Fix height for small sizes
-          }
-
-          container.appendChild(valueText);
-        }
-      });
-    });
+    // After rendering, ensure all charts exist
+    this.updateComplete.then(() => this._rebuildCharts());
 
     // Call parent's updated if it exists
     if (super.updated) super.updated(changedProps);
   }
+  // Recreate charts when element is connected, useful after DOM cloning
+  connectedCallback() {
+    super.connectedCallback();
+    Promise.resolve().then(() => this._rebuildCharts());
+  }
+
   // Clean up charts when component is disconnected
   disconnectedCallback() {
     super.disconnectedCallback();
