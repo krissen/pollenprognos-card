@@ -14,10 +14,12 @@ Additional documentation:
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
 | `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu` or `silam`. If omitted the card tries to detect the correct integration. |
-| `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs. |
-| `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code. |
-| `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors. |
-| `mode` *(SILAM only)* | `string` | `daily` | Forecast mode for SILAM: `daily`, `hourly` or `twice_daily`. |
+| `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
+| `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
+| `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
+| `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
+| `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
+| `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
 | `levels_colors` | `array<string>` | `["#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#e64a19", "#d32f2f"]` | Colors for the segments in the level circle. |
 | `levels_empty_color` | `string` | `rgba(200, 200, 200, 0.15)` | Color for empty segments. |
 | `levels_gap_color` | `string` | `var(--card-background-color)` | Color for gaps in the level circle. |
@@ -43,9 +45,13 @@ Additional documentation:
 | `show_value_text` | `boolean` | `false` (PP) / `true` (DWD) | Show pollen intensity as text. |
 | `show_value_numeric` | `boolean` | `false` | Show numeric pollen value. |
 | `show_value_numeric_in_circle` | `boolean` | `false` | Place numeric value inside the circle. |
+| `link_to_sensors` | `boolean` | `true` | Link allergen icons and circles to their sensor entities. |
+| `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). |
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
+| `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
+| `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
 | `tap_action` | `object` | *(empty)* | Lovelace tap action configuration. |
@@ -62,6 +68,7 @@ Additional documentation:
 The following keys are recognised for each adapter. Values must match your integration sensors exactly.
 
 ### Pollenprognos (PP)
+
 ```
 Al
 Alm
@@ -76,6 +83,7 @@ Sälg och viden
 ```
 
 ### DWD Pollenflug
+
 ```
 ambrosia
 beifuss
@@ -88,7 +96,9 @@ roggen
 ```
 
 ### Polleninformation EU (PEU)
+
 ```
+allergy_risk
 alder
 ash
 beech
@@ -109,7 +119,10 @@ rye
 willow
 ```
 
+Only the `allergy_risk` allergen supports forecast modes other than `daily`. These modes require `polleninformation` **v0.4.4** or later and card **v2.5.0** or newer.
+
 ### SILAM Pollen Allergy Sensor
+
 ```
 alder
 birch
@@ -118,13 +131,25 @@ hazel
 mugwort
 olive
 ragweed
+index
 ```
+
+#### SILAM threshold values
+
+For the SILAM integration, each allergen uses the following threshold values to determine pollen levels:
+
+- **birch, grass, hazel:** 1, 25, 50, 100, 500, 1000, 5000
+- **alder, ragweed, mugwort, olive:** 1, 10, 25, 50, 100, 500, 1000
+
+> **Note on SILAM thresholds:**  
+> For the SILAM integration, each threshold value marks the start of a new pollen level. A level applies as soon as the pollen value is greater than or equal to its threshold (≥). For example, a value of 25 will be assigned to the level that starts at 25. This ensures that all threshold values are inclusive and consistently interpreted across all levels.
 
 ## Example snippets
 
 Below are a few short configuration examples. Only the relevant lines are shown.
 
 **Pollenprognos (PP)**
+
 ```yaml
 type: custom:pollenprognos-card
 city: Stockholm
@@ -132,6 +157,7 @@ show_text_allergen: true
 ```
 
 **DWD Pollenflug**
+
 ```yaml
 type: custom:pollenprognos-card
 integration: dwd
@@ -139,6 +165,7 @@ region_id: "91"
 ```
 
 **Minimal layout**
+
 ```yaml
 type: custom:pollenprognos-card
 minimal: true
@@ -146,10 +173,10 @@ show_value_numeric: true
 ```
 
 **Custom phrases**
+
 ```yaml
 phrases:
   short:
     Malörtsambrosia: Ambrs
     Sälg och viden: Sälg
 ```
-

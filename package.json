@@ -1,19 +1,22 @@
 {
   "name": "pollenprognos-card",
-  "version": "2.0.0",
+  "version": "2.4.8",
   "description": "Custom card for Home Assistant showing pollen forecasts",
   "main": "dist/pollenprognos-card.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "update-version": "node scripts/update-version.js",
+    "prebuild": "npm run update-version"
   },
   "devDependencies": {
     "@vitejs/plugin-legacy": "^6.1.1",
     "vite": "^6.3.5"
   },
   "dependencies": {
+    "intl-messageformat": "^10.7.16",
     "lit": "^2.8.0"
   }
 }

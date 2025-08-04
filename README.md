@@ -16,7 +16,7 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 <table align="center">
   <tr>
     <td align="center" valign="middle">
-      <img width="450" alt="Skärmavbild 2022-08-05" src="https://user-images.githubusercontent.com/2181965/183159066-2cef1a6e-e59b-4bb3-832b-7bff781b471c.png" />
+           <img width="450" alt="Skärmavbild 2025-06-09 kl  20 10 46" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
     </td>
     <td align="center" valign="middle">
       <img width="450" alt="Skärmavbild 2025-05-30 kl  12 38 11" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
@@ -24,11 +24,15 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
   </tr>
   <tr>
     <td align="center" valign="middle">
-      <img width="450" alt="Skärmavbild 2025-06-09 kl  20 10 46" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
+            <img width="450" alt="Forecast" src="https://github.com/user-attachments/assets/9c2df78f-6b62-4d88-a623-312fda24fab8" />
     </td>
     <td align="center" valign="middle">
-      <img width="450" alt="Skärmavbild 2025-06-09 kl  20 10 26" src="https://github.com/user-attachments/assets/3ecfcc60-4c91-4164-b175-e3ed151ee566" />
+<img width="450" alt="Skärmavbild 2025-08-04 kl  09 46 28" src="https://github.com/user-attachments/assets/91d051f2-dce1-4215-adbd-6f70e2968c1b" />
     </td>
+  </tr>
+  <tr>
+    <td>Two card instances combined, both using integration `polleninformation`. The top card shows `allergy_risk` in mode daily.</td>
+    <td>Three card instances combined, all using integration `silam_pollen`. The top-most card uses mode `minimal`. The middle card `twice_daily`, and the bottom card `hourly`.</td>
   </tr>
 </table>
 

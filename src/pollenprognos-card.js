@@ -53,65 +53,202 @@ class PollenPrognosCard extends LitElement {
       gap = LEVELS_DEFAULTS.levels_gap,
       size = 100,
     },
+    allergen = "default",
+    dayIndex = 0,
+    displayLevel = level,
+    entityId = null,
+    clickable = true,
   ) {
     // Create a unique key for this chart configuration
-    const allergen = arguments[2] || "default";
-    const dayIndex = arguments[3] || 0;
     const chartId = `chart-${allergen}-${dayIndex}-${level}`;
 
-    // Use a reference element that will be populated in firstUpdated or updated
+    // Use attributes instead of properties so values persist if DOM is cloned
     return html`
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;"
-        .level="${level}"
-        .colors="${JSON.stringify(colors)}"
-        .emptyColor="${emptyColor}"
-        .gapColor="${gapColor}"
-        .thickness="${thickness}"
-        .gap="${gap}"
-        .size="${size}"
-        .showValue="${this.config && this.config.show_value_numeric_in_circle}"
-        .fontWeight="${this.config?.levels_text_weight || "normal"}"
-        .fontSizeRatio="${this.config?.levels_text_size || 0.2}"
-        .textColor="${this.config?.levels_text_color ||
-        "var(--primary-text-color)"}"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
+          clickable && entityId ? " cursor: pointer;" : ""
+        }"
+        data-level="${level}"
+        data-display-level="${displayLevel}"
+        data-colors='${JSON.stringify(colors)}'
+        data-empty-color="${emptyColor}"
+        data-gap-color="${gapColor}"
+        data-thickness="${thickness}"
+        data-gap="${gap}"
+        data-size="${size}"
+        data-show-value="${this.config && this.config.show_value_numeric_in_circle}"
+        data-font-weight="${this.config?.levels_text_weight || "normal"}"
+        data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
+        data-text-color="${
+          this.config?.levels_text_color || "var(--primary-text-color)"
+        }"
+        @click=${(e) => {
+          if (clickable && entityId) {
+            e.stopPropagation();
+            this._openEntity(entityId);
+          }
+        }}
       ></div>
     `;
   }
 
-  // In the updated() method, update the part that adds the text to the chart:
-  // Add the text overlay if showValue is true
-  if(showValue) {
-    const valueText = document.createElement("div");
-    valueText.className = "level-value-text";
-    valueText.textContent = level;
+  _openEntity(entityId) {
+    const ev = new CustomEvent("hass-more-info", {
+      bubbles: true,
+      composed: true,
+      detail: { entityId },
+    });
+    this.dispatchEvent(ev);
+  }
 
-    // Improved positioning and styling
-    valueText.style.position = "absolute";
-    valueText.style.top = "50%";
-    valueText.style.left = "50%";
-    valueText.style.transform = "translate(-50%, -50%)";
+  /**
+   * Build or refresh all level-circle charts in the current DOM.
+   * Chart options are stored as data attributes so charts can be
+   * reconstructed after the DOM is cloned or replaced.
+   */
+  _rebuildCharts() {
+    const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
+    const activeIds = new Set();
 
-    // Get custom styling from container attributes
-    const fontWeight = container.fontWeight || "normal"; // Default to normal instead of bold
-    const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2; // Smaller default ratio
-    const textColor = container.textColor || "var(--primary-text-color)";
-    const textSizeRatio = this.config?.text_size_ratio ?? 1;
+    containers.forEach((container) => {
+      activeIds.add(container.id);
 
-    // Apply custom styling
-    valueText.style.fontSize = `${size * fontSizeRatio}px`;
-    valueText.style.fontWeight = fontWeight;
-    valueText.style.color = textColor;
+      // Extract values from data attributes
+      const level = Number(container.dataset.level || 0);
+      const displayLevel = Number(container.dataset.displayLevel ?? level);
+      const colors = JSON.parse(container.dataset.colors || "[]");
+      const numSegments = colors.length;
+      const safeLevel = Math.min(level, numSegments);
+      const emptyColor = container.dataset.emptyColor;
+      const gapColor = container.dataset.gapColor;
+      const thickness = Number(container.dataset.thickness);
+      const gap = Number(container.dataset.gap);
+      const size = Number(container.dataset.size);
+      const showValue = container.dataset.showValue === "true";
 
-    // For small sizes, add extra adjustments
-    if (size < 42) {
-      valueText.style.lineHeight = "1";
-      valueText.style.height = "1em"; // Fix height for small sizes
-    }
+      // Get custom styling from data attributes
+      const fontWeight = container.dataset.fontWeight || "normal";
+      const fontSizeRatio = parseFloat(container.dataset.fontSizeRatio) || 0.2;
+      const textColor = container.dataset.textColor || "var(--primary-text-color)";
 
-    container.appendChild(valueText);
+      // Retrieve existing chart if it exists
+      let chart = this._chartCache.get(container.id);
+
+      // Remove old text overlay, if any
+      const existingText = container.querySelector(".level-value-text");
+      if (existingText) existingText.remove();
+
+      // Recreate chart if missing or detached
+      if (!chart || !container.contains(chart.canvas)) {
+        if (chart) chart.destroy();
+        container.innerHTML = "";
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        container.appendChild(canvas);
+
+        const data = Array(numSegments).fill(1);
+        const bg = Array(numSegments)
+          .fill(emptyColor)
+          .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
+        const bc = Array(numSegments).fill(gapColor);
+
+        chart = new Chart(canvas.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: Array(numSegments).fill(""),
+            datasets: [
+              {
+                data,
+                backgroundColor: bg,
+                borderColor: bc,
+                borderWidth: gap,
+              },
+            ],
+          },
+          options: {
+            rotation: -Math.PI / 2,
+            cutout: `${100 - thickness}%`,
+            responsive: false,
+            maintainAspectRatio: false,
+            animation: {
+              duration: 0,
+              animateRotate: false,
+              animateScale: false,
+              easing: "linear",
+            },
+            transitions: {
+              active: {
+                animation: {
+                  duration: 0,
+                  animateRotate: false,
+                  animateScale: false,
+                  easing: "linear",
+                },
+              },
+              show: {
+                animations: {
+                  numbers: { duration: 0, easing: "linear" },
+                  colors: { duration: 0, easing: "linear" },
+                },
+              },
+              hide: {
+                animations: {
+                  numbers: { duration: 0, easing: "linear" },
+                  colors: { duration: 0, easing: "linear" },
+                },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false },
+            },
+          },
+        });
+
+        this._chartCache.set(container.id, chart);
+      } else {
+        // Update existing chart if level changed
+        const datasets = chart.data.datasets;
+        if (datasets && datasets[0]) {
+          const bg = Array(datasets[0].backgroundColor.length)
+            .fill(emptyColor)
+            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
+
+          datasets[0].backgroundColor = bg;
+          chart.update("none");
+        }
+      }
+
+      // Add numeric text overlay if requested
+      if (showValue) {
+        const valueText = document.createElement("div");
+        valueText.className = "level-value-text";
+        valueText.textContent = displayLevel;
+        valueText.style.position = "absolute";
+        valueText.style.top = "50%";
+        valueText.style.left = "50%";
+        valueText.style.transform = "translate(-50%, -50%)";
+        valueText.style.fontSize = `${size * fontSizeRatio}px`;
+        valueText.style.fontWeight = fontWeight;
+        valueText.style.color = textColor;
+        if (size < 42) {
+          valueText.style.lineHeight = "1";
+          valueText.style.height = "1em";
+        }
+        container.appendChild(valueText);
+      }
+    });
+
+    // Remove charts whose containers disappeared
+    this._chartCache.forEach((cachedChart, id) => {
+      if (!activeIds.has(id)) {
+        cachedChart.destroy();
+        this._chartCache.delete(id);
+      }
+    });
   }
 
   updated(changedProps) {
@@ -120,147 +257,18 @@ class PollenPrognosCard extends LitElement {
       this._subscribeForecastIfNeeded();
     }
 
-    // After rendering, find all chart containers and create/update charts
-    this.updateComplete.then(() => {
-      this.renderRoot.querySelectorAll(".level-circle").forEach((container) => {
-        // Extract properties from the container
-        const level = Number(container.level || 0);
-        const colors = JSON.parse(container.colors || "[]");
-        const numSegments = colors.length;
-        const safeLevel = Math.min(level, numSegments);
-        const emptyColor = container.emptyColor;
-        const gapColor = container.gapColor;
-        const thickness = Number(container.thickness);
-        const gap = Number(container.gap);
-        const size = Number(container.size);
-        const showValue = container.showValue;
-
-        // Get custom styling from container attributes
-        const fontWeight = container.fontWeight || "normal";
-        const fontSizeRatio = parseFloat(container.fontSizeRatio) || 0.2;
-        const textColor = container.textColor || "var(--primary-text-color)";
-
-        // Check if we already have a chart for this container
-        let chart = this._chartCache.get(container.id);
-
-        // Remove previously added text element, if any
-        const existingText = container.querySelector(".level-value-text");
-        if (existingText) existingText.remove();
-
-        if (!chart) {
-          // Create canvas if it doesn't exist
-          container.innerHTML = "";
-          const canvas = document.createElement("canvas");
-          canvas.width = size;
-          canvas.height = size;
-          container.appendChild(canvas);
-
-          // Create data arrays
-          const data = Array(numSegments).fill(1);
-          const bg = Array(numSegments)
-            .fill(emptyColor)
-            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-          const bc = Array(numSegments).fill(gapColor);
-
-          // Create new chart
-          chart = new Chart(canvas.getContext("2d"), {
-            type: "doughnut",
-            data: {
-              labels: Array(numSegments).fill(""),
-              datasets: [
-                {
-                  data,
-                  backgroundColor: bg,
-                  borderColor: bc,
-                  borderWidth: gap,
-                },
-              ],
-            },
-            options: {
-              rotation: -Math.PI / 2,
-              cutout: `${100 - thickness}%`,
-              responsive: false,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 0,
-                animateRotate: false,
-                animateScale: false,
-                easing: "linear",
-              },
-              transitions: {
-                active: {
-                  animation: {
-                    duration: 0,
-                    animateRotate: false,
-                    animateScale: false,
-                    easing: "linear",
-                  },
-                },
-                show: {
-                  animations: {
-                    numbers: { duration: 0, easing: "linear" },
-                    colors: { duration: 0, easing: "linear" },
-                  },
-                },
-                hide: {
-                  animations: {
-                    numbers: { duration: 0, easing: "linear" },
-                    colors: { duration: 0, easing: "linear" },
-                  },
-                },
-              },
-              plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false },
-              },
-            },
-          });
-          // Add to cache
-          this._chartCache.set(container.id, chart);
-        } else {
-          // Update existing chart if level changed
-          const datasets = chart.data.datasets;
-          if (datasets && datasets[0]) {
-            const bg = Array(datasets[0].backgroundColor.length)
-              .fill(emptyColor)
-              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-
-            datasets[0].backgroundColor = bg;
-            chart.update("none"); // Update without animation
-          }
-        }
-
-        // Add the text overlay if showValue is true
-        if (showValue) {
-          const valueText = document.createElement("div");
-          valueText.className = "level-value-text";
-          valueText.textContent = level;
-
-          // Improved positioning and styling
-          valueText.style.position = "absolute";
-          valueText.style.top = "50%";
-          valueText.style.left = "50%";
-          valueText.style.transform = "translate(-50%, -50%)";
-
-          // Apply custom styling
-          valueText.style.fontSize = `${size * fontSizeRatio}px`;
-          valueText.style.fontWeight = fontWeight;
-          valueText.style.color = textColor;
-
-          // For small sizes, add extra adjustments
-          if (size < 42) {
-            valueText.style.lineHeight = "1";
-            valueText.style.height = "1em"; // Fix height for small sizes
-          }
-
-          container.appendChild(valueText);
-        }
-      });
-    });
+    // After rendering, ensure all charts exist
+    this.updateComplete.then(() => this._rebuildCharts());
 
     // Call parent's updated if it exists
     if (super.updated) super.updated(changedProps);
   }
+  // Recreate charts when element is connected, useful after DOM cloning
+  connectedCallback() {
+    super.connectedCallback();
+    Promise.resolve().then(() => this._rebuildCharts());
+  }
+
   // Clean up charts when component is disconnected
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -402,8 +410,6 @@ class PollenPrognosCard extends LitElement {
     }
   }
 
-
-
   get debug() {
     // return true;
     return Boolean(this.config && this.config.debug);
@@ -435,28 +441,20 @@ class PollenPrognosCard extends LitElement {
     };
   }
 
-  /**
-   * Scale a raw numeric level to the 0–6 range used by the card.
-   * DWD uses half steps up to 3 and PEU uses full steps up to 4.
-   * All other integrations already report 0–6 directly.
-   */
-  _scaleLevel(raw) {
-    const val = Number(raw);
-    if (isNaN(val)) return val;
-    if (this.config.integration === "dwd") return val * 2;
-    if (this.config.integration === "peu") {
-      const map = [0, 1, 3, 5, 6];
-      const idx = Math.max(0, Math.min(Math.round(val), map.length - 1));
-      return map[idx];
-    }
-    return val;
-  }
-
   _getImageSrc(allergenReplaced, state) {
     const raw = Number(state);
-    let scaled = this._scaleLevel(raw);
-    let min = this.config.integration === "peu" ? 0 : -1;
-    const max = 6;
+    let scaled = raw;
+    let min = -1,
+      max = 6;
+    if (this.config.integration === "dwd") {
+      scaled = raw * 2;
+      max = 6;
+    } else if (this.config.integration === "peu") {
+      // PEU no longer scales values, the circle max level is four.
+      scaled = raw;
+      max = 4;
+      min = 0;
+    }
     let lvl = Math.round(scaled);
     if (isNaN(lvl) || lvl < min) lvl = min;
     if (lvl > max) lvl = max;
@@ -668,19 +666,18 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // Automatisk region/stad/location
-    if (integration === "dwd" && !cfg.region_id && dwdStates.length) {
+    // Automatic region/city/location detection unless manual mode is selected
+    if (integration === "dwd" && cfg.region_id !== "manual" && !cfg.region_id && dwdStates.length) {
       cfg.region_id = Array.from(
         new Set(dwdStates.map((id) => id.split("_").pop())),
       ).sort((a, b) => Number(a) - Number(b))[0];
-      if (this.debug)
-        console.debug("[Card] Auto-set region_id:", cfg.region_id);
-    } else if (integration === "pp" && !cfg.city && ppStates.length) {
+      if (this.debug) console.debug("[Card] Auto-set region_id:", cfg.region_id);
+    } else if (integration === "pp" && cfg.city !== "manual" && !cfg.city && ppStates.length) {
       cfg.city = ppStates[0]
         .slice("sensor.pollen_".length)
         .replace(/_[^_]+$/, "");
       if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (integration === "peu" && !cfg.location && peuStates.length) {
+    } else if (integration === "peu" && cfg.location !== "manual" && !cfg.location && peuStates.length) {
       // Samla alla location_slug från entity attributes (om de finns)
       const peuLocations = Array.from(
         new Set(
@@ -699,7 +696,7 @@ class PollenPrognosCard extends LitElement {
           cfg.location,
           peuLocations,
         );
-    } else if (integration === "silam" && !cfg.location && silamStates.length) {
+    } else if (integration === "silam" && cfg.location !== "manual" && !cfg.location && silamStates.length) {
       // Samla alla unika location-namn från entity_id
       const silamLocations = Array.from(
         new Set(
@@ -747,9 +744,12 @@ class PollenPrognosCard extends LitElement {
     } else {
       let loc = "";
       if (integration === "dwd") {
-        loc = DWD_REGIONS[cfg.region_id] || cfg.region_id;
+        loc =
+          cfg.region_id && cfg.region_id !== "manual"
+            ? DWD_REGIONS[cfg.region_id] || cfg.region_id
+            : "";
       } else if (integration === "peu") {
-        // Hitta alla peu-entities
+        // Collect all PEU entities to determine location automatically.
         const peuEntities = Object.values(hass.states).filter(
           (s) =>
             s &&
@@ -757,26 +757,58 @@ class PollenPrognosCard extends LitElement {
             typeof s.entity_id === "string" &&
             s.entity_id.startsWith("sensor.polleninformation_"),
         );
-        // Hitta entity där slug-attribut eller entity_id matchar cfg.location
-        const match = peuEntities.find((s) => {
-          const attr = s.attributes || {};
-          const slug =
-            attr.location_slug ||
-            s.entity_id
-              .replace("sensor.polleninformation_", "")
-              .replace(/_[^_]+$/, "");
-          // Always slugify both sides for matching!
-          return slugify(slug) === slugify(cfg.location || "");
-        });
+        const wantedSlug =
+          cfg.location && cfg.location !== "manual"
+            ? slugify(cfg.location)
+            : "";
         let title = "";
+        let match = null;
+        if (wantedSlug) {
+          // Find entity matching the configured location slug.
+          match = peuEntities.find((s) => {
+            const attr = s.attributes || {};
+            const slug =
+              attr.location_slug ||
+              s.entity_id
+                .replace("sensor.polleninformation_", "")
+                .replace(/_[^_]+$/, "");
+            return slugify(slug) === wantedSlug;
+          });
+        } else {
+          // No location configured – determine if all sensors belong to one place.
+          const locations = Array.from(
+            new Set(
+              peuEntities.map((s) => {
+                const attr = s.attributes || {};
+                const slug =
+                  attr.location_slug ||
+                  s.entity_id
+                    .replace("sensor.polleninformation_", "")
+                    .replace(/_[^_]+$/, "");
+                return slugify(slug);
+              }),
+            ),
+          );
+          if (locations.length === 1) {
+            match = peuEntities.find((s) => {
+              const attr = s.attributes || {};
+              const slug =
+                attr.location_slug ||
+                s.entity_id
+                  .replace("sensor.polleninformation_", "")
+                  .replace(/_[^_]+$/, "");
+              return slugify(slug) === locations[0];
+            });
+          }
+        }
         if (match) {
-          const attr = match.attributes;
+          const attr = match.attributes || {};
           title =
             attr.location_title ||
             attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-            cfg.location;
+            "";
         }
-        loc = title || cfg.location || "";
+        loc = wantedSlug ? title || cfg.location || "" : title;
       } else if (integration === "silam") {
         const pollenAllergens = [
           "alder",
@@ -812,14 +844,21 @@ class PollenPrognosCard extends LitElement {
           const allergenSlug = match[2];
           return SilamValidAllergenSlugs.has(allergenSlug);
         });
-        const wantedSlug = slugify(cfg.location || "");
+        const wantedSlug =
+          cfg.location && cfg.location !== "manual"
+            ? slugify(cfg.location)
+            : "";
 
         // Hitta första entity med samma slugificerade location
-        const match = silamEntities.find((s) => {
-          const eid = s.entity_id.replace("sensor.silam_pollen_", "");
-          const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
-          return slugify(locPart) === wantedSlug;
-        });
+        const match = wantedSlug
+          ? silamEntities.find((s) => {
+              const eid = s.entity_id.replace("sensor.silam_pollen_", "");
+              const locPart = eid
+                .replace(/_[^_]+$/, "")
+                .replace(/^[-\s]+/, "");
+              return slugify(locPart) === wantedSlug;
+            })
+          : null;
 
         let title = "";
         if (match) {
@@ -834,19 +873,34 @@ class PollenPrognosCard extends LitElement {
           title = title.replace(/^[-\s]+/, "");
         }
 
-        loc = title || cfg.location || "";
+        loc = wantedSlug ? title || cfg.location || "" : title;
       } else {
-        loc =
-          PP_POSSIBLE_CITIES.find(
-            (n) =>
-              n
-                .toLowerCase()
-                .replace(/[åä]/g, "a")
-                .replace(/ö/g, "o")
-                .replace(/[-\s]/g, "_") === cfg.city,
-          ) || cfg.city;
+        // Pollenprognos integration (PP): resolve city automatically when unset.
+        const matchCity = (slug) =>
+          PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
+        if (cfg.city && cfg.city !== "manual") {
+          loc = matchCity(cfg.city);
+        } else {
+          const ppStates = Object.keys(hass.states).filter((id) =>
+            /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+          );
+          const cities = Array.from(
+            new Set(
+              ppStates.map((id) =>
+                id.replace("sensor.pollen_", "").replace(/_[^_]+$/, ""),
+              ),
+            ),
+          );
+          if (cities.length === 1) {
+            loc = matchCity(cities[0]);
+          } else {
+            loc = "";
+          }
+        }
       }
-      this.header = `${this._t("card.header_prefix")} ${loc}`;
+      this.header = loc
+        ? `${this._t("card.header_prefix")} ${loc}`
+        : this._t("card.header_prefix");
       if (this.debug) console.debug("[Card] header set to:", this.header);
     }
 
@@ -1039,7 +1093,8 @@ class PollenPrognosCard extends LitElement {
         >
           ${(this.sensors || []).map((sensor) => {
             const txt = sensor.day0?.state_text ?? "";
-            const num = sensor.day0?.state ?? "";
+            // Use display_state when available, falling back to the normalized state.
+            const num = sensor.day0?.display_state ?? sensor.day0?.state ?? "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
@@ -1067,6 +1122,19 @@ class PollenPrognosCard extends LitElement {
                     sensor.allergenReplaced,
                     sensor.day0?.state,
                   )}"
+                  style="${this.config.link_to_sensors !== false &&
+                  sensor.entity_id
+                    ? "cursor: pointer;"
+                    : ""}"
+                  @click=${(e) => {
+                    if (
+                      this.config.link_to_sensors !== false &&
+                      sensor.entity_id
+                    ) {
+                      e.stopPropagation();
+                      this._openEntity(sensor.entity_id);
+                    }
+                  }}
                 />
                 ${label
                   ? html`<span
@@ -1165,14 +1233,37 @@ class PollenPrognosCard extends LitElement {
                         sensor.allergenReplaced,
                         sensor.days[0]?.state,
                       )}"
+                      style="${this.config.link_to_sensors !== false &&
+                      sensor.entity_id
+                        ? "cursor: pointer;"
+                        : ""}"
+                      @click=${(e) => {
+                        if (
+                          this.config.link_to_sensors !== false &&
+                          sensor.entity_id
+                        ) {
+                          e.stopPropagation();
+                          this._openEntity(sensor.entity_id);
+                        }
+                      }}
                     />
                   </td>
                   ${cols.map(
                     (i) => html`
                       <td>
                         ${(() => {
-                          const raw = Number(sensor.days[i]?.state) || 0;
-                          const levelVal = this._scaleLevel(raw);
+                          const normalized = Number(sensor.days[i]?.state) || 0;
+                          // Value to display inside the circle; defaults to normalized.
+                          const displayVal = Number(
+                            sensor.days[i]?.display_state ?? normalized,
+                          );
+                          let levelVal = normalized;
+                          if (this.config.integration === "dwd") {
+                            levelVal = normalized * 2; // scale 0–3 to 0–6
+                          } else if (this.config.integration === "peu") {
+                            // PEU levels already span 0–4.
+                            levelVal = normalized;
+                          }
                           return this._renderLevelCircle(
                             levelVal,
                             {
@@ -1185,6 +1276,9 @@ class PollenPrognosCard extends LitElement {
                             },
                             sensor.allergenReplaced,
                             i,
+                            displayVal,
+                            sensor.entity_id,
+                            this.config.link_to_sensors !== false,
                           );
                         })()}
                       </td>
@@ -1208,7 +1302,10 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          const num = sensor.days[i]?.state;
+                          // Prefer display_state when available to show raw values.
+                          const num =
+                            sensor.days[i]?.display_state ??
+                            sensor.days[i]?.state;
                           let content = "";
                           if (
                             this.config.show_value_text &&
@@ -1309,7 +1406,8 @@ class PollenPrognosCard extends LitElement {
     e.preventDefault?.();
     e.stopPropagation?.();
     const action = this.tapAction.type || "more-info";
-    let entity = this.tapAction.entity || "camera.pollen";
+    // Use sun.sun as a fallback, since it always exists in Home Assistant.
+    let entity = this.tapAction.entity || "sun.sun";
     switch (action) {
       case "more-info":
         this._fire("hass-more-info", { entityId: entity });

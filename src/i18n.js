@@ -1,74 +1,50 @@
-// src/i18n.js
+import { IntlMessageFormat } from "intl-messageformat";
 
-// Dynamiskt importera alla språkfiler från locales-katalogen via Vite
-// Använder import.meta.glob med eager-flag för att paketera JSON-filerna
+// Load all locale JSON files eagerly using Vite's import.meta.glob.
 const localeModules = import.meta.glob("./locales/*.json", { eager: true });
 
+// Map of language code to translation object.
 const LOCALES = {};
 for (const filePath in localeModules) {
   const match = filePath.match(/\.\/locales\/([\w-]+)\.json$/);
   if (match) {
-    // Varje modul har sin data som default-export
     LOCALES[match[1]] = localeModules[filePath].default;
   }
 }
 
-// Standard-språk om nyckel eller språk saknas
+// Default language when no suitable locale is found.
 const DEFAULT = "en";
 
-/**
- * Hjälpfunktion för att plocka ut nested-nycklar från ett objekt
- */
+// Helper to resolve dot separated keys inside nested objects.
+// Looks up flat translation keys like "card.header_prefix"
 function resolveKey(obj, path) {
-  return path
-    .split(".")
-    .reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), obj);
+  return obj[path];
 }
 
-/**
- * Detektera tvåbokstavskod för språk baserat på HA eller användarkonfig
- */
+// Detect the best language based on Home Assistant settings and an optional override.
 export function detectLang(hass, userLocale) {
-  // 1) Hitta den fulla taggen
   let tag = userLocale || hass?.locale?.language || hass?.language || DEFAULT;
-  // 2) Om vi har en exakt match i LOCALES, använd den
-  if (LOCALES[tag]) {
-    return tag;
-  }
-  // 3) Annars titta på första två bokstäver
+  if (LOCALES[tag]) return tag;
   const short = tag.slice(0, 2).toLowerCase();
-  if (LOCALES[short]) {
-    return short;
-  }
-  // 4) Annars fallback
+  if (LOCALES[short]) return short;
   return DEFAULT;
 }
 
 export const SUPPORTED_LOCALES = Object.keys(LOCALES);
 
-/**
- * Hämta översättning för key i valt språk, med fallback
- */
-export function t(key, lang) {
-  const localeData = LOCALES[lang] || {};
-  // Direkt nyckel
-  if (localeData[key] !== undefined) {
-    return localeData[key];
+// Translate a given key to the requested language using IntlMessageFormat.
+export function t(key, lang, vars = {}) {
+  const localeData = LOCALES[lang] || LOCALES[DEFAULT] || {};
+  let msg = resolveKey(localeData, key);
+  if (msg === undefined) {
+    const fallback = resolveKey(LOCALES[DEFAULT] || {}, key);
+    msg = fallback === undefined ? key : fallback;
   }
-  // Nested-nyckel
-  const nested = resolveKey(localeData, key);
-  if (nested !== undefined) {
-    return nested;
+  try {
+    const formatter = new IntlMessageFormat(msg, lang);
+    return formatter.format(vars);
+  } catch (err) {
+    console.warn(`Translation failed for key: ${key}`, err);
+    return msg;
   }
-  // Fallback till default-språk
-  const defaultData = LOCALES[DEFAULT] || {};
-  if (defaultData[key] !== undefined) {
-    return defaultData[key];
-  }
-  const defaultNested = resolveKey(defaultData, key);
-  if (defaultNested !== undefined) {
-    return defaultNested;
-  }
-  // Om inget hittas, returnera key
-  return key;
 }

@@ -6,15 +6,101 @@ import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type
 export function findAvailableSensors(cfg, hass, debug = false) {
   const integration = cfg.integration;
   let sensors = [];
-  if (integration === "pp") {
-    const cityKey = normalize(cfg.city || "");
+
+  // Manual mode: use custom prefix/suffix regardless of integration
+  const manual =
+    cfg.city === "manual" ||
+    cfg.region_id === "manual" ||
+    cfg.location === "manual";
+  if (manual) {
+    const prefix = cfg.entity_prefix || "";
+    const suffix = cfg.entity_suffix || "";
     for (const allergen of cfg.allergens || []) {
-      const rawKey = normalize(allergen);
-      const sensorId = `sensor.pollen_${cityKey}_${rawKey}`;
-      const exists = !!hass.states[sensorId];
+      let slug;
+      if (integration === "dwd") {
+        slug = normalizeDWD(allergen);
+      } else if (integration === "silam") {
+        slug = null;
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inv[allergen]) {
+            slug = inv[allergen];
+            break;
+          }
+        }
+        if (!slug) slug = normalize(allergen);
+      } else {
+        slug = normalize(allergen);
+      }
+      let sensorId = `sensor.${prefix}${slug}${suffix}`;
+      let exists = !!hass.states[sensorId];
+      if (!exists && suffix === "") {
+        // Fallback: try to find a unique candidate starting with the prefix and slug
+        const base = `sensor.${prefix}${slug}`;
+        const candidates = Object.keys(hass.states).filter((id) =>
+          id.startsWith(base),
+        );
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+          exists = true;
+        }
+      }
       if (debug) {
         console.debug(
-          `[findAvailableSensors][pp] allergen: '${allergen}', cityKey: '${cityKey}', rawKey: '${rawKey}', sensorId: '${sensorId}', exists: ${exists}`,
+          `[findAvailableSensors][custom] allergen: '${allergen}', slug: '${slug}', suffix: '${suffix}', sensorId: '${sensorId}', exists: ${exists}`,
+        );
+      }
+      if (exists) sensors.push(sensorId);
+    }
+    if (debug) {
+      console.debug(
+        "[findAvailableSensors] Found sensors (",
+        sensors.length,
+        ") :",
+        sensors,
+      );
+    }
+    return sensors;
+  }
+
+  if (integration === "pp") {
+    // City may be empty before the user selects one, so resolve sensors by search.
+    let cityKey = normalize(cfg.city || "");
+    // If cityKey is empty, try to detect it from available sensors.
+    if (!cityKey) {
+      const ppStates = Object.keys(hass.states).filter((id) =>
+        id.startsWith("sensor.pollen_") && /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+      );
+      if (ppStates.length) {
+        const m = ppStates[0].match(/^sensor\.pollen_(.+)_[^_]+$/);
+        cityKey = m ? m[1] : "";
+      }
+    }
+    for (const allergen of cfg.allergens || []) {
+      const rawKey = normalize(allergen);
+      let sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
+      let exists = sensorId && hass.states[sensorId];
+      if (!exists) {
+        // Search for unique candidate when city is unknown or sensor missing.
+        const base = cityKey
+          ? `sensor.pollen_${cityKey}_`
+          : "sensor.pollen_";
+        const candidates = Object.keys(hass.states).filter(
+          (id) =>
+            id.startsWith(base) &&
+            id.endsWith(`_${rawKey}`),
+        );
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+          exists = true;
+        }
+      }
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][pp] allergen: '${allergen}', cityKey: '${cityKey}', rawKey: '${rawKey}', sensorId: '${sensorId}', exists: ${!!exists}`,
         );
       }
       if (exists) sensors.push(sensorId);
