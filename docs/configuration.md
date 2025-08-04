@@ -19,7 +19,7 @@ Additional documentation:
 | `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
-| `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.4.8** or newer. |
+| `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
 | `levels_colors` | `array<string>` | `["#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#e64a19", "#d32f2f"]` | Colors for the segments in the level circle. |
 | `levels_empty_color` | `string` | `rgba(200, 200, 200, 0.15)` | Color for empty segments. |
 | `levels_gap_color` | `string` | `var(--card-background-color)` | Color for gaps in the level circle. |
@@ -68,6 +68,7 @@ Additional documentation:
 The following keys are recognised for each adapter. Values must match your integration sensors exactly.
 
 ### Pollenprognos (PP)
+
 ```
 Al
 Alm
@@ -82,6 +83,7 @@ Sälg och viden
 ```
 
 ### DWD Pollenflug
+
 ```
 ambrosia
 beifuss
@@ -94,6 +96,7 @@ roggen
 ```
 
 ### Polleninformation EU (PEU)
+
 ```
 allergy_risk
 alder
@@ -116,9 +119,10 @@ rye
 willow
 ```
 
-Only the `allergy_risk` allergen supports forecast modes other than `daily`. These modes require `polleninformation` **v0.4.4** or later and card **v2.4.8** or newer.
+Only the `allergy_risk` allergen supports forecast modes other than `daily`. These modes require `polleninformation` **v0.4.4** or later and card **v2.5.0** or newer.
 
 ### SILAM Pollen Allergy Sensor
+
 ```
 alder
 birch
@@ -135,6 +139,7 @@ index
 Below are a few short configuration examples. Only the relevant lines are shown.
 
 **Pollenprognos (PP)**
+
 ```yaml
 type: custom:pollenprognos-card
 city: Stockholm
@@ -142,6 +147,7 @@ show_text_allergen: true
 ```
 
 **DWD Pollenflug**
+
 ```yaml
 type: custom:pollenprognos-card
 integration: dwd
@@ -149,6 +155,7 @@ region_id: "91"
 ```
 
 **Minimal layout**
+
 ```yaml
 type: custom:pollenprognos-card
 minimal: true
@@ -156,10 +163,10 @@ show_value_numeric: true
 ```
 
 **Custom phrases**
+
 ```yaml
 phrases:
   short:
     Malörtsambrosia: Ambrs
     Sälg och viden: Sälg
 ```
-
