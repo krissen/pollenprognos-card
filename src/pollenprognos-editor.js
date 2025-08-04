@@ -1009,6 +1009,10 @@ class PollenPrognosCardEditor extends LitElement {
           }
         } else {
           cfg.days_to_show = this._config.integration === "silam" ? 5 : 4;
+          if (this._config.integration === "peu") {
+            // Re-select every allergen when returning to daily mode
+            cfg.allergens = [...PEU_ALLERGENS];
+          }
         }
       }
       // Tvinga mode till daily om location saknar weather-entity
