@@ -61,7 +61,7 @@ export const SILAM_THRESHOLDS = {
   // birch: [5, 25, 50, 100, 500, 1000, 5000],
   // grass: [5, 25, 50, 100, 500, 1000, 5000],
   // hazel: [5, 25, 50, 100, 500, 1000, 5000],
-  // The above is the correct level thresholds
+  // The above are the correct level thresholds
   // The below has lower thresholds specifically for the first, lowest level.
   // Just seemed odd to have documented pollen levels, but tell the user that
   // there is *none.*
@@ -78,12 +78,12 @@ export function grainsToLevel(allergen, grains) {
   const arr = SILAM_THRESHOLDS[allergen];
   if (!arr) return -1;
   if (isNaN(grains)) return -1;
-  if (grains <= arr[0]) return 0;
-  if (grains <= arr[1]) return 1;
-  if (grains <= arr[2]) return 2;
-  if (grains <= arr[3]) return 3;
-  if (grains <= arr[4]) return 4;
-  if (grains <= arr[5]) return 5;
+  if (grains < arr[0]) return 0;
+  if (grains < arr[1]) return 1;
+  if (grains < arr[2]) return 2;
+  if (grains < arr[3]) return 3;
+  if (grains < arr[4]) return 4;
+  if (grains < arr[5]) return 5;
   return 6;
 }
 
@@ -240,10 +240,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       if (config.location === "manual") {
         let slug = null;
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
-            acc[master] = ha;
-            return acc;
-          }, {});
+          const inverse = Object.entries(mapping).reduce(
+            (acc, [ha, master]) => {
+              acc[master] = ha;
+              return acc;
+            },
+            {},
+          );
           if (inverse[allergen]) {
             slug = inverse[allergen];
             break;
@@ -256,10 +259,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         if (hass.states[candidate]) sensorId = candidate;
       } else {
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce((acc, [ha, master]) => {
-            acc[master] = ha;
-            return acc;
-          }, {});
+          const inverse = Object.entries(mapping).reduce(
+            (acc, [ha, master]) => {
+              acc[master] = ha;
+              return acc;
+            },
+            {},
+          );
           if (inverse[allergen]) {
             const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
             if (hass.states[candidate]) {
