@@ -10,9 +10,18 @@ Since **v2.0.0** the card supports dynamic localization. It automatically follow
 
 This repository includes:
 
-- `src/locales/sv.json`
-- `src/locales/en.json`
+- `src/locales/cs.json`
+- `src/locales/da.json`
 - `src/locales/de.json`
+- `src/locales/en.json`
+- `src/locales/fi.json`
+- `src/locales/fr.json`
+- `src/locales/it.json`
+- `src/locales/nl.json`
+- `src/locales/no.json`
+- `src/locales/ru.json`
+- `src/locales/sk.json`
+- `src/locales/sv.json`
 
 ## Adding a new language
 
@@ -35,4 +44,3 @@ phrases:
 ```
 
 See [docs/configuration.md](configuration.md) for all phrase options and other settings.
-
