@@ -298,20 +298,23 @@ class PollenPrognosCard extends LitElement {
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
 
-    // Only update if any relevant value has changed
-    if (
-      deepEqual(this.sensors, filtered) &&
-      this._availableSensorCount === availableSensors.length &&
-      this.days_to_show === daysCount &&
-      deepEqual(this.displayCols, expectedDisplayCols)
-    ) {
+    // Determine if an update is required. Always update when data has not been loaded yet.
+    const needsUpdate =
+      !this._isLoaded ||
+      !deepEqual(this.sensors, filtered) ||
+      this._availableSensorCount !== availableSensors.length ||
+      this.days_to_show !== daysCount ||
+      !deepEqual(this.displayCols, expectedDisplayCols);
+    if (!needsUpdate) {
       return;
     }
 
+    // Store latest sensor information and mark data as loaded.
     this.sensors = filtered;
     this._availableSensorCount = availableSensors.length;
     this.days_to_show = daysCount;
     this.displayCols = expectedDisplayCols;
+    this._isLoaded = true; // Allow render() to show specific error messages.
 
     if (this.debug) {
       console.debug("Days to show:", this.days_to_show);
@@ -395,6 +398,7 @@ class PollenPrognosCard extends LitElement {
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
+      this._isLoaded = false; // Forecast request is in progress.
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
         .then((sensors) => {
@@ -406,6 +410,12 @@ class PollenPrognosCard extends LitElement {
           this._updateSensorsAndColumns(sensors, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
+        })
+        .catch((err) => {
+          console.error("[Card] Error fetching SILAM forecast:", err);
+          if (this.debug) console.debug("[Card] SILAM fetch error:", err);
+          this._isLoaded = true; // Avoid endless loading on failure.
+          this.requestUpdate();
         });
     }
   }
@@ -933,6 +943,7 @@ class PollenPrognosCard extends LitElement {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
     if (fetchPromise) {
+      this._isLoaded = false; // Forecast request is in progress.
       return fetchPromise
         .then((sensors) => {
           if (this.debug) {
@@ -1076,6 +1087,8 @@ class PollenPrognosCard extends LitElement {
         .catch((err) => {
           console.error("[Card] Error fetching pollen forecast:", err);
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
+          this._isLoaded = true; // Avoid endless loading on failure.
+          this.requestUpdate();
         });
     }
     // this.requestUpdate();
