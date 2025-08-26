@@ -1963,11 +1963,13 @@ class PollenPrognosCardEditor extends LitElement {
                 )}
               </ha-select>
             </ha-formfield>
-            <mwc-button
+            <!-- Use Home Assistant's button with outlined style for clarity -->
+            <ha-button
+              outlined
               @click=${() => this._resetPhrases(this._selectedPhraseLang)}
             >
               ${this._t("phrases_apply")}
-            </mwc-button>
+            </ha-button>
           </div>
           <details>
             <summary>${this._t("phrases_full")}</summary>
