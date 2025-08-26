@@ -28,6 +28,6 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: dist/pollenprognos-card.js
           asset_name: pollenprognos-card.js
-          tag: ${{ github.ref }}
+          tag: ${{ github.event.release.tag_name }}
           overwrite: true
 

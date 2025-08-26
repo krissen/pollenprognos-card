@@ -42,6 +42,7 @@ class PollenPrognosCard extends LitElement {
 
   _chartCache = new Map();
   _versionLogged = false;
+  _error = null; // Holds error translation key when something goes wrong
 
   _renderLevelCircle(
     level,
@@ -298,20 +299,24 @@ class PollenPrognosCard extends LitElement {
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
 
-    // Only update if any relevant value has changed
-    if (
-      deepEqual(this.sensors, filtered) &&
-      this._availableSensorCount === availableSensors.length &&
-      this.days_to_show === daysCount &&
-      deepEqual(this.displayCols, expectedDisplayCols)
-    ) {
+    // Determine if an update is required. Always update when data has not been loaded yet.
+    const needsUpdate =
+      !this._isLoaded ||
+      !deepEqual(this.sensors, filtered) ||
+      this._availableSensorCount !== availableSensors.length ||
+      this.days_to_show !== daysCount ||
+      !deepEqual(this.displayCols, expectedDisplayCols);
+    if (!needsUpdate) {
       return;
     }
 
+    // Store latest sensor information and mark data as loaded.
     this.sensors = filtered;
     this._availableSensorCount = availableSensors.length;
     this.days_to_show = daysCount;
     this.displayCols = expectedDisplayCols;
+    this._isLoaded = true; // Allow render() to show specific error messages.
+    this._error = null; // Clear previous errors on successful update
 
     if (this.debug) {
       console.debug("Days to show:", this.days_to_show);
@@ -357,6 +362,7 @@ class PollenPrognosCard extends LitElement {
         forecastType = "hourly";
       }
       if (entityId) {
+        this._error = null; // Clear location errors when entity is found
         this._forecastUnsub = this._hass.connection.subscribeMessage(
           (event) => {
             if (this.debug) {
@@ -379,11 +385,20 @@ class PollenPrognosCard extends LitElement {
         if (this.debug) {
           console.debug("[Card][subscribeForecast] Subscribed for", entityId);
         }
-      } else if (this.debug) {
-        console.debug(
-          "[Card] Hittar ingen weather-entity för location",
-          locationSlug,
-        );
+      } else {
+        if (this.debug) {
+          console.debug(
+            "[Card] Hittar ingen weather-entity för location",
+            locationSlug,
+          );
+        }
+        // Mark as loaded and store error so the user is informed
+        this.sensors = [];
+        this._availableSensorCount = 0;
+        this._forecastEvent = null;
+        this._isLoaded = true;
+        this._error = "card.error_location_not_found";
+        this.requestUpdate();
       }
     }
   }
@@ -395,6 +410,7 @@ class PollenPrognosCard extends LitElement {
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
+      this._isLoaded = false; // Forecast request is in progress.
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
         .then((sensors) => {
@@ -406,6 +422,12 @@ class PollenPrognosCard extends LitElement {
           this._updateSensorsAndColumns(sensors, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
+        })
+        .catch((err) => {
+          console.error("[Card] Error fetching SILAM forecast:", err);
+          if (this.debug) console.debug("[Card] SILAM fetch error:", err);
+          this._isLoaded = true; // Avoid endless loading on failure.
+          this.requestUpdate();
         });
     }
   }
@@ -438,6 +460,7 @@ class PollenPrognosCard extends LitElement {
       header: { state: true },
       tapAction: {},
       _isLoaded: { type: Boolean, state: true },
+      _error: { type: String, state: true },
     };
   }
 
@@ -933,6 +956,7 @@ class PollenPrognosCard extends LitElement {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
     if (fetchPromise) {
+      this._isLoaded = false; // Forecast request is in progress.
       return fetchPromise
         .then((sensors) => {
           if (this.debug) {
@@ -1076,6 +1100,8 @@ class PollenPrognosCard extends LitElement {
         .catch((err) => {
           console.error("[Card] Error fetching pollen forecast:", err);
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
+          this._isLoaded = true; // Avoid endless loading on failure.
+          this.requestUpdate();
         });
     }
     // this.requestUpdate();
@@ -1353,7 +1379,9 @@ class PollenPrognosCard extends LitElement {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
       let errorMsg = "";
-      if (this._availableSensorCount === 0) {
+      if (this._error) {
+        errorMsg = this._t(this._error);
+      } else if (this._availableSensorCount === 0) {
         errorMsg = this._t("card.error_no_sensors");
       } else {
         errorMsg = this._t("card.error_filtered_sensors");
