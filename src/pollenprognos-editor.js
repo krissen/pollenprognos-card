@@ -1963,7 +1963,9 @@ class PollenPrognosCardEditor extends LitElement {
                 )}
               </ha-select>
             </ha-formfield>
+            <!-- Use outlined style so the button is clearly visible -->
             <mwc-button
+              outlined
               @click=${() => this._resetPhrases(this._selectedPhraseLang)}
             >
               ${this._t("phrases_apply")}
