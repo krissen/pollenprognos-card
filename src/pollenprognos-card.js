@@ -30,7 +30,7 @@ import {
   DoughnutController,
   Tooltip,
   Legend,
-} from "https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.esm.js";
+} from "chart.js/auto";
 
 // Chart.js registreren
 Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
