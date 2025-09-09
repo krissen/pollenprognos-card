@@ -131,11 +131,53 @@ export async function fetchForecast(hass, config) {
   const sensors = [];
   const allergenData = new Map(); // Map to collect data by allergen name
 
-  // Process each kleenex sensor to extract individual allergen data
+  // Process each kleenex sensor to extract allergen data
   for (const sensor of kleenexSensors) {
     const attributes = sensor.attributes || {};
     const details = attributes.details || [];
     const forecastData = attributes.forecast || [];
+    
+    // Determine sensor category from entity_id
+    let sensorCategory = null;
+    if (sensor.entity_id.endsWith('_trees')) {
+      sensorCategory = 'trees';
+    } else if (sensor.entity_id.endsWith('_grass')) {
+      sensorCategory = 'grass';
+    } else if (sensor.entity_id.endsWith('_weeds')) {
+      sensorCategory = 'weeds';
+    }
+
+    // Process general category sensor (trees, grass, weeds)
+    if (sensorCategory && config.allergens.includes(sensorCategory)) {
+      if (!allergenData.has(sensorCategory)) {
+        allergenData.set(sensorCategory, {
+          levels: [],
+          entity_id: sensor.entity_id
+        });
+      }
+
+      const allergenEntry = allergenData.get(sensorCategory);
+      
+      // Today's data from sensor state
+      const currentLevel = sensor.attributes.level ? kleenexLevelToNumeric(sensor.attributes.level) : ppmToLevel(sensor.state);
+      
+      allergenEntry.levels[0] = {
+        date: new Date(today),
+        level: currentLevel,
+        value: Number(sensor.state) || 0
+      };
+      
+      // Forecast data
+      forecastData.forEach((forecastItem, dayIndex) => {
+        const forecastLevel = forecastItem.level ? kleenexLevelToNumeric(forecastItem.level) : ppmToLevel(forecastItem.value);
+        
+        allergenEntry.levels[dayIndex + 1] = {
+          date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
+          level: forecastLevel,
+          value: Number(forecastItem.value) || 0
+        };
+      });
+    }
 
     // Extract individual allergens from current details
     for (const detail of details) {
@@ -166,7 +208,7 @@ export async function fetchForecast(hass, config) {
       };
     }
 
-    // Extract forecast data for each day
+    // Extract forecast data for each day (individual allergens)
     forecastData.forEach((forecastItem, dayIndex) => {
       const forecastDate = new Date(today.getTime() + (dayIndex + 1) * 86400000);
       const forecastDetails = forecastItem.details || [];

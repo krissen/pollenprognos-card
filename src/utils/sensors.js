@@ -198,21 +198,47 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     }
   } else if (integration === "kleenex") {
     const locationSlug = (cfg.location || "").toLowerCase();
-    for (const allergen of cfg.allergens || []) {
+    
+    // For kleenex, we only need to check the 3 main category sensors
+    // Individual allergen data comes from their 'details' attributes
+    const categoryAllergens = ['trees', 'grass', 'weeds'];
+    const configuredAllergens = cfg.allergens || [];
+    
+    // Only check if any of the requested allergens map to these categories
+    const needsCategories = new Set();
+    for (const allergen of configuredAllergens) {
+      if (categoryAllergens.includes(allergen)) {
+        needsCategories.add(allergen);
+      } else {
+        // Individual allergens map to categories
+        const individualToCategory = {
+          'alder': 'trees', 'birch': 'trees', 'cypress': 'trees', 'elm': 'trees',
+          'hazel': 'trees', 'oak': 'trees', 'pine': 'trees', 'plane': 'trees', 'poplar': 'trees',
+          'mugwort': 'weeds', 'ragweed': 'weeds'
+        };
+        const category = individualToCategory[allergen];
+        if (category) {
+          needsCategories.add(category);
+        }
+      }
+    }
+    
+    // Check each needed category sensor
+    for (const category of needsCategories) {
       let sensorId;
       if (cfg.location === "manual") {
         const prefix = cfg.entity_prefix || "";
         const suffix = cfg.entity_suffix || "";
-        sensorId = `${prefix}${allergen}${suffix}`;
+        sensorId = `${prefix}${category}${suffix}`;
       } else {
         sensorId = locationSlug
-          ? `sensor.kleenex_pollen_radar_${locationSlug}_${allergen}`
+          ? `sensor.kleenex_pollen_radar_${locationSlug}_${category}`
           : null;
         
         // If no location slug or sensor not found, try to find any matching sensor
         if (!sensorId || !hass.states[sensorId]) {
           const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(`sensor.kleenex_pollen_radar_`) && id.includes(`_${allergen}`)
+            id.startsWith(`sensor.kleenex_pollen_radar_`) && id.endsWith(`_${category}`)
           );
           if (candidates.length >= 1) {
             sensorId = candidates[0]; // Take first match
@@ -222,7 +248,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       
       if (debug) {
         console.debug(
-          `[findAvailableSensors][kleenex] allergen: '${allergen}', locationSlug: '${locationSlug}', sensorId: '${sensorId}', exists: ${!!hass.states[sensorId]}`,
+          `[findAvailableSensors][kleenex] category: '${category}', locationSlug: '${locationSlug}', sensorId: '${sensorId}', exists: ${!!hass.states[sensorId]}`,
         );
       }
       if (hass.states[sensorId]) sensors.push(sensorId);
