@@ -529,6 +529,13 @@ class PollenPrognosCard extends LitElement {
 
     // Select relevant stub for integration
     let integration = config.integration;
+    
+    // Normalize integration name to handle case sensitivity and whitespace
+    if (integration && typeof integration === "string") {
+      integration = integration.trim().toLowerCase();
+      config.integration = integration; // Store the normalized value back in config
+    }
+    
     let stub;
     if (integration === "pp") stub = stubConfigPP;
     else if (integration === "peu") stub = stubConfigPEU;
@@ -630,6 +637,12 @@ class PollenPrognosCard extends LitElement {
 
     // Bestäm integration (PEU går före DWD)
     let integration = this._userConfig.integration;
+    
+    // Normalize integration name to handle case sensitivity and whitespace
+    if (integration && typeof integration === "string") {
+      integration = integration.trim().toLowerCase();
+    }
+    
     if (!explicit) {
       if (ppStates.length) integration = "pp";
       else if (peuStates.length) integration = "peu";
@@ -645,14 +658,18 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "pp") baseStub = stubConfigPP;
     else if (integration === "silam") baseStub = stubConfigSILAM;
     else if (integration === "kleenex") baseStub = stubConfigKleenex;
-    else console.error("Unknown integration:", integration);
+    else {
+      console.error("Unknown integration:", integration, "- falling back to PP");
+      integration = "pp"; // Fallback to prevent further errors
+      baseStub = stubConfigPP;
+    }
 
     // Sätt config rätt — utan allergens
     const { allergens, ...userConfigWithoutAllergens } = this._userConfig;
     const cfg = {
       ...baseStub,
       ...userConfigWithoutAllergens,
-      integration,
+      integration, // Use the normalized integration value
     };
 
     if (
