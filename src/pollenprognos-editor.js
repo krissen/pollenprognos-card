@@ -137,7 +137,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? PEU_ALLERGENS
           : this._config.integration === "silam"
             ? SILAM_ALLERGENS
-            : stubConfigPP.allergens;
+            : this._config.integration === "kleenex"
+              ? stubConfigKleenex.allergens
+              : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -396,7 +398,7 @@ class PollenPrognosCardEditor extends LitElement {
         } else if (
           all.some(
             (id) =>
-              typeof id === "string" && id.startsWith("sensor.kleenex_pollenradar_"),
+              typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
           )
         ) {
           integration = "kleenex";
@@ -871,11 +873,11 @@ class PollenPrognosCardEditor extends LitElement {
                 s &&
                 typeof s === "object" &&
                 typeof s.entity_id === "string" &&
-                s.entity_id.startsWith("sensor.kleenex_pollenradar_"),
+                s.entity_id.startsWith("sensor.kleenex_pollen_radar_"),
             )
             .map((s) => {
-              // Extract location from entity_id pattern: sensor.kleenex_pollenradar_<location>_<allergen>
-              const match = s.entity_id.match(/^sensor\.kleenex_pollenradar_(.*)_(?:trees|grass|weeds)$/);
+              // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
+              const match = s.entity_id.match(/^sensor\.kleenex_pollen_radar_(.*)_(?:trees|grass|weeds)$/);
               if (!match) return null;
               
               const locationSlug = match[1];
@@ -1103,7 +1105,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? PEU_ALLERGENS
           : c.integration === "silam"
             ? SILAM_ALLERGENS
-            : stubConfigPP.allergens;
+            : c.integration === "kleenex"
+              ? stubConfigKleenex.allergens
+              : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd" ? 4 : c.integration === "peu" ? 5 : 7;

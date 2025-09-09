@@ -206,13 +206,13 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         sensorId = `${prefix}${allergen}${suffix}`;
       } else {
         sensorId = locationSlug
-          ? `sensor.kleenex_pollenradar_${locationSlug}_${allergen}`
+          ? `sensor.kleenex_pollen_radar_${locationSlug}_${allergen}`
           : null;
         
         // If no location slug or sensor not found, try to find any matching sensor
         if (!sensorId || !hass.states[sensorId]) {
           const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(`sensor.kleenex_pollenradar_`) && id.includes(`_${allergen}`)
+            id.startsWith(`sensor.kleenex_pollen_radar_`) && id.includes(`_${allergen}`)
           );
           if (candidates.length >= 1) {
             sensorId = candidates[0]; // Take first match

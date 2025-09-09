@@ -31,15 +31,21 @@ export const stubConfigKleenex = {
   entity_prefix: "",
   entity_suffix: "",
   allergens: [
+    // General categories (broad sensors)
+    "trees",
+    "grass",
+    "weeds",
+    // Individual allergens (detailed sensors)
     "alder",
     "birch", 
     "cypress",
     "elm",
-    "grass",
     "hazel",
     "mugwort",
     "oak",
+    "pine",
     "plane",
+    "poplar",
     "ragweed",
   ],
   minimal: false,

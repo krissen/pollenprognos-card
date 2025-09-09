@@ -93,7 +93,7 @@ export const ALLERGEN_TRANSLATION = {
   allergy_risk: "allergy_risk",
   index: "allergy_risk",
 
-  // Kleenex pollenradar - individual allergens
+  // Kleenex pollen radar - individual allergens
   pine: "pine",
   poplar: "poplar",
   trees: "birch", // Use birch image for trees

@@ -752,14 +752,17 @@ class PollenPrognosCard extends LitElement {
           silamLocations,
         );
     } else if (integration === "kleenex" && cfg.location !== "manual" && !cfg.location && kleenexStates.length) {
-      // Samla alla unika location-namn från entity_id
+      // Look specifically for *_date sensors to extract location
+      const kleenexDateSensors = Object.keys(hass.states).filter(
+        (id) => typeof id === "string" && id.match(/^sensor\.kleenex_pollen_radar_.+_date$/)
+      );
+      
       const kleenexLocations = Array.from(
         new Set(
-          kleenexStates
+          kleenexDateSensors
             .map((eid) => {
-              // sensor.kleenex_pollen_radar_<location>_<allergen>
-              // plocka ut location (mellan "sensor.kleenex_pollen_radar_" och sista "_")
-              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.*)_([^_]+)$/);
+              // sensor.kleenex_pollen_radar_<location>_date
+              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
               return m ? m[1] : null;
             })
             .filter(Boolean),
@@ -930,7 +933,7 @@ class PollenPrognosCard extends LitElement {
 
         loc = wantedSlug ? title || cfg.location || "" : title;
       } else if (integration === "kleenex") {
-        // Kleenex pollenradar: extract location from sensor attributes
+        // Kleenex pollen radar: extract location from sensor attributes
         const kleenexEntities = Object.values(hass.states).filter((s) => {
           if (
             !s ||
