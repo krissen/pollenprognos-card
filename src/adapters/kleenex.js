@@ -92,16 +92,17 @@ function kleenexLevelToNumeric(level) {
 }
 
 // Convert numeric ppm values to level (0-6) 
+// Based on typical pollen count ranges - similar to SILAM thresholds
 function ppmToLevel(value) {
   const numVal = Number(value);
   if (isNaN(numVal) || numVal < 0) return -1;
   if (numVal === 0) return 0;
-  if (numVal <= 10) return 1;
-  if (numVal <= 50) return 2;
-  if (numVal <= 100) return 3;
-  if (numVal <= 200) return 4;
-  if (numVal <= 500) return 5;
-  return 6;
+  if (numVal <= 5) return 1;    // Very low
+  if (numVal <= 25) return 2;   // Low  
+  if (numVal <= 50) return 3;   // Moderate
+  if (numVal <= 100) return 4;  // High
+  if (numVal <= 200) return 5;  // Very high
+  return 6;                     // Extreme
 }
 
 export async function fetchForecast(hass, config) {

@@ -982,8 +982,8 @@ class PollenPrognosCard extends LitElement {
           title =
             attr.location_name ||
             attr.friendly_name
-              ?.replace(/^Kleenex Pollen Radar\s*-?\s*/i, "")
-              .replace(/\s+\w+$/u, "")
+              ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
+              .replace(/[\)\s]+\w+.*$/u, "")
               .trim() ||
             cfg.location;
         }

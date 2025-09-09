@@ -881,7 +881,18 @@ class PollenPrognosCardEditor extends LitElement {
               if (!match) return null;
               
               const locationSlug = match[1];
-              const title = s.attributes?.friendly_name?.replace(/\s+(Trees|Grass|Weeds).*$/, '') || locationSlug;
+              let title = s.attributes?.friendly_name || locationSlug;
+              
+              // Clean up the title to show only the location
+              title = title
+                .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, '')
+                .replace(/[\)\s]+(?:Trees|Grass|Weeds).*$/i, '')
+                .trim();
+              
+              // Fallback to locationSlug if cleaning resulted in empty string
+              if (!title) {
+                title = locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
+              }
               
               return [locationSlug, title];
             })
