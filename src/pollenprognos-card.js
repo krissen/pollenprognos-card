@@ -615,6 +615,9 @@ class PollenPrognosCard extends LitElement {
     const silamStates = Object.keys(hass.states).filter(
       (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
     );
+    const kleenexStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollenradar_"),
+    );
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -622,6 +625,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("DWD:", dwdStates);
       console.debug("PEU:", peuStates);
       console.debug("SILAM:", silamStates);
+      console.debug("KLEENEX:", kleenexStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -631,6 +635,7 @@ class PollenPrognosCard extends LitElement {
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
+      else if (kleenexStates.length) integration = "kleenex";
     }
 
     // Plocka rätt stub
@@ -639,6 +644,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "peu") baseStub = stubConfigPEU;
     else if (integration === "pp") baseStub = stubConfigPP;
     else if (integration === "silam") baseStub = stubConfigSILAM;
+    else if (integration === "kleenex") baseStub = stubConfigKleenex;
     else console.error("Unknown integration:", integration);
 
     // Sätt config rätt — utan allergens
@@ -744,6 +750,27 @@ class PollenPrognosCard extends LitElement {
           "[Card][SILAM] Auto-set location (location):",
           cfg.location,
           silamLocations,
+        );
+    } else if (integration === "kleenex" && cfg.location !== "manual" && !cfg.location && kleenexStates.length) {
+      // Samla alla unika location-namn från entity_id
+      const kleenexLocations = Array.from(
+        new Set(
+          kleenexStates
+            .map((eid) => {
+              // sensor.kleenex_pollenradar_<location>_<allergen>
+              // plocka ut location (mellan "sensor.kleenex_pollenradar_" och sista "_")
+              const m = eid.match(/^sensor\.kleenex_pollenradar_(.*)_([^_]+)$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = kleenexLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][KLEENEX] Auto-set location:",
+          cfg.location,
+          kleenexLocations,
         );
     }
 
@@ -902,6 +929,46 @@ class PollenPrognosCard extends LitElement {
         }
 
         loc = wantedSlug ? title || cfg.location || "" : title;
+      } else if (integration === "kleenex") {
+        // Kleenex pollenradar: extract location from sensor attributes
+        const kleenexEntities = Object.values(hass.states).filter((s) => {
+          if (
+            !s ||
+            typeof s !== "object" ||
+            typeof s.entity_id !== "string" ||
+            !s.entity_id.startsWith("sensor.kleenex_pollenradar_")
+          )
+            return false;
+          return s.entity_id.match(/^sensor\.kleenex_pollenradar_.+_.+$/);
+        });
+
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location.toLowerCase().replace(/[^a-z0-9]/g, "_")
+            : "";
+
+        // Find first entity with matching location
+        const match = wantedLocation
+          ? kleenexEntities.find((s) => {
+              const eid = s.entity_id.replace("sensor.kleenex_pollenradar_", "");
+              const locPart = eid.replace(/_[^_]+$/, "");
+              return locPart === wantedLocation;
+            })
+          : kleenexEntities[0];
+
+        let title = "";
+        if (match) {
+          const attr = match.attributes;
+          title =
+            attr.location_name ||
+            attr.friendly_name
+              ?.replace(/^Kleenex Pollen Radar\s*-?\s*/i, "")
+              .replace(/\s+\w+$/u, "")
+              .trim() ||
+            cfg.location;
+        }
+
+        loc = title || cfg.location || "";
       } else {
         // Pollenprognos integration (PP): resolve city automatically when unset.
         const matchCity = (slug) =>
