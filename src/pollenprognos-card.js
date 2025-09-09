@@ -533,7 +533,7 @@ class PollenPrognosCard extends LitElement {
     // Normalize integration name to handle case sensitivity and whitespace
     if (integration && typeof integration === "string") {
       integration = integration.trim().toLowerCase();
-      config.integration = integration; // Store the normalized value back in config
+      // Note: Don't modify the original config object as it may be read-only
     }
     
     let stub;
