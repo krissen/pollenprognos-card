@@ -241,12 +241,20 @@ export async function fetchForecast(hass, config) {
     });
   }
 
+  // Configuration for day labels
+  const daysRelative = config.days_relative ?? stubConfigKleenex.days_relative;
+  const dayAbbrev = config.days_abbreviated ?? stubConfigKleenex.days_abbreviated;
+  const daysUppercase = config.days_uppercase ?? stubConfigKleenex.days_uppercase;
+  const userDays = config.phrases?.days || {};
+  const locale = lang.replace("_", "-");
+
   // Build sensor data for each allergen
   for (const [allergenKey, allergenInfo] of allergenData) {
     try {
       const dict = {};
       dict.allergenReplaced = allergenKey;
       dict.entity_id = allergenInfo.entity_id;
+      dict.days = []; // Initialize days array
       
       // Canonical key for lookup in locales
       const canonKey = ALLERGEN_TRANSLATION[allergenKey] || allergenKey;
@@ -302,17 +310,43 @@ export async function fetchForecast(hass, config) {
       // Build day objects for card display
       for (let i = 0; i < days_to_show; i++) {
         const dayData = levels[i];
-        dict[`day${i}`] = {
+        const d = dayData.date;
+        const diff = Math.round((d - today) / 86400000);
+        
+        // Generate day label using same logic as other adapters
+        let dayLabel;
+        if (!daysRelative) {
+          dayLabel = d.toLocaleDateString(locale, {
+            weekday: dayAbbrev ? "short" : "long",
+          });
+          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+        } else if (userDays[diff] != null) {
+          dayLabel = userDays[diff];
+        } else if (diff >= 0 && diff <= 2) {
+          dayLabel = t(`card.days.${diff}`, lang);
+        } else {
+          dayLabel = d.toLocaleDateString(locale, {
+            day: "numeric",
+            month: "short",
+          });
+        }
+        if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+
+        const dayObj = {
+          name: dict.allergenCapitalized,
+          day: dayLabel,
           state: dayData.level,
+          state_text: levelNames[dayData.level] || "",
           value: dayData.value,
           description: levelNames[dayData.level] || "",
         };
+
+        dict[`day${i}`] = dayObj;
+        dict.days.push(dayObj);
       }
 
       // Check threshold
-      const meets = levels
-        .slice(0, days_to_show)
-        .some((l) => l.level >= pollen_threshold);
+      const meets = dict.days.some((d) => d.state >= pollen_threshold);
       if (meets || pollen_threshold === 0) sensors.push(dict);
     } catch (e) {
       console.warn(`Kleenex adapter error for allergen ${allergenKey}:`, e);
