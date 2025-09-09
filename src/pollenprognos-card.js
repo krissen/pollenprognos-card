@@ -616,7 +616,7 @@ class PollenPrognosCard extends LitElement {
       (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
     );
     const kleenexStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollenradar_"),
+      (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
     );
 
     if (this.debug) {
@@ -757,9 +757,9 @@ class PollenPrognosCard extends LitElement {
         new Set(
           kleenexStates
             .map((eid) => {
-              // sensor.kleenex_pollenradar_<location>_<allergen>
-              // plocka ut location (mellan "sensor.kleenex_pollenradar_" och sista "_")
-              const m = eid.match(/^sensor\.kleenex_pollenradar_(.*)_([^_]+)$/);
+              // sensor.kleenex_pollen_radar_<location>_<allergen>
+              // plocka ut location (mellan "sensor.kleenex_pollen_radar_" och sista "_")
+              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.*)_([^_]+)$/);
               return m ? m[1] : null;
             })
             .filter(Boolean),
@@ -936,10 +936,10 @@ class PollenPrognosCard extends LitElement {
             !s ||
             typeof s !== "object" ||
             typeof s.entity_id !== "string" ||
-            !s.entity_id.startsWith("sensor.kleenex_pollenradar_")
+            !s.entity_id.startsWith("sensor.kleenex_pollen_radar_")
           )
             return false;
-          return s.entity_id.match(/^sensor\.kleenex_pollenradar_.+_.+$/);
+          return s.entity_id.match(/^sensor\.kleenex_pollen_radar_.+_.+$/);
         });
 
         const wantedLocation =
@@ -950,7 +950,7 @@ class PollenPrognosCard extends LitElement {
         // Find first entity with matching location
         const match = wantedLocation
           ? kleenexEntities.find((s) => {
-              const eid = s.entity_id.replace("sensor.kleenex_pollenradar_", "");
+              const eid = s.entity_id.replace("sensor.kleenex_pollen_radar_", "");
               const locPart = eid.replace(/_[^_]+$/, "");
               return locPart === wantedLocation;
             })
