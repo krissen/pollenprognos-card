@@ -13,10 +13,10 @@ Additional documentation:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu` or `silam`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam` or `kleenex`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
+| `location` *(PEU, SILAM, Kleenex only)* | `string` | **Required** (PEU/SILAM/Kleenex) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -144,6 +144,16 @@ For the SILAM integration, each allergen uses the following threshold values to 
 > **Note on SILAM thresholds:**  
 > For the SILAM integration, each threshold value marks the start of a new pollen level. A level applies as soon as the pollen value is greater than or equal to its threshold (≥). For example, a value of 25 will be assigned to the level that starts at 25. This ensures that all threshold values are inclusive and consistently interpreted across all levels.
 
+### Kleenex Pollen Radar
+
+```
+trees
+grass
+weeds
+```
+
+The Kleenex Pollen Radar integration provides pollen forecasts for the Netherlands, United Kingdom, France, Italy and United States of America. The integration creates sensors with 5-day forecasts for three main allergen categories.
+
 ## Example snippets
 
 Below are a few short configuration examples. Only the relevant lines are shown.
@@ -162,6 +172,15 @@ show_text_allergen: true
 type: custom:pollenprognos-card
 integration: dwd
 region_id: "91"
+```
+
+**Kleenex Pollen Radar**
+
+```yaml
+type: custom:pollenprognos-card
+integration: kleenex
+location: amsterdam  # Location will be auto-detected if omitted
+days_to_show: 5
 ```
 
 **Minimal layout**

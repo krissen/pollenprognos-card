@@ -9,11 +9,13 @@ import { findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
+import * as KLEENEX from "./adapters/kleenex.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -532,6 +534,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "peu") stub = stubConfigPEU;
     else if (integration === "dwd") stub = stubConfigDWD;
     else if (integration === "silam") stub = stubConfigSILAM;
+    else if (integration === "kleenex") stub = stubConfigKleenex;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config
@@ -674,6 +677,8 @@ class PollenPrognosCard extends LitElement {
       else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
       else if (integration === "silam")
         cfg.allergens = stubConfigSILAM.allergens;
+      else if (integration === "kleenex")
+        cfg.allergens = stubConfigKleenex.allergens;
     }
 
     // Fyll date_locale

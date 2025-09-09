@@ -196,6 +196,37 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         );
       }
     }
+  } else if (integration === "kleenex") {
+    const locationSlug = (cfg.location || "").toLowerCase();
+    for (const allergen of cfg.allergens || []) {
+      let sensorId;
+      if (cfg.location === "manual") {
+        const prefix = cfg.entity_prefix || "";
+        const suffix = cfg.entity_suffix || "";
+        sensorId = `${prefix}${allergen}${suffix}`;
+      } else {
+        sensorId = locationSlug
+          ? `sensor.kleenex_pollenradar_${locationSlug}_${allergen}`
+          : null;
+        
+        // If no location slug or sensor not found, try to find any matching sensor
+        if (!sensorId || !hass.states[sensorId]) {
+          const candidates = Object.keys(hass.states).filter((id) =>
+            id.startsWith(`sensor.kleenex_pollenradar_`) && id.includes(`_${allergen}`)
+          );
+          if (candidates.length >= 1) {
+            sensorId = candidates[0]; // Take first match
+          }
+        }
+      }
+      
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][kleenex] allergen: '${allergen}', locationSlug: '${locationSlug}', sensorId: '${sensorId}', exists: ${!!hass.states[sensorId]}`,
+        );
+      }
+      if (hass.states[sensorId]) sensors.push(sensorId);
+    }
   }
   if (debug) {
     const myLength = sensors.length;

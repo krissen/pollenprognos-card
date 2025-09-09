@@ -4,12 +4,14 @@ import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
+import * as KLEENEX from "./adapters/kleenex.js";
 
 export const ADAPTERS = {
   pp: PP,
   dwd: DWD,
   peu: PEU,
   silam: SILAM,
+  kleenex: KLEENEX,
 };
 
 
@@ -90,6 +92,11 @@ export const ALLERGEN_TRANSLATION = {
   olive: "olive",
   allergy_risk: "allergy_risk",
   index: "allergy_risk",
+
+  // Kleenex pollenradar
+  trees: "trees",
+  grass: "grass",
+  weeds: "weeds",
 };
 
 export const PP_POSSIBLE_CITIES = [

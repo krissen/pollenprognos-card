@@ -12,6 +12,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
 import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
+import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -49,7 +50,9 @@ const getStubConfig = (integration) =>
       ? stubConfigPEU
       : integration === "silam"
         ? stubConfigSILAM
-        : stubConfigPP;
+        : integration === "kleenex"
+          ? stubConfigKleenex
+          : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -217,6 +220,7 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedCities = [];
     this.installedPeuLocations = [];
     this.installedSilamLocations = [];
+    this.installedKleenexLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
@@ -389,6 +393,13 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "silam";
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" && id.startsWith("sensor.kleenex_pollenradar_"),
+          )
+        ) {
+          integration = "kleenex";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -850,6 +861,31 @@ class PollenPrognosCardEditor extends LitElement {
             }),
         ),
       );
+
+      // Collect kleenex locations
+      this.installedKleenexLocations = Array.from(
+        new Map(
+          Object.values(hass.states)
+            .filter(
+              (s) =>
+                s &&
+                typeof s === "object" &&
+                typeof s.entity_id === "string" &&
+                s.entity_id.startsWith("sensor.kleenex_pollenradar_"),
+            )
+            .map((s) => {
+              // Extract location from entity_id pattern: sensor.kleenex_pollenradar_<location>_<allergen>
+              const match = s.entity_id.match(/^sensor\.kleenex_pollenradar_(.*)_(?:trees|grass|weeds)$/);
+              if (!match) return null;
+              
+              const locationSlug = match[1];
+              const title = s.attributes?.friendly_name?.replace(/\s+(Trees|Grass|Weeds).*$/, '') || locationSlug;
+              
+              return [locationSlug, title];
+            })
+            .filter(entry => entry !== null),
+        ),
+      );
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
         if (
@@ -872,6 +908,13 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedSilamLocations.length
         ) {
           this._config.location = this.installedSilamLocations[0][0];
+        }
+        if (
+          integration === "kleenex" &&
+          !this._userConfig.location &&
+          this.installedKleenexLocations.length
+        ) {
+          this._config.location = this.installedKleenexLocations[0][0];
         }
       }
 
@@ -1120,6 +1163,9 @@ class PollenPrognosCardEditor extends LitElement {
               <mwc-list-item value="silam"
                 >${this._t("integration.silam")}</mwc-list-item
               >
+              <mwc-list-item value="kleenex"
+                >${this._t("integration.kleenex")}</mwc-list-item
+              >
             </ha-select>
           </ha-formfield>
           ${c.integration === "pp"
@@ -1194,6 +1240,30 @@ class PollenPrognosCardEditor extends LitElement {
                       </ha-select>
                     </ha-formfield>
                   `
+                : c.integration === "kleenex"
+                  ? html`
+                      <ha-formfield label="${this._t("location")}">
+                        <ha-select
+                          .value=${c.location || ""}
+                          @selected=${(e) =>
+                            this._updateConfig("location", e.target.value)}
+                          @closed=${(e) => e.stopPropagation()}
+                        >
+                          <mwc-list-item value=""
+                            >${this._t("location_autodetect")}</mwc-list-item
+                          >
+                          ${this.installedKleenexLocations.map(
+                            ([slug, title]) =>
+                              html`<mwc-list-item .value=${slug}
+                                >${title}</mwc-list-item
+                              >`,
+                          )}
+                          <mwc-list-item value="manual"
+                            >${this._t("location_manual")}</mwc-list-item
+                          >
+                        </ha-select>
+                      </ha-formfield>
+                    `
                 : html`
                     <ha-formfield label="${this._t("region_id")}">
                       <ha-select
