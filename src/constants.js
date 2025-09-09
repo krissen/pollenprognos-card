@@ -94,9 +94,9 @@ export const ALLERGEN_TRANSLATION = {
   index: "allergy_risk",
 
   // Kleenex pollenradar
-  trees: "trees",
+  trees: "birch", // Use birch image for trees
   grass: "grass",
-  weeds: "weeds",
+  weeds: "mugwort", // Use mugwort image for weeds
 };
 
 export const PP_POSSIBLE_CITIES = [
