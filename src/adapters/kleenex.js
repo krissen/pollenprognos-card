@@ -115,7 +115,7 @@ export async function fetchForecast(hass, config) {
     config.pollen_threshold ?? stubConfigKleenex.pollen_threshold;
 
   if (debug)
-    console.debug("Kleenex adapter: start fetchForecast", { config, lang });
+    console.debug("[Kleenex] Adapter: start fetchForecast", { config, lang });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -126,7 +126,7 @@ export async function fetchForecast(hass, config) {
   });
 
   if (debug) {
-    console.debug("Kleenex sensors found:", kleenexSensors.map(s => s.entity_id));
+    console.debug("[Kleenex] Sensors found:", kleenexSensors.map(s => s.entity_id));
   }
 
   const sensors = [];
@@ -159,23 +159,33 @@ export async function fetchForecast(hass, config) {
 
       const allergenEntry = allergenData.get(sensorCategory);
       
-      // Today's data from sensor state
-      const currentLevel = sensor.attributes.level ? kleenexLevelToNumeric(sensor.attributes.level) : ppmToLevel(sensor.state);
+      // Today's data from sensor state - prioritize numeric value over level text
+      const sensorValue = Number(sensor.state) || 0;
+      const currentLevel = ppmToLevel(sensorValue); // Always use numeric value for level calculation
+      
+      if (debug) {
+        console.debug(`[Kleenex] Category sensor ${sensorCategory}: state=${sensor.state}, value=${sensorValue}, level=${currentLevel}, textLevel=${sensor.attributes.level}`);
+      }
       
       allergenEntry.levels[0] = {
         date: new Date(today),
         level: currentLevel,
-        value: Number(sensor.state) || 0
+        value: sensorValue
       };
       
       // Forecast data
       forecastData.forEach((forecastItem, dayIndex) => {
-        const forecastLevel = forecastItem.level ? kleenexLevelToNumeric(forecastItem.level) : ppmToLevel(forecastItem.value);
+        const forecastValue = Number(forecastItem.value) || 0;
+        const forecastLevel = ppmToLevel(forecastValue); // Always use numeric value for level calculation
+        
+        if (debug) {
+          console.debug(`[Kleenex] Category forecast ${sensorCategory} day ${dayIndex + 1}: value=${forecastValue}, level=${forecastLevel}, textLevel=${forecastItem.level}`);
+        }
         
         allergenEntry.levels[dayIndex + 1] = {
           date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
           level: forecastLevel,
-          value: Number(forecastItem.value) || 0
+          value: forecastValue
         };
       });
     }
@@ -199,13 +209,18 @@ export async function fetchForecast(hass, config) {
 
       const allergenEntry = allergenData.get(canonicalName);
       
-      // Today's data
-      const currentLevel = detail.level ? kleenexLevelToNumeric(detail.level) : ppmToLevel(detail.value);
+      // Today's data - prioritize numeric value over level text
+      const detailValue = Number(detail.value) || 0;
+      const currentLevel = ppmToLevel(detailValue); // Always use numeric value for level calculation
+      
+      if (debug) {
+        console.debug(`[Kleenex] Individual allergen ${canonicalName}: value=${detailValue}, level=${currentLevel}, textLevel=${detail.level}`);
+      }
       
       allergenEntry.levels[0] = {
         date: new Date(today),
         level: currentLevel,
-        value: detail.value || 0
+        value: detailValue
       };
     }
 
@@ -231,12 +246,17 @@ export async function fetchForecast(hass, config) {
         }
 
         const allergenEntry = allergenData.get(canonicalName);
-        const forecastLevel = detail.level ? kleenexLevelToNumeric(detail.level) : ppmToLevel(detail.value);
+        const forecastValue = Number(detail.value) || 0;
+        const forecastLevel = ppmToLevel(forecastValue); // Always use numeric value for level calculation
+        
+        if (debug) {
+          console.debug(`[Kleenex] Individual forecast ${canonicalName} day ${dayIndex + 1}: value=${forecastValue}, level=${forecastLevel}, textLevel=${detail.level}`);
+        }
         
         allergenEntry.levels[dayIndex + 1] = {
           date: forecastDate,
           level: forecastLevel,
-          value: detail.value || 0
+          value: forecastValue
         };
       }
     });
@@ -350,7 +370,7 @@ export async function fetchForecast(hass, config) {
       const meets = dict.days.some((d) => d.state >= pollen_threshold);
       if (meets || pollen_threshold === 0) sensors.push(dict);
     } catch (e) {
-      console.warn(`Kleenex adapter error for allergen ${allergenKey}:`, e);
+      console.warn(`[Kleenex] Adapter error for allergen ${allergenKey}:`, e);
     }
   }
 
@@ -366,7 +386,7 @@ export async function fetchForecast(hass, config) {
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state)
   );
 
-  if (debug) console.debug("Kleenex adapter complete sensors:", sensors);
+  if (debug) console.debug("[Kleenex] Adapter complete sensors:", sensors);
   return sensors;
 }
 
