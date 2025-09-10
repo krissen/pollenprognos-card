@@ -4,3 +4,6 @@ dist/pollenprognos-card.js.map
 .DS_Store
 oversattning.json
 dist
+__pycache__/
+*.pyc
+*.pyo
