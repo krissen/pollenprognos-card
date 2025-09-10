@@ -22,6 +22,7 @@ import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
+  ALLERGEN_ICON_FALLBACK,
   ADAPTERS as CONSTANT_ADAPTERS,
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
@@ -499,7 +500,13 @@ class PollenPrognosCard extends LitElement {
     // }
 
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
-    const specific = images[`${key}_${lvl}_png`];
+    let specific = images[`${key}_${lvl}_png`];
+    
+    // If no specific image found, try icon fallback for category allergens
+    if (!specific && ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
+      const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
+      specific = images[`${fallbackKey}_${lvl}_png`];
+    }
 
     // if (this.debug) {
     //   console.debug(

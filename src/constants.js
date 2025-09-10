@@ -96,9 +96,15 @@ export const ALLERGEN_TRANSLATION = {
   // Kleenex pollen radar - individual allergens
   pine: "pine",
   poplar: "poplar",
-  trees: "birch", // Use birch image for trees
-  grass: "grass",
-  weeds: "mugwort", // Use mugwort image for weeds
+  // Note: trees, grass, weeds should keep their own translations
+  // Icon mapping is handled separately in the image system
+};
+
+// Icon fallback mapping for allergens that don't have their own icons
+export const ALLERGEN_ICON_FALLBACK = {
+  trees: "birch",    // Use birch icon for trees category
+  weeds: "mugwort",  // Use mugwort icon for weeds category
+  // grass has its own icon, no fallback needed
 };
 
 export const PP_POSSIBLE_CITIES = [
