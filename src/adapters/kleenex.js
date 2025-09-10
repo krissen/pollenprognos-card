@@ -306,32 +306,32 @@ export async function fetchForecast(hass, config) {
       
       // Today's data from sensor state - prioritize numeric value over level text
       const sensorValue = Number(sensor.state) || 0;
-      const rawLevel = ppmToLevel(sensorValue, sensorCategory); // Always use numeric value for level calculation
-      const currentLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
+      const rawLevel = ppmToLevel(sensorValue, sensorCategory); // Calculate raw level (0-4)
+      const currentLevel = testVal(rawLevel); // Validate and clamp level (0-4)
       
       if (debug) {
-        console.debug(`[Kleenex] CATEGORY ${sensorCategory} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, raw_level=${rawLevel}, scaled_level=${currentLevel}, text_level=${sensor.attributes?.level}`);
+        console.debug(`[Kleenex] CATEGORY ${sensorCategory} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, raw_level=${rawLevel}, clamped_level=${currentLevel}, text_level=${sensor.attributes?.level}`);
       }
       
       allergenEntry.levels[0] = {
         date: new Date(today),
-        level: currentLevel,
+        level: currentLevel, // Store raw level (0-4)
         value: sensorValue
       };
       
       // Forecast data for categories
       forecastData.forEach((forecastItem, dayIndex) => {
         const forecastValue = Number(forecastItem.value) || 0;
-        const rawLevel = ppmToLevel(forecastValue, sensorCategory); // Always use numeric value for level calculation
-        const forecastLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
+        const rawLevel = ppmToLevel(forecastValue, sensorCategory); // Calculate raw level (0-4)
+        const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
         
         if (debug) {
-          console.debug(`[Kleenex] CATEGORY ${sensorCategory} FORECAST day ${dayIndex + 1}: value=${forecastValue}, raw_level=${rawLevel}, scaled_level=${forecastLevel}, text_level=${forecastItem.level}`);
+          console.debug(`[Kleenex] CATEGORY ${sensorCategory} FORECAST day ${dayIndex + 1}: value=${forecastValue}, raw_level=${rawLevel}, clamped_level=${forecastLevel}, text_level=${forecastItem.level}`);
         }
         
         allergenEntry.levels[dayIndex + 1] = {
           date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
-          level: forecastLevel,
+          level: forecastLevel, // Store raw level (0-4)
           value: forecastValue
         };
       });
@@ -368,18 +368,18 @@ export async function fetchForecast(hass, config) {
       
       // Today's data - prioritize numeric value over level text
       const detailValue = Number(detail.value) || 0;
-      const rawLevel = ppmToLevel(detailValue, canonicalName); // Always use numeric value for level calculation
-      const currentLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
+      const rawLevel = ppmToLevel(detailValue, canonicalName); // Calculate raw level (0-4)
+      const currentLevel = testVal(rawLevel); // Validate and clamp level (0-4)
       
       if (debug) {
-        console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} TODAY: detail_value=${detail.value}, parsed_value=${detailValue}, raw_level=${rawLevel}, scaled_level=${currentLevel}, text_level=${detail.level}, source=${sensor.entity_id}`);
+        console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} TODAY: detail_value=${detail.value}, parsed_value=${detailValue}, raw_level=${rawLevel}, clamped_level=${currentLevel}, text_level=${detail.level}, source=${sensor.entity_id}`);
       }
       
       // Only set if not already set by category processing (avoid overwriting)
       if (!allergenEntry.levels[0] || allergenEntry.source === 'individual_details') {
         allergenEntry.levels[0] = {
           date: new Date(today),
-          level: currentLevel,
+          level: currentLevel, // Store raw level (0-4)
           value: detailValue
         };
       }
@@ -413,11 +413,11 @@ export async function fetchForecast(hass, config) {
 
         const allergenEntry = allergenData.get(canonicalName);
         const forecastValue = Number(detail.value) || 0;
-        const rawLevel = ppmToLevel(forecastValue, canonicalName); // Always use numeric value for level calculation
-        const forecastLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
+        const rawLevel = ppmToLevel(forecastValue, canonicalName); // Calculate raw level (0-4)
+        const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
         
         if (debug) {
-          console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} FORECAST day ${dayIndex + 1}: detail_value=${detail.value}, parsed_value=${forecastValue}, raw_level=${rawLevel}, scaled_level=${forecastLevel}, text_level=${detail.level}`);
+          console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} FORECAST day ${dayIndex + 1}: detail_value=${detail.value}, parsed_value=${forecastValue}, raw_level=${rawLevel}, clamped_level=${forecastLevel}, text_level=${detail.level}`);
         }
         
         // Only set if not already set by category processing (avoid overwriting)
@@ -425,7 +425,7 @@ export async function fetchForecast(hass, config) {
         if (!allergenEntry.levels[dayIdx] || allergenEntry.source === 'individual_forecast' || allergenEntry.source === 'individual_details') {
           allergenEntry.levels[dayIdx] = {
             date: forecastDate,
-            level: forecastLevel,
+            level: forecastLevel, // Store raw level (0-4)
             value: forecastValue
           };
         }
@@ -503,8 +503,33 @@ export async function fetchForecast(hass, config) {
         }
       }
 
-      const levelNames = buildLevelNames(config.phrases.levels, lang);
+      // Levels from Kleenex are reported as 0–4 but scaled to 0–6 in the card.
+      // Accept either five or seven custom names and map them to the 0–6 scale.
+      const userLevels = config.phrases.levels;
+      const defaultNumLevels = 5; // original kleenex scale (none, low, moderate, high, very-high)
+      const levelNamesDefault = Array.from({ length: 7 }, (_, i) =>
+        t(`card.levels.${i}`, lang),
+      );
+      let levelNames = levelNamesDefault.slice();
+      if (Array.isArray(userLevels)) {
+        if (userLevels.length === 7) {
+          levelNames = buildLevelNames(userLevels, lang);
+        } else if (userLevels.length === defaultNumLevels) {
+          const map = [0, 1, 3, 5, 6];
+          map.forEach((lvl, idx) => {
+            const val = userLevels[idx];
+            if (val != null && val !== "") levelNames[lvl] = val;
+          });
+        }
+      }
       dict.levelNames = levelNames;
+
+      const maxLevel = 4; // Kleenex uses 5-level system (0-4)
+      
+      const testVal = (v) => {
+        const n = Number(v);
+        return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
+      };
 
       // Build day objects for card display
       for (let i = 0; i < days_to_show; i++) {
@@ -531,13 +556,21 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
+        // Scale level for display (0-4 to 0-6)
+        const level = dayData.level; // Raw level (0-4)
+        const scaledLevel = scaleKleenexLevel(level); // Scale to display level (0-6)
+
         const dayObj = {
           name: dict.allergenCapitalized,
           day: dayLabel,
-          state: dayData.level,
-          state_text: levelNames[dayData.level] || "",
+          state: level, // Raw level for sorting and threshold checking
+          state_text: scaledLevel < 0 ? 
+            (config.phrases?.no_information || t("card.no_information", lang)) : 
+            levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
           value: dayData.value,
-          description: levelNames[dayData.level] || "",
+          description: scaledLevel < 0 ? 
+            (config.phrases?.no_information || t("card.no_information", lang)) : 
+            levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
         };
 
         dict[`day${i}`] = dayObj;
