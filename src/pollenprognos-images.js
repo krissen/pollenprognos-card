@@ -52,6 +52,7 @@ import img_chenopod_3 from "./images/chenopod_3.png";
 import img_chenopod_4 from "./images/chenopod_4.png";
 import img_chenopod_5 from "./images/chenopod_5.png";
 import img_chenopod_6 from "./images/chenopod_6.png";
+import img_chenopod_minus1 from "./images/chenopod_-1.png";
 
 // Cypress
 import img_cypress_0 from "./images/cypress_0.png";
