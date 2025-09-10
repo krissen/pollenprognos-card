@@ -2,6 +2,17 @@
 
 This directory contains a comprehensive testing suite for discovering all possible allergens from the Kleenex Pollen Radar API across different geographic regions.
 
+## ⚠️ Network Requirements
+
+**IMPORTANT**: These testing scripts require internet access to external Kleenex API endpoints:
+- www.kleenex.co.uk (United Kingdom)
+- www.kleenex.fr (France) 
+- www.kleenex.nl (Netherlands)
+- www.kleenex.com (United States)
+- www.it.scottex.com (Italy)
+
+The scripts will not work in restricted network environments where external domains are blocked. If you encounter DNS resolution errors like "No address associated with hostname", this indicates that your network environment blocks external API access.
+
 ## 🎯 Purpose
 
 The Kleenex integration in pollenprognos-card supports multiple allergens, but the exact set of allergens available depends on geographic location and season. This testing suite systematically explores the API to discover:

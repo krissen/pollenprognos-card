@@ -21,11 +21,13 @@ from typing import Dict, List, Tuple, Optional
 from bs4 import BeautifulSoup
 import os
 
-# Region definitions with geographic boundaries
+# Region definitions with geographic boundaries and API configurations
 REGIONS = {
     "france": {
         "name": "France",
-        "code": "FR",
+        "code": "fr",
+        "api_url": "https://www.kleenex.fr/api/sitecore/Pollen/GetPollenContent",
+        "method": "get",
         "bounds": {
             "lat_min": 41.3, "lat_max": 51.1,
             "lon_min": -5.1, "lon_max": 9.6
@@ -34,7 +36,9 @@ REGIONS = {
     },
     "italy": {
         "name": "Italy", 
-        "code": "IT",
+        "code": "it",
+        "api_url": "https://www.it.scottex.com/api/sitecore/Pollen/GetPollenContent",
+        "method": "post", 
         "bounds": {
             "lat_min": 35.5, "lat_max": 47.1,
             "lon_min": 6.6, "lon_max": 18.5
@@ -43,7 +47,9 @@ REGIONS = {
     },
     "netherlands": {
         "name": "Netherlands",
-        "code": "NL", 
+        "code": "nl",
+        "api_url": "https://www.kleenex.nl/api/sitecore/Pollen/GetPollenContent",
+        "method": "get",
         "bounds": {
             "lat_min": 50.8, "lat_max": 53.6,
             "lon_min": 3.4, "lon_max": 7.2
@@ -52,7 +58,9 @@ REGIONS = {
     },
     "uk": {
         "name": "United Kingdom",
-        "code": "UK",
+        "code": "uk", 
+        "api_url": "https://www.kleenex.co.uk/api/sitecore/Pollen/GetPollenContent",
+        "method": "get",
         "bounds": {
             "lat_min": 49.9, "lat_max": 60.8,
             "lon_min": -10.7, "lon_max": 1.8
@@ -61,7 +69,9 @@ REGIONS = {
     },
     "usa": {
         "name": "United States",
-        "code": "US",
+        "code": "us",
+        "api_url": "https://www.kleenex.com/api/sitecore/Pollen/GetPollenContent", 
+        "method": "get",
         "bounds": {
             "lat_min": 24.4, "lat_max": 49.4,
             "lon_min": -125.0, "lon_max": -66.9
@@ -70,9 +80,7 @@ REGIONS = {
     }
 }
 
-# API configuration
-BASE_URL = "https://www.kleenex.co.uk/en-gb/pollen-forecast"
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
 
 class KleenexAllergenTester:
     def __init__(self, output_file: str = "kleenex_allergen_test_data.json"):
@@ -82,9 +90,13 @@ class KleenexAllergenTester:
         
     async def __aenter__(self):
         timeout = aiohttp.ClientTimeout(total=30)
+        headers = {
+            "User-Agent": "Home Assistant (kleenex_pollenradar)",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        }
         self.session = aiohttp.ClientSession(
             timeout=timeout,
-            headers={"User-Agent": USER_AGENT}
+            headers=headers
         )
         return self
         
@@ -106,25 +118,42 @@ class KleenexAllergenTester:
         
         return lat, lon
         
-    async def fetch_pollen_data(self, lat: float, lon: float, region_code: str) -> Optional[Dict]:
-        """Fetch pollen data from Kleenex API for given coordinates."""
-        url = f"{BASE_URL}?lat={lat}&lng={lon}&region={region_code}"
+    async def fetch_pollen_data(self, lat: float, lon: float, region_key: str) -> Optional[Dict]:
+        """Fetch pollen data from Kleenex API using correct endpoints and methods."""
+        region = REGIONS[region_key]
+        url = region["api_url"]
+        method = region["method"]
+        region_code = region["code"]
+        params = {"lat": lat, "lng": lon}
         
         try:
-            async with self.session.get(url) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    return self.parse_pollen_data(html, lat, lon, region_code)
-                else:
-                    print(f"HTTP {response.status} for {lat},{lon} in {region_code}")
-                    return None
+            if method == "get":
+                async with self.session.get(url, params=params) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        return self.parse_pollen_data(html, lat, lon, region_code)
+                    else:
+                        print(f"HTTP {response.status} for {lat},{lon} in {region_key}")
+                        return None
+            else:  # POST method for Italy
+                async with self.session.post(url, data=params) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        return self.parse_pollen_data(html, lat, lon, region_code)
+                    else:
+                        print(f"HTTP {response.status} for {lat},{lon} in {region_key}")
+                        return None
                     
         except Exception as e:
-            print(f"Error fetching data for {lat},{lon} in {region_code}: {e}")
+            error_msg = str(e)
+            if "No address associated with hostname" in error_msg:
+                print(f"Network blocked: Cannot resolve {region_key} API endpoint")
+            else:
+                print(f"Error fetching data for {lat},{lon} in {region_key}: {e}")
             return None
             
     def parse_pollen_data(self, html: str, lat: float, lon: float, region_code: str) -> Dict:
-        """Parse pollen data from HTML response using same logic as HA integration."""
+        """Parse pollen data from HTML response using actual integration logic."""
         soup = BeautifulSoup(html, 'html.parser')
         
         result = {
@@ -135,61 +164,56 @@ class KleenexAllergenTester:
             },
             "timestamp": datetime.now().isoformat(),
             "allergens": {
-                "trees": {"category": {}, "individual": {}},
-                "grass": {"category": {}, "individual": {}}, 
-                "weeds": {"category": {}, "individual": {}}
+                "trees": {},
+                "grass": {}, 
+                "weeds": {}
             },
-            "raw_details": {}
+            "raw_details": {},
+            "days_found": 0
         }
         
-        # Parse category data and individual allergen details
-        for pollen_type in ["trees", "grass", "weeds"]:
-            # Look for category sensor data
-            category_element = soup.find(attrs={"data-pollen-type": pollen_type})
-            if category_element:
-                # Get current level
-                level_element = category_element.find(class_="pollen-level")
-                if level_element:
-                    result["allergens"][pollen_type]["category"]["current_level"] = level_element.get_text(strip=True)
-                
-                # Get forecast data
-                forecast_days = category_element.find_all(class_="forecast-day")
-                if forecast_days:
-                    result["allergens"][pollen_type]["category"]["forecast"] = []
-                    for day in forecast_days:
-                        day_data = {}
-                        date_elem = day.find(class_="date")
-                        level_elem = day.find(class_="level")
-                        if date_elem:
-                            day_data["date"] = date_elem.get_text(strip=True)
-                        if level_elem:
-                            day_data["level"] = level_elem.get_text(strip=True)
-                        result["allergens"][pollen_type]["category"]["forecast"].append(day_data)
+        # Parse day buttons (actual integration logic)
+        day_results = soup.find_all("button", class_="day-link")
+        result["days_found"] = len(day_results)
+        
+        if not day_results:
+            return result
+        
+        # Process first day for allergen discovery
+        first_day = day_results[0]
+        
+        # Parse individual allergen details using actual integration attribute mapping  
+        pollen_detail_types = {
+            "trees": "tree",
+            "weeds": "weed", 
+            "grass": "grass",
+        }
+        
+        for pollen_type, detail_type in pollen_detail_types.items():
+            detail_attr = f"data-{detail_type}-detail"
+            detail_string = first_day.get(detail_attr, "")
+            result["raw_details"][pollen_type] = detail_string
             
-            # Look for individual allergen details  
-            detail_attr = f"data-{pollen_type}-detail"
-            detail_element = soup.find(attrs={detail_attr: True})
-            if detail_element:
-                detail_string = detail_element.get(detail_attr, "")
-                result["raw_details"][pollen_type] = detail_string
-                
-                # Parse individual allergens: "name,value,level|name,value,level|..."
-                if detail_string:
-                    allergen_details = detail_string.split("|")
-                    for detail in allergen_details:
-                        parts = detail.split(",")
-                        if len(parts) >= 3:
-                            name = parts[0].strip()
-                            try:
-                                value = float(parts[1]) if parts[1].strip() else 0
-                            except ValueError:
-                                value = 0
+            # Parse individual allergens: "name,value,level|name,value,level|..."
+            if detail_string:
+                allergen_details = detail_string.split("|")
+                for detail in allergen_details:
+                    parts = detail.split(",")
+                    if len(parts) >= 3:
+                        name = parts[0].strip()
+                        try:
+                            value = float(parts[1]) if parts[1].strip() else 0
+                        except (ValueError, TypeError):
+                            value = 0
+                        try:
                             level = int(parts[2]) if parts[2].strip().isdigit() else 0
+                        except (ValueError, TypeError):
+                            level = 0
                             
-                            result["allergens"][pollen_type]["individual"][name] = {
-                                "value": value,
-                                "level": level
-                            }
+                        result["allergens"][pollen_type][name] = {
+                            "value": value,
+                            "level": level
+                        }
         
         return result
         
@@ -205,15 +229,15 @@ class KleenexAllergenTester:
             lat, lon = self.generate_random_coordinates(region_key)
             print(f"  📍 {i+1}/{num_calls}: {lat}, {lon}")
             
-            data = await self.fetch_pollen_data(lat, lon, region["code"])
+            data = await self.fetch_pollen_data(lat, lon, region_key)
             if data:
                 results.append(data)
                 
                 # Show discovered allergens for this location
                 total_allergens = 0
                 for category in data["allergens"].values():
-                    total_allergens += len(category.get("individual", {}))
-                print(f"    ✅ Found {total_allergens} individual allergens")
+                    total_allergens += len(category)
+                print(f"    ✅ Found {total_allergens} allergens in {data['days_found']} days")
             else:
                 print(f"    ❌ Failed to get data")
                 
