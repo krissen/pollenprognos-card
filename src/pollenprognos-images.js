@@ -191,6 +191,7 @@ import img_poaceae_3 from "./images/poaceae_3.png";
 import img_poaceae_4 from "./images/poaceae_4.png";
 import img_poaceae_5 from "./images/poaceae_5.png";
 import img_poaceae_6 from "./images/poaceae_6.png";
+import img_poaceae_minus1 from "./images/poaceae_-1.png";
 
 // Poplar (Popplar och asp)
 import img_poplar_0 from "./images/poplar_0.png";
