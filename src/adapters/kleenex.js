@@ -7,8 +7,9 @@ import { buildLevelNames } from "../utils/level-names.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
-// Map kleenex allergen names to our canonical names
+// Map kleenex allergen names to our canonical names (supports all regional language variations)
 const KLEENEX_ALLERGEN_MAP = {
+  // Trees - English (EN/US)
   'hazel': 'hazel',
   'elm': 'elm', 
   'pine': 'pine',
@@ -18,13 +19,69 @@ const KLEENEX_ALLERGEN_MAP = {
   'plane': 'plane',
   'birch': 'birch',
   'cypress': 'cypress',
+
+  // Trees - French (FR)
+  'noisetier': 'hazel',
+  'orme': 'elm',
+  'pin': 'pine',
+  'aulne': 'alder',
+  'peuplier': 'poplar',
+  'chêne': 'oak',
+  'platane': 'plane',
+  'bouleau': 'birch',
+  'cyprès': 'cypress',
+
+  // Trees - Italian (IT)
+  'nocciolo': 'hazel',
+  'olmo': 'elm',
+  'pino': 'pine',
+  'ontano': 'alder',
+  'pioppo': 'poplar',
+  'quercia': 'oak',
+  'platano': 'plane',
+  'betulla': 'birch',
+  'cipresso': 'cypress',
+
+  // Trees - Dutch (NL)
+  'hazelaar': 'hazel',
+  'iep': 'elm',
+  'pijnboom': 'pine',
+  'els': 'alder',
+  'populier': 'poplar',
+  'eik': 'oak',
+  'plataan': 'plane',
+  'berk': 'birch',
+  'cipres': 'cypress',
+
+  // Grass - Multiple languages
   'grass': 'grass',
+  'poaceae': 'poaceae',           // EN/US/FR/NL
+  'graminacee': 'poaceae',        // IT
+
+  // Weeds - English (EN/US)
   'weeds': 'weeds',
   'ragweed': 'ragweed',
   'mugwort': 'mugwort',
-  'poaceae': 'poaceae',
   'chenopod': 'chenopod',
-  'nettle': 'nettle'
+  'nettle': 'nettle',
+
+  // Weeds - French (FR)
+  'ambroisie': 'ragweed',
+  'armoise': 'mugwort',
+  'chénopodes': 'chenopod',
+  'ortie': 'nettle',
+
+  // Weeds - Italian (IT)
+  'ambrosia': 'ragweed',
+  'artemisia': 'mugwort',
+  'chenopodio': 'chenopod',
+  'ortica': 'nettle',
+
+  // Weeds - Dutch (NL)
+  'ambrosia': 'ragweed',          // Same as Italian
+  'bijvoet': 'mugwort',
+  'ganzevoet': 'chenopod',
+  'brandnetel': 'nettle'
 };
 
 export const stubConfigKleenex = {
