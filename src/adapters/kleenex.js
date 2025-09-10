@@ -428,7 +428,12 @@ export async function fetchForecast(hass, config) {
     }[config.sort] || ((a, b) => b.day0.state - a.day0.state)
   );
 
-  if (debug) console.debug("[Kleenex] Adapter complete sensors:", sensors);
+  if (debug) {
+    console.debug("[Kleenex] Adapter complete sensors:", sensors);
+    sensors.forEach(sensor => {
+      console.debug(`[Kleenex] FINAL SENSOR ${sensor.allergenReplaced}: day0_state=${sensor.day0?.state}, day0_value=${sensor.day0?.value}, days_length=${sensor.days?.length}, first_day_state=${sensor.days?.[0]?.state}`);
+    });
+  }
   return sensors;
 }
 
