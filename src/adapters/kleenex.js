@@ -143,29 +143,73 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Convert kleenex level strings to numeric levels (0-6)
-function kleenexLevelToNumeric(level) {
-  const levelMap = {
-    'low': 1,
-    'moderate': 3,
-    'high': 5,
-    'very-high': 6,
-  };
-  return levelMap[level] || -1;
-}
+// Category-specific allergen mapping for kleenex integration
+const KLEENEX_ALLERGEN_CATEGORIES = {
+  // Trees category
+  'trees': 'trees',
+  'hazel': 'trees',
+  'elm': 'trees', 
+  'pine': 'trees',
+  'alder': 'trees',
+  'poplar': 'trees',
+  'oak': 'trees',
+  'plane': 'trees',
+  'birch': 'trees',
+  'cypress': 'trees',
+  
+  // Grass category  
+  'grass': 'grass',
+  'poaceae': 'grass',
+  
+  // Weeds category
+  'weeds': 'weeds',
+  'ragweed': 'weeds',
+  'mugwort': 'weeds', 
+  'chenopod': 'weeds',
+  'nettle': 'weeds'
+};
 
-// Convert numeric ppm values to level (0-6) 
-// Based on typical pollen count ranges - similar to SILAM thresholds
-function ppmToLevel(value) {
+// Convert numeric ppm values to level (0-4) using category-specific thresholds
+// Based on kleenex integration thresholds: trees [95, 207, 703], weeds [20, 77, 266], grass [29, 60, 341]
+function ppmToLevel(value, allergenName) {
   const numVal = Number(value);
   if (isNaN(numVal) || numVal < 0) return -1;
   if (numVal === 0) return 0;
-  if (numVal <= 5) return 1;    // Very low
-  if (numVal <= 25) return 2;   // Low  
-  if (numVal <= 50) return 3;   // Moderate
-  if (numVal <= 100) return 4;  // High
-  if (numVal <= 200) return 5;  // Very high
-  return 6;                     // Extreme
+  
+  // Get category for this allergen
+  const category = KLEENEX_ALLERGEN_CATEGORIES[allergenName] || 'trees'; // Default to trees
+  
+  // Category-specific thresholds: [low, moderate, high] -> levels 1, 2, 3, with 4 being very-high
+  let thresholds;
+  switch (category) {
+    case 'trees':
+      thresholds = [95, 207, 703];
+      break;
+    case 'weeds': 
+      thresholds = [20, 77, 266];
+      break;
+    case 'grass':
+      thresholds = [29, 60, 341];
+      break;
+    default:
+      thresholds = [95, 207, 703]; // Default to trees
+  }
+  
+  if (numVal <= thresholds[0]) return 1;      // low
+  if (numVal <= thresholds[1]) return 2;      // moderate  
+  if (numVal <= thresholds[2]) return 3;      // high
+  return 4;                                   // very-high
+}
+
+// Scale kleenex levels (0-4) to display levels (0-6) similar to peu.js
+// Maps: 0→0, 1→1, 2→3, 3→5, 4→6 (skipping display levels 2 and 4)
+function scaleKleenexLevel(level) {
+  if (level <= 0) return 0;
+  if (level === 1) return 1;
+  if (level === 2) return 3;
+  if (level === 3) return 5;
+  if (level >= 4) return 6;
+  return level;
 }
 
 export async function fetchForecast(hass, config) {
@@ -237,10 +281,11 @@ export async function fetchForecast(hass, config) {
       
       // Today's data from sensor state - prioritize numeric value over level text
       const sensorValue = Number(sensor.state) || 0;
-      const currentLevel = ppmToLevel(sensorValue); // Always use numeric value for level calculation
+      const rawLevel = ppmToLevel(sensorValue, sensorCategory); // Always use numeric value for level calculation
+      const currentLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
       
       if (debug) {
-        console.debug(`[Kleenex] CATEGORY ${sensorCategory} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, calculated_level=${currentLevel}, text_level=${sensor.attributes?.level}`);
+        console.debug(`[Kleenex] CATEGORY ${sensorCategory} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, raw_level=${rawLevel}, scaled_level=${currentLevel}, text_level=${sensor.attributes?.level}`);
       }
       
       allergenEntry.levels[0] = {
@@ -252,10 +297,11 @@ export async function fetchForecast(hass, config) {
       // Forecast data for categories
       forecastData.forEach((forecastItem, dayIndex) => {
         const forecastValue = Number(forecastItem.value) || 0;
-        const forecastLevel = ppmToLevel(forecastValue); // Always use numeric value for level calculation
+        const rawLevel = ppmToLevel(forecastValue, sensorCategory); // Always use numeric value for level calculation
+        const forecastLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
         
         if (debug) {
-          console.debug(`[Kleenex] CATEGORY ${sensorCategory} FORECAST day ${dayIndex + 1}: value=${forecastValue}, level=${forecastLevel}, text_level=${forecastItem.level}`);
+          console.debug(`[Kleenex] CATEGORY ${sensorCategory} FORECAST day ${dayIndex + 1}: value=${forecastValue}, raw_level=${rawLevel}, scaled_level=${forecastLevel}, text_level=${forecastItem.level}`);
         }
         
         allergenEntry.levels[dayIndex + 1] = {
@@ -297,10 +343,11 @@ export async function fetchForecast(hass, config) {
       
       // Today's data - prioritize numeric value over level text
       const detailValue = Number(detail.value) || 0;
-      const currentLevel = ppmToLevel(detailValue); // Always use numeric value for level calculation
+      const rawLevel = ppmToLevel(detailValue, canonicalName); // Always use numeric value for level calculation
+      const currentLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
       
       if (debug) {
-        console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} TODAY: detail_value=${detail.value}, parsed_value=${detailValue}, calculated_level=${currentLevel}, text_level=${detail.level}, source=${sensor.entity_id}`);
+        console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} TODAY: detail_value=${detail.value}, parsed_value=${detailValue}, raw_level=${rawLevel}, scaled_level=${currentLevel}, text_level=${detail.level}, source=${sensor.entity_id}`);
       }
       
       // Only set if not already set by category processing (avoid overwriting)
@@ -341,10 +388,11 @@ export async function fetchForecast(hass, config) {
 
         const allergenEntry = allergenData.get(canonicalName);
         const forecastValue = Number(detail.value) || 0;
-        const forecastLevel = ppmToLevel(forecastValue); // Always use numeric value for level calculation
+        const rawLevel = ppmToLevel(forecastValue, canonicalName); // Always use numeric value for level calculation
+        const forecastLevel = scaleKleenexLevel(rawLevel); // Scale to display level (0-6)
         
         if (debug) {
-          console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} FORECAST day ${dayIndex + 1}: detail_value=${detail.value}, parsed_value=${forecastValue}, calculated_level=${forecastLevel}, text_level=${detail.level}`);
+          console.debug(`[Kleenex] INDIVIDUAL ${canonicalName} FORECAST day ${dayIndex + 1}: detail_value=${detail.value}, parsed_value=${forecastValue}, raw_level=${rawLevel}, scaled_level=${forecastLevel}, text_level=${detail.level}`);
         }
         
         // Only set if not already set by category processing (avoid overwriting)
