@@ -44,6 +44,15 @@ import img_birch_5 from "./images/birch_5.png";
 import img_birch_6 from "./images/birch_6.png";
 import img_birch_minus1 from "./images/birch_-1.png";
 
+// Chenopod
+import img_chenopod_0 from "./images/chenopod_0.png";
+import img_chenopod_1 from "./images/chenopod_1.png";
+import img_chenopod_2 from "./images/chenopod_2.png";
+import img_chenopod_3 from "./images/chenopod_3.png";
+import img_chenopod_4 from "./images/chenopod_4.png";
+import img_chenopod_5 from "./images/chenopod_5.png";
+import img_chenopod_6 from "./images/chenopod_6.png";
+
 // Cypress
 import img_cypress_0 from "./images/cypress_0.png";
 import img_cypress_1 from "./images/cypress_1.png";
@@ -271,6 +280,16 @@ export const images = {
   birch_4_png: img_birch_4,
   birch_5_png: img_birch_5,
   birch_6_png: img_birch_6,
+
+  // chenopod
+  "chenopod_-1_png": img_chenopod_minus1,
+  chenopod_0_png: img_chenopod_0,
+  chenopod_1_png: img_chenopod_1,
+  chenopod_2_png: img_chenopod_2,
+  chenopod_3_png: img_chenopod_3,
+  chenopod_4_png: img_chenopod_4,
+  chenopod_5_png: img_chenopod_5,
+  chenopod_6_png: img_chenopod_6,
 
   // cypress
   "cypress_-1_png": img_cypress_minus1,
