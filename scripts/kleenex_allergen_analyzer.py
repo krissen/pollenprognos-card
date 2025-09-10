@@ -16,20 +16,18 @@ from collections import defaultdict, Counter
 from typing import Dict, List, Set
 from datetime import datetime
 
-# Currently supported allergens in the pollenprognos-card
+# Currently supported allergens in the pollenprognos-card kleenex adapter
 CURRENT_ALLERGENS = {
-    # Trees (from ALLERGEN_TRANSLATION and constants)
-    'alder', 'ash', 'beech', 'birch', 'chestnut', 'cypress', 'elm', 'hazel', 
-    'lime', 'oak', 'pine', 'plane', 'poplar', 'willow',
-    
-    # Grass
-    'grass', 'rye',
-    
-    # Weeds  
-    'artemisia', 'mugwort', 'nettle_and_pellitory', 'plantain', 'ragweed',
-    
     # Categories
-    'trees', 'weeds'
+    'trees', 'grass', 'weeds',
+    
+    # Individual allergens currently supported in kleenex adapter
+    'alder', 'birch', 'chenopod', 'cypress', 'elm', 'hazel', 
+    'mugwort', 'nettle', 'oak', 'pine', 'plane', 'poaceae', 'poplar', 'ragweed',
+    
+    # Other allergens from general ALLERGEN_TRANSLATION (may not be kleenex-specific)
+    'ash', 'beech', 'chestnut', 'lime', 'willow', 'rye',
+    'artemisia', 'nettle_and_pellitory', 'plantain'
 }
 
 class KleenexAllergenAnalyzer:
@@ -70,7 +68,7 @@ class KleenexAllergenAnalyzer:
                 
             for location in locations:
                 for category, category_data in location.get('allergens', {}).items():
-                    for allergen, details in category_data.get('individual', {}).items():
+                    for allergen, details in category_data.items():
                         allergens_by_category[category].add(allergen)
                         
                         # Track allergen details
@@ -114,7 +112,7 @@ class KleenexAllergenAnalyzer:
                 
             for location in locations:
                 for category_data in location.get('allergens', {}).values():
-                    for allergen in category_data.get('individual', {}):
+                    for allergen in category_data:
                         regional_allergens[region_key].add(allergen)
                         
         # Find region-specific allergens
