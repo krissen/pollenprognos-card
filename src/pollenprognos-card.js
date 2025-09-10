@@ -1279,12 +1279,29 @@ class PollenPrognosCard extends LitElement {
 
   _renderNormalHtml() {
     // Safety check to prevent rendering before sensors are properly initialized
-    if (!this.sensors || this.sensors.length === 0 || !this.sensors[0]?.days) {
+    if (!this.sensors || this.sensors.length === 0) {
       if (this.debug) {
-        console.debug("[Card] _renderNormalHtml: sensors not ready, returning empty");
-        console.debug(`[Card] _renderNormalHtml: sensors=${!!this.sensors}, length=${this.sensors?.length}, first_has_days=${!!this.sensors?.[0]?.days}, first_days_length=${this.sensors?.[0]?.days?.length}`);
+        console.debug("[Card] _renderNormalHtml: no sensors available, returning empty");
+        console.debug(`[Card] _renderNormalHtml: sensors=${!!this.sensors}, length=${this.sensors?.length}`);
       }
       return html``;
+    }
+
+    // Check if ANY sensor has days (not just the first one)
+    const sensorsWithDays = this.sensors.filter(s => s.days && s.days.length > 0);
+    if (sensorsWithDays.length === 0) {
+      if (this.debug) {
+        console.debug("[Card] _renderNormalHtml: no sensors have days arrays, returning empty");
+        console.debug(`[Card] _renderNormalHtml: sensors with days=${sensorsWithDays.length}, total sensors=${this.sensors.length}`);
+        this.sensors.forEach((sensor, i) => {
+          console.debug(`[Card] _renderNormalHtml: sensor[${i}] ${sensor.allergenReplaced}: has_days=${!!sensor.days}, days_length=${sensor.days?.length}, day0_state=${sensor.day0?.state}`);
+        });
+      }
+      return html``;
+    }
+    
+    if (this.debug) {
+      console.debug(`[Card] _renderNormalHtml: rendering ${this.sensors.length} sensors, ${sensorsWithDays.length} with days`);
     }
 
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
