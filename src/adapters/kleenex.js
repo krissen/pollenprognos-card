@@ -91,11 +91,7 @@ export const stubConfigKleenex = {
   entity_prefix: "",
   entity_suffix: "",
   allergens: [
-    // General categories (broad sensors)
-    "trees",
-    "grass",
-    "weeds",
-    // Individual allergens (detailed sensors)
+    // Individual allergens (detailed sensors) - enabled by default, alphabetically ordered
     "alder",
     "birch", 
     "chenopod",
@@ -110,6 +106,10 @@ export const stubConfigKleenex = {
     "poaceae",
     "poplar",
     "ragweed",
+    // General categories (broad sensors) - disabled by default
+    // "trees",
+    // "grass", 
+    // "weeds",
   ],
   minimal: false,
   minimal_gap: 35,
@@ -129,7 +129,7 @@ export const stubConfigKleenex = {
   days_abbreviated: false,
   days_uppercase: false,
   days_boldfaced: false,
-  pollen_threshold: 0,
+  pollen_threshold: 1,
   sort: "value_descending",
   allergy_risk_top: true,
   allergens_abbreviated: false,

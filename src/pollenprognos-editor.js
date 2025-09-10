@@ -1942,19 +1942,86 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Allergens -->
         <details>
           <summary>${this._t("summary_allergens")}</summary>
-          <div class="allergens-group">
-            ${allergens.map(
-              (key) => html`
-                <ha-formfield .label=${key}>
-                  <ha-checkbox
-                    .checked=${c.allergens.includes(key)}
-                    @change=${(e) =>
-                      this._onAllergenToggle(key, e.target.checked)}
-                  ></ha-checkbox>
-                </ha-formfield>
-              `,
-            )}
-          </div>
+          ${c.integration === "kleenex"
+            ? html`
+                <!-- Kleenex: Category allergens (disabled by default) -->
+                <div class="allergen-section">
+                  <h4 style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);">Category allergens (general)</h4>
+                  <div class="allergens-group">
+                    ${["trees", "grass", "weeds"].map(
+                      (key) => {
+                        // Determine display name - use translation if available
+                        const canonKey = ALLERGEN_TRANSLATION[key] || key;
+                        const transKey = `editor.phrases_full.${canonKey}`;
+                        const displayName = this._t(transKey) !== transKey ? this._t(transKey) : key.charAt(0).toUpperCase() + key.slice(1);
+                        
+                        return html`
+                          <ha-formfield .label=${displayName}>
+                            <ha-checkbox
+                              .checked=${c.allergens.includes(key)}
+                              @change=${(e) =>
+                                this._onAllergenToggle(key, e.target.checked)}
+                            ></ha-checkbox>
+                          </ha-formfield>
+                        `;
+                      }
+                    )}
+                  </div>
+                </div>
+                
+                <!-- Kleenex: Individual allergens (enabled by default) -->
+                <div class="allergen-section">
+                  <h4 style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);">Individual allergens (specific)</h4>
+                  <div class="allergens-group">
+                    ${allergens
+                      .filter(key => !["trees", "grass", "weeds"].includes(key))
+                      .sort((a, b) => {
+                        // Sort alphabetically by display name
+                        const canonA = ALLERGEN_TRANSLATION[a] || a;
+                        const canonB = ALLERGEN_TRANSLATION[b] || b;
+                        const transKeyA = `editor.phrases_full.${canonA}`;
+                        const transKeyB = `editor.phrases_full.${canonB}`;
+                        const displayA = this._t(transKeyA) !== transKeyA ? this._t(transKeyA) : a.charAt(0).toUpperCase() + a.slice(1);
+                        const displayB = this._t(transKeyB) !== transKeyB ? this._t(transKeyB) : b.charAt(0).toUpperCase() + b.slice(1);
+                        return displayA.localeCompare(displayB);
+                      })
+                      .map(
+                        (key) => {
+                          // Determine display name - use translation if available
+                          const canonKey = ALLERGEN_TRANSLATION[key] || key;
+                          const transKey = `editor.phrases_full.${canonKey}`;
+                          const displayName = this._t(transKey) !== transKey ? this._t(transKey) : key.charAt(0).toUpperCase() + key.slice(1);
+                          
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(key, e.target.checked)}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        }
+                      )}
+                  </div>
+                </div>
+              `
+            : html`
+                <!-- Non-Kleenex: Standard allergen display -->
+                <div class="allergens-group">
+                  ${allergens.map(
+                    (key) => html`
+                      <ha-formfield .label=${key}>
+                        <ha-checkbox
+                          .checked=${c.allergens.includes(key)}
+                          @change=${(e) =>
+                            this._onAllergenToggle(key, e.target.checked)}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                    `,
+                  )}
+                </div>
+              `}
           <div class="preset-buttons">
             <mwc-button
               @click=${() => this._toggleSelectAllAllergens(allergens)}
@@ -2318,6 +2385,18 @@ class PollenPrognosCardEditor extends LitElement {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+      }
+
+      /* Allergen section styling for Kleenex grouped display */
+      .allergen-section {
+        margin-bottom: 12px;
+      }
+
+      .allergen-section h4 {
+        margin: 8px 0 4px 0;
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+        font-weight: 500;
       }
 
       /* Details summary styling */
