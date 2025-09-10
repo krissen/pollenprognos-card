@@ -21,7 +21,10 @@ const KLEENEX_ALLERGEN_MAP = {
   'grass': 'grass',
   'weeds': 'weeds',
   'ragweed': 'ragweed',
-  'mugwort': 'mugwort'
+  'mugwort': 'mugwort',
+  'poaceae': 'poaceae',
+  'chenopod': 'chenopod',
+  'nettle': 'nettle'
 };
 
 export const stubConfigKleenex = {
@@ -38,13 +41,16 @@ export const stubConfigKleenex = {
     // Individual allergens (detailed sensors)
     "alder",
     "birch", 
+    "chenopod",
     "cypress",
     "elm",
     "hazel",
     "mugwort",
+    "nettle",
     "oak",
     "pine",
     "plane",
+    "poaceae",
     "poplar",
     "ragweed",
   ],

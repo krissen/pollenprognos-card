@@ -294,7 +294,7 @@ class KleenexAllergenTester:
             region_allergens = set()
             for location in region_data:
                 for category in location["allergens"].values():
-                    for allergen in category.get("individual", {}):
+                    for allergen in category:
                         region_allergens.add(allergen)
                         all_allergens.add(allergen)
             

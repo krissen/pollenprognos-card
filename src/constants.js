@@ -96,6 +96,9 @@ export const ALLERGEN_TRANSLATION = {
   // Kleenex pollen radar - individual allergens
   pine: "pine",
   poplar: "poplar",
+  poaceae: "poaceae",
+  chenopod: "chenopod", 
+  nettle: "nettle",
   // Note: trees, grass, weeds should keep their own translations
   // Icon mapping is handled separately in the image system
 };
