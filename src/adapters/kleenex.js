@@ -228,9 +228,34 @@ export async function fetchForecast(hass, config) {
   today.setHours(0, 0, 0, 0);
 
   // Find all kleenex sensors
-  const kleenexSensors = Object.values(hass.states).filter((entity) => {
+  let kleenexSensors = Object.values(hass.states).filter((entity) => {
     return entity.entity_id && entity.entity_id.startsWith(`sensor.${DOMAIN}_`);
   });
+
+  // Filter by location if specified (and not manual mode)
+  if (config.location && config.location !== "manual") {
+    const wantedLocation = config.location.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    
+    if (debug) {
+      console.debug(`[Kleenex] Filtering sensors for location: ${config.location} (normalized: ${wantedLocation})`);
+    }
+    
+    kleenexSensors = kleenexSensors.filter((entity) => {
+      const eid = entity.entity_id.replace(`sensor.${DOMAIN}_`, "");
+      const locPart = eid.replace(/_[^_]+$/, ""); // Remove the last part (allergen/type)
+      const matches = locPart === wantedLocation;
+      
+      if (debug && matches) {
+        console.debug(`[Kleenex] Location match: ${entity.entity_id} -> locPart: ${locPart}`);
+      }
+      
+      return matches;
+    });
+    
+    if (debug) {
+      console.debug(`[Kleenex] After location filtering: ${kleenexSensors.length} sensors for location '${wantedLocation}'`);
+    }
+  }
 
   if (debug) {
     console.debug("[Kleenex] Sensors found:", kleenexSensors.map(s => s.entity_id));
