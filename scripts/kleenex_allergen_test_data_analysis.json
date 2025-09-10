@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-09-10T20:48:00.562582",
+  "summary": {
+    "total_discovered": 0,
+    "currently_supported": 23,
+    "new_allergens_count": 0,
+    "missing_allergens_count": 23
+  },
+  "coverage_analysis": {
+    "discovered_total": 0,
+    "currently_supported": 23,
+    "new_allergens": [],
+    "missing_allergens": [
+      "alder",
+      "artemisia",
+      "ash",
+      "beech",
+      "birch",
+      "chestnut",
+      "cypress",
+      "elm",
+      "grass",
+      "hazel",
+      "lime",
+      "mugwort",
+      "nettle_and_pellitory",
+      "oak",
+      "pine",
+      "plane",
+      "plantain",
+      "poplar",
+      "ragweed",
+      "rye",
+      "trees",
+      "weeds",
+      "willow"
+    ],
+    "allergens_by_category": {},
+    "allergen_details": {}
+  },
+  "regional_analysis": {
+    "regional_allergens": {},
+    "region_specific": {}
+  },
+  "priority_implementation": [],
+  "recommendations": []
+}
