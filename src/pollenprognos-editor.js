@@ -398,7 +398,8 @@ class PollenPrognosCardEditor extends LitElement {
         } else if (
           all.some(
             (id) =>
-              typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
+              typeof id === "string" &&
+              id.startsWith("sensor.kleenex_pollen_radar_"),
           )
         ) {
           integration = "kleenex";
@@ -877,26 +878,29 @@ class PollenPrognosCardEditor extends LitElement {
             )
             .map((s) => {
               // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
-              const match = s.entity_id.match(/^sensor\.kleenex_pollen_radar_(.*)_(?:trees|grass|weeds)$/);
+              const match = s.entity_id.match(
+                /^sensor\.kleenex_pollen_radar_(.*)_(?:trees|grass|weeds)$/,
+              );
               if (!match) return null;
-              
+
               const locationSlug = match[1];
               let title = s.attributes?.friendly_name || locationSlug;
-              
+
               // Clean up the title to show only the location
               title = title
-                .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, '')
-                .replace(/[\)\s]+(?:Trees|Grass|Weeds).*$/i, '')
+                .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
+                .replace(/[\)\s]+(?:Trees|Grass|Weeds).*$/i, "")
                 .trim();
-              
+
               // Fallback to locationSlug if cleaning resulted in empty string
               if (!title) {
-                title = locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
+                title =
+                  locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
               }
-              
+
               return [locationSlug, title];
             })
-            .filter(entry => entry !== null),
+            .filter((entry) => entry !== null),
         ),
       );
       // 4) Auto-välj första region/stad om användaren inte satt något
@@ -1152,11 +1156,9 @@ class PollenPrognosCardEditor extends LitElement {
     return html`
       <div class="card-config">
         <!-- Återställ-knapp -->
-        <div class="preset-buttons">
-          <mwc-button @click=${() => this._resetAll()}>
-            ${this._t("preset_reset_all")}
-          </mwc-button>
-        </div>
+        <ha-button outlined @click=${() => this.resetAll()}>
+          ${this._t("preset_reset_all")}
+        </ha-button>
 
         <!-- Integration & Location -->
         <details open>
@@ -1281,29 +1283,29 @@ class PollenPrognosCardEditor extends LitElement {
                         </ha-select>
                       </ha-formfield>
                     `
-                : html`
-                    <ha-formfield label="${this._t("region_id")}">
-                      <ha-select
-                        .value=${c.region_id || ""}
-                        @selected=${(e) =>
-                          this._updateConfig("region_id", e.target.value)}
-                        @closed=${(e) => e.stopPropagation()}
-                      >
-                        <mwc-list-item value=""
-                          >${this._t("location_autodetect")}</mwc-list-item
+                  : html`
+                      <ha-formfield label="${this._t("region_id")}">
+                        <ha-select
+                          .value=${c.region_id || ""}
+                          @selected=${(e) =>
+                            this._updateConfig("region_id", e.target.value)}
+                          @closed=${(e) => e.stopPropagation()}
                         >
-                        ${this.installedRegionIds.map(
-                          (id) =>
-                            html`<mwc-list-item .value=${id}>
-                              ${id} — ${DWD_REGIONS[id] || id}
-                            </mwc-list-item>`,
-                        )}
-                        <mwc-list-item value="manual"
-                          >${this._t("location_manual")}</mwc-list-item
-                        >
-                      </ha-select>
-                    </ha-formfield>
-                  `}
+                          <mwc-list-item value=""
+                            >${this._t("location_autodetect")}</mwc-list-item
+                          >
+                          ${this.installedRegionIds.map(
+                            (id) =>
+                              html`<mwc-list-item .value=${id}>
+                                ${id} — ${DWD_REGIONS[id] || id}
+                              </mwc-list-item>`,
+                          )}
+                          <mwc-list-item value="manual"
+                            >${this._t("location_manual")}</mwc-list-item
+                          >
+                        </ha-select>
+                      </ha-formfield>
+                    `}
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
@@ -1362,46 +1364,32 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-formfield>
                 `
               : ""}
-          ${
-            (c.integration === "pp" && c.city === "manual") ||
-            (c.integration === "dwd" && c.region_id === "manual") ||
-            ((c.integration === "peu" || c.integration === "silam") &&
-              c.location === "manual")
-              ? html`
-                  <details>
-                    <summary>
-                      ${this._t("summary_entity_prefix_suffix")}
-                    </summary>
-                    <ha-formfield label="${this._t("entity_prefix")}">
-                      <ha-textfield
-                        .value=${c.entity_prefix || ""}
-                        placeholder="${this._t(
-                          "entity_prefix_placeholder",
-                        )}"
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "entity_prefix",
-                            e.target.value,
-                          )}
-                      ></ha-textfield>
-                    </ha-formfield>
-                    <ha-formfield label="${this._t("entity_suffix")}">
-                      <ha-textfield
-                        .value=${c.entity_suffix || ""}
-                        placeholder="${this._t(
-                          "entity_suffix_placeholder",
-                        )}"
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "entity_suffix",
-                            e.target.value,
-                          )}
-                      ></ha-textfield>
-                    </ha-formfield>
-                  </details>
-                `
-              : ""
-          }
+          ${(c.integration === "pp" && c.city === "manual") ||
+          (c.integration === "dwd" && c.region_id === "manual") ||
+          ((c.integration === "peu" || c.integration === "silam") &&
+            c.location === "manual")
+            ? html`
+                <details>
+                  <summary>${this._t("summary_entity_prefix_suffix")}</summary>
+                  <ha-formfield label="${this._t("entity_prefix")}">
+                    <ha-textfield
+                      .value=${c.entity_prefix || ""}
+                      placeholder="${this._t("entity_prefix_placeholder")}"
+                      @input=${(e) =>
+                        this._updateConfig("entity_prefix", e.target.value)}
+                    ></ha-textfield>
+                  </ha-formfield>
+                  <ha-formfield label="${this._t("entity_suffix")}">
+                    <ha-textfield
+                      .value=${c.entity_suffix || ""}
+                      placeholder="${this._t("entity_suffix_placeholder")}"
+                      @input=${(e) =>
+                        this._updateConfig("entity_suffix", e.target.value)}
+                    ></ha-textfield>
+                  </ha-formfield>
+                </details>
+              `
+            : ""}
         </details>
 
         <details open>
