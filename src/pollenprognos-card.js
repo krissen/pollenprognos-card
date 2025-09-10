@@ -323,6 +323,14 @@ class PollenPrognosCard extends LitElement {
     if (this.debug) {
       console.debug("Days to show:", this.days_to_show);
       console.debug("Display columns:", this.displayCols);
+      console.debug(`[Card] Final sensors for display (${filtered.length}):`, filtered.map(s => ({ 
+        name: s.allergenCapitalized, 
+        allergen: s.allergenReplaced, 
+        has_days: !!s.days, 
+        days_length: s.days?.length, 
+        entity_id: s.entity_id,
+        day0_state: s.day0?.state
+      })));
     }
     this.requestUpdate();
   }
@@ -1274,6 +1282,7 @@ class PollenPrognosCard extends LitElement {
     if (!this.sensors || this.sensors.length === 0 || !this.sensors[0]?.days) {
       if (this.debug) {
         console.debug("[Card] _renderNormalHtml: sensors not ready, returning empty");
+        console.debug(`[Card] _renderNormalHtml: sensors=${!!this.sensors}, length=${this.sensors?.length}, first_has_days=${!!this.sensors?.[0]?.days}, first_days_length=${this.sensors?.[0]?.days?.length}`);
       }
       return html``;
     }

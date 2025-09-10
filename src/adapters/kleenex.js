@@ -410,7 +410,18 @@ export async function fetchForecast(hass, config) {
 
       // Check threshold
       const meets = dict.days.some((d) => d.state >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      const shouldAdd = meets || pollen_threshold === 0;
+      
+      if (debug) {
+        console.debug(`[Kleenex] THRESHOLD CHECK for ${allergenKey}: meets=${meets}, pollen_threshold=${pollen_threshold}, shouldAdd=${shouldAdd}, days_length=${dict.days.length}`);
+      }
+      
+      if (shouldAdd) {
+        sensors.push(dict);
+        if (debug) {
+          console.debug(`[Kleenex] SENSOR ADDED for ${allergenKey}: today_state=${dict.day0?.state}, entity_id=${dict.entity_id}`);
+        }
+      }
     } catch (e) {
       console.warn(`[Kleenex] Adapter error for allergen ${allergenKey}:`, e);
     }
