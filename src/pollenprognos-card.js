@@ -1061,6 +1061,14 @@ class PollenPrognosCard extends LitElement {
         .then((sensors) => {
           if (this.debug) {
             console.debug("[Card][Debug] Sensors före filtrering:", sensors);
+            console.debug(`[Card][Debug] Adapter returned ${sensors.length} sensors:`, sensors.map(s => ({
+              allergen: s.allergenReplaced,
+              entity_id: s.entity_id,
+              has_days: !!s.days,
+              days_length: s.days?.length,
+              day0_state: s.day0?.state,
+              day0_value: s.day0?.value
+            })));
             console.debug(
               "[Card][Debug] Förväntade allergener från config:",
               cfg.allergens,
@@ -1177,6 +1185,16 @@ class PollenPrognosCard extends LitElement {
               }
               return ok;
             });
+          }
+
+          if (this.debug) {
+            console.debug(`[Card][Debug] After filtering: ${filtered.length} sensors remain:`, filtered.map(s => ({
+              allergen: s.allergenReplaced,
+              entity_id: s.entity_id,
+              has_days: !!s.days,
+              days_length: s.days?.length,
+              day0_state: s.day0?.state
+            })));
           }
 
           const explicitLocation = this._integrationExplicit && !!cfg.location;
