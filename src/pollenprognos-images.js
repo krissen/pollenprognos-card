@@ -131,6 +131,7 @@ import img_nettle_3 from "./images/nettle_and_pellitory_3.png";
 import img_nettle_4 from "./images/nettle_and_pellitory_4.png";
 import img_nettle_5 from "./images/nettle_and_pellitory_5.png";
 import img_nettle_6 from "./images/nettle_and_pellitory_6.png";
+import img_nettle_minus1 from "./images/nettle_and_pellitory_-1.png";
 
 // Nettle and pellitory (Nässlor och pellitor)
 import img_nettle_and_pellitory_0 from "./images/nettle_and_pellitory_0.png";
