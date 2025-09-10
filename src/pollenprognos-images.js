@@ -143,6 +143,16 @@ import img_olive_5 from "./images/olive_5.png";
 import img_olive_6 from "./images/olive_6.png";
 import img_olive_minus1 from "./images/olive_-1.png";
 
+// Pine (Tall)
+import img_pine_0 from "./images/pine_0.png";
+import img_pine_1 from "./images/pine_1.png";
+import img_pine_2 from "./images/pine_2.png";
+import img_pine_3 from "./images/pine_3.png";
+import img_pine_4 from "./images/pine_4.png";
+import img_pine_5 from "./images/pine_5.png";
+import img_pine_6 from "./images/pine_6.png";
+import img_pine_minus1 from "./images/pine_-1.png";
+
 // Plane (Platan)
 import img_plane_0 from "./images/plane_0.png";
 import img_plane_1 from "./images/plane_1.png";
@@ -152,6 +162,16 @@ import img_plane_4 from "./images/plane_4.png";
 import img_plane_5 from "./images/plane_5.png";
 import img_plane_6 from "./images/plane_6.png";
 import img_plane_minus1 from "./images/plane_-1.png";
+
+// Poplar (Popplar och asp)
+import img_poplar_0 from "./images/poplar_0.png";
+import img_poplar_1 from "./images/poplar_1.png";
+import img_poplar_2 from "./images/poplar_2.png";
+import img_poplar_3 from "./images/poplar_3.png";
+import img_poplar_4 from "./images/poplar_4.png";
+import img_poplar_5 from "./images/poplar_5.png";
+import img_poplar_6 from "./images/poplar_6.png";
+import img_poplar_minus1 from "./images/poplar_-1.png";
 
 // Ragweed (Ambrosia)
 import img_ragweed_0 from "./images/ragweed_0.png";
@@ -334,6 +354,16 @@ export const images = {
   olive_5_png: img_olive_5,
   olive_6_png: img_olive_6,
 
+  // pine
+  "pine_-1_png": img_pine_minus1,
+  pine_0_png: img_pine_0,
+  pine_1_png: img_pine_1,
+  pine_2_png: img_pine_2,
+  pine_3_png: img_pine_3,
+  pine_4_png: img_pine_4,
+  pine_5_png: img_pine_5,
+  pine_6_png: img_pine_6,
+
   // plane
   "plane_-1_png": img_plane_minus1,
   plane_0_png: img_plane_0,
@@ -343,6 +373,16 @@ export const images = {
   plane_4_png: img_plane_4,
   plane_5_png: img_plane_5,
   plane_6_png: img_plane_6,
+
+  // poplar
+  "poplar_-1_png": img_poplar_minus1,
+  poplar_0_png: img_poplar_0,
+  poplar_1_png: img_poplar_1,
+  poplar_2_png: img_poplar_2,
+  poplar_3_png: img_poplar_3,
+  poplar_4_png: img_poplar_4,
+  poplar_5_png: img_poplar_5,
+  poplar_6_png: img_poplar_6,
 
   // ragweed
   "ragweed_-1_png": img_ragweed_minus1,
