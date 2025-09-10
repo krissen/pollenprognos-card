@@ -113,6 +113,15 @@ import img_mugwort_5 from "./images/mugwort_5.png";
 import img_mugwort_6 from "./images/mugwort_6.png";
 import img_mugwort_minus1 from "./images/mugwort_-1.png";
 
+// Nettle (Brännässla)
+import img_nettle_0 from "./images/nettle_and_pellitory_0.png";
+import img_nettle_1 from "./images/nettle_and_pellitory_1.png";
+import img_nettle_2 from "./images/nettle_and_pellitory_2.png";
+import img_nettle_3 from "./images/nettle_and_pellitory_3.png";
+import img_nettle_4 from "./images/nettle_and_pellitory_4.png";
+import img_nettle_5 from "./images/nettle_and_pellitory_5.png";
+import img_nettle_6 from "./images/nettle_and_pellitory_6.png";
+
 // Nettle and pellitory (Nässlor och pellitor)
 import img_nettle_and_pellitory_0 from "./images/nettle_and_pellitory_0.png";
 import img_nettle_and_pellitory_1 from "./images/nettle_and_pellitory_1.png";
@@ -162,6 +171,15 @@ import img_plane_4 from "./images/plane_4.png";
 import img_plane_5 from "./images/plane_5.png";
 import img_plane_6 from "./images/plane_6.png";
 import img_plane_minus1 from "./images/plane_-1.png";
+
+// Poaceae (Gräs)
+import img_poaceae_0 from "./images/poaceae_0.png";
+import img_poaceae_1 from "./images/poaceae_1.png";
+import img_poaceae_2 from "./images/poaceae_2.png";
+import img_poaceae_3 from "./images/poaceae_3.png";
+import img_poaceae_4 from "./images/poaceae_4.png";
+import img_poaceae_5 from "./images/poaceae_5.png";
+import img_poaceae_6 from "./images/poaceae_6.png";
 
 // Poplar (Popplar och asp)
 import img_poplar_0 from "./images/poplar_0.png";
@@ -324,6 +342,16 @@ export const images = {
   mugwort_5_png: img_mugwort_5,
   mugwort_6_png: img_mugwort_6,
 
+  // nettle
+  "nettle_-1_png": img_nettle_minus1,
+  nettle_0_png: img_nettle_0,
+  nettle_1_png: img_nettle_1,
+  nettle_2_png: img_nettle_2,
+  nettle_3_png: img_nettle_3,
+  nettle_4_png: img_nettle_4,
+  nettle_5_png: img_nettle_5,
+  nettle_6_png: img_nettle_6,
+
   // nettle_and_pellitory
   "nettle_and_pellitory_-1_png": img_nettle_and_pellitory_minus1,
   nettle_and_pellitory_0_png: img_nettle_and_pellitory_0,
@@ -373,6 +401,16 @@ export const images = {
   plane_4_png: img_plane_4,
   plane_5_png: img_plane_5,
   plane_6_png: img_plane_6,
+
+  // poaceae
+  "poaceae_-1_png": img_poaceae_minus1,
+  poaceae_0_png: img_poaceae_0,
+  poaceae_1_png: img_poaceae_1,
+  poaceae_2_png: img_poaceae_2,
+  poaceae_3_png: img_poaceae_3,
+  poaceae_4_png: img_poaceae_4,
+  poaceae_5_png: img_poaceae_5,
+  poaceae_6_png: img_poaceae_6,
 
   // poplar
   "poplar_-1_png": img_poplar_minus1,
