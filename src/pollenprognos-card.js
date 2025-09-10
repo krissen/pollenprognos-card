@@ -1270,6 +1270,14 @@ class PollenPrognosCard extends LitElement {
   }
 
   _renderNormalHtml() {
+    // Safety check to prevent rendering before sensors are properly initialized
+    if (!this.sensors || this.sensors.length === 0 || !this.sensors[0]?.days) {
+      if (this.debug) {
+        console.debug("[Card] _renderNormalHtml: sensors not ready, returning empty");
+      }
+      return html``;
+    }
+
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
@@ -1325,10 +1333,10 @@ class PollenPrognosCard extends LitElement {
                           class="day-header"
                           style="font-size: ${1.0 * textSizeRatio}em;"
                         >
-                          ${this.sensors[0].days[i]?.day || ""}
+                          ${this.sensors?.[0]?.days?.[i]?.day || ""}
                         </span>
                         ${this.config.mode === "twice_daily" &&
-                        this.sensors[0].days[i]?.icon
+                        this.sensors?.[0]?.days?.[i]?.icon
                           ? html`<ha-icon
                               icon="${this.sensors[0].days[i].icon}"
                               style="margin-top: 2px;"
