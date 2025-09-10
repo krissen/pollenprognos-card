@@ -6,7 +6,7 @@
         "lon": -0.1278,
         "region": "uk"
       },
-      "timestamp": "2025-09-10T20:41:16.922477",
+      "timestamp": "2025-09-10T21:02:29.058486",
       "allergens": {
         "trees": {
           "Hazel": {
@@ -62,18 +62,18 @@
             "level": 0
           },
           "Ragweed": {
-            "value": 15.0,
+            "value": 14.0,
             "level": 0
           },
           "Nettle": {
-            "value": 50.0,
+            "value": 46.0,
             "level": 0
           }
         }
       },
       "raw_details": {
         "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
-        "weeds": "Mugwort,3,low|Chenopod,4,low|Ragweed,15,low|Nettle,50,high",
+        "weeds": "Mugwort,3,low|Chenopod,4,low|Ragweed,14,low|Nettle,46,high",
         "grass": "Poaceae,0,low"
       },
       "days_found": 5
@@ -84,7 +84,7 @@
         "lon": 2.3522,
         "region": "fr"
       },
-      "timestamp": "2025-09-10T20:41:23.476299",
+      "timestamp": "2025-09-10T21:02:32.837929",
       "allergens": {
         "trees": {
           "Noisetier": {
@@ -162,7 +162,7 @@
         "lon": 12.4964,
         "region": "it"
       },
-      "timestamp": "2025-09-10T20:41:27.772751",
+      "timestamp": "2025-09-10T21:02:36.725652",
       "allergens": {
         "trees": {
           "Nocciolo": {
@@ -240,7 +240,7 @@
         "lon": 4.9041,
         "region": "nl"
       },
-      "timestamp": "2025-09-10T20:41:31.868717",
+      "timestamp": "2025-09-10T21:02:43.889665",
       "allergens": {
         "trees": {
           "Hazelaar": {
@@ -318,7 +318,7 @@
         "lon": -74.006,
         "region": "us"
       },
-      "timestamp": "2025-09-10T20:41:39.242134",
+      "timestamp": "2025-09-10T21:02:48.184050",
       "allergens": {
         "trees": {
           "Hazel": {
@@ -451,5 +451,5 @@
     "successful_tests": 5,
     "total_tests": 5
   },
-  "timestamp": "2025-09-10T20:41:39.244183"
+  "timestamp": "2025-09-10T21:02:48.185052"
 }

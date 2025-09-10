@@ -2,56 +2,11 @@
   "france": [
     {
       "location": {
-        "lat": 49.5739,
-        "lon": -4.79,
+        "lat": 48.4864,
+        "lon": 6.0448,
         "region_code": "fr"
       },
-      "timestamp": "2025-09-10T20:42:36.339387",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 42.1888,
-        "lon": 4.0534,
-        "region_code": "fr"
-      },
-      "timestamp": "2025-09-10T20:42:41.192515",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 48.7201,
-        "lon": -2.1883,
-        "region_code": "fr"
-      },
-      "timestamp": "2025-09-10T20:42:52.352064",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 47.4052,
-        "lon": 6.1655,
-        "region_code": "fr"
-      },
-      "timestamp": "2025-09-10T20:43:05.472842",
+      "timestamp": "2025-09-10T21:01:47.985491",
       "allergens": {
         "trees": {
           "Noisetier": {
@@ -107,29 +62,137 @@
             "level": 0
           },
           "Ambroisie": {
-            "value": 9.0,
+            "value": 8.0,
             "level": 0
           },
           "Ortie": {
-            "value": 29.0,
+            "value": 28.0,
             "level": 0
           }
         }
       },
       "raw_details": {
         "trees": "Noisetier,0,low|Orme,0,low|Pin,0,low|Aulne,0,low|Peuplier,0,low|Chêne,0,low|Platane,0,low|Bouleau,0,low|Cyprès,0,low",
-        "weeds": "Armoise,2,low|Chénopodes,2,low|Ambroisie,9,low|Ortie,29,moderate",
+        "weeds": "Armoise,2,low|Chénopodes,2,low|Ambroisie,8,low|Ortie,28,moderate",
         "grass": "Poaceae ,0,"
       },
       "days_found": 5
     },
     {
       "location": {
-        "lat": 43.5645,
-        "lon": 3.9656,
+        "lat": 46.2215,
+        "lon": -5.0272,
         "region_code": "fr"
       },
-      "timestamp": "2025-09-10T20:43:11.691306",
+      "timestamp": "2025-09-10T21:01:58.425638",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 48.8086,
+        "lon": 6.1761,
+        "region_code": "fr"
+      },
+      "timestamp": "2025-09-10T21:02:11.617409",
+      "allergens": {
+        "trees": {
+          "Noisetier": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Orme": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pin": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Aulne": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Peuplier": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Chêne": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Platane": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Bouleau": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cyprès": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Armoise": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Chénopodes": {
+            "value": 1.0,
+            "level": 0
+          },
+          "Ambroisie": {
+            "value": 2.0,
+            "level": 0
+          },
+          "Ortie": {
+            "value": 24.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Noisetier,0,low|Orme,0,low|Pin,0,low|Aulne,0,low|Peuplier,0,low|Chêne,0,low|Platane,0,low|Bouleau,0,low|Cyprès,0,low",
+        "weeds": "Armoise,0,low|Chénopodes,1,low|Ambroisie,2,low|Ortie,24,moderate",
+        "grass": "Poaceae ,0,"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 41.5654,
+        "lon": 3.8593,
+        "region_code": "fr"
+      },
+      "timestamp": "2025-09-10T21:02:20.543418",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 43.3764,
+        "lon": -1.0732,
+        "region_code": "fr"
+      },
+      "timestamp": "2025-09-10T21:02:28.328983",
       "allergens": {
         "trees": {
           "Noisetier": {
@@ -205,11 +268,11 @@
   "italy": [
     {
       "location": {
-        "lat": 42.6591,
-        "lon": 16.9008,
+        "lat": 45.4546,
+        "lon": 12.6749,
         "region_code": "it"
       },
-      "timestamp": "2025-09-10T20:43:13.242563",
+      "timestamp": "2025-09-10T21:02:31.193665",
       "allergens": {
         "trees": {},
         "grass": {},
@@ -220,26 +283,11 @@
     },
     {
       "location": {
-        "lat": 47.0945,
-        "lon": 16.2478,
+        "lat": 43.8273,
+        "lon": 12.0377,
         "region_code": "it"
       },
-      "timestamp": "2025-09-10T20:43:19.713458",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 41.838,
-        "lon": 14.9639,
-        "region_code": "it"
-      },
-      "timestamp": "2025-09-10T20:43:32.138454",
+      "timestamp": "2025-09-10T21:02:47.777582",
       "allergens": {
         "trees": {
           "Nocciolo": {
@@ -287,37 +335,37 @@
         },
         "weeds": {
           "Artemisia": {
-            "value": 0.0,
-            "level": 0
-          },
-          "Chenopodio": {
-            "value": 2.0,
-            "level": 0
-          },
-          "Ambrosia": {
             "value": 3.0,
             "level": 0
           },
+          "Chenopodio": {
+            "value": 3.0,
+            "level": 0
+          },
+          "Ambrosia": {
+            "value": 12.0,
+            "level": 0
+          },
           "Ortica": {
-            "value": 27.0,
+            "value": 42.0,
             "level": 0
           }
         }
       },
       "raw_details": {
         "trees": "Nocciolo,0,low|Olmo,0,low|Pino,0,low|Ontano,0,low|Pioppo,0,low|Quercia,0,low|Platano,0,low|Betulla,0,low|Cipresso,0,low",
-        "weeds": "Artemisia,0,low|Chenopodio,2,low|Ambrosia,3,low|Ortica,27,moderate",
+        "weeds": "Artemisia,3,low|Chenopodio,3,low|Ambrosia,12,low|Ortica,42,high",
         "grass": "Graminacee,0,"
       },
       "days_found": 5
     },
     {
       "location": {
-        "lat": 37.8832,
-        "lon": 8.1424,
+        "lat": 36.3511,
+        "lon": 17.562,
         "region_code": "it"
       },
-      "timestamp": "2025-09-10T20:43:43.550631",
+      "timestamp": "2025-09-10T21:02:55.339243",
       "allergens": {
         "trees": {},
         "grass": {},
@@ -328,11 +376,26 @@
     },
     {
       "location": {
-        "lat": 36.3099,
-        "lon": 16.0558,
+        "lat": 36.3605,
+        "lon": 17.2916,
         "region_code": "it"
       },
-      "timestamp": "2025-09-10T20:43:47.443469",
+      "timestamp": "2025-09-10T21:03:00.251794",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 37.5134,
+        "lon": 11.7664,
+        "region_code": "it"
+      },
+      "timestamp": "2025-09-10T21:03:10.488273",
       "allergens": {
         "trees": {},
         "grass": {},
@@ -345,71 +408,11 @@
   "netherlands": [
     {
       "location": {
-        "lat": 53.5859,
-        "lon": 6.7776,
+        "lat": 52.7184,
+        "lon": 6.8748,
         "region_code": "nl"
       },
-      "timestamp": "2025-09-10T20:43:48.673892",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 51.0698,
-        "lon": 4.5407,
-        "region_code": "nl"
-      },
-      "timestamp": "2025-09-10T20:43:54.406367",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 53.2725,
-        "lon": 6.3089,
-        "region_code": "nl"
-      },
-      "timestamp": "2025-09-10T20:44:06.320262",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 53.1232,
-        "lon": 4.9585,
-        "region_code": "nl"
-      },
-      "timestamp": "2025-09-10T20:44:19.802717",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 51.851,
-        "lon": 5.3731,
-        "region_code": "nl"
-      },
-      "timestamp": "2025-09-10T20:44:31.887728",
+      "timestamp": "2025-09-10T21:03:11.516206",
       "allergens": {
         "trees": {
           "Hazelaar": {
@@ -457,7 +460,115 @@
         },
         "weeds": {
           "Bijvoet": {
-            "value": 1.0,
+            "value": 0.0,
+            "level": 0
+          },
+          "Ganzevoet": {
+            "value": 2.0,
+            "level": 0
+          },
+          "Ambrosia": {
+            "value": 3.0,
+            "level": 0
+          },
+          "Brandnetel": {
+            "value": 29.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazelaar,0,low|Iep,0,low|Pijnboom,0,low|Els,0,low|Populier,0,low|Eik,0,low|Plataan,0,low|Berk,0,low|Cipres,0,low",
+        "weeds": "Bijvoet,0,low|Ganzevoet,2,low|Ambrosia,3,low|Brandnetel,29,moderate",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 51.1199,
+        "lon": 4.7449,
+        "region_code": "nl"
+      },
+      "timestamp": "2025-09-10T21:03:22.566902",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 52.829,
+        "lon": 4.3469,
+        "region_code": "nl"
+      },
+      "timestamp": "2025-09-10T21:03:29.733198",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 51.4899,
+        "lon": 5.7653,
+        "region_code": "nl"
+      },
+      "timestamp": "2025-09-10T21:03:37.724111",
+      "allergens": {
+        "trees": {
+          "Hazelaar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Iep": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pijnboom": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Els": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Populier": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Eik": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plataan": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Berk": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cipres": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Bijvoet": {
+            "value": 2.0,
             "level": 0
           },
           "Ganzevoet": {
@@ -469,14 +580,92 @@
             "level": 0
           },
           "Brandnetel": {
-            "value": 26.0,
+            "value": 28.0,
             "level": 0
           }
         }
       },
       "raw_details": {
         "trees": "Hazelaar,0,low|Iep,0,low|Pijnboom,0,low|Els,0,low|Populier,0,low|Eik,0,low|Plataan,0,low|Berk,0,low|Cipres,0,low",
-        "weeds": "Bijvoet,1,low|Ganzevoet,2,low|Ambrosia,8,low|Brandnetel,26,moderate",
+        "weeds": "Bijvoet,2,low|Ganzevoet,2,low|Ambrosia,8,low|Brandnetel,28,moderate",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 51.6064,
+        "lon": 4.439,
+        "region_code": "nl"
+      },
+      "timestamp": "2025-09-10T21:03:46.305381",
+      "allergens": {
+        "trees": {
+          "Hazelaar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Iep": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pijnboom": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Els": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Populier": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Eik": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plataan": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Berk": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cipres": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Bijvoet": {
+            "value": 3.0,
+            "level": 0
+          },
+          "Ganzevoet": {
+            "value": 3.0,
+            "level": 0
+          },
+          "Ambrosia": {
+            "value": 12.0,
+            "level": 0
+          },
+          "Brandnetel": {
+            "value": 42.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazelaar,0,low|Iep,0,low|Pijnboom,0,low|Els,0,low|Populier,0,low|Eik,0,low|Plataan,0,low|Berk,0,low|Cipres,0,low",
+        "weeds": "Bijvoet,3,low|Ganzevoet,3,low|Ambrosia,12,low|Brandnetel,42,high",
         "grass": "Poaceae,0,low"
       },
       "days_found": 5
@@ -485,41 +674,11 @@
   "uk": [
     {
       "location": {
-        "lat": 59.5917,
-        "lon": -8.6024,
+        "lat": 52.3178,
+        "lon": 1.4856,
         "region_code": "uk"
       },
-      "timestamp": "2025-09-10T20:44:33.433976",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 55.4345,
-        "lon": -9.8981,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:44:38.211006",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 51.9792,
-        "lon": -1.4469,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:44:50.526803",
+      "timestamp": "2025-09-10T21:03:47.430216",
       "allergens": {
         "trees": {
           "Hazel": {
@@ -567,7 +726,301 @@
         },
         "weeds": {
           "Mugwort": {
+            "value": 5.0,
+            "level": 0
+          },
+          "Chenopod": {
+            "value": 6.0,
+            "level": 0
+          },
+          "Ragweed": {
+            "value": 23.0,
+            "level": 0
+          },
+          "Nettle": {
+            "value": 77.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
+        "weeds": "Mugwort,5,low|Chenopod,6,low|Ragweed,23,moderate|Nettle,77,high",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 56.59,
+        "lon": 0.212,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:03:52.142893",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 58.3802,
+        "lon": -5.488,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:03.117541",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 58.8422,
+        "lon": -3.3082,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:10.027197",
+      "allergens": {
+        "trees": {
+          "Hazel": {
             "value": 0.0,
+            "level": 0
+          },
+          "Elm": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pine": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Alder": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Poplar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Oak": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plane": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Birch": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cypress": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Mugwort": {
+            "value": 6.0,
+            "level": 0
+          },
+          "Chenopod": {
+            "value": 7.0,
+            "level": 0
+          },
+          "Ragweed": {
+            "value": 26.0,
+            "level": 0
+          },
+          "Nettle": {
+            "value": 85.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
+        "weeds": "Mugwort,6,low|Chenopod,7,low|Ragweed,26,moderate|Nettle,85,very-high",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 51.4965,
+        "lon": -5.0909,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:15.880568",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 52.3735,
+        "lon": -9.6923,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:20.940983",
+      "allergens": {
+        "trees": {
+          "Hazel": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Elm": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pine": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Alder": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Poplar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Oak": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plane": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Birch": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cypress": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Mugwort": {
+            "value": 3.0,
+            "level": 0
+          },
+          "Chenopod": {
+            "value": 3.0,
+            "level": 0
+          },
+          "Ragweed": {
+            "value": 12.0,
+            "level": 0
+          },
+          "Nettle": {
+            "value": 42.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
+        "weeds": "Mugwort,3,low|Chenopod,3,low|Ragweed,12,low|Nettle,42,high",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 51.4924,
+        "lon": -8.9774,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:31.994088",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 56.3113,
+        "lon": -3.9177,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:40.671548",
+      "allergens": {
+        "trees": {
+          "Hazel": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Elm": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pine": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Alder": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Poplar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Oak": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plane": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Birch": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cypress": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Mugwort": {
+            "value": 1.0,
             "level": 0
           },
           "Chenopod": {
@@ -575,7 +1028,7 @@
             "level": 0
           },
           "Ragweed": {
-            "value": 1.0,
+            "value": 5.0,
             "level": 0
           },
           "Nettle": {
@@ -586,18 +1039,33 @@
       },
       "raw_details": {
         "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
-        "weeds": "Mugwort,0,low|Chenopod,1,low|Ragweed,1,low|Nettle,18,moderate",
+        "weeds": "Mugwort,1,low|Chenopod,1,low|Ragweed,5,low|Nettle,18,moderate",
         "grass": "Poaceae,0,low"
       },
       "days_found": 5
     },
     {
       "location": {
-        "lat": 52.8466,
-        "lon": -7.7215,
+        "lat": 60.4632,
+        "lon": -5.794,
         "region_code": "uk"
       },
-      "timestamp": "2025-09-10T20:45:04.453046",
+      "timestamp": "2025-09-10T21:04:46.616973",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 51.3091,
+        "lon": -1.9149,
+        "region_code": "uk"
+      },
+      "timestamp": "2025-09-10T21:04:52.590327",
       "allergens": {
         "trees": {
           "Hazel": {
@@ -645,129 +1113,39 @@
         },
         "weeds": {
           "Mugwort": {
-            "value": 2.0,
+            "value": 0.0,
             "level": 0
           },
           "Chenopod": {
-            "value": 2.0,
+            "value": 1.0,
             "level": 0
           },
           "Ragweed": {
-            "value": 9.0,
+            "value": 2.0,
             "level": 0
           },
           "Nettle": {
-            "value": 30.0,
+            "value": 25.0,
             "level": 0
           }
         }
       },
       "raw_details": {
         "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
-        "weeds": "Mugwort,2,low|Chenopod,2,low|Ragweed,9,low|Nettle,30,moderate",
+        "weeds": "Mugwort,0,low|Chenopod,1,low|Ragweed,2,low|Nettle,25,moderate",
         "grass": "Poaceae,0,low"
       },
       "days_found": 5
-    },
-    {
-      "location": {
-        "lat": 59.9588,
-        "lon": -4.2316,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:45:09.663853",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 54.4932,
-        "lon": -10.032,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:45:15.259429",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 58.0842,
-        "lon": -9.6402,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:45:27.187221",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 59.1766,
-        "lon": -7.7984,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:45:39.311009",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 56.8778,
-        "lon": -0.4113,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:45:49.710299",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 60.4317,
-        "lon": -3.2944,
-        "region_code": "uk"
-      },
-      "timestamp": "2025-09-10T20:45:53.475940",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
     }
   ],
   "usa": [
     {
       "location": {
-        "lat": 39.4109,
-        "lon": -114.5564,
+        "lat": 43.9271,
+        "lon": -81.0998,
         "region_code": "us"
       },
-      "timestamp": "2025-09-10T20:45:54.628263",
+      "timestamp": "2025-09-10T21:04:54.134422",
       "allergens": {
         "trees": {},
         "grass": {},
@@ -778,41 +1156,11 @@
     },
     {
       "location": {
-        "lat": 26.8082,
-        "lon": -72.7769,
+        "lat": 44.1805,
+        "lon": -98.857,
         "region_code": "us"
       },
-      "timestamp": "2025-09-10T20:46:06.344167",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 48.6344,
-        "lon": -77.793,
-        "region_code": "us"
-      },
-      "timestamp": "2025-09-10T20:46:19.074261",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 32.7365,
-        "lon": -94.2686,
-        "region_code": "us"
-      },
-      "timestamp": "2025-09-10T20:46:23.405751",
+      "timestamp": "2025-09-10T21:05:06.607915",
       "allergens": {
         "trees": {
           "Hazel": {
@@ -868,7 +1216,7 @@
             "level": 0
           },
           "Ragweed": {
-            "value": 20.0,
+            "value": 38.0,
             "level": 0
           },
           "Nettle": {
@@ -879,18 +1227,18 @@
       },
       "raw_details": {
         "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
-        "weeds": "Mugwort,0,low|Chenopod,0,low|Ragweed,20,moderate|Nettle,0,low",
+        "weeds": "Mugwort,0,low|Chenopod,0,low|Ragweed,38,high|Nettle,0,low",
         "grass": "Poaceae,0,low"
       },
       "days_found": 5
     },
     {
       "location": {
-        "lat": 42.769,
-        "lon": -67.5159,
+        "lat": 32.1173,
+        "lon": -117.0797,
         "region_code": "us"
       },
-      "timestamp": "2025-09-10T20:46:36.471829",
+      "timestamp": "2025-09-10T21:05:17.868882",
       "allergens": {
         "trees": {},
         "grass": {},
@@ -901,56 +1249,11 @@
     },
     {
       "location": {
-        "lat": 24.5435,
-        "lon": -86.4749,
+        "lat": 41.5359,
+        "lon": -112.0452,
         "region_code": "us"
       },
-      "timestamp": "2025-09-10T20:46:43.658354",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 39.5067,
-        "lon": -109.8752,
-        "region_code": "us"
-      },
-      "timestamp": "2025-09-10T20:46:56.681243",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 49.3875,
-        "lon": -71.871,
-        "region_code": "us"
-      },
-      "timestamp": "2025-09-10T20:47:02.617136",
-      "allergens": {
-        "trees": {},
-        "grass": {},
-        "weeds": {}
-      },
-      "raw_details": {},
-      "days_found": 0
-    },
-    {
-      "location": {
-        "lat": 31.2933,
-        "lon": -105.2636,
-        "region_code": "us"
-      },
-      "timestamp": "2025-09-10T20:47:07.536007",
+      "timestamp": "2025-09-10T21:05:30.518246",
       "allergens": {
         "trees": {
           "Hazel": {
@@ -1006,7 +1309,7 @@
             "level": 0
           },
           "Ragweed": {
-            "value": 148.0,
+            "value": 239.0,
             "level": 0
           },
           "Nettle": {
@@ -1017,18 +1320,219 @@
       },
       "raw_details": {
         "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
-        "weeds": "Mugwort,0,low|Chenopod,0,low|Ragweed,148,very-high|Nettle,0,low",
+        "weeds": "Mugwort,0,low|Chenopod,0,low|Ragweed,239,very-high|Nettle,0,low",
         "grass": "Poaceae,0,low"
       },
       "days_found": 5
     },
     {
       "location": {
-        "lat": 47.2658,
-        "lon": -90.1457,
+        "lat": 41.6206,
+        "lon": -109.5105,
         "region_code": "us"
       },
-      "timestamp": "2025-09-10T20:47:15.724679",
+      "timestamp": "2025-09-10T21:05:36.998897",
+      "allergens": {
+        "trees": {
+          "Hazel": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Elm": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pine": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Alder": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Poplar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Oak": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plane": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Birch": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cypress": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Mugwort": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Chenopod": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Ragweed": {
+            "value": 63.0,
+            "level": 0
+          },
+          "Nettle": {
+            "value": 0.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
+        "weeds": "Mugwort,0,low|Chenopod,0,low|Ragweed,63,high|Nettle,0,low",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 45.2241,
+        "lon": -99.388,
+        "region_code": "us"
+      },
+      "timestamp": "2025-09-10T21:05:50.324469",
+      "allergens": {
+        "trees": {
+          "Hazel": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Elm": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Pine": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Alder": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Poplar": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Oak": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Plane": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Birch": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Cypress": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "grass": {
+          "Poaceae": {
+            "value": 0.0,
+            "level": 0
+          }
+        },
+        "weeds": {
+          "Mugwort": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Chenopod": {
+            "value": 0.0,
+            "level": 0
+          },
+          "Ragweed": {
+            "value": 236.0,
+            "level": 0
+          },
+          "Nettle": {
+            "value": 0.0,
+            "level": 0
+          }
+        }
+      },
+      "raw_details": {
+        "trees": "Hazel,0,low|Elm,0,low|Pine,0,low|Alder,0,low|Poplar,0,low|Oak,0,low|Plane,0,low|Birch,0,low|Cypress,0,low",
+        "weeds": "Mugwort,0,low|Chenopod,0,low|Ragweed,236,very-high|Nettle,0,low",
+        "grass": "Poaceae,0,low"
+      },
+      "days_found": 5
+    },
+    {
+      "location": {
+        "lat": 25.0361,
+        "lon": -101.3564,
+        "region_code": "us"
+      },
+      "timestamp": "2025-09-10T21:05:59.033415",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 41.3707,
+        "lon": -124.7733,
+        "region_code": "us"
+      },
+      "timestamp": "2025-09-10T21:06:09.183720",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 49.0995,
+        "lon": -72.9791,
+        "region_code": "us"
+      },
+      "timestamp": "2025-09-10T21:06:13.571885",
+      "allergens": {
+        "trees": {},
+        "grass": {},
+        "weeds": {}
+      },
+      "raw_details": {},
+      "days_found": 0
+    },
+    {
+      "location": {
+        "lat": 35.7909,
+        "lon": -72.6857,
+        "region_code": "us"
+      },
+      "timestamp": "2025-09-10T21:06:18.911436",
       "allergens": {
         "trees": {},
         "grass": {},
@@ -1039,7 +1543,7 @@
     }
   ],
   "_metadata": {
-    "last_updated": "2025-09-10T20:47:15.725083",
+    "last_updated": "2025-09-10T21:06:18.912046",
     "total_regions": 4,
     "script_version": "1.0",
     "description": "Kleenex Pollen Radar API allergen discovery data"
