@@ -591,6 +591,13 @@ export async function fetchForecast(hass, config) {
   const locale = lang.replace("_", "-");
 
   // Build sensor data for each allergen
+  if (debug) {
+    console.debug(`[Kleenex] === BUILDING SENSORS FROM ${allergenData.size} COLLECTED ALLERGENS ===`);
+    allergenData.forEach((data, allergen) => {
+      console.debug(`[Kleenex] Building sensor for: ${allergen}, source: ${data.source}, levels_count: ${data.levels.length}`);
+    });
+  }
+  
   for (const [allergenKey, allergenInfo] of allergenData) {
     try {
       const dict = {};
