@@ -1287,6 +1287,25 @@ class PollenPrognosCard extends LitElement {
     // this.requestUpdate();
   }
 
+  _renderNoAllergensHtml() {
+    const imgSize =
+      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
+
+    return html`
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
+        <div class="flex-container" style="justify-content: center; align-items: center; flex-direction: column; padding: 2em;">
+          <img
+            class="pollen-img"
+            src="${images.no_allergens_png}"
+            style="width: ${imgSize}px; height: ${imgSize}px; margin-bottom: 1em;"
+          />
+          <span class="no-allergens-text">${this._t("card.no_allergens")}</span>
+        </div>
+      </div>
+    `;
+  }
+
   _renderMinimalHtml() {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
 
@@ -1601,16 +1620,30 @@ class PollenPrognosCard extends LitElement {
       let errorMsg = "";
       if (this._error) {
         errorMsg = this._t(this._error);
+        return html`
+          <ha-card>
+            <div class="card-error">${errorMsg} (${name})</div>
+          </ha-card>
+        `;
       } else if (this._availableSensorCount === 0) {
         errorMsg = this._t("card.error_no_sensors");
+        return html`
+          <ha-card>
+            <div class="card-error">${errorMsg} (${name})</div>
+          </ha-card>
+        `;
       } else {
-        errorMsg = this._t("card.error_filtered_sensors");
+        // Sensors exist but are filtered out - show no allergens display
+        const filteredMsg = this._t("card.error_filtered_sensors");
+        if (this.debug) {
+          console.debug(`[PollenPrognosCard] ${filteredMsg} (${name})`);
+        }
+        return html`
+          <ha-card>
+            ${this._renderNoAllergensHtml()}
+          </ha-card>
+        `;
       }
-      return html`
-        <ha-card>
-          <div class="card-error">${errorMsg} (${name})</div>
-        </ha-card>
-      `;
     }
 
     // Rendera alltid sensors om de finns, oavsett laddningstillstånd
