@@ -205,17 +205,6 @@ function ppmToLevel(value, allergenName) {
   return 4; // very-high
 }
 
-// Scale kleenex levels (0-4) to display levels (0-6) similar to peu.js
-// Maps: 0→0, 1→1, 2→3, 3→5, 4→6 (skipping display levels 2 and 4)
-function scaleKleenexLevel(level) {
-  if (level <= 0) return 0;
-  if (level === 1) return 1;
-  if (level === 2) return 3;
-  if (level === 3) return 5;
-  if (level >= 4) return 6;
-  return level;
-}
-
 export async function fetchForecast(hass, config) {
   const lang = detectLang(hass, config.date_locale);
   const debug = config.debug;
@@ -718,9 +707,17 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
-        // Scale level for display (0-4 to 0-6)
+        // Scale level for display (keep raw 0-4 for state, but scale for level names like PEU)
         const level = dayData.level; // Raw level (0-4)
-        const scaledLevel = scaleKleenexLevel(level); // Scale to display level (0-6)
+        // Calculate scaled level for level names (like PEU does)
+        let scaledLevel;
+        if (level < 0) {
+          scaledLevel = level; // Keep -1 as is
+        } else if (level < 2) {
+          scaledLevel = Math.floor((level * 6) / 4);
+        } else {
+          scaledLevel = Math.ceil((level * 6) / 4);
+        }
 
         const dayObj = {
           name: dict.allergenCapitalized,

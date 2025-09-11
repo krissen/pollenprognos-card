@@ -497,8 +497,8 @@ class PollenPrognosCard extends LitElement {
     if (this.config.integration === "dwd") {
       scaled = raw * 2;
       max = 6;
-    } else if (this.config.integration === "peu") {
-      // PEU no longer scales values, the circle max level is four.
+    } else if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+      // PEU and Kleenex no longer scale values, the circle max level is four.
       scaled = raw;
       max = 4;
       min = 0;
@@ -1429,8 +1429,8 @@ class PollenPrognosCard extends LitElement {
       "#d32f2f",
     ];
     // Number of segments in the level circle depends on the integration.
-    // PEU only uses four segments while all others use six.
-    const segments = this.config.integration === "peu" ? 4 : 6;
+    // PEU and Kleenex only use four segments while all others use six.
+    const segments = (this.config.integration === "peu" || this.config.integration === "kleenex") ? 4 : 6;
     const colors = rawColors.slice(0, segments);
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
     const gapColor =
@@ -1525,8 +1525,8 @@ class PollenPrognosCard extends LitElement {
                           let levelVal = normalized;
                           if (this.config.integration === "dwd") {
                             levelVal = normalized * 2; // scale 0–3 to 0–6
-                          } else if (this.config.integration === "peu") {
-                            // PEU levels already span 0–4.
+                          } else if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+                            // PEU and Kleenex levels already span 0–4.
                             levelVal = normalized;
                           }
                           return this._renderLevelCircle(
