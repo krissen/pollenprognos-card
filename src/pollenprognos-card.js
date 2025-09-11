@@ -1281,6 +1281,8 @@ class PollenPrognosCard extends LitElement {
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
           this._isLoaded = true; // Avoid endless loading on failure.
           this.requestUpdate();
+        });
+    }
 
     // this.requestUpdate();
   }

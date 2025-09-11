@@ -2044,11 +2044,11 @@ class PollenPrognosCardEditor extends LitElement {
                 </div>
               `}
           <div class="preset-buttons">
-            <mwc-button
+            <ha-button
               @click=${() => this._toggleSelectAllAllergens(allergens)}
             >
               ${this._t("select_all_allergens")}
-            </mwc-button>
+            </ha-button>
           </div>
           <div class="slider-row">
             <div class="slider-text">${this._t("pollen_threshold")}</div>
