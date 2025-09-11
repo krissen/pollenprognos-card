@@ -50,6 +50,7 @@ Additional documentation:
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
+| `show_category_allergens` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
 | `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
@@ -153,6 +154,17 @@ weeds
 ```
 
 The Kleenex Pollen Radar integration provides pollen forecasts for the Netherlands, United Kingdom, France, Italy and United States of America. The integration creates sensors with 5-day forecasts for three main allergen categories.
+
+#### Category vs Individual Allergens
+
+The Kleenex integration supports two types of allergens:
+
+1. **Category allergens** (`trees`, `grass`, `weeds`) - broad sensors covering entire plant families
+2. **Individual allergens** (e.g., `birch`, `oak`, `ragweed`) - specific detailed sensors for particular species
+
+In the card editor, you can control whether category allergens are displayed using the "Show category allergens" checkbox (enabled by default). When enabled, category allergens appear at the top of the allergen list, with individual allergens listed below in alphabetical order.
+
+**Note:** You can create separate cards if you want to display category and individual allergens separately - one card showing only categories and another showing only specific allergens.
 
 ## Example snippets
 

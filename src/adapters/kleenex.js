@@ -131,6 +131,7 @@ export const stubConfigKleenex = {
   days_boldfaced: false,
   pollen_threshold: 1,
   sort: "value_descending",
+  show_category_allergens: true,
   allergy_risk_top: true,
   allergens_abbreviated: false,
   link_to_sensors: true,

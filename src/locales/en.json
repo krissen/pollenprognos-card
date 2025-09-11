@@ -184,6 +184,7 @@
   "editor.preset_reset_all": "Reset all settings",
   "editor.region_id": "Region ID",
   "editor.select_all_allergens": "Select all allergens",
+  "editor.show_category_allergens": "Show category allergens",
   "editor.show_empty_days": "Show empty days",
   "editor.show_text_allergen": "Show text, allergen",
   "editor.show_value_numeric": "Show value, numeric",
