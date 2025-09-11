@@ -148,9 +148,25 @@ For the SILAM integration, each allergen uses the following threshold values to 
 ### Kleenex Pollen Radar
 
 ```
-trees
-grass
-weeds
+# categories (for which the integration provides sensors)
+trees_cat
+grass_cat
+weeds_cat
+# individual allergens (found in the sensor's attributes)
+alder
+birch
+chenopod
+cypress
+elm
+hazel
+mugwort
+nettle
+oak
+pine
+plane
+poaceae
+poplar
+ragweed
 ```
 
 The Kleenex Pollen Radar integration provides pollen forecasts for the Netherlands, United Kingdom, France, Italy and United States of America. The integration creates sensors with 5-day forecasts for three main allergen categories.
@@ -162,7 +178,7 @@ The Kleenex integration supports two types of allergens:
 1. **Category allergens** (`trees`, `grass`, `weeds`) - broad sensors covering entire plant families
 2. **Individual allergens** (e.g., `birch`, `oak`, `ragweed`) - specific detailed sensors for particular species
 
-In the card editor, you can control whether category allergens are displayed using the "Show category allergens" checkbox (enabled by default). When enabled, category allergens appear at the top of the allergen list, with individual allergens listed below in alphabetical order.
+In the card editor, you can control whether category allergens (`*_cat`) are sorted at the top of the list using the "Sort category allergens first" checkbox (enabled by default). When enabled, category allergens appear at the top of the allergen list, with individual allergens listed below in alphabetical order. When disabled, category allergens are sorted like any other.
 
 **Note:** You can create separate cards if you want to display category and individual allergens separately - one card showing only categories and another showing only specific allergens.
 
