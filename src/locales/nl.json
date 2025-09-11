@@ -194,6 +194,7 @@
   "editor.show_value_text": "Toon waarde als tekst",
   "editor.show_version": "Log versie naar de console",
   "editor.sort": "Sorteervolgorde",
+  "editor.sort_category_allergens_first": "Categorie-allergenen bovenaan sorteren",
   "editor.sort_name_ascending": "naam, oplopend",
   "editor.sort_name_descending": "naam, aflopend",
   "editor.sort_value_ascending": "waarde, oplopend",

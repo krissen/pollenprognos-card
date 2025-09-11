@@ -194,6 +194,7 @@
   "editor.show_value_text": "Vis værdi som tekst",
   "editor.show_version": "Log version til konsollen",
   "editor.sort": "Sortering",
+  "editor.sort_category_allergens_first": "Sorter kategori-allergener øverst",
   "editor.sort_name_ascending": "navn, stigende",
   "editor.sort_name_descending": "navn, faldende",
   "editor.sort_value_ascending": "værdi, stigende",

@@ -194,6 +194,7 @@
   "editor.show_value_text": "Zobraziť hodnotu ako text",
   "editor.show_version": "Zapisovať verziu do konzoly",
   "editor.sort": "Triedenie",
+  "editor.sort_category_allergens_first": "Zoradiť kategórie alergénov navrch",
   "editor.sort_name_ascending": "názov, vzostupne",
   "editor.sort_name_descending": "názov, zostupne",
   "editor.sort_value_ascending": "hodnota, vzostupne",

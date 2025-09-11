@@ -194,6 +194,7 @@
   "editor.show_value_text": "Показывать значение как текст",
   "editor.show_version": "Логировать версию в консоль",
   "editor.sort": "Сортировка",
+  "editor.sort_category_allergens_first": "Сортировать аллергены категорий сверху",
   "editor.sort_name_ascending": "имя, по возрастанию",
   "editor.sort_name_descending": "имя, по убыванию",
   "editor.sort_value_ascending": "значение, по возрастанию",

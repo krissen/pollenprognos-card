@@ -194,6 +194,7 @@
   "editor.show_value_text": "Mostra valore come testo",
   "editor.show_version": "Registra la versione nella console",
   "editor.sort": "Ordine",
+  "editor.sort_category_allergens_first": "Ordina gli allergeni di categoria in alto",
   "editor.sort_name_ascending": "nome, crescente",
   "editor.sort_name_descending": "nome, decrescente",
   "editor.sort_value_ascending": "valore, crescente",

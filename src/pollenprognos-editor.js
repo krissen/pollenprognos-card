@@ -1945,38 +1945,34 @@ class PollenPrognosCardEditor extends LitElement {
           ${c.integration === "kleenex"
             ? html`
                 <!-- Kleenex: Category allergens (controlled by checkbox) -->
-                ${c.show_category_allergens
-                  ? html`
-                      <div class="allergen-section">
-                        <h4
-                          style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                        >
-                          ${this._t("allergens_header_category")}
-                        </h4>
-                        <div class="allergens-group">
-                          ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
-                            // Determine display name - use translation if available
-                            const canonKey = ALLERGEN_TRANSLATION[key] || key;
-                            const transKey = `phrases_full.${canonKey}`;
-                            const displayName =
-                              this._t(transKey) !== transKey
-                                ? this._t(transKey)
-                                : key.charAt(0).toUpperCase() + key.slice(1);
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${this._t("allergens_header_category")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
+                      // Determine display name - use translation if available
+                      const canonKey = ALLERGEN_TRANSLATION[key] || key;
+                      const transKey = `phrases_full.${canonKey}`;
+                      const displayName =
+                        this._t(transKey) !== transKey
+                          ? this._t(transKey)
+                          : key.charAt(0).toUpperCase() + key.slice(1);
 
-                            return html`
-                              <ha-formfield .label=${displayName}>
-                                <ha-checkbox
-                                  .checked=${c.allergens.includes(key)}
-                                  @change=${(e) =>
-                                    this._onAllergenToggle(key, e.target.checked)}
-                                ></ha-checkbox>
-                              </ha-formfield>
-                            `;
-                          })}
-                        </div>
-                      </div>
-                    `
-                  : ""}
+                      return html`
+                        <ha-formfield .label=${displayName}>
+                          <ha-checkbox
+                            .checked=${c.allergens.includes(key)}
+                            @change=${(e) =>
+                              this._onAllergenToggle(key, e.target.checked)}
+                          ></ha-checkbox>
+                        </ha-formfield>
+                      `;
+                    })}
+                  </div>
+                </div>
 
                 <!-- Kleenex: Individual allergens (enabled by default) -->
                 <div class="allergen-section">
@@ -1988,7 +1984,10 @@ class PollenPrognosCardEditor extends LitElement {
                   <div class="allergens-group">
                     ${allergens
                       .filter(
-                        (key) => !["trees_cat", "grass_cat", "weeds_cat"].includes(key),
+                        (key) =>
+                          !["trees_cat", "grass_cat", "weeds_cat"].includes(
+                            key,
+                          ),
                       )
                       .sort((a, b) => {
                         // Sort alphabetically by display name
@@ -2077,11 +2076,16 @@ class PollenPrognosCardEditor extends LitElement {
           </ha-formfield>
           ${c.integration === "kleenex"
             ? html`
-                <ha-formfield label="${this._t("show_category_allergens")}">
+                <ha-formfield
+                  label="${this._t("sort_category_allergens_first")}"
+                >
                   <ha-checkbox
-                    .checked=${c.show_category_allergens}
+                    .checked=${c.sort_category_allergens_first}
                     @change=${(e) =>
-                      this._updateConfig("show_category_allergens", e.target.checked)}
+                      this._updateConfig(
+                        "sort_category_allergens_first",
+                        e.target.checked,
+                      )}
                   ></ha-checkbox>
                 </ha-formfield>
               `

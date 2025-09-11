@@ -50,7 +50,7 @@ Additional documentation:
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
-| `show_category_allergens` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
+| `sort_category_allergens_first` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
 | `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
