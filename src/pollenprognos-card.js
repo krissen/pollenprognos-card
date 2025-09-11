@@ -1294,7 +1294,7 @@ class PollenPrognosCard extends LitElement {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
-        <div class="flex-container" style="justify-content: center; align-items: center; flex-direction: column; padding: 2em;">
+        <div class="no-allergens-container">
           <img
             class="pollen-img"
             src="${images.no_allergens_png}"
@@ -1904,6 +1904,22 @@ class PollenPrognosCard extends LitElement {
         overflow: hidden;
         text-align: center;
         white-space: nowrap;
+      }
+
+      /* No allergens display */
+      .no-allergens-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        width: 100%;
+        padding: 2em 1em;
+        box-sizing: border-box;
+      }
+
+      .no-allergens-text {
+        color: var(--primary-text-color);
       }
     `;
   }
