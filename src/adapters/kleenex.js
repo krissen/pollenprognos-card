@@ -554,21 +554,12 @@ export async function fetchForecast(hass, config) {
 
   if (debug) {
     console.debug(
+      `[Kleenex] === ALLERGEN DATA COLLECTION COMPLETE ===`,
+    );
+    console.debug(
       `[Kleenex] Collected data for ${allergenData.size} allergens:`,
       Array.from(allergenData.keys()),
     );
-    allergenData.forEach((data, allergen) => {
-      console.debug(
-        `[Kleenex] Final data for ${allergen}: source=${data.source}, levels=${data.levels.length}, today_value=${data.levels[0]?.value}, today_level=${data.levels[0]?.level}`,
-      );
-      // Show detailed data for each allergen
-      console.debug(`[Kleenex] ${allergen} detailed levels:`, data.levels.map((level, i) => ({
-        day: i,
-        date: level.date?.toISOString().split('T')[0],
-        level: level.level,
-        value: level.value
-      })));
-    });
     
     if (allergenData.size === 0) {
       console.debug("[Kleenex] WARNING: No allergen data collected! This will result in empty sensors array.");
@@ -580,10 +571,25 @@ export async function fetchForecast(hass, config) {
       console.debug("[Kleenex] Sensor entity IDs processed:", kleenexSensors.map(s => s.entity_id));
       console.debug("[Kleenex] Was any category sensor found that matches config allergens?");
     } else {
-      console.debug("[Kleenex] CATEGORY ALLERGEN DEBUG: Checking which allergens are category vs individual:");
+      console.debug("[Kleenex] DETAILED ALLERGEN DATA ANALYSIS:");
       allergenData.forEach((data, allergen) => {
         const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(allergen);
-        console.debug(`[Kleenex] Allergen ${allergen}: isCategory=${isCategory}, source=${data.source}, hasData=${data.levels[0]?.level !== undefined}, levelCount=${data.levels.filter(l => l.level >= 0).length}`);
+        console.debug(`[Kleenex] === ${allergen.toUpperCase()} (${isCategory ? 'CATEGORY' : 'INDIVIDUAL'}) ===`);
+        console.debug(`[Kleenex] Source: ${data.source}`);
+        console.debug(`[Kleenex] Entity: ${data.entity_id}`);
+        console.debug(`[Kleenex] Levels array length: ${data.levels.length}`);
+        console.debug(`[Kleenex] Valid levels count (>= 0): ${data.levels.filter(l => l.level >= 0).length}`);
+        
+        // Show detailed day-by-day data
+        data.levels.forEach((level, i) => {
+          const dayName = i === 0 ? 'TODAY' : `DAY+${i}`;
+          console.debug(`[Kleenex] ${allergen} ${dayName}: date=${level.date?.toISOString().split('T')[0]}, level=${level.level}, value=${level.value}`);
+        });
+        
+        // Check if today has valid data
+        const todayLevel = data.levels[0]?.level;
+        const hasValidToday = todayLevel !== undefined && todayLevel >= 0;
+        console.debug(`[Kleenex] ${allergen} TODAY DATA CHECK: hasValidToday=${hasValidToday}, todayLevel=${todayLevel}`);
       });
     }
   }
@@ -742,12 +748,27 @@ export async function fetchForecast(hass, config) {
       const shouldAdd = meets || pollen_threshold === 0;
 
       if (debug) {
+        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(allergenKey);
         console.debug(
-          `[Kleenex] THRESHOLD CHECK for ${allergenKey}: meets=${meets}, pollen_threshold=${pollen_threshold}, shouldAdd=${shouldAdd}, days_length=${dict.days.length}`,
+          `[Kleenex] === THRESHOLD CHECK for ${allergenKey} (${isCategory ? 'CATEGORY' : 'INDIVIDUAL'}) ===`,
         );
-        // Show level values for debugging
-        const dayLevels = dict.days.map((d, i) => `day${i}=${d.state}`).join(', ');
-        console.debug(`[Kleenex] Day levels for ${allergenKey}: ${dayLevels}`);
+        console.debug(`[Kleenex] pollen_threshold = ${pollen_threshold}`);
+        console.debug(`[Kleenex] days.length = ${dict.days.length}`);
+        
+        // Show detailed level values for debugging
+        dict.days.forEach((day, i) => {
+          console.debug(`[Kleenex] ${allergenKey} day${i}: state=${day.state}, value=${day.value}, day=${day.day}, meets_threshold=${day.state >= pollen_threshold}`);
+        });
+        
+        console.debug(`[Kleenex] meets = ${meets} (any day >= ${pollen_threshold})`);
+        console.debug(`[Kleenex] shouldAdd = ${shouldAdd} (meets || threshold===0)`);
+        
+        if (isCategory && !shouldAdd) {
+          console.debug(`[Kleenex] ❌ CATEGORY ALLERGEN ${allergenKey} FILTERED OUT BY THRESHOLD!`);
+          console.debug(`[Kleenex] Highest level found: ${Math.max(...dict.days.map(d => d.state))}`);
+        } else if (isCategory && shouldAdd) {
+          console.debug(`[Kleenex] ✅ CATEGORY ALLERGEN ${allergenKey} PASSES THRESHOLD CHECK`);
+        }
       }
 
       if (shouldAdd) {
@@ -814,22 +835,37 @@ export async function fetchForecast(hass, config) {
   }
 
   if (debug) {
-    console.debug("[Kleenex] Adapter complete sensors:", sensors);
-    console.debug(
-      `[Kleenex] ADAPTER FINAL RESULTS: returning ${sensors.length} sensors`,
-    );
-    sensors.forEach((sensor) => {
-      console.debug(
-        `[Kleenex] FINAL SENSOR ${sensor.allergenReplaced}: day0_state=${sensor.day0?.state}, day0_value=${sensor.day0?.value}, days_length=${sensor.days?.length}, first_day_state=${sensor.days?.[0]?.state}, entity_id=${sensor.entity_id}`,
-      );
-      // Show first few days of data for debugging
-      sensor.days?.slice(0, 3).forEach((day, i) => {
-        console.debug(
-          `[Kleenex] FINAL SENSOR ${sensor.allergenReplaced} day${i}: state=${day.state}, value=${day.value}, day=${day.day}`,
-        );
+    console.debug("[Kleenex] === FINAL ADAPTER RESULTS ===");
+    console.debug(`[Kleenex] Total sensors returning: ${sensors.length}`);
+    
+    if (sensors.length === 0) {
+      console.debug("[Kleenex] ❌ NO SENSORS RETURNED! Checking why:");
+      console.debug(`[Kleenex] - allergenData.size: ${allergenData.size}`);
+      console.debug(`[Kleenex] - pollen_threshold: ${pollen_threshold}`);
+      console.debug(`[Kleenex] - config.allergens: [${config.allergens.join(', ')}]`);
+      
+      // Check if any allergens were filtered by threshold
+      let thresholdFiltered = 0;
+      allergenData.forEach((data, allergen) => {
+        const hasValidLevel = data.levels.some(l => l.level >= pollen_threshold);
+        if (!hasValidLevel) {
+          thresholdFiltered++;
+          console.debug(`[Kleenex] - ${allergen} filtered by threshold (max level: ${Math.max(...data.levels.map(l => l.level))})`);
+        }
       });
-    });
+      console.debug(`[Kleenex] - allergens filtered by threshold: ${thresholdFiltered}`);
+      
+    } else {
+      console.debug("[Kleenex] ✅ SENSORS FOUND:");
+      sensors.forEach((sensor, i) => {
+        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(sensor.allergenReplaced);
+        console.debug(`[Kleenex] ${i+1}. ${sensor.allergenReplaced} (${isCategory ? 'CATEGORY' : 'INDIVIDUAL'}): day0_state=${sensor.day0?.state}, entity_id=${sensor.entity_id}`);
+      });
+    }
+    
+    console.debug("[Kleenex] Adapter fetchForecast complete.");
   }
+  
   return sensors;
 }
 
