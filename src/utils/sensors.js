@@ -209,12 +209,19 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     for (const allergen of configuredAllergens) {
       if (categoryAllergens.includes(allergen)) {
         needsCategories.add(allergen);
+      } else if (allergen.endsWith('_cat')) {
+        // Category allergens with _cat suffix
+        const categoryName = allergen.replace('_cat', '');
+        if (categoryAllergens.includes(categoryName)) {
+          needsCategories.add(categoryName);
+        }
       } else {
         // Individual allergens map to categories
         const individualToCategory = {
           'alder': 'trees', 'birch': 'trees', 'cypress': 'trees', 'elm': 'trees',
           'hazel': 'trees', 'oak': 'trees', 'pine': 'trees', 'plane': 'trees', 'poplar': 'trees',
-          'mugwort': 'weeds', 'ragweed': 'weeds'
+          'poaceae': 'grass',
+          'mugwort': 'weeds', 'ragweed': 'weeds', 'chenopod': 'weeds', 'nettle': 'weeds'
         };
         const category = individualToCategory[allergen];
         if (category) {
