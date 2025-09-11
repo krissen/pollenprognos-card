@@ -1952,7 +1952,7 @@ class PollenPrognosCardEditor extends LitElement {
                     ${this._t("allergens_header_category")}
                   </h4>
                   <div class="allergens-group">
-                    ${["trees", "grass", "weeds"].map((key) => {
+                    ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
                       // Determine display name - use translation if available
                       const canonKey = ALLERGEN_TRANSLATION[key] || key;
                       const transKey = `phrases_full.${canonKey}`;
@@ -1984,7 +1984,7 @@ class PollenPrognosCardEditor extends LitElement {
                   <div class="allergens-group">
                     ${allergens
                       .filter(
-                        (key) => !["trees", "grass", "weeds"].includes(key),
+                        (key) => !["trees_cat", "grass_cat", "weeds_cat"].includes(key),
                       )
                       .sort((a, b) => {
                         // Sort alphabetically by display name

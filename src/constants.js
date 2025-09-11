@@ -99,14 +99,21 @@ export const ALLERGEN_TRANSLATION = {
   poaceae: "poaceae",
   chenopod: "chenopod", 
   nettle: "nettle",
-  // Note: trees, grass, weeds should keep their own translations
+  // Kleenex pollen radar - category allergens (to distinguish from individual allergens)
+  grass_cat: "grass_cat",
+  trees_cat: "trees_cat", 
+  weeds_cat: "weeds_cat",
+  // Note: Category allergens use _cat suffix to distinguish from individuals
   // Icon mapping is handled separately in the image system
 };
 
 // Icon fallback mapping for allergens that don't have their own icons
 export const ALLERGEN_ICON_FALLBACK = {
-  trees: "birch",    // Use birch icon for trees category
-  weeds: "mugwort",  // Use mugwort icon for weeds category
+  trees_cat: "birch",    // Use birch icon for trees category
+  grass_cat: "grass",    // Use grass icon for grass category
+  weeds_cat: "mugwort",  // Use mugwort icon for weeds category
+  trees: "birch",        // Keep original for compatibility
+  weeds: "mugwort",      // Keep original for compatibility
   // grass has its own icon, no fallback needed
 };
 

@@ -107,9 +107,9 @@ export const stubConfigKleenex = {
     "poplar",
     "ragweed",
     // General categories (broad sensors) - disabled by default
-    // "trees",
-    // "grass", 
-    // "weeds",
+    // "trees_cat",
+    // "grass_cat", 
+    // "weeds_cat",
   ],
   minimal: false,
   minimal_gap: 35,
@@ -146,7 +146,8 @@ function capitalize(str) {
 // Category-specific allergen mapping for kleenex integration
 const KLEENEX_ALLERGEN_CATEGORIES = {
   // Trees category
-  'trees': 'trees',
+  'trees_cat': 'trees',
+  'trees': 'trees',        // Keep compatibility for sensor mapping
   'hazel': 'trees',
   'elm': 'trees', 
   'pine': 'trees',
@@ -158,11 +159,13 @@ const KLEENEX_ALLERGEN_CATEGORIES = {
   'cypress': 'trees',
   
   // Grass category  
-  'grass': 'grass',
+  'grass_cat': 'grass',
+  'grass': 'grass',        // Keep compatibility for sensor mapping
   'poaceae': 'grass',
   
   // Weeds category
-  'weeds': 'weeds',
+  'weeds_cat': 'weeds',
+  'weeds': 'weeds',        // Keep compatibility for sensor mapping
   'ragweed': 'weeds',
   'mugwort': 'weeds', 
   'chenopod': 'weeds',
@@ -296,52 +299,65 @@ export async function fetchForecast(hass, config) {
     }
 
     // Process general category sensor (trees, grass, weeds) - only if category is requested
-    if (sensorCategory && config.allergens.includes(sensorCategory)) {
-      if (debug) {
-        console.debug(`[Kleenex] Processing CATEGORY sensor for: ${sensorCategory}`);
+    if (sensorCategory) {
+      // Map sensor category to config allergen name
+      let configAllergenName = sensorCategory;
+      if (sensorCategory === 'trees' && config.allergens.includes('trees_cat')) {
+        configAllergenName = 'trees_cat';
+      } else if (sensorCategory === 'grass' && config.allergens.includes('grass_cat')) {
+        configAllergenName = 'grass_cat';  
+      } else if (sensorCategory === 'weeds' && config.allergens.includes('weeds_cat')) {
+        configAllergenName = 'weeds_cat';
       }
+      
+      // Only process if the config allergen name is requested
+      if (config.allergens.includes(configAllergenName)) {
+        if (debug) {
+          console.debug(`[Kleenex] Processing CATEGORY sensor for: ${sensorCategory} -> ${configAllergenName}`);
+        }
 
-      if (!allergenData.has(sensorCategory)) {
-        allergenData.set(sensorCategory, {
-          levels: [],
-          entity_id: sensor.entity_id,
-          source: 'category_sensor' // Track data source
-        });
-      }
+        if (!allergenData.has(configAllergenName)) {
+          allergenData.set(configAllergenName, {
+            levels: [],
+            entity_id: sensor.entity_id,
+            source: 'category_sensor' // Track data source
+          });
+        }
 
-      const allergenEntry = allergenData.get(sensorCategory);
-      
-      // Today's data from sensor state - prioritize numeric value over level text
-      const sensorValue = Number(sensor.state) || 0;
-      const rawLevel = ppmToLevel(sensorValue, sensorCategory); // Calculate raw level (0-4)
-      const currentLevel = testVal(rawLevel); // Validate and clamp level (0-4)
-      
-      if (debug) {
-        console.debug(`[Kleenex] CATEGORY ${sensorCategory} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, raw_level=${rawLevel}, clamped_level=${currentLevel}, text_level=${sensor.attributes?.level}`);
-      }
-      
-      allergenEntry.levels[0] = {
-        date: new Date(today),
-        level: currentLevel, // Store raw level (0-4)
-        value: sensorValue
-      };
-      
-      // Forecast data for categories
-      forecastData.forEach((forecastItem, dayIndex) => {
-        const forecastValue = Number(forecastItem.value) || 0;
-        const rawLevel = ppmToLevel(forecastValue, sensorCategory); // Calculate raw level (0-4)
-        const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
+        const allergenEntry = allergenData.get(configAllergenName);
+        
+        // Today's data from sensor state - prioritize numeric value over level text
+        const sensorValue = Number(sensor.state) || 0;
+        const rawLevel = ppmToLevel(sensorValue, configAllergenName); // Calculate raw level (0-4)
+        const currentLevel = testVal(rawLevel); // Validate and clamp level (0-4)
         
         if (debug) {
-          console.debug(`[Kleenex] CATEGORY ${sensorCategory} FORECAST day ${dayIndex + 1}: value=${forecastValue}, raw_level=${rawLevel}, clamped_level=${forecastLevel}, text_level=${forecastItem.level}`);
+          console.debug(`[Kleenex] CATEGORY ${configAllergenName} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, raw_level=${rawLevel}, clamped_level=${currentLevel}, text_level=${sensor.attributes?.level}`);
         }
         
-        allergenEntry.levels[dayIndex + 1] = {
-          date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
-          level: forecastLevel, // Store raw level (0-4)
-          value: forecastValue
+        allergenEntry.levels[0] = {
+          date: new Date(today),
+          level: currentLevel, // Store raw level (0-4)
+          value: sensorValue
         };
-      });
+      
+        // Forecast data for categories
+        forecastData.forEach((forecastItem, dayIndex) => {
+          const forecastValue = Number(forecastItem.value) || 0;
+          const rawLevel = ppmToLevel(forecastValue, configAllergenName); // Calculate raw level (0-4)
+          const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
+          
+          if (debug) {
+            console.debug(`[Kleenex] CATEGORY ${configAllergenName} FORECAST day ${dayIndex + 1}: value=${forecastValue}, raw_level=${rawLevel}, clamped_level=${forecastLevel}, text_level=${forecastItem.level}`);
+          }
+          
+          allergenEntry.levels[dayIndex + 1] = {
+            date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
+            level: forecastLevel, // Store raw level (0-4)
+            value: forecastValue
+          };
+        });
+      }
     }
 
     // Extract individual allergens from current details - only if specific allergen is requested
