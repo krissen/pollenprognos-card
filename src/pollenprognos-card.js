@@ -1134,10 +1134,10 @@ class PollenPrognosCard extends LitElement {
           }
 
           if (this.debug) {
-            console.debug(
-              "[Card][Debug] Alla tillgängliga hass.states:",
-              Object.keys(hass.states),
-            );
+            // console.debug(
+            //   "[Card][Debug] Alla tillgängliga hass.states:",
+            //   Object.keys(hass.states),
+            // );
             console.debug("[Card] Användaren har valt city:", cfg.city);
             console.debug(
               "[Card] Användaren har valt allergener:",
@@ -1281,8 +1281,7 @@ class PollenPrognosCard extends LitElement {
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
           this._isLoaded = true; // Avoid endless loading on failure.
           this.requestUpdate();
-        });
-    }
+
     // this.requestUpdate();
   }
 
