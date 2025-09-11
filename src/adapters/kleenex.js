@@ -272,7 +272,7 @@ export async function fetchForecast(hass, config) {
     console.debug("[Kleenex] Sensors found:", kleenexSensors.map(s => s.entity_id));
   }
 
-  const sensors = [];
+  let sensors = [];
   const allergenData = new Map(); // Map to collect data by allergen name
 
   if (debug) {
