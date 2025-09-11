@@ -12,6 +12,7 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
 import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
+import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -49,7 +50,9 @@ const getStubConfig = (integration) =>
       ? stubConfigPEU
       : integration === "silam"
         ? stubConfigSILAM
-        : stubConfigPP;
+        : integration === "kleenex"
+          ? stubConfigKleenex
+          : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -134,7 +137,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? PEU_ALLERGENS
           : this._config.integration === "silam"
             ? SILAM_ALLERGENS
-            : stubConfigPP.allergens;
+            : this._config.integration === "kleenex"
+              ? stubConfigKleenex.allergens
+              : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -217,6 +222,7 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedCities = [];
     this.installedPeuLocations = [];
     this.installedSilamLocations = [];
+    this.installedKleenexLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
@@ -389,6 +395,14 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "silam";
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              id.startsWith("sensor.kleenex_pollen_radar_"),
+          )
+        ) {
+          integration = "kleenex";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -850,6 +864,45 @@ class PollenPrognosCardEditor extends LitElement {
             }),
         ),
       );
+
+      // Collect kleenex locations
+      this.installedKleenexLocations = Array.from(
+        new Map(
+          Object.values(hass.states)
+            .filter(
+              (s) =>
+                s &&
+                typeof s === "object" &&
+                typeof s.entity_id === "string" &&
+                s.entity_id.startsWith("sensor.kleenex_pollen_radar_"),
+            )
+            .map((s) => {
+              // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
+              const match = s.entity_id.match(
+                /^sensor\.kleenex_pollen_radar_(.*)_(?:trees|grass|weeds)$/,
+              );
+              if (!match) return null;
+
+              const locationSlug = match[1];
+              let title = s.attributes?.friendly_name || locationSlug;
+
+              // Clean up the title to show only the location
+              title = title
+                .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
+                .replace(/[\)\s]+(?:Trees|Grass|Weeds).*$/i, "")
+                .trim();
+
+              // Fallback to locationSlug if cleaning resulted in empty string
+              if (!title) {
+                title =
+                  locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
+              }
+
+              return [locationSlug, title];
+            })
+            .filter((entry) => entry !== null),
+        ),
+      );
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
         if (
@@ -872,6 +925,13 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedSilamLocations.length
         ) {
           this._config.location = this.installedSilamLocations[0][0];
+        }
+        if (
+          integration === "kleenex" &&
+          !this._userConfig.location &&
+          this.installedKleenexLocations.length
+        ) {
+          this._config.location = this.installedKleenexLocations[0][0];
         }
       }
 
@@ -982,7 +1042,9 @@ class PollenPrognosCardEditor extends LitElement {
             ? stubConfigPEU
             : newInt === "silam"
               ? stubConfigSILAM
-              : stubConfigPP;
+              : newInt === "kleenex"
+                ? stubConfigKleenex
+                : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
@@ -1060,7 +1122,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? PEU_ALLERGENS
           : c.integration === "silam"
             ? SILAM_ALLERGENS
-            : stubConfigPP.allergens;
+            : c.integration === "kleenex"
+              ? stubConfigKleenex.allergens
+              : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd" ? 4 : c.integration === "peu" ? 5 : 7;
@@ -1092,11 +1156,9 @@ class PollenPrognosCardEditor extends LitElement {
     return html`
       <div class="card-config">
         <!-- Återställ-knapp -->
-        <div class="preset-buttons">
-          <mwc-button @click=${() => this._resetAll()}>
-            ${this._t("preset_reset_all")}
-          </mwc-button>
-        </div>
+        <ha-button outlined @click=${() => this.resetAll()}>
+          ${this._t("preset_reset_all")}
+        </ha-button>
 
         <!-- Integration & Location -->
         <details open>
@@ -1119,6 +1181,9 @@ class PollenPrognosCardEditor extends LitElement {
               >
               <mwc-list-item value="silam"
                 >${this._t("integration.silam")}</mwc-list-item
+              >
+              <mwc-list-item value="kleenex"
+                >${this._t("integration.kleenex")}</mwc-list-item
               >
             </ha-select>
           </ha-formfield>
@@ -1194,29 +1259,53 @@ class PollenPrognosCardEditor extends LitElement {
                       </ha-select>
                     </ha-formfield>
                   `
-                : html`
-                    <ha-formfield label="${this._t("region_id")}">
-                      <ha-select
-                        .value=${c.region_id || ""}
-                        @selected=${(e) =>
-                          this._updateConfig("region_id", e.target.value)}
-                        @closed=${(e) => e.stopPropagation()}
-                      >
-                        <mwc-list-item value=""
-                          >${this._t("location_autodetect")}</mwc-list-item
+                : c.integration === "kleenex"
+                  ? html`
+                      <ha-formfield label="${this._t("location")}">
+                        <ha-select
+                          .value=${c.location || ""}
+                          @selected=${(e) =>
+                            this._updateConfig("location", e.target.value)}
+                          @closed=${(e) => e.stopPropagation()}
                         >
-                        ${this.installedRegionIds.map(
-                          (id) =>
-                            html`<mwc-list-item .value=${id}>
-                              ${id} — ${DWD_REGIONS[id] || id}
-                            </mwc-list-item>`,
-                        )}
-                        <mwc-list-item value="manual"
-                          >${this._t("location_manual")}</mwc-list-item
+                          <mwc-list-item value=""
+                            >${this._t("location_autodetect")}</mwc-list-item
+                          >
+                          ${this.installedKleenexLocations.map(
+                            ([slug, title]) =>
+                              html`<mwc-list-item .value=${slug}
+                                >${title}</mwc-list-item
+                              >`,
+                          )}
+                          <mwc-list-item value="manual"
+                            >${this._t("location_manual")}</mwc-list-item
+                          >
+                        </ha-select>
+                      </ha-formfield>
+                    `
+                  : html`
+                      <ha-formfield label="${this._t("region_id")}">
+                        <ha-select
+                          .value=${c.region_id || ""}
+                          @selected=${(e) =>
+                            this._updateConfig("region_id", e.target.value)}
+                          @closed=${(e) => e.stopPropagation()}
                         >
-                      </ha-select>
-                    </ha-formfield>
-                  `}
+                          <mwc-list-item value=""
+                            >${this._t("location_autodetect")}</mwc-list-item
+                          >
+                          ${this.installedRegionIds.map(
+                            (id) =>
+                              html`<mwc-list-item .value=${id}>
+                                ${id} — ${DWD_REGIONS[id] || id}
+                              </mwc-list-item>`,
+                          )}
+                          <mwc-list-item value="manual"
+                            >${this._t("location_manual")}</mwc-list-item
+                          >
+                        </ha-select>
+                      </ha-formfield>
+                    `}
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
@@ -1275,46 +1364,32 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-formfield>
                 `
               : ""}
-          ${
-            (c.integration === "pp" && c.city === "manual") ||
-            (c.integration === "dwd" && c.region_id === "manual") ||
-            ((c.integration === "peu" || c.integration === "silam") &&
-              c.location === "manual")
-              ? html`
-                  <details>
-                    <summary>
-                      ${this._t("summary_entity_prefix_suffix")}
-                    </summary>
-                    <ha-formfield label="${this._t("entity_prefix")}">
-                      <ha-textfield
-                        .value=${c.entity_prefix || ""}
-                        placeholder="${this._t(
-                          "entity_prefix_placeholder",
-                        )}"
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "entity_prefix",
-                            e.target.value,
-                          )}
-                      ></ha-textfield>
-                    </ha-formfield>
-                    <ha-formfield label="${this._t("entity_suffix")}">
-                      <ha-textfield
-                        .value=${c.entity_suffix || ""}
-                        placeholder="${this._t(
-                          "entity_suffix_placeholder",
-                        )}"
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "entity_suffix",
-                            e.target.value,
-                          )}
-                      ></ha-textfield>
-                    </ha-formfield>
-                  </details>
-                `
-              : ""
-          }
+          ${(c.integration === "pp" && c.city === "manual") ||
+          (c.integration === "dwd" && c.region_id === "manual") ||
+          ((c.integration === "peu" || c.integration === "silam") &&
+            c.location === "manual")
+            ? html`
+                <details>
+                  <summary>${this._t("summary_entity_prefix_suffix")}</summary>
+                  <ha-formfield label="${this._t("entity_prefix")}">
+                    <ha-textfield
+                      .value=${c.entity_prefix || ""}
+                      placeholder="${this._t("entity_prefix_placeholder")}"
+                      @input=${(e) =>
+                        this._updateConfig("entity_prefix", e.target.value)}
+                    ></ha-textfield>
+                  </ha-formfield>
+                  <ha-formfield label="${this._t("entity_suffix")}">
+                    <ha-textfield
+                      .value=${c.entity_suffix || ""}
+                      placeholder="${this._t("entity_suffix_placeholder")}"
+                      @input=${(e) =>
+                        this._updateConfig("entity_suffix", e.target.value)}
+                    ></ha-textfield>
+                  </ha-formfield>
+                </details>
+              `
+            : ""}
         </details>
 
         <details open>
@@ -1867,25 +1942,119 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Allergens -->
         <details>
           <summary>${this._t("summary_allergens")}</summary>
-          <div class="allergens-group">
-            ${allergens.map(
-              (key) => html`
-                <ha-formfield .label=${key}>
-                  <ha-checkbox
-                    .checked=${c.allergens.includes(key)}
-                    @change=${(e) =>
-                      this._onAllergenToggle(key, e.target.checked)}
-                  ></ha-checkbox>
-                </ha-formfield>
-              `,
-            )}
-          </div>
+          ${c.integration === "kleenex"
+            ? html`
+                <!-- Kleenex: Category allergens (controlled by checkbox) -->
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${this._t("allergens_header_category")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
+                      // Determine display name - use translation if available
+                      const canonKey = ALLERGEN_TRANSLATION[key] || key;
+                      const transKey = `phrases_full.${canonKey}`;
+                      const displayName =
+                        this._t(transKey) !== transKey
+                          ? this._t(transKey)
+                          : key.charAt(0).toUpperCase() + key.slice(1);
+
+                      return html`
+                        <ha-formfield .label=${displayName}>
+                          <ha-checkbox
+                            .checked=${c.allergens.includes(key)}
+                            @change=${(e) =>
+                              this._onAllergenToggle(key, e.target.checked)}
+                          ></ha-checkbox>
+                        </ha-formfield>
+                      `;
+                    })}
+                  </div>
+                </div>
+
+                <!-- Kleenex: Individual allergens (enabled by default) -->
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${this._t("allergens_header_specific")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${allergens
+                      .filter(
+                        (key) =>
+                          !["trees_cat", "grass_cat", "weeds_cat"].includes(
+                            key,
+                          ),
+                      )
+                      .sort((a, b) => {
+                        // Sort alphabetically by display name
+                        const canonA = ALLERGEN_TRANSLATION[a] || a;
+                        const canonB = ALLERGEN_TRANSLATION[b] || b;
+                        const transKeyA = `phrases_full.${canonA}`;
+                        const transKeyB = `phrases_full.${canonB}`;
+                        const displayA =
+                          this._t(transKeyA) !== transKeyA
+                            ? this._t(transKeyA)
+                            : a.charAt(0).toUpperCase() + a.slice(1);
+                        const displayB =
+                          this._t(transKeyB) !== transKeyB
+                            ? this._t(transKeyB)
+                            : b.charAt(0).toUpperCase() + b.slice(1);
+                        return displayA.localeCompare(displayB);
+                      })
+                      .map((key) => {
+                        // Determine display name - use translation if available
+                        const canonKey = ALLERGEN_TRANSLATION[key] || key;
+                        const transKey = `phrases_full.${canonKey}`;
+                        const displayName =
+                          this._t(transKey) !== transKey
+                            ? this._t(transKey)
+                            : key.charAt(0).toUpperCase() + key.slice(1);
+
+                        return html`
+                          <ha-formfield .label=${displayName}>
+                            <ha-checkbox
+                              .checked=${c.allergens.includes(key)}
+                              @change=${(e) =>
+                                this._onAllergenToggle(key, e.target.checked)}
+                            ></ha-checkbox>
+                          </ha-formfield>
+                        `;
+                      })}
+                  </div>
+                </div>
+              `
+            : html`
+                <!-- Non-Kleenex: Standard allergen display -->
+                <div class="allergens-group">
+                  ${allergens.map(
+                    (key) => html`
+                      <ha-formfield .label=${key}>
+                        <ha-checkbox
+                          .checked=${c.allergens.includes(key)}
+                          @change=${(e) =>
+                            this._onAllergenToggle(key, e.target.checked)}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                    `,
+                  )}
+                </div>
+              `}
           <div class="preset-buttons">
-            <mwc-button
-              @click=${() => this._toggleSelectAllAllergens(allergens)}
+            <ha-button
+              @click=${() => {
+                // For kleenex, include both individual allergens and category allergens
+                const allAllergens = c.integration === "kleenex" 
+                  ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
+                  : allergens;
+                this._toggleSelectAllAllergens(allAllergens);
+              }}
             >
               ${this._t("select_all_allergens")}
-            </mwc-button>
+            </ha-button>
           </div>
           <div class="slider-row">
             <div class="slider-text">${this._t("pollen_threshold")}</div>
@@ -1911,6 +2080,22 @@ class PollenPrognosCardEditor extends LitElement {
               )}
             </ha-select>
           </ha-formfield>
+          ${c.integration === "kleenex"
+            ? html`
+                <ha-formfield
+                  label="${this._t("sort_category_allergens_first")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.sort_category_allergens_first}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "sort_category_allergens_first",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `
+            : ""}
           ${c.integration === "peu" || c.integration === "silam"
             ? html`
                 <ha-formfield
@@ -2243,6 +2428,18 @@ class PollenPrognosCardEditor extends LitElement {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+      }
+
+      /* Allergen section styling for Kleenex grouped display */
+      .allergen-section {
+        margin-bottom: 12px;
+      }
+
+      .allergen-section h4 {
+        margin: 8px 0 4px 0;
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+        font-weight: 500;
       }
 
       /* Details summary styling */

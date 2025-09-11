@@ -44,6 +44,16 @@ import img_birch_5 from "./images/birch_5.png";
 import img_birch_6 from "./images/birch_6.png";
 import img_birch_minus1 from "./images/birch_-1.png";
 
+// Chenopod
+import img_chenopod_0 from "./images/chenopod_0.png";
+import img_chenopod_1 from "./images/chenopod_1.png";
+import img_chenopod_2 from "./images/chenopod_2.png";
+import img_chenopod_3 from "./images/chenopod_3.png";
+import img_chenopod_4 from "./images/chenopod_4.png";
+import img_chenopod_5 from "./images/chenopod_5.png";
+import img_chenopod_6 from "./images/chenopod_6.png";
+import img_chenopod_minus1 from "./images/chenopod_-1.png";
+
 // Cypress
 import img_cypress_0 from "./images/cypress_0.png";
 import img_cypress_1 from "./images/cypress_1.png";
@@ -113,6 +123,16 @@ import img_mugwort_5 from "./images/mugwort_5.png";
 import img_mugwort_6 from "./images/mugwort_6.png";
 import img_mugwort_minus1 from "./images/mugwort_-1.png";
 
+// Nettle (Brännässla)
+import img_nettle_0 from "./images/nettle_and_pellitory_0.png";
+import img_nettle_1 from "./images/nettle_and_pellitory_1.png";
+import img_nettle_2 from "./images/nettle_and_pellitory_2.png";
+import img_nettle_3 from "./images/nettle_and_pellitory_3.png";
+import img_nettle_4 from "./images/nettle_and_pellitory_4.png";
+import img_nettle_5 from "./images/nettle_and_pellitory_5.png";
+import img_nettle_6 from "./images/nettle_and_pellitory_6.png";
+import img_nettle_minus1 from "./images/nettle_and_pellitory_-1.png";
+
 // Nettle and pellitory (Nässlor och pellitor)
 import img_nettle_and_pellitory_0 from "./images/nettle_and_pellitory_0.png";
 import img_nettle_and_pellitory_1 from "./images/nettle_and_pellitory_1.png";
@@ -143,6 +163,16 @@ import img_olive_5 from "./images/olive_5.png";
 import img_olive_6 from "./images/olive_6.png";
 import img_olive_minus1 from "./images/olive_-1.png";
 
+// Pine (Tall)
+import img_pine_0 from "./images/pine_0.png";
+import img_pine_1 from "./images/pine_1.png";
+import img_pine_2 from "./images/pine_2.png";
+import img_pine_3 from "./images/pine_3.png";
+import img_pine_4 from "./images/pine_4.png";
+import img_pine_5 from "./images/pine_5.png";
+import img_pine_6 from "./images/pine_6.png";
+import img_pine_minus1 from "./images/pine_-1.png";
+
 // Plane (Platan)
 import img_plane_0 from "./images/plane_0.png";
 import img_plane_1 from "./images/plane_1.png";
@@ -152,6 +182,26 @@ import img_plane_4 from "./images/plane_4.png";
 import img_plane_5 from "./images/plane_5.png";
 import img_plane_6 from "./images/plane_6.png";
 import img_plane_minus1 from "./images/plane_-1.png";
+
+// Poaceae (Gräs)
+import img_poaceae_0 from "./images/poaceae_0.png";
+import img_poaceae_1 from "./images/poaceae_1.png";
+import img_poaceae_2 from "./images/poaceae_2.png";
+import img_poaceae_3 from "./images/poaceae_3.png";
+import img_poaceae_4 from "./images/poaceae_4.png";
+import img_poaceae_5 from "./images/poaceae_5.png";
+import img_poaceae_6 from "./images/poaceae_6.png";
+import img_poaceae_minus1 from "./images/poaceae_-1.png";
+
+// Poplar (Popplar och asp)
+import img_poplar_0 from "./images/poplar_0.png";
+import img_poplar_1 from "./images/poplar_1.png";
+import img_poplar_2 from "./images/poplar_2.png";
+import img_poplar_3 from "./images/poplar_3.png";
+import img_poplar_4 from "./images/poplar_4.png";
+import img_poplar_5 from "./images/poplar_5.png";
+import img_poplar_6 from "./images/poplar_6.png";
+import img_poplar_minus1 from "./images/poplar_-1.png";
 
 // Ragweed (Ambrosia)
 import img_ragweed_0 from "./images/ragweed_0.png";
@@ -234,6 +284,16 @@ export const images = {
   birch_5_png: img_birch_5,
   birch_6_png: img_birch_6,
 
+  // chenopod
+  "chenopod_-1_png": img_chenopod_minus1,
+  chenopod_0_png: img_chenopod_0,
+  chenopod_1_png: img_chenopod_1,
+  chenopod_2_png: img_chenopod_2,
+  chenopod_3_png: img_chenopod_3,
+  chenopod_4_png: img_chenopod_4,
+  chenopod_5_png: img_chenopod_5,
+  chenopod_6_png: img_chenopod_6,
+
   // cypress
   "cypress_-1_png": img_cypress_minus1,
   cypress_0_png: img_cypress_0,
@@ -304,6 +364,16 @@ export const images = {
   mugwort_5_png: img_mugwort_5,
   mugwort_6_png: img_mugwort_6,
 
+  // nettle
+  "nettle_-1_png": img_nettle_minus1,
+  nettle_0_png: img_nettle_0,
+  nettle_1_png: img_nettle_1,
+  nettle_2_png: img_nettle_2,
+  nettle_3_png: img_nettle_3,
+  nettle_4_png: img_nettle_4,
+  nettle_5_png: img_nettle_5,
+  nettle_6_png: img_nettle_6,
+
   // nettle_and_pellitory
   "nettle_and_pellitory_-1_png": img_nettle_and_pellitory_minus1,
   nettle_and_pellitory_0_png: img_nettle_and_pellitory_0,
@@ -334,6 +404,16 @@ export const images = {
   olive_5_png: img_olive_5,
   olive_6_png: img_olive_6,
 
+  // pine
+  "pine_-1_png": img_pine_minus1,
+  pine_0_png: img_pine_0,
+  pine_1_png: img_pine_1,
+  pine_2_png: img_pine_2,
+  pine_3_png: img_pine_3,
+  pine_4_png: img_pine_4,
+  pine_5_png: img_pine_5,
+  pine_6_png: img_pine_6,
+
   // plane
   "plane_-1_png": img_plane_minus1,
   plane_0_png: img_plane_0,
@@ -343,6 +423,26 @@ export const images = {
   plane_4_png: img_plane_4,
   plane_5_png: img_plane_5,
   plane_6_png: img_plane_6,
+
+  // poaceae
+  "poaceae_-1_png": img_poaceae_minus1,
+  poaceae_0_png: img_poaceae_0,
+  poaceae_1_png: img_poaceae_1,
+  poaceae_2_png: img_poaceae_2,
+  poaceae_3_png: img_poaceae_3,
+  poaceae_4_png: img_poaceae_4,
+  poaceae_5_png: img_poaceae_5,
+  poaceae_6_png: img_poaceae_6,
+
+  // poplar
+  "poplar_-1_png": img_poplar_minus1,
+  poplar_0_png: img_poplar_0,
+  poplar_1_png: img_poplar_1,
+  poplar_2_png: img_poplar_2,
+  poplar_3_png: img_poplar_3,
+  poplar_4_png: img_poplar_4,
+  poplar_5_png: img_poplar_5,
+  poplar_6_png: img_poplar_6,
 
   // ragweed
   "ragweed_-1_png": img_ragweed_minus1,

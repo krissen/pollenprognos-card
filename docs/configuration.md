@@ -13,10 +13,10 @@ Additional documentation:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu` or `silam`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam` or `kleenex`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM only)* | `string` | **Required** (PEU/SILAM) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
+| `location` *(PEU, SILAM, Kleenex only)* | `string` | **Required** (PEU/SILAM/Kleenex) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -50,6 +50,7 @@ Additional documentation:
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
+| `sort_category_allergens_first` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
 | `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
@@ -144,6 +145,43 @@ For the SILAM integration, each allergen uses the following threshold values to 
 > **Note on SILAM thresholds:**  
 > For the SILAM integration, each threshold value marks the start of a new pollen level. A level applies as soon as the pollen value is greater than or equal to its threshold (≥). For example, a value of 25 will be assigned to the level that starts at 25. This ensures that all threshold values are inclusive and consistently interpreted across all levels.
 
+### Kleenex Pollen Radar
+
+```
+# categories (for which the integration provides sensors)
+trees_cat
+grass_cat
+weeds_cat
+# individual allergens (found in the sensor's attributes)
+alder
+birch
+chenopod
+cypress
+elm
+hazel
+mugwort
+nettle
+oak
+pine
+plane
+poaceae
+poplar
+ragweed
+```
+
+The Kleenex Pollen Radar integration provides pollen forecasts for the Netherlands, United Kingdom, France, Italy and United States of America. The integration creates sensors with 5-day forecasts for three main allergen categories.
+
+#### Category vs Individual Allergens
+
+The Kleenex integration supports two types of allergens:
+
+1. **Category allergens** (`trees`, `grass`, `weeds`) - broad sensors covering entire plant families
+2. **Individual allergens** (e.g., `birch`, `oak`, `ragweed`) - specific detailed sensors for particular species
+
+In the card editor, you can control whether category allergens (`*_cat`) are sorted at the top of the list using the "Sort category allergens first" checkbox (enabled by default). When enabled, category allergens appear at the top of the allergen list, with individual allergens listed below in alphabetical order. When disabled, category allergens are sorted like any other.
+
+**Note:** You can create separate cards if you want to display category and individual allergens separately - one card showing only categories and another showing only specific allergens.
+
 ## Example snippets
 
 Below are a few short configuration examples. Only the relevant lines are shown.
@@ -162,6 +200,15 @@ show_text_allergen: true
 type: custom:pollenprognos-card
 integration: dwd
 region_id: "91"
+```
+
+**Kleenex Pollen Radar**
+
+```yaml
+type: custom:pollenprognos-card
+integration: kleenex
+location: amsterdam  # Location will be auto-detected if omitted
+days_to_show: 5
 ```
 
 **Minimal layout**
