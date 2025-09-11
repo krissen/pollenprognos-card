@@ -295,6 +295,10 @@ export async function fetchForecast(hass, config) {
 
   // Process each kleenex sensor to extract allergen data
   for (const sensor of kleenexSensors) {
+    if (debug) {
+      console.debug(`[Kleenex] === PROCESSING SENSOR: ${sensor.entity_id} ===`);
+    }
+    
     const attributes = sensor.attributes || {};
     const details = attributes.details || [];
     const forecastData = attributes.forecast || [];
@@ -405,6 +409,10 @@ export async function fetchForecast(hass, config) {
     }
 
     // Extract individual allergens from current details - only if specific allergen is requested
+    if (debug) {
+      console.debug(`[Kleenex] Processing ${details.length} individual allergen details for sensor: ${sensor.entity_id}`);
+    }
+    
     for (const detail of details) {
       const allergenName = detail.name?.toLowerCase();
       if (!allergenName) continue;
@@ -537,6 +545,14 @@ export async function fetchForecast(hass, config) {
         allergens: config.allergens, 
         location: config.location,
         filteredSensorCount: kleenexSensors.length 
+      });
+      console.debug("[Kleenex] Sensor entity IDs processed:", kleenexSensors.map(s => s.entity_id));
+      console.debug("[Kleenex] Was any category sensor found that matches config allergens?");
+    } else {
+      console.debug("[Kleenex] CATEGORY ALLERGEN DEBUG: Checking which allergens are category vs individual:");
+      allergenData.forEach((data, allergen) => {
+        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(allergen);
+        console.debug(`[Kleenex] Allergen ${allergen}: isCategory=${isCategory}, source=${data.source}, hasData=${data.levels[0]?.level !== undefined}`);
       });
     }
   }
