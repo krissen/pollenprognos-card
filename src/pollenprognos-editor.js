@@ -2045,7 +2045,13 @@ class PollenPrognosCardEditor extends LitElement {
               `}
           <div class="preset-buttons">
             <ha-button
-              @click=${() => this._toggleSelectAllAllergens(allergens)}
+              @click=${() => {
+                // For kleenex, include both individual allergens and category allergens
+                const allAllergens = c.integration === "kleenex" 
+                  ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
+                  : allergens;
+                this._toggleSelectAllAllergens(allAllergens);
+              }}
             >
               ${this._t("select_all_allergens")}
             </ha-button>
