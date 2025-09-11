@@ -613,17 +613,43 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  // Sort sensors
-  sensors.sort(
-    {
-      value_ascending: (a, b) => a.day0.state - b.day0.state,
-      value_descending: (a, b) => b.day0.state - a.day0.state,
-      name_ascending: (a, b) =>
-        a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-      name_descending: (a, b) =>
-        b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-    }[config.sort] || ((a, b) => b.day0.state - a.day0.state)
-  );
+  // Sort sensors - implement two-tiered sorting for kleenex when show_category_allergens is true
+  const sortFunction = {
+    value_ascending: (a, b) => a.day0.state - b.day0.state,
+    value_descending: (a, b) => b.day0.state - a.day0.state,
+    name_ascending: (a, b) =>
+      a.allergenCapitalized.localeCompare(b.allergenCapitalized),
+    name_descending: (a, b) =>
+      b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+  }[config.sort] || ((a, b) => b.day0.state - a.day0.state);
+
+  if (config.show_category_allergens) {
+    // Two-tiered sorting: category allergens first, then individual allergens
+    const categoryAllergens = sensors.filter(s => 
+      ['trees_cat', 'grass_cat', 'weeds_cat'].includes(s.allergenReplaced)
+    );
+    const individualAllergens = sensors.filter(s => 
+      !['trees_cat', 'grass_cat', 'weeds_cat'].includes(s.allergenReplaced)
+    );
+    
+    // Sort each group separately
+    categoryAllergens.sort(sortFunction);
+    individualAllergens.sort(sortFunction);
+    
+    // Combine with categories first
+    sensors = [...categoryAllergens, ...individualAllergens];
+    
+    if (debug) {
+      console.debug(`[Kleenex] Two-tiered sorting: ${categoryAllergens.length} category + ${individualAllergens.length} individual allergens`);
+    }
+  } else {
+    // Standard sorting: all allergens together
+    sensors.sort(sortFunction);
+    
+    if (debug) {
+      console.debug(`[Kleenex] Standard sorting: ${sensors.length} allergens sorted together`);
+    }
+  }
 
   if (debug) {
     console.debug("[Kleenex] Adapter complete sensors:", sensors);
