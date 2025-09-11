@@ -1,0 +1,5 @@
+# Requirements for Kleenex Pollen Radar API Testing Suite
+# Install with: pip install -r requirements.txt
+
+aiohttp>=3.8.0
+beautifulsoup4>=4.12.0

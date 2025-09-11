@@ -9,17 +9,20 @@ import { findAvailableSensors } from "./utils/sensors.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
+import * as KLEENEX from "./adapters/kleenex.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
+import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
+  ALLERGEN_ICON_FALLBACK,
   ADAPTERS as CONSTANT_ADAPTERS,
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
@@ -68,23 +71,24 @@ class PollenPrognosCard extends LitElement {
       <div
         id="${chartId}"
         class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
-          clickable && entityId ? " cursor: pointer;" : ""
-        }"
+        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
+        entityId
+          ? " cursor: pointer;"
+          : ""}"
         data-level="${level}"
         data-display-level="${displayLevel}"
-        data-colors='${JSON.stringify(colors)}'
+        data-colors="${JSON.stringify(colors)}"
         data-empty-color="${emptyColor}"
         data-gap-color="${gapColor}"
         data-thickness="${thickness}"
         data-gap="${gap}"
         data-size="${size}"
-        data-show-value="${this.config && this.config.show_value_numeric_in_circle}"
+        data-show-value="${this.config &&
+        this.config.show_value_numeric_in_circle}"
         data-font-weight="${this.config?.levels_text_weight || "normal"}"
         data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
-        data-text-color="${
-          this.config?.levels_text_color || "var(--primary-text-color)"
-        }"
+        data-text-color="${this.config?.levels_text_color ||
+        "var(--primary-text-color)"}"
         @click=${(e) => {
           if (clickable && entityId) {
             e.stopPropagation();
@@ -132,7 +136,8 @@ class PollenPrognosCard extends LitElement {
       // Get custom styling from data attributes
       const fontWeight = container.dataset.fontWeight || "normal";
       const fontSizeRatio = parseFloat(container.dataset.fontSizeRatio) || 0.2;
-      const textColor = container.dataset.textColor || "var(--primary-text-color)";
+      const textColor =
+        container.dataset.textColor || "var(--primary-text-color)";
 
       // Retrieve existing chart if it exists
       let chart = this._chartCache.get(container.id);
@@ -290,6 +295,15 @@ class PollenPrognosCard extends LitElement {
   }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
+    if (this.debug) {
+      this.d_sensors = filtered;
+      this.d_availableSensors = availableSensors;
+      console.debug(
+        "[Card] _updateSensorsAndColumns called with",
+        availableSensors.length,
+        "available sensors",
+      );
+    }
     // Calculate expected values for comparison
     let daysCount = 0;
     if (cfg.show_empty_days) {
@@ -321,6 +335,17 @@ class PollenPrognosCard extends LitElement {
     if (this.debug) {
       console.debug("Days to show:", this.days_to_show);
       console.debug("Display columns:", this.displayCols);
+      console.debug(
+        `[Card] Final sensors for display (${filtered.length}):`,
+        filtered.map((s) => ({
+          name: s.allergenCapitalized,
+          allergen: s.allergenReplaced,
+          has_days: !!s.days,
+          days_length: s.days?.length,
+          entity_id: s.entity_id,
+          day0_state: s.day0?.state,
+        })),
+      );
     }
     this.requestUpdate();
   }
@@ -472,8 +497,8 @@ class PollenPrognosCard extends LitElement {
     if (this.config.integration === "dwd") {
       scaled = raw * 2;
       max = 6;
-    } else if (this.config.integration === "peu") {
-      // PEU no longer scales values, the circle max level is four.
+    } else if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+      // PEU and Kleenex no longer scale values, the circle max level is four.
       scaled = raw;
       max = 4;
       min = 0;
@@ -489,7 +514,13 @@ class PollenPrognosCard extends LitElement {
     // }
 
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
-    const specific = images[`${key}_${lvl}_png`];
+    let specific = images[`${key}_${lvl}_png`];
+
+    // If no specific image found, try icon fallback for category allergens
+    if (!specific && ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
+      const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
+      specific = images[`${fallbackKey}_${lvl}_png`];
+    }
 
     // if (this.debug) {
     //   console.debug(
@@ -527,11 +558,19 @@ class PollenPrognosCard extends LitElement {
 
     // Select relevant stub for integration
     let integration = config.integration;
+
+    // Normalize integration name to handle case sensitivity and whitespace
+    if (integration && typeof integration === "string") {
+      integration = integration.trim().toLowerCase();
+      // Note: Don't modify the original config object as it may be read-only
+    }
+
     let stub;
     if (integration === "pp") stub = stubConfigPP;
     else if (integration === "peu") stub = stubConfigPEU;
     else if (integration === "dwd") stub = stubConfigDWD;
     else if (integration === "silam") stub = stubConfigSILAM;
+    else if (integration === "kleenex") stub = stubConfigKleenex;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config
@@ -612,6 +651,10 @@ class PollenPrognosCard extends LitElement {
     const silamStates = Object.keys(hass.states).filter(
       (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
     );
+    const kleenexStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
+    );
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -619,15 +662,23 @@ class PollenPrognosCard extends LitElement {
       console.debug("DWD:", dwdStates);
       console.debug("PEU:", peuStates);
       console.debug("SILAM:", silamStates);
+      console.debug("KLEENEX:", kleenexStates);
     }
 
     // Bestäm integration (PEU går före DWD)
     let integration = this._userConfig.integration;
+
+    // Normalize integration name to handle case sensitivity and whitespace
+    if (integration && typeof integration === "string") {
+      integration = integration.trim().toLowerCase();
+    }
+
     if (!explicit) {
       if (ppStates.length) integration = "pp";
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
+      else if (kleenexStates.length) integration = "kleenex";
     }
 
     // Plocka rätt stub
@@ -636,14 +687,23 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "peu") baseStub = stubConfigPEU;
     else if (integration === "pp") baseStub = stubConfigPP;
     else if (integration === "silam") baseStub = stubConfigSILAM;
-    else console.error("Unknown integration:", integration);
+    else if (integration === "kleenex") baseStub = stubConfigKleenex;
+    else {
+      console.error(
+        "Unknown integration:",
+        integration,
+        "- falling back to PP",
+      );
+      integration = "pp"; // Fallback to prevent further errors
+      baseStub = stubConfigPP;
+    }
 
     // Sätt config rätt — utan allergens
     const { allergens, ...userConfigWithoutAllergens } = this._userConfig;
     const cfg = {
       ...baseStub,
       ...userConfigWithoutAllergens,
-      integration,
+      integration, // Use the normalized integration value
     };
 
     if (
@@ -674,6 +734,8 @@ class PollenPrognosCard extends LitElement {
       else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
       else if (integration === "silam")
         cfg.allergens = stubConfigSILAM.allergens;
+      else if (integration === "kleenex")
+        cfg.allergens = stubConfigKleenex.allergens;
     }
 
     // Fyll date_locale
@@ -690,17 +752,33 @@ class PollenPrognosCard extends LitElement {
     }
 
     // Automatic region/city/location detection unless manual mode is selected
-    if (integration === "dwd" && cfg.region_id !== "manual" && !cfg.region_id && dwdStates.length) {
+    if (
+      integration === "dwd" &&
+      cfg.region_id !== "manual" &&
+      !cfg.region_id &&
+      dwdStates.length
+    ) {
       cfg.region_id = Array.from(
         new Set(dwdStates.map((id) => id.split("_").pop())),
       ).sort((a, b) => Number(a) - Number(b))[0];
-      if (this.debug) console.debug("[Card] Auto-set region_id:", cfg.region_id);
-    } else if (integration === "pp" && cfg.city !== "manual" && !cfg.city && ppStates.length) {
+      if (this.debug)
+        console.debug("[Card] Auto-set region_id:", cfg.region_id);
+    } else if (
+      integration === "pp" &&
+      cfg.city !== "manual" &&
+      !cfg.city &&
+      ppStates.length
+    ) {
       cfg.city = ppStates[0]
         .slice("sensor.pollen_".length)
         .replace(/_[^_]+$/, "");
       if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (integration === "peu" && cfg.location !== "manual" && !cfg.location && peuStates.length) {
+    } else if (
+      integration === "peu" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      peuStates.length
+    ) {
       // Samla alla location_slug från entity attributes (om de finns)
       const peuLocations = Array.from(
         new Set(
@@ -719,7 +797,12 @@ class PollenPrognosCard extends LitElement {
           cfg.location,
           peuLocations,
         );
-    } else if (integration === "silam" && cfg.location !== "manual" && !cfg.location && silamStates.length) {
+    } else if (
+      integration === "silam" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      silamStates.length
+    ) {
       // Samla alla unika location-namn från entity_id
       const silamLocations = Array.from(
         new Set(
@@ -739,6 +822,37 @@ class PollenPrognosCard extends LitElement {
           "[Card][SILAM] Auto-set location (location):",
           cfg.location,
           silamLocations,
+        );
+    } else if (
+      integration === "kleenex" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      kleenexStates.length
+    ) {
+      // Look specifically for *_date sensors to extract location
+      const kleenexDateSensors = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          id.match(/^sensor\.kleenex_pollen_radar_.+_date$/),
+      );
+
+      const kleenexLocations = Array.from(
+        new Set(
+          kleenexDateSensors
+            .map((eid) => {
+              // sensor.kleenex_pollen_radar_<location>_date
+              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = kleenexLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][KLEENEX] Auto-set location:",
+          cfg.location,
+          kleenexLocations,
         );
     }
 
@@ -876,9 +990,7 @@ class PollenPrognosCard extends LitElement {
         const match = wantedSlug
           ? silamEntities.find((s) => {
               const eid = s.entity_id.replace("sensor.silam_pollen_", "");
-              const locPart = eid
-                .replace(/_[^_]+$/, "")
-                .replace(/^[-\s]+/, "");
+              const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
               return slugify(locPart) === wantedSlug;
             })
           : null;
@@ -897,6 +1009,49 @@ class PollenPrognosCard extends LitElement {
         }
 
         loc = wantedSlug ? title || cfg.location || "" : title;
+      } else if (integration === "kleenex") {
+        // Kleenex pollen radar: extract location from sensor attributes
+        const kleenexEntities = Object.values(hass.states).filter((s) => {
+          if (
+            !s ||
+            typeof s !== "object" ||
+            typeof s.entity_id !== "string" ||
+            !s.entity_id.startsWith("sensor.kleenex_pollen_radar_")
+          )
+            return false;
+          return s.entity_id.match(/^sensor\.kleenex_pollen_radar_.+_.+$/);
+        });
+
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location.toLowerCase().replace(/[^a-z0-9]/g, "_")
+            : "";
+
+        // Find first entity with matching location
+        const match = wantedLocation
+          ? kleenexEntities.find((s) => {
+              const eid = s.entity_id.replace(
+                "sensor.kleenex_pollen_radar_",
+                "",
+              );
+              const locPart = eid.replace(/_[^_]+$/, "");
+              return locPart === wantedLocation;
+            })
+          : kleenexEntities[0];
+
+        let title = "";
+        if (match) {
+          const attr = match.attributes;
+          title =
+            attr.location_name ||
+            attr.friendly_name
+              ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
+              .replace(/[\)\s]+\w+.*$/u, "")
+              .trim() ||
+            cfg.location;
+        }
+
+        loc = title || cfg.location || "";
       } else {
         // Pollenprognos integration (PP): resolve city automatically when unset.
         const matchCity = (slug) =>
@@ -962,16 +1117,27 @@ class PollenPrognosCard extends LitElement {
           if (this.debug) {
             console.debug("[Card][Debug] Sensors före filtrering:", sensors);
             console.debug(
+              `[Card][Debug] Adapter returned ${sensors.length} sensors:`,
+              sensors.map((s) => ({
+                allergen: s.allergenReplaced,
+                entity_id: s.entity_id,
+                has_days: !!s.days,
+                days_length: s.days?.length,
+                day0_state: s.day0?.state,
+                day0_value: s.day0?.value,
+              })),
+            );
+            console.debug(
               "[Card][Debug] Förväntade allergener från config:",
               cfg.allergens,
             );
           }
 
           if (this.debug) {
-            console.debug(
-              "[Card][Debug] Alla tillgängliga hass.states:",
-              Object.keys(hass.states),
-            );
+            // console.debug(
+            //   "[Card][Debug] Alla tillgängliga hass.states:",
+            //   Object.keys(hass.states),
+            // );
             console.debug("[Card] Användaren har valt city:", cfg.city);
             console.debug(
               "[Card] Användaren har valt allergener:",
@@ -1079,6 +1245,19 @@ class PollenPrognosCard extends LitElement {
             });
           }
 
+          if (this.debug) {
+            console.debug(
+              `[Card][Debug] After filtering: ${filtered.length} sensors remain:`,
+              filtered.map((s) => ({
+                allergen: s.allergenReplaced,
+                entity_id: s.entity_id,
+                has_days: !!s.days,
+                days_length: s.days?.length,
+                day0_state: s.day0?.state,
+              })),
+            );
+          }
+
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;
 
@@ -1104,7 +1283,27 @@ class PollenPrognosCard extends LitElement {
           this.requestUpdate();
         });
     }
+
     // this.requestUpdate();
+  }
+
+  _renderNoAllergensHtml() {
+    const imgSize =
+      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
+
+    return html`
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
+        <div class="no-allergens-container">
+          <img
+            class="pollen-img"
+            src="${images.no_allergens_png}"
+            style="width: ${imgSize}px; height: ${imgSize}px; margin-bottom: 1em;"
+          />
+          <span class="no-allergens-text">${this._t("card.no_allergens")}</span>
+        </div>
+      </div>
+    `;
   }
 
   _renderMinimalHtml() {
@@ -1178,6 +1377,46 @@ class PollenPrognosCard extends LitElement {
   }
 
   _renderNormalHtml() {
+    // Safety check to prevent rendering before sensors are properly initialized
+    if (!this.sensors || this.sensors.length === 0) {
+      if (this.debug) {
+        console.debug(
+          "[Card] _renderNormalHtml: no sensors available, returning empty",
+        );
+        console.debug(
+          `[Card] _renderNormalHtml: sensors=${!!this.sensors}, length=${this.sensors?.length}`,
+        );
+      }
+      return html``;
+    }
+
+    // Check if ANY sensor has days (not just the first one)
+    const sensorsWithDays = this.sensors.filter(
+      (s) => s.days && s.days.length > 0,
+    );
+    if (sensorsWithDays.length === 0) {
+      if (this.debug) {
+        console.debug(
+          "[Card] _renderNormalHtml: no sensors have days arrays, returning empty",
+        );
+        console.debug(
+          `[Card] _renderNormalHtml: sensors with days=${sensorsWithDays.length}, total sensors=${this.sensors.length}`,
+        );
+        this.sensors.forEach((sensor, i) => {
+          console.debug(
+            `[Card] _renderNormalHtml: sensor[${i}] ${sensor.allergenReplaced}: has_days=${!!sensor.days}, days_length=${sensor.days?.length}, day0_state=${sensor.day0?.state}`,
+          );
+        });
+      }
+      return html``;
+    }
+
+    if (this.debug) {
+      console.debug(
+        `[Card] _renderNormalHtml: rendering ${this.sensors.length} sensors, ${sensorsWithDays.length} with days`,
+      );
+    }
+
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
@@ -1190,8 +1429,8 @@ class PollenPrognosCard extends LitElement {
       "#d32f2f",
     ];
     // Number of segments in the level circle depends on the integration.
-    // PEU only uses four segments while all others use six.
-    const segments = this.config.integration === "peu" ? 4 : 6;
+    // PEU and Kleenex only use four segments while all others use six.
+    const segments = (this.config.integration === "peu" || this.config.integration === "kleenex") ? 4 : 6;
     const colors = rawColors.slice(0, segments);
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
     const gapColor =
@@ -1233,10 +1472,10 @@ class PollenPrognosCard extends LitElement {
                           class="day-header"
                           style="font-size: ${1.0 * textSizeRatio}em;"
                         >
-                          ${this.sensors[0].days[i]?.day || ""}
+                          ${this.sensors?.[0]?.days?.[i]?.day || ""}
                         </span>
                         ${this.config.mode === "twice_daily" &&
-                        this.sensors[0].days[i]?.icon
+                        this.sensors?.[0]?.days?.[i]?.icon
                           ? html`<ha-icon
                               icon="${this.sensors[0].days[i].icon}"
                               style="margin-top: 2px;"
@@ -1286,8 +1525,8 @@ class PollenPrognosCard extends LitElement {
                           let levelVal = normalized;
                           if (this.config.integration === "dwd") {
                             levelVal = normalized * 2; // scale 0–3 to 0–6
-                          } else if (this.config.integration === "peu") {
-                            // PEU levels already span 0–4.
+                          } else if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+                            // PEU and Kleenex levels already span 0–4.
                             levelVal = normalized;
                           }
                           return this._renderLevelCircle(
@@ -1381,16 +1620,30 @@ class PollenPrognosCard extends LitElement {
       let errorMsg = "";
       if (this._error) {
         errorMsg = this._t(this._error);
+        return html`
+          <ha-card>
+            <div class="card-error">${errorMsg} (${name})</div>
+          </ha-card>
+        `;
       } else if (this._availableSensorCount === 0) {
         errorMsg = this._t("card.error_no_sensors");
+        return html`
+          <ha-card>
+            <div class="card-error">${errorMsg} (${name})</div>
+          </ha-card>
+        `;
       } else {
-        errorMsg = this._t("card.error_filtered_sensors");
+        // Sensors exist but are filtered out - show no allergens display
+        const filteredMsg = this._t("card.error_filtered_sensors");
+        if (this.debug) {
+          console.debug(`[PollenPrognosCard] ${filteredMsg} (${name})`);
+        }
+        return html`
+          <ha-card>
+            ${this._renderNoAllergensHtml()}
+          </ha-card>
+        `;
       }
-      return html`
-        <ha-card>
-          <div class="card-error">${errorMsg} (${name})</div>
-        </ha-card>
-      `;
     }
 
     // Rendera alltid sensors om de finns, oavsett laddningstillstånd
@@ -1651,6 +1904,22 @@ class PollenPrognosCard extends LitElement {
         overflow: hidden;
         text-align: center;
         white-space: nowrap;
+      }
+
+      /* No allergens display */
+      .no-allergens-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        width: 100%;
+        padding: 2em 1em;
+        box-sizing: border-box;
+      }
+
+      .no-allergens-text {
+        color: var(--primary-text-color);
       }
     `;
   }
