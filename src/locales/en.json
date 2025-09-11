@@ -217,5 +217,8 @@
   "editor.title_placeholder": "(automatic)",
   "editor.to_show_columns": "Columns to show",
   "editor.to_show_days": "Days to show",
+  "editor.phrases_full.trees_cat": "Trees",
+  "editor.phrases_full.weeds_cat": "Weeds",
+  "editor.phrases_full.grass_cat": "Grasses",
   "editor.to_show_hours": "Hours to show"
 }
