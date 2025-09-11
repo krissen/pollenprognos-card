@@ -51,6 +51,8 @@
   "card.no_information": "(Žiadne informácie)",
   "editor.allergens": "Alergény",
   "editor.allergens_abbreviated": "Skrátiť alergény",
+  "editor.allergens_header_category": "Kategórie alergénov (všeobecné)",
+  "editor.allergens_header_specific": "Jednotlivé alergény (špecifické)",
   "editor.allergy_risk_top": "Riziko alergie navrchu zoznamu",
   "editor.background_color": "Farba pozadia",
   "editor.background_color_picker": "Vybrať farbu",

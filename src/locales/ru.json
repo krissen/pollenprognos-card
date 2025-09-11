@@ -51,6 +51,8 @@
   "card.no_information": "(Нет информации)",
   "editor.allergens": "Аллергены",
   "editor.allergens_abbreviated": "Сокращать аллергены",
+  "editor.allergens_header_category": "Категории аллергенов (общие)",
+  "editor.allergens_header_specific": "Отдельные аллергены (специфические)",
   "editor.allergy_risk_top": "Риск аллергии вверху списка",
   "editor.background_color": "Цвет фона",
   "editor.background_color_picker": "Выбрать цвет",

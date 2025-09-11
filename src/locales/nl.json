@@ -51,6 +51,8 @@
   "card.no_information": "(Geen informatie)",
   "editor.allergens": "Allergenen",
   "editor.allergens_abbreviated": "Allergenen afkorten",
+  "editor.allergens_header_category": "Categorie-allergenen (algemeen)",
+  "editor.allergens_header_specific": "Individuele allergenen (specifiek)",
   "editor.allergy_risk_top": "Allergierisico bovenaan de lijst",
   "editor.background_color": "Achtergrondkleur",
   "editor.background_color_picker": "Kies kleur",

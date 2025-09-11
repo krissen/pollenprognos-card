@@ -51,6 +51,8 @@
   "card.no_information": "(Nessuna informazione)",
   "editor.allergens": "Allergeni",
   "editor.allergens_abbreviated": "Abbrevia allergeni",
+  "editor.allergens_header_category": "Categorie di allergeni (generali)",
+  "editor.allergens_header_specific": "Allergeni individuali (specifici)",
   "editor.allergy_risk_top": "Rischio allergia in cima all'elenco",
   "editor.background_color": "Colore di sfondo",
   "editor.background_color_picker": "Scegli colore",

@@ -51,6 +51,8 @@
   "card.no_information": "(Ingen informasjon)",
   "editor.allergens": "Allergener",
   "editor.allergens_abbreviated": "Forkort allergener",
+  "editor.allergens_header_category": "Kategori allergener (generelt)",
+  "editor.allergens_header_specific": "Individuelle allergener (spesifikke)",
   "editor.allergy_risk_top": "Allergirisiko øverst i listen",
   "editor.background_color": "Bakgrunnsfarge",
   "editor.background_color_picker": "Velg farge",
