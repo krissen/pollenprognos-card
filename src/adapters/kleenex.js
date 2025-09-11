@@ -221,6 +221,13 @@ export async function fetchForecast(hass, config) {
   const pollen_threshold = 
     config.pollen_threshold ?? stubConfigKleenex.pollen_threshold;
 
+  // Kleenex uses 5-level system (0-4), validate and clamp level values
+  const maxLevel = 4;
+  const testVal = (v) => {
+    const n = Number(v);
+    return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
+  };
+
   if (debug)
     console.debug("[Kleenex] Adapter: start fetchForecast", { config, lang });
 
@@ -523,13 +530,6 @@ export async function fetchForecast(hass, config) {
         }
       }
       dict.levelNames = levelNames;
-
-      const maxLevel = 4; // Kleenex uses 5-level system (0-4)
-      
-      const testVal = (v) => {
-        const n = Number(v);
-        return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
-      };
 
       // Build day objects for card display
       for (let i = 0; i < days_to_show; i++) {
