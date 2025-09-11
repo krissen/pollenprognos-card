@@ -561,6 +561,13 @@ export async function fetchForecast(hass, config) {
       console.debug(
         `[Kleenex] Final data for ${allergen}: source=${data.source}, levels=${data.levels.length}, today_value=${data.levels[0]?.value}, today_level=${data.levels[0]?.level}`,
       );
+      // Show detailed data for each allergen
+      console.debug(`[Kleenex] ${allergen} detailed levels:`, data.levels.map((level, i) => ({
+        day: i,
+        date: level.date?.toISOString().split('T')[0],
+        level: level.level,
+        value: level.value
+      })));
     });
     
     if (allergenData.size === 0) {
@@ -576,7 +583,7 @@ export async function fetchForecast(hass, config) {
       console.debug("[Kleenex] CATEGORY ALLERGEN DEBUG: Checking which allergens are category vs individual:");
       allergenData.forEach((data, allergen) => {
         const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(allergen);
-        console.debug(`[Kleenex] Allergen ${allergen}: isCategory=${isCategory}, source=${data.source}, hasData=${data.levels[0]?.level !== undefined}`);
+        console.debug(`[Kleenex] Allergen ${allergen}: isCategory=${isCategory}, source=${data.source}, hasData=${data.levels[0]?.level !== undefined}, levelCount=${data.levels.filter(l => l.level >= 0).length}`);
       });
     }
   }
@@ -593,8 +600,14 @@ export async function fetchForecast(hass, config) {
   // Build sensor data for each allergen
   if (debug) {
     console.debug(`[Kleenex] === BUILDING SENSORS FROM ${allergenData.size} COLLECTED ALLERGENS ===`);
+    console.debug(`[Kleenex] pollen_threshold = ${pollen_threshold}`);
     allergenData.forEach((data, allergen) => {
       console.debug(`[Kleenex] Building sensor for: ${allergen}, source: ${data.source}, levels_count: ${data.levels.length}`);
+      if (data.levels[0]) {
+        console.debug(`[Kleenex] ${allergen} today data: level=${data.levels[0].level}, value=${data.levels[0].value}`);
+      } else {
+        console.debug(`[Kleenex] ${allergen} WARNING: No today data found!`);
+      }
     });
   }
   
