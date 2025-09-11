@@ -336,6 +336,12 @@ export async function fetchForecast(hass, config) {
         configAllergenName = "weeds_cat";
       }
 
+      if (debug) {
+        console.debug(
+          `[Kleenex] Category sensor mapping: ${sensorCategory} -> ${configAllergenName}, included in config: ${config.allergens.includes(configAllergenName)}`,
+        );
+      }
+
       // Only process if the config allergen name is requested
       if (config.allergens.includes(configAllergenName)) {
         if (debug) {
@@ -389,6 +395,12 @@ export async function fetchForecast(hass, config) {
             value: forecastValue,
           };
         });
+      } else {
+        if (debug) {
+          console.debug(
+            `[Kleenex] SKIPPING category sensor ${sensorCategory} -> ${configAllergenName}: not in config.allergens [${config.allergens.join(', ')}]`,
+          );
+        }
       }
     }
 
@@ -518,6 +530,15 @@ export async function fetchForecast(hass, config) {
         `[Kleenex] Final data for ${allergen}: source=${data.source}, levels=${data.levels.length}, today_value=${data.levels[0]?.value}, today_level=${data.levels[0]?.level}`,
       );
     });
+    
+    if (allergenData.size === 0) {
+      console.debug("[Kleenex] WARNING: No allergen data collected! This will result in empty sensors array.");
+      console.debug("[Kleenex] Checking config:", { 
+        allergens: config.allergens, 
+        location: config.location,
+        filteredSensorCount: kleenexSensors.length 
+      });
+    }
   }
 
   // Configuration for day labels
@@ -664,6 +685,9 @@ export async function fetchForecast(hass, config) {
         console.debug(
           `[Kleenex] THRESHOLD CHECK for ${allergenKey}: meets=${meets}, pollen_threshold=${pollen_threshold}, shouldAdd=${shouldAdd}, days_length=${dict.days.length}`,
         );
+        // Show level values for debugging
+        const dayLevels = dict.days.map((d, i) => `day${i}=${d.state}`).join(', ');
+        console.debug(`[Kleenex] Day levels for ${allergenKey}: ${dayLevels}`);
       }
 
       if (shouldAdd) {
@@ -671,6 +695,12 @@ export async function fetchForecast(hass, config) {
         if (debug) {
           console.debug(
             `[Kleenex] SENSOR ADDED for ${allergenKey}: today_state=${dict.day0?.state}, entity_id=${dict.entity_id}`,
+          );
+        }
+      } else {
+        if (debug) {
+          console.debug(
+            `[Kleenex] SENSOR FILTERED OUT for ${allergenKey}: threshold not met (highest level: ${Math.max(...dict.days.map(d => d.state))})`,
           );
         }
       }
