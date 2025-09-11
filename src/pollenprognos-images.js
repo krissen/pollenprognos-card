@@ -243,6 +243,9 @@ import img_allergy_risk_5 from "./images/allergy_risk_5.png";
 import img_allergy_risk_6 from "./images/allergy_risk_6.png";
 import img_allergy_risk_minus1 from "./images/allergy_risk_-1.png";
 
+// No allergens
+import img_no_allergens from "./images/no_allergens.png";
+
 export const images = {
   // alder
   "alder_-1_png": img_alder_minus1,
@@ -483,4 +486,7 @@ export const images = {
   allergy_risk_4_png: img_allergy_risk_4,
   allergy_risk_5_png: img_allergy_risk_5,
   allergy_risk_6_png: img_allergy_risk_6,
+
+  // no allergens
+  no_allergens_png: img_no_allergens,
 };
