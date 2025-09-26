@@ -41,6 +41,15 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 
 Install one of the supported integrations above. The card auto-detects which adapter to use based on your sensors.
 
+## Features
+
+- **SVG Icons**: All allergen icons are rendered as scalable SVG graphics with dynamic coloring
+- **Chart Color Inheritance**: Icon colors automatically match the pollen level colors from charts by default
+- **Customizable Icon Colors**: Override icon colors with custom colors in the visual editor
+- **Performance Optimized**: Lightweight SVG system reduces bundle size by ~85% compared to embedded PNG images
+- **Responsive Design**: Icons scale smoothly with CSS custom properties
+- **Multiple Display Modes**: Supports both minimal and normal view modes
+
 ## Installation
 
 Add `https://github.com/krissen/pollenprognos-card` as a custom repository in HACS and install the card. Reload your browser cache after installation.

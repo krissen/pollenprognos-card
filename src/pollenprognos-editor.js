@@ -1489,6 +1489,37 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
+            
+            <ha-formfield label="${this._t("icon_color_mode") || "Icon Color Mode"}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <ha-select
+                  .value=${c.icon_color_mode || "inherit_chart"}
+                  @selected=${(e) =>
+                    this._updateConfig("icon_color_mode", e.detail.value)}
+                  style="min-width: 140px;"
+                >
+                  <mwc-list-item value="inherit_chart">${this._t("icon_color_inherit") || "Inherit from Chart"}</mwc-list-item>
+                  <mwc-list-item value="custom">${this._t("icon_color_custom") || "Custom Color"}</mwc-list-item>
+                </ha-select>
+                ${c.icon_color_mode === "custom" ? html`
+                  <ha-textfield
+                    .value=${c.icon_color || "#000000"}
+                    placeholder="#000000"
+                    @input=${(e) =>
+                      this._updateConfig("icon_color", e.target.value)}
+                    style="width: 100px;"
+                  ></ha-textfield>
+                  <input
+                    type="color"
+                    .value=${c.icon_color && /^#[0-9a-fA-F]{6}$/.test(c.icon_color) ? c.icon_color : "#000000"}
+                    @input=${(e) =>
+                      this._updateConfig("icon_color", e.target.value)}
+                    style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
+                    title="${this._t("icon_color_picker") || "Pick icon color"}"
+                  />
+                ` : ""}
+              </div>
+            </ha-formfield>
             <ha-formfield label="${this._t("text_size_ratio")}">
               <ha-slider
                 min="0.5"

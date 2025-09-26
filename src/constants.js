@@ -144,6 +144,8 @@ export const PP_POSSIBLE_CITIES = [
 
 export const COSMETIC_FIELDS = [
   "icon_size",
+  "icon_color_mode",
+  "icon_color",
   "background_color",
   "levels_colors",
   "levels_empty_color",

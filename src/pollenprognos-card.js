@@ -606,6 +606,12 @@ class PollenPrognosCard extends LitElement {
    * @returns {string} Color hex string
    */
   _colorForLevel(level) {
+    // If custom icon color mode is selected, use the custom color
+    if (this.config?.icon_color_mode === "custom" && this.config?.icon_color) {
+      return this.config.icon_color;
+    }
+    
+    // Otherwise inherit from chart colors
     const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
     const clampedLevel = Math.max(0, Math.min(level, colors.length - 1));
     return colors[clampedLevel] || colors[0];
@@ -739,6 +745,8 @@ class PollenPrognosCard extends LitElement {
     const allowedFields = Object.keys(stub).concat([
       "allergens",
       "icon_size",
+      "icon_color_mode",
+      "icon_color",
       "city",
       "location",
       "region_id",
