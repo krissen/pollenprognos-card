@@ -569,9 +569,15 @@ class PollenPrognosCard extends LitElement {
   /**
    * Gets color for a specific level for allergen icons
    * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
+   * @param {string} allergenKey - Optional allergen key for special handling
    * @returns {string} Color hex string
    */
-  _colorForLevel(level) {
+  _colorForLevel(level, allergenKey = null) {
+    // Special handling for no_allergens icon
+    if (allergenKey === "no_allergens") {
+      return this.config?.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color;
+    }
+    
     // Use custom allergen colors if set
     if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
       const allergenColors = this.config.allergen_colors;
@@ -587,19 +593,15 @@ class PollenPrognosCard extends LitElement {
 
   /**
    * Gets color for level circles (charts) - may inherit from allergen colors
-   * @param {number} level - The pollen level
-   * @returns {string} Color hex string  
-   */
-  /**
-   * Gets color for level circles (charts) - may inherit from allergen colors
-   * @param {number} level - The pollen level
-   * @returns {string} Color hex string  
+   * Note: Level circles don't use specific allergen keys, so we pass null
+   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
+   * @returns {string} Color hex string
    */
   _levelColorForLevel(level) {
     // If level circles inherit from allergen colors (default)
     if (this.config?.levels_inherit_mode !== "custom") {
-      // Use allergen color directly - same level mapping
-      return this._colorForLevel(level);
+      // Use allergen color directly - same level mapping (but no special allergen key)
+      return this._colorForLevel(level, null);
     }
     
     // Use custom level colors with traditional mapping
@@ -636,7 +638,7 @@ class PollenPrognosCard extends LitElement {
       `;
     }
 
-    const color = this._colorForLevel(level);
+    const color = this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
     const svgContent = getSvgContent(allergenKey);

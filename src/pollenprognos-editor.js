@@ -1048,11 +1048,13 @@ class PollenPrognosCardEditor extends LitElement {
         allergen_color_mode: value,
         allergen_colors: LEVELS_DEFAULTS.allergen_colors,
         allergen_outline_color: LEVELS_DEFAULTS.levels_gap_color,
+        no_allergens_color: LEVELS_DEFAULTS.no_allergens_color,
       };
       this._config = newConfig;
       this._userConfig.allergen_color_mode = value;
       delete this._userConfig.allergen_colors;
       delete this._userConfig.allergen_outline_color;
+      delete this._userConfig.no_allergens_color;
 
       this.dispatchEvent(
         new CustomEvent("config-changed", {
@@ -1759,6 +1761,54 @@ class PollenPrognosCardEditor extends LitElement {
                             this._updateConfig(
                               "allergen_outline_color",
                               LEVELS_DEFAULTS.levels_gap_color,
+                            )}
+                          style="margin-left: 8px;"
+                          >↺</ha-button
+                        >
+                      </div>
+                    </ha-formfield>
+
+                    <ha-formfield
+                      label="${this._t("no_allergens_color") ||
+                      "No Allergens Color"}"
+                    >
+                      <div
+                        style="display: flex; align-items: center; gap: 8px;"
+                      >
+                        <input
+                          type="color"
+                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                            c.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color
+                          )
+                            ? (c.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color)
+                            : "#a9cfe0"}
+                          @input=${(e) =>
+                            this._updateConfig(
+                              "no_allergens_color",
+                              e.target.value,
+                            )}
+                          style="width: 28px; height: 28px; border: none; background: none;"
+                        />
+                        <ha-textfield
+                          .value=${c.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color}
+                          placeholder="${this._t(
+                            "no_allergens_color_placeholder",
+                          ) || "#a9cfe0"}"
+                          @input=${(e) =>
+                            this._updateConfig(
+                              "no_allergens_color",
+                              e.target.value,
+                            )}
+                          style="width: 100px;"
+                        ></ha-textfield>
+                        <ha-button
+                          outlined
+                          title="${this._t("no_allergens_color_reset") ||
+                          "Reset"}"
+                          @click=${() =>
+                            this._updateConfig(
+                              "no_allergens_color",
+                              LEVELS_DEFAULTS.no_allergens_color,
                             )}
                           style="margin-left: 8px;"
                           >↺</ha-button
