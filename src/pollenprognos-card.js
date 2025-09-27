@@ -3,6 +3,7 @@ import { LitElement, html, css } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { slugify } from "./utils/slugify.js";
 import { images } from "./pollenprognos-images.js";
+import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
 import { normalize, normalizeDWD } from "./utils/normalize.js";
@@ -45,7 +46,6 @@ class PollenPrognosCard extends LitElement {
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
   _chartCache = new Map();
-  _svgCache = new Map(); // Cache for SVG content
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
 
@@ -263,11 +263,6 @@ class PollenPrognosCard extends LitElement {
     // Handle forecast subscription
     if (changedProps.has("config") || changedProps.has("_hass")) {
       this._subscribeForecastIfNeeded();
-    }
-
-    // Preload SVGs for visible allergens
-    if (changedProps.has("sensors") || changedProps.has("config")) {
-      this._preloadAllergenSvgs();
     }
 
     // After rendering, ensure all charts exist
@@ -555,68 +550,20 @@ class PollenPrognosCard extends LitElement {
 
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
     
-    // Check if we have the primary key SVG available, otherwise try fallback
-    if (this._svgCache.has(key) && this._svgCache.get(key) !== null) {
+    // Check if we have the primary key SVG available
+    if (getSvgContent(key)) {
       return key;
     }
     
     // Try icon fallback for category allergens
     if (ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
       const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
-      if (this._svgCache.has(fallbackKey) && this._svgCache.get(fallbackKey) !== null) {
+      if (getSvgContent(fallbackKey)) {
         return fallbackKey;
       }
-      return fallbackKey; // Return fallback even if not cached yet
     }
     
-    return key;
-  }
-
-  /**
-   * Asynchronously loads SVG content from src/images/${key}.svg
-   * @param {string} key - The allergen key (e.g., "birch", "grass", "allergy_risk", "no_allergens")
-   * @returns {Promise<string|null>} SVG content as string, or null if failed
-   */
-  async _getSvg(key) {
-    // Guard against undefined/null/empty keys
-    if (!key || typeof key !== 'string') {
-      if (this.debug) {
-        console.warn('[SVG] Invalid key for SVG loading:', key);
-      }
-      return null;
-    }
-
-    // Check cache first
-    if (this._svgCache.has(key)) {
-      return this._svgCache.get(key);
-    }
-
-    try {
-      // Use module-safe URL resolution
-      const svgUrl = new URL(`../images/${key}.svg`, import.meta.url).href;
-      const response = await fetch(svgUrl);
-      
-      if (!response.ok) {
-        if (this.debug) {
-          console.warn(`[SVG] Failed to load ${key}.svg: ${response.status} ${response.statusText}`);
-        }
-        // Cache the miss to avoid repeated requests
-        this._svgCache.set(key, null);
-        return null;
-      }
-
-      const svgContent = await response.text();
-      // Cache the successful result
-      this._svgCache.set(key, svgContent);
-      return svgContent;
-    } catch (error) {
-      if (this.debug) {
-        console.warn(`[SVG] Failed to load ${key}.svg:`, error);
-      }
-      // Cache the miss to avoid repeated requests
-      this._svgCache.set(key, null);
-      return null;
-    }
+    return key; // Return original key even if SVG not found
   }
 
   /**
@@ -659,7 +606,7 @@ class PollenPrognosCard extends LitElement {
     }
 
     const color = this._colorForLevel(level);
-    const svgContent = this._svgCache.get(allergenKey);
+    const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
     const clickHandler = clickable && onClick ? onClick : null;
@@ -678,68 +625,24 @@ class PollenPrognosCard extends LitElement {
         </div>
       `;
     } else {
-      // Show placeholder while loading or if load failed
-      // Only kick off loading if we have a valid key
-      if (allergenKey) {
-        this._getSvg(allergenKey).then(() => {
-          // Trigger re-render when SVG is loaded
-          this.requestUpdate();
-        }).catch((error) => {
-          if (this.debug) {
-            console.warn(`[SVG] Failed to load SVG for ${allergenKey}:`, error);
-          }
-        });
+      // SVG not found - show error placeholder
+      if (this.debug) {
+        console.warn(`[SVG] No SVG found for key: ${allergenKey}`);
       }
-
       return html`
         <div 
-          class="pp-icon pp-icon-placeholder" 
+          class="pp-icon pp-icon-error" 
           style="${style}"
           aria-hidden="true"
           @click=${clickHandler}
         >
-          <div class="pp-icon-loading"></div>
+          <div style="background: #ccc; color: #666; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
         </div>
       `;
     }
   }
 
-  /**
-   * Preloads SVG icons for all visible allergens to avoid placeholder flashing
-   */
-  async _preloadAllergenSvgs() {
-    const svgsToLoad = new Set();
-    
-    // Always preload no_allergens SVG
-    svgsToLoad.add("no_allergens");
-    
-    // Preload SVGs for current sensors
-    if (this.sensors && Array.isArray(this.sensors)) {
-      for (const sensor of this.sensors) {
-        if (sensor.allergenReplaced) {
-          const svgKey = this._getSvgKey(sensor.allergenReplaced);
-          // Only add valid keys to avoid undefined fetches
-          if (svgKey && typeof svgKey === 'string') {
-            svgsToLoad.add(svgKey);
-          }
-        }
-      }
-    }
-    
-    // Load all SVGs in parallel, filtering out any invalid keys
-    const validKeys = Array.from(svgsToLoad).filter(key => key && typeof key === 'string');
-    const loadPromises = validKeys.map(key => this._getSvg(key));
-    
-    try {
-      await Promise.all(loadPromises);
-      // Trigger re-render to show loaded SVGs
-      this.requestUpdate();
-    } catch (error) {
-      if (this.debug) {
-        console.warn("[SVG] Some SVGs failed to preload:", error);
-      }
-    }
-  }
+
 
   constructor() {
     super();
