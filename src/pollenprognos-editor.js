@@ -999,7 +999,7 @@ class PollenPrognosCardEditor extends LitElement {
         delete this._userConfig.levels_colors;
         delete this._userConfig.levels_empty_color;
         delete this._userConfig.levels_gap_color;
-        
+
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: newConfig },
@@ -1008,9 +1008,14 @@ class PollenPrognosCardEditor extends LitElement {
           }),
         );
         return;
-      } else if (value === "inherit_allergen" && this._config.levels_inherit_mode === "custom") {
+      } else if (
+        value === "inherit_allergen" &&
+        this._config.levels_inherit_mode === "custom"
+      ) {
         // Switching back to inherit - sync gap with current stroke width
-        const currentStrokeWidth = this._config.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
+        const currentStrokeWidth =
+          this._config.allergen_stroke_width ||
+          LEVELS_DEFAULTS.allergen_stroke_width;
         const syncedGap = Math.round(currentStrokeWidth / 5);
         const newConfig = {
           ...this._config,
@@ -1020,7 +1025,7 @@ class PollenPrognosCardEditor extends LitElement {
         this._config = newConfig;
         this._userConfig.levels_inherit_mode = value;
         this._userConfig.levels_gap = syncedGap;
-        
+
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: newConfig },
@@ -1033,7 +1038,11 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     // Handle allergen color mode changes - reset colors when switching to default
-    if (prop === "allergen_color_mode" && value === "default_colors" && this._config.allergen_color_mode === "custom") {
+    if (
+      prop === "allergen_color_mode" &&
+      value === "default_colors" &&
+      this._config.allergen_color_mode === "custom"
+    ) {
       const newConfig = {
         ...this._config,
         allergen_color_mode: value,
@@ -1044,7 +1053,7 @@ class PollenPrognosCardEditor extends LitElement {
       this._userConfig.allergen_color_mode = value;
       delete this._userConfig.allergen_colors;
       delete this._userConfig.allergen_outline_color;
-      
+
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1625,55 +1634,78 @@ class PollenPrognosCardEditor extends LitElement {
                       >
                         ${(() => {
                           // Use centralized default allergen colors from LEVELS_DEFAULTS
-                          const defaultAllergenColors = LEVELS_DEFAULTS.allergen_colors;
-                          const allergenColors = c.allergen_colors || defaultAllergenColors;
-                          
-                          return allergenColors.map((col, i) => html`
-                            <div
-                              style="display: flex; align-items: center; gap: 8px;"
-                            >
-                              <span style="min-width: 60px;">Level ${i}:</span>
-                              <input
-                                type="color"
-                                .value=${(() => {
-                                  // For level 0, use a gray color for the preview since HTML color input can't show rgba
-                                  if (i === 0 && col.includes('rgba')) {
-                                    return "#c8c8c8"; // Gray equivalent of rgba(200,200,200,0.15)
-                                  }
-                                  return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col) ? col : "#000000";
-                                })()}
-                                @input=${(e) => {
-                                  const newColors = [...allergenColors];
-                                  newColors[i] = e.target.value;
-                                  this._updateConfig("allergen_colors", newColors);
-                                }}
-                                style="width: 28px; height: 28px; border: none; background: none;"
-                              />
-                              <ha-textfield
-                                .value=${col}
-                                placeholder="${i === 0 ? 
-                                  (this._t("allergen_empty_placeholder") || "rgba(200,200,200,0.15)") : 
-                                  (this._t("allergen_colors_placeholder") || "#ffcc00")}"
-                                @input=${(e) => {
-                                  const newColors = [...allergenColors];
-                                  newColors[i] = e.target.value;
-                                  this._updateConfig("allergen_colors", newColors);
-                                }}
-                                style="width: 120px;"
-                              ></ha-textfield>
-                              <ha-button
-                                outlined
-                                title="${this._t("allergen_colors_reset") || "Reset"}"
-                                @click=${() => {
-                                  const newColors = [...allergenColors];
-                                  newColors[i] = LEVELS_DEFAULTS.allergen_colors[i];
-                                  this._updateConfig("allergen_colors", newColors);
-                                }}
-                                style="margin-left: 8px;"
-                                >↺</ha-button
+                          const defaultAllergenColors =
+                            LEVELS_DEFAULTS.allergen_colors;
+                          const allergenColors =
+                            c.allergen_colors || defaultAllergenColors;
+
+                          return allergenColors.map(
+                            (col, i) => html`
+                              <div
+                                style="display: flex; align-items: center; gap: 8px;"
                               >
-                            </div>
-                          `);
+                                <span style="min-width: 60px;"
+                                  >Level ${i}:</span
+                                >
+                                <input
+                                  type="color"
+                                  .value=${(() => {
+                                    // For level 0, use a gray color for the preview since HTML color input can't show rgba
+                                    if (i === 0 && col.includes("rgba")) {
+                                      return "#c8c8c8"; // Gray equivalent of rgba(200,200,200,0.15)
+                                    }
+                                    return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                                      col,
+                                    )
+                                      ? col
+                                      : "#000000";
+                                  })()}
+                                  @input=${(e) => {
+                                    const newColors = [...allergenColors];
+                                    newColors[i] = e.target.value;
+                                    this._updateConfig(
+                                      "allergen_colors",
+                                      newColors,
+                                    );
+                                  }}
+                                  style="width: 28px; height: 28px; border: none; background: none;"
+                                />
+                                <ha-textfield
+                                  .value=${col}
+                                  placeholder="${i === 0
+                                    ? this._t("allergen_empty_placeholder") ||
+                                      "rgba(200,200,200,0.15)"
+                                    : this._t("allergen_colors_placeholder") ||
+                                      "#ffcc00"}"
+                                  @input=${(e) => {
+                                    const newColors = [...allergenColors];
+                                    newColors[i] = e.target.value;
+                                    this._updateConfig(
+                                      "allergen_colors",
+                                      newColors,
+                                    );
+                                  }}
+                                  style="width: 120px;"
+                                ></ha-textfield>
+                                <ha-button
+                                  outlined
+                                  title="${this._t("allergen_colors_reset") ||
+                                  "Reset"}"
+                                  @click=${() => {
+                                    const newColors = [...allergenColors];
+                                    newColors[i] =
+                                      LEVELS_DEFAULTS.allergen_colors[i];
+                                    this._updateConfig(
+                                      "allergen_colors",
+                                      newColors,
+                                    );
+                                  }}
+                                  style="margin-left: 8px;"
+                                  >↺</ha-button
+                                >
+                              </div>
+                            `,
+                          );
                         })()}
                       </div>
                     </ha-formfield>
@@ -1688,12 +1720,16 @@ class PollenPrognosCardEditor extends LitElement {
                         <input
                           type="color"
                           .value=${(() => {
-                            const color = c.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
+                            const color =
+                              c.allergen_outline_color ||
+                              LEVELS_DEFAULTS.levels_gap_color;
                             // For rgba colors, show closest hex equivalent
-                            if (color.includes('rgba')) {
+                            if (color.includes("rgba")) {
                               return "#c8c8c8"; // Gray equivalent
                             }
-                            return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color) ? color : "#c8c8c8";
+                            return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
+                              ? color
+                              : "#c8c8c8";
                           })()}
                           @input=${(e) =>
                             this._updateConfig(
@@ -1703,7 +1739,8 @@ class PollenPrognosCardEditor extends LitElement {
                           style="width: 28px; height: 28px; border: none; background: none;"
                         />
                         <ha-textfield
-                          .value=${c.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color}
+                          .value=${c.allergen_outline_color ||
+                          LEVELS_DEFAULTS.levels_gap_color}
                           placeholder="${this._t(
                             "allergen_outline_placeholder",
                           ) || "rgba(200,200,200,1)"}"
@@ -1738,13 +1775,17 @@ class PollenPrognosCardEditor extends LitElement {
                         min="0"
                         max="100"
                         step="5"
-                        .value=${c.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width}
+                        .value=${c.allergen_stroke_width ||
+                        LEVELS_DEFAULTS.allergen_stroke_width}
                         @input=${(e) => {
                           const value = Number(e.target.value);
                           this._updateConfig("allergen_stroke_width", value);
                           // Sync with level circle gap only if levels inherit from allergen
-                          if ((c.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
-                            const levelGap = Math.round(value / 5);
+                          if (
+                            (c.levels_inherit_mode || "inherit_allergen") ===
+                            "inherit_allergen"
+                          ) {
+                            const levelGap = Math.round(value / 10);
                             this._updateConfig("levels_gap", levelGap);
                           }
                         }}
@@ -1755,13 +1796,19 @@ class PollenPrognosCardEditor extends LitElement {
                         min="0"
                         max="100"
                         step="5"
-                        .value=${c.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width}
+                        .value=${c.allergen_stroke_width ||
+                        LEVELS_DEFAULTS.allergen_stroke_width}
                         @input=${(e) => {
-                          const value = Number(e.target.value) || LEVELS_DEFAULTS.allergen_stroke_width;
+                          const value =
+                            Number(e.target.value) ||
+                            LEVELS_DEFAULTS.allergen_stroke_width;
                           this._updateConfig("allergen_stroke_width", value);
                           // Sync with level circle gap only if levels inherit from allergen
-                          if ((c.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
-                            const levelGap = Math.round(value / 5);
+                          if (
+                            (c.levels_inherit_mode || "inherit_allergen") ===
+                            "inherit_allergen"
+                          ) {
+                            const levelGap = Math.round(value / 10);
                             this._updateConfig("levels_gap", levelGap);
                           }
                         }}
@@ -1812,10 +1859,12 @@ class PollenPrognosCardEditor extends LitElement {
               </ha-formfield>
 
               <!-- Colors Section - hidden when inheriting -->
-              <div style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}">
-                <ha-formfield 
-                  label="${this._t("levels_colors")}"
-                >
+              <div
+                style="${c.levels_inherit_mode === "custom"
+                  ? ""
+                  : "display: none;"}"
+              >
+                <ha-formfield label="${this._t("levels_colors")}">
                   <div style="display: flex; flex-direction: column; gap: 8px;">
                     ${c.levels_colors.map(
                       (col, i) => html`
@@ -1836,7 +1885,9 @@ class PollenPrognosCardEditor extends LitElement {
                           />
                           <ha-textfield
                             .value=${col}
-                            placeholder="${this._t("levels_colors_placeholder")}"
+                            placeholder="${this._t(
+                              "levels_colors_placeholder",
+                            )}"
                             @input=${(e) => {
                               const newColors = [...c.levels_colors];
                               newColors[i] = e.target.value;
@@ -1861,29 +1912,37 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </ha-formfield>
 
-                <ha-formfield 
-                  label="${this._t("levels_empty_color")}"
-                >
+                <ha-formfield label="${this._t("levels_empty_color")}">
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <input
                       type="color"
                       .value=${(() => {
-                        const color = c.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
+                        const color =
+                          c.levels_empty_color ||
+                          LEVELS_DEFAULTS.levels_empty_color;
                         // For rgba colors, show closest hex equivalent
-                        if (color.includes('rgba')) {
+                        if (color.includes("rgba")) {
                           return "#c8c8c8"; // Gray equivalent of rgba(200,200,200,0.15)
                         }
-                        return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color) ? color : "#c8c8c8";
+                        return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
+                          ? color
+                          : "#c8c8c8";
                       })()}
                       @input=${(e) =>
-                        this._updateConfig("levels_empty_color", e.target.value)}
+                        this._updateConfig(
+                          "levels_empty_color",
+                          e.target.value,
+                        )}
                       style="width: 28px; height: 28px; border: none; background: none;"
                     />
                     <ha-textfield
                       .value=${c.levels_empty_color}
                       placeholder="${this._t("levels_colors_placeholder")}"
                       @input=${(e) =>
-                        this._updateConfig("levels_empty_color", e.target.value)}
+                        this._updateConfig(
+                          "levels_empty_color",
+                          e.target.value,
+                        )}
                       style="width: 100px;"
                     ></ha-textfield>
                     <ha-button
@@ -1900,19 +1959,21 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </ha-formfield>
 
-                <ha-formfield 
-                  label="${this._t("levels_gap_color")}"
-                >
+                <ha-formfield label="${this._t("levels_gap_color")}">
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <input
                       type="color"
                       .value=${(() => {
-                        const color = c.levels_gap_color || LEVELS_DEFAULTS.levels_gap_color;
+                        const color =
+                          c.levels_gap_color ||
+                          LEVELS_DEFAULTS.levels_gap_color;
                         // For rgba colors, show closest hex equivalent
-                        if (color.includes('rgba')) {
+                        if (color.includes("rgba")) {
                           return "#c8c8c8"; // Gray equivalent
                         }
-                        return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color) ? color : "#c8c8c8";
+                        return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
+                          ? color
+                          : "#c8c8c8";
                       })()}
                       @input=${(e) =>
                         this._updateConfig("levels_gap_color", e.target.value)}
@@ -1939,9 +2000,7 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </ha-formfield>
 
-                <ha-formfield 
-                  label="${this._t("levels_thickness")}"
-                >
+                <ha-formfield label="${this._t("levels_thickness")}">
                   <ha-slider
                     min="10"
                     max="90"
