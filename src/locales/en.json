@@ -84,6 +84,7 @@
   "editor.allergen_outline_color": "Outline color",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Reset outline",
+  "editor.allergen_stroke_width": "Stroke width",
   "editor.levels_inherit_header": "Level Circle Inheritance",
   "editor.levels_inherit_mode": "Level circle color mode",
   "editor.levels_inherit_allergen": "Inherit from allergen colors",

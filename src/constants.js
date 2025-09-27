@@ -149,6 +149,7 @@ export const COSMETIC_FIELDS = [
   "allergen_color_mode",
   "allergen_colors",
   "allergen_outline_color",
+  "allergen_stroke_width",
   "levels_inherit_mode",
   "background_color",
   "levels_colors",

@@ -1564,9 +1564,13 @@ class PollenPrognosCardEditor extends LitElement {
                               <span style="min-width: 60px;">Level ${i}:</span>
                               <input
                                 type="color"
-                                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
-                                  ? col
-                                  : "#000000"}
+                                .value=${(() => {
+                                  // For level 0, use a gray color for the preview since HTML color input can't show rgba
+                                  if (i === 0 && col.includes('rgba')) {
+                                    return "#c8c8c8"; // Gray equivalent of rgba(200,200,200,0.15)
+                                  }
+                                  return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col) ? col : "#000000";
+                                })()}
                                 @input=${(e) => {
                                   const newColors = [...allergenColors];
                                   newColors[i] = e.target.value;
@@ -1649,6 +1653,27 @@ class PollenPrognosCardEditor extends LitElement {
                           >↺</ha-button
                         >
                       </div>
+                    </ha-formfield>
+
+                    <!-- Stroke Width -->
+                    <ha-formfield
+                      label="${this._t("allergen_stroke_width") ||
+                      "Stroke Width"}"
+                    >
+                      <ha-textfield
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.5"
+                        .value=${c.allergen_stroke_width || "1"}
+                        placeholder="1"
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "allergen_stroke_width",
+                            parseFloat(e.target.value) || 1,
+                          )}
+                        style="width: 80px;"
+                      ></ha-textfield>
                     </ha-formfield>
                   `
                 : ""}

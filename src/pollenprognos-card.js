@@ -600,14 +600,20 @@ class PollenPrognosCard extends LitElement {
   _levelColorForLevel(level) {
     // If level circles inherit from allergen colors (new default)
     if (this.config?.levels_inherit_mode !== "custom") {
-      // Use allergen color system
+      // Use allergen color system - direct mapping level->level
       return this._colorForLevel(level);
     }
     
-    // Use custom level colors
+    // Use custom level colors with proper mapping
+    // Level 0 uses empty color, Level 1+ uses pollen colors
+    if (level === 0) {
+      return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
+    }
+    
     const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
-    const clampedLevel = Math.max(0, Math.min(level, colors.length - 1));
-    return colors[clampedLevel] || colors[0];
+    const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
+    const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
+    return colors[clampedIndex] || colors[0];
   }
 
   /**
@@ -634,11 +640,12 @@ class PollenPrognosCard extends LitElement {
 
     const color = this._colorForLevel(level);
     const outlineColor = this.config?.allergen_outline_color || "none";
+    const strokeWidth = this.config?.allergen_stroke_width || 1;
     const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
     const clickHandler = clickable && onClick ? onClick : null;
-    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${outlineColor}; ${clickable ? 'cursor: pointer;' : ''}`;
+    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${outlineColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
 
     if (svgContent) {
       // Render inline SVG with color styling
@@ -1934,6 +1941,9 @@ class PollenPrognosCard extends LitElement {
         width: 100%;
         height: 100%;
         display: block;
+      }
+
+      .pp-icon svg g {
         stroke: var(--pp-icon-stroke, none);
         stroke-width: var(--pp-icon-stroke-width, 1);
       }
