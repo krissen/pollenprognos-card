@@ -1495,7 +1495,8 @@ class PollenPrognosCardEditor extends LitElement {
                 <ha-select
                   .value=${c.icon_color_mode || "inherit_chart"}
                   @selected=${(e) =>
-                    this._updateConfig("icon_color_mode", e.detail.value)}
+                    this._updateConfig("icon_color_mode", e.target.value)}
+                  @closed=${(e) => e.stopPropagation()}
                   style="min-width: 140px;"
                 >
                   <mwc-list-item value="inherit_chart">${this._t("icon_color_inherit") || "Inherit from Chart"}</mwc-list-item>
