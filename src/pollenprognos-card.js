@@ -572,7 +572,7 @@ class PollenPrognosCard extends LitElement {
    * @returns {string} Color hex string
    */
   _colorForLevel(level) {
-    // New logic: Allergen colors are primary
+    // New logic: Allergen colors with proper level mapping
     if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
       // Use custom allergen colors
       const allergenColors = this.config.allergen_colors;
@@ -580,10 +580,16 @@ class PollenPrognosCard extends LitElement {
       return allergenColors[clampedLevel] || allergenColors[0];
     }
     
-    // Default: inherit from level colors (which may themselves inherit from allergen colors)
+    // Default: use default colors with proper level mapping
+    // Level 0 = empty color, Level 1+ = actual pollen colors
+    if (level === 0) {
+      return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
+    }
+    
     const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
-    const clampedLevel = Math.max(0, Math.min(level, colors.length - 1));
-    return colors[clampedLevel] || colors[0];
+    const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
+    const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
+    return colors[clampedIndex] || colors[0];
   }
 
   /**

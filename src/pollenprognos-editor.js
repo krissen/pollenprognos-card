@@ -1522,15 +1522,15 @@ class PollenPrognosCardEditor extends LitElement {
               >
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <ha-select
-                    .value=${c.allergen_color_mode || "inherit_levels"}
+                    .value=${c.allergen_color_mode || "default_colors"}
                     @selected=${(e) =>
                       this._updateConfig("allergen_color_mode", e.target.value)}
                     @closed=${(e) => e.stopPropagation()}
                     style="min-width: 140px;"
                   >
-                    <mwc-list-item value="inherit_levels"
-                      >${this._t("allergen_color_inherit_levels") ||
-                      "Inherit from Level Colors"}</mwc-list-item
+                    <mwc-list-item value="default_colors"
+                      >${this._t("allergen_color_default_colors") ||
+                      "Default Colors"}</mwc-list-item
                     >
                     <mwc-list-item value="custom"
                       >${this._t("allergen_color_custom") ||
@@ -1549,74 +1549,57 @@ class PollenPrognosCardEditor extends LitElement {
                       <div
                         style="display: flex; flex-direction: column; gap: 8px;"
                       >
-                        ${(
-                          c.allergen_colors || LEVELS_DEFAULTS.levels_colors
-                        ).map(
-                          (col, i) => html`
+                        ${(() => {
+                          // Create default allergen color array: [empty_color, ...levels_colors]
+                          const defaultAllergenColors = [
+                            c.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color,
+                            ...(c.levels_colors || LEVELS_DEFAULTS.levels_colors)
+                          ];
+                          const allergenColors = c.allergen_colors || defaultAllergenColors;
+                          
+                          return allergenColors.map((col, i) => html`
                             <div
                               style="display: flex; align-items: center; gap: 8px;"
                             >
                               <span style="min-width: 60px;">Level ${i}:</span>
                               <input
                                 type="color"
-                                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                                  col,
-                                )
+                                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
                                   ? col
                                   : "#000000"}
                                 @input=${(e) => {
-                                  const newColors = [
-                                    ...(c.allergen_colors ||
-                                      LEVELS_DEFAULTS.levels_colors),
-                                  ];
+                                  const newColors = [...allergenColors];
                                   newColors[i] = e.target.value;
-                                  this._updateConfig(
-                                    "allergen_colors",
-                                    newColors,
-                                  );
+                                  this._updateConfig("allergen_colors", newColors);
                                 }}
                                 style="width: 28px; height: 28px; border: none; background: none;"
                               />
                               <ha-textfield
                                 .value=${col}
-                                placeholder="${this._t(
-                                  "allergen_colors_placeholder",
-                                ) || "#ffcc00"}"
+                                placeholder="${i === 0 ? 
+                                  (this._t("allergen_empty_placeholder") || "rgba(200,200,200,0.15)") : 
+                                  (this._t("allergen_colors_placeholder") || "#ffcc00")}"
                                 @input=${(e) => {
-                                  const newColors = [
-                                    ...(c.allergen_colors ||
-                                      LEVELS_DEFAULTS.levels_colors),
-                                  ];
+                                  const newColors = [...allergenColors];
                                   newColors[i] = e.target.value;
-                                  this._updateConfig(
-                                    "allergen_colors",
-                                    newColors,
-                                  );
+                                  this._updateConfig("allergen_colors", newColors);
                                 }}
-                                style="width: 100px;"
+                                style="width: 120px;"
                               ></ha-textfield>
                               <ha-button
                                 outlined
-                                title="${this._t("allergen_colors_reset") ||
-                                "Reset"}"
+                                title="${this._t("allergen_colors_reset") || "Reset"}"
                                 @click=${() => {
-                                  const newColors = [
-                                    ...(c.allergen_colors ||
-                                      LEVELS_DEFAULTS.levels_colors),
-                                  ];
-                                  newColors[i] =
-                                    LEVELS_DEFAULTS.levels_colors[i];
-                                  this._updateConfig(
-                                    "allergen_colors",
-                                    newColors,
-                                  );
+                                  const newColors = [...allergenColors];
+                                  newColors[i] = defaultAllergenColors[i];
+                                  this._updateConfig("allergen_colors", newColors);
                                 }}
                                 style="margin-left: 8px;"
                                 >↺</ha-button
                               >
                             </div>
-                          `,
-                        )}
+                          `);
+                        })()}
                       </div>
                     </ha-formfield>
 
