@@ -644,8 +644,11 @@ class PollenPrognosCard extends LitElement {
     const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
+    // Special handling for no_allergens: use its color as stroke color since it's stroke-based
+    const actualStrokeColor = allergenKey === "no_allergens" ? color : outlineColor;
+
     const clickHandler = clickable && onClick ? onClick : null;
-    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${outlineColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
+    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
 
     if (svgContent) {
       // Render inline SVG with color styling
