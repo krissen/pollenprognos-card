@@ -44,10 +44,13 @@ Install one of the supported integrations above. The card auto-detects which ada
 ## Features
 
 - **SVG Icons**: All allergen icons are rendered as scalable SVG graphics with dynamic coloring
-- **Chart Color Inheritance**: Icon colors automatically match the pollen level colors from charts by default
-- **Customizable Icon Colors**: Override icon colors with custom colors in the visual editor
-- **Performance Optimized**: Lightweight SVG system reduces bundle size by ~85% compared to embedded PNG images
-- **Responsive Design**: Icons scale smoothly with CSS custom properties
+- **Advanced Color Management**: Comprehensive color system with allergen-level circle synchronization
+- **Chart Color Inheritance**: Icon colors automatically match the pollen level colors from charts by default  
+- **Customizable Icon Colors**: Override icon colors with custom colors for each pollen level (0-6) via the visual editor
+- **SVG Outline Support**: Configurable stroke colors and widths (0-100) for icon outlines
+- **Synchronized Color Systems**: Level circles can inherit colors from allergen icons for perfect visual consistency
+- **Performance Optimized**: Lightweight SVG system reduces bundle size by ~86% compared to embedded PNG images
+- **Responsive Design**: Icons scale smoothly with CSS custom properties and maintain crisp quality at any size
 - **Multiple Display Modes**: Supports both minimal and normal view modes
 
 ## Installation

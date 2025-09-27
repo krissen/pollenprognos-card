@@ -8,6 +8,42 @@ Additional documentation:
 - [Localization and custom phrases](localization.md)
 - [Related projects](related-projects.md)
 
+## Color System Overview
+
+The card provides advanced color management with two interconnected systems:
+
+### Allergen Icon Colors
+
+- **Default Colors Mode** (`allergen_color_mode: default_colors`): Uses the built-in color palette that matches the level circle colors
+- **Custom Colors Mode** (`allergen_color_mode: custom`): Allows setting individual colors for each pollen level (0-6)
+- **Level 0**: Always represents "no pollen" and uses a light gray color
+- **Levels 1-6**: Represent increasing pollen intensity with progressively more intense colors
+
+### Level Circle Colors
+
+The level circles can either inherit colors from the allergen system or use independent settings:
+
+- **Inherit from Allergen** (`levels_inherit_mode: inherit_allergen`, default): 
+  - Circle segments use the same colors as allergen icons for each level
+  - Gap color automatically matches `allergen_outline_color` for visual consistency
+  - Circle segment colors sync perfectly with allergen icon colors
+- **Custom Level Colors** (`levels_inherit_mode: custom`):
+  - Uses independent `levels_colors`, `levels_empty_color`, and `levels_gap_color` settings
+  - Operates completely separately from allergen color settings
+
+### SVG Icon Styling
+
+- **Outline Color** (`allergen_outline_color`): Controls the stroke color around SVG icons
+- **Stroke Width** (`allergen_stroke_width`): Controls outline thickness (0-100, where 0 = no outline)
+- SVG icons scale smoothly and support dynamic coloring via CSS
+
+### Color Relationships
+
+When using the default inheritance mode:
+- Allergen level 1 → Circle segment 1 → Same color
+- Allergen outline color → Circle gap color → Same color  
+- Single source of truth prevents color mismatches
+
 ## Options
 
 | Name | Type | Default | Description |
@@ -20,9 +56,10 @@ Additional documentation:
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
-| `levels_colors` | `array<string>` | `["#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#e64a19", "#d32f2f"]` | Colors for the segments in the level circle. |
+| `levels_colors` | `array<string>` | `["#FFE55A", "#FFC84E", "#FFA53F", "#FF6E33", "#FF6140", "#FF001C"]` | Colors for the segments in the level circle. |
 | `levels_empty_color` | `string` | `rgba(200, 200, 200, 0.15)` | Color for empty segments. |
-| `levels_gap_color` | `string` | `var(--card-background-color)` | Color for gaps in the level circle. |
+| `levels_gap_color` | `string` | `rgba(200, 200, 200, 1)` | Color for gaps in the level circle. When `levels_inherit_mode` is `inherit_allergen`, this is automatically set to match `allergen_outline_color`. |
+| `levels_inherit_mode` | `string` | `inherit_allergen` | Control level circle colors: `inherit_allergen` uses allergen colors (including gap color from outline), `custom` uses independent level circle settings. |
 | `levels_thickness` | `integer` | `60` | Thickness of the level circle (10–90). |
 | `levels_gap` | `integer` | `1` | Gap width between segments. |
 | `levels_text_color` | `string` | `var(--primary-text-color)` | Color for the value inside the level circle. |
@@ -30,6 +67,10 @@ Additional documentation:
 | `levels_icon_ratio` | `number` | `1` | Multiplier applied to `icon_size` for the level circles. |
 | `levels_text_weight` | `string` | `normal` | Font weight for the value inside the circle. |
 | `icon_size` | `integer` | `48` | Icon size in pixels. |
+| `allergen_color_mode` | `string` | `default_colors` | Allergen icon color mode: `default_colors` uses the built-in color palette, `custom` allows setting individual colors for each level. |
+| `allergen_colors` | `array<string>` | `[rgba(200,200,200,0.15), "#FFE55A", "#FFC84E", "#FFA53F", "#FF6E33", "#FF6140", "#FF001C"]` | Custom colors for allergen icons by level (0-6). Only used when `allergen_color_mode` is `custom`. Level 0 is the empty/no-pollen color, levels 1-6 are pollen intensity colors. |
+| `allergen_outline_color` | `string` | `rgba(200, 200, 200, 1)` | Color for SVG icon outlines/strokes. When `levels_inherit_mode` is `inherit_allergen`, this also controls the level circle gap color. |
+| `allergen_stroke_width` | `integer` | `15` | Width of SVG icon outlines (0-100). Higher values create thicker outlines around allergen icons. |
 | `text_size_ratio` | `number` | `1` | Global text scaling factor. |
 | `allergens` | `array<string>` | *(integration default)* | List of pollen types to show. |
 | `days_to_show` | `integer` | `4` (PP) / `2` (DWD) | Number of forecast columns. |
