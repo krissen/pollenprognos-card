@@ -981,6 +981,80 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
+    // Handle levels_inherit_mode changes - reset gap and sync when needed
+    if (prop === "levels_inherit_mode") {
+      if (value === "custom" && this._config.levels_inherit_mode !== "custom") {
+        // Switching to custom - reset gap to default
+        const newConfig = {
+          ...this._config,
+          levels_inherit_mode: value,
+          levels_gap: LEVELS_DEFAULTS.levels_gap,
+          levels_colors: LEVELS_DEFAULTS.levels_colors,
+          levels_empty_color: LEVELS_DEFAULTS.levels_empty_color,
+          levels_gap_color: LEVELS_DEFAULTS.levels_gap_color,
+        };
+        this._config = newConfig;
+        this._userConfig.levels_inherit_mode = value;
+        delete this._userConfig.levels_gap;
+        delete this._userConfig.levels_colors;
+        delete this._userConfig.levels_empty_color;
+        delete this._userConfig.levels_gap_color;
+        
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: newConfig },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      } else if (value === "inherit_allergen" && this._config.levels_inherit_mode === "custom") {
+        // Switching back to inherit - sync gap with current stroke width
+        const currentStrokeWidth = this._config.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
+        const syncedGap = Math.round(currentStrokeWidth / 5);
+        const newConfig = {
+          ...this._config,
+          levels_inherit_mode: value,
+          levels_gap: syncedGap,
+        };
+        this._config = newConfig;
+        this._userConfig.levels_inherit_mode = value;
+        this._userConfig.levels_gap = syncedGap;
+        
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: newConfig },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      }
+    }
+
+    // Handle allergen color mode changes - reset colors when switching to default
+    if (prop === "allergen_color_mode" && value === "default_colors" && this._config.allergen_color_mode === "custom") {
+      const newConfig = {
+        ...this._config,
+        allergen_color_mode: value,
+        allergen_colors: LEVELS_DEFAULTS.allergen_colors,
+        allergen_outline_color: LEVELS_DEFAULTS.levels_gap_color,
+      };
+      this._config = newConfig;
+      this._userConfig.allergen_color_mode = value;
+      delete this._userConfig.allergen_colors;
+      delete this._userConfig.allergen_outline_color;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     // Specialfall: språkbyte – tvinga sort-dropdown att ritas om
     if (prop === "date_locale") {
       // Spara aktuella värden
@@ -1668,9 +1742,11 @@ class PollenPrognosCardEditor extends LitElement {
                         @input=${(e) => {
                           const value = Number(e.target.value);
                           this._updateConfig("allergen_stroke_width", value);
-                          // Sync with level circle gap - every 5 stroke width = 1 px gap
-                          const levelGap = Math.round(value / 5);
-                          this._updateConfig("levels_gap", levelGap);
+                          // Sync with level circle gap only if levels inherit from allergen
+                          if ((c.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
+                            const levelGap = Math.round(value / 5);
+                            this._updateConfig("levels_gap", levelGap);
+                          }
                         }}
                         style="width: 120px;"
                       ></ha-slider>
@@ -1683,9 +1759,11 @@ class PollenPrognosCardEditor extends LitElement {
                         @input=${(e) => {
                           const value = Number(e.target.value) || LEVELS_DEFAULTS.allergen_stroke_width;
                           this._updateConfig("allergen_stroke_width", value);
-                          // Sync with level circle gap - every 5 stroke width = 1 px gap
-                          const levelGap = Math.round(value / 5);
-                          this._updateConfig("levels_gap", levelGap);
+                          // Sync with level circle gap only if levels inherit from allergen
+                          if ((c.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
+                            const levelGap = Math.round(value / 5);
+                            this._updateConfig("levels_gap", levelGap);
+                          }
                         }}
                         style="width: 80px;"
                       ></ha-textfield>
