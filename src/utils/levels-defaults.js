@@ -29,6 +29,9 @@ export const LEVELS_DEFAULTS = {
     "#FF001C", // Level 6
   ],
   
-  // Default allergen stroke width
+  // Default allergen stroke width - changed from old default to 15
   allergen_stroke_width: 15,
+  
+  // Default color for no allergens icon
+  no_allergens_color: "#a9cfe0",
 };
