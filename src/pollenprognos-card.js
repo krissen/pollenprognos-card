@@ -600,8 +600,17 @@ class PollenPrognosCard extends LitElement {
   _levelColorForLevel(level) {
     // If level circles inherit from allergen colors (new default)
     if (this.config?.levels_inherit_mode !== "custom") {
-      // Use allergen color system - direct mapping level->level
-      return this._colorForLevel(level);
+      // Use allergen color system - BUT keep traditional level circle mapping
+      // Level 0 = empty color, Level 1+ = pollen colors starting from index 0
+      if (level === 0) {
+        return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
+      }
+      
+      // For level circles inheriting from allergen colors, use level-1 index
+      const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
+      const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
+      const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
+      return colors[clampedIndex] || colors[0];
     }
     
     // Use custom level colors with proper mapping

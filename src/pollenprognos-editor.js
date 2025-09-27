@@ -1156,7 +1156,7 @@ class PollenPrognosCardEditor extends LitElement {
     return html`
       <div class="card-config">
         <!-- Återställ-knapp -->
-        <ha-button outlined @click=${() => this.resetAll()}>
+        <ha-button outlined @click=${() => this._resetAll()}>
           ${this._t("preset_reset_all")}
         </ha-button>
 
@@ -1705,7 +1705,10 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </div>
               </ha-formfield>
-              <ha-formfield label="${this._t("levels_colors")}">
+              <ha-formfield 
+                label="${this._t("levels_colors")}"
+                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
+              >
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   ${c.levels_colors.map(
                     (col, i) => html`
@@ -1751,7 +1754,10 @@ class PollenPrognosCardEditor extends LitElement {
                 </div>
               </ha-formfield>
 
-              <ha-formfield label="${this._t("levels_empty_color")}">
+              <ha-formfield 
+                label="${this._t("levels_empty_color")}"
+                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
+              >
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <input
                     type="color"
@@ -1785,7 +1791,10 @@ class PollenPrognosCardEditor extends LitElement {
                 </div>
               </ha-formfield>
 
-              <ha-formfield label="${this._t("levels_gap_color")}">
+              <ha-formfield 
+                label="${this._t("levels_gap_color")}"
+                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
+              >
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <input
                     type="color"
@@ -1819,7 +1828,10 @@ class PollenPrognosCardEditor extends LitElement {
                 </div>
               </ha-formfield>
 
-              <ha-formfield label="${this._t("levels_thickness")}">
+              <ha-formfield 
+                label="${this._t("levels_thickness")}"
+                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
+              >
                 <ha-slider
                   min="10"
                   max="90"
