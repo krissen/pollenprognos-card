@@ -567,17 +567,38 @@ class PollenPrognosCard extends LitElement {
   }
 
   /**
-   * Gets color for a specific level based on chart color configuration
+   * Gets color for a specific level for allergen icons
    * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
    * @returns {string} Color hex string
    */
   _colorForLevel(level) {
-    // If custom icon color mode is selected, use the custom color
-    if (this.config?.icon_color_mode === "custom" && this.config?.icon_color) {
-      return this.config.icon_color;
+    // New logic: Allergen colors are primary
+    if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
+      // Use custom allergen colors
+      const allergenColors = this.config.allergen_colors;
+      const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
+      return allergenColors[clampedLevel] || allergenColors[0];
     }
     
-    // Otherwise inherit from chart colors
+    // Default: inherit from level colors (which may themselves inherit from allergen colors)
+    const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
+    const clampedLevel = Math.max(0, Math.min(level, colors.length - 1));
+    return colors[clampedLevel] || colors[0];
+  }
+
+  /**
+   * Gets color for level circles (charts) - may inherit from allergen colors
+   * @param {number} level - The pollen level
+   * @returns {string} Color hex string  
+   */
+  _levelColorForLevel(level) {
+    // If level circles inherit from allergen colors (new default)
+    if (this.config?.levels_inherit_mode !== "custom") {
+      // Use allergen color system
+      return this._colorForLevel(level);
+    }
+    
+    // Use custom level colors
     const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
     const clampedLevel = Math.max(0, Math.min(level, colors.length - 1));
     return colors[clampedLevel] || colors[0];
@@ -606,11 +627,12 @@ class PollenPrognosCard extends LitElement {
     }
 
     const color = this._colorForLevel(level);
+    const outlineColor = this.config?.allergen_outline_color || "none";
     const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
     const clickHandler = clickable && onClick ? onClick : null;
-    const style = `--pp-icon-color: ${color}; ${clickable ? 'cursor: pointer;' : ''}`;
+    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${outlineColor}; ${clickable ? 'cursor: pointer;' : ''}`;
 
     if (svgContent) {
       // Render inline SVG with color styling
@@ -1523,18 +1545,17 @@ class PollenPrognosCard extends LitElement {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
-    const rawColors = this.config.levels_colors ?? [
-      "#ffeb3b",
-      "#ffc107",
-      "#ff9800",
-      "#ff5722",
-      "#e64a19",
-      "#d32f2f",
-    ];
+    
     // Number of segments in the level circle depends on the integration.
     // PEU and Kleenex only use four segments while all others use six.
     const segments = (this.config.integration === "peu" || this.config.integration === "kleenex") ? 4 : 6;
-    const colors = rawColors.slice(0, segments);
+    
+    // Build colors array using the new inheritance system
+    const rawColors = [];
+    for (let i = 0; i < segments; i++) {
+      rawColors.push(this._levelColorForLevel(i));
+    }
+    const colors = rawColors;
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
     const gapColor =
       this.config.levels_gap_color ?? "var(--card-background-color)";
@@ -1907,6 +1928,8 @@ class PollenPrognosCard extends LitElement {
         width: 100%;
         height: 100%;
         display: block;
+        stroke: var(--pp-icon-stroke, none);
+        stroke-width: var(--pp-icon-stroke-width, 1);
       }
 
       .pp-icon-placeholder {
