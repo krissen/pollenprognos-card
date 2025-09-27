@@ -1778,9 +1778,11 @@ class PollenPrognosCardEditor extends LitElement {
                         <input
                           type="color"
                           .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                            c.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color
+                            c.no_allergens_color ||
+                              LEVELS_DEFAULTS.no_allergens_color,
                           )
-                            ? (c.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color)
+                            ? c.no_allergens_color ||
+                              LEVELS_DEFAULTS.no_allergens_color
                             : "#a9cfe0"}
                           @input=${(e) =>
                             this._updateConfig(
@@ -1790,7 +1792,8 @@ class PollenPrognosCardEditor extends LitElement {
                           style="width: 28px; height: 28px; border: none; background: none;"
                         />
                         <ha-textfield
-                          .value=${c.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color}
+                          .value=${c.no_allergens_color ||
+                          LEVELS_DEFAULTS.no_allergens_color}
                           placeholder="${this._t(
                             "no_allergens_color_placeholder",
                           ) || "#a9cfe0"}"
@@ -1815,71 +1818,68 @@ class PollenPrognosCardEditor extends LitElement {
                         >
                       </div>
                     </ha-formfield>
-
-                    <!-- Stroke Width -->
-                    <ha-formfield
-                      label="${this._t("allergen_stroke_width") ||
-                      "Stroke Width"}"
-                    >
-                      <ha-slider
-                        min="0"
-                        max="100"
-                        step="5"
-                        .value=${c.allergen_stroke_width ||
-                        LEVELS_DEFAULTS.allergen_stroke_width}
-                        @input=${(e) => {
-                          const value = Number(e.target.value);
-                          this._updateConfig("allergen_stroke_width", value);
-                          // Sync with level circle gap only if levels inherit from allergen
-                          if (
-                            (c.levels_inherit_mode || "inherit_allergen") ===
-                            "inherit_allergen"
-                          ) {
-                            const levelGap = Math.round(value / 10);
-                            this._updateConfig("levels_gap", levelGap);
-                          }
-                        }}
-                        style="width: 120px;"
-                      ></ha-slider>
-                      <ha-textfield
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="5"
-                        .value=${c.allergen_stroke_width ||
-                        LEVELS_DEFAULTS.allergen_stroke_width}
-                        @input=${(e) => {
-                          const value =
-                            Number(e.target.value) ||
-                            LEVELS_DEFAULTS.allergen_stroke_width;
-                          this._updateConfig("allergen_stroke_width", value);
-                          // Sync with level circle gap only if levels inherit from allergen
-                          if (
-                            (c.levels_inherit_mode || "inherit_allergen") ===
-                            "inherit_allergen"
-                          ) {
-                            const levelGap = Math.round(value / 10);
-                            this._updateConfig("levels_gap", levelGap);
-                          }
-                        }}
-                        style="width: 80px;"
-                      ></ha-textfield>
-                      <ha-button
-                        outlined
-                        title="${this._t("allergen_stroke_width_reset") ||
-                        "Reset"}"
-                        @click=${() =>
-                          this._updateConfig(
-                            "allergen_stroke_width",
-                            LEVELS_DEFAULTS.allergen_stroke_width,
-                          )}
-                        style="margin-left: 8px;"
-                        >↺</ha-button
-                      >
-                    </ha-formfield>
                   `
                 : ""}
             </details>
+            <!-- Stroke Width -->
+            <ha-formfield
+              label="${this._t("allergen_stroke_width") || "Stroke Width"}"
+            >
+              <ha-slider
+                min="0"
+                max="100"
+                step="5"
+                .value=${c.allergen_stroke_width ||
+                LEVELS_DEFAULTS.allergen_stroke_width}
+                @input=${(e) => {
+                  const value = Number(e.target.value);
+                  this._updateConfig("allergen_stroke_width", value);
+                  // Sync with level circle gap only if levels inherit from allergen
+                  if (
+                    (c.levels_inherit_mode || "inherit_allergen") ===
+                    "inherit_allergen"
+                  ) {
+                    const levelGap = Math.round(value / 10);
+                    this._updateConfig("levels_gap", levelGap);
+                  }
+                }}
+                style="width: 120px;"
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                min="0"
+                max="100"
+                step="5"
+                .value=${c.allergen_stroke_width ||
+                LEVELS_DEFAULTS.allergen_stroke_width}
+                @input=${(e) => {
+                  const value =
+                    Number(e.target.value) ||
+                    LEVELS_DEFAULTS.allergen_stroke_width;
+                  this._updateConfig("allergen_stroke_width", value);
+                  // Sync with level circle gap only if levels inherit from allergen
+                  if (
+                    (c.levels_inherit_mode || "inherit_allergen") ===
+                    "inherit_allergen"
+                  ) {
+                    const levelGap = Math.round(value / 10);
+                    this._updateConfig("levels_gap", levelGap);
+                  }
+                }}
+                style="width: 80px;"
+              ></ha-textfield>
+              <ha-button
+                outlined
+                title="${this._t("allergen_stroke_width_reset") || "Reset"}"
+                @click=${() =>
+                  this._updateConfig(
+                    "allergen_stroke_width",
+                    LEVELS_DEFAULTS.allergen_stroke_width,
+                  )}
+                style="margin-left: 8px;"
+                >↺</ha-button
+              >
+            </ha-formfield>
 
             <!-- Levels Configuration (moved above minimal) -->
             <details>
