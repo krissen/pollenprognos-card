@@ -1489,124 +1489,6 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
-            
-            <!-- Allergen Colors Configuration -->
-            <details>
-              <summary>${this._t("allergen_colors_header") || "Allergen Colors"}</summary>
-              <ha-formfield label="${this._t("allergen_color_mode") || "Allergen Color Mode"}">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-select
-                    .value=${c.allergen_color_mode || "inherit_levels"}
-                    @selected=${(e) =>
-                      this._updateConfig("allergen_color_mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                    style="min-width: 140px;"
-                  >
-                    <mwc-list-item value="inherit_levels">${this._t("allergen_color_inherit_levels") || "Inherit from Level Colors"}</mwc-list-item>
-                    <mwc-list-item value="custom">${this._t("allergen_color_custom") || "Custom Colors"}</mwc-list-item>
-                  </ha-select>
-                </div>
-              </ha-formfield>
-              
-              ${c.allergen_color_mode === "custom" ? html`
-                <ha-formfield label="${this._t("allergen_colors") || "Allergen Colors (by Level)"}">
-                  <div style="display: flex; flex-direction: column; gap: 8px;">
-                    ${(c.allergen_colors || LEVELS_DEFAULTS.levels_colors).map(
-                      (col, i) => html`
-                        <div
-                          style="display: flex; align-items: center; gap: 8px;"
-                        >
-                          <span style="min-width: 60px;">Level ${i}:</span>
-                          <input
-                            type="color"
-                            .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
-                              ? col
-                              : "#000000"}
-                            @input=${(e) => {
-                              const newColors = [...(c.allergen_colors || LEVELS_DEFAULTS.levels_colors)];
-                              newColors[i] = e.target.value;
-                              this._updateConfig("allergen_colors", newColors);
-                            }}
-                            style="width: 28px; height: 28px; border: none; background: none;"
-                          />
-                          <ha-textfield
-                            .value=${col}
-                            placeholder="${this._t("allergen_colors_placeholder") || "#ffcc00"}"
-                            @input=${(e) => {
-                              const newColors = [...(c.allergen_colors || LEVELS_DEFAULTS.levels_colors)];
-                              newColors[i] = e.target.value;
-                              this._updateConfig("allergen_colors", newColors);
-                            }}
-                            style="width: 100px;"
-                          ></ha-textfield>
-                          <ha-button
-                            outlined
-                            title="${this._t("allergen_colors_reset") || "Reset"}"
-                            @click=${() => {
-                              const newColors = [...(c.allergen_colors || LEVELS_DEFAULTS.levels_colors)];
-                              newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
-                              this._updateConfig("allergen_colors", newColors);
-                            }}
-                            style="margin-left: 8px;"
-                            >↺</ha-button
-                          >
-                        </div>
-                      `,
-                    )}
-                  </div>
-                </ha-formfield>
-                
-                <ha-formfield label="${this._t("allergen_outline_color") || "Outline Color"}">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <input
-                      type="color"
-                      .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                        c.allergen_outline_color || "#000000",
-                      )
-                        ? c.allergen_outline_color
-                        : "#000000"}
-                      @input=${(e) =>
-                        this._updateConfig("allergen_outline_color", e.target.value)}
-                      style="width: 28px; height: 28px; border: none; background: none;"
-                    />
-                    <ha-textfield
-                      .value=${c.allergen_outline_color || ""}
-                      placeholder="${this._t("allergen_outline_placeholder") || "#000000"}"
-                      @input=${(e) =>
-                        this._updateConfig("allergen_outline_color", e.target.value)}
-                      style="width: 100px;"
-                    ></ha-textfield>
-                    <ha-button
-                      outlined
-                      title="${this._t("allergen_outline_reset") || "Reset"}"
-                      @click=${() =>
-                        this._updateConfig("allergen_outline_color", "#000000")}
-                      style="margin-left: 8px;"
-                      >↺</ha-button
-                    >
-                  </div>
-                </ha-formfield>
-              ` : ""}
-            </details>
-            
-            <details open>
-              <summary>${this._t("levels_inherit_header") || "Level Circle Inheritance"}</summary>
-              <ha-formfield label="${this._t("levels_inherit_mode") || "Level Circle Color Mode"}">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-select
-                    .value=${c.levels_inherit_mode || "inherit_allergen"}
-                    @selected=${(e) =>
-                      this._updateConfig("levels_inherit_mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                    style="min-width: 140px;"
-                  >
-                    <mwc-list-item value="inherit_allergen">${this._t("levels_inherit_allergen") || "Inherit from Allergen Colors"}</mwc-list-item>
-                    <mwc-list-item value="custom">${this._t("levels_custom") || "Use Custom Level Colors"}</mwc-list-item>
-                  </ha-select>
-                </div>
-              </ha-formfield>
-            </details>
-            
             <ha-formfield label="${this._t("text_size_ratio")}">
               <ha-slider
                 min="0.5"
@@ -1628,10 +1510,193 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
-            
+
+            <!-- Allergen Colors Configuration -->
+            <details>
+              <summary>
+                ${this._t("allergen_colors_header") || "Allergen Colors"}
+              </summary>
+              <ha-formfield
+                label="${this._t("allergen_color_mode") ||
+                "Allergen Color Mode"}"
+              >
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <ha-select
+                    .value=${c.allergen_color_mode || "inherit_levels"}
+                    @selected=${(e) =>
+                      this._updateConfig("allergen_color_mode", e.target.value)}
+                    @closed=${(e) => e.stopPropagation()}
+                    style="min-width: 140px;"
+                  >
+                    <mwc-list-item value="inherit_levels"
+                      >${this._t("allergen_color_inherit_levels") ||
+                      "Inherit from Level Colors"}</mwc-list-item
+                    >
+                    <mwc-list-item value="custom"
+                      >${this._t("allergen_color_custom") ||
+                      "Custom Colors"}</mwc-list-item
+                    >
+                  </ha-select>
+                </div>
+              </ha-formfield>
+
+              ${c.allergen_color_mode === "custom"
+                ? html`
+                    <ha-formfield
+                      label="${this._t("allergen_colors") ||
+                      "Allergen Colors (by Level)"}"
+                    >
+                      <div
+                        style="display: flex; flex-direction: column; gap: 8px;"
+                      >
+                        ${(
+                          c.allergen_colors || LEVELS_DEFAULTS.levels_colors
+                        ).map(
+                          (col, i) => html`
+                            <div
+                              style="display: flex; align-items: center; gap: 8px;"
+                            >
+                              <span style="min-width: 60px;">Level ${i}:</span>
+                              <input
+                                type="color"
+                                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                                  col,
+                                )
+                                  ? col
+                                  : "#000000"}
+                                @input=${(e) => {
+                                  const newColors = [
+                                    ...(c.allergen_colors ||
+                                      LEVELS_DEFAULTS.levels_colors),
+                                  ];
+                                  newColors[i] = e.target.value;
+                                  this._updateConfig(
+                                    "allergen_colors",
+                                    newColors,
+                                  );
+                                }}
+                                style="width: 28px; height: 28px; border: none; background: none;"
+                              />
+                              <ha-textfield
+                                .value=${col}
+                                placeholder="${this._t(
+                                  "allergen_colors_placeholder",
+                                ) || "#ffcc00"}"
+                                @input=${(e) => {
+                                  const newColors = [
+                                    ...(c.allergen_colors ||
+                                      LEVELS_DEFAULTS.levels_colors),
+                                  ];
+                                  newColors[i] = e.target.value;
+                                  this._updateConfig(
+                                    "allergen_colors",
+                                    newColors,
+                                  );
+                                }}
+                                style="width: 100px;"
+                              ></ha-textfield>
+                              <ha-button
+                                outlined
+                                title="${this._t("allergen_colors_reset") ||
+                                "Reset"}"
+                                @click=${() => {
+                                  const newColors = [
+                                    ...(c.allergen_colors ||
+                                      LEVELS_DEFAULTS.levels_colors),
+                                  ];
+                                  newColors[i] =
+                                    LEVELS_DEFAULTS.levels_colors[i];
+                                  this._updateConfig(
+                                    "allergen_colors",
+                                    newColors,
+                                  );
+                                }}
+                                style="margin-left: 8px;"
+                                >↺</ha-button
+                              >
+                            </div>
+                          `,
+                        )}
+                      </div>
+                    </ha-formfield>
+
+                    <ha-formfield
+                      label="${this._t("allergen_outline_color") ||
+                      "Outline Color"}"
+                    >
+                      <div
+                        style="display: flex; align-items: center; gap: 8px;"
+                      >
+                        <input
+                          type="color"
+                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                            c.allergen_outline_color || "#000000",
+                          )
+                            ? c.allergen_outline_color
+                            : "#000000"}
+                          @input=${(e) =>
+                            this._updateConfig(
+                              "allergen_outline_color",
+                              e.target.value,
+                            )}
+                          style="width: 28px; height: 28px; border: none; background: none;"
+                        />
+                        <ha-textfield
+                          .value=${c.allergen_outline_color || ""}
+                          placeholder="${this._t(
+                            "allergen_outline_placeholder",
+                          ) || "#000000"}"
+                          @input=${(e) =>
+                            this._updateConfig(
+                              "allergen_outline_color",
+                              e.target.value,
+                            )}
+                          style="width: 100px;"
+                        ></ha-textfield>
+                        <ha-button
+                          outlined
+                          title="${this._t("allergen_outline_reset") ||
+                          "Reset"}"
+                          @click=${() =>
+                            this._updateConfig(
+                              "allergen_outline_color",
+                              "#000000",
+                            )}
+                          style="margin-left: 8px;"
+                          >↺</ha-button
+                        >
+                      </div>
+                    </ha-formfield>
+                  `
+                : ""}
+            </details>
+
             <!-- Levels Configuration (moved above minimal) -->
             <details>
               <summary>${this._t("levels_header")}</summary>
+              <ha-formfield
+                label="${this._t("levels_inherit_mode") ||
+                "Level Circle Color Mode"}"
+              >
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <ha-select
+                    .value=${c.levels_inherit_mode || "inherit_allergen"}
+                    @selected=${(e) =>
+                      this._updateConfig("levels_inherit_mode", e.target.value)}
+                    @closed=${(e) => e.stopPropagation()}
+                    style="min-width: 140px;"
+                  >
+                    <mwc-list-item value="inherit_allergen"
+                      >${this._t("levels_inherit_allergen") ||
+                      "Inherit from Allergen Colors"}</mwc-list-item
+                    >
+                    <mwc-list-item value="custom"
+                      >${this._t("levels_custom") ||
+                      "Use Custom Level Colors"}</mwc-list-item
+                    >
+                  </ha-select>
+                </div>
+              </ha-formfield>
               <ha-formfield label="${this._t("levels_colors")}">
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   ${c.levels_colors.map(
@@ -2163,9 +2228,10 @@ class PollenPrognosCardEditor extends LitElement {
             <ha-button
               @click=${() => {
                 // For kleenex, include both individual allergens and category allergens
-                const allAllergens = c.integration === "kleenex" 
-                  ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
-                  : allergens;
+                const allAllergens =
+                  c.integration === "kleenex"
+                    ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
+                    : allergens;
                 this._toggleSelectAllAllergens(allAllergens);
               }}
             >
