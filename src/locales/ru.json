@@ -129,7 +129,7 @@
   "editor.mode_hourly_sixth": "Ежечасно (каждые 6 ч)",
   "editor.mode_hourly_third": "Ежечасно (каждые 3 ч)",
   "editor.mode_twice_daily": "Два раза в день",
-  "editor.no_allergens_color": "Цвет без аллергенов",
+  "editor.no_allergens_color": "Нет аллергенов",
   "editor.no_allergens_color_placeholder": "#a9cfe0",
   "editor.no_allergens_color_reset": "Сбросить цвет без аллергенов",
   "editor.no_information": "Нет информации",

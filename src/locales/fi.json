@@ -129,7 +129,7 @@
   "editor.mode_hourly_sixth": "Tunneittain (joka 6. tunti)",
   "editor.mode_hourly_third": "Tunneittain (joka 3. tunti)",
   "editor.mode_twice_daily": "Kahdesti päivässä",
-  "editor.no_allergens_color": "Ei allergeeneja väri",
+  "editor.no_allergens_color": "Ei allergeeneja",
   "editor.no_allergens_color_placeholder": "#a9cfe0",
   "editor.no_allergens_color_reset": "Palauta väri ilman allergeeneja",
   "editor.no_information": "Ei tietoa",
