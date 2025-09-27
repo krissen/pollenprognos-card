@@ -542,9 +542,17 @@ class PollenPrognosCard extends LitElement {
   /**
    * Gets the SVG key for an allergen, using the same logic as PNG system
    * @param {string} allergenReplaced - The allergen identifier
-   * @returns {string} The key to use for SVG loading
+   * @returns {string|null} The key to use for SVG loading, or null if invalid
    */
   _getSvgKey(allergenReplaced) {
+    // Guard against undefined/null allergenReplaced
+    if (!allergenReplaced || typeof allergenReplaced !== 'string') {
+      if (this.debug) {
+        console.warn('[SVG] Invalid allergenReplaced:', allergenReplaced);
+      }
+      return null;
+    }
+
     const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
     
     // Check if we have the primary key SVG available, otherwise try fallback
@@ -570,6 +578,14 @@ class PollenPrognosCard extends LitElement {
    * @returns {Promise<string|null>} SVG content as string, or null if failed
    */
   async _getSvg(key) {
+    // Guard against undefined/null/empty keys
+    if (!key || typeof key !== 'string') {
+      if (this.debug) {
+        console.warn('[SVG] Invalid key for SVG loading:', key);
+      }
+      return null;
+    }
+
     // Check cache first
     if (this._svgCache.has(key)) {
       return this._svgCache.get(key);
@@ -581,6 +597,9 @@ class PollenPrognosCard extends LitElement {
       const response = await fetch(svgUrl);
       
       if (!response.ok) {
+        if (this.debug) {
+          console.warn(`[SVG] Failed to load ${key}.svg: ${response.status} ${response.statusText}`);
+        }
         // Cache the miss to avoid repeated requests
         this._svgCache.set(key, null);
         return null;
@@ -627,6 +646,18 @@ class PollenPrognosCard extends LitElement {
    * @returns {TemplateResult} HTML template with SVG or placeholder
    */
   _renderAllergenSvg(allergenKey, level, options = {}) {
+    // Guard against null/undefined keys - show error placeholder
+    if (!allergenKey || typeof allergenKey !== 'string') {
+      if (this.debug) {
+        console.warn('[SVG] Cannot render SVG with invalid key:', allergenKey);
+      }
+      return html`
+        <div class="pp-icon pp-icon-error" aria-hidden="true">
+          <div style="background: #ff0000; color: white; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+        </div>
+      `;
+    }
+
     const color = this._colorForLevel(level);
     const svgContent = this._svgCache.get(allergenKey);
     const { onClick, clickable = false } = options;
@@ -648,11 +679,17 @@ class PollenPrognosCard extends LitElement {
       `;
     } else {
       // Show placeholder while loading or if load failed
-      // Kick off loading asynchronously (don't await to avoid blocking render)
-      this._getSvg(allergenKey).then(() => {
-        // Trigger re-render when SVG is loaded
-        this.requestUpdate();
-      });
+      // Only kick off loading if we have a valid key
+      if (allergenKey) {
+        this._getSvg(allergenKey).then(() => {
+          // Trigger re-render when SVG is loaded
+          this.requestUpdate();
+        }).catch((error) => {
+          if (this.debug) {
+            console.warn(`[SVG] Failed to load SVG for ${allergenKey}:`, error);
+          }
+        });
+      }
 
       return html`
         <div 
@@ -681,13 +718,17 @@ class PollenPrognosCard extends LitElement {
       for (const sensor of this.sensors) {
         if (sensor.allergenReplaced) {
           const svgKey = this._getSvgKey(sensor.allergenReplaced);
-          svgsToLoad.add(svgKey);
+          // Only add valid keys to avoid undefined fetches
+          if (svgKey && typeof svgKey === 'string') {
+            svgsToLoad.add(svgKey);
+          }
         }
       }
     }
     
-    // Load all SVGs in parallel
-    const loadPromises = Array.from(svgsToLoad).map(key => this._getSvg(key));
+    // Load all SVGs in parallel, filtering out any invalid keys
+    const validKeys = Array.from(svgsToLoad).filter(key => key && typeof key === 'string');
+    const loadPromises = validKeys.map(key => this._getSvg(key));
     
     try {
       await Promise.all(loadPromises);
@@ -1980,6 +2021,19 @@ class PollenPrognosCard extends LitElement {
         border-radius: 50%;
         border-top-color: transparent;
         animation: pp-spin 1s linear infinite;
+      }
+
+      .pp-icon-error {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 0;
+        min-height: 0;
+        margin: 0 auto 6px auto;
       }
 
       @keyframes pp-spin {
