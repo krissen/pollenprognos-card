@@ -1,7 +1,9 @@
 // src/pollenprognos-card.js
 import { LitElement, html, css } from "lit";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { slugify } from "./utils/slugify.js";
 import { images } from "./pollenprognos-images.js";
+import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import * as PP from "./adapters/pp.js";
 import { normalize, normalizeDWD } from "./utils/normalize.js";
@@ -532,6 +534,154 @@ class PollenPrognosCard extends LitElement {
     return specific || images[`${lvl}_png`];
   }
 
+  /**
+   * Gets the SVG key for an allergen, using the same logic as PNG system
+   * @param {string} allergenReplaced - The allergen identifier
+   * @returns {string|null} The key to use for SVG loading, or null if invalid
+   */
+  _getSvgKey(allergenReplaced) {
+    // Guard against undefined/null allergenReplaced
+    if (!allergenReplaced || typeof allergenReplaced !== 'string') {
+      if (this.debug) {
+        console.warn('[SVG] Invalid allergenReplaced:', allergenReplaced);
+      }
+      return null;
+    }
+
+    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    
+    // Check if we have the primary key SVG available
+    if (getSvgContent(key)) {
+      return key;
+    }
+    
+    // Try icon fallback for category allergens
+    if (ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
+      const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
+      if (getSvgContent(fallbackKey)) {
+        return fallbackKey;
+      }
+    }
+    
+    return key; // Return original key even if SVG not found
+  }
+
+  /**
+   * Gets color for a specific level for allergen icons
+   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
+   * @param {string} allergenKey - Optional allergen key for special handling
+   * @returns {string} Color hex string
+   */
+  _colorForLevel(level, allergenKey = null) {
+    // Special handling for no_allergens icon
+    if (allergenKey === "no_allergens") {
+      return this.config?.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color;
+    }
+    
+    // Use custom allergen colors if set
+    if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
+      const allergenColors = this.config.allergen_colors;
+      const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
+      return allergenColors[clampedLevel] || allergenColors[0];
+    }
+    
+    // Default: use default allergen colors (which includes empty color at index 0)
+    const defaultColors = LEVELS_DEFAULTS.allergen_colors;
+    const clampedLevel = Math.max(0, Math.min(level, defaultColors.length - 1));
+    return defaultColors[clampedLevel] || defaultColors[0];
+  }
+
+  /**
+   * Gets color for level circles (charts) - may inherit from allergen colors
+   * Note: Level circles don't use specific allergen keys, so we pass null
+   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
+   * @returns {string} Color hex string
+   */
+  _levelColorForLevel(level) {
+    // If level circles inherit from allergen colors (default)
+    if (this.config?.levels_inherit_mode !== "custom") {
+      // Use allergen color directly - same level mapping (but no special allergen key)
+      return this._colorForLevel(level, null);
+    }
+    
+    // Use custom level colors with traditional mapping
+    // Level 0 uses empty color, Level 1+ uses pollen colors
+    if (level === 0) {
+      return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
+    }
+    
+    const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
+    const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
+    const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
+    return colors[clampedIndex] || colors[0];
+  }
+
+  /**
+   * Renders an allergen SVG icon with proper color styling
+   * @param {string} allergenKey - The allergen key 
+   * @param {number} level - The pollen level for color
+   * @param {Object} options - Optional configuration
+   * @param {Function} options.onClick - Click handler
+   * @param {boolean} options.clickable - Whether icon should be clickable
+   * @returns {TemplateResult} HTML template with SVG or placeholder
+   */
+  _renderAllergenSvg(allergenKey, level, options = {}) {
+    // Guard against null/undefined keys - show error placeholder
+    if (!allergenKey || typeof allergenKey !== 'string') {
+      if (this.debug) {
+        console.warn('[SVG] Cannot render SVG with invalid key:', allergenKey);
+      }
+      return html`
+        <div class="pp-icon pp-icon-error" aria-hidden="true">
+          <div style="background: #ff0000; color: white; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+        </div>
+      `;
+    }
+
+    const color = this._colorForLevel(level, allergenKey);
+    const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
+    const strokeWidth = this.config?.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
+    const svgContent = getSvgContent(allergenKey);
+    const { onClick, clickable = false } = options;
+
+    // Special handling for no_allergens: use its color as stroke color since it's stroke-based
+    const actualStrokeColor = allergenKey === "no_allergens" ? color : outlineColor;
+
+    const clickHandler = clickable && onClick ? onClick : null;
+    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
+
+    if (svgContent) {
+      // Render inline SVG with color styling
+      return html`
+        <div 
+          class="pp-icon" 
+          style="${style}"
+          aria-hidden="true"
+          @click=${clickHandler}
+        >
+          ${unsafeSVG(svgContent)}
+        </div>
+      `;
+    } else {
+      // SVG not found - show error placeholder
+      if (this.debug) {
+        console.warn(`[SVG] No SVG found for key: ${allergenKey}`);
+      }
+      return html`
+        <div 
+          class="pp-icon pp-icon-error" 
+          style="${style}"
+          aria-hidden="true"
+          @click=${clickHandler}
+        >
+          <div style="background: #ccc; color: #666; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+        </div>
+      `;
+    }
+  }
+
+
+
   constructor() {
     super();
     this.days_to_show = 4;
@@ -577,6 +727,8 @@ class PollenPrognosCard extends LitElement {
     const allowedFields = Object.keys(stub).concat([
       "allergens",
       "icon_size",
+      "icon_color_mode",
+      "icon_color",
       "city",
       "location",
       "region_id",
@@ -1295,11 +1447,7 @@ class PollenPrognosCard extends LitElement {
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
         <div class="no-allergens-container">
-          <img
-            class="pollen-img"
-            src="${images.no_allergens_png}"
-            style="width: ${imgSize}px; height: ${imgSize}px; margin-bottom: 1em;"
-          />
+          ${this._renderAllergenSvg("no_allergens", 0)}
           <span class="no-allergens-text">${this._t("card.no_allergens")}</span>
         </div>
       </div>
@@ -1341,26 +1489,19 @@ class PollenPrognosCard extends LitElement {
             }
             return html`
               <div class="sensor minimal">
-                <img
-                  class="pollen-img"
-                  src="${this._getImageSrc(
-                    sensor.allergenReplaced,
-                    sensor.day0?.state,
-                  )}"
-                  style="${this.config.link_to_sensors !== false &&
-                  sensor.entity_id
-                    ? "cursor: pointer;"
-                    : ""}"
-                  @click=${(e) => {
-                    if (
-                      this.config.link_to_sensors !== false &&
-                      sensor.entity_id
-                    ) {
-                      e.stopPropagation();
-                      this._openEntity(sensor.entity_id);
+                ${this._renderAllergenSvg(
+                  this._getSvgKey(sensor.allergenReplaced),
+                  sensor.day0?.state ?? 0,
+                  {
+                    clickable: this.config.link_to_sensors !== false && sensor.entity_id,
+                    onClick: (e) => {
+                      if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                        e.stopPropagation();
+                        this._openEntity(sensor.entity_id);
+                      }
                     }
-                  }}
-                />
+                  }
+                )}
                 ${label
                   ? html`<span
                       class="short-text"
@@ -1420,21 +1561,25 @@ class PollenPrognosCard extends LitElement {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     const cols = this.displayCols;
-    const rawColors = this.config.levels_colors ?? [
-      "#ffeb3b",
-      "#ffc107",
-      "#ff9800",
-      "#ff5722",
-      "#e64a19",
-      "#d32f2f",
-    ];
+    
     // Number of segments in the level circle depends on the integration.
     // PEU and Kleenex only use four segments while all others use six.
     const segments = (this.config.integration === "peu" || this.config.integration === "kleenex") ? 4 : 6;
-    const colors = rawColors.slice(0, segments);
+    
+    // Build colors array using the new inheritance system
+    // Chart segments represent pollen levels 1-6, not 0-5
+    const rawColors = [];
+    for (let i = 0; i < segments; i++) {
+      rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.
+    }
+    const colors = rawColors;
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
-    const gapColor =
-      this.config.levels_gap_color ?? "var(--card-background-color)";
+    
+    // Use allergen outline color as gap color when inheriting, otherwise use custom gap color
+    const gapColor = this.config?.levels_inherit_mode !== "custom" 
+      ? (this.config.allergen_outline_color ?? LEVELS_DEFAULTS.levels_gap_color)
+      : (this.config.levels_gap_color ?? "var(--card-background-color)");
+      
     const thickness = this.config.levels_thickness ?? 60;
     const gap = this.config.levels_gap ?? 5;
     const iconSize = Number(this.config.icon_size) || 48;
@@ -1492,26 +1637,19 @@ class PollenPrognosCard extends LitElement {
                 <!-- Rad 1: bara ikoner -->
                 <tr class="allergen-icon-row" valign="top">
                   <td>
-                    <img
-                      class="pollen-img"
-                      src="${this._getImageSrc(
-                        sensor.allergenReplaced,
-                        sensor.days[0]?.state,
-                      )}"
-                      style="${this.config.link_to_sensors !== false &&
-                      sensor.entity_id
-                        ? "cursor: pointer;"
-                        : ""}"
-                      @click=${(e) => {
-                        if (
-                          this.config.link_to_sensors !== false &&
-                          sensor.entity_id
-                        ) {
-                          e.stopPropagation();
-                          this._openEntity(sensor.entity_id);
+                    ${this._renderAllergenSvg(
+                      this._getSvgKey(sensor.allergenReplaced),
+                      sensor.days[0]?.state ?? 0,
+                      {
+                        clickable: this.config.link_to_sensors !== false && sensor.entity_id,
+                        onClick: (e) => {
+                          if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                            e.stopPropagation();
+                            this._openEntity(sensor.entity_id);
+                          }
                         }
-                      }}
-                    />
+                      }
+                    )}
                   </td>
                   ${cols.map(
                     (i) => html`
@@ -1792,6 +1930,64 @@ class PollenPrognosCard extends LitElement {
         min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
+      }
+
+      /* SVG icon styles */
+      .pp-icon {
+        display: block;
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 0;
+        min-height: 0;
+        margin: 0 auto 6px auto;
+        color: var(--pp-icon-color, var(--primary-text-color));
+      }
+
+      .pp-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .pp-icon svg g {
+        stroke: var(--pp-icon-stroke, none);
+        stroke-width: var(--pp-icon-stroke-width, 1);
+      }
+
+      .pp-icon-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+      }
+
+      .pp-icon-loading {
+        width: 24px;
+        height: 24px;
+        border: 2px solid currentColor;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: pp-spin 1s linear infinite;
+      }
+
+      .pp-icon-error {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 0;
+        min-height: 0;
+        margin: 0 auto 6px auto;
+      }
+
+      @keyframes pp-spin {
+        to { transform: rotate(360deg); }
       }
 
       .level-circle {
