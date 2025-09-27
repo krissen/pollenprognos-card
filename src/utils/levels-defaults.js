@@ -28,4 +28,7 @@ export const LEVELS_DEFAULTS = {
     "#FF6140", // Level 5
     "#FF001C", // Level 6
   ],
+  
+  // Default allergen stroke width
+  allergen_stroke_width: 15,
 };

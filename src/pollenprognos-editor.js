@@ -1613,11 +1613,14 @@ class PollenPrognosCardEditor extends LitElement {
                       >
                         <input
                           type="color"
-                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                            c.allergen_outline_color || "#000000",
-                          )
-                            ? c.allergen_outline_color
-                            : "#000000"}
+                          .value=${(() => {
+                            const color = c.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
+                            // For rgba colors, show closest hex equivalent
+                            if (color.includes('rgba')) {
+                              return "#c8c8c8"; // Gray equivalent
+                            }
+                            return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color) ? color : "#c8c8c8";
+                          })()}
                           @input=${(e) =>
                             this._updateConfig(
                               "allergen_outline_color",
@@ -1626,10 +1629,10 @@ class PollenPrognosCardEditor extends LitElement {
                           style="width: 28px; height: 28px; border: none; background: none;"
                         />
                         <ha-textfield
-                          .value=${c.allergen_outline_color || ""}
+                          .value=${c.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color}
                           placeholder="${this._t(
                             "allergen_outline_placeholder",
-                          ) || "#000000"}"
+                          ) || "rgba(200,200,200,1)"}"
                           @input=${(e) =>
                             this._updateConfig(
                               "allergen_outline_color",
@@ -1644,7 +1647,7 @@ class PollenPrognosCardEditor extends LitElement {
                           @click=${() =>
                             this._updateConfig(
                               "allergen_outline_color",
-                              "#000000",
+                              LEVELS_DEFAULTS.levels_gap_color,
                             )}
                           style="margin-left: 8px;"
                           >↺</ha-button
@@ -1657,20 +1660,43 @@ class PollenPrognosCardEditor extends LitElement {
                       label="${this._t("allergen_stroke_width") ||
                       "Stroke Width"}"
                     >
-                      <ha-textfield
-                        type="number"
+                      <ha-slider
                         min="0"
-                        max="10"
-                        step="0.5"
-                        .value=${c.allergen_stroke_width || "1"}
-                        placeholder="1"
+                        max="100"
+                        step="1"
+                        .value=${c.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width}
                         @input=${(e) =>
                           this._updateConfig(
                             "allergen_stroke_width",
-                            parseFloat(e.target.value) || 1,
+                            Number(e.target.value),
+                          )}
+                        style="width: 120px;"
+                      ></ha-slider>
+                      <ha-textfield
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        .value=${c.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width}
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "allergen_stroke_width",
+                            Number(e.target.value) || LEVELS_DEFAULTS.allergen_stroke_width,
                           )}
                         style="width: 80px;"
                       ></ha-textfield>
+                      <ha-button
+                        outlined
+                        title="${this._t("allergen_stroke_width_reset") ||
+                        "Reset"}"
+                        @click=${() =>
+                          this._updateConfig(
+                            "allergen_stroke_width",
+                            LEVELS_DEFAULTS.allergen_stroke_width,
+                          )}
+                        style="margin-left: 8px;"
+                        >↺</ha-button
+                      >
                     </ha-formfield>
                   `
                 : ""}
@@ -1702,168 +1728,175 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </div>
               </ha-formfield>
-              <ha-formfield 
-                label="${this._t("levels_colors")}"
-                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
-              >
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  ${c.levels_colors.map(
-                    (col, i) => html`
-                      <div
-                        style="display: flex; align-items: center; gap: 8px;"
-                      >
-                        <input
-                          type="color"
-                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
-                            ? col
-                            : "#000000"}
-                          @input=${(e) => {
-                            const newColors = [...c.levels_colors];
-                            newColors[i] = e.target.value;
-                            this._updateConfig("levels_colors", newColors);
-                          }}
-                          style="width: 28px; height: 28px; border: none; background: none;"
-                        />
-                        <ha-textfield
-                          .value=${col}
-                          placeholder="${this._t("levels_colors_placeholder")}"
-                          @input=${(e) => {
-                            const newColors = [...c.levels_colors];
-                            newColors[i] = e.target.value;
-                            this._updateConfig("levels_colors", newColors);
-                          }}
-                          style="width: 100px;"
-                        ></ha-textfield>
-                        <ha-button
-                          outlined
-                          title="${this._t("levels_reset")}"
-                          @click=${() => {
-                            const newColors = [...c.levels_colors];
-                            newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
-                            this._updateConfig("levels_colors", newColors);
-                          }}
-                          style="margin-left: 8px;"
-                          >↺</ha-button
-                        >
-                      </div>
-                    `,
-                  )}
-                </div>
-              </ha-formfield>
 
-              <ha-formfield 
-                label="${this._t("levels_empty_color")}"
-                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
-              >
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <input
-                    type="color"
-                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                      c.levels_empty_color,
-                    )
-                      ? c.levels_empty_color
-                      : "#cccccc"}
-                    @input=${(e) =>
-                      this._updateConfig("levels_empty_color", e.target.value)}
-                    style="width: 28px; height: 28px; border: none; background: none;"
-                  />
-                  <ha-textfield
-                    .value=${c.levels_empty_color}
-                    placeholder="${this._t("levels_colors_placeholder")}"
-                    @input=${(e) =>
-                      this._updateConfig("levels_empty_color", e.target.value)}
-                    style="width: 100px;"
-                  ></ha-textfield>
-                  <ha-button
-                    outlined
-                    title="${this._t("levels_reset")}"
-                    @click=${() =>
-                      this._updateConfig(
-                        "levels_empty_color",
-                        LEVELS_DEFAULTS.levels_empty_color,
-                      )}
-                    style="margin-left: 8px;"
-                    >↺</ha-button
-                  >
-                </div>
-              </ha-formfield>
-
-              <ha-formfield 
-                label="${this._t("levels_gap_color")}"
-                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
-              >
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <input
-                    type="color"
-                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                      c.levels_gap_color,
-                    )
-                      ? c.levels_gap_color
-                      : "#ffffff"}
-                    @input=${(e) =>
-                      this._updateConfig("levels_gap_color", e.target.value)}
-                    style="width: 28px; height: 28px; border: none; background: none;"
-                  />
-                  <ha-textfield
-                    .value=${c.levels_gap_color}
-                    placeholder="${this._t("levels_colors_placeholder")}"
-                    @input=${(e) =>
-                      this._updateConfig("levels_gap_color", e.target.value)}
-                    style="width: 100px;"
-                  ></ha-textfield>
-                  <ha-button
-                    outlined
-                    title="${this._t("levels_reset")}"
-                    @click=${() =>
-                      this._updateConfig(
-                        "levels_gap_color",
-                        LEVELS_DEFAULTS.levels_gap_color,
-                      )}
-                    style="margin-left: 8px;"
-                    >↺</ha-button
-                  >
-                </div>
-              </ha-formfield>
-
-              <ha-formfield 
-                label="${this._t("levels_thickness")}"
-                style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}"
-              >
-                <ha-slider
-                  min="10"
-                  max="90"
-                  step="1"
-                  .value=${c.levels_thickness}
-                  @input=${(e) =>
-                    this._updateConfig(
-                      "levels_thickness",
-                      Number(e.target.value),
-                    )}
-                  style="width: 120px;"
-                ></ha-slider>
-                <ha-textfield
-                  type="number"
-                  .value=${c.levels_thickness}
-                  @input=${(e) =>
-                    this._updateConfig(
-                      "levels_thickness",
-                      Number(e.target.value),
-                    )}
-                  style="width: 80px;"
-                ></ha-textfield>
-                <ha-button
-                  outlined
-                  title="${this._t("levels_reset")}"
-                  @click=${() =>
-                    this._updateConfig(
-                      "levels_thickness",
-                      LEVELS_DEFAULTS.levels_thickness,
-                    )}
-                  style="margin-left: 8px;"
-                  >↺</ha-button
+              <!-- Colors Section - hidden when inheriting -->
+              <div style="${c.levels_inherit_mode === "custom" ? "" : "display: none;"}">
+                <ha-formfield 
+                  label="${this._t("levels_colors")}"
                 >
-              </ha-formfield>
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    ${c.levels_colors.map(
+                      (col, i) => html`
+                        <div
+                          style="display: flex; align-items: center; gap: 8px;"
+                        >
+                          <input
+                            type="color"
+                            .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
+                              ? col
+                              : "#000000"}
+                            @input=${(e) => {
+                              const newColors = [...c.levels_colors];
+                              newColors[i] = e.target.value;
+                              this._updateConfig("levels_colors", newColors);
+                            }}
+                            style="width: 28px; height: 28px; border: none; background: none;"
+                          />
+                          <ha-textfield
+                            .value=${col}
+                            placeholder="${this._t("levels_colors_placeholder")}"
+                            @input=${(e) => {
+                              const newColors = [...c.levels_colors];
+                              newColors[i] = e.target.value;
+                              this._updateConfig("levels_colors", newColors);
+                            }}
+                            style="width: 100px;"
+                          ></ha-textfield>
+                          <ha-button
+                            outlined
+                            title="${this._t("levels_reset")}"
+                            @click=${() => {
+                              const newColors = [...c.levels_colors];
+                              newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
+                              this._updateConfig("levels_colors", newColors);
+                            }}
+                            style="margin-left: 8px;"
+                            >↺</ha-button
+                          >
+                        </div>
+                      `,
+                    )}
+                  </div>
+                </ha-formfield>
 
+                <ha-formfield 
+                  label="${this._t("levels_empty_color")}"
+                >
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input
+                      type="color"
+                      .value=${(() => {
+                        const color = c.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
+                        // For rgba colors, show closest hex equivalent
+                        if (color.includes('rgba')) {
+                          return "#c8c8c8"; // Gray equivalent of rgba(200,200,200,0.15)
+                        }
+                        return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color) ? color : "#c8c8c8";
+                      })()}
+                      @input=${(e) =>
+                        this._updateConfig("levels_empty_color", e.target.value)}
+                      style="width: 28px; height: 28px; border: none; background: none;"
+                    />
+                    <ha-textfield
+                      .value=${c.levels_empty_color}
+                      placeholder="${this._t("levels_colors_placeholder")}"
+                      @input=${(e) =>
+                        this._updateConfig("levels_empty_color", e.target.value)}
+                      style="width: 100px;"
+                    ></ha-textfield>
+                    <ha-button
+                      outlined
+                      title="${this._t("levels_reset")}"
+                      @click=${() =>
+                        this._updateConfig(
+                          "levels_empty_color",
+                          LEVELS_DEFAULTS.levels_empty_color,
+                        )}
+                      style="margin-left: 8px;"
+                      >↺</ha-button
+                    >
+                  </div>
+                </ha-formfield>
+
+                <ha-formfield 
+                  label="${this._t("levels_gap_color")}"
+                >
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <input
+                      type="color"
+                      .value=${(() => {
+                        const color = c.levels_gap_color || LEVELS_DEFAULTS.levels_gap_color;
+                        // For rgba colors, show closest hex equivalent
+                        if (color.includes('rgba')) {
+                          return "#c8c8c8"; // Gray equivalent
+                        }
+                        return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color) ? color : "#c8c8c8";
+                      })()}
+                      @input=${(e) =>
+                        this._updateConfig("levels_gap_color", e.target.value)}
+                      style="width: 28px; height: 28px; border: none; background: none;"
+                    />
+                    <ha-textfield
+                      .value=${c.levels_gap_color}
+                      placeholder="${this._t("levels_colors_placeholder")}"
+                      @input=${(e) =>
+                        this._updateConfig("levels_gap_color", e.target.value)}
+                      style="width: 100px;"
+                    ></ha-textfield>
+                    <ha-button
+                      outlined
+                      title="${this._t("levels_reset")}"
+                      @click=${() =>
+                        this._updateConfig(
+                          "levels_gap_color",
+                          LEVELS_DEFAULTS.levels_gap_color,
+                        )}
+                      style="margin-left: 8px;"
+                      >↺</ha-button
+                    >
+                  </div>
+                </ha-formfield>
+
+                <ha-formfield 
+                  label="${this._t("levels_thickness")}"
+                >
+                  <ha-slider
+                    min="10"
+                    max="90"
+                    step="1"
+                    .value=${c.levels_thickness}
+                    @input=${(e) =>
+                      this._updateConfig(
+                        "levels_thickness",
+                        Number(e.target.value),
+                      )}
+                    style="width: 120px;"
+                  ></ha-slider>
+                  <ha-textfield
+                    type="number"
+                    .value=${c.levels_thickness}
+                    @input=${(e) =>
+                      this._updateConfig(
+                        "levels_thickness",
+                        Number(e.target.value),
+                      )}
+                    style="width: 80px;"
+                  ></ha-textfield>
+                  <ha-button
+                    outlined
+                    title="${this._t("levels_reset")}"
+                    @click=${() =>
+                      this._updateConfig(
+                        "levels_thickness",
+                        LEVELS_DEFAULTS.levels_thickness,
+                      )}
+                    style="margin-left: 8px;"
+                    >↺</ha-button
+                  >
+                </ha-formfield>
+              </div>
+
+              <!-- Non-linked settings - always visible -->
               <ha-formfield label="${this._t("levels_gap")}">
                 <ha-slider
                   min="0"

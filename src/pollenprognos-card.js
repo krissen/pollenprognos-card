@@ -1569,8 +1569,12 @@ class PollenPrognosCard extends LitElement {
     }
     const colors = rawColors;
     const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
-    const gapColor =
-      this.config.levels_gap_color ?? "var(--card-background-color)";
+    
+    // Use allergen outline color as gap color when inheriting, otherwise use custom gap color
+    const gapColor = this.config?.levels_inherit_mode !== "custom" 
+      ? (this.config.allergen_outline_color ?? LEVELS_DEFAULTS.levels_gap_color)
+      : (this.config.levels_gap_color ?? "var(--card-background-color)");
+      
     const thickness = this.config.levels_thickness ?? 60;
     const gap = this.config.levels_gap ?? 5;
     const iconSize = Number(this.config.icon_size) || 48;
