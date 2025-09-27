@@ -1550,11 +1550,8 @@ class PollenPrognosCardEditor extends LitElement {
                         style="display: flex; flex-direction: column; gap: 8px;"
                       >
                         ${(() => {
-                          // Create default allergen color array: [empty_color, ...levels_colors]
-                          const defaultAllergenColors = [
-                            c.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color,
-                            ...(c.levels_colors || LEVELS_DEFAULTS.levels_colors)
-                          ];
+                          // Use centralized default allergen colors from LEVELS_DEFAULTS
+                          const defaultAllergenColors = LEVELS_DEFAULTS.allergen_colors;
                           const allergenColors = c.allergen_colors || defaultAllergenColors;
                           
                           return allergenColors.map((col, i) => html`
@@ -1595,7 +1592,7 @@ class PollenPrognosCardEditor extends LitElement {
                                 title="${this._t("allergen_colors_reset") || "Reset"}"
                                 @click=${() => {
                                   const newColors = [...allergenColors];
-                                  newColors[i] = defaultAllergenColors[i];
+                                  newColors[i] = LEVELS_DEFAULTS.allergen_colors[i];
                                   this._updateConfig("allergen_colors", newColors);
                                 }}
                                 style="margin-left: 8px;"

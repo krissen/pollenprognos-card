@@ -572,24 +572,17 @@ class PollenPrognosCard extends LitElement {
    * @returns {string} Color hex string
    */
   _colorForLevel(level) {
-    // New logic: Allergen colors with proper level mapping
+    // Use custom allergen colors if set
     if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
-      // Use custom allergen colors
       const allergenColors = this.config.allergen_colors;
       const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
       return allergenColors[clampedLevel] || allergenColors[0];
     }
     
-    // Default: use default colors with proper level mapping
-    // Level 0 = empty color, Level 1+ = actual pollen colors
-    if (level === 0) {
-      return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
-    }
-    
-    const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
-    const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
-    const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
-    return colors[clampedIndex] || colors[0];
+    // Default: use default allergen colors (which includes empty color at index 0)
+    const defaultColors = LEVELS_DEFAULTS.allergen_colors;
+    const clampedLevel = Math.max(0, Math.min(level, defaultColors.length - 1));
+    return defaultColors[clampedLevel] || defaultColors[0];
   }
 
   /**
@@ -597,23 +590,19 @@ class PollenPrognosCard extends LitElement {
    * @param {number} level - The pollen level
    * @returns {string} Color hex string  
    */
+  /**
+   * Gets color for level circles (charts) - may inherit from allergen colors
+   * @param {number} level - The pollen level
+   * @returns {string} Color hex string  
+   */
   _levelColorForLevel(level) {
-    // If level circles inherit from allergen colors (new default)
+    // If level circles inherit from allergen colors (default)
     if (this.config?.levels_inherit_mode !== "custom") {
-      // Use allergen color system - BUT keep traditional level circle mapping
-      // Level 0 = empty color, Level 1+ = pollen colors starting from index 0
-      if (level === 0) {
-        return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
-      }
-      
-      // For level circles inheriting from allergen colors, use level-1 index
-      const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
-      const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
-      const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
-      return colors[clampedIndex] || colors[0];
+      // Use allergen color directly - same level mapping
+      return this._colorForLevel(level);
     }
     
-    // Use custom level colors with proper mapping
+    // Use custom level colors with traditional mapping
     // Level 0 uses empty color, Level 1+ uses pollen colors
     if (level === 0) {
       return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
