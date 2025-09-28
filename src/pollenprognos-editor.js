@@ -981,6 +981,37 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
+    // Handle sort changes - uncheck special sort options when sort is set to 'none'
+    if (prop === "sort" && value === "none") {
+      const newConfig = { ...this._config, sort: value };
+      
+      // Uncheck incompatible special sort options
+      if (this._config.integration === "kleenex" && this._config.sort_category_allergens_first) {
+        newConfig.sort_category_allergens_first = false;
+        delete this._userConfig.sort_category_allergens_first;
+      }
+      if (this._config.integration === "peu" && this._config.allergy_risk_top) {
+        newConfig.allergy_risk_top = false;
+        delete this._userConfig.allergy_risk_top;
+      }
+      if (this._config.integration === "silam" && this._config.index_top) {
+        newConfig.index_top = false;
+        delete this._userConfig.index_top;
+      }
+      
+      this._config = newConfig;
+      this._userConfig.sort = value;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     // Handle levels_inherit_mode changes - reset gap and sync when needed
     if (prop === "levels_inherit_mode") {
       if (value === "custom" && this._config.levels_inherit_mode !== "custom") {
@@ -1012,19 +1043,26 @@ class PollenPrognosCardEditor extends LitElement {
         value === "inherit_allergen" &&
         this._config.levels_inherit_mode === "custom"
       ) {
-        // Switching back to inherit - sync gap with current stroke width
+        // Switching back to inherit - sync gap with current stroke width and empty color
         const currentStrokeWidth =
           this._config.allergen_stroke_width ||
           LEVELS_DEFAULTS.allergen_stroke_width;
         const syncedGap = Math.round(currentStrokeWidth / 5);
+        
+        // Also sync empty color from allergen colors[0]
+        const currentAllergenColors = this._config.allergen_colors || LEVELS_DEFAULTS.allergen_colors;
+        const syncedEmptyColor = currentAllergenColors[0] || LEVELS_DEFAULTS.levels_empty_color;
+        
         const newConfig = {
           ...this._config,
           levels_inherit_mode: value,
           levels_gap: syncedGap,
+          levels_empty_color: syncedEmptyColor,
         };
         this._config = newConfig;
         this._userConfig.levels_inherit_mode = value;
         this._userConfig.levels_gap = syncedGap;
+        this._userConfig.levels_empty_color = syncedEmptyColor;
 
         this.dispatchEvent(
           new CustomEvent("config-changed", {
@@ -1035,6 +1073,80 @@ class PollenPrognosCardEditor extends LitElement {
         );
         return;
       }
+    }
+
+    // Handle allergen colors changes - sync with levels empty color if inheriting
+    if (prop === "allergen_colors" && Array.isArray(value)) {
+      const newConfig = { ...this._config, allergen_colors: value };
+      this._userConfig.allergen_colors = value;
+      
+      // Sync level 0 (empty) color with levels_empty_color if levels inherit from allergen
+      if ((this._config.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
+        // allergen_colors[0] is the empty/level 0 color
+        if (value[0]) {
+          newConfig.levels_empty_color = value[0];
+          this._userConfig.levels_empty_color = value[0];
+        }
+      }
+      
+      this._config = newConfig;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
+    // Handle allergen stroke width reset - sync with levels gap if inheriting
+    if (prop === "allergen_stroke_width" && value === LEVELS_DEFAULTS.allergen_stroke_width) {
+      const newConfig = { ...this._config, allergen_stroke_width: value };
+      this._userConfig.allergen_stroke_width = value;
+      
+      // Sync with level circle gap only if levels inherit from allergen
+      if ((this._config.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
+        const levelGap = Math.round(value / 30);
+        newConfig.levels_gap = levelGap;
+        this._userConfig.levels_gap = levelGap;
+      }
+      
+      this._config = newConfig;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
+    // Handle level settings resets - ensure chart sync for visual properties
+    if (
+      (prop === "levels_thickness" || 
+       prop === "levels_gap" || 
+       prop === "levels_colors" || 
+       prop === "levels_empty_color" || 
+       prop === "levels_gap_color") &&
+      value === LEVELS_DEFAULTS[prop]
+    ) {
+      // For level visual properties, create a config change event to ensure chart re-rendering
+      const newConfig = { ...this._config, [prop]: value };
+      this._config = newConfig;
+      this._userConfig[prop] = value;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
     }
 
     // Handle allergen color mode changes - reset colors when switching to default
