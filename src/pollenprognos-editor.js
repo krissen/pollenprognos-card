@@ -1068,6 +1068,30 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
 
+    // Handle allergen stroke width reset - sync with levels gap if inheriting
+    if (prop === "allergen_stroke_width" && value === LEVELS_DEFAULTS.allergen_stroke_width) {
+      const newConfig = { ...this._config, allergen_stroke_width: value };
+      this._userConfig.allergen_stroke_width = value;
+      
+      // Sync with level circle gap only if levels inherit from allergen
+      if ((this._config.levels_inherit_mode || "inherit_allergen") === "inherit_allergen") {
+        const levelGap = Math.round(value / 30);
+        newConfig.levels_gap = levelGap;
+        this._userConfig.levels_gap = levelGap;
+      }
+      
+      this._config = newConfig;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     // Handle level settings resets - ensure chart sync for visual properties
     if (
       (prop === "levels_thickness" || 
