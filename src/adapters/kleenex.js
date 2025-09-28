@@ -606,7 +606,22 @@ export async function fetchForecast(hass, config) {
     });
   }
   
-  for (const [allergenKey, allergenInfo] of allergenData) {
+  // Build sensors array in the correct order
+  const allergenKeys = config.sort === "none" 
+    ? config.allergens.filter(allergen => allergenData.has(allergen))
+    : Array.from(allergenData.keys());
+    
+  if (debug) {
+    console.debug(
+      `[Kleenex] Building sensors array ${config.sort === "none" ? "in config order" : "in discovery order"}:`,
+      allergenKeys
+    );
+  }
+    
+  for (const allergenKey of allergenKeys) {
+    const allergenInfo = allergenData.get(allergenKey);
+    if (!allergenInfo) continue;
+    
     try {
       const dict = {};
       dict.allergenReplaced = allergenKey;
@@ -788,47 +803,53 @@ export async function fetchForecast(hass, config) {
   }
 
   // Sort sensors - implement two-tiered sorting for kleenex when sort_category_allergens_first is true
-  const sortFunction =
-    {
-      value_ascending: (a, b) => a.day0.state - b.day0.state,
-      value_descending: (a, b) => b.day0.state - a.day0.state,
-      name_ascending: (a, b) =>
-        a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-      name_descending: (a, b) =>
-        b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-    }[config.sort] || ((a, b) => b.day0.state - a.day0.state);
+  if (config.sort !== "none") {
+    const sortFunction =
+      {
+        value_ascending: (a, b) => a.day0.state - b.day0.state,
+        value_descending: (a, b) => b.day0.state - a.day0.state,
+        name_ascending: (a, b) =>
+          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
+        name_descending: (a, b) =>
+          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+      }[config.sort] || ((a, b) => b.day0.state - a.day0.state);
 
-  if (config.sort_category_allergens_first) {
-    // Two-tiered sorting: category allergens first, then individual allergens
-    const categoryAllergens = sensors.filter((s) =>
-      ["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
-    );
-    const individualAllergens = sensors.filter(
-      (s) =>
-        !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
-    );
-
-    // Sort each group separately
-    categoryAllergens.sort(sortFunction);
-    individualAllergens.sort(sortFunction);
-
-    // Combine with categories first
-    sensors = [...categoryAllergens, ...individualAllergens];
-
-    if (debug) {
-      console.debug(
-        `[Kleenex] Two-tiered sorting: ${categoryAllergens.length} category + ${individualAllergens.length} individual allergens`,
+    if (config.sort_category_allergens_first) {
+      // Two-tiered sorting: category allergens first, then individual allergens
+      const categoryAllergens = sensors.filter((s) =>
+        ["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
-    }
-  } else {
-    // Standard sorting: all allergens together
-    sensors.sort(sortFunction);
-
-    if (debug) {
-      console.debug(
-        `[Kleenex] Standard sorting: ${sensors.length} allergens sorted together`,
+      const individualAllergens = sensors.filter(
+        (s) =>
+          !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
+
+      // Sort each group separately
+      categoryAllergens.sort(sortFunction);
+      individualAllergens.sort(sortFunction);
+
+      // Combine with categories first
+      sensors = [...categoryAllergens, ...individualAllergens];
+
+      if (debug) {
+        console.debug(
+          `[Kleenex] Two-tiered sorting: ${categoryAllergens.length} category + ${individualAllergens.length} individual allergens`,
+        );
+      }
+    } else {
+      // Standard sorting: all allergens together
+      sensors.sort(sortFunction);
+
+      if (debug) {
+        console.debug(
+          `[Kleenex] Standard sorting: ${sensors.length} allergens sorted together`,
+        );
+      }
     }
+  } else if (debug) {
+    console.debug(
+      `[Kleenex] No sorting applied: ${sensors.length} allergens kept in config order`,
+    );
   }
 
   if (debug) {

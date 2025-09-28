@@ -278,16 +278,18 @@ export async function fetchForecast(hass, config) {
   }
 
   // Sorting
-  sensors.sort(
-    {
-      value_ascending: (a, b) => a.day0.state - b.day0.state,
-      value_descending: (a, b) => b.day0.state - a.day0.state,
-      name_ascending: (a, b) =>
-        a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-      name_descending: (a, b) =>
-        b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-    }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
-  );
+  if (config.sort !== "none") {
+    sensors.sort(
+      {
+        value_ascending: (a, b) => a.day0.state - b.day0.state,
+        value_descending: (a, b) => b.day0.state - a.day0.state,
+        name_ascending: (a, b) =>
+          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
+        name_descending: (a, b) =>
+          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+      }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
+    );
+  }
 
   if (debug) console.debug("PP.fetchForecast — done", sensors);
   return sensors;

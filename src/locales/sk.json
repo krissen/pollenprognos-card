@@ -222,6 +222,7 @@
   "editor.sort_category_allergens_first": "Zoradiť kategórie alergénov navrch",
   "editor.sort_name_ascending": "názov, vzostupne",
   "editor.sort_name_descending": "názov, zostupne",
+  "editor.sort_none": "žiadne (poradie konfigurácie)",
   "editor.sort_value_ascending": "hodnota, vzostupne",
   "editor.sort_value_descending": "hodnota, zostupne",
   "editor.summary_advanced": "Pokročilé",

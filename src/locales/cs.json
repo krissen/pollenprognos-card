@@ -222,6 +222,7 @@
   "editor.sort_category_allergens_first": "Seřadit kategorie alergenů nahoře",
   "editor.sort_name_ascending": "název, vzestupně",
   "editor.sort_name_descending": "název, sestupně",
+  "editor.sort_none": "žádné (pořadí konfigurace)",
   "editor.sort_value_ascending": "hodnota, vzestupně",
   "editor.sort_value_descending": "hodnota, sestupně",
   "editor.summary_advanced": "Pokročilé",

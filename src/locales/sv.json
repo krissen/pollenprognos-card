@@ -222,6 +222,7 @@
   "editor.sort_category_allergens_first": "Sortera kategoriallergener överst",
   "editor.sort_name_ascending": "namn, stigande",
   "editor.sort_name_descending": "namn, fallande",
+  "editor.sort_none": "ingen (konfigurationsordning)",
   "editor.sort_value_ascending": "värde, stigande",
   "editor.sort_value_descending": "värde, fallande",
   "editor.summary_advanced": "Avancerat",

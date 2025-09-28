@@ -222,6 +222,7 @@
   "editor.sort_category_allergens_first": "Lajittele allergeeni-kategoriat ylimmäksi",
   "editor.sort_name_ascending": "nimi, nouseva",
   "editor.sort_name_descending": "nimi, laskeva",
+  "editor.sort_none": "ei mitään (määritysjärjestys)",
   "editor.sort_value_ascending": "arvo, nouseva",
   "editor.sort_value_descending": "arvo, laskeva",
   "editor.summary_advanced": "Lisäasetukset",

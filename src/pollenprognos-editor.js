@@ -1227,6 +1227,7 @@ class PollenPrognosCardEditor extends LitElement {
       "value_descending",
       "name_ascending",
       "name_descending",
+      "none",
     ];
 
     const sortOptions = SORT_VALUES.map((opt) => ({

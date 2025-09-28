@@ -222,6 +222,7 @@
   "editor.sort_category_allergens_first": "Сортировать аллергены категорий сверху",
   "editor.sort_name_ascending": "имя, по возрастанию",
   "editor.sort_name_descending": "имя, по убыванию",
+  "editor.sort_none": "нет (порядок конфигурации)",
   "editor.sort_value_ascending": "значение, по возрастанию",
   "editor.sort_value_descending": "значение, по убыванию",
   "editor.summary_advanced": "Дополнительно",
