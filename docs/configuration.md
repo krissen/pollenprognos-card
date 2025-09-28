@@ -49,7 +49,7 @@ Additional documentation:
 | `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). |
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
-| `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. |
+| `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. Available options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`, `none`. |
 | `sort_category_allergens_first` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
 | `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
@@ -63,6 +63,20 @@ Additional documentation:
 | `phrases.levels` | `array<string>` | *(integration default)* | Custom names for pollen levels 0–6. |
 | `phrases.days` | `object` | `{}` | Custom labels for day offsets. |
 | `phrases.no_information` | `string` | `(Ingen information)` | Text shown when no data is available. |
+
+## Sorting options
+
+The `sort` option controls how allergens are ordered in the card display:
+
+| Option | Description |
+|--------|-------------|
+| `value_ascending` | Sort by pollen level, lowest values first |
+| `value_descending` | Sort by pollen level, highest values first |
+| `name_ascending` | Sort alphabetically by allergen name, A-Z |
+| `name_descending` | Sort alphabetically by allergen name, Z-A |
+| `none` | Keep allergens in the order specified in the `allergens` configuration |
+
+When using `sort: none`, allergens will appear in exactly the same order as listed in your `allergens` array, allowing for custom ordering based on your preferences.
 
 ## Valid allergen keys
 
@@ -226,4 +240,16 @@ phrases:
   short:
     Malörtsambrosia: Ambrs
     Sälg och viden: Sälg
+```
+
+**Custom allergen order**
+
+```yaml
+type: custom:pollenprognos-card
+allergens:
+  - Birch      # Will appear first
+  - Grass      # Will appear second
+  - Hazel      # Will appear third
+  - Oak        # Will appear fourth
+sort: none     # Preserves the exact order above
 ```

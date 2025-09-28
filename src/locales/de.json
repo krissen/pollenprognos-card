@@ -198,6 +198,7 @@
   "editor.sort_category_allergens_first": "Kategorienallergene oben sortieren",
   "editor.sort_name_ascending": "Name, aufsteigend",
   "editor.sort_name_descending": "Name, absteigend",
+  "editor.sort_none": "keine (Konfigurationsreihenfolge)",
   "editor.sort_value_ascending": "Wert, aufsteigend",
   "editor.sort_value_descending": "Wert, absteigend",
   "editor.summary_advanced": "Erweitert",
