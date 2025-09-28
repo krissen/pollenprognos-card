@@ -981,6 +981,37 @@ class PollenPrognosCardEditor extends LitElement {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
+    // Handle sort changes - uncheck special sort options when sort is set to 'none'
+    if (prop === "sort" && value === "none") {
+      const newConfig = { ...this._config, sort: value };
+      
+      // Uncheck incompatible special sort options
+      if (this._config.integration === "kleenex" && this._config.sort_category_allergens_first) {
+        newConfig.sort_category_allergens_first = false;
+        delete this._userConfig.sort_category_allergens_first;
+      }
+      if (this._config.integration === "peu" && this._config.allergy_risk_top) {
+        newConfig.allergy_risk_top = false;
+        delete this._userConfig.allergy_risk_top;
+      }
+      if (this._config.integration === "silam" && this._config.index_top) {
+        newConfig.index_top = false;
+        delete this._userConfig.index_top;
+      }
+      
+      this._config = newConfig;
+      this._userConfig.sort = value;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     // Handle levels_inherit_mode changes - reset gap and sync when needed
     if (prop === "levels_inherit_mode") {
       if (value === "custom" && this._config.levels_inherit_mode !== "custom") {
@@ -1035,6 +1066,30 @@ class PollenPrognosCardEditor extends LitElement {
         );
         return;
       }
+    }
+
+    // Handle level settings resets - ensure chart sync for visual properties
+    if (
+      (prop === "levels_thickness" || 
+       prop === "levels_gap" || 
+       prop === "levels_colors" || 
+       prop === "levels_empty_color" || 
+       prop === "levels_gap_color") &&
+      value === LEVELS_DEFAULTS[prop]
+    ) {
+      // For level visual properties, create a config change event to ensure chart re-rendering
+      const newConfig = { ...this._config, [prop]: value };
+      this._config = newConfig;
+      this._userConfig[prop] = value;
+      
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: newConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
     }
 
     // Handle allergen color mode changes - reset colors when switching to default
