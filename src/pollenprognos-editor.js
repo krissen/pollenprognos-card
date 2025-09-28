@@ -1828,7 +1828,7 @@ class PollenPrognosCardEditor extends LitElement {
             >
               <ha-slider
                 min="0"
-                max="100"
+                max="150"
                 step="5"
                 .value=${c.allergen_stroke_width ||
                 LEVELS_DEFAULTS.allergen_stroke_width}
@@ -1840,7 +1840,7 @@ class PollenPrognosCardEditor extends LitElement {
                     (c.levels_inherit_mode || "inherit_allergen") ===
                     "inherit_allergen"
                   ) {
-                    const levelGap = Math.round(value / 10);
+                    const levelGap = Math.round(value / 30);
                     this._updateConfig("levels_gap", levelGap);
                   }
                 }}
@@ -1849,7 +1849,7 @@ class PollenPrognosCardEditor extends LitElement {
               <ha-textfield
                 type="number"
                 min="0"
-                max="100"
+                max="150"
                 step="5"
                 .value=${c.allergen_stroke_width ||
                 LEVELS_DEFAULTS.allergen_stroke_width}
@@ -1863,7 +1863,7 @@ class PollenPrognosCardEditor extends LitElement {
                     (c.levels_inherit_mode || "inherit_allergen") ===
                     "inherit_allergen"
                   ) {
-                    const levelGap = Math.round(value / 10);
+                    const levelGap = Math.round(value / 30);
                     this._updateConfig("levels_gap", levelGap);
                   }
                 }}
