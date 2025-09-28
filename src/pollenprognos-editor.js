@@ -4,7 +4,10 @@ import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
 import { slugify } from "./utils/slugify.js";
 import { deepEqual } from "./utils/confcompare.js";
-import { LEVELS_DEFAULTS, convertStrokeWidthToGap } from "./utils/levels-defaults.js";
+import {
+  LEVELS_DEFAULTS,
+  convertStrokeWidthToGap,
+} from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
@@ -2214,36 +2217,61 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-formfield>
               </div>
 
-              <!-- Non-linked settings - always visible -->
-              <ha-formfield label="${this._t("levels_gap")}">
-                <ha-slider
-                  min="0"
-                  max="20"
-                  step="1"
-                  .value=${c.levels_gap}
-                  @input=${(e) =>
-                    this._updateConfig("levels_gap", Number(e.target.value))}
-                  style="width: 120px;"
-                ></ha-slider>
-                <ha-textfield
-                  type="number"
-                  .value=${c.levels_gap}
-                  @input=${(e) =>
-                    this._updateConfig("levels_gap", Number(e.target.value))}
-                  style="width: 80px;"
-                ></ha-textfield>
-                <ha-button
-                  outlined
-                  title="${this._t("levels_reset")}"
-                  @click=${() =>
-                    this._updateConfig(
-                      "levels_gap",
-                      LEVELS_DEFAULTS.levels_gap,
-                    )}
-                  style="margin-left: 8px;"
-                  >↺</ha-button
-                >
-              </ha-formfield>
+              <!-- Gap control - conditional on inheritance mode -->
+              ${(c.levels_inherit_mode || "inherit_allergen") === "custom"
+                ? html`
+                    <ha-formfield label="${this._t("levels_gap")}">
+                      <ha-slider
+                        min="0"
+                        max="20"
+                        step="1"
+                        .value=${c.levels_gap}
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "levels_gap",
+                            Number(e.target.value),
+                          )}
+                        style="width: 120px;"
+                      ></ha-slider>
+                      <ha-textfield
+                        type="number"
+                        .value=${c.levels_gap}
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "levels_gap",
+                            Number(e.target.value),
+                          )}
+                        style="width: 80px;"
+                      ></ha-textfield>
+                      <ha-button
+                        outlined
+                        title="${this._t("levels_reset")}"
+                        @click=${() =>
+                          this._updateConfig(
+                            "levels_gap",
+                            LEVELS_DEFAULTS.levels_gap,
+                          )}
+                        style="margin-left: 8px;"
+                        >↺</ha-button
+                      >
+                    </ha-formfield>
+                  `
+                : html`
+                    <ha-formfield label="${this._t("levels_gap_inherited")}">
+                      <div
+                        style="display: flex; align-items: center; gap: 8px; width: 120px; height: 30px;"
+                      >
+                        <span
+                          style="color: var(--secondary-text-color); font-size: 14px; min-width: 30px"
+                        >
+                          ${convertStrokeWidthToGap(
+                            c.allergen_stroke_width ||
+                              LEVELS_DEFAULTS.allergen_stroke_width,
+                          )}px
+                        </span>
+                      </div>
+                    </ha-formfield>
+                  `}
 
               <ha-formfield label="${this._t("levels_text_weight")}">
                 <ha-select
