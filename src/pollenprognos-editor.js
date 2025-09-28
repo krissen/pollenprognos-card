@@ -2249,8 +2249,13 @@ class PollenPrognosCardEditor extends LitElement {
                   `
                 : html`
                     <ha-formfield label="${this._t("levels_gap_inherited")}">
-                      <div style="padding: 8px 0; color: var(--secondary-text-color); font-style: italic;">
-                        ${this._t("levels_inherit_allergen")}
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: var(--secondary-text-color); font-size: 14px; min-width: 30px;">
+                          ${convertStrokeWidthToGap(c.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width)}px
+                        </span>
+                        <span style="color: var(--secondary-text-color); font-style: italic; font-size: 13px;">
+                          ${this._t("levels_inherit_allergen")}
+                        </span>
                       </div>
                     </ha-formfield>
                   `}
