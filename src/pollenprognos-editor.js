@@ -4,7 +4,7 @@ import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
 import { normalize } from "./utils/normalize.js";
 import { slugify } from "./utils/slugify.js";
 import { deepEqual } from "./utils/confcompare.js";
-import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
+import { LEVELS_DEFAULTS, convertStrokeWidthToGap } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Stub-config från adaptrar (så att editorn vet vilka fält som finns)
@@ -1122,7 +1122,7 @@ class PollenPrognosCardEditor extends LitElement {
         (this._config.levels_inherit_mode || "inherit_allergen") ===
         "inherit_allergen"
       ) {
-        const levelGap = Math.round(value / 30);
+        const levelGap = convertStrokeWidthToGap(value);
         newConfig.levels_gap = levelGap;
         this._userConfig.levels_gap = levelGap;
       }
@@ -1966,7 +1966,7 @@ class PollenPrognosCardEditor extends LitElement {
                     (c.levels_inherit_mode || "inherit_allergen") ===
                     "inherit_allergen"
                   ) {
-                    const levelGap = Math.round(value / 30);
+                    const levelGap = convertStrokeWidthToGap(value);
                     this._updateConfig("levels_gap", levelGap);
                   }
                 }}
@@ -1989,7 +1989,7 @@ class PollenPrognosCardEditor extends LitElement {
                     (c.levels_inherit_mode || "inherit_allergen") ===
                     "inherit_allergen"
                   ) {
-                    const levelGap = Math.round(value / 30);
+                    const levelGap = convertStrokeWidthToGap(value);
                     this._updateConfig("levels_gap", levelGap);
                   }
                 }}

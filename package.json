@@ -13,13 +13,13 @@
   },
   "devDependencies": {
     "@vitejs/plugin-legacy": "^6.1.1",
+    "esbuild": "^0.25.10",
+    "rollup": "^4.52.3",
     "vite": "^6.3.5"
   },
   "dependencies": {
     "chart.js": "^4.5.0",
-    "esbuild": "^0.25.10",
     "intl-messageformat": "^10.7.16",
-    "lit": "^2.8.0",
-    "rollup": "^4.52.3"
+    "lit": "^2.8.0"
   }
 }
