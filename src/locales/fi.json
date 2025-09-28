@@ -106,7 +106,7 @@
   "editor.levels_header": "Tason ympyrän ulkoasu",
   "editor.levels_icon_ratio": "Taso-ikoni suhde",
   "editor.levels_inherit_allergen": "Peri allergeenin värit",
-  "editor.levels_inherit_header": "Taso ympyröiden periytyminen",
+  "editor.levels_inherit_header": "Tason ympyröiden periytyminen",
   "editor.levels_inherit_mode": "Tason ympyrän väritila",
   "editor.levels_reset": "Palauta oletusarvoon",
   "editor.levels_text_color": "Tekstin väri (sisäympyrä)",
