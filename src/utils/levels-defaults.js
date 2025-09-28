@@ -35,3 +35,17 @@ export const LEVELS_DEFAULTS = {
   // Default color for no allergens icon
   no_allergens_color: "#a9cfe0",
 };
+
+// Conversion factor for stroke width to gap conversion
+// This converts allergen stroke width (in pixels) to level gap units
+// The divisor of 30 provides appropriate scaling for the UI components
+export const STROKE_WIDTH_TO_GAP_RATIO = 30;
+
+/**
+ * Converts stroke width to appropriate gap value for level circles
+ * @param {number} strokeWidth - The stroke width in pixels
+ * @returns {number} The calculated gap value
+ */
+export function convertStrokeWidthToGap(strokeWidth) {
+  return Math.round(strokeWidth / STROKE_WIDTH_TO_GAP_RATIO);
+}
