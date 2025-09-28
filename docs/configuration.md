@@ -8,60 +8,25 @@ Additional documentation:
 - [Localization and custom phrases](localization.md)
 - [Related projects](related-projects.md)
 
-## Color System Overview
+In this file:
 
-The card provides advanced color management with two interconnected systems:
-
-### Allergen Icon Colors
-
-- **Default Colors Mode** (`allergen_color_mode: default_colors`): Uses the built-in color palette that matches the level circle colors
-- **Custom Colors Mode** (`allergen_color_mode: custom`): Allows setting individual colors for each pollen level (0-6)
-- **Level 0**: Always represents "no pollen" and uses a light gray color
-- **Levels 1-6**: Represent increasing pollen intensity with progressively more intense colors
-
-### Level Circle Colors
-
-The level circles can either inherit colors from the allergen system or use independent settings:
-
-- **Inherit from Allergen** (`levels_inherit_mode: inherit_allergen`, default): 
-  - Circle segments use the same colors as allergen icons for each level
-  - Gap color automatically matches `allergen_outline_color` for visual consistency
-  - Circle segment colors sync perfectly with allergen icon colors
-- **Custom Level Colors** (`levels_inherit_mode: custom`):
-  - Uses independent `levels_colors`, `levels_empty_color`, and `levels_gap_color` settings
-  - Operates completely separately from allergen color settings
-
-### SVG Icon Styling
-
-- **Outline Color** (`allergen_outline_color`): Controls the stroke color around SVG icons
-- **Stroke Width** (`allergen_stroke_width`): Controls outline thickness (0-100, step 5, where 0 = no outline)
-- **No Allergens Color** (`no_allergens_color`): Independent color for the "no allergens" icon, separate from level-based colors
-- SVG icons scale smoothly and support dynamic coloring via CSS
-
-### Color Relationships
-
-When using the default inheritance mode:
-- Allergen level 1 → Circle segment 1 → Same color
-- Allergen outline color → Circle gap color → Same color  
-- Allergen stroke width → Circle gap width → Synchronized (gap = strokeWidth/5, rounded)
-- Single source of truth prevents color mismatches
-
-### Synchronization Behavior
-
-**Inherit Mode** (`levels_inherit_mode: inherit_allergen`):
-- Level circle colors automatically match allergen icon colors
-- Circle gap color automatically matches allergen outline color
-- Circle gap width automatically syncs with allergen stroke width
-- Changes to allergen settings immediately update level circles
-
-**Custom Mode** (`levels_inherit_mode: custom`):
-- Level circles use independent color and gap settings
-- No synchronization with allergen settings
-- Full control over each property individually
-
-**Special Cases**:
-- **No Allergens Icon**: Always uses `no_allergens_color`, independent of level-based color systems
-- **Mode Switching**: When switching from custom to default, colors automatically reset to defaults
+- [Options](#options)
+- [Sorting options](#sorting-options)
+- [Valid allergen keys](#valid-allergen-keys)
+  - [Pollenprognos (PP)](#pollenprognos-pp)
+  - [DWD Pollenflug](#dwd-pollenflug)
+  - [Polleninformation EU (PEU)](#polleninformation-eu-peu)
+  - [SILAM Pollen Allergy Sensor](#silam-pollen-allergy-sensor)
+    - [SILAM threshold values](#silam-threshold-values)
+  - [Kleenex Pollen Radar](#kleenex-pollen-radar)
+    - [Category vs Individual Allergens](#category-vs-individual-allergens)
+- [Color System Overview](#color-system-overview)
+  - [Allergen Icon Colors](#allergen-icon-colors)
+  - [Level Circle Colors](#level-circle-colors)
+  - [SVG Icon Styling](#svg-icon-styling)
+  - [Color Relationships](#color-relationships)
+  - [Synchronization Behavior](#synchronization-behavior)
+- [Example snippets](#example-snippets)
 
 ## Options
 
@@ -256,6 +221,65 @@ The Kleenex integration supports two types of allergens:
 In the card editor, you can control whether category allergens (`*_cat`) are sorted at the top of the list using the "Sort category allergens first" checkbox (enabled by default). When enabled, category allergens appear at the top of the allergen list, with individual allergens listed below in alphabetical order. When disabled, category allergens are sorted like any other.
 
 **Note:** You can create separate cards if you want to display category and individual allergens separately - one card showing only categories and another showing only specific allergens.
+
+## Color System Overview
+
+The card provides advanced color management with two interconnected systems:
+
+### Allergen Icon Colors
+
+- **Default Colors Mode** (`allergen_color_mode: default_colors`): Uses the built-in color palette that matches the level circle colors
+- **Custom Colors Mode** (`allergen_color_mode: custom`): Allows setting individual colors for each pollen level (0-6)
+- **Level 0**: Always represents "no pollen" and uses a light gray color
+- **Levels 1-6**: Represent increasing pollen intensity with progressively more intense colors
+
+### Level Circle Colors
+
+The level circles can either inherit colors from the allergen system or use independent settings:
+
+- **Inherit from Allergen** (`levels_inherit_mode: inherit_allergen`, default):
+  - Circle segments use the same colors as allergen icons for each level
+  - Gap color automatically matches `allergen_outline_color` for visual consistency
+  - Circle segment colors sync perfectly with allergen icon colors
+- **Custom Level Colors** (`levels_inherit_mode: custom`):
+  - Uses independent `levels_colors`, `levels_empty_color`, and `levels_gap_color` settings
+  - Operates completely separately from allergen color settings
+
+### SVG Icon Styling
+
+- **Outline Color** (`allergen_outline_color`): Controls the stroke color around SVG icons
+- **Stroke Width** (`allergen_stroke_width`): Controls outline thickness (0-100, step 5, where 0 = no outline)
+- **No Allergens Color** (`no_allergens_color`): Independent color for the "no allergens" icon, separate from level-based colors
+- SVG icons scale smoothly and support dynamic coloring via CSS
+
+### Color Relationships
+
+When using the default inheritance mode:
+
+- Allergen level 1 → Circle segment 1 → Same color
+- Allergen outline color → Circle gap color → Same color  
+- Allergen stroke width → Circle gap width → Synchronized (gap = strokeWidth/5, rounded)
+- Single source of truth prevents color mismatches
+
+### Synchronization Behavior
+
+**Inherit Mode** (`levels_inherit_mode: inherit_allergen`):
+
+- Level circle colors automatically match allergen icon colors
+- Circle gap color automatically matches allergen outline color
+- Circle gap width automatically syncs with allergen stroke width
+- Changes to allergen settings immediately update level circles
+
+**Custom Mode** (`levels_inherit_mode: custom`):
+
+- Level circles use independent color and gap settings
+- No synchronization with allergen settings
+- Full control over each property individually
+
+**Special Cases**:
+
+- **No Allergens Icon**: Always uses `no_allergens_color`, independent of level-based color systems
+- **Mode Switching**: When switching from custom to default, colors automatically reset to defaults
 
 ## Example snippets
 
