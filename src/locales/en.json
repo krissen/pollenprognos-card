@@ -195,6 +195,7 @@
   "editor.sort": "Sort order",
   "editor.sort_name_ascending": "name, ascending",
   "editor.sort_name_descending": "name, descending",
+  "editor.sort_none": "none (config order)",
   "editor.sort_value_ascending": "value, ascending",
   "editor.sort_value_descending": "value, descending",
   "editor.summary_advanced": "Advanced",
