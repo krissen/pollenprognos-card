@@ -606,7 +606,22 @@ export async function fetchForecast(hass, config) {
     });
   }
   
-  for (const [allergenKey, allergenInfo] of allergenData) {
+  // Build sensors array in the correct order
+  const allergenKeys = config.sort === "none" 
+    ? config.allergens.filter(allergen => allergenData.has(allergen))
+    : Array.from(allergenData.keys());
+    
+  if (debug) {
+    console.debug(
+      `[Kleenex] Building sensors array ${config.sort === "none" ? "in config order" : "in discovery order"}:`,
+      allergenKeys
+    );
+  }
+    
+  for (const allergenKey of allergenKeys) {
+    const allergenInfo = allergenData.get(allergenKey);
+    if (!allergenInfo) continue;
+    
     try {
       const dict = {};
       dict.allergenReplaced = allergenKey;
