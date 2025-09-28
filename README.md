@@ -43,11 +43,14 @@ Install one of the supported integrations above. The card auto-detects which ada
 
 ## Features
 
-- **SVG Icons**: All allergen icons are rendered as scalable SVG graphics with dynamic coloring
-- **Customizable Icon Colors**: Override icon colors with custom colors for each pollen level (0-6) via the visual editor
-- **Performance Optimized**: Lightweight SVG system reduces bundle size by ~86% compared to embedded PNG images
-- **Responsive Design**: Icons scale smoothly with CSS custom properties and maintain crisp quality at any size
-- **Multiple Display Modes**: Supports both minimal and normal view modes
+- **Multi-Integration Support**: Works with 5 different pollen data sources (Pollenprognos, DWD Pollenflug, Polleninformation EU, SILAM, Kleenex Pollen Radar)
+- **Auto-Detection**: Automatically detects which integration to use based on your available sensors
+- **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
+- **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics
+- **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts
+- **Full Localization**: Dynamic language support with 12+ translations following Home Assistant's language setting
+- **Extensive Customization**: Configure colors, layouts, text size, sorting, and display options through the visual editor
+- **HACS Integration**: Official HACS repository with automatic updates and easy installation
 
 ## Installation
 
