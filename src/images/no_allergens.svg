@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 200" aria-hidden="true">
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Övre swirl (uppåt) -->
+    <path d="
+      M 24 64
+      H 110
+      C 132 64, 150 54, 150 40
+      C 150 28, 139 20, 126 20
+      C 112 20, 104 30, 108 42
+    " />
+
+    <!-- Mitten swirl (nedåt, längre till höger) -->
+    <path d="
+      M 24 100
+      H 168
+      C 194 100, 208 116, 208 134
+      C 208 152, 192 164, 174 164
+      C 154 164, 142 148, 148 130
+    " />
+
+    <!-- Nedre swirl (nedåt) -->
+    <path d="
+      M 24 136
+      H 92
+      C 112 136, 124 146, 124 158
+      C 124 168, 116 176, 106 176
+      C 96 176, 90 168, 92 158
+    " />
+  </g>
+</svg>
