@@ -16,4 +16,36 @@ export const LEVELS_DEFAULTS = {
   levels_text_size: 0.2,
   levels_icon_ratio: 1,
   levels_text_color: "var(--primary-text-color)",
+  
+  // Default allergen colors: [empty_color, ...levels_colors]
+  // This ensures both allergen icons and level circles use the same color mapping
+  allergen_colors: [
+    "rgba(200, 200, 200, 0.15)", // Level 0 (empty)
+    "#FFE55A", // Level 1
+    "#FFC84E", // Level 2
+    "#FFA53F", // Level 3
+    "#FF6E33", // Level 4
+    "#FF6140", // Level 5
+    "#FF001C", // Level 6
+  ],
+  
+  // Default allergen stroke width - changed from old default to 15
+  allergen_stroke_width: 15,
+  
+  // Default color for no allergens icon
+  no_allergens_color: "#a9cfe0",
 };
+
+// Conversion factor for stroke width to gap conversion
+// This converts allergen stroke width (in pixels) to level gap units
+// The divisor of 30 provides appropriate scaling for the UI components
+export const STROKE_WIDTH_TO_GAP_RATIO = 30;
+
+/**
+ * Converts stroke width to appropriate gap value for level circles
+ * @param {number} strokeWidth - The stroke width in pixels
+ * @returns {number} The calculated gap value
+ */
+export function convertStrokeWidthToGap(strokeWidth) {
+  return Math.round(strokeWidth / STROKE_WIDTH_TO_GAP_RATIO);
+}

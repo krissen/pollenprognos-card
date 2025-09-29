@@ -41,6 +41,17 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 
 Install one of the supported integrations above. The card auto-detects which adapter to use based on your sensors.
 
+## Features
+
+- **Multi-Integration Support**: Works with 5 different pollen data sources (Pollenprognos, DWD Pollenflug, Polleninformation EU, SILAM, Kleenex Pollen Radar)
+- **Auto-Detection**: Automatically detects which integration to use based on your available sensors
+- **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
+- **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics
+- **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts
+- **Full Localization**: Dynamic language support with 12+ translations following Home Assistant's language setting
+- **Extensive Customization**: Configure colors, layouts, text size, sorting, and display options through the visual editor
+- **HACS Integration**: Official HACS repository with automatic updates and easy installation
+
 ## Installation
 
 Add `https://github.com/krissen/pollenprognos-card` as a custom repository in HACS and install the card. Reload your browser cache after installation.
