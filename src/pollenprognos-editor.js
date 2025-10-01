@@ -350,6 +350,15 @@ class PollenPrognosCardEditor extends LitElement {
         delete incoming.date_locale;
       }
 
+      // 6.1. Don't overwrite explicit user allergens with incoming allergens
+      if (this._allergensExplicit && incoming.allergens) {
+        if (this.debug)
+          console.debug(
+            "[Editor] dropping incoming allergens (user has explicit allergens)",
+          );
+        delete incoming.allergens;
+      }
+
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
       this._userConfig = deepMerge(this._userConfig, incoming);
 
