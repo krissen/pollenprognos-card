@@ -1741,6 +1741,7 @@ class PollenPrognosCardEditor extends LitElement {
                       >
                     </ha-select>
                   </ha-formfield>
+                  <p>${this._t("peu_nondaily_expl")}</p>
                 `
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
