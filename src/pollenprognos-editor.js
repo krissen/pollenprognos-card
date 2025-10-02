@@ -60,7 +60,7 @@ const getStubConfig = (integration) =>
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
     // return true;
-    return Boolean(this._config.debug);
+    return Boolean(this._config?.debug);
   }
 
   _hasSilamWeatherEntity(location) {
