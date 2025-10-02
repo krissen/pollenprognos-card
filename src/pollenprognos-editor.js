@@ -243,6 +243,11 @@ class PollenPrognosCardEditor extends LitElement {
 
   setConfig(config) {
     try {
+      console.log("[ALLERGEN-DEBUG] ========== setConfig() called ==========");
+      console.log("[ALLERGEN-DEBUG] Incoming config.allergens:", config.allergens);
+      console.log("[ALLERGEN-DEBUG] Current _userConfig.allergens:", this._userConfig?.allergens);
+      console.log("[ALLERGEN-DEBUG] Current _allergensExplicit:", this._allergensExplicit);
+      
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
       if (config.phrases) this._userConfig.phrases = config.phrases;
       // Default language for phrases uses locale or falls back to Home Assistant
@@ -252,6 +257,8 @@ class PollenPrognosCardEditor extends LitElement {
       const baseDefaults = getStubConfig(config.integration || "pp");
       const stubAllergens = baseDefaults.allergens;
       const incoming = { ...config };
+      
+      console.log("[ALLERGEN-DEBUG] Stub allergens for integration:", config.integration || "pp", stubAllergens);
 
       // Insert default for levels_* if missing
       Object.entries(LEVELS_DEFAULTS).forEach(([key, val]) => {
@@ -261,17 +268,25 @@ class PollenPrognosCardEditor extends LitElement {
       });
 
       // 2. Save user-provided allergens if they differ from defaults
+      console.log("[ALLERGEN-DEBUG] Checking if allergens differ from stub...");
+      console.log("[ALLERGEN-DEBUG] config.allergens is array:", Array.isArray(config.allergens));
+      console.log("[ALLERGEN-DEBUG] deepEqual result:", deepEqual(config.allergens, stubAllergens));
+      
       if (
         Array.isArray(config.allergens) &&
         !deepEqual(config.allergens, stubAllergens)
       ) {
         this._userConfig.allergens = [...config.allergens];
         this._allergensExplicit = true;
+        console.log("[ALLERGEN-DEBUG] ✓ Saved user-chosen allergens to _userConfig:", this._userConfig.allergens);
+        console.log("[ALLERGEN-DEBUG] ✓ Set _allergensExplicit = true");
         if (this.debug)
           console.debug(
             "[Editor] saved user-chosen allergens:",
             this._userConfig.allergens,
           );
+      } else {
+        console.log("[ALLERGEN-DEBUG] ✗ Allergens match stub or not array, NOT saving");
       }
 
       // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
@@ -352,12 +367,18 @@ class PollenPrognosCardEditor extends LitElement {
 
       // 6.1. Don't overwrite explicit user allergens with incoming allergens
       // If we already have user allergens saved, only overwrite if incoming is explicitly different
+      console.log("[ALLERGEN-DEBUG] Checking whether to drop incoming allergens...");
+      console.log("[ALLERGEN-DEBUG] _userConfig.allergens exists:", !!this._userConfig.allergens);
+      console.log("[ALLERGEN-DEBUG] incoming.allergens exists:", !!incoming.allergens);
+      console.log("[ALLERGEN-DEBUG] _allergensExplicit:", this._allergensExplicit);
+      
       if (
         this._userConfig.allergens &&
         incoming.allergens &&
         deepEqual(incoming.allergens, this._userConfig.allergens)
       ) {
         // Incoming allergens are same as what we have, drop them to avoid unnecessary updates
+        console.log("[ALLERGEN-DEBUG] → Dropping incoming (same as saved)");
         if (this.debug)
           console.debug(
             "[Editor] dropping incoming allergens (same as saved)",
@@ -369,18 +390,33 @@ class PollenPrognosCardEditor extends LitElement {
         const stubAllergens = getStubConfig(
           incoming.integration || this._config.integration || "pp",
         ).allergens;
+        console.log("[ALLERGEN-DEBUG] Checking if incoming matches stub...");
+        console.log("[ALLERGEN-DEBUG] incoming.allergens:", incoming.allergens);
+        console.log("[ALLERGEN-DEBUG] stubAllergens:", stubAllergens);
+        console.log("[ALLERGEN-DEBUG] deepEqual:", deepEqual(incoming.allergens, stubAllergens));
+        
         if (deepEqual(incoming.allergens, stubAllergens)) {
           // Incoming matches stub, so it's not a user choice - keep our explicit allergens
+          console.log("[ALLERGEN-DEBUG] → Dropping incoming (matches stub, keeping explicit)");
           if (this.debug)
             console.debug(
               "[Editor] dropping incoming allergens (matches stub, keeping explicit)",
             );
           delete incoming.allergens;
+        } else {
+          console.log("[ALLERGEN-DEBUG] → Keeping incoming (different from stub)");
         }
+      } else {
+        console.log("[ALLERGEN-DEBUG] → No action taken on incoming allergens");
       }
 
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
+      console.log("[ALLERGEN-DEBUG] Before merge - _userConfig.allergens:", this._userConfig.allergens);
+      console.log("[ALLERGEN-DEBUG] Before merge - incoming.allergens:", incoming.allergens);
+      
       this._userConfig = deepMerge(this._userConfig, incoming);
+      
+      console.log("[ALLERGEN-DEBUG] After merge - _userConfig.allergens:", this._userConfig.allergens);
 
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit =
@@ -388,6 +424,8 @@ class PollenPrognosCardEditor extends LitElement {
       this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
       this._integrationExplicit =
         this._userConfig.hasOwnProperty("integration");
+      
+      console.log("[ALLERGEN-DEBUG] After setting flags - _allergensExplicit:", this._allergensExplicit);
       this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
       this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
 
@@ -478,6 +516,11 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 12. Alltid använd explicit userConfig.allergens om det finns, annars stub
+      console.log("[ALLERGEN-DEBUG] Final allergen assignment:");
+      console.log("[ALLERGEN-DEBUG] _userConfig.allergens:", this._userConfig.allergens);
+      console.log("[ALLERGEN-DEBUG] baseStub.allergens:", baseStub.allergens);
+      console.log("[ALLERGEN-DEBUG] Using:", Array.isArray(this._userConfig.allergens) ? "_userConfig" : "baseStub");
+      
       merged.allergens = Array.isArray(this._userConfig.allergens)
         ? this._userConfig.allergens
         : baseStub.allergens;
@@ -487,6 +530,9 @@ class PollenPrognosCardEditor extends LitElement {
       merged.type = "custom:pollenprognos-card";
       this._config = merged;
       this._prevIntegration = integration;
+
+      console.log("[ALLERGEN-DEBUG] Final _config.allergens:", this._config.allergens);
+      console.log("[ALLERGEN-DEBUG] ========== setConfig() complete ==========");
 
       if (this.debug)
         console.debug(
@@ -1296,8 +1342,16 @@ class PollenPrognosCardEditor extends LitElement {
       
       // Track explicit allergen changes
       if (prop === "allergens") {
+        console.log("[ALLERGEN-DEBUG] _updateConfig called with allergens:", value);
+        console.log("[ALLERGEN-DEBUG] Before update - _userConfig.allergens:", this._userConfig.allergens);
+        console.log("[ALLERGEN-DEBUG] Before update - _allergensExplicit:", this._allergensExplicit);
+        
         this._userConfig.allergens = value;
         this._allergensExplicit = true;
+        
+        console.log("[ALLERGEN-DEBUG] After update - _userConfig.allergens:", this._userConfig.allergens);
+        console.log("[ALLERGEN-DEBUG] After update - _allergensExplicit:", this._allergensExplicit);
+        
         if (this.debug)
           console.debug(
             "[Editor] allergens explicitly changed:",
@@ -1349,6 +1403,10 @@ class PollenPrognosCardEditor extends LitElement {
     if (!deepEqual(this._config, cfg)) {
       this._config = cfg;
       if (this.debug) console.debug("[Editor] updated _config:", this._config);
+      
+      console.log("[ALLERGEN-DEBUG] Dispatching config-changed event");
+      console.log("[ALLERGEN-DEBUG] Config allergens being dispatched:", this._config.allergens);
+      
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._config },
@@ -1358,6 +1416,7 @@ class PollenPrognosCardEditor extends LitElement {
       );
     } else {
       this._config = cfg;
+      console.log("[ALLERGEN-DEBUG] Config unchanged, NOT dispatching");
     }
   }
 
