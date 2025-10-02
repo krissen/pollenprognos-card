@@ -1041,13 +1041,21 @@ class PollenPrognosCardEditor extends LitElement {
           composed: true,
         }),
       );
+    } else {
+      console.log("[ALLERGEN-DEBUG] Config unchanged in set hass(), NOT dispatching");
+      console.log("[ALLERGEN-DEBUG] ========== set hass() complete (no change) ==========");
     }
 
     this.requestUpdate();
     this._initDone = true;
+    console.log("[ALLERGEN-DEBUG] set hass() final - _initDone set to true");
   }
 
   _onAllergenToggle(allergen, checked) {
+    console.log("[ALLERGEN-DEBUG] ========== _onAllergenToggle called ==========");
+    console.log("[ALLERGEN-DEBUG] Allergen:", allergen, "Checked:", checked);
+    console.log("[ALLERGEN-DEBUG] Current _config.allergens:", this._config.allergens);
+    
     if (
       this._config.integration === "peu" &&
       this._config.mode !== "daily" &&
@@ -1058,6 +1066,8 @@ class PollenPrognosCardEditor extends LitElement {
     }
     const set = new Set(this._config.allergens);
     checked ? set.add(allergen) : set.delete(allergen);
+    
+    console.log("[ALLERGEN-DEBUG] New allergen set:", [...set]);
     this._updateConfig("allergens", [...set]);
   }
 
