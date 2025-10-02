@@ -255,18 +255,17 @@ export async function fetchForecast(hass, config) {
           };
           dict[`day${idx}`] = dayObj;
           dict.days.push(dayObj);
+        } else if (pollen_threshold === 0) {
+          // When threshold is 0, show all allergens even with no data
+          const dayObj = {
+            name: dict.allergenCapitalized,
+            day: label,
+            state: 0,
+            state_text: noInfoLabel,
+          };
+          dict[`day${idx}`] = dayObj;
+          dict.days.push(dayObj);
         }
-        // Om du vill kunna visa "no information"-text när show_empty_days == true
-        // else if (config.show_empty_days) {
-        //   const dayObj = {
-        //     name: dict.allergenCapitalized,
-        //     day: label,
-        //     state: null,
-        //     state_text: noInfoLabel,
-        //   };
-        //   dict[`day${idx}`] = dayObj;
-        //   dict.days.push(dayObj);
-        // }
       });
 
       // Threshold filtering
