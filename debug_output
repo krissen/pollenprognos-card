@@ -1,4 +1,4 @@
-🤧 Pollenprognos Card: version b860e4a
+🤧 Pollenprognos Card: version 6bd673a
 pollenprognos-card.js:19560 [ALLERGEN-DEBUG] ========== Constructor called ==========
 pollenprognos-card.js:19560 [ALLERGEN-DEBUG] Constructor complete - _allergensExplicit: false
 pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
@@ -49,48 +49,6 @@ pollenprognos-card.js:19965 [ALLERGEN-DEBUG] Config unchanged, NOT dispatching
 pollenprognos-card.js:19965 [ALLERGEN-DEBUG] Config unchanged, NOT dispatching
 pollenprognos-card.js:19965 [ALLERGEN-DEBUG] Config unchanged, NOT dispatching
 pollenprognos-card.js:19965 [ALLERGEN-DEBUG] Config unchanged, NOT dispatching
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
-pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
-pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
-pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
 pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
 pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
 pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
@@ -156,21 +114,7 @@ pollenprognos-card.js:19620 [ALLERGEN-DEBUG] baseStub.allergens: (18) ['alder',
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Using: _userConfig
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final _config.allergens: (18) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] ========== setConfig() complete ==========
-pollenprognos-card.js:18618 🤧 Pollenprognos Card: version b860e4a
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
-pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (18) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
-pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
-pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
-pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:18618 🤧 Pollenprognos Card: version 6bd673a
 pollenprognos-card.js:19822 [ALLERGEN-DEBUG] ========== _onAllergenToggle called ==========
 pollenprognos-card.js:19822 [ALLERGEN-DEBUG] Allergen: grasses Checked: false
 pollenprognos-card.js:19822 [ALLERGEN-DEBUG] Current _config.allergens: (18) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
@@ -208,7 +152,48 @@ pollenprognos-card.js:19620 [ALLERGEN-DEBUG] baseStub.allergens: (18) ['alder',
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Using: _userConfig
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final _config.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] ========== setConfig() complete ==========
-pollenprognos-card.js:18618 🤧 Pollenprognos Card: version b860e4a
+pollenprognos-card.js:18618 🤧 Pollenprognos Card: version 6bd673a
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 17 total)
+pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 17 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 17 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 17 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
+pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:19565 [ALLERGEN-DEBUG] ========== setConfig() called ==========
+pollenprognos-card.js:19565 [ALLERGEN-DEBUG] Incoming config.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19565 [ALLERGEN-DEBUG] Current _userConfig.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19565 [ALLERGEN-DEBUG] Current _allergensExplicit: true
+pollenprognos-card.js:19567 [ALLERGEN-DEBUG] Stub allergens for integration: peu (18) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19569 [ALLERGEN-DEBUG] Checking if allergens differ from stub...
+pollenprognos-card.js:19569 [ALLERGEN-DEBUG] config.allergens is array: true
+pollenprognos-card.js:19569 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19569 [ALLERGEN-DEBUG] _allergensExplicit was: true
+pollenprognos-card.js:19569 [ALLERGEN-DEBUG] ✓ Saved user-chosen allergens to _userConfig: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19569 [ALLERGEN-DEBUG] ✓ Set _allergensExplicit = true
+pollenprognos-card.js:19581 [ALLERGEN-DEBUG] Checking whether to drop incoming allergens...
+pollenprognos-card.js:19581 [ALLERGEN-DEBUG] _userConfig.allergens exists: true
+pollenprognos-card.js:19581 [ALLERGEN-DEBUG] incoming.allergens exists: true
+pollenprognos-card.js:19581 [ALLERGEN-DEBUG] _allergensExplicit: true
+pollenprognos-card.js:19582 [ALLERGEN-DEBUG] → Dropping incoming (same as saved)
+pollenprognos-card.js:19594 [ALLERGEN-DEBUG] Before merge - _userConfig.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19594 [ALLERGEN-DEBUG] Before merge - incoming.allergens: undefined
+pollenprognos-card.js:19594 [ALLERGEN-DEBUG] After merge - _userConfig.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19594 [ALLERGEN-DEBUG] After setting flags - _allergensExplicit: true
+pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final allergen assignment:
+pollenprognos-card.js:19620 [ALLERGEN-DEBUG] _userConfig.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19620 [ALLERGEN-DEBUG] baseStub.allergens: (18) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Using: _userConfig
+pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final _config.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19620 [ALLERGEN-DEBUG] ========== setConfig() complete ==========
+pollenprognos-card.js:18618 🤧 Pollenprognos Card: version 6bd673a
 pollenprognos-card.js:19822 [ALLERGEN-DEBUG] ========== _onAllergenToggle called ==========
 pollenprognos-card.js:19822 [ALLERGEN-DEBUG] Allergen: mugwort Checked: false
 pollenprognos-card.js:19822 [ALLERGEN-DEBUG] Current _config.allergens: (17) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
@@ -246,7 +231,7 @@ pollenprognos-card.js:19620 [ALLERGEN-DEBUG] baseStub.allergens: (18) ['alder',
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Using: _userConfig
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final _config.allergens: (16) ['alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'hazel', 'lime', 'fungal_spores', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] ========== setConfig() complete ==========
-3pollenprognos-card.js:18618 🤧 Pollenprognos Card: version b860e4a
+3pollenprognos-card.js:18618 🤧 Pollenprognos Card: version 6bd673a
 pollenprognos-card.js:19560 [ALLERGEN-DEBUG] ========== Constructor called ==========
 pollenprognos-card.js:19560 [ALLERGEN-DEBUG] Constructor complete - _allergensExplicit: false
 pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
@@ -324,7 +309,7 @@ pollenprognos-card.js:19620 [ALLERGEN-DEBUG] baseStub.allergens: (18) ['alder',
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Using: _userConfig
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final _config.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] ========== setConfig() complete ==========
-pollenprognos-card.js:18618 🤧 Pollenprognos Card: version b860e4a
+pollenprognos-card.js:18618 🤧 Pollenprognos Card: version 6bd673a
 pollenprognos-card.js:19565 [ALLERGEN-DEBUG] ========== setConfig() called ==========
 pollenprognos-card.js:19565 [ALLERGEN-DEBUG] Incoming config.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
 pollenprognos-card.js:19565 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
@@ -351,4 +336,74 @@ pollenprognos-card.js:19620 [ALLERGEN-DEBUG] baseStub.allergens: (18) ['alder',
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Using: _userConfig
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] Final _config.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
 pollenprognos-card.js:19620 [ALLERGEN-DEBUG] ========== setConfig() complete ==========
-pollenprognos-card.js:18618 🤧 Pollenprognos Card: version b860e4a
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
+pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
+pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
+pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
+pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] ========== set hass() called ==========
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] _initDone: true
+pollenprognos-card.js:19679 [ALLERGEN-DEBUG] Current _userConfig.allergens: (19) ['allergy_risk', 'alder', 'ash', 'beech', 'birch', 'cypress_family', 'elm', 'grasses', 'hazel', 'lime', 'fungal_spores', 'mugwort', 'nettle_family', 'oak', 'olive', 'plane_tree', 'ragweed', 'rye', 'willow']
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] set hass() building merged config
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] base (stub) allergens: (5) ['alder', 'ash', 'beech', 'birch', 'cypress_family'] ... ( 18 total)
+pollenprognos-card.js:19695 [ALLERGEN-DEBUG] _userConfig.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19697 [ALLERGEN-DEBUG] After deepMerge - merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] set hass() checking if config changed
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] Current _config.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] New merged.allergens: (5) ['allergy_risk', 'alder', 'ash', 'beech', 'birch'] ... ( 19 total)
+pollenprognos-card.js:19700 [ALLERGEN-DEBUG] deepEqual result: false
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] Config changed! Updated _config.allergens
+pollenprognos-card.js:19703 [ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========
+pollenprognos-card.js:19819 [ALLERGEN-DEBUG] set hass() final - _initDone set to true
+pollenprognos-card.js:18618 🤧 Pollenprognos Card: version 6bd673a
