@@ -351,12 +351,32 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 6.1. Don't overwrite explicit user allergens with incoming allergens
-      if (this._allergensExplicit && incoming.allergens) {
+      // If we already have user allergens saved, only overwrite if incoming is explicitly different
+      if (
+        this._userConfig.allergens &&
+        incoming.allergens &&
+        deepEqual(incoming.allergens, this._userConfig.allergens)
+      ) {
+        // Incoming allergens are same as what we have, drop them to avoid unnecessary updates
         if (this.debug)
           console.debug(
-            "[Editor] dropping incoming allergens (user has explicit allergens)",
+            "[Editor] dropping incoming allergens (same as saved)",
           );
         delete incoming.allergens;
+      } else if (this._allergensExplicit && incoming.allergens) {
+        // We have explicit allergens and incoming is different/exists
+        // Only overwrite if incoming explicitly differs from stub (is a user choice)
+        const stubAllergens = getStubConfig(
+          incoming.integration || this._config.integration || "pp",
+        ).allergens;
+        if (deepEqual(incoming.allergens, stubAllergens)) {
+          // Incoming matches stub, so it's not a user choice - keep our explicit allergens
+          if (this.debug)
+            console.debug(
+              "[Editor] dropping incoming allergens (matches stub, keeping explicit)",
+            );
+          delete incoming.allergens;
+        }
       }
 
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
