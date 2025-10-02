@@ -269,14 +269,16 @@ class PollenPrognosCardEditor extends LitElement {
         }
       });
 
-      // 2. Save user-provided allergens if they differ from defaults
+      // 2. Save user-provided allergens if they differ from defaults  
+      // OR if allergens were previously explicit (user made changes)
       console.log("[ALLERGEN-DEBUG] Checking if allergens differ from stub...");
       console.log("[ALLERGEN-DEBUG] config.allergens is array:", Array.isArray(config.allergens));
       console.log("[ALLERGEN-DEBUG] deepEqual result:", deepEqual(config.allergens, stubAllergens));
+      console.log("[ALLERGEN-DEBUG] _allergensExplicit was:", this._allergensExplicit);
       
       if (
         Array.isArray(config.allergens) &&
-        !deepEqual(config.allergens, stubAllergens)
+        (!deepEqual(config.allergens, stubAllergens) || this._allergensExplicit)
       ) {
         this._userConfig.allergens = [...config.allergens];
         this._allergensExplicit = true;
@@ -288,7 +290,7 @@ class PollenPrognosCardEditor extends LitElement {
             this._userConfig.allergens,
           );
       } else {
-        console.log("[ALLERGEN-DEBUG] ✗ Allergens match stub or not array, NOT saving");
+        console.log("[ALLERGEN-DEBUG] ✗ Allergens match stub AND not explicit, NOT saving");
       }
 
       // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
