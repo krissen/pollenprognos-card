@@ -1303,12 +1303,16 @@ class PollenPrognosCardEditor extends LitElement {
           cfg.show_empty_days = false;
           if (this._config.integration === "peu") {
             cfg.allergens = ["allergy_risk"];
+            this._userConfig.allergens = ["allergy_risk"];
+            this._allergensExplicit = true;
           }
         } else {
           cfg.days_to_show = this._config.integration === "silam" ? 5 : 4;
           if (this._config.integration === "peu") {
             // Re-select every allergen when returning to daily mode
             cfg.allergens = [...PEU_ALLERGENS];
+            this._userConfig.allergens = [...PEU_ALLERGENS];
+            this._allergensExplicit = true;
           }
         }
       }
