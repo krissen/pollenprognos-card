@@ -1431,14 +1431,22 @@ class PollenPrognosCardEditor extends LitElement {
         } else {
           cfg.days_to_show = this._config.integration === "silam" ? 5 : 4;
           if (this._config.integration === "peu") {
-            // Only reset allergens to defaults if user hasn't explicitly set them
-            if (!this._allergensExplicit) {
+            // Check if we're switching from non-daily mode (which only has allergy_risk)
+            const currentAllergens = this._config.allergens || [];
+            const isComingFromNonDaily = 
+              currentAllergens.length === 1 && 
+              currentAllergens[0] === "allergy_risk";
+            
+            // Reset allergens to defaults when:
+            // 1. User hasn't explicitly set them, OR
+            // 2. Coming from non-daily mode (only had allergy_risk)
+            if (!this._allergensExplicit || isComingFromNonDaily) {
               // Re-select every allergen when returning to daily mode
               cfg.allergens = [...PEU_ALLERGENS];
               this._userConfig.allergens = [...PEU_ALLERGENS];
               this._allergensExplicit = true;
             }
-            // If allergens are explicit, keep them as-is
+            // Otherwise, keep user's explicit allergen selection
           }
         }
       }
