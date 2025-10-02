@@ -402,13 +402,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   if (config.sort !== "none") {
     sensors.sort(
       {
-        value_ascending: (a, b) => a.day0.state - b.day0.state,
-        value_descending: (a, b) => b.day0.state - a.day0.state,
+        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
         name_ascending: (a, b) =>
           a.allergenCapitalized.localeCompare(b.allergenCapitalized),
         name_descending: (a, b) =>
           b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
+      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
     );
   }
 

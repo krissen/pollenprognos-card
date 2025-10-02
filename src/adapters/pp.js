@@ -255,18 +255,17 @@ export async function fetchForecast(hass, config) {
           };
           dict[`day${idx}`] = dayObj;
           dict.days.push(dayObj);
+        } else if (pollen_threshold === 0) {
+          // When threshold is 0, show all allergens even with no data
+          const dayObj = {
+            name: dict.allergenCapitalized,
+            day: label,
+            state: 0,
+            state_text: noInfoLabel,
+          };
+          dict[`day${idx}`] = dayObj;
+          dict.days.push(dayObj);
         }
-        // Om du vill kunna visa "no information"-text när show_empty_days == true
-        // else if (config.show_empty_days) {
-        //   const dayObj = {
-        //     name: dict.allergenCapitalized,
-        //     day: label,
-        //     state: null,
-        //     state_text: noInfoLabel,
-        //   };
-        //   dict[`day${idx}`] = dayObj;
-        //   dict.days.push(dayObj);
-        // }
       });
 
       // Threshold filtering
@@ -281,13 +280,13 @@ export async function fetchForecast(hass, config) {
   if (config.sort !== "none") {
     sensors.sort(
       {
-        value_ascending: (a, b) => a.day0.state - b.day0.state,
-        value_descending: (a, b) => b.day0.state - a.day0.state,
+        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
         name_ascending: (a, b) =>
           a.allergenCapitalized.localeCompare(b.allergenCapitalized),
         name_descending: (a, b) =>
           b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => b.day0.state - a.day0.state),
+      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
     );
   }
 
