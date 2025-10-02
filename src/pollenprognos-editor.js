@@ -671,6 +671,8 @@ class PollenPrognosCardEditor extends LitElement {
         changedKeys.every((k) => COSMETIC_FIELDS.includes(k));
       if (!onlyCosmetic && !deepEqual(prevConfig, merged)) {
         this._config = merged;
+        console.log("[ALLERGEN-DEBUG] [DISPATCH-1-setConfig] Dispatching from setConfig() end");
+        console.log("[ALLERGEN-DEBUG] Config allergens:", this._config.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: this._config },
@@ -1115,6 +1117,8 @@ class PollenPrognosCardEditor extends LitElement {
       this._config = newConfig;
       this._userConfig.sort = value;
 
+      console.log("[ALLERGEN-DEBUG] [DISPATCH-3-sort-none] Dispatching from sort=none handler");
+      console.log("[ALLERGEN-DEBUG] Config allergens:", this._config.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1144,6 +1148,8 @@ class PollenPrognosCardEditor extends LitElement {
         delete this._userConfig.levels_empty_color;
         delete this._userConfig.levels_gap_color;
 
+        console.log("[ALLERGEN-DEBUG] [DISPATCH-4-levels-inherit-custom] Dispatching from levels_inherit_mode=custom");
+        console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: newConfig },
@@ -1179,6 +1185,8 @@ class PollenPrognosCardEditor extends LitElement {
         this._userConfig.levels_gap = syncedGap;
         this._userConfig.levels_empty_color = syncedEmptyColor;
 
+        console.log("[ALLERGEN-DEBUG] [DISPATCH-5-levels-inherit-sync] Dispatching from levels_inherit_mode!=custom");
+        console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: newConfig },
@@ -1239,6 +1247,8 @@ class PollenPrognosCardEditor extends LitElement {
 
       this._config = newConfig;
 
+      console.log("[ALLERGEN-DEBUG] [DISPATCH-7-levels-stroke] Dispatching from levels_stroke_width change");
+      console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1263,6 +1273,8 @@ class PollenPrognosCardEditor extends LitElement {
       this._config = newConfig;
       this._userConfig[prop] = value;
 
+      console.log("[ALLERGEN-DEBUG] [DISPATCH-8-levels-visual] Dispatching from levels visual prop change");
+      console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1292,6 +1304,8 @@ class PollenPrognosCardEditor extends LitElement {
       delete this._userConfig.allergen_outline_color;
       delete this._userConfig.no_allergens_color;
 
+      console.log("[ALLERGEN-DEBUG] [DISPATCH-9-allergen-color-mode] Dispatching from allergen_color_mode change");
+      console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1324,6 +1338,8 @@ class PollenPrognosCardEditor extends LitElement {
           mode: prevMode,
         };
         this.requestUpdate();
+        console.log("[ALLERGEN-DEBUG] [DISPATCH-11-locale-reset] Dispatching from date_locale setTimeout restore");
+        console.log("[ALLERGEN-DEBUG] Config allergens:", this._config.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: this._config },
