@@ -216,6 +216,7 @@ class PollenPrognosCardEditor extends LitElement {
 
   constructor() {
     super();
+    console.log("[ALLERGEN-DEBUG] ========== Constructor called ==========");
     // Sätt ALLT till neutrala värden, oavsett state på this._hass eller this._config
     this._userConfig = {};
     this._integrationExplicit = false;
@@ -239,6 +240,7 @@ class PollenPrognosCardEditor extends LitElement {
     this._tapNavigation = "";
     this._tapService = "";
     this._tapServiceData = "";
+    console.log("[ALLERGEN-DEBUG] Constructor complete - _allergensExplicit:", this._allergensExplicit);
   }
 
   setConfig(config) {
@@ -687,6 +689,10 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   set hass(hass) {
+    console.log("[ALLERGEN-DEBUG] ========== set hass() called ==========");
+    console.log("[ALLERGEN-DEBUG] _initDone:", this._initDone);
+    console.log("[ALLERGEN-DEBUG] Current _userConfig.allergens:", this._userConfig?.allergens);
+    
     if (this._hass === hass) return; // Avoid unnecessary work
     this._hass = hass;
     const explicit = this._integrationExplicit;
@@ -744,7 +750,13 @@ class PollenPrognosCardEditor extends LitElement {
             : stubConfigPP;
 
     // Bygg merged-objekt (det är denna rad som saknas)
+    console.log("[ALLERGEN-DEBUG] set hass() building merged config");
+    console.log("[ALLERGEN-DEBUG] base (stub) allergens:", base.allergens?.slice(0, 5), "... (", base.allergens?.length, "total)");
+    console.log("[ALLERGEN-DEBUG] _userConfig.allergens:", this._userConfig.allergens?.slice(0, 5), "... (", this._userConfig.allergens?.length, "total)");
+    
     let merged = deepMerge(base, this._userConfig);
+    
+    console.log("[ALLERGEN-DEBUG] After deepMerge - merged.allergens:", merged.allergens?.slice(0, 5), "... (", merged.allergens?.length, "total)");
 
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
     if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
@@ -759,8 +771,16 @@ class PollenPrognosCardEditor extends LitElement {
     merged.sort = merged.sort || "value_ascending";
 
     // Only dispatch if config actually changed, to avoid UI blinking/loops
+    console.log("[ALLERGEN-DEBUG] set hass() checking if config changed");
+    console.log("[ALLERGEN-DEBUG] Current _config.allergens:", this._config.allergens?.slice(0, 5), "... (", this._config.allergens?.length, "total)");
+    console.log("[ALLERGEN-DEBUG] New merged.allergens:", merged.allergens?.slice(0, 5), "... (", merged.allergens?.length, "total)");
+    console.log("[ALLERGEN-DEBUG] deepEqual result:", deepEqual(this._config, merged));
+    
     if (!deepEqual(this._config, merged)) {
       this._config = merged;
+      console.log("[ALLERGEN-DEBUG] Config changed! Updated _config.allergens");
+      console.log("[ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========");
+
 
       // 3) Fyll installerade regioner/städer
       this.installedRegionIds = Array.from(
