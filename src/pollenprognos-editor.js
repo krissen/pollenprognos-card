@@ -1273,6 +1273,18 @@ class PollenPrognosCardEditor extends LitElement {
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
+      
+      // Track explicit allergen changes
+      if (prop === "allergens") {
+        this._userConfig.allergens = value;
+        this._allergensExplicit = true;
+        if (this.debug)
+          console.debug(
+            "[Editor] allergens explicitly changed:",
+            this._userConfig.allergens,
+          );
+      }
+      
       // Reset custom prefix/suffix when switching away from manual mode
       if (["city", "region_id", "location"].includes(prop)) {
         if (value !== "manual") {
