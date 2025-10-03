@@ -2124,8 +2124,7 @@ class PollenPrognosCardEditor extends LitElement {
                 min="0"
                 max="150"
                 step="5"
-                .value=${c.allergen_stroke_width ||
-                LEVELS_DEFAULTS.allergen_stroke_width}
+                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
                 @input=${(e) => {
                   const value = Number(e.target.value);
                   this._updateConfig("allergen_stroke_width", value);
@@ -2145,12 +2144,9 @@ class PollenPrognosCardEditor extends LitElement {
                 min="0"
                 max="150"
                 step="5"
-                .value=${c.allergen_stroke_width ||
-                LEVELS_DEFAULTS.allergen_stroke_width}
+                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
                 @input=${(e) => {
-                  const value =
-                    Number(e.target.value) ||
-                    LEVELS_DEFAULTS.allergen_stroke_width;
+                  const value = e.target.value === '' ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
                   this._updateConfig("allergen_stroke_width", value);
                   // Sync with level circle gap only if levels inherit from allergen
                   if (
