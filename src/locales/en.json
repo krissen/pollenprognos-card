@@ -67,6 +67,7 @@
   "editor.allergen_stroke_width": "Stroke width",
   "editor.allergen_stroke_width_reset": "Reset stroke width",
   "editor.allergen_stroke_color_synced": "Sync stroke color with level",
+  "editor.allergen_levels_gap_synced": "Sync gap with allergen stroke width",
   "editor.allergens": "Allergens",
   "editor.allergens_abbreviated": "Abbreviate allergens",
   "editor.allergens_header_category": "Category allergens (general)",

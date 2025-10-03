@@ -61,6 +61,7 @@
   "editor.allergen_colors_placeholder": "#ffcc00",
   "editor.allergen_colors_reset": "Palauta oletus",
   "editor.allergen_empty_placeholder": "rgba(200,200,200,0.15)",
+  "editor.allergen_levels_gap_synced": "Synkronoi väli allergeenin viivan paksuuden kanssa",
   "editor.allergen_outline_color": "Ääriviivan väri",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Palauta ääriviiva",
