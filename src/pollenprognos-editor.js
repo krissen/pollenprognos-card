@@ -2177,7 +2177,7 @@ class PollenPrognosCardEditor extends LitElement {
               label="${this._t("allergen_stroke_color_synced") || "Sync stroke color with level"}"
             >
               <ha-checkbox
-                .checked=${c.allergen_stroke_color_synced || false}
+                .checked=${c.allergen_stroke_color_synced ?? true}
                 @change=${(e) =>
                   this._updateConfig(
                     "allergen_stroke_color_synced",

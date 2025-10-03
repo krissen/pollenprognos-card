@@ -33,7 +33,7 @@ export const LEVELS_DEFAULTS = {
   allergen_stroke_width: 15,
   
   // Sync allergen stroke color with allergen level color
-  allergen_stroke_color_synced: false,
+  allergen_stroke_color_synced: true,
   
   // Default color for no allergens icon
   no_allergens_color: "#a9cfe0",
