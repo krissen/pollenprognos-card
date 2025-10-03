@@ -61,6 +61,7 @@
   "editor.allergen_colors_placeholder": "#ffcc00",
   "editor.allergen_colors_reset": "Återställ till standard",
   "editor.allergen_empty_placeholder": "rgba(200,200,200,0.15)",
+  "editor.allergen_levels_gap_synced": "Synkronisera mellanrum med allergenets linjetjocklek",
   "editor.allergen_outline_color": "Konturfärg",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Återställ kontur",
