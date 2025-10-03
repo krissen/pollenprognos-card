@@ -651,7 +651,7 @@ class PollenPrognosCard extends LitElement {
 
     const color = this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
-    const strokeWidth = this.config?.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
+    const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
     const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
