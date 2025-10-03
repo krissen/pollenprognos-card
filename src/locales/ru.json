@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Цвет контура",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Сбросить контур",
+  "editor.allergen_stroke_color_synced": "Синхронизировать цвет обводки с уровнем",
   "editor.allergen_stroke_width": "Толщина линии",
   "editor.allergen_stroke_width_reset": "Сбросить толщину линии",
   "editor.allergens": "Аллергены",

@@ -55,6 +55,7 @@ In this file:
 | `allergen_colors` | `array<string>` | `[rgba(200,200,200,0.15), "#FFE55A", "#FFC84E", "#FFA53F", "#FF6E33", "#FF6140", "#FF001C"]` | Custom colors for allergen icons by level (0-6). Only used when `allergen_color_mode` is `custom`. Level 0 is the empty/no-pollen color, levels 1-6 are pollen intensity colors. |
 | `allergen_outline_color` | `string` | `rgba(200, 200, 200, 1)` | Color for SVG icon outlines/strokes. When `levels_inherit_mode` is `inherit_allergen`, this also controls the level circle gap color. |
 | `allergen_stroke_width` | `integer` | `15` | Width of SVG icon outlines (0-100, step 5). Higher values create thicker outlines around allergen icons. When `levels_inherit_mode` is `inherit_allergen`, this also controls level circle gap width via automatic synchronization. |
+| `allergen_stroke_color_synced` | `boolean` | `true` | When enabled, the stroke (outline) color of allergen icons matches the allergen level color instead of using `allergen_outline_color`. This provides better visual consistency by making both the fill and outline colors reflect the pollen severity level. |
 | `no_allergens_color` | `string` | `#a9cfe0` | Color for the "no allergens" icon displayed when no pollen data is available. This color is independent of the allergen level color system and can be customized separately. |
 | `text_size_ratio` | `number` | `1` | Global text scaling factor. |
 | `allergens` | `array<string>` | *(integration default)* | List of pollen types to show. |

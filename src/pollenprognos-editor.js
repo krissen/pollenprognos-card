@@ -2124,8 +2124,7 @@ class PollenPrognosCardEditor extends LitElement {
                 min="0"
                 max="150"
                 step="5"
-                .value=${c.allergen_stroke_width ||
-                LEVELS_DEFAULTS.allergen_stroke_width}
+                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
                 @input=${(e) => {
                   const value = Number(e.target.value);
                   this._updateConfig("allergen_stroke_width", value);
@@ -2145,12 +2144,9 @@ class PollenPrognosCardEditor extends LitElement {
                 min="0"
                 max="150"
                 step="5"
-                .value=${c.allergen_stroke_width ||
-                LEVELS_DEFAULTS.allergen_stroke_width}
+                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
                 @input=${(e) => {
-                  const value =
-                    Number(e.target.value) ||
-                    LEVELS_DEFAULTS.allergen_stroke_width;
+                  const value = e.target.value === '' ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
                   this._updateConfig("allergen_stroke_width", value);
                   // Sync with level circle gap only if levels inherit from allergen
                   if (
@@ -2174,6 +2170,20 @@ class PollenPrognosCardEditor extends LitElement {
                 style="margin-left: 8px;"
                 >↺</ha-button
               >
+            </ha-formfield>
+
+            <!-- Sync Stroke Color with Level -->
+            <ha-formfield
+              label="${this._t("allergen_stroke_color_synced") || "Sync stroke color with level"}"
+            >
+              <ha-checkbox
+                .checked=${c.allergen_stroke_color_synced ?? true}
+                @change=${(e) =>
+                  this._updateConfig(
+                    "allergen_stroke_color_synced",
+                    e.target.checked,
+                  )}
+              ></ha-checkbox>
             </ha-formfield>
 
             <!-- Levels Configuration (moved above minimal) -->

@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Farba obrysu",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Obnoviť obrys",
+  "editor.allergen_stroke_color_synced": "Synchronizovať farbu čiary s úrovňou",
   "editor.allergen_stroke_width": "Hrúbka čiary",
   "editor.allergen_stroke_width_reset": "Obnoviť hrúbku čiary",
   "editor.allergens": "Alergény",

@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Contourkleur",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Contour resetten",
+  "editor.allergen_stroke_color_synced": "Synchroniseer lijndikte kleur met niveau",
   "editor.allergen_stroke_width": "Lijndikte",
   "editor.allergen_stroke_width_reset": "Lijndikte resetten",
   "editor.allergens": "Allergenen",

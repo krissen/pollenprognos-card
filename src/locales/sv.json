@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Konturfärg",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Återställ kontur",
+  "editor.allergen_stroke_color_synced": "Synkronisera linjefärg med nivå",
   "editor.allergen_stroke_width": "Linjetjocklek",
   "editor.allergen_stroke_width_reset": "Återställ linjetjocklek",
   "editor.allergens": "Allergener",
