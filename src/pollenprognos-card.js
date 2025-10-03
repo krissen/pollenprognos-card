@@ -1650,7 +1650,7 @@ class PollenPrognosCard extends LitElement {
                   <td>
                     ${this._renderAllergenSvg(
                       this._getSvgKey(sensor.allergenReplaced),
-                      sensor.days[0]?.state ?? 0,
+                      sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
                       {
                         clickable: this.config.link_to_sensors !== false && sensor.entity_id,
                         onClick: (e) => {
