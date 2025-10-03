@@ -1498,11 +1498,14 @@ class PollenPrognosCard extends LitElement {
               if (label) label += " ";
               label += `(${num})`;
             }
+            // Use display_state for level when available (DWD uses scaled 0-6 values),
+            // otherwise fall back to state
+            const levelForColor = sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
             return html`
               <div class="sensor minimal">
                 ${this._renderAllergenSvg(
                   this._getSvgKey(sensor.allergenReplaced),
-                  sensor.day0?.state ?? 0,
+                  levelForColor,
                   {
                     clickable: this.config.link_to_sensors !== false && sensor.entity_id,
                     onClick: (e) => {
@@ -1647,7 +1650,7 @@ class PollenPrognosCard extends LitElement {
                   <td>
                     ${this._renderAllergenSvg(
                       this._getSvgKey(sensor.allergenReplaced),
-                      sensor.days[0]?.state ?? 0,
+                      sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
                       {
                         clickable: this.config.link_to_sensors !== false && sensor.entity_id,
                         onClick: (e) => {
