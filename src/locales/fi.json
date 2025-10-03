@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Ääriviivan väri",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Palauta ääriviiva",
+  "editor.allergen_stroke_color_synced": "Synkronoi viivan väri tason kanssa",
   "editor.allergen_stroke_width": "Viivan paksuus",
   "editor.allergen_stroke_width_reset": "Palauta viivan paksuus",
   "editor.allergens": "Allergeenit",

@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Omrissfarge",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Tilbakestill omriss",
+  "editor.allergen_stroke_color_synced": "Synkroniser strekfarge med nivå",
   "editor.allergen_stroke_width": "Strekbredde",
   "editor.allergen_stroke_width_reset": "Tilbakestill strekbredde",
   "editor.allergens": "Allergener",

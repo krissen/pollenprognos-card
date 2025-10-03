@@ -64,6 +64,7 @@
   "editor.allergen_outline_color": "Konturfarbe",
   "editor.allergen_outline_placeholder": "#000000",
   "editor.allergen_outline_reset": "Kontur zurücksetzen",
+  "editor.allergen_stroke_color_synced": "Strichfarbe mit Stufe synchronisieren",
   "editor.allergen_stroke_width": "Linienstärke",
   "editor.allergen_stroke_width_reset": "Linienstärke zurücksetzen",
   "editor.allergens": "Allergene",
