@@ -19,6 +19,9 @@ JS_FILES_TO_SCAN = [
         Path(__file__).parent.parent / "src/pollenprognos-editor.js",
 ]
 
+# Also scan adapter files for t() calls with dynamic keys
+ADAPTER_FILES = list((Path(__file__).parent.parent / "src/adapters").glob("*.js"))
+
 def load_json(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
@@ -67,7 +70,55 @@ def find_used_keys_in_js():
                     used_keys.add(f"{prefix}{match}")
                 else:
                     used_keys.add(match)
+    
+    # Scan adapter files for dynamic t() calls like t(`card.allergen.${key}`, lang)
+    for adapter_file in ADAPTER_FILES:
+        if adapter_file.exists():
+            content = adapter_file.read_text(encoding="utf-8")
+            # Find patterns like t(`card.allergen.${...}`, lang) or t(`editor.phrases_short.${...}`, lang)
+            dynamic_matches = re.findall(
+                r't\(\s*[`"\']((?:card|editor)\.[a-zA-Z0-9_.]+)\.\$\{[^}]+\}[`"\']',
+                content
+            )
+            for match in dynamic_matches:
+                # Add a comment noting these are dynamic keys that need manual verification
+                # We'll just note the pattern, not add specific keys
+                pass
+            
+            # Also find static t() calls in adapters
+            static_matches = re.findall(r't\(\s*["\']([a-zA-Z0-9_.-]+)["\']\s*,', content)
+            for match in static_matches:
+                used_keys.add(match)
+    
     return used_keys
+
+def find_dynamic_translation_patterns():
+    """
+    Find dynamic translation patterns in adapter files and check if all
+    possible values are covered in locale files.
+    Returns a list of warnings about potentially missing keys.
+    """
+    warnings = []
+    
+    for adapter_file in ADAPTER_FILES:
+        if not adapter_file.exists():
+            continue
+        
+        content = adapter_file.read_text(encoding="utf-8")
+        
+        # Find patterns like t(`editor.phrases_short.${canonKey}`, lang)
+        # or t(`card.allergen.${transKey}`, lang)
+        dynamic_patterns = re.findall(
+            r't\(\s*[`"\']((?:card|editor)\.[a-zA-Z0-9_.]+)\.\$\{([^}]+)\}[`"\']',
+            content
+        )
+        
+        if dynamic_patterns:
+            warnings.append(f"\n{ICON_WARN} Dynamiska översättningsnycklar i {adapter_file.name}:")
+            for prefix, var in dynamic_patterns:
+                warnings.append(f"  {prefix}.${{...}} (variabel: {var})")
+    
+    return warnings
 
 def scan_missing():
     master, missing_per_lang, redundant_per_lang = find_missing_and_redundant()
@@ -100,6 +151,15 @@ def scan_missing():
         print(f"\n{ICON_DEL} Överflödiga nycklar (finns ej i {MASTER}):")
         for key, langs in all_redundant_keys.items():
             print(f"  {ICON_DEL} '{key}' finns i: {', '.join(langs)}")
+    
+    # Visa varningar om dynamiska översättningar
+    dynamic_warnings = find_dynamic_translation_patterns()
+    if dynamic_warnings:
+        for warning in dynamic_warnings:
+            print(warning)
+        print(f"\n{ICON_WARN} OBS: Dynamiska nycklar kräver manuell verifiering!")
+        print(f"  Kontrollera att alla värden för variablerna har motsvarande översättningar.")
+
 def gen_translation_json():
     master, missing_per_lang, _ = find_missing_and_redundant()
     output = defaultdict(dict)
