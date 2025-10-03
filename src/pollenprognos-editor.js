@@ -2176,6 +2176,20 @@ class PollenPrognosCardEditor extends LitElement {
               >
             </ha-formfield>
 
+            <!-- Sync Stroke Color with Level -->
+            <ha-formfield
+              label="${this._t("allergen_stroke_color_synced") || "Sync stroke color with level"}"
+            >
+              <ha-checkbox
+                .checked=${c.allergen_stroke_color_synced || false}
+                @change=${(e) =>
+                  this._updateConfig(
+                    "allergen_stroke_color_synced",
+                    e.target.checked,
+                  )}
+              ></ha-checkbox>
+            </ha-formfield>
+
             <!-- Levels Configuration (moved above minimal) -->
             <details>
               <summary>${this._t("levels_header")}</summary>

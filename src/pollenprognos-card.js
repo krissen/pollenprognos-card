@@ -655,8 +655,18 @@ class PollenPrognosCard extends LitElement {
     const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
-    // Special handling for no_allergens: use its color as stroke color since it's stroke-based
-    const actualStrokeColor = allergenKey === "no_allergens" ? color : outlineColor;
+    // Determine stroke color based on sync setting
+    let actualStrokeColor;
+    if (allergenKey === "no_allergens") {
+      // Special handling for no_allergens: always use its color as stroke color since it's stroke-based
+      actualStrokeColor = color;
+    } else if (this.config?.allergen_stroke_color_synced) {
+      // When synced, use the level color for stroke
+      actualStrokeColor = color;
+    } else {
+      // Default: use outline color
+      actualStrokeColor = outlineColor;
+    }
 
     const clickHandler = clickable && onClick ? onClick : null;
     const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
