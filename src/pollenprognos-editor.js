@@ -1166,7 +1166,7 @@ class PollenPrognosCardEditor extends LitElement {
         const currentStrokeWidth =
           this._config.allergen_stroke_width ||
           LEVELS_DEFAULTS.allergen_stroke_width;
-        const syncedGap = Math.round(currentStrokeWidth / 15);
+        const syncedGap = convertStrokeWidthToGap(currentStrokeWidth);
 
         // Also sync empty color from allergen colors[0]
         const currentAllergenColors =
@@ -1179,11 +1179,13 @@ class PollenPrognosCardEditor extends LitElement {
           levels_inherit_mode: value,
           levels_gap: syncedGap,
           levels_empty_color: syncedEmptyColor,
+          allergen_levels_gap_synced: true, // Enable sync when switching to inherit mode
         };
         this._config = newConfig;
         this._userConfig.levels_inherit_mode = value;
         this._userConfig.levels_gap = syncedGap;
         this._userConfig.levels_empty_color = syncedEmptyColor;
+        this._userConfig.allergen_levels_gap_synced = true;
 
         if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-5-levels-inherit-sync] Dispatching from levels_inherit_mode!=custom");
         if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
@@ -1227,7 +1229,7 @@ class PollenPrognosCardEditor extends LitElement {
       return;
     }
 
-    // Handle allergen stroke width reset - sync with levels gap if inheriting
+    // Handle allergen stroke width reset - sync with levels gap if inheriting and synced
     if (
       prop === "allergen_stroke_width" &&
       value === LEVELS_DEFAULTS.allergen_stroke_width
@@ -1235,10 +1237,11 @@ class PollenPrognosCardEditor extends LitElement {
       const newConfig = { ...this._config, allergen_stroke_width: value };
       this._userConfig.allergen_stroke_width = value;
 
-      // Sync with level circle gap only if levels inherit from allergen
+      // Sync with level circle gap only if levels inherit from allergen AND gap sync is enabled
       if (
         (this._config.levels_inherit_mode || "inherit_allergen") ===
-        "inherit_allergen"
+          "inherit_allergen" &&
+        (this._config.allergen_levels_gap_synced ?? true)
       ) {
         const levelGap = convertStrokeWidthToGap(value);
         newConfig.levels_gap = levelGap;
@@ -2124,15 +2127,15 @@ class PollenPrognosCardEditor extends LitElement {
                 min="0"
                 max="150"
                 step="5"
-                .value=${c.allergen_stroke_width ||
-                LEVELS_DEFAULTS.allergen_stroke_width}
+                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
                 @input=${(e) => {
                   const value = Number(e.target.value);
                   this._updateConfig("allergen_stroke_width", value);
-                  // Sync with level circle gap only if levels inherit from allergen
+                  // Sync with level circle gap only if levels inherit from allergen AND gap sync is enabled
                   if (
                     (c.levels_inherit_mode || "inherit_allergen") ===
-                    "inherit_allergen"
+                      "inherit_allergen" &&
+                    (c.allergen_levels_gap_synced ?? true)
                   ) {
                     const levelGap = convertStrokeWidthToGap(value);
                     this._updateConfig("levels_gap", levelGap);
@@ -2145,17 +2148,15 @@ class PollenPrognosCardEditor extends LitElement {
                 min="0"
                 max="150"
                 step="5"
-                .value=${c.allergen_stroke_width ||
-                LEVELS_DEFAULTS.allergen_stroke_width}
+                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
                 @input=${(e) => {
-                  const value =
-                    Number(e.target.value) ||
-                    LEVELS_DEFAULTS.allergen_stroke_width;
+                  const value = e.target.value === '' ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
                   this._updateConfig("allergen_stroke_width", value);
-                  // Sync with level circle gap only if levels inherit from allergen
+                  // Sync with level circle gap only if levels inherit from allergen AND gap sync is enabled
                   if (
                     (c.levels_inherit_mode || "inherit_allergen") ===
-                    "inherit_allergen"
+                      "inherit_allergen" &&
+                    (c.allergen_levels_gap_synced ?? true)
                   ) {
                     const levelGap = convertStrokeWidthToGap(value);
                     this._updateConfig("levels_gap", levelGap);
@@ -2174,6 +2175,20 @@ class PollenPrognosCardEditor extends LitElement {
                 style="margin-left: 8px;"
                 >↺</ha-button
               >
+            </ha-formfield>
+
+            <!-- Sync Stroke Color with Level -->
+            <ha-formfield
+              label="${this._t("allergen_stroke_color_synced") || "Sync stroke color with level"}"
+            >
+              <ha-checkbox
+                .checked=${c.allergen_stroke_color_synced ?? true}
+                @change=${(e) =>
+                  this._updateConfig(
+                    "allergen_stroke_color_synced",
+                    e.target.checked,
+                  )}
+              ></ha-checkbox>
             </ha-formfield>
 
             <!-- Levels Configuration (moved above minimal) -->
@@ -2202,6 +2217,24 @@ class PollenPrognosCardEditor extends LitElement {
                   </ha-select>
                 </div>
               </ha-formfield>
+
+              <!-- Sync Gap with Allergen Stroke Width - only shown when inheriting -->
+              ${(c.levels_inherit_mode || "inherit_allergen") === "inherit_allergen"
+                ? html`
+                    <ha-formfield
+                      label="${this._t("allergen_levels_gap_synced") || "Sync gap with allergen stroke width"}"
+                    >
+                      <ha-checkbox
+                        .checked=${c.allergen_levels_gap_synced ?? true}
+                        @change=${(e) =>
+                          this._updateConfig(
+                            "allergen_levels_gap_synced",
+                            e.target.checked,
+                          )}
+                      ></ha-checkbox>
+                    </ha-formfield>
+                  `
+                : ""}
 
               <!-- Colors Section - hidden when inheriting -->
               <div
@@ -2382,8 +2415,9 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-formfield>
               </div>
 
-              <!-- Gap control - conditional on inheritance mode -->
-              ${(c.levels_inherit_mode || "inherit_allergen") === "custom"
+              <!-- Gap control - conditional on inheritance mode and sync setting -->
+              ${(c.levels_inherit_mode || "inherit_allergen") === "custom" ||
+              !(c.allergen_levels_gap_synced ?? true)
                 ? html`
                     <ha-formfield label="${this._t("levels_gap")}">
                       <ha-slider

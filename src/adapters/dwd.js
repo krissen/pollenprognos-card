@@ -226,6 +226,7 @@ export async function fetchForecast(hass, config) {
             name: dict.allergenCapitalized,
             day: dayLabel,
             state: entry.level,
+            display_state: scaled,
             state_text: stateText,
           };
           dict.days.push(dict[`day${idx}`]);

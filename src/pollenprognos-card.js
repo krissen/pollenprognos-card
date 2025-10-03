@@ -651,12 +651,22 @@ class PollenPrognosCard extends LitElement {
 
     const color = this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
-    const strokeWidth = this.config?.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
+    const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
     const svgContent = getSvgContent(allergenKey);
     const { onClick, clickable = false } = options;
 
-    // Special handling for no_allergens: use its color as stroke color since it's stroke-based
-    const actualStrokeColor = allergenKey === "no_allergens" ? color : outlineColor;
+    // Determine stroke color based on sync setting
+    let actualStrokeColor;
+    if (allergenKey === "no_allergens") {
+      // Special handling for no_allergens: always use its color as stroke color since it's stroke-based
+      actualStrokeColor = color;
+    } else if (this.config?.allergen_stroke_color_synced) {
+      // When synced, use the level color for stroke
+      actualStrokeColor = color;
+    } else {
+      // Default: use outline color
+      actualStrokeColor = outlineColor;
+    }
 
     const clickHandler = clickable && onClick ? onClick : null;
     const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
@@ -1498,11 +1508,14 @@ class PollenPrognosCard extends LitElement {
               if (label) label += " ";
               label += `(${num})`;
             }
+            // Use display_state for level when available (DWD uses scaled 0-6 values),
+            // otherwise fall back to state
+            const levelForColor = sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
             return html`
               <div class="sensor minimal">
                 ${this._renderAllergenSvg(
                   this._getSvgKey(sensor.allergenReplaced),
-                  sensor.day0?.state ?? 0,
+                  levelForColor,
                   {
                     clickable: this.config.link_to_sensors !== false && sensor.entity_id,
                     onClick: (e) => {
@@ -1647,7 +1660,7 @@ class PollenPrognosCard extends LitElement {
                   <td>
                     ${this._renderAllergenSvg(
                       this._getSvgKey(sensor.allergenReplaced),
-                      sensor.days[0]?.state ?? 0,
+                      sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
                       {
                         clickable: this.config.link_to_sensors !== false && sensor.entity_id,
                         onClick: (e) => {
