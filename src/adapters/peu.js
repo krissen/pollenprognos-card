@@ -156,10 +156,10 @@ export async function fetchForecast(hass, config) {
       dict.allergenReplaced = allergenSlug;
 
       // Allergen-namn, phrases, i18n, capitalisering
+      const canonKey = ALLERGEN_TRANSLATION[allergenSlug] || allergenSlug;
       if (fullPhrases[allergenSlug]) {
         dict.allergenCapitalized = fullPhrases[allergenSlug];
       } else {
-        const canonKey = ALLERGEN_TRANSLATION[allergenSlug] || allergenSlug;
         const lookup = t(`card.allergen.${canonKey}`, lang);
         dict.allergenCapitalized =
           lookup !== `card.allergen.${canonKey}`
@@ -170,7 +170,7 @@ export async function fetchForecast(hass, config) {
         const userShort = shortPhrases[allergenSlug];
         dict.allergenShort =
           userShort ||
-          t(`editor.phrases_short.${allergenSlug}`, lang) ||
+          t(`editor.phrases_short.${canonKey}`, lang) ||
           dict.allergenCapitalized;
       } else {
         dict.allergenShort = dict.allergenCapitalized;
