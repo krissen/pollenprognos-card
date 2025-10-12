@@ -1749,7 +1749,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex") &&
             c.location === "manual")
             ? html`
                 <details>
