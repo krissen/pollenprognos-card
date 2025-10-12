@@ -1,0 +1,168 @@
+entity:
+sensor.kleenex_pollen_radar_amsterdam_trees
+
+state:
+0
+
+attributes:
+state_class: measurement
+level: low
+details: 
+- name: Hazelaar
+  value: 0
+  level: low
+- name: Iep
+  value: 0
+  level: low
+- name: Pijnboom
+  value: 0
+  level: low
+- name: Els
+  value: 0
+  level: low
+- name: Populier
+  value: 0
+  level: low
+- name: Eik
+  value: 0
+  level: low
+- name: Plataan
+  value: 0
+  level: low
+- name: Berk
+  value: 0
+  level: low
+- name: Cipres
+  value: 0
+  level: low
+
+forecast: 
+- date: '2025-10-13'
+  value: 0
+  level: low
+  details:
+    - name: Hazelaar
+      value: 0
+      level: low
+    - name: Iep
+      value: 0
+      level: low
+    - name: Pijnboom
+      value: 0
+      level: low
+    - name: Els
+      value: 0
+      level: low
+    - name: Populier
+      value: 0
+      level: low
+    - name: Eik
+      value: 0
+      level: low
+    - name: Plataan
+      value: 0
+      level: low
+    - name: Berk
+      value: 0
+      level: low
+    - name: Cipres
+      value: 0
+      level: low
+- date: '2025-10-14'
+  value: 0
+  level: low
+  details:
+    - name: Hazelaar
+      value: 0
+      level: low
+    - name: Iep
+      value: 0
+      level: low
+    - name: Pijnboom
+      value: 0
+      level: low
+    - name: Els
+      value: 0
+      level: low
+    - name: Populier
+      value: 0
+      level: low
+    - name: Eik
+      value: 0
+      level: low
+    - name: Plataan
+      value: 0
+      level: low
+    - name: Berk
+      value: 0
+      level: low
+    - name: Cipres
+      value: 0
+      level: low
+- date: '2025-10-15'
+  value: 0
+  level: low
+  details:
+    - name: Hazelaar
+      value: 0
+      level: low
+    - name: Iep
+      value: 0
+      level: low
+    - name: Pijnboom
+      value: 0
+      level: low
+    - name: Els
+      value: 0
+      level: low
+    - name: Populier
+      value: 0
+      level: low
+    - name: Eik
+      value: 0
+      level: low
+    - name: Plataan
+      value: 0
+      level: low
+    - name: Berk
+      value: 0
+      level: low
+    - name: Cipres
+      value: 0
+      level: low
+- date: '2025-10-16'
+  value: 0
+  level: low
+  details:
+    - name: Hazelaar
+      value: 0
+      level: low
+    - name: Iep
+      value: 0
+      level: low
+    - name: Pijnboom
+      value: 0
+      level: low
+    - name: Els
+      value: 0
+      level: low
+    - name: Populier
+      value: 0
+      level: low
+    - name: Eik
+      value: 0
+      level: low
+    - name: Plataan
+      value: 0
+      level: low
+    - name: Berk
+      value: 0
+      level: low
+    - name: Cipres
+      value: 0
+      level: low
+
+unit_of_measurement: ppm
+icon: mdi:tree-outline
+friendly_name: Kleenex Pollen Radar (Amsterdam) Trees
+
