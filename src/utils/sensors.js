@@ -1,6 +1,7 @@
 // src/utils/sensors.js
 import { normalize, normalizeDWD } from "./normalize.js";
 import { slugify } from "./slugify.js";
+import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -202,29 +203,6 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     // For kleenex, we only need to check the 3 main category sensors
     // Individual allergen data comes from their 'details' attributes
     const categoryAllergens = ['trees', 'grass', 'weeds'];
-    
-    // Mapping of localized category name prefixes to canonical names
-    // The Kleenex integration creates sensors with localized category names
-    // Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
-    const localizedCategoryNames = {
-      // English
-      'tree': 'trees',    // matches trees
-      'grass': 'grass', 
-      'weed': 'weeds',    // matches weeds
-      // Dutch
-      'bomen': 'trees',
-      'gras': 'grass',
-      'onkruid': 'weeds', // matches both onkruid and onkruiden
-      // French
-      'arbre': 'trees',   // matches arbres
-      'graminee': 'grass', // matches graminees, graminées
-      'herbacee': 'weeds', // matches herbacees, herbacées
-      // Italian
-      'alber': 'trees',   // matches alberi
-      'graminace': 'grass', // matches graminacee
-      'erbace': 'weeds',  // matches erbacee
-    };
-    
     const configuredAllergens = cfg.allergens || [];
     
     // Only check if any of the requested allergens map to these categories
@@ -269,7 +247,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         // If no location slug or sensor not found, search for localized names
         if (!sensorId || !hass.states[sensorId]) {
           // Get all possible localized name prefixes for this category
-          const possiblePrefixes = Object.entries(localizedCategoryNames)
+          const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
             .filter(([_, canonical]) => canonical === category)
             .map(([prefix, _]) => prefix);
           

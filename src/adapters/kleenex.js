@@ -1,6 +1,6 @@
 // src/adapters/kleenex.js
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { ALLERGEN_TRANSLATION, KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
@@ -291,31 +291,10 @@ export async function fetchForecast(hass, config) {
     const details = attributes.details || [];
     const forecastData = attributes.forecast || [];
 
-    // Mapping of localized category name prefixes to canonical names
-    // Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
-    const localizedCategoryNames = {
-      // English
-      'tree': 'trees',    // matches trees
-      'grass': 'grass',
-      'weed': 'weeds',    // matches weeds
-      // Dutch
-      'bomen': 'trees',
-      'gras': 'grass',
-      'onkruid': 'weeds', // matches both onkruid and onkruiden
-      // French
-      'arbre': 'trees',   // matches arbres
-      'graminee': 'grass', // matches graminees, graminées
-      'herbacee': 'weeds', // matches herbacees, herbacées
-      // Italian
-      'alber': 'trees',   // matches alberi
-      'graminace': 'grass', // matches graminacee
-      'erbace': 'weeds',  // matches erbacee
-    };
-
     // Determine sensor category from entity_id by checking all localized name prefixes
     let sensorCategory = null;
     const entitySuffix = sensor.entity_id.split('_').pop();
-    for (const [localizedPrefix, canonicalCategory] of Object.entries(localizedCategoryNames)) {
+    for (const [localizedPrefix, canonicalCategory] of Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
       if (entitySuffix.startsWith(localizedPrefix)) {
         sensorCategory = canonicalCategory;
         break;
