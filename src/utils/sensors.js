@@ -203,27 +203,26 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     // Individual allergen data comes from their 'details' attributes
     const categoryAllergens = ['trees', 'grass', 'weeds'];
     
-    // Mapping of localized category names to canonical names
+    // Mapping of localized category name prefixes to canonical names
     // The Kleenex integration creates sensors with localized category names
+    // Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
     const localizedCategoryNames = {
       // English
-      'trees': 'trees',
+      'tree': 'trees',    // matches trees
       'grass': 'grass', 
-      'weeds': 'weeds',
+      'weed': 'weeds',    // matches weeds
       // Dutch
       'bomen': 'trees',
       'gras': 'grass',
-      'onkruiden': 'weeds',
+      'onkruid': 'weeds', // matches both onkruid and onkruiden
       // French
-      'arbres': 'trees',
-      'graminees': 'grass',
-      'graminées': 'grass', // with accent
-      'herbacees': 'weeds',
-      'herbacées': 'weeds', // with accent
+      'arbre': 'trees',   // matches arbres
+      'graminee': 'grass', // matches graminees, graminées
+      'herbacee': 'weeds', // matches herbacees, herbacées
       // Italian
-      'alberi': 'trees',
-      'graminacee': 'grass',
-      'erbacee': 'weeds',
+      'alber': 'trees',   // matches alberi
+      'graminace': 'grass', // matches graminacee
+      'erbace': 'weeds',  // matches erbacee
     };
     
     const configuredAllergens = cfg.allergens || [];
@@ -269,17 +268,21 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         
         // If no location slug or sensor not found, search for localized names
         if (!sensorId || !hass.states[sensorId]) {
-          // Get all possible localized names for this category
-          const possibleNames = Object.entries(localizedCategoryNames)
+          // Get all possible localized name prefixes for this category
+          const possiblePrefixes = Object.entries(localizedCategoryNames)
             .filter(([_, canonical]) => canonical === category)
-            .map(([localized, _]) => localized);
+            .map(([prefix, _]) => prefix);
           
-          // Search for sensors with any of the possible names
+          // Search for sensors with any of the possible names (using startsWith for flexibility)
           const candidates = Object.keys(hass.states).filter((id) => {
             if (!id.startsWith(`sensor.kleenex_pollen_radar_`)) return false;
             
-            // Check if the sensor ends with any of the possible category names
-            return possibleNames.some(name => id.endsWith(`_${name}`));
+            // Extract the suffix after the last underscore
+            const parts = id.split('_');
+            const suffix = parts[parts.length - 1];
+            
+            // Check if the suffix starts with any of the possible category name prefixes
+            return possiblePrefixes.some(prefix => suffix.startsWith(prefix));
           });
           
           if (candidates.length >= 1) {

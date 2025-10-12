@@ -291,32 +291,32 @@ export async function fetchForecast(hass, config) {
     const details = attributes.details || [];
     const forecastData = attributes.forecast || [];
 
-    // Mapping of localized category names to canonical names
+    // Mapping of localized category name prefixes to canonical names
+    // Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
     const localizedCategoryNames = {
       // English
-      'trees': 'trees',
+      'tree': 'trees',    // matches trees
       'grass': 'grass',
-      'weeds': 'weeds',
+      'weed': 'weeds',    // matches weeds
       // Dutch
       'bomen': 'trees',
       'gras': 'grass',
-      'onkruiden': 'weeds',
+      'onkruid': 'weeds', // matches both onkruid and onkruiden
       // French
-      'arbres': 'trees',
-      'graminees': 'grass',
-      'graminées': 'grass',
-      'herbacees': 'weeds',
-      'herbacées': 'weeds',
+      'arbre': 'trees',   // matches arbres
+      'graminee': 'grass', // matches graminees, graminées
+      'herbacee': 'weeds', // matches herbacees, herbacées
       // Italian
-      'alberi': 'trees',
-      'graminacee': 'grass',
-      'erbacee': 'weeds',
+      'alber': 'trees',   // matches alberi
+      'graminace': 'grass', // matches graminacee
+      'erbace': 'weeds',  // matches erbacee
     };
 
-    // Determine sensor category from entity_id by checking all localized names
+    // Determine sensor category from entity_id by checking all localized name prefixes
     let sensorCategory = null;
-    for (const [localizedName, canonicalCategory] of Object.entries(localizedCategoryNames)) {
-      if (sensor.entity_id.endsWith(`_${localizedName}`)) {
+    const entitySuffix = sensor.entity_id.split('_').pop();
+    for (const [localizedPrefix, canonicalCategory] of Object.entries(localizedCategoryNames)) {
+      if (entitySuffix.startsWith(localizedPrefix)) {
         sensorCategory = canonicalCategory;
         break;
       }
