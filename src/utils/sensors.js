@@ -197,7 +197,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       }
     }
   } else if (integration === "kleenex") {
-    const locationSlug = (cfg.location || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const locationSlug = slugify(cfg.location || "");
     
     // For kleenex, we only need to check the 3 main category sensors
     // Individual allergen data comes from their 'details' attributes

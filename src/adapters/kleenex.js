@@ -2,6 +2,7 @@
 import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
+import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 
@@ -234,9 +235,7 @@ export async function fetchForecast(hass, config) {
 
   // Filter by location if specified (and not manual mode)
   if (config.location && config.location !== "manual") {
-    const wantedLocation = config.location
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "_");
+    const wantedLocation = slugify(config.location);
 
     if (debug) {
       console.debug(

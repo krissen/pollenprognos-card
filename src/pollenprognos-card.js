@@ -1197,7 +1197,7 @@ class PollenPrognosCard extends LitElement {
 
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
-            ? cfg.location.toLowerCase().replace(/[^a-z0-9]/g, "_")
+            ? slugify(cfg.location)
             : "";
 
         // Find first entity with matching location
