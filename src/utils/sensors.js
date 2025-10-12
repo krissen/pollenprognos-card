@@ -202,6 +202,30 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     // For kleenex, we only need to check the 3 main category sensors
     // Individual allergen data comes from their 'details' attributes
     const categoryAllergens = ['trees', 'grass', 'weeds'];
+    
+    // Mapping of localized category names to canonical names
+    // The Kleenex integration creates sensors with localized category names
+    const localizedCategoryNames = {
+      // English
+      'trees': 'trees',
+      'grass': 'grass', 
+      'weeds': 'weeds',
+      // Dutch
+      'bomen': 'trees',
+      'gras': 'grass',
+      'onkruiden': 'weeds',
+      // French
+      'arbres': 'trees',
+      'graminees': 'grass',
+      'graminées': 'grass', // with accent
+      'herbacees': 'weeds',
+      'herbacées': 'weeds', // with accent
+      // Italian
+      'alberi': 'trees',
+      'graminacee': 'grass',
+      'erbacee': 'weeds',
+    };
+    
     const configuredAllergens = cfg.allergens || [];
     
     // Only check if any of the requested allergens map to these categories
@@ -238,15 +262,26 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         const suffix = cfg.entity_suffix || "";
         sensorId = `${prefix}${category}${suffix}`;
       } else {
+        // First try the canonical English name
         sensorId = locationSlug
           ? `sensor.kleenex_pollen_radar_${locationSlug}_${category}`
           : null;
         
-        // If no location slug or sensor not found, try to find any matching sensor
+        // If no location slug or sensor not found, search for localized names
         if (!sensorId || !hass.states[sensorId]) {
-          const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(`sensor.kleenex_pollen_radar_`) && id.endsWith(`_${category}`)
-          );
+          // Get all possible localized names for this category
+          const possibleNames = Object.entries(localizedCategoryNames)
+            .filter(([_, canonical]) => canonical === category)
+            .map(([localized, _]) => localized);
+          
+          // Search for sensors with any of the possible names
+          const candidates = Object.keys(hass.states).filter((id) => {
+            if (!id.startsWith(`sensor.kleenex_pollen_radar_`)) return false;
+            
+            // Check if the sensor ends with any of the possible category names
+            return possibleNames.some(name => id.endsWith(`_${name}`));
+          });
+          
           if (candidates.length >= 1) {
             sensorId = candidates[0]; // Take first match
           }

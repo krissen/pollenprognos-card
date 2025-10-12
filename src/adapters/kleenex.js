@@ -291,14 +291,35 @@ export async function fetchForecast(hass, config) {
     const details = attributes.details || [];
     const forecastData = attributes.forecast || [];
 
-    // Determine sensor category from entity_id
+    // Mapping of localized category names to canonical names
+    const localizedCategoryNames = {
+      // English
+      'trees': 'trees',
+      'grass': 'grass',
+      'weeds': 'weeds',
+      // Dutch
+      'bomen': 'trees',
+      'gras': 'grass',
+      'onkruiden': 'weeds',
+      // French
+      'arbres': 'trees',
+      'graminees': 'grass',
+      'graminées': 'grass',
+      'herbacees': 'weeds',
+      'herbacées': 'weeds',
+      // Italian
+      'alberi': 'trees',
+      'graminacee': 'grass',
+      'erbacee': 'weeds',
+    };
+
+    // Determine sensor category from entity_id by checking all localized names
     let sensorCategory = null;
-    if (sensor.entity_id.endsWith("_trees")) {
-      sensorCategory = "trees";
-    } else if (sensor.entity_id.endsWith("_grass")) {
-      sensorCategory = "grass";
-    } else if (sensor.entity_id.endsWith("_weeds")) {
-      sensorCategory = "weeds";
+    for (const [localizedName, canonicalCategory] of Object.entries(localizedCategoryNames)) {
+      if (sensor.entity_id.endsWith(`_${localizedName}`)) {
+        sensorCategory = canonicalCategory;
+        break;
+      }
     }
 
     if (debug) {
