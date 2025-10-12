@@ -117,6 +117,28 @@ export const ALLERGEN_ICON_FALLBACK = {
   // grass has its own icon, no fallback needed
 };
 
+// Mapping of localized category name prefixes to canonical names for Kleenex integration
+// The Kleenex integration creates sensors with localized category names based on HA language
+// Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
+export const KLEENEX_LOCALIZED_CATEGORY_NAMES = {
+  // English
+  'tree': 'trees',    // matches trees
+  'grass': 'grass',
+  'weed': 'weeds',    // matches weeds
+  // Dutch
+  'bomen': 'trees',
+  'gras': 'grass',
+  'onkruid': 'weeds', // matches both onkruid and onkruiden
+  // French
+  'arbre': 'trees',   // matches arbres
+  'graminee': 'grass', // matches graminees, graminées
+  'herbacee': 'weeds', // matches herbacees, herbacées
+  // Italian
+  'alber': 'trees',   // matches alberi
+  'graminace': 'grass', // matches graminacee
+  'erbace': 'weeds',  // matches erbacee
+};
+
 export const PP_POSSIBLE_CITIES = [
   "Borlänge",
   "Bräkne-Hoby",

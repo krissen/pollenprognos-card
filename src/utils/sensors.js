@@ -1,6 +1,7 @@
 // src/utils/sensors.js
 import { normalize, normalizeDWD } from "./normalize.js";
 import { slugify } from "./slugify.js";
+import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -197,7 +198,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       }
     }
   } else if (integration === "kleenex") {
-    const locationSlug = (cfg.location || "").toLowerCase();
+    const locationSlug = slugify(cfg.location || "");
     
     // For kleenex, we only need to check the 3 main category sensors
     // Individual allergen data comes from their 'details' attributes
@@ -238,15 +239,30 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         const suffix = cfg.entity_suffix || "";
         sensorId = `${prefix}${category}${suffix}`;
       } else {
+        // First try the canonical English name
         sensorId = locationSlug
           ? `sensor.kleenex_pollen_radar_${locationSlug}_${category}`
           : null;
         
-        // If no location slug or sensor not found, try to find any matching sensor
+        // If no location slug or sensor not found, search for localized names
         if (!sensorId || !hass.states[sensorId]) {
-          const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(`sensor.kleenex_pollen_radar_`) && id.endsWith(`_${category}`)
-          );
+          // Get all possible localized name prefixes for this category
+          const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
+            .filter(([_, canonical]) => canonical === category)
+            .map(([prefix, _]) => prefix);
+          
+          // Search for sensors with any of the possible names (using startsWith for flexibility)
+          const candidates = Object.keys(hass.states).filter((id) => {
+            if (!id.startsWith(`sensor.kleenex_pollen_radar_`)) return false;
+            
+            // Extract the suffix after the last underscore
+            const parts = id.split('_');
+            const suffix = parts[parts.length - 1];
+            
+            // Check if the suffix starts with any of the possible category name prefixes
+            return possiblePrefixes.some(prefix => suffix.startsWith(prefix));
+          });
+          
           if (candidates.length >= 1) {
             sensorId = candidates[0]; // Take first match
           }

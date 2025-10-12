@@ -1,7 +1,8 @@
 // src/adapters/kleenex.js
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { ALLERGEN_TRANSLATION, KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
+import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 
@@ -234,9 +235,7 @@ export async function fetchForecast(hass, config) {
 
   // Filter by location if specified (and not manual mode)
   if (config.location && config.location !== "manual") {
-    const wantedLocation = config.location
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "_");
+    const wantedLocation = slugify(config.location);
 
     if (debug) {
       console.debug(
@@ -292,14 +291,14 @@ export async function fetchForecast(hass, config) {
     const details = attributes.details || [];
     const forecastData = attributes.forecast || [];
 
-    // Determine sensor category from entity_id
+    // Determine sensor category from entity_id by checking all localized name prefixes
     let sensorCategory = null;
-    if (sensor.entity_id.endsWith("_trees")) {
-      sensorCategory = "trees";
-    } else if (sensor.entity_id.endsWith("_grass")) {
-      sensorCategory = "grass";
-    } else if (sensor.entity_id.endsWith("_weeds")) {
-      sensorCategory = "weeds";
+    const entitySuffix = sensor.entity_id.split('_').pop();
+    for (const [localizedPrefix, canonicalCategory] of Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
+      if (entitySuffix.startsWith(localizedPrefix)) {
+        sensorCategory = canonicalCategory;
+        break;
+      }
     }
 
     if (debug) {
