@@ -980,8 +980,10 @@ class PollenPrognosCardEditor extends LitElement {
             )
             .map((s) => {
               // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
+              // Match all localized category names: English (trees/grass/weeds), Dutch (bomen/gras/kruiden/onkruid),
+              // French (arbres/graminees/herbacees), Italian (alberi/graminacee/erbacee)
               const match = s.entity_id.match(
-                /^sensor\.kleenex_pollen_radar_(.*)_(?:trees|grass|weeds)$/,
+                /^sensor\.kleenex_pollen_radar_(.*)_(?:tree|bomen|arbre|alber|grass|gras|graminee|graminace|weed|kruid|onkruid|herbacee|erbace)/,
               );
               if (!match) return null;
 
@@ -991,7 +993,7 @@ class PollenPrognosCardEditor extends LitElement {
               // Clean up the title to show only the location
               title = title
                 .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
-                .replace(/[\)\s]+(?:Trees|Grass|Weeds).*$/i, "")
+                .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Graminées|Herbacées|Alberi|Graminacee|Erbacee).*$/i, "")
                 .trim();
 
               // Fallback to locationSlug if cleaning resulted in empty string
