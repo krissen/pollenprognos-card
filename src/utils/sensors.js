@@ -254,7 +254,36 @@ export function findAvailableSensors(cfg, hass, debug = false) {
           prefix = prefix + "_";
         }
         const suffix = cfg.entity_suffix || "";
+        
+        // First try the canonical English name
         sensorId = `sensor.${prefix}${category}${suffix}`;
+        
+        // If sensor not found, search for localized category names
+        if (!hass.states[sensorId]) {
+          // Get all possible localized name prefixes for this category
+          const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
+            .filter(([_, canonical]) => canonical === category)
+            .map(([localPrefix, _]) => localPrefix);
+          
+          // Search for sensors with any of the possible localized names
+          const expectedPrefix = `sensor.${prefix}`;
+          const candidates = Object.keys(hass.states).filter((id) => {
+            if (!id.startsWith(expectedPrefix)) return false;
+            
+            // Extract the part between prefix and suffix
+            const middle = id.substring(expectedPrefix.length);
+            if (suffix && !middle.endsWith(suffix)) return false;
+            
+            const categoryPart = suffix ? middle.substring(0, middle.length - suffix.length) : middle;
+            
+            // Check if the category part matches any of the possible localized names
+            return possiblePrefixes.some(localPrefix => categoryPart.startsWith(localPrefix));
+          });
+          
+          if (candidates.length >= 1) {
+            sensorId = candidates[0]; // Take first match
+          }
+        }
       } else {
         // First try the canonical English name
         sensorId = locationSlug
@@ -287,8 +316,12 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       }
       
       if (debug) {
+        const isManual = cfg.location === "manual";
+        const debugInfo = isManual 
+          ? `manual mode, prefix: '${cfg.entity_prefix || ''}', suffix: '${cfg.entity_suffix || ''}'`
+          : `location: '${locationSlug}'`;
         console.debug(
-          `[findAvailableSensors][kleenex] category: '${category}', locationSlug: '${locationSlug}', sensorId: '${sensorId}', exists: ${!!hass.states[sensorId]}`,
+          `[findAvailableSensors][kleenex] category: '${category}', ${debugInfo}, sensorId: '${sensorId}', exists: ${!!hass.states[sensorId]}`,
         );
       }
       if (hass.states[sensorId]) sensors.push(sensorId);
