@@ -14,7 +14,6 @@ export const ADAPTERS = {
   kleenex: KLEENEX,
 };
 
-
 export const DWD_REGIONS = {
   11: "Schleswig-Holstein und Hamburg",
   12: "Schleswig-Holstein und Hamburg",
@@ -97,11 +96,11 @@ export const ALLERGEN_TRANSLATION = {
   pine: "pine",
   poplar: "poplar",
   poaceae: "poaceae",
-  chenopod: "chenopod", 
+  chenopod: "chenopod",
   nettle: "nettle",
   // Kleenex pollen radar - category allergens (to distinguish from individual allergens)
   grass_cat: "grass_cat",
-  trees_cat: "trees_cat", 
+  trees_cat: "trees_cat",
   weeds_cat: "weeds_cat",
   // Note: Category allergens use _cat suffix to distinguish from individuals
   // Icon mapping is handled separately in the image system
@@ -109,11 +108,11 @@ export const ALLERGEN_TRANSLATION = {
 
 // Icon fallback mapping for allergens that don't have their own icons
 export const ALLERGEN_ICON_FALLBACK = {
-  trees_cat: "birch",    // Use birch icon for trees category
-  grass_cat: "grass",    // Use grass icon for grass category
-  weeds_cat: "mugwort",  // Use mugwort icon for weeds category
-  trees: "birch",        // Keep original for compatibility
-  weeds: "mugwort",      // Keep original for compatibility
+  trees_cat: "birch", // Use birch icon for trees category
+  grass_cat: "grass", // Use grass icon for grass category
+  weeds_cat: "mugwort", // Use mugwort icon for weeds category
+  trees: "birch", // Keep original for compatibility
+  weeds: "mugwort", // Keep original for compatibility
   // grass has its own icon, no fallback needed
 };
 
@@ -122,21 +121,22 @@ export const ALLERGEN_ICON_FALLBACK = {
 // Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
 export const KLEENEX_LOCALIZED_CATEGORY_NAMES = {
   // English
-  'tree': 'trees',    // matches trees
-  'grass': 'grass',
-  'weed': 'weeds',    // matches weeds
+  tree: "trees", // matches trees
+  grass: "grass",
+  weed: "weeds", // matches weeds
   // Dutch
-  'bomen': 'trees',
-  'gras': 'grass',
-  'onkruid': 'weeds', // matches both onkruid and onkruiden
+  bomen: "trees",
+  gras: "grass",
+  onkruid: "weeds", // matches both onkruid and onkruiden
+  kruid: "weeds", // matches kruid and kruiden
   // French
-  'arbre': 'trees',   // matches arbres
-  'graminee': 'grass', // matches graminees, graminées
-  'herbacee': 'weeds', // matches herbacees, herbacées
+  arbre: "trees", // matches arbres
+  graminee: "grass", // matches graminees, graminées
+  herbacee: "weeds", // matches herbacees, herbacées
   // Italian
-  'alber': 'trees',   // matches alberi
-  'graminace': 'grass', // matches graminacee
-  'erbace': 'weeds',  // matches erbacee
+  alber: "trees", // matches alberi
+  graminace: "grass", // matches graminacee
+  erbace: "weeds", // matches erbacee
 };
 
 export const PP_POSSIBLE_CITIES = [
