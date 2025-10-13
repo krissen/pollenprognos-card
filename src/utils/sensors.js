@@ -20,6 +20,10 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     if (prefix.startsWith("sensor.")) {
       prefix = prefix.substring(7); // Remove 'sensor.'
     }
+    // Add trailing underscore if not present (unless prefix is empty)
+    if (prefix && !prefix.endsWith("_")) {
+      prefix = prefix + "_";
+    }
     const suffix = cfg.entity_suffix || "";
     for (const allergen of cfg.allergens || []) {
       let slug;
@@ -244,6 +248,10 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         // Remove 'sensor.' prefix if user included it
         if (prefix.startsWith("sensor.")) {
           prefix = prefix.substring(7); // Remove 'sensor.'
+        }
+        // Add trailing underscore if not present (unless prefix is empty)
+        if (prefix && !prefix.endsWith("_")) {
+          prefix = prefix + "_";
         }
         const suffix = cfg.entity_suffix || "";
         sensorId = `sensor.${prefix}${category}${suffix}`;

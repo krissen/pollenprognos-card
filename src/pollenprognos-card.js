@@ -1201,16 +1201,35 @@ class PollenPrognosCard extends LitElement {
             : "";
 
         // Find first entity with matching location
-        const match = wantedLocation
-          ? kleenexEntities.find((s) => {
-              const eid = s.entity_id.replace(
-                "sensor.kleenex_pollen_radar_",
-                "",
-              );
-              const locPart = eid.replace(/_[^_]+$/, "");
-              return locPart === wantedLocation;
-            })
-          : kleenexEntities[0];
+        let match = null;
+        if (cfg.location === "manual") {
+          // In manual mode, use entity_prefix to find matching sensor
+          let prefix = cfg.entity_prefix || "";
+          // Remove 'sensor.' prefix if user included it
+          if (prefix.startsWith("sensor.")) {
+            prefix = prefix.substring(7);
+          }
+          // Add trailing underscore if not present
+          if (prefix && !prefix.endsWith("_")) {
+            prefix = prefix + "_";
+          }
+          if (prefix) {
+            match = kleenexEntities.find((s) =>
+              s.entity_id.startsWith(`sensor.${prefix}`)
+            );
+          }
+        } else if (wantedLocation) {
+          match = kleenexEntities.find((s) => {
+            const eid = s.entity_id.replace(
+              "sensor.kleenex_pollen_radar_",
+              "",
+            );
+            const locPart = eid.replace(/_[^_]+$/, "");
+            return locPart === wantedLocation;
+          });
+        } else {
+          match = kleenexEntities[0];
+        }
 
         let title = "";
         if (match) {

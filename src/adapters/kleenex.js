@@ -269,6 +269,10 @@ export async function fetchForecast(hass, config) {
     if (prefix.startsWith("sensor.")) {
       prefix = prefix.substring(7); // Remove 'sensor.'
     }
+    // Add trailing underscore if not present (unless prefix is empty)
+    if (prefix && !prefix.endsWith("_")) {
+      prefix = prefix + "_";
+    }
     
     if (debug) {
       console.debug(
