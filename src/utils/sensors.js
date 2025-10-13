@@ -237,7 +237,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (cfg.location === "manual") {
         const prefix = cfg.entity_prefix || "";
         const suffix = cfg.entity_suffix || "";
-        sensorId = `${prefix}${category}${suffix}`;
+        sensorId = `sensor.${prefix}${category}${suffix}`;
       } else {
         // First try the canonical English name
         sensorId = locationSlug
