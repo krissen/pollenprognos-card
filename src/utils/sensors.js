@@ -15,7 +15,11 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     cfg.region_id === "manual" ||
     (cfg.location === "manual" && integration !== "kleenex");
   if (manual) {
-    const prefix = cfg.entity_prefix || "";
+    let prefix = cfg.entity_prefix || "";
+    // Remove 'sensor.' prefix if user included it
+    if (prefix.startsWith("sensor.")) {
+      prefix = prefix.substring(7); // Remove 'sensor.'
+    }
     const suffix = cfg.entity_suffix || "";
     for (const allergen of cfg.allergens || []) {
       let slug;
@@ -236,7 +240,11 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     for (const category of needsCategories) {
       let sensorId;
       if (cfg.location === "manual") {
-        const prefix = cfg.entity_prefix || "";
+        let prefix = cfg.entity_prefix || "";
+        // Remove 'sensor.' prefix if user included it
+        if (prefix.startsWith("sensor.")) {
+          prefix = prefix.substring(7); // Remove 'sensor.'
+        }
         const suffix = cfg.entity_suffix || "";
         sensorId = `sensor.${prefix}${category}${suffix}`;
       } else {

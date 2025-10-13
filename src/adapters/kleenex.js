@@ -264,7 +264,11 @@ export async function fetchForecast(hass, config) {
     }
   } else if (config.location === "manual") {
     // Manual mode: filter by entity_prefix
-    const prefix = config.entity_prefix || "";
+    let prefix = config.entity_prefix || "";
+    // Remove 'sensor.' prefix if user included it
+    if (prefix.startsWith("sensor.")) {
+      prefix = prefix.substring(7); // Remove 'sensor.'
+    }
     
     if (debug) {
       console.debug(
