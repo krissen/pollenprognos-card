@@ -262,6 +262,36 @@ export async function fetchForecast(hass, config) {
         `[Kleenex] After location filtering: ${kleenexSensors.length} sensors for location '${wantedLocation}'`,
       );
     }
+  } else if (config.location === "manual") {
+    // Manual mode: filter by entity_prefix
+    const prefix = config.entity_prefix || "";
+    
+    if (debug) {
+      console.debug(
+        `[Kleenex] Manual mode filtering with prefix: '${prefix}'`,
+      );
+    }
+    
+    if (prefix) {
+      const expectedPrefix = `sensor.${prefix}`;
+      kleenexSensors = kleenexSensors.filter((entity) => {
+        const matches = entity.entity_id.startsWith(expectedPrefix);
+        
+        if (debug && matches) {
+          console.debug(
+            `[Kleenex] Manual mode match: ${entity.entity_id}`,
+          );
+        }
+        
+        return matches;
+      });
+      
+      if (debug) {
+        console.debug(
+          `[Kleenex] After manual mode filtering: ${kleenexSensors.length} sensors with prefix '${expectedPrefix}'`,
+        );
+      }
+    }
   }
 
   if (debug) {

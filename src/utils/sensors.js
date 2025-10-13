@@ -9,10 +9,11 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   let sensors = [];
 
   // Manual mode: use custom prefix/suffix regardless of integration
+  // Note: kleenex has special handling below due to category/individual allergen mapping
   const manual =
     cfg.city === "manual" ||
     cfg.region_id === "manual" ||
-    cfg.location === "manual";
+    (cfg.location === "manual" && integration !== "kleenex");
   if (manual) {
     const prefix = cfg.entity_prefix || "";
     const suffix = cfg.entity_suffix || "";
