@@ -9,12 +9,21 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   let sensors = [];
 
   // Manual mode: use custom prefix/suffix regardless of integration
+  // Note: kleenex has special handling below due to category/individual allergen mapping
   const manual =
     cfg.city === "manual" ||
     cfg.region_id === "manual" ||
-    cfg.location === "manual";
+    (cfg.location === "manual" && integration !== "kleenex");
   if (manual) {
-    const prefix = cfg.entity_prefix || "";
+    let prefix = cfg.entity_prefix || "";
+    // Remove 'sensor.' prefix if user included it
+    if (prefix.startsWith("sensor.")) {
+      prefix = prefix.substring(7); // Remove 'sensor.'
+    }
+    // Add trailing underscore if not present (unless prefix is empty)
+    if (prefix && !prefix.endsWith("_")) {
+      prefix = prefix + "_";
+    }
     const suffix = cfg.entity_suffix || "";
     for (const allergen of cfg.allergens || []) {
       let slug;
@@ -235,9 +244,17 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     for (const category of needsCategories) {
       let sensorId;
       if (cfg.location === "manual") {
-        const prefix = cfg.entity_prefix || "";
+        let prefix = cfg.entity_prefix || "";
+        // Remove 'sensor.' prefix if user included it
+        if (prefix.startsWith("sensor.")) {
+          prefix = prefix.substring(7); // Remove 'sensor.'
+        }
+        // Add trailing underscore if not present (unless prefix is empty)
+        if (prefix && !prefix.endsWith("_")) {
+          prefix = prefix + "_";
+        }
         const suffix = cfg.entity_suffix || "";
-        sensorId = `${prefix}${category}${suffix}`;
+        sensorId = `sensor.${prefix}${category}${suffix}`;
       } else {
         // First try the canonical English name
         sensorId = locationSlug
