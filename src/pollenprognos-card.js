@@ -895,6 +895,12 @@ class PollenPrognosCard extends LitElement {
       integration, // Use the normalized integration value
     };
 
+    if (integration === "plu") {
+      delete cfg.city;
+      delete cfg.region_id;
+      delete cfg.location;
+    }
+
     if (
       this._integrationExplicit &&
       Array.isArray(allergens) &&

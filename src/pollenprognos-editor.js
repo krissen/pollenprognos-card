@@ -56,7 +56,9 @@ const getStubConfig = (integration) =>
         ? stubConfigSILAM
         : integration === "kleenex"
           ? stubConfigKleenex
-          : stubConfigPP;
+          : integration === "plu"
+            ? stubConfigPLU
+            : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -1397,7 +1399,9 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigSILAM
               : newInt === "kleenex"
                 ? stubConfigKleenex
-                : stubConfigPP;
+                : newInt === "plu"
+                  ? stubConfigPLU
+                  : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
