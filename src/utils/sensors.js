@@ -2,6 +2,7 @@
 import { normalize, normalizeDWD } from "./normalize.js";
 import { slugify } from "./slugify.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
+import { PLU_ALIAS_MAP } from "../adapters/plu.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -314,10 +315,10 @@ export function findAvailableSensors(cfg, hass, debug = false) {
           }
         }
       }
-      
+
       if (debug) {
         const isManual = cfg.location === "manual";
-        const debugInfo = isManual 
+        const debugInfo = isManual
           ? `manual mode, prefix: '${cfg.entity_prefix || ''}', suffix: '${cfg.entity_suffix || ''}'`
           : `location: '${locationSlug}'`;
         console.debug(
@@ -325,6 +326,42 @@ export function findAvailableSensors(cfg, hass, debug = false) {
         );
       }
       if (hass.states[sensorId]) sensors.push(sensorId);
+    }
+  } else if (integration === "plu") {
+    for (const allergen of cfg.allergens || []) {
+      const aliases = PLU_ALIAS_MAP[allergen] || [slugify(allergen)];
+      let sensorId = null;
+
+      for (const alias of aliases) {
+        const candidate = `sensor.pollen_${alias}`;
+        if (hass.states[candidate]) {
+          sensorId = candidate;
+          break;
+        }
+      }
+
+      if (!sensorId) {
+        // Fallback: unique candidate by suffix match without city component
+        const candidates = Object.keys(hass.states).filter((id) => {
+          if (!id.startsWith("sensor.pollen_")) return false;
+          const rest = id.slice("sensor.pollen_".length);
+          if (rest.includes("_")) return false;
+          return aliases.includes(rest);
+        });
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+        }
+      }
+
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][plu] allergen: '${allergen}', aliases: ${aliases.join(",")}, sensorId: '${sensorId}', exists: ${!!sensorId}`,
+        );
+      }
+
+      if (sensorId) {
+        sensors.push(sensorId);
+      }
     }
   }
   if (debug) {
