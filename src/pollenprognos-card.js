@@ -18,6 +18,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
+import { stubConfigPLU } from "./adapters/plu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -499,10 +500,17 @@ class PollenPrognosCard extends LitElement {
     if (this.config.integration === "dwd") {
       scaled = raw * 2;
       max = 6;
-    } else if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+    } else if (
+      this.config.integration === "peu" ||
+      this.config.integration === "kleenex"
+    ) {
       // PEU and Kleenex no longer scale values, the circle max level is four.
       scaled = raw;
       max = 4;
+      min = 0;
+    } else if (this.config.integration === "plu") {
+      scaled = raw;
+      max = 3;
       min = 0;
     }
     let lvl = Math.round(scaled);
@@ -742,6 +750,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "dwd") stub = stubConfigDWD;
     else if (integration === "silam") stub = stubConfigSILAM;
     else if (integration === "kleenex") stub = stubConfigKleenex;
+    else if (integration === "plu") stub = stubConfigPLU;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config
@@ -812,7 +821,8 @@ class PollenPrognosCard extends LitElement {
       (id) =>
         typeof id === "string" &&
         id.startsWith("sensor.pollen_") &&
-        !id.startsWith("sensor.pollenflug_"),
+        !id.startsWith("sensor.pollenflug_") &&
+        /^sensor\.pollen_.+_.+$/.test(id),
     );
     const dwdStates = Object.keys(hass.states).filter(
       (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
@@ -828,6 +838,9 @@ class PollenPrognosCard extends LitElement {
       (id) =>
         typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
     );
+    const pluStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && /^sensor\.pollen_[^_]+$/.test(id),
+    );
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -836,6 +849,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("PEU:", peuStates);
       console.debug("SILAM:", silamStates);
       console.debug("KLEENEX:", kleenexStates);
+      console.debug("PLU:", pluStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -848,6 +862,7 @@ class PollenPrognosCard extends LitElement {
 
     if (!explicit) {
       if (ppStates.length) integration = "pp";
+      else if (pluStates.length) integration = "plu";
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
@@ -861,6 +876,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "pp") baseStub = stubConfigPP;
     else if (integration === "silam") baseStub = stubConfigSILAM;
     else if (integration === "kleenex") baseStub = stubConfigKleenex;
+    else if (integration === "plu") baseStub = stubConfigPLU;
     else {
       console.error(
         "Unknown integration:",
@@ -909,6 +925,8 @@ class PollenPrognosCard extends LitElement {
         cfg.allergens = stubConfigSILAM.allergens;
       else if (integration === "kleenex")
         cfg.allergens = stubConfigKleenex.allergens;
+      else if (integration === "plu")
+        cfg.allergens = stubConfigPLU.allergens;
     }
 
     // Fyll date_locale
@@ -1529,7 +1547,10 @@ class PollenPrognosCard extends LitElement {
             }
             // Use display_state for level when available (DWD uses scaled 0-6 values),
             // otherwise fall back to state
-            const levelForColor = sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
+            const levelForColor =
+              this.config.integration === "plu"
+                ? sensor.day0?.state ?? 0
+                : sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
             return html`
               <div class="sensor minimal">
                 ${this._renderAllergenSvg(
@@ -1606,8 +1627,13 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
     
     // Number of segments in the level circle depends on the integration.
-    // PEU and Kleenex only use four segments while all others use six.
-    const segments = (this.config.integration === "peu" || this.config.integration === "kleenex") ? 4 : 6;
+    // PEU and Kleenex use four segments, PLU uses three, others use six.
+    let segments = 6;
+    if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+      segments = 4;
+    } else if (this.config.integration === "plu") {
+      segments = 3;
+    }
     
     // Build colors array using the new inheritance system
     // Chart segments represent pollen levels 1-6, not 0-5
@@ -1679,7 +1705,9 @@ class PollenPrognosCard extends LitElement {
                   <td>
                     ${this._renderAllergenSvg(
                       this._getSvgKey(sensor.allergenReplaced),
-                      sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
+                      this.config.integration === "plu"
+                        ? sensor.days[0]?.state ?? 0
+                        : sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
                       {
                         clickable: this.config.link_to_sensors !== false && sensor.entity_id,
                         onClick: (e) => {
@@ -1703,8 +1731,12 @@ class PollenPrognosCard extends LitElement {
                           let levelVal = normalized;
                           if (this.config.integration === "dwd") {
                             levelVal = normalized * 2; // scale 0–3 to 0–6
-                          } else if (this.config.integration === "peu" || this.config.integration === "kleenex") {
-                            // PEU and Kleenex levels already span 0–4.
+                          } else if (
+                            this.config.integration === "peu" ||
+                            this.config.integration === "kleenex" ||
+                            this.config.integration === "plu"
+                          ) {
+                            // PEU, Kleenex and PLU levels already span their native scales.
                             levelVal = normalized;
                           }
                           return this._renderLevelCircle(

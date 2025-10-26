@@ -5,6 +5,7 @@ import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
 import * as KLEENEX from "./adapters/kleenex.js";
+import * as PLU from "./adapters/plu.js";
 
 export const ADAPTERS = {
   pp: PP,
@@ -12,6 +13,7 @@ export const ADAPTERS = {
   peu: PEU,
   silam: SILAM,
   kleenex: KLEENEX,
+  plu: PLU,
 };
 
 export const DWD_REGIONS = {
@@ -104,6 +106,39 @@ export const ALLERGEN_TRANSLATION = {
   weeds_cat: "weeds_cat",
   // Note: Category allergens use _cat suffix to distinguish from individuals
   // Icon mapping is handled separately in the image system
+
+  // Pollen.lu specific translations and aliases
+  sorrel: "sorrel",
+  rumex: "sorrel",
+  ampfer: "sorrel",
+  oseille: "sorrel",
+  artemisia: "mugwort",
+  betula: "birch",
+  bouleau: "birch",
+  fagus: "beech",
+  hetre: "beech",
+  quercus: "oak",
+  eiche: "oak",
+  chene: "oak",
+  alnus: "alder",
+  aulne: "alder",
+  fraxinus: "ash",
+  frene: "ash",
+  chenopodium: "goosefoot",
+  goosefoot: "goosefoot",
+  gaensefuss: "goosefoot",
+  gansefuss: "goosefoot",
+  chenopode: "goosefoot",
+  poacea: "poaceae",
+  graminees: "poaceae",
+  grasses: "poaceae",
+  corylus: "hazel",
+  haselnussstrauch: "hazel",
+  noisetier: "hazel",
+  plantago: "plantain",
+  plantain: "plantain",
+  wegerich: "plantain",
+  armoise: "mugwort",
 };
 
 // Icon fallback mapping for allergens that don't have their own icons

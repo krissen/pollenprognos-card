@@ -39,13 +39,16 @@ export const svgs = {
   beech: beechSvg,
   birch: birchSvg,
   chenopod: chenopodSvg,
+  goosefoot: chenopodSvg, // Alias until dedicated icon is available
   cypress: cypressSvg,
   elm: elmSvg,
   grass: grassSvg,
+  plantain: mugwortSvg, // Temporary alias (weed category)
   hazel: hazelSvg,
   lime: limeSvg,
   mold_spores: moldSporesSvg,
   mugwort: mugwortSvg,
+  sorrel: mugwortSvg, // Temporary alias (weed category)
   nettle_and_pellitory: nettleAndPellitorySvg,
   nettle: nettleAndPellitorySvg, // Alias for compatibility
   no_allergens: noAllergensSvg,
