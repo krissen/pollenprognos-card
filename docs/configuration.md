@@ -20,6 +20,7 @@ In this file:
     - [SILAM threshold values](#silam-threshold-values)
   - [Kleenex Pollen Radar](#kleenex-pollen-radar)
     - [Category vs Individual Allergens](#category-vs-individual-allergens)
+  - [Pollen.lu (PLU)](#pollenlu-plu)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -33,10 +34,10 @@ In this file:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam` or `kleenex`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu` or `kleenex`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM, Kleenex only)* | `string` | **Required** (PEU/SILAM/Kleenex) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. |
+| `location` *(PEU, SILAM, Kleenex only)* | `string` | **Required** (PEU/SILAM/Kleenex) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -223,6 +224,28 @@ The Kleenex integration supports two types of allergens:
 In the card editor, you can control whether category allergens (`*_cat`) are sorted at the top of the list using the "Sort category allergens first" checkbox (enabled by default). When enabled, category allergens appear at the top of the allergen list, with individual allergens listed below in alphabetical order. When disabled, category allergens are sorted like any other.
 
 **Note:** You can create separate cards if you want to display category and individual allergens separately - one card showing only categories and another showing only specific allergens.
+
+### Pollen.lu (PLU)
+
+The Pollen.lu integration exposes current pollen levels for Luxembourg. The card automatically hides the location selector, limits the forecast to a single day, and labels the header as Luxembourg when this adapter is in use.
+
+Sensors follow the pattern `sensor.pollen_<slug>` where `<slug>` matches one of the canonical allergen keys below. Thresholds are taken directly from the sensor attributes when present; the fallback values in the table are used if the integration omits them.
+
+| Key | Description | Moderate threshold | High threshold |
+|-----|-------------|--------------------|----------------|
+| `alder` | Alder (*Alnus*) | 11 | 51 |
+| `ash` | Ash (*Fraxinus*) | 11 | 51 |
+| `beech` | Beech (*Fagus*) | 11 | 51 |
+| `birch` | Birch (*Betula*) | 11 | 51 |
+| `goosefoot` | Goosefoot (*Chenopodium*) | 4 | 16 |
+| `hazel` | Hazel (*Corylus*) | 11 | 51 |
+| `mugwort` | Mugwort (*Artemisia*) | 3 | 7 |
+| `oak` | Oak (*Quercus*) | 11 | 51 |
+| `plantain` | Plantain (*Plantago*) | 4 | 16 |
+| `poaceae` | Grasses (*Poaceae*) | 6 | 31 |
+| `sorrel` | Sorrel (*Rumex*) | 4 | 16 |
+
+Use the localized allergen names in the editor; the card stores the canonical keys listed above in the configuration.
 
 ## Color System Overview
 

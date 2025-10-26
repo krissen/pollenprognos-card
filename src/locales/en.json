@@ -40,6 +40,7 @@
   "card.error_location_not_found": "Location not found. Check the location name in the card configuration.",
   "card.error_no_sensors": "No pollen sensors found. Have you installed the correct integration and selected a region in the card configuration?",
   "card.header_prefix": "Pollen forecast for",
+  "card.location.plu": "Luxembourg",
   "card.integration.dwd": "DWD Pollenflug",
   "card.integration.kleenex": "Kleenex Pollen Radar",
   "card.integration.plu": "Pollen.lu",

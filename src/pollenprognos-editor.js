@@ -217,6 +217,22 @@ class PollenPrognosCardEditor extends LitElement {
     return t(`editor.${key}`, this._lang);
   }
 
+  _getAllergenDisplayName(allergenKey) {
+    if (allergenKey === undefined || allergenKey === null) return "";
+    const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
+    const slug = slugify(raw);
+    const canonical = ALLERGEN_TRANSLATION[slug] || slug;
+    const translationKey = `phrases_full.${canonical}`;
+    const translated = this._t(translationKey);
+    if (translated && translated !== translationKey) {
+      return translated;
+    }
+    if (raw) {
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+    return canonical ? canonical.charAt(0).toUpperCase() + canonical.slice(1) : "";
+  }
+
   constructor() {
     super();
     if (this.debug) console.log("[ALLERGEN-DEBUG] ========== Constructor called ==========");
@@ -2761,14 +2777,7 @@ class PollenPrognosCardEditor extends LitElement {
                   </h4>
                   <div class="allergens-group">
                     ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
-                      // Determine display name - use translation if available
-                      const canonKey = ALLERGEN_TRANSLATION[key] || key;
-                      const transKey = `phrases_full.${canonKey}`;
-                      const displayName =
-                        this._t(transKey) !== transKey
-                          ? this._t(transKey)
-                          : key.charAt(0).toUpperCase() + key.slice(1);
-
+                      const displayName = this._getAllergenDisplayName(key);
                       return html`
                         <ha-formfield .label=${displayName}>
                           <ha-checkbox
@@ -2799,29 +2808,12 @@ class PollenPrognosCardEditor extends LitElement {
                       )
                       .sort((a, b) => {
                         // Sort alphabetically by display name
-                        const canonA = ALLERGEN_TRANSLATION[a] || a;
-                        const canonB = ALLERGEN_TRANSLATION[b] || b;
-                        const transKeyA = `phrases_full.${canonA}`;
-                        const transKeyB = `phrases_full.${canonB}`;
-                        const displayA =
-                          this._t(transKeyA) !== transKeyA
-                            ? this._t(transKeyA)
-                            : a.charAt(0).toUpperCase() + a.slice(1);
-                        const displayB =
-                          this._t(transKeyB) !== transKeyB
-                            ? this._t(transKeyB)
-                            : b.charAt(0).toUpperCase() + b.slice(1);
+                        const displayA = this._getAllergenDisplayName(a);
+                        const displayB = this._getAllergenDisplayName(b);
                         return displayA.localeCompare(displayB);
                       })
                       .map((key) => {
-                        // Determine display name - use translation if available
-                        const canonKey = ALLERGEN_TRANSLATION[key] || key;
-                        const transKey = `phrases_full.${canonKey}`;
-                        const displayName =
-                          this._t(transKey) !== transKey
-                            ? this._t(transKey)
-                            : key.charAt(0).toUpperCase() + key.slice(1);
-
+                        const displayName = this._getAllergenDisplayName(key);
                         return html`
                           <ha-formfield .label=${displayName}>
                             <ha-checkbox
@@ -2838,17 +2830,18 @@ class PollenPrognosCardEditor extends LitElement {
             : html`
                 <!-- Non-Kleenex: Standard allergen display -->
                 <div class="allergens-group">
-                  ${allergens.map(
-                    (key) => html`
-                      <ha-formfield .label=${key}>
+                  ${allergens.map((key) => {
+                    const displayName = this._getAllergenDisplayName(key);
+                    return html`
+                      <ha-formfield .label=${displayName}>
                         <ha-checkbox
                           .checked=${c.allergens.includes(key)}
                           @change=${(e) =>
                             this._onAllergenToggle(key, e.target.checked)}
                         ></ha-checkbox>
                       </ha-formfield>
-                    `,
-                  )}
+                    `;
+                  })}
                 </div>
               `}
           <div class="preset-buttons">

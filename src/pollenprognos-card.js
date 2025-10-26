@@ -1268,6 +1268,10 @@ class PollenPrognosCard extends LitElement {
         }
 
         loc = title || cfg.location || "";
+      } else if (integration === "plu") {
+        // Pollen.lu always reports Luxembourg as its location
+        const translated = this._t("card.location.plu");
+        loc = translated === "card.location.plu" ? "Luxembourg" : translated;
       } else {
         // Pollenprognos integration (PP): resolve city automatically when unset.
         const matchCity = (slug) =>
