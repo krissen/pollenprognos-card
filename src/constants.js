@@ -132,7 +132,6 @@ export const ALLERGEN_TRANSLATION = {
   chenopode: "goosefoot",
   poacea: "poaceae",
   graminees: "poaceae",
-  grasses: "poaceae",
   corylus: "hazel",
   haselnussstrauch: "hazel",
   noisetier: "hazel",
