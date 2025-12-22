@@ -1,4 +1,4 @@
-# Contributing to Polleninformation EU
+# Contributing to Pollenprognos Card
 
 First of all, **thank you for considering contributing to this project!**  
 Everyone is welcome to participate, regardless of experience level, background, or where you are from.
@@ -32,10 +32,40 @@ We are committed to providing a welcoming, friendly, and harassment-free environ
 
 ---
 
+## Development
+
+### Getting Started
+
+1. **Clone the repository** and install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. **Build commands:**
+   - `npm run dev` - Start development server with hot reload
+   - `npm run build` - Build production bundle
+   - `npm run preview` - Preview production build
+
+3. **Project architecture:**
+   - Main card: `src/pollenprognos-card.js`
+   - Visual editor: `src/pollenprognos-editor.js`
+   - Adapters: `src/adapters/` (one per integration)
+   - Translations: `src/locales/*.json` (only edit `en.json`)
+   - Constants: `src/constants.js`
+
+4. **Testing:**
+   - Manual testing in Home Assistant
+   - Always run `npm run build` to verify changes compile
+
+For detailed architecture documentation and development patterns, see the code comments and structure in `src/`.
+
+---
+
 ## Getting Help
 
-- If you have questions, suggestions, or need guidance, don’t hesitate to [open an issue](../../issues/new) or reach out in the project discussions.
-- We’re happy to help new contributors get started!
+- If you have questions, suggestions, or need guidance, don't hesitate to [open an issue](../../issues/new) or reach out in the project discussions.
+- For project documentation, see the [docs/](docs/) folder
+- We're happy to help new contributors get started!
 
 ---
 

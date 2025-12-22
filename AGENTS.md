@@ -29,7 +29,7 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - **Main Entry**: `src/index.js` (exports the card components)
 - **Card Component**: `src/pollenprognos-card.js` (main card implementation)
 - **Editor Component**: `src/pollenprognos-editor.js` (visual configuration editor)
-- **Adapters**: `src/adapters/` (integration-specific data handlers for pp, dwd, peu, silam)
+- **Adapters**: `src/adapters/` (integration-specific data handlers for pp, dwd, peu, silam, kleenex, plu)
 - **Utilities**: `src/utils/` (shared helper functions)
 - **Constants**: `src/constants.js` (configuration and data constants)
 - **Internationalization**: `src/i18n.js` (language detection and text loading)

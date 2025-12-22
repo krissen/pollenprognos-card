@@ -16,6 +16,7 @@ import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
 import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
+import { stubConfigPLU } from "./adapters/plu.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -55,7 +56,9 @@ const getStubConfig = (integration) =>
         ? stubConfigSILAM
         : integration === "kleenex"
           ? stubConfigKleenex
-          : stubConfigPP;
+          : integration === "plu"
+            ? stubConfigPLU
+            : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -212,6 +215,22 @@ class PollenPrognosCardEditor extends LitElement {
 
   _t(key) {
     return t(`editor.${key}`, this._lang);
+  }
+
+  _getAllergenDisplayName(allergenKey) {
+    if (allergenKey === undefined || allergenKey === null) return "";
+    const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
+    const slug = slugify(raw);
+    const canonical = ALLERGEN_TRANSLATION[slug] || slug;
+    const translationKey = `phrases_full.${canonical}`;
+    const translated = this._t(translationKey);
+    if (translated && translated !== translationKey) {
+      return translated;
+    }
+    if (raw) {
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+    return canonical ? canonical.charAt(0).toUpperCase() + canonical.slice(1) : "";
   }
 
   constructor() {
@@ -710,7 +729,8 @@ class PollenPrognosCardEditor extends LitElement {
       (id) =>
         typeof id === "string" &&
         id.startsWith("sensor.pollen_") &&
-        !id.startsWith("sensor.pollenflug_"),
+        !id.startsWith("sensor.pollenflug_") &&
+        /^sensor\.pollen_.+_.+$/.test(id),
     );
 
     const dwdStates = Object.keys(hass.states).filter(
@@ -725,10 +745,15 @@ class PollenPrognosCardEditor extends LitElement {
     const silamStates = Object.keys(hass.states).filter(
       (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
     );
+    const pluStates = Object.keys(hass.states).filter(
+      (id) => typeof id === "string" && /^sensor\.pollen_[^_]+$/.test(id),
+    );
+
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
     if (!explicit) {
       if (ppStates.length) integration = "pp";
+      else if (pluStates.length) integration = "plu";
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
@@ -751,7 +776,11 @@ class PollenPrognosCardEditor extends LitElement {
           ? stubConfigPEU
           : integration === "silam"
             ? stubConfigSILAM
-            : stubConfigPP;
+            : integration === "kleenex"
+              ? stubConfigKleenex
+              : integration === "plu"
+                ? stubConfigPLU
+                : stubConfigPP;
 
     // Bygg merged-objekt (det är denna rad som saknas)
     if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
@@ -1386,7 +1415,9 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigSILAM
               : newInt === "kleenex"
                 ? stubConfigKleenex
-                : stubConfigPP;
+                : newInt === "plu"
+                  ? stubConfigPLU
+                  : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
@@ -1507,10 +1538,18 @@ class PollenPrognosCardEditor extends LitElement {
             ? SILAM_ALLERGENS
             : c.integration === "kleenex"
               ? stubConfigKleenex.allergens
-              : stubConfigPP.allergens;
+              : c.integration === "plu"
+                ? stubConfigPLU.allergens
+                : stubConfigPP.allergens;
 
     const numLevels =
-      c.integration === "dwd" ? 4 : c.integration === "peu" ? 5 : 7;
+      c.integration === "dwd"
+        ? 4
+        : c.integration === "peu"
+          ? 5
+          : c.integration === "plu"
+            ? 4
+            : 7;
 
     // dynamiska parametrar för pollen_threshold-slider
     const thresholdParams =
@@ -1518,7 +1557,9 @@ class PollenPrognosCardEditor extends LitElement {
         ? { min: 0, max: 3, step: 0.5 }
         : c.integration === "peu"
           ? { min: 0, max: 4, step: 1 }
-          : { min: 0, max: 6, step: 1 };
+          : c.integration === "plu"
+            ? { min: 0, max: 3, step: 1 }
+            : { min: 0, max: 6, step: 1 };
 
     const SORT_VALUES = [
       "value_ascending",
@@ -1565,6 +1606,9 @@ class PollenPrognosCardEditor extends LitElement {
               >
               <mwc-list-item value="silam"
                 >${this._t("integration.silam")}</mwc-list-item
+              >
+              <mwc-list-item value="plu"
+                >${this._t("integration.plu")}</mwc-list-item
               >
               <mwc-list-item value="kleenex"
                 >${this._t("integration.kleenex")}</mwc-list-item
@@ -1667,6 +1711,8 @@ class PollenPrognosCardEditor extends LitElement {
                         </ha-select>
                       </ha-formfield>
                     `
+                  : c.integration === "plu"
+                    ? ""
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
                         <ha-select
@@ -2731,14 +2777,7 @@ class PollenPrognosCardEditor extends LitElement {
                   </h4>
                   <div class="allergens-group">
                     ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
-                      // Determine display name - use translation if available
-                      const canonKey = ALLERGEN_TRANSLATION[key] || key;
-                      const transKey = `phrases_full.${canonKey}`;
-                      const displayName =
-                        this._t(transKey) !== transKey
-                          ? this._t(transKey)
-                          : key.charAt(0).toUpperCase() + key.slice(1);
-
+                      const displayName = this._getAllergenDisplayName(key);
                       return html`
                         <ha-formfield .label=${displayName}>
                           <ha-checkbox
@@ -2769,29 +2808,12 @@ class PollenPrognosCardEditor extends LitElement {
                       )
                       .sort((a, b) => {
                         // Sort alphabetically by display name
-                        const canonA = ALLERGEN_TRANSLATION[a] || a;
-                        const canonB = ALLERGEN_TRANSLATION[b] || b;
-                        const transKeyA = `phrases_full.${canonA}`;
-                        const transKeyB = `phrases_full.${canonB}`;
-                        const displayA =
-                          this._t(transKeyA) !== transKeyA
-                            ? this._t(transKeyA)
-                            : a.charAt(0).toUpperCase() + a.slice(1);
-                        const displayB =
-                          this._t(transKeyB) !== transKeyB
-                            ? this._t(transKeyB)
-                            : b.charAt(0).toUpperCase() + b.slice(1);
+                        const displayA = this._getAllergenDisplayName(a);
+                        const displayB = this._getAllergenDisplayName(b);
                         return displayA.localeCompare(displayB);
                       })
                       .map((key) => {
-                        // Determine display name - use translation if available
-                        const canonKey = ALLERGEN_TRANSLATION[key] || key;
-                        const transKey = `phrases_full.${canonKey}`;
-                        const displayName =
-                          this._t(transKey) !== transKey
-                            ? this._t(transKey)
-                            : key.charAt(0).toUpperCase() + key.slice(1);
-
+                        const displayName = this._getAllergenDisplayName(key);
                         return html`
                           <ha-formfield .label=${displayName}>
                             <ha-checkbox
@@ -2808,17 +2830,18 @@ class PollenPrognosCardEditor extends LitElement {
             : html`
                 <!-- Non-Kleenex: Standard allergen display -->
                 <div class="allergens-group">
-                  ${allergens.map(
-                    (key) => html`
-                      <ha-formfield .label=${key}>
+                  ${allergens.map((key) => {
+                    const displayName = this._getAllergenDisplayName(key);
+                    return html`
+                      <ha-formfield .label=${displayName}>
                         <ha-checkbox
                           .checked=${c.allergens.includes(key)}
                           @change=${(e) =>
                             this._onAllergenToggle(key, e.target.checked)}
                         ></ha-checkbox>
                       </ha-formfield>
-                    `,
-                  )}
+                    `;
+                  })}
                 </div>
               `}
           <div class="preset-buttons">

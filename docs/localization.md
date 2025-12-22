@@ -19,6 +19,7 @@ This repository includes:
 - `src/locales/it.json`
 - `src/locales/nl.json`
 - `src/locales/no.json`
+- `src/locales/pl.json`
 - `src/locales/ru.json`
 - `src/locales/sk.json`
 - `src/locales/sv.json`
