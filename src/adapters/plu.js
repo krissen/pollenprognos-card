@@ -7,22 +7,8 @@ import { slugify } from "../utils/slugify.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
-// Canonical allergen list exposed to the user (alphabetical)
-export const PLU_SUPPORTED_ALLERGENS = [
-  "alder",
-  "ash",
-  "beech",
-  "birch",
-  "goosefoot",
-  "hazel",
-  "mugwort",
-  "oak",
-  "plantain",
-  "poaceae",
-  "sorrel",
-];
-
 // Raw alias names (before slugification) grouped by canonical allergen name
+// This is the single source of truth for supported allergens
 const RAW_ALIAS_NAMES = {
   sorrel: ["Rumex", "Sorrel", "Ampfer", "Oseille"],
   mugwort: ["Artemisia", "Mugwort", "Beifuß", "Beifuss", "Armoise"],
@@ -36,6 +22,9 @@ const RAW_ALIAS_NAMES = {
   hazel: ["Corylus", "Hazel", "Hasel", "Haselnussstrauch", "Noisetier"],
   plantain: ["Plantago", "Plantain", "Wegerich"],
 };
+
+// Canonical allergen list derived from RAW_ALIAS_NAMES (alphabetically sorted)
+export const PLU_SUPPORTED_ALLERGENS = Object.keys(RAW_ALIAS_NAMES).sort();
 
 // Slugified alias map exported for sensor discovery helpers
 export const PLU_ALIAS_MAP = Object.entries(RAW_ALIAS_NAMES).reduce(
