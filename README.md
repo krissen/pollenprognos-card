@@ -81,6 +81,7 @@ More details, including all options and example snippets, are available in the d
 - 🐛 **Bug reports**: [GitHub Issues](https://github.com/krissen/pollenprognos-card/issues)
 - 💬 **Questions & discussions**: [GitHub Discussions](https://github.com/krissen/pollenprognos-card/discussions)
 - 📖 **Documentation**: See [docs/](docs/) folder
+- 🤝 **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## Credits
 
