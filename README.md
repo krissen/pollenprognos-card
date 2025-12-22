@@ -78,7 +78,22 @@ More details, including all options and example snippets, are available in the d
 
 ## Credits
 
-This project is based on [pollen-card](https://github.com/nidayand/lovelace-pollen-card), originally rewritten from [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card).
+**Project lineage:**
+
+- Original: [pollenprognos-card](https://github.com/isabellaalstrom/lovelace-pollenprognos-card) by [@isabellaalstrom](https://github.com/isabellaalstrom)
+- Rewritten as: [pollen-card](https://github.com/nidayand/lovelace-pollen-card) by [@nidayand](https://github.com/nidayand)
+- This fork: Extended with multi-integration support and additional features by [@krissen](https://github.com/krissen)
+
+## Contributors
+
+**Maintainer:** [@krissen](https://github.com/krissen)
+
+Thank you to everyone who has contributed to this project:
+
+- [@olanystrom](https://github.com/olanystrom) - Fixed CDN problems
+- [@danishru](https://github.com/danishru) - SILAM adapter improvements
+- [@hardebusch](https://github.com/hardebusch) - German translation improvements
+- [@Krzysztonek](https://github.com/Krzysztonek) - Polish localization
 
 [Want to support development? Buy me a coffee!](https://coff.ee/krissen)
 
