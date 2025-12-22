@@ -6,13 +6,14 @@
 [![Project Maintenance][maintenance-shield]][user_profile]
 [![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-A Lovelace card that shows pollen forecasts from several integrations. The card supports Home Assistant's visual editor and works with five adapters:
+A Lovelace card that shows pollen forecasts from several integrations. The card supports Home Assistant's visual editor and works with six adapters:
 
 - [Pollenprognos](https://github.com/JohNan/homeassistant-pollenprognos)
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)
 - [Polleninformation EU](https://github.com/krissen/polleninformation)
 - [SILAM Pollen Allergy Sensor](https://github.com/danishru/silam_pollen)
 - [Kleenex Pollen Radar](https://github.com/MarcoGos/kleenex_pollenradar)
+- [Pollen.lu](https://github.com/Foxi352/pollen_lu)
 
 <table align="center">
   <tr>
@@ -43,7 +44,7 @@ Install one of the supported integrations above. The card auto-detects which ada
 
 ## Features
 
-- **Multi-Integration Support**: Works with 5 different pollen data sources (Pollenprognos, DWD Pollenflug, Polleninformation EU, SILAM, Kleenex Pollen Radar)
+- **Multi-Integration Support**: Works with 6 different pollen data sources (Pollenprognos, DWD Pollenflug, Polleninformation EU, SILAM, Kleenex Pollen Radar, Pollen.lu)
 - **Auto-Detection**: Automatically detects which integration to use based on your available sensors
 - **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
 - **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics
