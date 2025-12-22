@@ -18,22 +18,22 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 <table align="center">
   <tr>
     <td align="center" valign="middle">
-           <img width="450" alt="Skärmavbild 2025-06-09 kl  20 10 46" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
+           <img width="450" alt="Screenshot showing Polleninformation EU integration with allergy risk card" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
     </td>
     <td align="center" valign="middle">
-      <img width="450" alt="Skärmavbild 2025-05-30 kl  12 38 11" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
+      <img width="450" alt="Screenshot showing Polleninformation EU integration in daily mode" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
     </td>
   </tr>
   <tr>
     <td align="center" valign="middle">
-            <img width="450" alt="Forecast" src="https://github.com/user-attachments/assets/9c2df78f-6b62-4d88-a623-312fda24fab8" />
+            <img width="450" alt="Screenshot showing forecast view with multiple allergens" src="https://github.com/user-attachments/assets/9c2df78f-6b62-4d88-a623-312fda24fab8" />
     </td>
     <td align="center" valign="middle">
-<img width="450" alt="Skärmavbild 2025-08-04 kl  09 46 28" src="https://github.com/user-attachments/assets/91d051f2-dce1-4215-adbd-6f70e2968c1b" />
+<img width="450" alt="Screenshot showing SILAM integration with multiple display modes" src="https://github.com/user-attachments/assets/91d051f2-dce1-4215-adbd-6f70e2968c1b" />
     </td>
   </tr>
   <tr>
-    <td>Two card instances combined, both using integration `polleninformation`. The top card shows `allergy_risk` in mode daily.</td>
+    <td>Two card instances combined, both using integration `polleninformation`. The top card shows `allergy_risk` in mode `daily`.</td>
     <td>Three card instances combined, all using integration `silam_pollen`. The top-most card uses mode `minimal`. The middle card `twice_daily`, and the bottom card `hourly`.</td>
   </tr>
 </table>
@@ -76,6 +76,12 @@ More details, including all options and example snippets, are available in the d
 - [Localization and custom phrases](docs/localization.md)
 - [Related projects](docs/related-projects.md)
 
+## Support
+
+- 🐛 **Bug reports**: [GitHub Issues](https://github.com/krissen/pollenprognos-card/issues)
+- 💬 **Questions & discussions**: [GitHub Discussions](https://github.com/krissen/pollenprognos-card/discussions)
+- 📖 **Documentation**: See [docs/](docs/) folder
+
 ## Credits
 
 **Project lineage:**
@@ -95,7 +101,13 @@ Thank you to everyone who has contributed to this project:
 - [@hardebusch](https://github.com/hardebusch) - German translation improvements
 - [@Krzysztonek](https://github.com/Krzysztonek) - Polish localization
 
+---
+
 [Want to support development? Buy me a coffee!](https://coff.ee/krissen)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 [hacs]: https://hacs.xyz
 [hacsbadge]: https://img.shields.io/badge/HACS-Official-blue.svg?style=for-the-badge
