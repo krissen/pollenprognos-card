@@ -55,8 +55,8 @@ A custom card for the DWD Pollenflug integration.
 `pollenprognos-card` distinguishes itself through comprehensive multi-integration support, working with all six major pollen data sources (Pollenprognos, DWD, Polleninformation EU, SILAM, Kleenex, and Pollen.lu). Unlike single-integration alternatives, it features:
 
 - **Built-in SVG icon system** with 24+ scalable allergen icons and customizable colors
-- **Visual Home Assistant editor** for complete configuration without YAML editing  
-- **Dynamic localization** in 12+ languages that automatically follows Home Assistant's language setting
+- **Visual Home Assistant editor** for complete configuration without YAML editing
+- **Dynamic localization** in 13 languages that automatically follows Home Assistant's language setting
 - **Auto-detection** of available integrations and sensors
 - **HACS official repository** status with automatic updates
 - **Multiple display modes** including minimal, daily, hourly, and twice-daily forecast layouts
