@@ -18,7 +18,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
-import { stubConfigPLU } from "./adapters/plu.js";
+import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -817,12 +817,32 @@ class PollenPrognosCard extends LitElement {
       console.debug("[Card] set hass called; explicit:", explicit);
 
     // Sensordetektion
+    // Build set of PLU allergen slugs for more specific detection
+    const pluAllergenSlugs = new Set(
+      Object.values(PLU_ALIAS_MAP).flat()
+    );
+
     const ppStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        id.startsWith("sensor.pollen_") &&
-        !id.startsWith("sensor.pollenflug_") &&
-        /^sensor\.pollen_.+_.+$/.test(id),
+      (id) => {
+        if (typeof id !== "string") return false;
+        if (!id.startsWith("sensor.pollen_")) return false;
+        if (id.startsWith("sensor.pollenflug_")) return false;
+
+        // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
+        const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
+        if (!match) return false;
+
+        const allergenSlug = match[1];
+        // Exclude known PLU allergens to avoid misclassification
+        // PLU uses sensor.pollen_<allergen> pattern with specific allergen list
+        // PP manual mode also uses sensor.pollen_<allergen> but with different allergens
+        if (!match[2] && pluAllergenSlugs.has(allergenSlug)) {
+          // Single underscore AND known PLU allergen → likely PLU, not PP
+          return false;
+        }
+
+        return true;
+      },
     );
     const dwdStates = Object.keys(hass.states).filter(
       (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
@@ -839,7 +859,14 @@ class PollenPrognosCard extends LitElement {
         typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
     );
     const pluStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && /^sensor\.pollen_[^_]+$/.test(id),
+      (id) => {
+        if (typeof id !== "string") return false;
+        const match = /^sensor\.pollen_([^_]+)$/.exec(id);
+        if (!match) return false;
+        const allergenSlug = match[1];
+        // Only match if it's a known PLU allergen
+        return pluAllergenSlugs.has(allergenSlug);
+      },
     );
 
     if (this.debug) {
