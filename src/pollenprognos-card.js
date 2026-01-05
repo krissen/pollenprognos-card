@@ -49,6 +49,8 @@ class PollenPrognosCard extends LitElement {
   _chartCache = new Map();
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
+  _hasStaleData = false; // True if PEU sensors exist but have stale/empty data
+  _staleSince = null; // Timestamp when data became stale
 
   _renderLevelCircle(
     level,
@@ -352,6 +354,70 @@ class PollenPrognosCard extends LitElement {
     }
     this.requestUpdate();
   }
+
+  _getStaleStatus() {
+    if (this.config?.integration !== "peu") {
+      return { hasStale: false, allStale: false, staleSince: null };
+    }
+
+    if (this.sensors && this.sensors.length > 0) {
+      const staleSensors = this.sensors.filter((s) => s.stale === true);
+      const allStale = staleSensors.length === this.sensors.length;
+      const hasStale = staleSensors.length > 0;
+      const staleSince = staleSensors[0]?.staleSince || null;
+      return { hasStale, allStale, staleSince };
+    }
+
+    if (!this._hass) {
+      return { hasStale: false, allStale: false, staleSince: null };
+    }
+
+    const peuStates = Object.keys(this._hass.states).filter((id) =>
+      id.startsWith("sensor.polleninformation_"),
+    );
+
+    if (!peuStates.length) {
+      return { hasStale: false, allStale: false, staleSince: null };
+    }
+
+    let targetLocation = this.config.location === "manual" ? "" : this.config.location;
+    if (!targetLocation && this.config.location !== "manual") {
+      const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+      targetLocation = match ? match[1] : "";
+    }
+
+    if (!targetLocation) {
+      return { hasStale: false, allStale: false, staleSince: null };
+    }
+
+    let staleCount = 0;
+    let totalCount = 0;
+    let staleSince = null;
+
+    for (const entityId of peuStates) {
+      const entity = this._hass.states[entityId];
+      const sensorLocation = entity?.attributes?.location_slug;
+
+      if (sensorLocation !== targetLocation) {
+        continue;
+      }
+
+      totalCount++;
+      if (entity?.attributes?.data_stale === true) {
+        staleCount++;
+        if (!staleSince) {
+          staleSince = entity.attributes.stale_since || null;
+        }
+      }
+    }
+
+    return {
+      hasStale: staleCount > 0,
+      allStale: totalCount > 0 && staleCount === totalCount,
+      staleSince,
+    };
+  }
+
   _subscribeForecastIfNeeded() {
     if (!this.config || !this._hass) return;
 
@@ -657,11 +723,11 @@ class PollenPrognosCard extends LitElement {
       `;
     }
 
-    const color = this._colorForLevel(level, allergenKey);
+    const { onClick, clickable = false, stale = false } = options;
+    const color = stale ? "#e6a800" : this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
     const svgContent = getSvgContent(allergenKey);
-    const { onClick, clickable = false } = options;
 
     // Determine stroke color based on sync setting
     let actualStrokeColor;
@@ -1549,6 +1615,21 @@ class PollenPrognosCard extends LitElement {
     `;
   }
 
+  _renderStaleDataHtml() {
+    return html`
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
+        <div class="stale-data-container">
+          ${this._renderAllergenSvg("no_allergens", 0, { stale: true })}
+          <span class="stale-data-text">${this._t("card.stale_data")}</span>
+          <span class="stale-data-subtitle"
+            >${this._t("card.stale_data_subtitle")}</span
+          >
+        </div>
+      </div>
+    `;
+  }
+
   _renderMinimalHtml() {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
 
@@ -1560,8 +1641,26 @@ class PollenPrognosCard extends LitElement {
           style="gap: ${this.config?.minimal_gap ?? 35}px;"
         >
           ${(this.sensors || []).map((sensor) => {
+            if (sensor.stale) {
+              const staleLabel = this.config?.show_text_allergen
+                ? (this.config?.allergens_abbreviated
+                    ? sensor.allergenShort ?? ""
+                    : sensor.allergenCapitalized ?? "") + ": " + this._t("card.stale_allergen")
+                : this._t("card.stale_allergen");
+              return html`
+                <div class="sensor minimal stale">
+                  ${this._renderAllergenSvg(
+                    this._getSvgKey(sensor.allergenReplaced),
+                    0,
+                    { stale: true }
+                  )}
+                  <span class="short-text stale-allergen-text" style="font-size: ${1.0 * textSizeRatio}em;">
+                    ${staleLabel}
+                  </span>
+                </div>
+              `;
+            }
             const txt = sensor.day0?.state_text ?? "";
-            // Use display_state when available, falling back to the normalized state.
             const num = sensor.day0?.display_state ?? sensor.day0?.state ?? "";
             let label = "";
             if (this.config?.show_text_allergen) {
@@ -1582,8 +1681,6 @@ class PollenPrognosCard extends LitElement {
               if (label) label += " ";
               label += `(${num})`;
             }
-            // Use display_state for level when available (DWD uses scaled 0-6 values),
-            // otherwise fall back to state
             const levelForColor =
               this.config.integration === "plu"
                 ? sensor.day0?.state ?? 0
@@ -1632,11 +1729,12 @@ class PollenPrognosCard extends LitElement {
       return html``;
     }
 
-    // Check if ANY sensor has days (not just the first one)
     const sensorsWithDays = this.sensors.filter(
       (s) => s.days && s.days.length > 0,
     );
-    if (sensorsWithDays.length === 0) {
+    const staleSensors = this.sensors.filter((s) => s.stale === true);
+    
+    if (sensorsWithDays.length === 0 && staleSensors.length === 0) {
       if (this.debug) {
         console.debug(
           "[Card] _renderNormalHtml: no sensors have days arrays, returning empty",
@@ -1736,8 +1834,36 @@ class PollenPrognosCard extends LitElement {
               </tr>
             </thead>
             ${this.sensors.map(
-              (sensor) => html`
-                <!-- Rad 1: bara ikoner -->
+              (sensor) => sensor.stale
+                ? html`
+                  <tr class="allergen-icon-row allergen-stale-row" valign="top">
+                    <td>
+                      ${this._renderAllergenSvg(
+                        this._getSvgKey(sensor.allergenReplaced),
+                        0,
+                        { stale: true }
+                      )}
+                    </td>
+                    <td colspan="${cols.length}" class="stale-cell">
+                      <span class="stale-allergen-text">${this._t("card.stale_allergen")}</span>
+                    </td>
+                  </tr>
+                  ${this.config.show_text_allergen
+                    ? html`
+                        <tr class="allergen-text-row allergen-stale-row">
+                          <td>
+                            <span class="stale-allergen-name" style="font-size: ${1.0 * textSizeRatio}em;">
+                              ${this.config.allergens_abbreviated
+                                ? sensor.allergenShort
+                                : sensor.allergenCapitalized}
+                            </span>
+                          </td>
+                          <td colspan="${cols.length}"></td>
+                        </tr>
+                      `
+                    : ""}
+                `
+                : html`
                 <tr class="allergen-icon-row" valign="top">
                   <td>
                     ${this._renderAllergenSvg(
@@ -1761,19 +1887,17 @@ class PollenPrognosCard extends LitElement {
                       <td>
                         ${(() => {
                           const normalized = Number(sensor.days[i]?.state) || 0;
-                          // Value to display inside the circle; defaults to normalized.
                           const displayVal = Number(
                             sensor.days[i]?.display_state ?? normalized,
                           );
                           let levelVal = normalized;
                           if (this.config.integration === "dwd") {
-                            levelVal = normalized * 2; // scale 0–3 to 0–6
+                            levelVal = normalized * 2;
                           } else if (
                             this.config.integration === "peu" ||
                             this.config.integration === "kleenex" ||
                             this.config.integration === "plu"
                           ) {
-                            // PEU, Kleenex and PLU levels already span their native scales.
                             levelVal = normalized;
                           }
                           return this._renderLevelCircle(
@@ -1797,7 +1921,6 @@ class PollenPrognosCard extends LitElement {
                     `,
                   )}
                 </tr>
-                <!-- Rad 2: allergennamn + text/nummer under dagarna -->
                 ${this.config.show_text_allergen ||
                 this.config.show_value_text ||
                 this.config.show_value_numeric
@@ -1814,7 +1937,6 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          // Prefer display_state when available to show raw values.
                           const num =
                             sensor.days[i]?.display_state ??
                             sensor.days[i]?.state;
@@ -1873,6 +1995,14 @@ class PollenPrognosCard extends LitElement {
           </ha-card>
         `;
       } else if (this._availableSensorCount === 0) {
+        const staleStatus = this._getStaleStatus();
+        if (staleStatus.hasStale) {
+          return html`
+            <ha-card>
+              ${this._renderStaleDataHtml()}
+            </ha-card>
+          `;
+        }
         errorMsg = this._t("card.error_no_sensors");
         return html`
           <ha-card>
@@ -1880,7 +2010,6 @@ class PollenPrognosCard extends LitElement {
           </ha-card>
         `;
       } else {
-        // Sensors exist but are filtered out - show no allergens display
         const filteredMsg = this._t("card.error_filtered_sensors");
         if (this.debug) {
           console.debug(`[PollenPrognosCard] ${filteredMsg} (${name})`);
@@ -1893,7 +2022,15 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // Rendera alltid sensors om de finns, oavsett laddningstillstånd
+    const staleStatus = this._getStaleStatus();
+    if (staleStatus.allStale) {
+      return html`
+        <ha-card>
+          ${this._renderStaleDataHtml()}
+        </ha-card>
+      `;
+    }
+
     const cardContent = this.config.minimal
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
@@ -2225,6 +2362,53 @@ class PollenPrognosCard extends LitElement {
 
       .no-allergens-text {
         color: var(--primary-text-color);
+      }
+
+      /* Stale data display */
+      .stale-data-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        width: 100%;
+        padding: 2em 1em;
+        box-sizing: border-box;
+      }
+
+      .stale-data-text {
+        color: #b38600;
+        font-weight: 500;
+        margin-top: 0.5em;
+      }
+
+      .stale-data-subtitle {
+        color: var(--secondary-text-color);
+        font-size: 0.85em;
+        margin-top: 0.25em;
+      }
+
+      /* Per-allergen stale indicator */
+      .allergen-stale-row {
+        opacity: 0.7;
+      }
+
+      .stale-cell {
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      .stale-allergen-text {
+        color: #b38600;
+        font-style: italic;
+      }
+
+      .stale-allergen-name {
+        color: var(--secondary-text-color);
+      }
+
+      .sensor.minimal.stale {
+        opacity: 0.7;
       }
     `;
   }

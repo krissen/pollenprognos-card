@@ -221,13 +221,21 @@ export async function fetchForecast(hass, config) {
         }
       }
       const sensor = hass.states[sensorId];
-      if (!sensor?.attributes?.forecast) throw "Missing forecast";
       dict.entity_id = sensorId;
 
-      // Forecast handling
-      const rawForecast = Array.isArray(sensor.attributes.forecast)
-        ? sensor.attributes.forecast
-        : [];
+      const isStale = sensor?.attributes?.data_stale === true;
+      const hasForecast = Array.isArray(sensor?.attributes?.forecast) && 
+                          sensor.attributes.forecast.length > 0;
+
+      if (isStale || !hasForecast) {
+        dict.stale = true;
+        dict.staleSince = sensor?.attributes?.stale_since || null;
+        dict.days = [];
+        sensors.push(dict);
+        continue;
+      }
+
+      const rawForecast = sensor.attributes.forecast;
 
       if (mode !== "daily" && allergenSlug === "allergy_risk") {
         const step = stepMap[mode] || 1;
