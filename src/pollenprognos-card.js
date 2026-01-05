@@ -308,12 +308,14 @@ class PollenPrognosCard extends LitElement {
         "available sensors",
       );
     }
-    // Calculate expected values for comparison
     let daysCount = 0;
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
-    } else if (filtered.length > 0 && filtered[0].days) {
-      daysCount = Math.min(filtered[0].days.length, cfg.days_to_show);
+    } else {
+      const sensorWithDays = filtered.find((s) => s.days && s.days.length > 0);
+      if (sensorWithDays) {
+        daysCount = Math.min(sensorWithDays.days.length, cfg.days_to_show);
+      }
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
 
