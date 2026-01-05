@@ -49,8 +49,7 @@ class PollenPrognosCard extends LitElement {
   _chartCache = new Map();
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
-  _hasStaleData = false; // True if PEU sensors exist but have stale/empty data
-  _staleSince = null; // Timestamp when data became stale
+
 
   _renderLevelCircle(
     level,
@@ -406,7 +405,7 @@ class PollenPrognosCard extends LitElement {
       if (entity?.attributes?.data_stale === true) {
         staleCount++;
         if (!staleSince) {
-          staleSince = entity.attributes.stale_since || null;
+          staleSince = entity?.attributes?.stale_since || null;
         }
       }
     }

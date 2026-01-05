@@ -225,7 +225,7 @@ export async function fetchForecast(hass, config) {
 
       const isStale = sensor?.attributes?.data_stale === true;
       const hasForecast = Array.isArray(sensor?.attributes?.forecast) && 
-                          sensor.attributes.forecast.length > 0;
+                          sensor?.attributes?.forecast?.length > 0;
 
       if (isStale || !hasForecast) {
         dict.stale = true;
