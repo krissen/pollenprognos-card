@@ -19,6 +19,7 @@ import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { stubConfigATMO } from "./adapters/atmo.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -818,6 +819,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") stub = stubConfigSILAM;
     else if (integration === "kleenex") stub = stubConfigKleenex;
     else if (integration === "plu") stub = stubConfigPLU;
+    else if (integration === "atmo") stub = stubConfigATMO;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config
@@ -935,6 +937,11 @@ class PollenPrognosCard extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
+    const atmoStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
+    );
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -944,6 +951,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("SILAM:", silamStates);
       console.debug("KLEENEX:", kleenexStates);
       console.debug("PLU:", pluStates);
+      console.debug("ATMO:", atmoStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -961,6 +969,7 @@ class PollenPrognosCard extends LitElement {
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
       else if (kleenexStates.length) integration = "kleenex";
+      else if (atmoStates.length) integration = "atmo";
     }
 
     // Plocka rätt stub
@@ -971,6 +980,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") baseStub = stubConfigSILAM;
     else if (integration === "kleenex") baseStub = stubConfigKleenex;
     else if (integration === "plu") baseStub = stubConfigPLU;
+    else if (integration === "atmo") baseStub = stubConfigATMO;
     else {
       console.error(
         "Unknown integration:",
@@ -1027,6 +1037,8 @@ class PollenPrognosCard extends LitElement {
         cfg.allergens = stubConfigKleenex.allergens;
       else if (integration === "plu")
         cfg.allergens = stubConfigPLU.allergens;
+      else if (integration === "atmo")
+        cfg.allergens = stubConfigATMO.allergens;
     }
 
     // Fyll date_locale
@@ -1144,6 +1156,31 @@ class PollenPrognosCard extends LitElement {
           "[Card][KLEENEX] Auto-set location:",
           cfg.location,
           kleenexLocations,
+        );
+    } else if (
+      integration === "atmo" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      atmoStates.length
+    ) {
+      const atmoLocations = Array.from(
+        new Set(
+          atmoStates
+            .map((eid) => {
+              const m = eid.match(
+                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+              );
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = atmoLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][ATMO] Auto-set location:",
+          cfg.location,
+          atmoLocations,
         );
     }
 
@@ -1359,6 +1396,48 @@ class PollenPrognosCard extends LitElement {
               .replace(/[\)\s]+\w+.*$/u, "")
               .trim() ||
             cfg.location;
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "atmo") {
+        // Atmo France: extract location from sensor attributes
+        const atmoEntities = Object.values(hass.states).filter(
+          (s) =>
+            s &&
+            typeof s === "object" &&
+            typeof s.entity_id === "string" &&
+            /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(
+              s.entity_id,
+            ) &&
+            !s.entity_id.includes("_j_"),
+        );
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location.toLowerCase()
+            : "";
+
+        let match = null;
+        if (wantedLocation) {
+          match = atmoEntities.find((s) => {
+            const m = s.entity_id.match(
+              /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+)$/,
+            );
+            return m && m[1] === wantedLocation;
+          });
+        } else if (atmoEntities.length) {
+          match = atmoEntities[0];
+        }
+
+        let title = "";
+        if (match) {
+          const attr = match.attributes || {};
+          title =
+            attr["Nom de la zone"] ||
+            cfg.location ||
+            "";
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
         }
 
         loc = title || cfg.location || "";

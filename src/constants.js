@@ -6,6 +6,7 @@ import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
 import * as KLEENEX from "./adapters/kleenex.js";
 import * as PLU from "./adapters/plu.js";
+import * as ATMO from "./adapters/atmo.js";
 
 export const ADAPTERS = {
   pp: PP,
@@ -14,6 +15,7 @@ export const ADAPTERS = {
   silam: SILAM,
   kleenex: KLEENEX,
   plu: PLU,
+  atmo: ATMO,
 };
 
 export const DWD_REGIONS = {
@@ -139,6 +141,11 @@ export const ALLERGEN_TRANSLATION = {
   plantain: "plantain",
   wegerich: "plantain",
   armoise: "mugwort",
+
+  // Atmo France specific translations
+  ambroisie: "ragweed",
+  gramine: "grass",
+  olivier: "olive",
 };
 
 // Icon fallback mapping for allergens that don't have their own icons

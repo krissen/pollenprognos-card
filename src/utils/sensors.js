@@ -3,6 +3,7 @@ import { normalize, normalizeDWD } from "./normalize.js";
 import { slugify } from "./slugify.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { PLU_ALIAS_MAP } from "../adapters/plu.js";
+import { ATMO_ALLERGEN_MAP } from "../adapters/atmo.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -30,6 +31,8 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       let slug;
       if (integration === "dwd") {
         slug = normalizeDWD(allergen);
+      } else if (integration === "atmo") {
+        slug = ATMO_ALLERGEN_MAP[allergen] || normalize(allergen);
       } else if (integration === "silam") {
         slug = null;
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
@@ -362,6 +365,46 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (sensorId) {
         sensors.push(sensorId);
       }
+    }
+  } else if (integration === "atmo") {
+    const location = (cfg.location || "").toLowerCase();
+    for (const allergen of cfg.allergens || []) {
+      const frSlug = ATMO_ALLERGEN_MAP[allergen];
+      if (!frSlug) continue;
+
+      let sensorId;
+      if (allergen === "allergy_risk") {
+        sensorId = location
+          ? `sensor.qualite_globale_pollen_${location}`
+          : null;
+      } else {
+        sensorId = location
+          ? `sensor.niveau_${frSlug}_${location}`
+          : null;
+      }
+
+      let exists = sensorId && !!hass.states[sensorId];
+      if (!exists) {
+        // Fallback: search for matching entity
+        const prefix =
+          allergen === "allergy_risk"
+            ? "sensor.qualite_globale_pollen_"
+            : `sensor.niveau_${frSlug}_`;
+        const candidates = Object.keys(hass.states).filter(
+          (id) => id.startsWith(prefix) && !id.includes("_j_"),
+        );
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+          exists = true;
+        }
+      }
+
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][atmo] allergen: '${allergen}', frSlug: '${frSlug}', location: '${location}', sensorId: '${sensorId}', exists: ${exists}`,
+        );
+      }
+      if (exists) sensors.push(sensorId);
     }
   }
   if (debug) {

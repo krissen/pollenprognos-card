@@ -17,6 +17,7 @@ import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
 import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -58,7 +59,9 @@ const getStubConfig = (integration) =>
           ? stubConfigKleenex
           : integration === "plu"
             ? stubConfigPLU
-            : stubConfigPP;
+            : integration === "atmo"
+              ? stubConfigATMO
+              : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -145,7 +148,9 @@ class PollenPrognosCardEditor extends LitElement {
             ? SILAM_ALLERGENS
             : this._config.integration === "kleenex"
               ? stubConfigKleenex.allergens
-              : stubConfigPP.allergens;
+              : this._config.integration === "atmo"
+                ? ATMO_ALLERGENS
+                : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -169,7 +174,9 @@ class PollenPrognosCardEditor extends LitElement {
           ? 5
           : this._config.integration === "silam"
             ? 7
-            : 7;
+            : this._config.integration === "atmo"
+              ? 7
+              : 7;
 
     const levels = Array.from({ length: numLevels }, (_, i) =>
       t(`editor.phrases_levels.${i}`, lang),
@@ -246,6 +253,7 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedPeuLocations = [];
     this.installedSilamLocations = [];
     this.installedKleenexLocations = [];
+    this.installedAtmoLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
@@ -496,6 +504,14 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "kleenex";
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
+          )
+        ) {
+          integration = "atmo";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -775,6 +791,11 @@ class PollenPrognosCardEditor extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
+    const atmoStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
+    );
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -784,6 +805,7 @@ class PollenPrognosCardEditor extends LitElement {
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
+      else if (atmoStates.length) integration = "atmo";
       this._userConfig.integration = integration;
     }
 
@@ -807,7 +829,9 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigKleenex
               : integration === "plu"
                 ? stubConfigPLU
-                : stubConfigPP;
+                : integration === "atmo"
+                  ? stubConfigATMO
+                  : stubConfigPP;
 
     // Bygg merged-objekt (det är denna rad som saknas)
     if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
@@ -1063,6 +1087,28 @@ class PollenPrognosCardEditor extends LitElement {
             .filter((entry) => entry !== null),
         ),
       );
+
+      // Collect Atmo France locations
+      this.installedAtmoLocations = Array.from(
+        new Map(
+          atmoStates
+            .map((id) => {
+              const m = id.match(
+                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+              );
+              if (!m) return null;
+              const locationSlug = m[1];
+              const entity = hass.states[id];
+              const title =
+                entity?.attributes?.["Nom de la zone"] ||
+                locationSlug.charAt(0).toUpperCase() +
+                  locationSlug.slice(1).replace(/_/g, " ");
+              return [locationSlug, title];
+            })
+            .filter((entry) => entry !== null),
+        ),
+      );
+
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
         if (
@@ -1093,9 +1139,16 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           this._config.location = this.installedKleenexLocations[0][0];
         }
+        if (
+          integration === "atmo" &&
+          !this._userConfig.location &&
+          this.installedAtmoLocations.length
+        ) {
+          this._config.location = this.installedAtmoLocations[0][0];
+        }
       }
 
-      // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
+      // 5) Dispatch'a så att HA:r-editorn ritar om formuläret med nya värden
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._config },
@@ -1163,7 +1216,7 @@ class PollenPrognosCardEditor extends LitElement {
         newConfig.sort_category_allergens_first = false;
         delete this._userConfig.sort_category_allergens_first;
       }
-      if (this._config.integration === "peu" && this._config.allergy_risk_top) {
+      if ((this._config.integration === "peu" || this._config.integration === "atmo") && this._config.allergy_risk_top) {
         newConfig.allergy_risk_top = false;
         delete this._userConfig.allergy_risk_top;
       }
@@ -1444,13 +1497,15 @@ class PollenPrognosCardEditor extends LitElement {
                 ? stubConfigKleenex
                 : newInt === "plu"
                   ? stubConfigPLU
-                  : stubConfigPP;
+                  : newInt === "atmo"
+                    ? stubConfigATMO
+                    : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
-      
+
       // Track explicit allergen changes
       if (prop === "allergens") {
         if (this.debug) console.log("[ALLERGEN-DEBUG] _updateConfig called with allergens:", value);
@@ -1640,6 +1695,9 @@ class PollenPrognosCardEditor extends LitElement {
               <mwc-list-item value="kleenex"
                 >${this._t("integration.kleenex")}</mwc-list-item
               >
+              <mwc-list-item value="atmo"
+                >${this._t("integration.atmo")}</mwc-list-item
+              >
             </ha-select>
           </ha-formfield>
           ${c.integration === "pp"
@@ -1738,6 +1796,30 @@ class PollenPrognosCardEditor extends LitElement {
                         </ha-select>
                       </ha-formfield>
                     `
+                  : c.integration === "atmo"
+                    ? html`
+                        <ha-formfield label="${this._t("location")}">
+                          <ha-select
+                            .value=${c.location || ""}
+                            @selected=${(e) =>
+                              this._updateConfig("location", e.target.value)}
+                            @closed=${(e) => e.stopPropagation()}
+                          >
+                            <mwc-list-item value=""
+                              >${this._t("location_autodetect")}</mwc-list-item
+                            >
+                            ${this.installedAtmoLocations.map(
+                              ([slug, title]) =>
+                                html`<mwc-list-item .value=${slug}
+                                  >${title}</mwc-list-item
+                                >`,
+                            )}
+                            <mwc-list-item value="manual"
+                              >${this._t("location_manual")}</mwc-list-item
+                            >
+                          </ha-select>
+                        </ha-formfield>
+                      `
                   : c.integration === "plu"
                     ? ""
                   : html`
@@ -1824,7 +1906,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo") &&
             c.location === "manual")
             ? html`
                 <details>
@@ -2925,7 +3007,7 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-formfield>
               `
             : ""}
-          ${c.integration === "peu" || c.integration === "silam"
+          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo"
             ? html`
                 <ha-formfield
                   label="${c.integration === "silam"
