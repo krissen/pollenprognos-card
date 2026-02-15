@@ -7,6 +7,7 @@ import * as SILAM from "./adapters/silam.js";
 import * as KLEENEX from "./adapters/kleenex.js";
 import * as PLU from "./adapters/plu.js";
 import * as ATMO from "./adapters/atmo.js";
+import * as GPL from "./adapters/gpl.js";
 
 export const ADAPTERS = {
   pp: PP,
@@ -16,6 +17,7 @@ export const ADAPTERS = {
   kleenex: KLEENEX,
   plu: PLU,
   atmo: ATMO,
+  gpl: GPL,
 };
 
 export const DWD_REGIONS = {
@@ -146,6 +148,12 @@ export const ALLERGEN_TRANSLATION = {
   ambroisie: "ragweed",
   gramine: "grass",
   olivier: "olive",
+
+  // Google Pollen Levels (pollenlevels) specific translations
+  cottonwood: "poplar",
+  juniper: "cypress",
+  japanese_cedar: "cypress",
+  japanese_cypress: "cypress",
 };
 
 // Icon fallback mapping for allergens that don't have their own icons
@@ -156,6 +164,11 @@ export const ALLERGEN_ICON_FALLBACK = {
   trees: "birch", // Keep original for compatibility
   weeds: "mugwort", // Keep original for compatibility
   // grass has its own icon, no fallback needed
+  // Google Pollen Levels fallbacks
+  cottonwood: "poplar",
+  juniper: "cypress",
+  japanese_cedar: "cypress",
+  japanese_cypress: "cypress",
 };
 
 // Mapping of localized category name prefixes to canonical names for Kleenex integration
