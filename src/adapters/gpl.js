@@ -400,14 +400,15 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
-        // Map level 0-5 to level name index 0-6 (scale up)
+        // Scale level 0-5 to level name index 0-6 (like Kleenex does for 0-4)
+        const level = entry.level;
         let scaledLevel;
-        if (entry.level < 0) {
-          scaledLevel = entry.level;
+        if (level < 0) {
+          scaledLevel = level;
+        } else if (level < 2) {
+          scaledLevel = Math.floor((level * 6) / 5);
         } else {
-          // Scale 0-5 to 0-6: 0→0, 1→1, 2→2, 3→4, 4→5, 5→6
-          const scaleMap = [0, 1, 2, 4, 5, 6];
-          scaledLevel = scaleMap[Math.min(entry.level, 5)] ?? entry.level;
+          scaledLevel = Math.ceil((level * 6) / 5);
         }
 
         const stateText =
