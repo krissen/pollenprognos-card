@@ -154,6 +154,8 @@ export const ALLERGEN_TRANSLATION = {
   juniper: "cypress",
   japanese_cedar: "cypress",
   japanese_cypress: "cypress",
+  graminales: "grass",
+  cypress_pine: "cypress",
 };
 
 // Icon fallback mapping for allergens that don't have their own icons
@@ -169,6 +171,9 @@ export const ALLERGEN_ICON_FALLBACK = {
   juniper: "cypress",
   japanese_cedar: "cypress",
   japanese_cypress: "cypress",
+  graminales: "grass",
+  cypress_pine: "cypress",
+  maple: "oak",
 };
 
 // Mapping of localized category name prefixes to canonical names for Kleenex integration
