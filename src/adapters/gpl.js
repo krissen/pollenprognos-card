@@ -216,8 +216,10 @@ export function discoverGplAllergens(hass, configEntryId, debug = false) {
  */
 function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
   if (config.location === "manual") {
-    // Manual mode: build entity ID from prefix/suffix and search by attribution
-    const prefix = config.entity_prefix || "";
+    // Manual mode: search by attribution + prefix/suffix filter
+    let prefix = config.entity_prefix || "";
+    // Remove 'sensor.' prefix if user included it
+    if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
     const suffix = config.entity_suffix || "";
 
     // Search all GPL sensors for matching prefix/suffix

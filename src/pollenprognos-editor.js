@@ -1579,7 +1579,9 @@ class PollenPrognosCardEditor extends LitElement {
                   ? stubConfigPLU
                   : newInt === "atmo"
                     ? stubConfigATMO
-                    : stubConfigPP;
+                    : newInt === "gpl"
+                      ? stubConfigGPL
+                      : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;

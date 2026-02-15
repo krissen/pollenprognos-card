@@ -821,6 +821,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "kleenex") stub = stubConfigKleenex;
     else if (integration === "plu") stub = stubConfigPLU;
     else if (integration === "atmo") stub = stubConfigATMO;
+    else if (integration === "gpl") stub = stubConfigGPL;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config

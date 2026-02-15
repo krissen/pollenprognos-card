@@ -16,7 +16,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const manual =
     cfg.city === "manual" ||
     cfg.region_id === "manual" ||
-    (cfg.location === "manual" && integration !== "kleenex");
+    (cfg.location === "manual" && integration !== "kleenex" && integration !== "gpl");
   if (manual) {
     let prefix = cfg.entity_prefix || "";
     // Remove 'sensor.' prefix if user included it
@@ -411,24 +411,54 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     const discovery = discoverGplSensors(hass, debug);
     const configEntryId = cfg.location || "";
 
-    // Resolve the entity map for the configured location
-    let entityMap = null;
-    if (configEntryId && discovery.locations.has(configEntryId)) {
-      entityMap = discovery.locations.get(configEntryId).entities;
-    } else if (discovery.locations.size) {
-      entityMap = discovery.locations.values().next().value.entities;
-    }
+    if (configEntryId === "manual") {
+      // Manual mode: use discovery to find all GPL sensors, then filter by prefix/suffix
+      let prefix = cfg.entity_prefix || "";
+      if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
+      const suffix = cfg.entity_suffix || "";
 
-    for (const allergen of cfg.allergens || []) {
-      const sensorId = entityMap?.get(allergen) || null;
-      const exists = sensorId && !!hass.states[sensorId];
-
-      if (debug) {
-        console.debug(
-          `[findAvailableSensors][gpl] allergen: '${allergen}', configEntryId: '${configEntryId}', sensorId: '${sensorId}', exists: ${exists}`,
-        );
+      // Collect all discovered entities across all locations
+      const allEntities = new Map();
+      for (const loc of discovery.locations.values()) {
+        for (const [key, eid] of loc.entities) {
+          allEntities.set(key, eid);
+        }
       }
-      if (exists) sensors.push(sensorId);
+
+      for (const allergen of cfg.allergens || []) {
+        const eid = allEntities.get(allergen);
+        if (!eid) continue;
+        const idPart = eid.replace(/^sensor\./, "");
+        if (prefix && !idPart.startsWith(prefix)) continue;
+        if (suffix && !idPart.endsWith(suffix)) continue;
+        if (hass.states[eid]) sensors.push(eid);
+
+        if (debug) {
+          console.debug(
+            `[findAvailableSensors][gpl][manual] allergen: '${allergen}', prefix: '${prefix}', suffix: '${suffix}', eid: '${eid}', exists: ${!!hass.states[eid]}`,
+          );
+        }
+      }
+    } else {
+      // Discovery-based lookup
+      let entityMap = null;
+      if (configEntryId && discovery.locations.has(configEntryId)) {
+        entityMap = discovery.locations.get(configEntryId).entities;
+      } else if (discovery.locations.size) {
+        entityMap = discovery.locations.values().next().value.entities;
+      }
+
+      for (const allergen of cfg.allergens || []) {
+        const sensorId = entityMap?.get(allergen) || null;
+        const exists = sensorId && !!hass.states[sensorId];
+
+        if (debug) {
+          console.debug(
+            `[findAvailableSensors][gpl] allergen: '${allergen}', configEntryId: '${configEntryId}', sensorId: '${sensorId}', exists: ${exists}`,
+          );
+        }
+        if (exists) sensors.push(sensorId);
+      }
     }
   }
   if (debug) {
