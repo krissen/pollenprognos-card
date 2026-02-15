@@ -20,6 +20,7 @@ import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { stubConfigATMO } from "./adapters/atmo.js";
+import { stubConfigGPL } from "./adapters/gpl.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -942,6 +943,11 @@ class PollenPrognosCard extends LitElement {
         typeof id === "string" &&
         /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
     );
+    const gplStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\..+_type_(grass|tree|weed)$/.test(id),
+    );
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -952,6 +958,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("KLEENEX:", kleenexStates);
       console.debug("PLU:", pluStates);
       console.debug("ATMO:", atmoStates);
+      console.debug("GPL:", gplStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -970,6 +977,7 @@ class PollenPrognosCard extends LitElement {
       else if (silamStates.length) integration = "silam";
       else if (kleenexStates.length) integration = "kleenex";
       else if (atmoStates.length) integration = "atmo";
+      else if (gplStates.length) integration = "gpl";
     }
 
     // Plocka rätt stub
@@ -981,6 +989,7 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "kleenex") baseStub = stubConfigKleenex;
     else if (integration === "plu") baseStub = stubConfigPLU;
     else if (integration === "atmo") baseStub = stubConfigATMO;
+    else if (integration === "gpl") baseStub = stubConfigGPL;
     else {
       console.error(
         "Unknown integration:",
@@ -1039,6 +1048,8 @@ class PollenPrognosCard extends LitElement {
         cfg.allergens = stubConfigPLU.allergens;
       else if (integration === "atmo")
         cfg.allergens = stubConfigATMO.allergens;
+      else if (integration === "gpl")
+        cfg.allergens = stubConfigGPL.allergens;
     }
 
     // Fyll date_locale
@@ -1181,6 +1192,29 @@ class PollenPrognosCard extends LitElement {
           "[Card][ATMO] Auto-set location:",
           cfg.location,
           atmoLocations,
+        );
+    } else if (
+      integration === "gpl" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      gplStates.length
+    ) {
+      const gplLocations = Array.from(
+        new Set(
+          gplStates
+            .map((eid) => {
+              const m = eid.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = gplLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][GPL] Auto-set location:",
+          cfg.location,
+          gplLocations,
         );
     }
 
@@ -1435,6 +1469,48 @@ class PollenPrognosCard extends LitElement {
             attr["Nom de la zone"] ||
             cfg.location ||
             "";
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "gpl") {
+        // Google Pollen Levels: extract location from sensor friendly_name
+        const gplEntities = Object.values(hass.states).filter(
+          (s) =>
+            s &&
+            typeof s === "object" &&
+            typeof s.entity_id === "string" &&
+            /^sensor\..+_type_(grass|tree|weed)$/.test(s.entity_id),
+        );
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location.toLowerCase()
+            : "";
+
+        let match = null;
+        if (wantedLocation) {
+          match = gplEntities.find((s) => {
+            const m = s.entity_id.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
+            return m && m[1] === wantedLocation;
+          });
+        } else if (gplEntities.length) {
+          match = gplEntities[0];
+        }
+
+        let title = "";
+        if (match) {
+          const attr = match.attributes || {};
+          // Try friendly_name, strip the type suffix
+          const friendly = attr.friendly_name || "";
+          title = friendly
+            .replace(/\s*(grass|tree|weed)\s*$/i, "")
+            .replace(/\s*type\s*$/i, "")
+            .trim();
+          if (!title) {
+            title = cfg.location || "";
+          }
           if (title) {
             title = title.charAt(0).toUpperCase() + title.slice(1);
           }
