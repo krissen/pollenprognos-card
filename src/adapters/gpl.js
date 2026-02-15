@@ -1,7 +1,7 @@
 // src/adapters/gpl.js
 // Adapter for the Google Pollen Levels (pollenlevels) HACS integration.
-// Sensors: sensor.{location}_type_grass, _type_tree, _type_weed (categories)
-//          sensor.{location}_plants_{code} (individual plants)
+// Detection uses hass.entities (platform-based) or attribution fallback.
+// Sensors classified by attributes.code (plants) or attributes.icon (types).
 // Each sensor has state 0-5 and attributes.forecast[] for multi-day data.
 
 import { t, detectLang } from "../i18n.js";
@@ -9,11 +9,14 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 
-// Category allergens — map from our canonical key to entity suffix
-export const GPL_CATEGORY_MAP = {
-  grass_cat: "type_grass",
-  trees_cat: "type_tree",
-  weeds_cat: "type_weed",
+// Attribution string used by pollenlevels integration
+export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
+
+// Map pollenlevels TYPE_ICONS to our canonical allergen keys
+const GPL_TYPE_ICON_MAP = {
+  "mdi:grass": "grass_cat",
+  "mdi:tree": "trees_cat",
+  "mdi:flower-tulip": "weeds_cat",
 };
 
 // Base allergens always available (categories)
@@ -58,48 +61,191 @@ function capitalize(str) {
 }
 
 /**
- * Discover individual plant sensors for a given location prefix.
- * Returns array of plant codes found, e.g. ["oak", "birch", "ragweed"]
+ * Classify a GPL sensor by its attributes.
+ * Returns the allergen key (e.g. "birch", "grass_cat") or null.
  */
-export function discoverPlants(hass, locationPrefix) {
-  if (!hass || !hass.states || !locationPrefix) return [];
-  const prefix = `sensor.${locationPrefix}_plants_`;
-  const plants = [];
-  for (const id of Object.keys(hass.states)) {
-    if (id.startsWith(prefix)) {
-      const code = id.slice(prefix.length);
-      if (code) plants.push(code);
-    }
+function classifySensor(state) {
+  const attrs = state?.attributes || {};
+  // Plant sensors have a code attribute (always English, e.g. "birch")
+  if (attrs.code) {
+    return attrs.code.toLowerCase();
   }
-  return plants.sort();
-}
-
-/**
- * Auto-detect the location prefix from available GPL entities.
- * Looks for sensor.*_type_(grass|tree|weed) pattern.
- */
-export function detectLocationPrefix(hass, debug) {
-  for (const id of Object.keys(hass.states)) {
-    const m = id.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
-    if (m) {
-      if (debug) console.debug("[GPL] auto-detected location prefix:", m[1]);
-      return m[1];
-    }
-  }
+  // Type sensors identified by icon
+  const iconKey = GPL_TYPE_ICON_MAP[attrs.icon];
+  if (iconKey) return iconKey;
   return null;
 }
 
 /**
- * Build entity ID for a given allergen and location prefix.
+ * Check if an entity is a GPL sensor (not a diagnostic/meta sensor).
  */
-function buildEntityId(allergen, locationPrefix) {
-  // Category allergens
-  const categorySuffix = GPL_CATEGORY_MAP[allergen];
-  if (categorySuffix) {
-    return `sensor.${locationPrefix}_${categorySuffix}`;
+function isGplDataSensor(state) {
+  const attrs = state?.attributes || {};
+  const dc = attrs.device_class;
+  return dc !== "date" && dc !== "timestamp";
+}
+
+/**
+ * Discover all GPL sensors using hass.entities (primary) or attribution (fallback).
+ *
+ * Returns: { locations: Map<configEntryId, { label: string, entities: Map<allergenKey, entityId> }> }
+ *
+ * Primary path: hass.entities → filter platform === "pollenlevels", no entity_category
+ * Fallback path: hass.states → filter attribution === GPL_ATTRIBUTION, exclude date/timestamp
+ */
+export function discoverGplSensors(hass, debug = false) {
+  const result = { locations: new Map() };
+  if (!hass) return result;
+
+  // Collect candidate entity IDs
+  let entityIds = [];
+  let usedPrimary = false;
+
+  // Primary: hass.entities (entity registry)
+  if (hass.entities) {
+    const candidates = Object.entries(hass.entities)
+      .filter(([, entry]) =>
+        entry.platform === "pollenlevels" &&
+        !entry.entity_category
+      )
+      .map(([eid]) => eid);
+
+    if (candidates.length > 0) {
+      entityIds = candidates;
+      usedPrimary = true;
+      if (debug) console.debug("[GPL] Discovery: using hass.entities, found", candidates.length, "candidates");
+    }
   }
-  // Individual plant allergens
-  return `sensor.${locationPrefix}_plants_${allergen}`;
+
+  // Fallback: attribution scan
+  if (!entityIds.length && hass.states) {
+    entityIds = Object.keys(hass.states).filter((eid) => {
+      const s = hass.states[eid];
+      return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
+    });
+    if (debug) console.debug("[GPL] Discovery: using attribution fallback, found", entityIds.length, "candidates");
+  }
+
+  if (!entityIds.length) return result;
+
+  // Group by config_entry_id
+  for (const eid of entityIds) {
+    const state = hass.states[eid];
+    if (!state) continue;
+
+    // Filter out meta sensors in both paths
+    if (!isGplDataSensor(state)) continue;
+
+    // Classify sensor
+    const allergenKey = classifySensor(state);
+    if (!allergenKey) {
+      if (debug) console.debug("[GPL] Could not classify sensor:", eid);
+      continue;
+    }
+
+    // Resolve config_entry_id
+    let configEntryId = "default";
+    if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
+      const deviceId = hass.entities[eid].device_id;
+      const device = hass.devices[deviceId];
+      if (device?.config_entries?.length) {
+        configEntryId = device.config_entries[0];
+      }
+    }
+
+    // Get or create location entry
+    if (!result.locations.has(configEntryId)) {
+      // Generate label from device name or "Auto"
+      let label = "Auto";
+      if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
+        const deviceId = hass.entities[eid].device_id;
+        const device = hass.devices[deviceId];
+        if (device?.name) {
+          label = device.name;
+        }
+      } else {
+        // Fallback: try friendly_name from first sensor
+        const friendly = state.attributes?.friendly_name || "";
+        if (friendly) label = friendly;
+      }
+      result.locations.set(configEntryId, { label, entities: new Map() });
+    }
+
+    result.locations.get(configEntryId).entities.set(allergenKey, eid);
+  }
+
+  if (debug) {
+    console.debug("[GPL] Discovery result:", result.locations.size, "locations");
+    for (const [locId, loc] of result.locations) {
+      console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get available allergen keys for a given location (config_entry_id).
+ * If configEntryId is empty/null, uses the first discovered location.
+ * Returns sorted array of allergen keys (e.g. ["grass_cat", "trees_cat", "birch", "oak"]).
+ */
+export function discoverGplAllergens(hass, configEntryId, debug = false) {
+  const discovery = discoverGplSensors(hass, debug);
+  if (!discovery.locations.size) return [];
+
+  let location;
+  if (configEntryId && discovery.locations.has(configEntryId)) {
+    location = discovery.locations.get(configEntryId);
+  } else {
+    // Use first available location
+    location = discovery.locations.values().next().value;
+  }
+
+  if (!location) return [];
+
+  const keys = [...location.entities.keys()];
+  // Sort: categories first, then plants alphabetically
+  const categories = keys.filter((k) => GPL_BASE_ALLERGENS.includes(k)).sort();
+  const plants = keys.filter((k) => !GPL_BASE_ALLERGENS.includes(k)).sort();
+  return [...categories, ...plants];
+}
+
+/**
+ * Resolve entity ID for a given allergen and config, using discovery or manual mode.
+ * Returns entity ID string or null.
+ */
+function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
+  if (config.location === "manual") {
+    // Manual mode: build entity ID from prefix/suffix and search by attribution
+    const prefix = config.entity_prefix || "";
+    const suffix = config.entity_suffix || "";
+
+    // Search all GPL sensors for matching prefix/suffix
+    for (const [eid, state] of Object.entries(hass.states)) {
+      if (state?.attributes?.attribution !== GPL_ATTRIBUTION) continue;
+      if (!isGplDataSensor(state)) continue;
+
+      // Check prefix/suffix match on entity_id
+      const idPart = eid.replace(/^sensor\./, "");
+      if (prefix && !idPart.startsWith(prefix)) continue;
+      if (suffix && !idPart.endsWith(suffix)) continue;
+
+      // Classify and check if it matches the requested allergen
+      const key = classifySensor(state);
+      if (key === allergen) return eid;
+    }
+
+    if (debug) console.debug(`[GPL] Manual mode: no sensor found for allergen "${allergen}"`);
+    return null;
+  }
+
+  // Discovery-based lookup
+  if (discoveredEntities && discoveredEntities.has(allergen)) {
+    return discoveredEntities.get(allergen);
+  }
+
+  if (debug) console.debug(`[GPL] Sensor not found for allergen "${allergen}"`);
+  return null;
 }
 
 export async function fetchForecast(hass, config) {
@@ -130,12 +276,28 @@ export async function fetchForecast(hass, config) {
 
   if (debug) console.debug("[GPL] Adapter: start fetchForecast", { config, lang });
 
-  // Resolve location prefix
-  let locationPrefix = config.location || "";
-  if (locationPrefix === "manual") {
-    // Manual mode handled below per allergen
-  } else if (!locationPrefix) {
-    locationPrefix = detectLocationPrefix(hass, debug) || "";
+  // Discover sensors (unless manual mode)
+  let discoveredEntities = null;
+  if (config.location !== "manual") {
+    const discovery = discoverGplSensors(hass, debug);
+    const configEntryId = config.location || "";
+
+    let location;
+    if (configEntryId && discovery.locations.has(configEntryId)) {
+      location = discovery.locations.get(configEntryId);
+    } else if (discovery.locations.size) {
+      // Use first available location
+      location = discovery.locations.values().next().value;
+    }
+
+    if (location) {
+      discoveredEntities = location.entities;
+    }
+
+    if (debug) {
+      console.debug("[GPL] Resolved location entities:",
+        discoveredEntities ? [...discoveredEntities.entries()] : "none");
+    }
   }
 
   const today = new Date();
@@ -172,28 +334,8 @@ export async function fetchForecast(hass, config) {
       }
 
       // Find sensor entity
-      let sensorId;
-      if (locationPrefix === "manual") {
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        const categorySuffix = GPL_CATEGORY_MAP[allergen];
-        if (categorySuffix) {
-          sensorId = `sensor.${prefix}${categorySuffix}${suffix}`;
-        } else {
-          sensorId = `sensor.${prefix}plants_${allergen}${suffix}`;
-        }
-        if (!hass.states[sensorId]) {
-          if (debug) console.debug(`[GPL] Manual mode: sensor not found: ${sensorId}`);
-          continue;
-        }
-      } else {
-        if (!locationPrefix) continue;
-        sensorId = buildEntityId(allergen, locationPrefix);
-        if (!sensorId || !hass.states[sensorId]) {
-          if (debug) console.debug(`[GPL] Sensor not found: ${sensorId}`);
-          continue;
-        }
-      }
+      const sensorId = resolveEntityId(allergen, hass, config, discoveredEntities, debug);
+      if (!sensorId || !hass.states[sensorId]) continue;
 
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;

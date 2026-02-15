@@ -18,7 +18,7 @@ import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
-import { stubConfigGPL, GPL_BASE_ALLERGENS, discoverPlants, detectLocationPrefix } from "./adapters/gpl.js";
+import { stubConfigGPL, GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -142,11 +142,12 @@ class PollenPrognosCardEditor extends LitElement {
     this._updateConfig("date_locale", lang);
 
     // Välj rätt lista med raw-allergener
-    // Discover GPL plants if applicable
+    // Discover GPL allergens if applicable
     let gplDiscoveredPlants = [];
     if (this._config.integration === "gpl" && this._hass) {
-      const prefix = this._config.location || detectLocationPrefix(this._hass, false);
-      if (prefix) gplDiscoveredPlants = discoverPlants(this._hass, prefix);
+      gplDiscoveredPlants = discoverGplAllergens(this._hass, this._config.location, false);
+      // Remove base allergens since they're added separately via GPL_BASE_ALLERGENS
+      gplDiscoveredPlants = gplDiscoveredPlants.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
     }
 
     const rawKeys =
@@ -527,10 +528,18 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           integration = "atmo";
         } else if (
-          all.some(
-            (id) =>
-              typeof id === "string" &&
-              /^sensor\..+_type_(grass|tree|weed)$/.test(id),
+          this._hass && (
+            // Primary: check hass.entities for pollenlevels platform
+            (this._hass.entities && Object.values(this._hass.entities).some(
+              (e) => e.platform === "pollenlevels" && !e.entity_category
+            )) ||
+            // Fallback: check attribution
+            all.some((id) => {
+              const s = this._hass.states[id];
+              return s?.attributes?.attribution === GPL_ATTRIBUTION
+                && s.attributes?.device_class !== "date"
+                && s.attributes?.device_class !== "timestamp";
+            })
           )
         ) {
           integration = "gpl";
@@ -818,11 +827,21 @@ class PollenPrognosCardEditor extends LitElement {
         typeof id === "string" &&
         /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
     );
-    const gplStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\..+_type_(grass|tree|weed)$/.test(id),
-    );
+    // GPL: use hass.entities (primary) or attribution (fallback)
+    let gplStates = [];
+    if (hass.entities) {
+      gplStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gplStates.length) {
+      gplStates = Object.keys(hass.states).filter((id) => {
+        const s = hass.states[id];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION
+          && s.attributes.device_class !== "date"
+          && s.attributes.device_class !== "timestamp";
+      });
+    }
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -1139,35 +1158,17 @@ class PollenPrognosCardEditor extends LitElement {
         ),
       );
 
-      // Collect Google Pollen Levels locations
-      this.installedGplLocations = Array.from(
-        new Map(
-          gplStates
-            .map((id) => {
-              const m = id.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
-              if (!m) return null;
-              const locationSlug = m[1];
-              const entity = hass.states[id];
-              const friendly = entity?.attributes?.friendly_name || "";
-              let title = friendly
-                .replace(/\s*(grass|tree|weed)\s*$/i, "")
-                .replace(/\s*type\s*$/i, "")
-                .trim();
-              if (!title) {
-                title =
-                  locationSlug.charAt(0).toUpperCase() +
-                  locationSlug.slice(1).replace(/_/g, " ");
-              }
-              return [locationSlug, title];
-            })
-            .filter((entry) => entry !== null),
-        ),
-      );
+      // Collect Google Pollen Levels locations via discovery
+      const gplDiscovery = discoverGplSensors(hass, false);
+      this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
+        .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
-      // Discover GPL plants for current location
+      // Discover GPL allergens (plants) for current location
       if (integration === "gpl") {
-        const gplPrefix = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
-        this.installedGplPlants = gplPrefix ? discoverPlants(hass, gplPrefix) : [];
+        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+        const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId, false);
+        // Only keep non-base allergens (individual plants)
+        this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
       } else {
         this.installedGplPlants = [];
       }

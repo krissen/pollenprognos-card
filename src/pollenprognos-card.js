@@ -20,7 +20,7 @@ import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { stubConfigATMO } from "./adapters/atmo.js";
-import { stubConfigGPL } from "./adapters/gpl.js";
+import { stubConfigGPL, GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -943,11 +943,21 @@ class PollenPrognosCard extends LitElement {
         typeof id === "string" &&
         /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
     );
-    const gplStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\..+_type_(grass|tree|weed)$/.test(id),
-    );
+    // GPL: use hass.entities (primary) or attribution (fallback)
+    let gplStates = [];
+    if (hass.entities) {
+      gplStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gplStates.length) {
+      gplStates = Object.keys(hass.states).filter((id) => {
+        const s = hass.states[id];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION
+          && s.attributes.device_class !== "date"
+          && s.attributes.device_class !== "timestamp";
+      });
+    }
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -1199,22 +1209,14 @@ class PollenPrognosCard extends LitElement {
       !cfg.location &&
       gplStates.length
     ) {
-      const gplLocations = Array.from(
-        new Set(
-          gplStates
-            .map((eid) => {
-              const m = eid.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = gplLocations[0] || null;
+      const gplDiscovery = discoverGplSensors(hass, this.debug);
+      const firstLocId = gplDiscovery.locations.keys().next().value;
+      cfg.location = firstLocId || null;
       if (this.debug)
         console.debug(
           "[Card][GPL] Auto-set location:",
           cfg.location,
-          gplLocations,
+          [...gplDiscovery.locations.keys()],
         );
     }
 
@@ -1476,41 +1478,26 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "gpl") {
-        // Google Pollen Levels: extract location from sensor friendly_name
-        const gplEntities = Object.values(hass.states).filter(
-          (s) =>
-            s &&
-            typeof s === "object" &&
-            typeof s.entity_id === "string" &&
-            /^sensor\..+_type_(grass|tree|weed)$/.test(s.entity_id),
-        );
+        // Google Pollen Levels: extract location from discovery
+        const gplDiscovery = discoverGplSensors(hass, false);
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
-            ? cfg.location.toLowerCase()
+            ? cfg.location
             : "";
 
-        let match = null;
-        if (wantedLocation) {
-          match = gplEntities.find((s) => {
-            const m = s.entity_id.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
-            return m && m[1] === wantedLocation;
-          });
-        } else if (gplEntities.length) {
-          match = gplEntities[0];
+        let title = "";
+        if (wantedLocation && gplDiscovery.locations.has(wantedLocation)) {
+          title = gplDiscovery.locations.get(wantedLocation).label;
+        } else if (gplDiscovery.locations.size) {
+          title = gplDiscovery.locations.values().next().value.label;
         }
 
-        let title = "";
-        if (match) {
-          const attr = match.attributes || {};
-          // Try friendly_name, strip the type suffix
-          const friendly = attr.friendly_name || "";
-          title = friendly
+        // Clean up device name if it looks like a friendly_name with type suffix
+        if (title) {
+          title = title
             .replace(/\s*(grass|tree|weed)\s*$/i, "")
             .replace(/\s*type\s*$/i, "")
             .trim();
-          if (!title) {
-            title = cfg.location || "";
-          }
           if (title) {
             title = title.charAt(0).toUpperCase() + title.slice(1);
           }

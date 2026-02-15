@@ -4,7 +4,7 @@ import { slugify } from "./slugify.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { PLU_ALIAS_MAP } from "../adapters/plu.js";
 import { ATMO_ALLERGEN_MAP } from "../adapters/atmo.js";
-import { GPL_CATEGORY_MAP } from "../adapters/gpl.js";
+import { discoverGplSensors } from "../adapters/gpl.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -408,36 +408,24 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (exists) sensors.push(sensorId);
     }
   } else if (integration === "gpl") {
-    const locationPrefix = (cfg.location || "").toLowerCase();
-    for (const allergen of cfg.allergens || []) {
-      const categorySuffix = GPL_CATEGORY_MAP[allergen];
-      let sensorId;
-      if (categorySuffix) {
-        sensorId = locationPrefix
-          ? `sensor.${locationPrefix}_${categorySuffix}`
-          : null;
-      } else {
-        sensorId = locationPrefix
-          ? `sensor.${locationPrefix}_plants_${allergen}`
-          : null;
-      }
+    const discovery = discoverGplSensors(hass, debug);
+    const configEntryId = cfg.location || "";
 
-      let exists = sensorId && !!hass.states[sensorId];
-      if (!exists) {
-        // Fallback: search for matching entity
-        const suffix = categorySuffix || `plants_${allergen}`;
-        const candidates = Object.keys(hass.states).filter(
-          (id) => id.endsWith(`_${suffix}`),
-        );
-        if (candidates.length === 1) {
-          sensorId = candidates[0];
-          exists = true;
-        }
-      }
+    // Resolve the entity map for the configured location
+    let entityMap = null;
+    if (configEntryId && discovery.locations.has(configEntryId)) {
+      entityMap = discovery.locations.get(configEntryId).entities;
+    } else if (discovery.locations.size) {
+      entityMap = discovery.locations.values().next().value.entities;
+    }
+
+    for (const allergen of cfg.allergens || []) {
+      const sensorId = entityMap?.get(allergen) || null;
+      const exists = sensorId && !!hass.states[sensorId];
 
       if (debug) {
         console.debug(
-          `[findAvailableSensors][gpl] allergen: '${allergen}', locationPrefix: '${locationPrefix}', sensorId: '${sensorId}', exists: ${exists}`,
+          `[findAvailableSensors][gpl] allergen: '${allergen}', configEntryId: '${configEntryId}', sensorId: '${sensorId}', exists: ${exists}`,
         );
       }
       if (exists) sensors.push(sensorId);
