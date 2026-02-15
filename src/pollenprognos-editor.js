@@ -18,6 +18,7 @@ import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
+import { stubConfigGPL, GPL_BASE_ALLERGENS, discoverPlants, detectLocationPrefix } from "./adapters/gpl.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -61,7 +62,9 @@ const getStubConfig = (integration) =>
             ? stubConfigPLU
             : integration === "atmo"
               ? stubConfigATMO
-              : stubConfigPP;
+              : integration === "gpl"
+                ? stubConfigGPL
+                : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -139,6 +142,13 @@ class PollenPrognosCardEditor extends LitElement {
     this._updateConfig("date_locale", lang);
 
     // Välj rätt lista med raw-allergener
+    // Discover GPL plants if applicable
+    let gplDiscoveredPlants = [];
+    if (this._config.integration === "gpl" && this._hass) {
+      const prefix = this._config.location || detectLocationPrefix(this._hass, false);
+      if (prefix) gplDiscoveredPlants = discoverPlants(this._hass, prefix);
+    }
+
     const rawKeys =
       this._config.integration === "dwd"
         ? stubConfigDWD.allergens
@@ -150,7 +160,9 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigKleenex.allergens
               : this._config.integration === "atmo"
                 ? ATMO_ALLERGENS
-                : stubConfigPP.allergens;
+                : this._config.integration === "gpl"
+                  ? [...GPL_BASE_ALLERGENS, ...gplDiscoveredPlants]
+                  : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -172,11 +184,13 @@ class PollenPrognosCardEditor extends LitElement {
         ? 4
         : this._config.integration === "peu"
           ? 5
-          : this._config.integration === "silam"
-            ? 7
-            : this._config.integration === "atmo"
+          : this._config.integration === "gpl"
+            ? 6
+            : this._config.integration === "silam"
               ? 7
-              : 7;
+              : this._config.integration === "atmo"
+                ? 7
+                : 7;
 
     const levels = Array.from({ length: numLevels }, (_, i) =>
       t(`editor.phrases_levels.${i}`, lang),
@@ -512,6 +526,14 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "atmo";
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              /^sensor\..+_type_(grass|tree|weed)$/.test(id),
+          )
+        ) {
+          integration = "gpl";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -796,6 +818,11 @@ class PollenPrognosCardEditor extends LitElement {
         typeof id === "string" &&
         /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
     );
+    const gplStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\..+_type_(grass|tree|weed)$/.test(id),
+    );
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -806,6 +833,7 @@ class PollenPrognosCardEditor extends LitElement {
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
       else if (atmoStates.length) integration = "atmo";
+      else if (gplStates.length) integration = "gpl";
       this._userConfig.integration = integration;
     }
 
@@ -831,7 +859,9 @@ class PollenPrognosCardEditor extends LitElement {
                 ? stubConfigPLU
                 : integration === "atmo"
                   ? stubConfigATMO
-                  : stubConfigPP;
+                  : integration === "gpl"
+                    ? stubConfigGPL
+                    : stubConfigPP;
 
     // Bygg merged-objekt (det är denna rad som saknas)
     if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
@@ -1109,6 +1139,39 @@ class PollenPrognosCardEditor extends LitElement {
         ),
       );
 
+      // Collect Google Pollen Levels locations
+      this.installedGplLocations = Array.from(
+        new Map(
+          gplStates
+            .map((id) => {
+              const m = id.match(/^sensor\.(.+)_type_(grass|tree|weed)$/);
+              if (!m) return null;
+              const locationSlug = m[1];
+              const entity = hass.states[id];
+              const friendly = entity?.attributes?.friendly_name || "";
+              let title = friendly
+                .replace(/\s*(grass|tree|weed)\s*$/i, "")
+                .replace(/\s*type\s*$/i, "")
+                .trim();
+              if (!title) {
+                title =
+                  locationSlug.charAt(0).toUpperCase() +
+                  locationSlug.slice(1).replace(/_/g, " ");
+              }
+              return [locationSlug, title];
+            })
+            .filter((entry) => entry !== null),
+        ),
+      );
+
+      // Discover GPL plants for current location
+      if (integration === "gpl") {
+        const gplPrefix = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+        this.installedGplPlants = gplPrefix ? discoverPlants(hass, gplPrefix) : [];
+      } else {
+        this.installedGplPlants = [];
+      }
+
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
         if (
@@ -1145,6 +1208,13 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedAtmoLocations.length
         ) {
           this._config.location = this.installedAtmoLocations[0][0];
+        }
+        if (
+          integration === "gpl" &&
+          !this._userConfig.location &&
+          this.installedGplLocations.length
+        ) {
+          this._config.location = this.installedGplLocations[0][0];
         }
       }
 
@@ -1210,7 +1280,7 @@ class PollenPrognosCardEditor extends LitElement {
 
       // Uncheck incompatible special sort options
       if (
-        this._config.integration === "kleenex" &&
+        (this._config.integration === "kleenex" || this._config.integration === "gpl") &&
         this._config.sort_category_allergens_first
       ) {
         newConfig.sort_category_allergens_first = false;
@@ -1622,16 +1692,20 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigKleenex.allergens
               : c.integration === "plu"
                 ? stubConfigPLU.allergens
-                : stubConfigPP.allergens;
+                : c.integration === "gpl"
+                  ? [...GPL_BASE_ALLERGENS, ...(this.installedGplPlants || [])]
+                  : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd"
         ? 4
         : c.integration === "peu"
           ? 5
-          : c.integration === "plu"
-            ? 4
-            : 7;
+          : c.integration === "gpl"
+            ? 6
+            : c.integration === "plu"
+              ? 4
+              : 7;
 
     // dynamiska parametrar för pollen_threshold-slider
     const thresholdParams =
@@ -1639,9 +1713,11 @@ class PollenPrognosCardEditor extends LitElement {
         ? { min: 0, max: 3, step: 0.5 }
         : c.integration === "peu"
           ? { min: 0, max: 4, step: 1 }
-          : c.integration === "plu"
-            ? { min: 0, max: 3, step: 1 }
-            : { min: 0, max: 6, step: 1 };
+          : c.integration === "gpl"
+            ? { min: 0, max: 5, step: 1 }
+            : c.integration === "plu"
+              ? { min: 0, max: 3, step: 1 }
+              : { min: 0, max: 6, step: 1 };
 
     const SORT_VALUES = [
       "value_ascending",
@@ -1697,6 +1773,9 @@ class PollenPrognosCardEditor extends LitElement {
               >
               <mwc-list-item value="atmo"
                 >${this._t("integration.atmo")}</mwc-list-item
+              >
+              <mwc-list-item value="gpl"
+                >${this._t("integration.gpl")}</mwc-list-item
               >
             </ha-select>
           </ha-formfield>
@@ -1820,6 +1899,30 @@ class PollenPrognosCardEditor extends LitElement {
                           </ha-select>
                         </ha-formfield>
                       `
+                  : c.integration === "gpl"
+                    ? html`
+                        <ha-formfield label="${this._t("location")}">
+                          <ha-select
+                            .value=${c.location || ""}
+                            @selected=${(e) =>
+                              this._updateConfig("location", e.target.value)}
+                            @closed=${(e) => e.stopPropagation()}
+                          >
+                            <mwc-list-item value=""
+                              >${this._t("location_autodetect")}</mwc-list-item
+                            >
+                            ${(this.installedGplLocations || []).map(
+                              ([slug, title]) =>
+                                html`<mwc-list-item .value=${slug}
+                                  >${title}</mwc-list-item
+                                >`,
+                            )}
+                            <mwc-list-item value="manual"
+                              >${this._t("location_manual")}</mwc-list-item
+                            >
+                          </ha-select>
+                        </ha-formfield>
+                      `
                   : c.integration === "plu"
                     ? ""
                   : html`
@@ -1906,7 +2009,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl") &&
             c.location === "manual")
             ? html`
                 <details>
@@ -2875,9 +2978,9 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Allergens -->
         <details>
           <summary>${this._t("summary_allergens")}</summary>
-          ${c.integration === "kleenex"
+          ${c.integration === "kleenex" || c.integration === "gpl"
             ? html`
-                <!-- Kleenex: Category allergens (controlled by checkbox) -->
+                <!-- Category allergens (controlled by checkbox) -->
                 <div class="allergen-section">
                   <h4
                     style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
@@ -2900,7 +3003,7 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </div>
 
-                <!-- Kleenex: Individual allergens (enabled by default) -->
+                <!-- Individual allergens -->
                 <div class="allergen-section">
                   <h4
                     style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
@@ -2958,7 +3061,7 @@ class PollenPrognosCardEditor extends LitElement {
               @click=${() => {
                 // For kleenex, include both individual allergens and category allergens
                 const allAllergens =
-                  c.integration === "kleenex"
+                  c.integration === "kleenex" || c.integration === "gpl"
                     ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
                     : allergens;
                 this._toggleSelectAllAllergens(allAllergens);
@@ -2991,7 +3094,7 @@ class PollenPrognosCardEditor extends LitElement {
               )}
             </ha-select>
           </ha-formfield>
-          ${c.integration === "kleenex"
+          ${c.integration === "kleenex" || c.integration === "gpl"
             ? html`
                 <ha-formfield
                   label="${this._t("sort_category_allergens_first")}"
