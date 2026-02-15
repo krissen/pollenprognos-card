@@ -82,6 +82,18 @@ Install via HACS:
 
 **Repository**: [pollen_lu](https://github.com/Foxi352/pollen_lu)
 
+### Option G: Atmo France (France)
+
+Install via HACS:
+1. Open HACS → Integrations
+2. Click the "+" button
+3. Search for "Atmo France"
+4. Install the integration
+5. Restart Home Assistant
+6. Add the integration via Settings → Devices & Services
+
+**Repository**: [atmofrance](https://github.com/sebcaps/atmofrance)
+
 ## Step 2: Install Pollenprognos Card
 
 ### Via HACS (Recommended)

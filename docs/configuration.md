@@ -21,6 +21,7 @@ In this file:
   - [Kleenex Pollen Radar](#kleenex-pollen-radar)
     - [Category vs Individual Allergens](#category-vs-individual-allergens)
   - [Pollen.lu (PLU)](#pollenlu-plu)
+  - [Atmo France](#atmo-france)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -34,10 +35,10 @@ In this file:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu` or `kleenex`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex` or `atmo`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM, Kleenex only)* | `string` | **Required** (PEU/SILAM/Kleenex) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. |
+| `location` *(PEU, SILAM, Kleenex, Atmo only)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -80,7 +81,7 @@ In this file:
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. Available options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`, `none`. |
 | `sort_category_allergens_first` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
-| `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
+| `allergy_risk_top` *(PEU, Atmo)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
@@ -247,6 +248,22 @@ Sensors follow the pattern `sensor.pollen_<slug>` where `<slug>` matches one of 
 
 Use the localized allergen names in the editor; the card stores the canonical keys listed above in the configuration.
 
+### Atmo France
+
+The Atmo France integration provides pollen levels for French cities. Levels range from 0 to 6 and map directly to the card's scale without any conversion. The integration also provides optional J+1 (next-day) forecasts.
+
+```
+allergy_risk
+ragweed
+mugwort
+alder
+birch
+grass
+olive
+```
+
+Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for individual allergens and `sensor.qualite_globale_pollen_{city_slug}` for the global allergy risk. The `allergy_risk` allergen shows the overall pollen quality index and can be pinned to the top of the list with `allergy_risk_top: true`.
+
 ## Color System Overview
 
 The card provides advanced color management with two interconnected systems:
@@ -333,6 +350,15 @@ type: custom:pollenprognos-card
 integration: kleenex
 location: amsterdam  # Location will be auto-detected if omitted
 days_to_show: 5
+```
+
+**Atmo France**
+
+```yaml
+type: custom:pollenprognos-card
+integration: atmo
+location: lyon  # Location will be auto-detected if omitted
+days_to_show: 2
 ```
 
 **Minimal layout**
