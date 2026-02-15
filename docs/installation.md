@@ -94,6 +94,18 @@ Install via HACS:
 
 **Repository**: [atmofrance](https://github.com/sebcaps/atmofrance)
 
+### Option H: Google Pollen Levels (Global)
+
+Install via HACS:
+1. Open HACS → Integrations
+2. Click the "+" button
+3. Search for "Google Pollen Levels" or "pollenlevels"
+4. Install the integration
+5. Restart Home Assistant
+6. Add the integration via Settings → Devices & Services
+
+**Repository**: [pollenlevels](https://github.com/eXPerience83/pollenlevels)
+
 ## Step 2: Install Pollenprognos Card
 
 ### Via HACS (Recommended)

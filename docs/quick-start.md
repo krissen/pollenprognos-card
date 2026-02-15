@@ -75,6 +75,10 @@ integration: plu
 type: custom:pollenprognos-card
 integration: atmo
 location: lyon
+
+# Google Pollen Levels (global)
+type: custom:pollenprognos-card
+integration: gpl
 ```
 
 ## Common Customizations
@@ -231,6 +235,20 @@ allergens:
   - ragweed
   - olive
 days_to_show: 2
+```
+
+### Global (Google Pollen Levels)
+
+```yaml
+type: custom:pollenprognos-card
+integration: gpl
+allergens:
+  - grass_cat
+  - trees_cat
+  - weeds_cat
+  - birch
+  - olive
+days_to_show: 5
 ```
 
 ## Next Steps

@@ -52,7 +52,7 @@ A custom card for the DWD Pollenflug integration.
 
 ## Summary
 
-`pollenprognos-card` distinguishes itself through comprehensive multi-integration support, working with all six major pollen data sources (Pollenprognos, DWD, Polleninformation EU, SILAM, Kleenex, and Pollen.lu). Unlike single-integration alternatives, it features:
+`pollenprognos-card` distinguishes itself through comprehensive multi-integration support, working with eight pollen data sources (Pollenprognos, DWD, Polleninformation EU, SILAM, Kleenex, Pollen.lu, Atmo France, and Google Pollen Levels). Unlike single-integration alternatives, it features:
 
 - **Built-in SVG icon system** with 24+ scalable allergen icons and customizable colors
 - **Visual Home Assistant editor** for complete configuration without YAML editing
