@@ -752,6 +752,17 @@ class PollenPrognosCardEditor extends LitElement {
       this.requestUpdate();
       this._prevIntegration = incomingInt;
       this._initDone = true;
+
+      // GPL discovery: run here too because set hass() may fire before setConfig()
+      // and auto-detect the wrong integration (e.g., SILAM) if multiple integrations are installed.
+      if (this._config.integration === "gpl" && this._hass) {
+        const gplDiscovery = discoverGplSensors(this._hass, false);
+        this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
+          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+        const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId, false);
+        this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+      }
     } catch (e) {
       console.error("pollenprognos-card-editor: Fel i setConfig:", e, config);
       throw e;
@@ -856,7 +867,20 @@ class PollenPrognosCardEditor extends LitElement {
       this._userConfig.integration = integration;
     }
 
-    // 1.1) Set default mode for SILAM and PEU if not specified
+    // 1.1) GPL discovery — always run so render() and auto-select have data
+    const gplDiscovery = discoverGplSensors(hass, false);
+    this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+
+    if (integration === "gpl") {
+      const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+      const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId, false);
+      this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+    } else {
+      this.installedGplPlants = [];
+    }
+
+    // 1.2) Set default mode for SILAM and PEU if not specified
     if (
       (integration === "silam" || integration === "peu") &&
       !this._userConfig.mode
@@ -1157,21 +1181,6 @@ class PollenPrognosCardEditor extends LitElement {
             .filter((entry) => entry !== null),
         ),
       );
-
-      // Collect Google Pollen Levels locations via discovery
-      const gplDiscovery = discoverGplSensors(hass, false);
-      this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
-        .map(([configEntryId, loc]) => [configEntryId, loc.label]);
-
-      // Discover GPL allergens (plants) for current location
-      if (integration === "gpl") {
-        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
-        const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId, false);
-        // Only keep non-base allergens (individual plants)
-        this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
-      } else {
-        this.installedGplPlants = [];
-      }
 
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
@@ -3062,7 +3071,7 @@ class PollenPrognosCardEditor extends LitElement {
               @click=${() => {
                 // For kleenex, include both individual allergens and category allergens
                 const allAllergens =
-                  c.integration === "kleenex" || c.integration === "gpl"
+                  c.integration === "kleenex"
                     ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
                     : allergens;
                 this._toggleSelectAllAllergens(allAllergens);
