@@ -215,7 +215,7 @@ export async function fetchForecast(hass, config) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const sensors = [];
+  let sensors = [];
 
   for (const allergen of config.allergens) {
     try {
