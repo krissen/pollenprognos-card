@@ -234,8 +234,8 @@ class PollenPrognosCard extends LitElement {
         }
       }
 
-      // Add numeric text overlay if requested
-      if (showValue) {
+      // Add numeric text overlay if requested (suppress negative values)
+      if (showValue && displayLevel >= 0) {
         const valueText = document.createElement("div");
         valueText.className = "level-value-text";
         valueText.textContent = displayLevel;
@@ -1818,13 +1818,15 @@ class PollenPrognosCard extends LitElement {
               this.config?.show_value_numeric
             ) {
               if (label) label += ": ";
-              label += `${txt} (${num})`;
+              label += num !== "" ? `${txt} (${num})` : txt;
             } else if (this.config?.show_value_text) {
               if (label) label += ": ";
               label += txt;
             } else if (this.config?.show_value_numeric) {
-              if (label) label += " ";
-              label += `(${num})`;
+              if (num !== "") {
+                if (label) label += " ";
+                label += `(${num})`;
+              }
             }
             const levelForColor =
               this.config.integration === "plu"
@@ -2102,11 +2104,11 @@ class PollenPrognosCard extends LitElement {
                             this.config.show_value_text &&
                             this.config.show_value_numeric
                           ) {
-                            content = `${txt} (${num})`;
+                            content = num !== "" ? `${txt} (${num})` : txt;
                           } else if (this.config.show_value_text) {
                             content = txt;
                           } else if (this.config.show_value_numeric) {
-                            content = String(num);
+                            content = num !== "" ? String(num) : "";
                           }
                           return html`<td>
                             <span style="font-size: ${1.0 * textSizeRatio}em;"
