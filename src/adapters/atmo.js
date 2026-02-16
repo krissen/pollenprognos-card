@@ -194,7 +194,7 @@ export async function fetchForecast(hass, config) {
       return { state: 0, display_state: -1, state_text: libelle || atmoUnavailableLabel };
     }
     if (raw >= 1 && raw <= 6) {
-      return { state: raw, display_state: raw, state_text: libelle || levelNames[raw] || noInfoLabel };
+      return { state: raw, display_state: raw, state_text: levelNames[raw] || libelle || noInfoLabel };
     }
     if (raw === 7) {
       // Événement — cap circle at 6, text marks event
