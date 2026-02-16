@@ -356,17 +356,29 @@ export async function fetchForecast(hass, config) {
       const levels = [{ date: today, level: todayVal }];
 
       // Read forecast from entity attributes
+      // pollenlevels items: { offset, date, has_index, value, category, ... }
       const forecastData = sensor.attributes?.forecast || [];
-      forecastData.forEach((forecastItem, idx) => {
-        if (levels.length >= days_to_show) return;
-        const forecastDate = new Date(today.getTime() + (idx + 1) * 86400000);
-        // forecast items may have a 'state' or 'level' property
-        const val = forecastItem.state ?? forecastItem.level ?? forecastItem;
+      for (const forecastItem of forecastData) {
+        if (levels.length >= days_to_show) break;
+        // Skip days without valid index data
+        if (forecastItem.has_index === false) {
+          const offset = forecastItem.offset ?? levels.length;
+          levels.push({
+            date: new Date(today.getTime() + offset * 86400000),
+            level: -1,
+          });
+          continue;
+        }
+        const offset = forecastItem.offset ?? levels.length;
+        const forecastDate = forecastItem.date
+          ? new Date(forecastItem.date)
+          : new Date(today.getTime() + offset * 86400000);
+        const val = forecastItem.value ?? forecastItem.state ?? forecastItem.level ?? forecastItem;
         levels.push({
           date: forecastDate,
           level: testVal(val),
         });
-      });
+      }
 
       // Pad to days_to_show
       while (levels.length < days_to_show) {
