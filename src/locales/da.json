@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "navn, faldende",
   "editor.sort_none": "ingen (konfigurationsrækkefølge)",
   "editor.sort_pollution_block": "Gruppér luftkvalitet separat",
+  "editor.show_block_separator": "Vis separator mellem blokke",
   "editor.sort_value_ascending": "værdi, stigende",
   "editor.sort_value_descending": "værdi, faldende",
   "editor.summary_advanced": "Avanceret",

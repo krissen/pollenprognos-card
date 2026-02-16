@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "Nazwa, malejąco",
   "editor.sort_none": "brak (kolejność konfiguracyjna)",
   "editor.sort_pollution_block": "Grupuj zanieczyszczenia oddzielnie",
+  "editor.show_block_separator": "Pokaż separator między blokami",
   "editor.sort_value_ascending": "Wartość, rosnąco",
   "editor.sort_value_descending": "Wartość, malejąco",
   "editor.summary_advanced": "Zaawansowane",

@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "naam, aflopend",
   "editor.sort_none": "geen (configuratievolgorde)",
   "editor.sort_pollution_block": "Luchtkwaliteit apart groeperen",
+  "editor.show_block_separator": "Scheidingslijn tussen blokken tonen",
   "editor.sort_value_ascending": "waarde, oplopend",
   "editor.sort_value_descending": "waarde, aflopend",
   "editor.summary_advanced": "Geavanceerd",

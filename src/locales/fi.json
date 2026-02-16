@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "nimi, laskeva",
   "editor.sort_none": "ei mitään (määritysjärjestys)",
   "editor.sort_pollution_block": "Ryhmitä ilmanlaatu erikseen",
+  "editor.show_block_separator": "Näytä erotin lohkojen välillä",
   "editor.sort_value_ascending": "arvo, nouseva",
   "editor.sort_value_descending": "arvo, laskeva",
   "editor.summary_advanced": "Lisäasetukset",

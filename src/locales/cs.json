@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "název, sestupně",
   "editor.sort_none": "žádné (pořadí konfigurace)",
   "editor.sort_pollution_block": "Seskupit znečištění odděleně",
+  "editor.show_block_separator": "Zobrazit oddělovač mezi bloky",
   "editor.sort_value_ascending": "hodnota, vzestupně",
   "editor.sort_value_descending": "hodnota, sestupně",
   "editor.summary_advanced": "Pokročilé",

@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "name, descending",
   "editor.sort_none": "none (config order)",
   "editor.sort_pollution_block": "Group pollution separately",
+  "editor.show_block_separator": "Show separator between blocks",
   "editor.sort_value_ascending": "value, ascending",
   "editor.sort_value_descending": "value, descending",
   "editor.summary_advanced": "Advanced",

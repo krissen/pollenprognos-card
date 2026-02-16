@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "nome, decrescente",
   "editor.sort_none": "nessuno (ordine configurazione)",
   "editor.sort_pollution_block": "Raggruppa inquinamento separatamente",
+  "editor.show_block_separator": "Mostra separatore tra i blocchi",
   "editor.sort_value_ascending": "valore, crescente",
   "editor.sort_value_descending": "valore, decrescente",
   "editor.summary_advanced": "Avanzate",

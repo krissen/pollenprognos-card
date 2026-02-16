@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "namn, fallande",
   "editor.sort_none": "ingen (konfigurationsordning)",
   "editor.sort_pollution_block": "Gruppera luftkvalitet separat",
+  "editor.show_block_separator": "Visa separator mellan block",
   "editor.sort_value_ascending": "värde, stigande",
   "editor.sort_value_descending": "värde, fallande",
   "editor.summary_advanced": "Avancerat",

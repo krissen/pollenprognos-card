@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "имя, по убыванию",
   "editor.sort_none": "нет (порядок конфигурации)",
   "editor.sort_pollution_block": "Группировать загрязнение отдельно",
+  "editor.show_block_separator": "Показать разделитель между блоками",
   "editor.sort_value_ascending": "значение, по возрастанию",
   "editor.sort_value_descending": "значение, по убыванию",
   "editor.summary_advanced": "Дополнительно",

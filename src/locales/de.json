@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "Name, absteigend",
   "editor.sort_none": "keine (Konfigurationsreihenfolge)",
   "editor.sort_pollution_block": "Luftqualität separat gruppieren",
+  "editor.show_block_separator": "Trennlinie zwischen Blöcken anzeigen",
   "editor.sort_value_ascending": "Wert, aufsteigend",
   "editor.sort_value_descending": "Wert, absteigend",
   "editor.summary_advanced": "Erweitert",

@@ -280,6 +280,7 @@
   "editor.sort_name_descending": "navn, synkende",
   "editor.sort_none": "ingen (konfigurasjonsrekkefølge)",
   "editor.sort_pollution_block": "Gruppér luftkvalitet separat",
+  "editor.show_block_separator": "Vis separator mellom blokker",
   "editor.sort_value_ascending": "verdi, stigende",
   "editor.sort_value_descending": "verdi, synkende",
   "editor.summary_advanced": "Avansert",
