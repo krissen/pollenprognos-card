@@ -67,6 +67,8 @@
   "card.location.plu": "Lucembursko",
   "card.no_allergens": "Žádné alergeny",
   "card.no_information": "(Žádné informace)",
+  "card.atmo.unavailable": "Nedostupné",
+  "card.atmo.event": "Událost",
   "card.stale_allergen": "Žádná data",
   "card.stale_data": "Pylová data jsou dočasně nedostupná",
   "card.stale_data_subtitle": "Poskytovatel momentálně nevrací data pro tuto oblast",

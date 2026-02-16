@@ -67,6 +67,8 @@
   "card.location.plu": "Luksemburg",
   "card.no_allergens": "Brak alergenów",
   "card.no_information": "(Brak informacji)",
+  "card.atmo.unavailable": "Niedostępne",
+  "card.atmo.event": "Zdarzenie",
   "card.stale_allergen": "Brak danych",
   "card.stale_data": "Dane o pyłkach są tymczasowo niedostępne",
   "card.stale_data_subtitle": "Dostawca nie zwraca obecnie danych dla tego regionu",

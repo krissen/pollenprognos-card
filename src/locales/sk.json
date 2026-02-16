@@ -67,6 +67,8 @@
   "card.location.plu": "Luxembursko",
   "card.no_allergens": "Žiadne alergény",
   "card.no_information": "(Žiadne informácie)",
+  "card.atmo.unavailable": "Nedostupné",
+  "card.atmo.event": "Udalosť",
   "card.stale_allergen": "Žiadne údaje",
   "card.stale_data": "Peľové údaje sú dočasne nedostupné",
   "card.stale_data_subtitle": "Poskytovateľ momentálne neposkytuje údaje pre tento región",

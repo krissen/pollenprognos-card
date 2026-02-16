@@ -67,6 +67,8 @@
   "card.location.plu": "Luxembourg",
   "card.no_allergens": "Ingen allergener",
   "card.no_information": "(Ingen informasjon)",
+  "card.atmo.unavailable": "Ikke tilgjengelig",
+  "card.atmo.event": "Hendelse",
   "card.stale_allergen": "Ingen data",
   "card.stale_data": "Pollendata er midlertidig utilgjengelige",
   "card.stale_data_subtitle": "Leverandøren returnerer for øyeblikket ingen data for denne regionen",

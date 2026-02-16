@@ -67,6 +67,8 @@
   "card.location.plu": "Lussemburgo",
   "card.no_allergens": "Nessun allergene",
   "card.no_information": "(Nessuna informazione)",
+  "card.atmo.unavailable": "Non disponibile",
+  "card.atmo.event": "Evento",
   "card.stale_allergen": "Nessun dato",
   "card.stale_data": "Dati sui pollini temporaneamente non disponibili",
   "card.stale_data_subtitle": "Il fornitore non restituisce attualmente dati per questa regione",

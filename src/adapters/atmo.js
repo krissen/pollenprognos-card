@@ -170,9 +170,38 @@ export async function fetchForecast(hass, config) {
 
   if (debug) console.debug("ATMO adapter: start fetchForecast", { config, lang });
 
+  // Atmo France: 0 = indisponible, 1–6 = valid levels, 7 = événement
   const testVal = (val) => {
     const n = Number(val);
-    return isNaN(n) ? -1 : n;
+    return isNaN(n) || n < 0 ? -1 : n;
+  };
+
+  // Labels for Atmo-specific special values (0 and 7)
+  const atmoUnavailableLabel = t("card.atmo.unavailable", lang) || noInfoLabel;
+  const atmoEventLabel = t("card.atmo.event", lang) || noInfoLabel;
+
+  /**
+   * Map raw Atmo level to state/display_state/state_text.
+   * @param {number} raw   - Raw sensor value (-1, 0–7)
+   * @param {string} libelle - Sensor Libellé attribute (native label)
+   */
+  const mapAtmoLevel = (raw, libelle) => {
+    if (raw < 0) {
+      return { state: -1, display_state: -1, state_text: noInfoLabel };
+    }
+    if (raw === 0) {
+      // Indisponible — show as empty circle, text = Libellé or "unavailable"
+      return { state: 0, display_state: -1, state_text: libelle || atmoUnavailableLabel };
+    }
+    if (raw >= 1 && raw <= 6) {
+      return { state: raw, display_state: raw, state_text: libelle || levelNames[raw] || noInfoLabel };
+    }
+    if (raw === 7) {
+      // Événement — cap circle at 6, text marks event
+      return { state: 7, display_state: 6, state_text: libelle || atmoEventLabel };
+    }
+    // Unexpected value — treat as max
+    return { state: raw, display_state: Math.min(raw, 6), state_text: libelle || noInfoLabel };
   };
 
   // Resolve location
@@ -270,34 +299,39 @@ export async function fetchForecast(hass, config) {
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
 
-      // Today's value (0-6 scale, no conversion needed)
+      // Today's value
       const todayVal = testVal(sensor.state);
+      const todayLibelle = sensor.attributes?.["Libellé"] || "";
 
       // J+1 forecast
       let tomorrowVal = -1;
+      let tomorrowLibelle = "";
       if (location !== "manual") {
         const j1Id = buildEntityId(allergen, location, true);
         if (j1Id && hass.states[j1Id]) {
           tomorrowVal = testVal(hass.states[j1Id].state);
+          tomorrowLibelle = hass.states[j1Id].attributes?.["Libellé"] || "";
         }
       } else {
         // Manual mode: try {sensorId}_j_1
         const j1Id = `${sensorId}_j_1`;
         if (hass.states[j1Id]) {
           tomorrowVal = testVal(hass.states[j1Id].state);
+          tomorrowLibelle = hass.states[j1Id].attributes?.["Libellé"] || "";
         }
       }
 
-      // Build level entries
+      // Build level entries with per-entity Libellé
       const levels = [
-        { date: today, level: todayVal },
-        { date: new Date(today.getTime() + 86400000), level: tomorrowVal },
+        { date: today, level: todayVal, libelle: todayLibelle },
+        { date: new Date(today.getTime() + 86400000), level: tomorrowVal, libelle: tomorrowLibelle },
       ];
       while (levels.length < days_to_show) {
         const idx = levels.length;
         levels.push({
           date: new Date(today.getTime() + idx * 86400000),
           level: -1,
+          libelle: "",
         });
       }
 
@@ -323,21 +357,14 @@ export async function fetchForecast(hass, config) {
         }
         if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
-        let stateText;
-        if (entry.level >= 0) {
-          const libelle = sensor.attributes?.["Libellé"] || "";
-          const lvlIndex = Math.min(Math.max(Math.round(entry.level), 0), 6);
-          stateText = levelNames[lvlIndex] || libelle || noInfoLabel;
-        } else {
-          stateText = noInfoLabel;
-        }
+        const mapped = mapAtmoLevel(entry.level, entry.libelle);
 
         dict[`day${idx}`] = {
           name: dict.allergenCapitalized,
           day: dayLabel,
-          state: entry.level,
-          display_state: entry.level,
-          state_text: stateText,
+          state: mapped.state,
+          display_state: mapped.display_state,
+          state_text: mapped.state_text,
         };
         dict.days.push(dict[`day${idx}`]);
       });
@@ -373,17 +400,23 @@ export async function fetchForecast(hass, config) {
 
   // Sorting
   if (config.sort !== "none") {
+    // Sort by display_state for visual consistency, raw state as tiebreaker
     const sortFn =
       {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+        value_ascending: (a, b) =>
+          (a.day0?.display_state ?? 0) - (b.day0?.display_state ?? 0) ||
+          (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
         value_descending: (a, b) =>
+          (b.day0?.display_state ?? 0) - (a.day0?.display_state ?? 0) ||
           (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
         name_ascending: (a, b) =>
           a.allergenCapitalized.localeCompare(b.allergenCapitalized),
         name_descending: (a, b) =>
           b.allergenCapitalized.localeCompare(a.allergenCapitalized),
       }[config.sort] ||
-        ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
+        ((a, b) =>
+          (b.day0?.display_state ?? 0) - (a.day0?.display_state ?? 0) ||
+          (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
 
     // Extract summary indices (allergy_risk, qualite_globale) to preserve at top
     const topItems = [];

@@ -67,6 +67,8 @@
   "card.location.plu": "Люксембург",
   "card.no_allergens": "Нет аллергенов",
   "card.no_information": "(Нет информации)",
+  "card.atmo.unavailable": "Недоступно",
+  "card.atmo.event": "Событие",
   "card.stale_allergen": "Нет данных",
   "card.stale_data": "Данные о пыльце временно недоступны",
   "card.stale_data_subtitle": "Поставщик в настоящее время не возвращает данные для этого региона",

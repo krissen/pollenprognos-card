@@ -67,6 +67,8 @@
   "card.location.plu": "Luxemburg",
   "card.no_allergens": "Ei allergeeneja",
   "card.no_information": "(Ei tietoa)",
+  "card.atmo.unavailable": "Ei saatavilla",
+  "card.atmo.event": "Tapahtuma",
   "card.stale_allergen": "Ei tietoja",
   "card.stale_data": "Siitepölytiedot ovat tilapäisesti poissa käytöstä",
   "card.stale_data_subtitle": "Tietolähde ei tällä hetkellä palauta tietoja tälle alueelle",

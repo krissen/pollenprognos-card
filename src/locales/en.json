@@ -70,6 +70,8 @@
   "card.loading_forecast": "Loading forecast...",
   "card.no_allergens": "No allergens",
   "card.no_information": "(No information)",
+  "card.atmo.unavailable": "Unavailable",
+  "card.atmo.event": "Event",
   "editor.allergen_color_custom": "Custom colors",
   "editor.allergen_color_default_colors": "Default colors",
   "editor.allergen_color_mode": "Allergen color mode",
