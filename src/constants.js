@@ -149,6 +149,16 @@ export const ALLERGEN_TRANSLATION = {
   gramine: "grass",
   olivier: "olive",
 
+  // Atmo France pollution translations
+  pm25: "pm25",
+  pm10: "pm10",
+  ozone: "ozone",
+  no2: "no2",
+  so2: "so2",
+  dioxyde_d_azote: "no2",
+  dioxyde_de_soufre: "so2",
+  qualite_globale: "qualite_globale",
+
   // Google Pollen Levels (pollenlevels) specific translations
   cottonwood: "poplar",
   juniper: "cypress",

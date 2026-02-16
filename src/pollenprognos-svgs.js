@@ -31,6 +31,13 @@ import ragweedSvg from "./images/ragweed.svg?raw";
 import ryeSvg from "./images/rye.svg?raw";
 import willowSvg from "./images/willow.svg?raw";
 
+// Pollution icons
+import pm25Svg from "./images/pm25.svg?raw";
+import pm10Svg from "./images/pm10.svg?raw";
+import ozoneSvg from "./images/ozone.svg?raw";
+import no2Svg from "./images/no2.svg?raw";
+import so2Svg from "./images/so2.svg?raw";
+
 // Export SVG map - all SVGs are available immediately, no async loading needed
 export const svgs = {
   alder: alderSvg,
@@ -61,6 +68,13 @@ export const svgs = {
   ragweed: ragweedSvg,
   rye: ryeSvg,
   willow: willowSvg,
+  // Pollution
+  pm25: pm25Svg,
+  pm10: pm10Svg,
+  ozone: ozoneSvg,
+  no2: no2Svg,
+  so2: so2Svg,
+  qualite_globale: allergyRiskSvg, // Reuse allergy_risk smiley for AQI
 };
 
 /**
