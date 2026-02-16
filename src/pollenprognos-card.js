@@ -318,7 +318,7 @@ class PollenPrognosCard extends LitElement {
       for (const s of filtered) {
         if (!s.days || !s.days.length) continue;
         const realDays = s.days.filter((d) => d.state >= 0).length;
-        const count = Math.min(realDays || s.days.length, cfg.days_to_show);
+        const count = Math.min(realDays, cfg.days_to_show);
         if (count > daysCount) daysCount = count;
       }
     }
