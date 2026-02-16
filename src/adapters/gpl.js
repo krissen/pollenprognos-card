@@ -377,10 +377,10 @@ export async function fetchForecast(hass, config) {
         });
       }
 
-      // Build day objects
+      // Build day objects (skip empty placeholders so show_empty_days works)
       for (let i = 0; i < days_to_show; i++) {
         const entry = levels[i];
-        if (!entry) continue;
+        if (!entry || entry.level < 0) continue;
 
         const diff = Math.round((entry.date - today) / 86400000);
         let dayLabel;
