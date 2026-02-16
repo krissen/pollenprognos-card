@@ -222,11 +222,10 @@ export async function fetchForecast(hass, config) {
       const dict = { days: [] };
       const canonKey = ALLERGEN_TRANSLATION[allergen] || allergen;
       dict.allergenReplaced = allergen;
-      dict.group = ATMO_SUMMARY_KEYS.has(allergen)
-        ? "summary"
-        : ATMO_POLLUTION_ALLERGENS.has(allergen)
-          ? "pollution"
-          : "pollen";
+      // Group: allergy_risk belongs with pollen, qualite_globale with pollution
+      dict.group = allergen === "qualite_globale" || ATMO_POLLUTION_ALLERGENS.has(allergen)
+        ? "pollution"
+        : "pollen";
 
       // Allergen name
       const userFull = fullPhrases[allergen];
@@ -379,25 +378,6 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  // Move summary indices to top if configured
-  if (config.allergy_risk_top) {
-    // Move qualite_globale first (so allergy_risk ends up above it)
-    const qgIdx = sensors.findIndex(
-      (s) => s.allergenReplaced === "qualite_globale",
-    );
-    if (qgIdx > 0) {
-      const [qg] = sensors.splice(qgIdx, 1);
-      sensors.unshift(qg);
-    }
-    const arIdx = sensors.findIndex(
-      (s) => s.allergenReplaced === "allergy_risk",
-    );
-    if (arIdx > 0) {
-      const [ar] = sensors.splice(arIdx, 1);
-      sensors.unshift(ar);
-    }
-  }
-
   // Sorting
   if (config.sort !== "none") {
     // Sort by display_state for visual consistency, raw state as tiebreaker
@@ -418,20 +398,12 @@ export async function fetchForecast(hass, config) {
           (b.day0?.display_state ?? 0) - (a.day0?.display_state ?? 0) ||
           (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
 
-    // Extract summary indices (allergy_risk, qualite_globale) to preserve at top
-    const topItems = [];
-    if (config.allergy_risk_top) {
-      while (sensors.length && ATMO_SUMMARY_KEYS.has(sensors[0]?.allergenReplaced)) {
-        topItems.push(sensors.shift());
-      }
-    }
-
     if (config.sort_pollution_block) {
-      // Separate remaining into pollen and pollution groups
+      // Separate into pollen and pollution by group property
       const pollen = [];
       const pollution = [];
       for (const s of sensors) {
-        if (ATMO_POLLUTION_ALLERGENS.has(s.allergenReplaced)) {
+        if (s.group === "pollution") {
           pollution.push(s);
         } else {
           pollen.push(s);
@@ -440,15 +412,28 @@ export async function fetchForecast(hass, config) {
       pollen.sort(sortFn);
       pollution.sort(sortFn);
 
+      // Pin summaries to top of their respective blocks
+      if (config.allergy_risk_top) {
+        const arIdx = pollen.findIndex((s) => s.allergenReplaced === "allergy_risk");
+        if (arIdx > 0) pollen.unshift(...pollen.splice(arIdx, 1));
+        const qgIdx = pollution.findIndex((s) => s.allergenReplaced === "qualite_globale");
+        if (qgIdx > 0) pollution.unshift(...pollution.splice(qgIdx, 1));
+      }
+
       sensors =
         config.pollution_block_position === "top"
           ? [...pollution, ...pollen]
           : [...pollen, ...pollution];
     } else {
       sensors.sort(sortFn);
+      // Pin both summaries to absolute top when not using block separation
+      if (config.allergy_risk_top) {
+        const qgIdx = sensors.findIndex((s) => s.allergenReplaced === "qualite_globale");
+        if (qgIdx > 0) sensors.unshift(...sensors.splice(qgIdx, 1));
+        const arIdx = sensors.findIndex((s) => s.allergenReplaced === "allergy_risk");
+        if (arIdx > 0) sensors.unshift(...sensors.splice(arIdx, 1));
+      }
     }
-
-    sensors.unshift(...topItems);
   }
 
   if (debug) console.debug("ATMO adapter complete sensors:", sensors);
