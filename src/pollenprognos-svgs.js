@@ -37,7 +37,7 @@ import pm10Svg from "./images/pm10.svg?raw";
 import ozoneSvg from "./images/ozone.svg?raw";
 import no2Svg from "./images/no2.svg?raw";
 import so2Svg from "./images/so2.svg?raw";
-import qualiteGlobaleSvg from "./images/qualite_globale.svg?raw";
+import airQualitySvg from "./images/air_quality.svg?raw";
 
 // Export SVG map - all SVGs are available immediately, no async loading needed
 export const svgs = {
@@ -75,7 +75,7 @@ export const svgs = {
   ozone: ozoneSvg,
   no2: no2Svg,
   so2: so2Svg,
-  qualite_globale: qualiteGlobaleSvg,
+  qualite_globale: airQualitySvg,
 };
 
 /**
