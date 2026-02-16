@@ -264,5 +264,6 @@ export const COSMETIC_FIELDS = [
   "days_boldfaced",
   "text_size_ratio",
   "minimal_gap",
+  "show_block_separator",
   "title",
 ];

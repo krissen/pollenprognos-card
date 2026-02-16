@@ -316,7 +316,9 @@ class PollenPrognosCard extends LitElement {
     } else {
       const sensorWithDays = filtered.find((s) => s.days && s.days.length > 0);
       if (sensorWithDays) {
-        daysCount = Math.min(sensorWithDays.days.length, cfg.days_to_show);
+        // Count only days with actual data (state >= 0), ignoring placeholders
+        const realDays = sensorWithDays.days.filter((d) => d.state >= 0).length;
+        daysCount = Math.min(realDays || sensorWithDays.days.length, cfg.days_to_show);
       }
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
@@ -942,7 +944,8 @@ class PollenPrognosCard extends LitElement {
     const atmoStates = Object.keys(hass.states).filter(
       (id) =>
         typeof id === "string" &&
-        /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
     );
     // GPL: use hass.entities (primary) or attribution (fallback)
     let gplStates = [];
@@ -1437,16 +1440,14 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "atmo") {
-        // Atmo France: extract location from sensor attributes
+        // Atmo France: extract location from sensor attributes (pollen + pollution)
+        const atmoRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
         const atmoEntities = Object.values(hass.states).filter(
           (s) =>
             s &&
             typeof s === "object" &&
             typeof s.entity_id === "string" &&
-            /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(
-              s.entity_id,
-            ) &&
-            !s.entity_id.includes("_j_"),
+            atmoRe.test(s.entity_id),
         );
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
@@ -1456,9 +1457,7 @@ class PollenPrognosCard extends LitElement {
         let match = null;
         if (wantedLocation) {
           match = atmoEntities.find((s) => {
-            const m = s.entity_id.match(
-              /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+)$/,
-            );
+            const m = s.entity_id.match(atmoRe);
             return m && m[1] === wantedLocation;
           });
         } else if (atmoEntities.length) {
@@ -1979,8 +1978,17 @@ class PollenPrognosCard extends LitElement {
                 )}
               </tr>
             </thead>
-            ${this.sensors.map(
-              (sensor) => sensor.stale
+            ${this.sensors.flatMap(
+              (sensor, sIdx) => {
+                const separator =
+                  this.config.show_block_separator &&
+                  sIdx > 0 &&
+                  sensor.group &&
+                  this.sensors[sIdx - 1].group &&
+                  sensor.group !== this.sensors[sIdx - 1].group
+                    ? html`<tr class="block-separator-row"><td colspan="${cols.length + 1}"><hr class="block-separator" /></td></tr>`
+                    : "";
+                const row = sensor.stale
                 ? html`
                   <tr class="allergen-icon-row allergen-stale-row" valign="top">
                     <td>
@@ -2106,8 +2114,9 @@ class PollenPrognosCard extends LitElement {
                       </tr>
                     `
                   : ""}
-              `,
-            )}
+              `;
+                return [separator, row];
+              })}
           </table>
         </div>
       </div>
@@ -2412,6 +2421,15 @@ class PollenPrognosCard extends LitElement {
         text-align: center;
         padding-top: 6px;
         padding-bottom: 2px; /* eller vad som känns lagom */
+      }
+
+      .block-separator-row td {
+        padding: 0;
+      }
+      .block-separator {
+        border: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        margin: 6px 0;
       }
 
       .icon-wrapper .circle-overlay {

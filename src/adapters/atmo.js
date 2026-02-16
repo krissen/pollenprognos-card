@@ -44,7 +44,10 @@ const ATMO_KNOWN_FR_SLUGS = new Set([
 ]);
 
 // Pollution allergens use a different entity pattern (no "niveau_" prefix)
-const ATMO_POLLUTION_ALLERGENS = new Set(["pm25", "pm10", "ozone", "no2", "so2"]);
+export const ATMO_POLLUTION_ALLERGENS = new Set(["pm25", "pm10", "ozone", "no2", "so2"]);
+
+// Summary indices (always pinned at top when allergy_risk_top is set)
+const ATMO_SUMMARY_KEYS = new Set(["allergy_risk", "qualite_globale"]);
 
 export const stubConfigATMO = {
   integration: "atmo",
@@ -79,6 +82,7 @@ export const stubConfigATMO = {
   allergy_risk_top: true,
   sort_pollution_block: true,
   pollution_block_position: "bottom",
+  show_block_separator: false,
   allergens_abbreviated: false,
   link_to_sensors: true,
   date_locale: undefined,
@@ -189,6 +193,11 @@ export async function fetchForecast(hass, config) {
       const dict = { days: [] };
       const canonKey = ALLERGEN_TRANSLATION[allergen] || allergen;
       dict.allergenReplaced = allergen;
+      dict.group = ATMO_SUMMARY_KEYS.has(allergen)
+        ? "summary"
+        : ATMO_POLLUTION_ALLERGENS.has(allergen)
+          ? "pollution"
+          : "pollen";
 
       // Allergen name
       const userFull = fullPhrases[allergen];
@@ -271,6 +280,12 @@ export async function fetchForecast(hass, config) {
         if (j1Id && hass.states[j1Id]) {
           tomorrowVal = testVal(hass.states[j1Id].state);
         }
+      } else {
+        // Manual mode: try {sensorId}_j_1
+        const j1Id = `${sensorId}_j_1`;
+        if (hass.states[j1Id]) {
+          tomorrowVal = testVal(hass.states[j1Id].state);
+        }
       }
 
       // Build level entries
@@ -286,46 +301,45 @@ export async function fetchForecast(hass, config) {
         });
       }
 
-      // Build day objects
+      // Build day objects (always include placeholders for show_empty_days support)
       levels.forEach((entry, idx) => {
-        if (entry.level !== null && entry.level >= 0) {
-          const diff = Math.round((entry.date - today) / 86400000);
-          let dayLabel;
+        const diff = Math.round((entry.date - today) / 86400000);
+        let dayLabel;
 
-          if (!daysRelative) {
-            dayLabel = entry.date.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long",
-            });
-            dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-          } else if (userDays[diff] !== undefined) {
-            dayLabel = userDays[diff];
-          } else if (diff >= 0 && diff <= 2) {
-            dayLabel = t(`card.days.${diff}`, lang);
-          } else {
-            dayLabel = entry.date.toLocaleDateString(locale, {
-              day: "numeric",
-              month: "short",
-            });
-          }
-          if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+        if (!daysRelative) {
+          dayLabel = entry.date.toLocaleDateString(locale, {
+            weekday: dayAbbrev ? "short" : "long",
+          });
+          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+        } else if (userDays[diff] !== undefined) {
+          dayLabel = userDays[diff];
+        } else if (diff >= 0 && diff <= 2) {
+          dayLabel = t(`card.days.${diff}`, lang);
+        } else {
+          dayLabel = entry.date.toLocaleDateString(locale, {
+            day: "numeric",
+            month: "short",
+          });
+        }
+        if (daysUppercase) dayLabel = dayLabel.toUpperCase();
 
-          // Use Libellé attribute as state_text fallback
+        let stateText;
+        if (entry.level >= 0) {
           const libelle = sensor.attributes?.["Libellé"] || "";
           const lvlIndex = Math.min(Math.max(Math.round(entry.level), 0), 6);
-          const stateText =
-            lvlIndex < 0
-              ? noInfoLabel
-              : levelNames[lvlIndex] || libelle || noInfoLabel;
-
-          dict[`day${idx}`] = {
-            name: dict.allergenCapitalized,
-            day: dayLabel,
-            state: entry.level,
-            display_state: entry.level,
-            state_text: stateText,
-          };
-          dict.days.push(dict[`day${idx}`]);
+          stateText = levelNames[lvlIndex] || libelle || noInfoLabel;
+        } else {
+          stateText = noInfoLabel;
         }
+
+        dict[`day${idx}`] = {
+          name: dict.allergenCapitalized,
+          day: dayLabel,
+          state: entry.level,
+          display_state: entry.level,
+          state_text: stateText,
+        };
+        dict.days.push(dict[`day${idx}`]);
       });
 
       // Threshold filter
@@ -372,10 +386,9 @@ export async function fetchForecast(hass, config) {
         ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
 
     // Extract summary indices (allergy_risk, qualite_globale) to preserve at top
-    const summaryKeys = new Set(["allergy_risk", "qualite_globale"]);
     const topItems = [];
     if (config.allergy_risk_top) {
-      while (sensors.length && summaryKeys.has(sensors[0]?.allergenReplaced)) {
+      while (sensors.length && ATMO_SUMMARY_KEYS.has(sensors[0]?.allergenReplaced)) {
         topItems.push(sensors.shift());
       }
     }

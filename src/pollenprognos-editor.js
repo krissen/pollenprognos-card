@@ -836,7 +836,8 @@ class PollenPrognosCardEditor extends LitElement {
     const atmoStates = Object.keys(hass.states).filter(
       (id) =>
         typeof id === "string" &&
-        /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
     );
     // GPL: use hass.entities (primary) or attribution (fallback)
     let gplStates = [];
@@ -1161,14 +1162,13 @@ class PollenPrognosCardEditor extends LitElement {
         ),
       );
 
-      // Collect Atmo France locations
+      // Collect Atmo France locations (pollen + pollution entities)
+      const atmoLocationRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
       this.installedAtmoLocations = Array.from(
         new Map(
           atmoStates
             .map((id) => {
-              const m = id.match(
-                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
-              );
+              const m = id.match(atmoLocationRe);
               if (!m) return null;
               const locationSlug = m[1];
               const entity = hass.states[id];
@@ -1278,6 +1278,22 @@ class PollenPrognosCardEditor extends LitElement {
     }
     const newSet = allSelected ? [] : allergens;
     this._updateConfig("allergens", [...newSet]);
+  }
+
+  /**
+   * Toggle a subset of allergens without affecting other selections.
+   * If all subset items are selected → remove only those.
+   * Otherwise → add all subset items (keeping existing selections).
+   */
+  _toggleAllergenSubset(subset) {
+    const current = new Set(this._config.allergens);
+    const allSelected = subset.every((a) => current.has(a));
+    if (allSelected) {
+      subset.forEach((a) => current.delete(a));
+    } else {
+      subset.forEach((a) => current.add(a));
+    }
+    this._updateConfig("allergens", [...current]);
   }
 
   _updateConfig(prop, value) {
@@ -3188,7 +3204,7 @@ class PollenPrognosCardEditor extends LitElement {
                         (k) =>
                           !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(k),
                       );
-                      this._toggleSelectAllAllergens(pollenKeys);
+                      this._toggleAllergenSubset(pollenKeys);
                     }}
                   >
                     ${this._t("select_all_pollen")}
@@ -3198,7 +3214,7 @@ class PollenPrognosCardEditor extends LitElement {
                       const pollutionKeys = ["pm25", "pm10", "ozone", "no2", "so2"].filter(
                         (k) => allergens.includes(k),
                       );
-                      this._toggleSelectAllAllergens(pollutionKeys);
+                      this._toggleAllergenSubset(pollutionKeys);
                     }}
                   >
                     ${this._t("select_all_pollution")}
@@ -3303,6 +3319,18 @@ class PollenPrognosCardEditor extends LitElement {
                             >${this._t("pollution_block_top")}</mwc-list-item
                           >
                         </ha-select>
+                      </ha-formfield>
+                      <ha-formfield
+                        label="${this._t("show_block_separator")}"
+                      >
+                        <ha-checkbox
+                          .checked=${c.show_block_separator}
+                          @change=${(e) =>
+                            this._updateConfig(
+                              "show_block_separator",
+                              e.target.checked,
+                            )}
+                        ></ha-checkbox>
                       </ha-formfield>
                     `
                   : ""}
