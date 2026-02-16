@@ -216,16 +216,30 @@ export function discoverGplAllergens(hass, configEntryId, debug = false) {
  */
 function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
   if (config.location === "manual") {
-    // Manual mode: search by attribution + prefix/suffix filter
+    // Manual mode: search by platform (primary) or attribution (fallback) + prefix/suffix filter
     let prefix = config.entity_prefix || "";
     // Remove 'sensor.' prefix if user included it
     if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
     const suffix = config.entity_suffix || "";
 
-    // Search all GPL sensors for matching prefix/suffix
-    for (const [eid, state] of Object.entries(hass.states)) {
-      if (state?.attributes?.attribution !== GPL_ATTRIBUTION) continue;
-      if (!isGplDataSensor(state)) continue;
+    // Collect candidate entity IDs: primary via hass.entities, fallback via attribution
+    let candidateIds = [];
+    if (hass.entities) {
+      candidateIds = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!candidateIds.length) {
+      // Fallback: attribution scan
+      candidateIds = Object.keys(hass.states || {}).filter((eid) => {
+        const s = hass.states[eid];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
+      });
+    }
+
+    for (const eid of candidateIds) {
+      const state = hass.states[eid];
+      if (!state || !isGplDataSensor(state)) continue;
 
       // Check prefix/suffix match on entity_id
       const idPart = eid.replace(/^sensor\./, "");
@@ -357,8 +371,8 @@ export async function fetchForecast(hass, config) {
 
       // Read forecast from entity attributes
       // pollenlevels items: { offset, date, has_index, value, category, ... }
-      const forecastData = sensor.attributes?.forecast || [];
-      for (const forecastItem of forecastData) {
+      const forecastData = sensor.attributes?.forecast;
+      for (const forecastItem of (Array.isArray(forecastData) ? forecastData : [])) {
         if (levels.length >= days_to_show) break;
         // Skip days without valid index data
         if (forecastItem.has_index === false) {
@@ -389,10 +403,10 @@ export async function fetchForecast(hass, config) {
         });
       }
 
-      // Build day objects (skip empty placeholders so show_empty_days works)
+      // Build day objects (always include -1 placeholders so show_empty_days works)
       for (let i = 0; i < days_to_show; i++) {
         const entry = levels[i];
-        if (!entry || entry.level < 0) continue;
+        if (!entry) continue;
 
         const diff = Math.round((entry.date - today) / 86400000);
         let dayLabel;
@@ -434,7 +448,7 @@ export async function fetchForecast(hass, config) {
           name: dict.allergenCapitalized,
           day: dayLabel,
           state: entry.level,
-          display_state: entry.level,
+          display_state: entry.level < 0 ? -1 : entry.level,
           state_text: stateText,
         };
 
