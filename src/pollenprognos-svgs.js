@@ -8,6 +8,12 @@
 // Import SVGs as text strings (Vite will inline them at build time)
 import alderSvg from "./images/alder.svg?raw";
 import allergyRiskSvg from "./images/allergy_risk.svg?raw";
+import allergyRisk1Svg from "./images/allergy_risk_1.svg?raw";
+import allergyRisk2Svg from "./images/allergy_risk_2.svg?raw";
+import allergyRisk3Svg from "./images/allergy_risk_3.svg?raw";
+import allergyRisk4Svg from "./images/allergy_risk_4.svg?raw";
+import allergyRisk5Svg from "./images/allergy_risk_5.svg?raw";
+import allergyRisk6Svg from "./images/allergy_risk_6.svg?raw";
 import ashSvg from "./images/ash.svg?raw";
 import beechSvg from "./images/beech.svg?raw";
 import birchSvg from "./images/birch.svg?raw";
@@ -43,6 +49,12 @@ import airQualitySvg from "./images/air_quality.svg?raw";
 export const svgs = {
   alder: alderSvg,
   allergy_risk: allergyRiskSvg,
+  allergy_risk_1: allergyRisk1Svg,
+  allergy_risk_2: allergyRisk2Svg,
+  allergy_risk_3: allergyRisk3Svg,
+  allergy_risk_4: allergyRisk4Svg,
+  allergy_risk_5: allergyRisk5Svg,
+  allergy_risk_6: allergyRisk6Svg,
   ash: ashSvg,
   beech: beechSvg,
   birch: birchSvg,

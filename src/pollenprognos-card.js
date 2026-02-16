@@ -733,7 +733,12 @@ class PollenPrognosCard extends LitElement {
     const color = stale ? "#e6a800" : this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
-    const svgContent = getSvgContent(allergenKey);
+    // Select level-reactive icon variant for allergy_risk smiley
+    let effectiveKey = allergenKey;
+    if (allergenKey === "allergy_risk" && level > 0) {
+      effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
+    }
+    const svgContent = getSvgContent(effectiveKey);
 
     // Determine stroke color based on sync setting
     let actualStrokeColor;
