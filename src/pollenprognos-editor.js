@@ -1300,6 +1300,10 @@ class PollenPrognosCardEditor extends LitElement {
         newConfig.allergy_risk_top = false;
         delete this._userConfig.allergy_risk_top;
       }
+      if (this._config.integration === "atmo" && this._config.sort_pollution_block) {
+        newConfig.sort_pollution_block = false;
+        delete this._userConfig.sort_pollution_block;
+      }
       if (this._config.integration === "silam" && this._config.index_top) {
         newConfig.index_top = false;
         delete this._userConfig.index_top;
@@ -1706,7 +1710,9 @@ class PollenPrognosCardEditor extends LitElement {
                 ? stubConfigPLU.allergens
                 : c.integration === "gpl"
                   ? [...GPL_BASE_ALLERGENS, ...(this.installedGplPlants || [])]
-                  : stubConfigPP.allergens;
+                  : c.integration === "atmo"
+                    ? ATMO_ALLERGENS
+                    : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd"
@@ -3051,23 +3057,116 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </div>
               `
-            : html`
-                <!-- Non-Kleenex: Standard allergen display -->
-                <div class="allergens-group">
-                  ${allergens.map((key) => {
-                    const displayName = this._getAllergenDisplayName(key);
-                    return html`
-                      <ha-formfield .label=${displayName}>
-                        <ha-checkbox
-                          .checked=${c.allergens.includes(key)}
-                          @change=${(e) =>
-                            this._onAllergenToggle(key, e.target.checked)}
-                        ></ha-checkbox>
-                      </ha-formfield>
-                    `;
-                  })}
-                </div>
-              `}
+            : c.integration === "atmo"
+              ? html`
+                  <!-- Atmo France: Summary / Pollen / Pollution blocks -->
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_summary")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${["allergy_risk", "qualite_globale"]
+                        .filter((key) => allergens.includes(key))
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_pollen")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${allergens
+                        .filter(
+                          (key) =>
+                            !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(key),
+                        )
+                        .sort((a, b) => {
+                          const displayA = this._getAllergenDisplayName(a);
+                          const displayB = this._getAllergenDisplayName(b);
+                          return displayA.localeCompare(displayB);
+                        })
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_pollution")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${["pm25", "pm10", "ozone", "no2", "so2"]
+                        .filter((key) => allergens.includes(key))
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                `
+              : html`
+                  <!-- Standard allergen display -->
+                  <div class="allergens-group">
+                    ${allergens.map((key) => {
+                      const displayName = this._getAllergenDisplayName(key);
+                      return html`
+                        <ha-formfield .label=${displayName}>
+                          <ha-checkbox
+                            .checked=${c.allergens.includes(key)}
+                            @change=${(e) =>
+                              this._onAllergenToggle(key, e.target.checked)}
+                          ></ha-checkbox>
+                        </ha-formfield>
+                      `;
+                    })}
+                  </div>
+                `}
           <div class="preset-buttons">
             <ha-button
               @click=${() => {
@@ -3081,6 +3180,31 @@ class PollenPrognosCardEditor extends LitElement {
             >
               ${this._t("select_all_allergens")}
             </ha-button>
+            ${c.integration === "atmo"
+              ? html`
+                  <ha-button
+                    @click=${() => {
+                      const pollenKeys = allergens.filter(
+                        (k) =>
+                          !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(k),
+                      );
+                      this._toggleSelectAllAllergens(pollenKeys);
+                    }}
+                  >
+                    ${this._t("select_all_pollen")}
+                  </ha-button>
+                  <ha-button
+                    @click=${() => {
+                      const pollutionKeys = ["pm25", "pm10", "ozone", "no2", "so2"].filter(
+                        (k) => allergens.includes(k),
+                      );
+                      this._toggleSelectAllAllergens(pollutionKeys);
+                    }}
+                  >
+                    ${this._t("select_all_pollution")}
+                  </ha-button>
+                `
+              : ""}
           </div>
           <div class="slider-row">
             <div class="slider-text">${this._t("pollen_threshold")}</div>
@@ -3142,6 +3266,46 @@ class PollenPrognosCardEditor extends LitElement {
                       )}
                   ></ha-checkbox>
                 </ha-formfield>
+              `
+            : ""}
+          ${c.integration === "atmo"
+            ? html`
+                <ha-formfield
+                  label="${this._t("sort_pollution_block")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.sort_pollution_block}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "sort_pollution_block",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+                ${c.sort_pollution_block
+                  ? html`
+                      <ha-formfield
+                        label="${this._t("pollution_block_position")}"
+                      >
+                        <ha-select
+                          .value=${c.pollution_block_position || "bottom"}
+                          @selected=${(e) =>
+                            this._updateConfig(
+                              "pollution_block_position",
+                              e.target.value,
+                            )}
+                          @closed=${(e) => e.stopPropagation()}
+                        >
+                          <mwc-list-item value="bottom"
+                            >${this._t("pollution_block_bottom")}</mwc-list-item
+                          >
+                          <mwc-list-item value="top"
+                            >${this._t("pollution_block_top")}</mwc-list-item
+                          >
+                        </ha-select>
+                      </ha-formfield>
+                    `
+                  : ""}
               `
             : ""}
         </details>

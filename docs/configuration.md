@@ -82,7 +82,9 @@ In this file:
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. Available options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`, `none`. |
 | `sort_category_allergens_first` *(Kleenex, GPL)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
-| `allergy_risk_top` *(PEU, Atmo)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
+| `allergy_risk_top` *(PEU, Atmo)* | `boolean` | `true` | Show the `allergy_risk` and `qualite_globale` summary sensors first in the list. |
+| `sort_pollution_block` *(Atmo only)* | `boolean` | `true` | Group pollution sensors (PM2.5, PM10, O₃, NO₂, SO₂) separately from pollen allergens. Only applies when `sort` is not `none`. |
+| `pollution_block_position` *(Atmo only)* | `string` | `bottom` | Where to place the pollution group relative to pollen: `top` or `bottom`. Requires `sort_pollution_block: true`. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
@@ -391,6 +393,27 @@ type: custom:pollenprognos-card
 integration: atmo
 location: lyon  # Location will be auto-detected if omitted
 days_to_show: 2
+```
+
+Atmo France supports both pollen allergens and air quality (pollution) sensors. By default, pollution sensors are grouped below pollen. The `allergy_risk_top` option keeps the pollen index and air quality index at the top of the list.
+
+```yaml
+type: custom:pollenprognos-card
+integration: atmo
+allergy_risk_top: true            # Summary indices at the top
+sort_pollution_block: true        # Group pollution separately (default)
+pollution_block_position: bottom  # Pollution below pollen (default)
+allergens:
+  - allergy_risk
+  - qualite_globale
+  - birch
+  - grass
+  - olive
+  - pm25
+  - pm10
+  - ozone
+  - no2
+  - so2
 ```
 
 **Google Pollen Levels**

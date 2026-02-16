@@ -369,6 +369,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     }
   } else if (integration === "atmo") {
     const location = (cfg.location || "").toLowerCase();
+    const pollutionAllergens = new Set(["pm25", "pm10", "ozone", "no2", "so2"]);
     for (const allergen of cfg.allergens || []) {
       const frSlug = ATMO_ALLERGEN_MAP[allergen];
       if (!frSlug) continue;
@@ -377,6 +378,14 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (allergen === "allergy_risk") {
         sensorId = location
           ? `sensor.qualite_globale_pollen_${location}`
+          : null;
+      } else if (allergen === "qualite_globale") {
+        sensorId = location
+          ? `sensor.qualite_globale_${location}`
+          : null;
+      } else if (pollutionAllergens.has(allergen)) {
+        sensorId = location
+          ? `sensor.${frSlug}_${location}`
           : null;
       } else {
         sensorId = location
@@ -387,13 +396,21 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       let exists = sensorId && !!hass.states[sensorId];
       if (!exists) {
         // Fallback: search for matching entity
-        const prefix =
-          allergen === "allergy_risk"
-            ? "sensor.qualite_globale_pollen_"
-            : `sensor.niveau_${frSlug}_`;
-        const candidates = Object.keys(hass.states).filter(
-          (id) => id.startsWith(prefix) && !id.includes("_j_"),
-        );
+        let prefix;
+        if (allergen === "allergy_risk") {
+          prefix = "sensor.qualite_globale_pollen_";
+        } else if (allergen === "qualite_globale") {
+          prefix = "sensor.qualite_globale_";
+        } else if (pollutionAllergens.has(allergen)) {
+          prefix = `sensor.${frSlug}_`;
+        } else {
+          prefix = `sensor.niveau_${frSlug}_`;
+        }
+        const candidates = Object.keys(hass.states).filter((id) => {
+          if (!id.startsWith(prefix) || id.includes("_j_")) return false;
+          if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
+          return true;
+        });
         if (candidates.length === 1) {
           sensorId = candidates[0];
           exists = true;
@@ -417,25 +434,30 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
       const suffix = cfg.entity_suffix || "";
 
-      // Collect all discovered entities across all locations
-      const allEntities = new Map();
-      for (const loc of discovery.locations.values()) {
-        for (const [key, eid] of loc.entities) {
-          allEntities.set(key, eid);
-        }
-      }
-
+      // Check each allergen across all discovered locations, matching prefix/suffix
       for (const allergen of cfg.allergens || []) {
-        const eid = allEntities.get(allergen);
-        if (!eid) continue;
-        const idPart = eid.replace(/^sensor\./, "");
-        if (prefix && !idPart.startsWith(prefix)) continue;
-        if (suffix && !idPart.endsWith(suffix)) continue;
-        if (hass.states[eid]) sensors.push(eid);
+        let matched = false;
+        for (const loc of discovery.locations.values()) {
+          const eid = loc.entities.get(allergen);
+          if (!eid) continue;
+          const idPart = eid.replace(/^sensor\./, "");
+          if (prefix && !idPart.startsWith(prefix)) continue;
+          if (suffix && !idPart.endsWith(suffix)) continue;
+          if (hass.states[eid]) {
+            sensors.push(eid);
+            matched = true;
 
-        if (debug) {
+            if (debug) {
+              console.debug(
+                `[findAvailableSensors][gpl][manual] allergen: '${allergen}', prefix: '${prefix}', suffix: '${suffix}', eid: '${eid}', exists: true`,
+              );
+            }
+            break;
+          }
+        }
+        if (debug && !matched) {
           console.debug(
-            `[findAvailableSensors][gpl][manual] allergen: '${allergen}', prefix: '${prefix}', suffix: '${suffix}', eid: '${eid}', exists: ${!!hass.states[eid]}`,
+            `[findAvailableSensors][gpl][manual] allergen: '${allergen}', prefix: '${prefix}', suffix: '${suffix}', no match found`,
           );
         }
       }

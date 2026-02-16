@@ -6,6 +6,7 @@ import { buildLevelNames } from "../utils/level-names.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
+  // Pollen
   ragweed: "ambroisie",
   mugwort: "armoise",
   alder: "aulne",
@@ -13,6 +14,13 @@ export const ATMO_ALLERGEN_MAP = {
   grass: "gramine",
   olive: "olivier",
   allergy_risk: "qualite_globale_pollen",
+  // Pollution
+  pm25: "pm25",
+  pm10: "pm10",
+  ozone: "ozone",
+  no2: "dioxyde_d_azote",
+  so2: "dioxyde_de_soufre",
+  qualite_globale: "qualite_globale",
 };
 
 // Reverse map for sensor detection: French slug → canonical
@@ -28,14 +36,26 @@ const ATMO_KNOWN_FR_SLUGS = new Set([
   "bouleau",
   "gramine",
   "olivier",
+  "pm25",
+  "pm10",
+  "ozone",
+  "dioxyde_d_azote",
+  "dioxyde_de_soufre",
 ]);
+
+// Pollution allergens use a different entity pattern (no "niveau_" prefix)
+const ATMO_POLLUTION_ALLERGENS = new Set(["pm25", "pm10", "ozone", "no2", "so2"]);
 
 export const stubConfigATMO = {
   integration: "atmo",
   location: "",
   entity_prefix: "",
   entity_suffix: "",
-  allergens: ["ragweed", "mugwort", "alder", "birch", "grass", "olive"],
+  allergens: [
+    "allergy_risk", "qualite_globale",
+    "ragweed", "mugwort", "alder", "birch", "grass", "olive",
+    "pm25", "pm10", "ozone", "no2", "so2",
+  ],
   minimal: false,
   minimal_gap: 35,
   background_color: "",
@@ -57,6 +77,8 @@ export const stubConfigATMO = {
   pollen_threshold: 1,
   sort: "value_descending",
   allergy_risk_top: true,
+  sort_pollution_block: true,
+  pollution_block_position: "bottom",
   allergens_abbreviated: false,
   link_to_sensors: true,
   date_locale: undefined,
@@ -70,15 +92,13 @@ export const stubConfigATMO = {
   },
 };
 
-export const ATMO_ALLERGENS = [
-  "allergy_risk",
-  ...stubConfigATMO.allergens,
-];
+export const ATMO_ALLERGENS = [...stubConfigATMO.allergens];
 
 /**
  * Detect location slug from available Atmo France entities.
  */
 function detectLocation(hass, debug) {
+  // Try pollen entities first (most reliable pattern)
   for (const id of Object.keys(hass.states)) {
     const m = id.match(
       /^sensor\.niveau_(ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
@@ -88,11 +108,23 @@ function detectLocation(hass, debug) {
       return m[2];
     }
   }
+  // Fallback: try pollution entities
+  for (const id of Object.keys(hass.states)) {
+    const m = id.match(
+      /^sensor\.(pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)_(.+?)(?:_j_\d+)?$/,
+    );
+    if (m) {
+      if (debug) console.debug("[ATMO] auto-detected location from pollution entity:", m[2]);
+      return m[2];
+    }
+  }
   return null;
 }
 
 /**
  * Build entity ID for an allergen at a given location.
+ * Pollen entities: sensor.niveau_{fr_slug}_{location}
+ * Pollution entities: sensor.{fr_slug}_{location} (no "niveau_" prefix)
  */
 function buildEntityId(allergen, location, forecast) {
   const frSlug = ATMO_ALLERGEN_MAP[allergen];
@@ -101,6 +133,10 @@ function buildEntityId(allergen, location, forecast) {
   let base;
   if (allergen === "allergy_risk") {
     base = `sensor.qualite_globale_pollen_${location}`;
+  } else if (allergen === "qualite_globale") {
+    base = `sensor.qualite_globale_${location}`;
+  } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+    base = `sensor.${frSlug}_${location}`;
   } else {
     base = `sensor.niveau_${frSlug}_${location}`;
   }
@@ -201,13 +237,22 @@ export async function fetchForecast(hass, config) {
           // Fallback: search for matching entity
           const frSlug = ATMO_ALLERGEN_MAP[allergen];
           if (!frSlug) continue;
-          const prefix =
-            allergen === "allergy_risk"
-              ? `sensor.qualite_globale_pollen_`
-              : `sensor.niveau_${frSlug}_`;
-          const candidates = Object.keys(hass.states).filter(
-            (id) => id.startsWith(prefix) && !id.includes("_j_"),
-          );
+          let prefix;
+          if (allergen === "allergy_risk") {
+            prefix = `sensor.qualite_globale_pollen_`;
+          } else if (allergen === "qualite_globale") {
+            prefix = `sensor.qualite_globale_`;
+          } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+            prefix = `sensor.${frSlug}_`;
+          } else {
+            prefix = `sensor.niveau_${frSlug}_`;
+          }
+          const candidates = Object.keys(hass.states).filter((id) => {
+            if (!id.startsWith(prefix) || id.includes("_j_")) return false;
+            // Exclude qualite_globale_pollen_* when searching for qualite_globale
+            if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
+            return true;
+          });
           if (candidates.length === 1) sensorId = candidates[0];
           else continue;
         }
@@ -293,26 +338,28 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  // Move allergy_risk to top if configured
+  // Move summary indices to top if configured
   if (config.allergy_risk_top) {
-    const idx = sensors.findIndex(
+    // Move qualite_globale first (so allergy_risk ends up above it)
+    const qgIdx = sensors.findIndex(
+      (s) => s.allergenReplaced === "qualite_globale",
+    );
+    if (qgIdx > 0) {
+      const [qg] = sensors.splice(qgIdx, 1);
+      sensors.unshift(qg);
+    }
+    const arIdx = sensors.findIndex(
       (s) => s.allergenReplaced === "allergy_risk",
     );
-    if (idx > 0) {
-      const [special] = sensors.splice(idx, 1);
-      sensors.unshift(special);
+    if (arIdx > 0) {
+      const [ar] = sensors.splice(arIdx, 1);
+      sensors.unshift(ar);
     }
   }
 
   // Sorting
   if (config.sort !== "none") {
-    // Preserve allergy_risk at top if configured
-    const topItem =
-      config.allergy_risk_top && sensors[0]?.allergenReplaced === "allergy_risk"
-        ? sensors.shift()
-        : null;
-
-    sensors.sort(
+    const sortFn =
       {
         value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
         value_descending: (a, b) =>
@@ -322,10 +369,40 @@ export async function fetchForecast(hass, config) {
         name_descending: (a, b) =>
           b.allergenCapitalized.localeCompare(a.allergenCapitalized),
       }[config.sort] ||
-        ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
-    );
+        ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
 
-    if (topItem) sensors.unshift(topItem);
+    // Extract summary indices (allergy_risk, qualite_globale) to preserve at top
+    const summaryKeys = new Set(["allergy_risk", "qualite_globale"]);
+    const topItems = [];
+    if (config.allergy_risk_top) {
+      while (sensors.length && summaryKeys.has(sensors[0]?.allergenReplaced)) {
+        topItems.push(sensors.shift());
+      }
+    }
+
+    if (config.sort_pollution_block) {
+      // Separate remaining into pollen and pollution groups
+      const pollen = [];
+      const pollution = [];
+      for (const s of sensors) {
+        if (ATMO_POLLUTION_ALLERGENS.has(s.allergenReplaced)) {
+          pollution.push(s);
+        } else {
+          pollen.push(s);
+        }
+      }
+      pollen.sort(sortFn);
+      pollution.sort(sortFn);
+
+      sensors =
+        config.pollution_block_position === "top"
+          ? [...pollution, ...pollen]
+          : [...pollen, ...pollution];
+    } else {
+      sensors.sort(sortFn);
+    }
+
+    sensors.unshift(...topItems);
   }
 
   if (debug) console.debug("ATMO adapter complete sensors:", sensors);
