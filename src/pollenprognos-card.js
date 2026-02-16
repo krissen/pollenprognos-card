@@ -314,11 +314,12 @@ class PollenPrognosCard extends LitElement {
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
     } else {
-      const sensorWithDays = filtered.find((s) => s.days && s.days.length > 0);
-      if (sensorWithDays) {
-        // Count only days with actual data (state >= 0), ignoring placeholders
-        const realDays = sensorWithDays.days.filter((d) => d.state >= 0).length;
-        daysCount = Math.min(realDays || sensorWithDays.days.length, cfg.days_to_show);
+      // Use max real days across all sensors (not just the first one)
+      for (const s of filtered) {
+        if (!s.days || !s.days.length) continue;
+        const realDays = s.days.filter((d) => d.state >= 0).length;
+        const count = Math.min(realDays || s.days.length, cfg.days_to_show);
+        if (count > daysCount) daysCount = count;
       }
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
@@ -1804,7 +1805,8 @@ class PollenPrognosCard extends LitElement {
               `;
             }
             const txt = sensor.day0?.state_text ?? "";
-            const num = sensor.day0?.display_state ?? sensor.day0?.state ?? "";
+            const rawNum = sensor.day0?.display_state ?? sensor.day0?.state;
+            const num = rawNum != null && rawNum >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
@@ -2091,9 +2093,10 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          const num =
+                          const rawNum =
                             sensor.days[i]?.display_state ??
                             sensor.days[i]?.state;
+                          const num = rawNum != null && rawNum >= 0 ? rawNum : "";
                           let content = "";
                           if (
                             this.config.show_value_text &&

@@ -85,6 +85,7 @@ In this file:
 | `allergy_risk_top` *(PEU, Atmo)* | `boolean` | `true` | Show the `allergy_risk` and `qualite_globale` summary sensors first in the list. |
 | `sort_pollution_block` *(Atmo only)* | `boolean` | `true` | Group pollution sensors (PM2.5, PM10, O₃, NO₂, SO₂) separately from pollen allergens. Only applies when `sort` is not `none`. |
 | `pollution_block_position` *(Atmo only)* | `string` | `bottom` | Where to place the pollution group relative to pollen: `top` or `bottom`. Requires `sort_pollution_block: true`. |
+| `show_block_separator` *(Atmo only)* | `boolean` | `false` | Show a visual separator line between pollen and pollution groups. Requires `sort_pollution_block: true`. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
@@ -403,6 +404,7 @@ integration: atmo
 allergy_risk_top: true            # Summary indices at the top
 sort_pollution_block: true        # Group pollution separately (default)
 pollution_block_position: bottom  # Pollution below pollen (default)
+show_block_separator: false      # Show line between blocks (default: off)
 allergens:
   - allergy_risk
   - qualite_globale
