@@ -17,6 +17,8 @@ import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
 import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
+import { stubConfigGPL, GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
 import { findSilamWeatherEntity } from "./utils/silam.js";
 
 import {
@@ -58,7 +60,11 @@ const getStubConfig = (integration) =>
           ? stubConfigKleenex
           : integration === "plu"
             ? stubConfigPLU
-            : stubConfigPP;
+            : integration === "atmo"
+              ? stubConfigATMO
+              : integration === "gpl"
+                ? stubConfigGPL
+                : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -136,6 +142,14 @@ class PollenPrognosCardEditor extends LitElement {
     this._updateConfig("date_locale", lang);
 
     // Välj rätt lista med raw-allergener
+    // Discover GPL allergens if applicable
+    let gplDiscoveredPlants = [];
+    if (this._config.integration === "gpl" && this._hass) {
+      gplDiscoveredPlants = discoverGplAllergens(this._hass, this._config.location, false);
+      // Remove base allergens since they're added separately via GPL_BASE_ALLERGENS
+      gplDiscoveredPlants = gplDiscoveredPlants.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+    }
+
     const rawKeys =
       this._config.integration === "dwd"
         ? stubConfigDWD.allergens
@@ -145,7 +159,11 @@ class PollenPrognosCardEditor extends LitElement {
             ? SILAM_ALLERGENS
             : this._config.integration === "kleenex"
               ? stubConfigKleenex.allergens
-              : stubConfigPP.allergens;
+              : this._config.integration === "atmo"
+                ? ATMO_ALLERGENS
+                : this._config.integration === "gpl"
+                  ? [...GPL_BASE_ALLERGENS, ...gplDiscoveredPlants]
+                  : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -167,9 +185,13 @@ class PollenPrognosCardEditor extends LitElement {
         ? 4
         : this._config.integration === "peu"
           ? 5
-          : this._config.integration === "silam"
-            ? 7
-            : 7;
+          : this._config.integration === "gpl"
+            ? 6
+            : this._config.integration === "silam"
+              ? 7
+              : this._config.integration === "atmo"
+                ? 7
+                : 7;
 
     const levels = Array.from({ length: numLevels }, (_, i) =>
       t(`editor.phrases_levels.${i}`, lang),
@@ -246,6 +268,7 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedPeuLocations = [];
     this.installedSilamLocations = [];
     this.installedKleenexLocations = [];
+    this.installedAtmoLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this._initDone = false;
@@ -496,6 +519,30 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "kleenex";
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
+          )
+        ) {
+          integration = "atmo";
+        } else if (
+          this._hass && (
+            // Primary: check hass.entities for pollenlevels platform
+            (this._hass.entities && Object.values(this._hass.entities).some(
+              (e) => e.platform === "pollenlevels" && !e.entity_category
+            )) ||
+            // Fallback: check attribution
+            all.some((id) => {
+              const s = this._hass.states[id];
+              return s?.attributes?.attribution === GPL_ATTRIBUTION
+                && s.attributes?.device_class !== "date"
+                && s.attributes?.device_class !== "timestamp";
+            })
+          )
+        ) {
+          integration = "gpl";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -705,6 +752,17 @@ class PollenPrognosCardEditor extends LitElement {
       this.requestUpdate();
       this._prevIntegration = incomingInt;
       this._initDone = true;
+
+      // GPL discovery: run here too because set hass() may fire before setConfig()
+      // and auto-detect the wrong integration (e.g., SILAM) if multiple integrations are installed.
+      if (this._config.integration === "gpl" && this._hass) {
+        const gplDiscovery = discoverGplSensors(this._hass, false);
+        this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
+          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+        const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId, false);
+        this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+      }
     } catch (e) {
       console.error("pollenprognos-card-editor: Fel i setConfig:", e, config);
       throw e;
@@ -775,6 +833,27 @@ class PollenPrognosCardEditor extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
+    const atmoStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
+    );
+    // GPL: use hass.entities (primary) or attribution (fallback)
+    let gplStates = [];
+    if (hass.entities) {
+      gplStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gplStates.length) {
+      gplStates = Object.keys(hass.states).filter((id) => {
+        const s = hass.states[id];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION
+          && s.attributes.device_class !== "date"
+          && s.attributes.device_class !== "timestamp";
+      });
+    }
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -784,10 +863,25 @@ class PollenPrognosCardEditor extends LitElement {
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
+      else if (atmoStates.length) integration = "atmo";
+      else if (gplStates.length) integration = "gpl";
       this._userConfig.integration = integration;
     }
 
-    // 1.1) Set default mode for SILAM and PEU if not specified
+    // 1.1) GPL discovery — always run so render() and auto-select have data
+    const gplDiscovery = discoverGplSensors(hass, false);
+    this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+
+    if (integration === "gpl") {
+      const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+      const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId, false);
+      this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+    } else {
+      this.installedGplPlants = [];
+    }
+
+    // 1.2) Set default mode for SILAM and PEU if not specified
     if (
       (integration === "silam" || integration === "peu") &&
       !this._userConfig.mode
@@ -807,7 +901,11 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigKleenex
               : integration === "plu"
                 ? stubConfigPLU
-                : stubConfigPP;
+                : integration === "atmo"
+                  ? stubConfigATMO
+                  : integration === "gpl"
+                    ? stubConfigGPL
+                    : stubConfigPP;
 
     // Bygg merged-objekt (det är denna rad som saknas)
     if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
@@ -1063,6 +1161,27 @@ class PollenPrognosCardEditor extends LitElement {
             .filter((entry) => entry !== null),
         ),
       );
+
+      // Collect Atmo France locations (pollen + pollution entities)
+      const atmoLocationRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
+      this.installedAtmoLocations = Array.from(
+        new Map(
+          atmoStates
+            .map((id) => {
+              const m = id.match(atmoLocationRe);
+              if (!m) return null;
+              const locationSlug = m[1];
+              const entity = hass.states[id];
+              const title =
+                entity?.attributes?.["Nom de la zone"] ||
+                locationSlug.charAt(0).toUpperCase() +
+                  locationSlug.slice(1).replace(/_/g, " ");
+              return [locationSlug, title];
+            })
+            .filter((entry) => entry !== null),
+        ),
+      );
+
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
         if (
@@ -1093,9 +1212,23 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           this._config.location = this.installedKleenexLocations[0][0];
         }
+        if (
+          integration === "atmo" &&
+          !this._userConfig.location &&
+          this.installedAtmoLocations.length
+        ) {
+          this._config.location = this.installedAtmoLocations[0][0];
+        }
+        if (
+          integration === "gpl" &&
+          !this._userConfig.location &&
+          this.installedGplLocations.length
+        ) {
+          this._config.location = this.installedGplLocations[0][0];
+        }
       }
 
-      // 5) Dispatch’a så att HA:r-editorn ritar om formuläret med nya värden
+      // 5) Dispatch'a så att HA:r-editorn ritar om formuläret med nya värden
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._config },
@@ -1147,6 +1280,22 @@ class PollenPrognosCardEditor extends LitElement {
     this._updateConfig("allergens", [...newSet]);
   }
 
+  /**
+   * Toggle a subset of allergens without affecting other selections.
+   * If all subset items are selected → remove only those.
+   * Otherwise → add all subset items (keeping existing selections).
+   */
+  _toggleAllergenSubset(subset) {
+    const current = new Set(this._config.allergens);
+    const allSelected = subset.every((a) => current.has(a));
+    if (allSelected) {
+      subset.forEach((a) => current.delete(a));
+    } else {
+      subset.forEach((a) => current.add(a));
+    }
+    this._updateConfig("allergens", [...current]);
+  }
+
   _updateConfig(prop, value) {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
@@ -1157,15 +1306,19 @@ class PollenPrognosCardEditor extends LitElement {
 
       // Uncheck incompatible special sort options
       if (
-        this._config.integration === "kleenex" &&
+        (this._config.integration === "kleenex" || this._config.integration === "gpl") &&
         this._config.sort_category_allergens_first
       ) {
         newConfig.sort_category_allergens_first = false;
         delete this._userConfig.sort_category_allergens_first;
       }
-      if (this._config.integration === "peu" && this._config.allergy_risk_top) {
+      if ((this._config.integration === "peu" || this._config.integration === "atmo") && this._config.allergy_risk_top) {
         newConfig.allergy_risk_top = false;
         delete this._userConfig.allergy_risk_top;
+      }
+      if (this._config.integration === "atmo" && this._config.sort_pollution_block) {
+        newConfig.sort_pollution_block = false;
+        delete this._userConfig.sort_pollution_block;
       }
       if (this._config.integration === "silam" && this._config.index_top) {
         newConfig.index_top = false;
@@ -1444,13 +1597,17 @@ class PollenPrognosCardEditor extends LitElement {
                 ? stubConfigKleenex
                 : newInt === "plu"
                   ? stubConfigPLU
-                  : stubConfigPP;
+                  : newInt === "atmo"
+                    ? stubConfigATMO
+                    : newInt === "gpl"
+                      ? stubConfigGPL
+                      : stubConfigPP;
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
     } else {
       cfg = { ...this._config, [prop]: value };
-      
+
       // Track explicit allergen changes
       if (prop === "allergens") {
         if (this.debug) console.log("[ALLERGEN-DEBUG] _updateConfig called with allergens:", value);
@@ -1567,16 +1724,22 @@ class PollenPrognosCardEditor extends LitElement {
               ? stubConfigKleenex.allergens
               : c.integration === "plu"
                 ? stubConfigPLU.allergens
-                : stubConfigPP.allergens;
+                : c.integration === "gpl"
+                  ? [...GPL_BASE_ALLERGENS, ...(this.installedGplPlants || [])]
+                  : c.integration === "atmo"
+                    ? ATMO_ALLERGENS
+                    : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd"
         ? 4
         : c.integration === "peu"
           ? 5
-          : c.integration === "plu"
-            ? 4
-            : 7;
+          : c.integration === "gpl"
+            ? 6
+            : c.integration === "plu"
+              ? 4
+              : 7;
 
     // dynamiska parametrar för pollen_threshold-slider
     const thresholdParams =
@@ -1584,9 +1747,11 @@ class PollenPrognosCardEditor extends LitElement {
         ? { min: 0, max: 3, step: 0.5 }
         : c.integration === "peu"
           ? { min: 0, max: 4, step: 1 }
-          : c.integration === "plu"
-            ? { min: 0, max: 3, step: 1 }
-            : { min: 0, max: 6, step: 1 };
+          : c.integration === "gpl"
+            ? { min: 0, max: 5, step: 1 }
+            : c.integration === "plu"
+              ? { min: 0, max: 3, step: 1 }
+              : { min: 0, max: 6, step: 1 };
 
     const SORT_VALUES = [
       "value_ascending",
@@ -1639,6 +1804,12 @@ class PollenPrognosCardEditor extends LitElement {
               >
               <mwc-list-item value="kleenex"
                 >${this._t("integration.kleenex")}</mwc-list-item
+              >
+              <mwc-list-item value="atmo"
+                >${this._t("integration.atmo")}</mwc-list-item
+              >
+              <mwc-list-item value="gpl"
+                >${this._t("integration.gpl")}</mwc-list-item
               >
             </ha-select>
           </ha-formfield>
@@ -1738,6 +1909,54 @@ class PollenPrognosCardEditor extends LitElement {
                         </ha-select>
                       </ha-formfield>
                     `
+                  : c.integration === "atmo"
+                    ? html`
+                        <ha-formfield label="${this._t("location")}">
+                          <ha-select
+                            .value=${c.location || ""}
+                            @selected=${(e) =>
+                              this._updateConfig("location", e.target.value)}
+                            @closed=${(e) => e.stopPropagation()}
+                          >
+                            <mwc-list-item value=""
+                              >${this._t("location_autodetect")}</mwc-list-item
+                            >
+                            ${this.installedAtmoLocations.map(
+                              ([slug, title]) =>
+                                html`<mwc-list-item .value=${slug}
+                                  >${title}</mwc-list-item
+                                >`,
+                            )}
+                            <mwc-list-item value="manual"
+                              >${this._t("location_manual")}</mwc-list-item
+                            >
+                          </ha-select>
+                        </ha-formfield>
+                      `
+                  : c.integration === "gpl"
+                    ? html`
+                        <ha-formfield label="${this._t("location")}">
+                          <ha-select
+                            .value=${c.location || ""}
+                            @selected=${(e) =>
+                              this._updateConfig("location", e.target.value)}
+                            @closed=${(e) => e.stopPropagation()}
+                          >
+                            <mwc-list-item value=""
+                              >${this._t("location_autodetect")}</mwc-list-item
+                            >
+                            ${(this.installedGplLocations || []).map(
+                              ([slug, title]) =>
+                                html`<mwc-list-item .value=${slug}
+                                  >${title}</mwc-list-item
+                                >`,
+                            )}
+                            <mwc-list-item value="manual"
+                              >${this._t("location_manual")}</mwc-list-item
+                            >
+                          </ha-select>
+                        </ha-formfield>
+                      `
                   : c.integration === "plu"
                     ? ""
                   : html`
@@ -1824,7 +2043,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl") &&
             c.location === "manual")
             ? html`
                 <details>
@@ -2793,9 +3012,9 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Allergens -->
         <details>
           <summary>${this._t("summary_allergens")}</summary>
-          ${c.integration === "kleenex"
+          ${c.integration === "kleenex" || c.integration === "gpl"
             ? html`
-                <!-- Kleenex: Category allergens (controlled by checkbox) -->
+                <!-- Category allergens (controlled by checkbox) -->
                 <div class="allergen-section">
                   <h4
                     style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
@@ -2818,7 +3037,7 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </div>
 
-                <!-- Kleenex: Individual allergens (enabled by default) -->
+                <!-- Individual allergens -->
                 <div class="allergen-section">
                   <h4
                     style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
@@ -2854,23 +3073,116 @@ class PollenPrognosCardEditor extends LitElement {
                   </div>
                 </div>
               `
-            : html`
-                <!-- Non-Kleenex: Standard allergen display -->
-                <div class="allergens-group">
-                  ${allergens.map((key) => {
-                    const displayName = this._getAllergenDisplayName(key);
-                    return html`
-                      <ha-formfield .label=${displayName}>
-                        <ha-checkbox
-                          .checked=${c.allergens.includes(key)}
-                          @change=${(e) =>
-                            this._onAllergenToggle(key, e.target.checked)}
-                        ></ha-checkbox>
-                      </ha-formfield>
-                    `;
-                  })}
-                </div>
-              `}
+            : c.integration === "atmo"
+              ? html`
+                  <!-- Atmo France: Summary / Pollen / Pollution blocks -->
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_summary")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${["allergy_risk", "qualite_globale"]
+                        .filter((key) => allergens.includes(key))
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_pollen")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${allergens
+                        .filter(
+                          (key) =>
+                            !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(key),
+                        )
+                        .sort((a, b) => {
+                          const displayA = this._getAllergenDisplayName(a);
+                          const displayB = this._getAllergenDisplayName(b);
+                          return displayA.localeCompare(displayB);
+                        })
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_pollution")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${["pm25", "pm10", "ozone", "no2", "so2"]
+                        .filter((key) => allergens.includes(key))
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                `
+              : html`
+                  <!-- Standard allergen display -->
+                  <div class="allergens-group">
+                    ${allergens.map((key) => {
+                      const displayName = this._getAllergenDisplayName(key);
+                      return html`
+                        <ha-formfield .label=${displayName}>
+                          <ha-checkbox
+                            .checked=${c.allergens.includes(key)}
+                            @change=${(e) =>
+                              this._onAllergenToggle(key, e.target.checked)}
+                          ></ha-checkbox>
+                        </ha-formfield>
+                      `;
+                    })}
+                  </div>
+                `}
           <div class="preset-buttons">
             <ha-button
               @click=${() => {
@@ -2884,6 +3196,31 @@ class PollenPrognosCardEditor extends LitElement {
             >
               ${this._t("select_all_allergens")}
             </ha-button>
+            ${c.integration === "atmo"
+              ? html`
+                  <ha-button
+                    @click=${() => {
+                      const pollenKeys = allergens.filter(
+                        (k) =>
+                          !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(k),
+                      );
+                      this._toggleAllergenSubset(pollenKeys);
+                    }}
+                  >
+                    ${this._t("select_all_pollen")}
+                  </ha-button>
+                  <ha-button
+                    @click=${() => {
+                      const pollutionKeys = ["pm25", "pm10", "ozone", "no2", "so2"].filter(
+                        (k) => allergens.includes(k),
+                      );
+                      this._toggleAllergenSubset(pollutionKeys);
+                    }}
+                  >
+                    ${this._t("select_all_pollution")}
+                  </ha-button>
+                `
+              : ""}
           </div>
           <div class="slider-row">
             <div class="slider-text">${this._t("pollen_threshold")}</div>
@@ -2909,7 +3246,7 @@ class PollenPrognosCardEditor extends LitElement {
               )}
             </ha-select>
           </ha-formfield>
-          ${c.integration === "kleenex"
+          ${c.integration === "kleenex" || c.integration === "gpl"
             ? html`
                 <ha-formfield
                   label="${this._t("sort_category_allergens_first")}"
@@ -2925,7 +3262,7 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-formfield>
               `
             : ""}
-          ${c.integration === "peu" || c.integration === "silam"
+          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo"
             ? html`
                 <ha-formfield
                   label="${c.integration === "silam"
@@ -2945,6 +3282,58 @@ class PollenPrognosCardEditor extends LitElement {
                       )}
                   ></ha-checkbox>
                 </ha-formfield>
+              `
+            : ""}
+          ${c.integration === "atmo"
+            ? html`
+                <ha-formfield
+                  label="${this._t("sort_pollution_block")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.sort_pollution_block}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "sort_pollution_block",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+                ${c.sort_pollution_block
+                  ? html`
+                      <ha-formfield
+                        label="${this._t("pollution_block_position")}"
+                      >
+                        <ha-select
+                          .value=${c.pollution_block_position || "bottom"}
+                          @selected=${(e) =>
+                            this._updateConfig(
+                              "pollution_block_position",
+                              e.target.value,
+                            )}
+                          @closed=${(e) => e.stopPropagation()}
+                        >
+                          <mwc-list-item value="bottom"
+                            >${this._t("pollution_block_bottom")}</mwc-list-item
+                          >
+                          <mwc-list-item value="top"
+                            >${this._t("pollution_block_top")}</mwc-list-item
+                          >
+                        </ha-select>
+                      </ha-formfield>
+                      <ha-formfield
+                        label="${this._t("show_block_separator")}"
+                      >
+                        <ha-checkbox
+                          .checked=${c.show_block_separator}
+                          @change=${(e) =>
+                            this._updateConfig(
+                              "show_block_separator",
+                              e.target.checked,
+                            )}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                    `
+                  : ""}
               `
             : ""}
         </details>

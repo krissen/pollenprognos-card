@@ -19,6 +19,8 @@ import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { stubConfigATMO } from "./adapters/atmo.js";
+import { stubConfigGPL, GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -232,8 +234,8 @@ class PollenPrognosCard extends LitElement {
         }
       }
 
-      // Add numeric text overlay if requested
-      if (showValue) {
+      // Add numeric text overlay if requested (suppress negative values)
+      if (showValue && displayLevel >= 0) {
         const valueText = document.createElement("div");
         valueText.className = "level-value-text";
         valueText.textContent = displayLevel;
@@ -312,9 +314,12 @@ class PollenPrognosCard extends LitElement {
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
     } else {
-      const sensorWithDays = filtered.find((s) => s.days && s.days.length > 0);
-      if (sensorWithDays) {
-        daysCount = Math.min(sensorWithDays.days.length, cfg.days_to_show);
+      // Use max real days across all sensors (not just the first one)
+      for (const s of filtered) {
+        if (!s.days || !s.days.length) continue;
+        const realDays = s.days.filter((d) => d.state >= 0).length;
+        const count = Math.min(realDays, cfg.days_to_show);
+        if (count > daysCount) daysCount = count;
       }
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
@@ -728,7 +733,12 @@ class PollenPrognosCard extends LitElement {
     const color = stale ? "#e6a800" : this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
-    const svgContent = getSvgContent(allergenKey);
+    // Select level-reactive icon variant for allergy_risk smiley
+    let effectiveKey = allergenKey;
+    if (allergenKey === "allergy_risk" && level > 0) {
+      effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
+    }
+    const svgContent = getSvgContent(effectiveKey);
 
     // Determine stroke color based on sync setting
     let actualStrokeColor;
@@ -818,6 +828,8 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") stub = stubConfigSILAM;
     else if (integration === "kleenex") stub = stubConfigKleenex;
     else if (integration === "plu") stub = stubConfigPLU;
+    else if (integration === "atmo") stub = stubConfigATMO;
+    else if (integration === "gpl") stub = stubConfigGPL;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config
@@ -935,6 +947,27 @@ class PollenPrognosCard extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
+    const atmoStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
+    );
+    // GPL: use hass.entities (primary) or attribution (fallback)
+    let gplStates = [];
+    if (hass.entities) {
+      gplStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gplStates.length) {
+      gplStates = Object.keys(hass.states).filter((id) => {
+        const s = hass.states[id];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION
+          && s.attributes.device_class !== "date"
+          && s.attributes.device_class !== "timestamp";
+      });
+    }
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -944,6 +977,8 @@ class PollenPrognosCard extends LitElement {
       console.debug("SILAM:", silamStates);
       console.debug("KLEENEX:", kleenexStates);
       console.debug("PLU:", pluStates);
+      console.debug("ATMO:", atmoStates);
+      console.debug("GPL:", gplStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -961,6 +996,8 @@ class PollenPrognosCard extends LitElement {
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
       else if (kleenexStates.length) integration = "kleenex";
+      else if (atmoStates.length) integration = "atmo";
+      else if (gplStates.length) integration = "gpl";
     }
 
     // Plocka rätt stub
@@ -971,6 +1008,8 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") baseStub = stubConfigSILAM;
     else if (integration === "kleenex") baseStub = stubConfigKleenex;
     else if (integration === "plu") baseStub = stubConfigPLU;
+    else if (integration === "atmo") baseStub = stubConfigATMO;
+    else if (integration === "gpl") baseStub = stubConfigGPL;
     else {
       console.error(
         "Unknown integration:",
@@ -1027,6 +1066,10 @@ class PollenPrognosCard extends LitElement {
         cfg.allergens = stubConfigKleenex.allergens;
       else if (integration === "plu")
         cfg.allergens = stubConfigPLU.allergens;
+      else if (integration === "atmo")
+        cfg.allergens = stubConfigATMO.allergens;
+      else if (integration === "gpl")
+        cfg.allergens = stubConfigGPL.allergens;
     }
 
     // Fyll date_locale
@@ -1144,6 +1187,46 @@ class PollenPrognosCard extends LitElement {
           "[Card][KLEENEX] Auto-set location:",
           cfg.location,
           kleenexLocations,
+        );
+    } else if (
+      integration === "atmo" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      atmoStates.length
+    ) {
+      const atmoLocations = Array.from(
+        new Set(
+          atmoStates
+            .map((eid) => {
+              const m = eid.match(
+                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+              );
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = atmoLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][ATMO] Auto-set location:",
+          cfg.location,
+          atmoLocations,
+        );
+    } else if (
+      integration === "gpl" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      gplStates.length
+    ) {
+      const gplDiscovery = discoverGplSensors(hass, this.debug);
+      const firstLocId = gplDiscovery.locations.keys().next().value;
+      cfg.location = firstLocId || null;
+      if (this.debug)
+        console.debug(
+          "[Card][GPL] Auto-set location:",
+          cfg.location,
+          [...gplDiscovery.locations.keys()],
         );
     }
 
@@ -1359,6 +1442,71 @@ class PollenPrognosCard extends LitElement {
               .replace(/[\)\s]+\w+.*$/u, "")
               .trim() ||
             cfg.location;
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "atmo") {
+        // Atmo France: extract location from sensor attributes (pollen + pollution)
+        const atmoRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
+        const atmoEntities = Object.values(hass.states).filter(
+          (s) =>
+            s &&
+            typeof s === "object" &&
+            typeof s.entity_id === "string" &&
+            atmoRe.test(s.entity_id),
+        );
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location.toLowerCase()
+            : "";
+
+        let match = null;
+        if (wantedLocation) {
+          match = atmoEntities.find((s) => {
+            const m = s.entity_id.match(atmoRe);
+            return m && m[1] === wantedLocation;
+          });
+        } else if (atmoEntities.length) {
+          match = atmoEntities[0];
+        }
+
+        let title = "";
+        if (match) {
+          const attr = match.attributes || {};
+          title =
+            attr["Nom de la zone"] ||
+            cfg.location ||
+            "";
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "gpl") {
+        // Google Pollen Levels: extract location from discovery
+        const gplDiscovery = discoverGplSensors(hass, false);
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location
+            : "";
+
+        let title = "";
+        if (wantedLocation && gplDiscovery.locations.has(wantedLocation)) {
+          title = gplDiscovery.locations.get(wantedLocation).label;
+        } else if (gplDiscovery.locations.size) {
+          title = gplDiscovery.locations.values().next().value.label;
+        }
+
+        // Clean up device name if it looks like a friendly_name with type suffix
+        if (title) {
+          title = title
+            .replace(/\s*(grass|tree|weed)\s*$/i, "")
+            .replace(/\s*type\s*$/i, "")
+            .trim();
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
         }
 
         loc = title || cfg.location || "";
@@ -1662,7 +1810,8 @@ class PollenPrognosCard extends LitElement {
               `;
             }
             const txt = sensor.day0?.state_text ?? "";
-            const num = sensor.day0?.display_state ?? sensor.day0?.state ?? "";
+            const rawNum = sensor.day0?.display_state ?? sensor.day0?.state;
+            const num = rawNum != null && rawNum >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
@@ -1674,13 +1823,15 @@ class PollenPrognosCard extends LitElement {
               this.config?.show_value_numeric
             ) {
               if (label) label += ": ";
-              label += `${txt} (${num})`;
+              label += num !== "" ? `${txt} (${num})` : txt;
             } else if (this.config?.show_value_text) {
               if (label) label += ": ";
               label += txt;
             } else if (this.config?.show_value_numeric) {
-              if (label) label += " ";
-              label += `(${num})`;
+              if (num !== "") {
+                if (label) label += " ";
+                label += `(${num})`;
+              }
             }
             const levelForColor =
               this.config.integration === "plu"
@@ -1763,10 +1914,12 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
     
     // Number of segments in the level circle depends on the integration.
-    // PEU and Kleenex use four segments, PLU uses three, others use six.
+    // PEU and Kleenex use four segments, GPL uses five, PLU uses three, others use six.
     let segments = 6;
     if (this.config.integration === "peu" || this.config.integration === "kleenex") {
       segments = 4;
+    } else if (this.config.integration === "gpl") {
+      segments = 5;
     } else if (this.config.integration === "plu") {
       segments = 3;
     }
@@ -1834,8 +1987,17 @@ class PollenPrognosCard extends LitElement {
                 )}
               </tr>
             </thead>
-            ${this.sensors.map(
-              (sensor) => sensor.stale
+            ${this.sensors.flatMap(
+              (sensor, sIdx) => {
+                const separator =
+                  this.config.show_block_separator &&
+                  sIdx > 0 &&
+                  sensor.group &&
+                  this.sensors[sIdx - 1].group &&
+                  sensor.group !== this.sensors[sIdx - 1].group
+                    ? html`<tr class="block-separator-row"><td colspan="${cols.length + 1}"><hr class="block-separator" /></td></tr>`
+                    : "";
+                const row = sensor.stale
                 ? html`
                   <tr class="allergen-icon-row allergen-stale-row" valign="top">
                     <td>
@@ -1938,19 +2100,20 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          const num =
+                          const rawNum =
                             sensor.days[i]?.display_state ??
                             sensor.days[i]?.state;
+                          const num = rawNum != null && rawNum >= 0 ? rawNum : "";
                           let content = "";
                           if (
                             this.config.show_value_text &&
                             this.config.show_value_numeric
                           ) {
-                            content = `${txt} (${num})`;
+                            content = num !== "" ? `${txt} (${num})` : txt;
                           } else if (this.config.show_value_text) {
                             content = txt;
                           } else if (this.config.show_value_numeric) {
-                            content = String(num);
+                            content = num !== "" ? String(num) : "";
                           }
                           return html`<td>
                             <span style="font-size: ${1.0 * textSizeRatio}em;"
@@ -1961,8 +2124,9 @@ class PollenPrognosCard extends LitElement {
                       </tr>
                     `
                   : ""}
-              `,
-            )}
+              `;
+                return [separator, row];
+              })}
           </table>
         </div>
       </div>
@@ -2267,6 +2431,15 @@ class PollenPrognosCard extends LitElement {
         text-align: center;
         padding-top: 6px;
         padding-bottom: 2px; /* eller vad som känns lagom */
+      }
+
+      .block-separator-row td {
+        padding: 0;
+      }
+      .block-separator {
+        border: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        margin: 6px 0;
       }
 
       .icon-wrapper .circle-overlay {

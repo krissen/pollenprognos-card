@@ -1,0 +1,35 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="200.000000pt" height="200.000000pt" viewBox="0 0 200.000000 200.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,200.000000) scale(0.100000,-0.100000)"
+fill="currentColor" stroke="none">
+<!-- NO2 v2: Car silhouette with exhaust - unified body+cabin -->
+<!-- Single unified car silhouette (body + cabin as one path) -->
+<path d="M 300 300 Q 200 300 200 400 L 200 530
+         L 380 530 L 430 750 L 920 750 L 970 530 L 1200 530
+         L 1200 400 Q 1200 300 1100 300 Z"/>
+<!-- Front wheel arch cutout -->
+<path d="M 280 380 a 90 90 0 1 1 180 0 L 280 380 Z"/>
+<!-- Rear wheel arch cutout -->
+<path d="M 930 380 a 90 90 0 1 1 180 0 L 930 380 Z"/>
+<!-- Wheels (solid) -->
+<path d="M 290 300 a 80 80 0 1 0 160 0 a 80 80 0 1 0 -160 0 z"/>
+<path d="M 940 300 a 80 80 0 1 0 160 0 a 80 80 0 1 0 -160 0 z"/>
+<!-- Wheel hubs (cutout) -->
+<path d="M 330 300 a 40 40 0 1 1 80 0 a 40 40 0 1 1 -80 0 z"/>
+<path d="M 980 300 a 40 40 0 1 1 80 0 a 40 40 0 1 1 -80 0 z"/>
+<!-- Window (cutout on cabin) -->
+<path d="M 470 580 L 500 700 L 660 700 L 660 580 Z"/>
+<path d="M 690 580 L 690 700 L 880 700 L 910 580 Z"/>
+<!-- Exhaust fumes (organic cloud shapes rising behind car) -->
+<path d="M 1250 480 Q 1300 580 1370 540 Q 1440 500 1480 600 Q 1520 700 1430 740 Q 1340 780 1300 680 Q 1260 580 1250 480 Z"/>
+<path d="M 1380 650 Q 1450 790 1540 740 Q 1630 690 1680 810 Q 1730 930 1620 980 Q 1510 1030 1440 890 Q 1370 750 1380 650 Z"/>
+<path d="M 1340 880 Q 1420 1030 1520 980 Q 1620 930 1680 1070 Q 1740 1210 1610 1280 Q 1480 1350 1400 1180 Q 1320 1010 1340 880 Z"/>
+<path d="M 1480 1100 Q 1560 1260 1660 1210 Q 1760 1160 1800 1310 Q 1840 1460 1710 1520 Q 1580 1580 1520 1400 Q 1460 1220 1480 1100 Z"/>
+<path d="M 1400 1330 Q 1480 1490 1580 1440 Q 1680 1390 1720 1540 Q 1760 1690 1620 1750 Q 1480 1810 1420 1630 Q 1360 1450 1400 1330 Z"/>
+</g>
+</svg>

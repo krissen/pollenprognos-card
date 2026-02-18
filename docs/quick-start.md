@@ -70,6 +70,15 @@ location: amsterdam
 # Pollen.lu (Luxembourg)
 type: custom:pollenprognos-card
 integration: plu
+
+# Atmo France
+type: custom:pollenprognos-card
+integration: atmo
+location: lyon
+
+# Google Pollen Levels (global)
+type: custom:pollenprognos-card
+integration: gpl
 ```
 
 ## Common Customizations
@@ -212,6 +221,34 @@ allergens:
   - grass
   - hazel
   - alder
+```
+
+### France (Atmo France)
+
+```yaml
+type: custom:pollenprognos-card
+integration: atmo
+location: lyon
+allergens:
+  - birch
+  - grass
+  - ragweed
+  - olive
+days_to_show: 2
+```
+
+### Global (Google Pollen Levels)
+
+```yaml
+type: custom:pollenprognos-card
+integration: gpl
+allergens:
+  - grass_cat
+  - trees_cat
+  - weeds_cat
+  - birch
+  - olive
+days_to_show: 5
 ```
 
 ## Next Steps
