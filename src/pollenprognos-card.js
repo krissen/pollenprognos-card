@@ -51,6 +51,7 @@ class PollenPrognosCard extends LitElement {
   _chartCache = new Map();
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
+  _skipIntegrations = new Set(); // Integrations that failed during autodetect
 
 
   _renderLevelCircle(
@@ -491,12 +492,28 @@ class PollenPrognosCard extends LitElement {
             err,
           );
           this._forecastUnsub = null;
-          this.sensors = [];
-          this._availableSensorCount = 0;
           this._forecastEvent = null;
-          this._isLoaded = true;
-          this._error = "card.error_location_not_found";
-          this.requestUpdate();
+          if (!this._integrationExplicit) {
+            // Autodetect: skip this integration and re-run detection
+            this._skipIntegrations.add(this.config.integration);
+            if (this.debug) {
+              console.debug(
+                "[Card] Autodetect: skipping",
+                this.config.integration,
+                "- will try next integration",
+              );
+            }
+            // Force re-evaluation by bypassing the reference equality check
+            const hass = this._hass;
+            this._hass = null;
+            this.hass = hass;
+          } else {
+            this.sensors = [];
+            this._availableSensorCount = 0;
+            this._isLoaded = true;
+            this._error = "card.error_location_not_found";
+            this.requestUpdate();
+          }
         });
         this._forecastUnsub = subPromise;
         if (this.debug) {
@@ -827,6 +844,7 @@ class PollenPrognosCard extends LitElement {
 
     // Explicit integration
     this._integrationExplicit = config.hasOwnProperty("integration");
+    this._skipIntegrations.clear();
     this.tapAction = config.tap_action || null;
 
     // Select relevant stub for integration
@@ -1007,14 +1025,15 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (!explicit) {
-      if (ppStates.length) integration = "pp";
-      else if (pluStates.length) integration = "plu";
-      else if (peuStates.length) integration = "peu";
-      else if (dwdStates.length) integration = "dwd";
-      else if (silamStates.length) integration = "silam";
-      else if (kleenexStates.length) integration = "kleenex";
-      else if (atmoStates.length) integration = "atmo";
-      else if (gplStates.length) integration = "gpl";
+      const skip = this._skipIntegrations;
+      if (ppStates.length && !skip.has("pp")) integration = "pp";
+      else if (pluStates.length && !skip.has("plu")) integration = "plu";
+      else if (peuStates.length && !skip.has("peu")) integration = "peu";
+      else if (dwdStates.length && !skip.has("dwd")) integration = "dwd";
+      else if (silamStates.length && !skip.has("silam")) integration = "silam";
+      else if (kleenexStates.length && !skip.has("kleenex")) integration = "kleenex";
+      else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
+      else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
     }
 
     // Plocka rätt stub
