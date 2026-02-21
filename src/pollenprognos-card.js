@@ -834,6 +834,8 @@ class PollenPrognosCard extends LitElement {
 
     // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
+      "type",
+      "card_mod",
       "allergens",
       "icon_size",
       "icon_color_mode",
