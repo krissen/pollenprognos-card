@@ -266,4 +266,5 @@ export const COSMETIC_FIELDS = [
   "minimal_gap",
   "show_block_separator",
   "title",
+  "card_mod",
 ];
