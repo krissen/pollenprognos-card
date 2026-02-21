@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [2.9.0] - Unreleased
 
+- (silam) Use entity registry for sensor detection, fixing renamed locations
 - (locales) Sort el.json keys to match en.json order
 - Adding new JSON keys to support new version release
 - short names fix
