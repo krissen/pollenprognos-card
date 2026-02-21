@@ -1,7 +1,11 @@
 // src/adapters/silam.js
 import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
-import { findSilamWeatherEntity } from "../utils/silam.js";
+import {
+  findSilamWeatherEntity,
+  discoverSilamSensors,
+  isConfigEntryId,
+} from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
@@ -172,10 +176,31 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
 
-  // Hitta weather-entity
-  const locationSlug =
-    config.location === "manual" ? "" : (config.location || "").toLowerCase();
-  const weatherEntity = findSilamWeatherEntity(hass, locationSlug, locale);
+  // Hitta weather-entity och discovery-data
+  const configLocation = config.location === "manual" ? "" : (config.location || "");
+  const locationSlug = configLocation.toLowerCase();
+
+  // Primärt: discovery-baserad lookup
+  const discovery = discoverSilamSensors(hass, debug);
+  let discoveredLoc = null;
+  if (discovery.locations.size > 0) {
+    if (isConfigEntryId(configLocation) && discovery.locations.has(configLocation)) {
+      discoveredLoc = discovery.locations.get(configLocation);
+    } else if (configLocation) {
+      for (const [, loc] of discovery.locations) {
+        if (loc.label.toLowerCase().includes(locationSlug)) {
+          discoveredLoc = loc;
+          break;
+        }
+      }
+    }
+    if (!discoveredLoc && discovery.locations.size) {
+      discoveredLoc = discovery.locations.values().next().value;
+    }
+  }
+
+  const weatherEntity = discoveredLoc?.weatherEntity
+    || findSilamWeatherEntity(hass, configLocation, locale, debug);
 
   if (!weatherEntity || !hass.states[weatherEntity]) {
     if (debug)
@@ -257,7 +282,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         const suffix = config.entity_suffix || "";
         const candidate = `sensor.${prefix}${slug}${suffix}`;
         if (hass.states[candidate]) sensorId = candidate;
-      } else {
+      } else if (discoveredLoc?.sensors?.size) {
+        // Primärt: discovery-baserad lookup
+        sensorId = discoveredLoc.sensors.get(allergen) || null;
+        if (sensorId && !hass.states[sensorId]) sensorId = null;
+      }
+      if (!sensorId && config.location !== "manual") {
+        // Fallback: regex-baserad lookup
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
           const inverse = Object.entries(mapping).reduce(
             (acc, [ha, master]) => {
