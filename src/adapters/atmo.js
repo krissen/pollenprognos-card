@@ -122,6 +122,25 @@ function detectLocation(hass, debug) {
       return m[2];
     }
   }
+  // Fallback: try summary entities (qualite_globale_pollen_* or qualite_globale_*)
+  for (const id of Object.keys(hass.states)) {
+    // Match qualite_globale_pollen_{location} first (more specific)
+    const mp = id.match(
+      /^sensor\.qualite_globale_pollen_(.+?)(?:_j_\d+)?$/,
+    );
+    if (mp) {
+      if (debug) console.debug("[ATMO] auto-detected location from pollen summary entity:", mp[1]);
+      return mp[1];
+    }
+    // Match qualite_globale_{location} but not qualite_globale_pollen_*
+    const mg = id.match(
+      /^sensor\.qualite_globale_(?!pollen)(.+?)(?:_j_\d+)?$/,
+    );
+    if (mg) {
+      if (debug) console.debug("[ATMO] auto-detected location from global summary entity:", mg[1]);
+      return mg[1];
+    }
+  }
   return null;
 }
 
