@@ -4,7 +4,7 @@ import { normalize } from "../utils/normalize.js";
 import {
   findSilamWeatherEntity,
   discoverSilamSensors,
-  isConfigEntryId,
+  resolveDiscoveredLocation,
 } from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
@@ -180,27 +180,12 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   const configLocation = config.location === "manual" ? "" : (config.location || "");
   const locationSlug = configLocation.toLowerCase();
 
-  // Primärt: discovery-baserad lookup
+  // Kör discovery en gång och återanvänd
   const discovery = discoverSilamSensors(hass, debug);
-  let discoveredLoc = null;
-  if (discovery.locations.size > 0) {
-    if (isConfigEntryId(configLocation) && discovery.locations.has(configLocation)) {
-      discoveredLoc = discovery.locations.get(configLocation);
-    } else if (configLocation) {
-      for (const [, loc] of discovery.locations) {
-        if (loc.label.toLowerCase().includes(locationSlug)) {
-          discoveredLoc = loc;
-          break;
-        }
-      }
-    }
-    if (!discoveredLoc && discovery.locations.size) {
-      discoveredLoc = discovery.locations.values().next().value;
-    }
-  }
+  const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
 
   const weatherEntity = discoveredLoc?.weatherEntity
-    || findSilamWeatherEntity(hass, configLocation, locale, debug);
+    || findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);
 
   if (!weatherEntity || !hass.states[weatherEntity]) {
     if (debug)

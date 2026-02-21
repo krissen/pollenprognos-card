@@ -106,43 +106,56 @@ export function discoverSilamSensors(hass, debug = false) {
 }
 
 /**
+ * Resolve a discovered location from pre-computed discovery data.
+ * Only falls back to first location when configLocation is empty (autodetect).
+ */
+export function resolveDiscoveredLocation(discovery, configLocation, debug = false) {
+  if (!discovery?.locations?.size) return null;
+
+  if (isConfigEntryId(configLocation) && discovery.locations.has(configLocation)) {
+    return discovery.locations.get(configLocation);
+  }
+  if (configLocation) {
+    const locLower = configLocation.toLowerCase();
+    for (const [, loc] of discovery.locations) {
+      if (loc.label.toLowerCase().includes(locLower)) {
+        return loc;
+      }
+    }
+    // Explicit location that doesn't match — don't silently pick another
+    if (debug)
+      console.debug(
+        "[SILAM] Discovery: explicit location not matched:",
+        configLocation,
+      );
+    return null;
+  }
+  // No location configured → autodetect first available
+  return discovery.locations.values().next().value ?? null;
+}
+
+/**
  * Hitta rätt weather entity för en SILAM-plats.
  *
  * Primärt: discovery-baserad lookup via hass.entities (hanterar omdöpta entiteter).
  * Fallback: regex-match mot weather.silam_pollen_{location}_{suffix} i hass.states.
+ *
+ * @param {object} hass
+ * @param {string} location - config_entry_id, slug, or empty
+ * @param {string} locale
+ * @param {boolean} debug
+ * @param {object} [precomputedDiscovery] - pass to avoid redundant discoverSilamSensors call
  */
-export function findSilamWeatherEntity(hass, location, locale, debug = false) {
+export function findSilamWeatherEntity(hass, location, locale, debug = false, precomputedDiscovery = null) {
   if (!hass) return null;
 
   // Primärt: discovery-baserad lookup (config_entry_id eller slug-match)
-  const discovery = discoverSilamSensors(hass, debug);
-  if (discovery.locations.size > 0) {
-    // Om location är config_entry_id → direkt lookup
-    if (isConfigEntryId(location)) {
-      const loc = discovery.locations.get(location);
-      if (loc?.weatherEntity) return loc.weatherEntity;
-    }
-    // Om location är slug → sök alla locations
-    if (location) {
-      const locLower = location.toLowerCase();
-      for (const [, loc] of discovery.locations) {
-        if (
-          loc.weatherEntity &&
-          loc.label.toLowerCase().includes(locLower)
-        ) {
-          return loc.weatherEntity;
-        }
-      }
-    }
-    // Om location saknas → första tillgängliga
-    if (!location) {
-      const first = discovery.locations.values().next().value;
-      if (first?.weatherEntity) return first.weatherEntity;
-    }
-  }
+  const discovery = precomputedDiscovery || discoverSilamSensors(hass, debug);
+  const resolved = resolveDiscoveredLocation(discovery, location, debug);
+  if (resolved?.weatherEntity) return resolved.weatherEntity;
 
   // Fallback: regex-baserad lookup (äldre HA utan hass.entities)
-  if (!location) return null;
+  if (!location || isConfigEntryId(location)) return null;
   const loc = location.toLowerCase();
   let tried = new Set();
 

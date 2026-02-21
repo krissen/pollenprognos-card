@@ -25,6 +25,7 @@ import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
   discoverSilamSensors,
+  resolveDiscoveredLocation,
   isConfigEntryId,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -444,12 +445,11 @@ class PollenPrognosCard extends LitElement {
 
     if (this.config.integration === "silam" && this.config.location) {
       const configLocation = this.config.location;
-      const locationSlug = configLocation.toLowerCase();
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
-        console.debug("[Card][Debug] locationSlug:", locationSlug);
+        console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, isConfigEntryId(configLocation) ? configLocation : locationSlug, lang, this.debug);
+      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug);
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -1375,27 +1375,14 @@ class PollenPrognosCard extends LitElement {
       } else if (integration === "silam") {
         // Primärt: discovery-baserad title
         let title = "";
-        if (silamDiscovery.locations.size > 0) {
-          const configLocation = cfg.location || "";
-          let discoveredLoc = null;
-          if (isConfigEntryId(configLocation)) {
-            discoveredLoc = silamDiscovery.locations.get(configLocation);
-          } else if (configLocation && configLocation !== "manual") {
-            for (const [, loc] of silamDiscovery.locations) {
-              if (loc.label.toLowerCase().includes(configLocation.toLowerCase())) {
-                discoveredLoc = loc;
-                break;
-              }
-            }
-          }
-          if (!discoveredLoc && silamDiscovery.locations.size) {
-            discoveredLoc = silamDiscovery.locations.values().next().value;
-          }
-          if (discoveredLoc) {
-            title = discoveredLoc.label
-              .replace(/^SILAM Pollen\s*-?\s*/i, "")
-              .trim();
-          }
+        const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+        const discoveredLoc = resolveDiscoveredLocation(
+          silamDiscovery, configLocation, this.debug,
+        );
+        if (discoveredLoc) {
+          title = discoveredLoc.label
+            .replace(/^SILAM Pollen\s*-?\s*/i, "")
+            .trim();
         }
 
         // Fallback: regex-baserad title

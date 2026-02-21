@@ -5,7 +5,7 @@ import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { PLU_ALIAS_MAP } from "../adapters/plu.js";
 import { ATMO_ALLERGEN_MAP } from "../adapters/atmo.js";
 import { discoverGplSensors } from "../adapters/gpl.js";
-import { discoverSilamSensors, isConfigEntryId } from "./silam.js";
+import { discoverSilamSensors, resolveDiscoveredLocation } from "./silam.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -180,24 +180,8 @@ export function findAvailableSensors(cfg, hass, debug = false) {
     // Primärt: entity registry (hanterar omdöpta entiteter)
     const discovery = discoverSilamSensors(hass, debug);
     const configLocation = cfg.location || "";
-    let discoveredSensors = null;
-
-    if (discovery.locations.size > 0) {
-      if (isConfigEntryId(configLocation) && discovery.locations.has(configLocation)) {
-        discoveredSensors = discovery.locations.get(configLocation).sensors;
-      } else if (configLocation) {
-        // Slug-match: hitta plats via label
-        for (const [, loc] of discovery.locations) {
-          if (loc.label.toLowerCase().includes(configLocation.toLowerCase())) {
-            discoveredSensors = loc.sensors;
-            break;
-          }
-        }
-      }
-      if (!discoveredSensors && discovery.locations.size) {
-        discoveredSensors = discovery.locations.values().next().value.sensors;
-      }
-    }
+    const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+    const discoveredSensors = discoveredLoc?.sensors || null;
 
     if (discoveredSensors?.size) {
       // Discovery-baserad lookup

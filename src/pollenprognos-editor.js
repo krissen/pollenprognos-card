@@ -21,6 +21,7 @@ import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/at
 import { stubConfigGPL, GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
 import {
   discoverSilamSensors,
+  resolveDiscoveredLocation,
   isConfigEntryId,
 } from "./utils/silam.js";
 
@@ -86,24 +87,9 @@ class PollenPrognosCardEditor extends LitElement {
     // Primärt: discovery-baserad check
     const discovery = discoverSilamSensors(this._hass, this.debug);
     if (discovery.locations.size > 0) {
-      if (!location) {
-        // Har vi minst en location med weather entity?
-        for (const [, loc] of discovery.locations) {
-          if (loc.weatherEntity) return true;
-        }
-        return false;
-      }
-      if (isConfigEntryId(location)) {
-        const loc = discovery.locations.get(location);
-        return !!loc?.weatherEntity;
-      }
-      // Slug-match
-      const locLower = location.toLowerCase();
-      for (const [, loc] of discovery.locations) {
-        if (loc.weatherEntity && loc.label.toLowerCase().includes(locLower)) {
-          return true;
-        }
-      }
+      const resolved = resolveDiscoveredLocation(discovery, location || "", this.debug);
+      if (resolved) return !!resolved.weatherEntity;
+      // Discovery had data but location didn't match — still try regex fallback
     }
 
     // Fallback: regex-baserad check
