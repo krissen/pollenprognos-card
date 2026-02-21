@@ -275,7 +275,19 @@ export async function fetchForecast(hass, config) {
         const suffix = config.entity_suffix || "";
         const frSlug = ATMO_ALLERGEN_MAP[allergen];
         if (!frSlug) continue;
-        sensorId = `sensor.${prefix}${frSlug}${suffix}`;
+        // Apply same entity pattern as buildEntityId: pollen uses "niveau_" prefix,
+        // summaries use their full slug, pollution uses bare slug
+        let stem;
+        if (allergen === "allergy_risk") {
+          stem = "qualite_globale_pollen";
+        } else if (allergen === "qualite_globale") {
+          stem = "qualite_globale";
+        } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+          stem = frSlug;
+        } else {
+          stem = `niveau_${frSlug}`;
+        }
+        sensorId = `sensor.${prefix}${stem}${suffix}`;
         if (!hass.states[sensorId]) {
           if (suffix === "") {
             const base = `sensor.${prefix}${frSlug}`;
