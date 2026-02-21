@@ -1704,8 +1704,8 @@ class PollenPrognosCard extends LitElement {
                 const id = `sensor.silam_pollen_${loc}_${key}`;
                 return availableSensors.includes(id);
               }
-              // config_entry_id path: trust entity_id from adapter
-              return true;
+              // config_entry_id path: entity_id saknas → sensorn hittades inte
+              return false;
             }
             return true;
           });
