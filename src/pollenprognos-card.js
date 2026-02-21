@@ -429,9 +429,11 @@ class PollenPrognosCard extends LitElement {
 
     // Avsluta tidigare subscription (alltid promisifierat)
     if (this._forecastUnsub) {
-      Promise.resolve(this._forecastUnsub).then((fn) => {
-        if (typeof fn === "function") fn();
-      });
+      Promise.resolve(this._forecastUnsub)
+        .then((fn) => {
+          if (typeof fn === "function") fn();
+        })
+        .catch(() => {});
       this._forecastUnsub = null;
     }
 
@@ -463,7 +465,7 @@ class PollenPrognosCard extends LitElement {
       }
       if (entityId) {
         this._error = null; // Clear location errors when entity is found
-        this._forecastUnsub = this._hass.connection.subscribeMessage(
+        const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
             if (this.debug) {
               console.debug(
@@ -482,6 +484,21 @@ class PollenPrognosCard extends LitElement {
             forecast_type: forecastType,
           },
         );
+        subPromise.catch((err) => {
+          console.warn(
+            "[Card][subscribeForecast] Subscription failed for",
+            entityId,
+            err,
+          );
+          this._forecastUnsub = null;
+          this.sensors = [];
+          this._availableSensorCount = 0;
+          this._forecastEvent = null;
+          this._isLoaded = true;
+          this._error = "card.error_location_not_found";
+          this.requestUpdate();
+        });
+        this._forecastUnsub = subPromise;
         if (this.debug) {
           console.debug("[Card][subscribeForecast] Subscribed for", entityId);
         }

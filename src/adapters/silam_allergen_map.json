@@ -211,36 +211,47 @@
   },
   "weather_suffixes": {
     "nl": [
+      "forecast",
       "forecast_beta"
     ],
     "de": [
+      "forecast",
       "pollen_vorhersage_beta"
     ],
     "ru": [
+      "forecast",
       "beta"
     ],
     "fi": [
+      "forecast",
       "siitepolyennuste_beta"
     ],
     "sk": [
+      "forecast",
       "predpoved_beta"
     ],
     "en": [
+      "forecast",
       "pollen_forecast_beta"
     ],
     "it": [
+      "forecast",
       "previsione_del_polline_beta"
     ],
     "cs": [
+      "forecast",
       "predpoved_beta"
     ],
     "no": [
+      "forecast",
       "pollenprognose_beta"
     ],
     "da": [
+      "forecast",
       "pollenprognose_beta"
     ],
     "sv": [
+      "forecast",
       "pollenprognos_beta"
     ]
   }
