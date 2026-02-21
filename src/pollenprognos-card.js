@@ -22,7 +22,12 @@ import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { stubConfigATMO } from "./adapters/atmo.js";
 import { stubConfigGPL, GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
-import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
+import {
+  findSilamWeatherEntity,
+  discoverSilamSensors,
+  resolveDiscoveredLocation,
+  isConfigEntryId,
+} from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
@@ -439,25 +444,12 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.config.integration === "silam" && this.config.location) {
-      const locationSlug = this.config.location.toLowerCase();
+      const configLocation = this.config.location;
       const lang = this.config?.date_locale?.split("-")[0] || "en";
-      const suffixes =
-        silamAllergenMap.weather_suffixes?.[lang] ||
-        silamAllergenMap.weather_suffixes?.en ||
-        [];
       if (this.debug) {
-        const allWeather = Object.keys(this._hass.states).filter(
-          (id) =>
-            typeof id === "string" && id.startsWith("weather.silam_pollen_"),
-        );
-        console.debug(
-          "[Card][Debug] Alla weather-entities i hass.states:",
-          allWeather,
-        );
-        console.debug("[Card][Debug] locationSlug:", locationSlug);
-        console.debug("[Card][Debug] Suffixes:", suffixes);
+        console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, locationSlug, lang);
+      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug);
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -967,9 +959,21 @@ class PollenPrognosCard extends LitElement {
       (id) =>
         typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
-    const silamStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-    );
+    // SILAM: primary via hass.entities, fallback via regex
+    const silamDiscovery = discoverSilamSensors(hass, this.debug);
+    let silamStates = [];
+    if (silamDiscovery.locations.size > 0) {
+      for (const [, loc] of silamDiscovery.locations) {
+        for (const eid of loc.sensors.values()) {
+          silamStates.push(eid);
+        }
+      }
+    }
+    if (!silamStates.length) {
+      silamStates = Object.keys(hass.states).filter(
+        (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
+      );
+    }
     const kleenexStates = Object.keys(hass.states).filter(
       (id) =>
         typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
@@ -1175,26 +1179,36 @@ class PollenPrognosCard extends LitElement {
       !cfg.location &&
       silamStates.length
     ) {
-      // Samla alla unika location-namn från entity_id
-      const silamLocations = Array.from(
-        new Set(
-          silamStates
-            .map((eid) => {
-              // sensor.silam_pollen_<location>_<allergen>
-              // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
-              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = silamLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][SILAM] Auto-set location (location):",
-          cfg.location,
-          silamLocations,
+      // Primärt: discovery-baserad auto-select (config_entry_id)
+      if (silamDiscovery.locations.size > 0) {
+        const firstLocId = silamDiscovery.locations.keys().next().value;
+        cfg.location = firstLocId || null;
+        if (this.debug)
+          console.debug(
+            "[Card][SILAM] Auto-set location (discovery):",
+            cfg.location,
+            [...silamDiscovery.locations.keys()],
+          );
+      } else {
+        // Fallback: regex-baserad auto-select (slug)
+        const silamLocations = Array.from(
+          new Set(
+            silamStates
+              .map((eid) => {
+                const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                return m ? m[1] : null;
+              })
+              .filter(Boolean),
+          ),
         );
+        cfg.location = silamLocations[0] || null;
+        if (this.debug)
+          console.debug(
+            "[Card][SILAM] Auto-set location (regex):",
+            cfg.location,
+            silamLocations,
+          );
+      }
     } else if (
       integration === "kleenex" &&
       cfg.location !== "manual" &&
@@ -1359,68 +1373,72 @@ class PollenPrognosCard extends LitElement {
         }
         loc = wantedSlug ? title || cfg.location || "" : title;
       } else if (integration === "silam") {
-        const pollenAllergens = [
-          "alder",
-          "birch",
-          "grass",
-          "hazel",
-          "mugwort",
-          "olive",
-          "ragweed",
-        ];
-        const SilamValidAllergenSlugs = new Set(
-          Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
-            Object.entries(langMap)
-              .filter(([localSlug, engAllergen]) =>
-                pollenAllergens.includes(engAllergen),
-              )
-              .map(([localSlug]) => localSlug),
-          ),
-        );
-        // Hämta alla silam-entities med giltig allergen
-        const silamEntities = Object.values(hass.states).filter((s) => {
-          if (
-            !s ||
-            typeof s !== "object" ||
-            typeof s.entity_id !== "string" ||
-            !s.entity_id.startsWith("sensor.silam_pollen_")
-          )
-            return false;
-          const match = s.entity_id.match(
-            /^sensor\.silam_pollen_(.*)_([^_]+)$/,
-          );
-          if (!match) return false;
-          const allergenSlug = match[2];
-          return SilamValidAllergenSlugs.has(allergenSlug);
-        });
-        const wantedSlug =
-          cfg.location && cfg.location !== "manual"
-            ? slugify(cfg.location)
-            : "";
-
-        // Hitta första entity med samma slugificerade location
-        const match = wantedSlug
-          ? silamEntities.find((s) => {
-              const eid = s.entity_id.replace("sensor.silam_pollen_", "");
-              const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
-              return slugify(locPart) === wantedSlug;
-            })
-          : null;
-
+        // Primärt: discovery-baserad title
         let title = "";
-        if (match) {
-          const attr = match.attributes;
-          title =
-            attr.location_title ||
-            attr.friendly_name
-              ?.replace(/^SILAM Pollen\s*-?\s*/i, "")
-              .replace(/\s+\p{L}+$/u, "")
-              .trim() ||
-            cfg.location;
-          title = title.replace(/^[-\s]+/, "");
+        const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+        const discoveredLoc = resolveDiscoveredLocation(
+          silamDiscovery, configLocation, this.debug,
+        );
+        if (discoveredLoc) {
+          title = discoveredLoc.label
+            .replace(/^SILAM Pollen\s*-?\s*/i, "")
+            .trim();
         }
 
-        loc = wantedSlug ? title || cfg.location || "" : title;
+        // Fallback: regex-baserad title
+        if (!title && cfg.location && cfg.location !== "manual") {
+          const pollenAllergens = [
+            "alder", "birch", "grass", "hazel", "mugwort", "olive", "ragweed",
+          ];
+          const SilamValidAllergenSlugs = new Set(
+            Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
+              Object.entries(langMap)
+                .filter(([, engAllergen]) =>
+                  pollenAllergens.includes(engAllergen),
+                )
+                .map(([localSlug]) => localSlug),
+            ),
+          );
+          const silamEntities = Object.values(hass.states).filter((s) => {
+            if (
+              !s ||
+              typeof s !== "object" ||
+              typeof s.entity_id !== "string" ||
+              !s.entity_id.startsWith("sensor.silam_pollen_")
+            )
+              return false;
+            const match = s.entity_id.match(
+              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+            );
+            if (!match) return false;
+            return SilamValidAllergenSlugs.has(match[2]);
+          });
+          const wantedSlug = slugify(cfg.location);
+          const match = wantedSlug
+            ? silamEntities.find((s) => {
+                const eid = s.entity_id.replace("sensor.silam_pollen_", "");
+                const locPart = eid
+                  .replace(/_[^_]+$/, "")
+                  .replace(/^[-\s]+/, "");
+                return slugify(locPart) === wantedSlug;
+              })
+            : null;
+          if (match) {
+            const attr = match.attributes;
+            title =
+              attr.location_title ||
+              attr.friendly_name
+                ?.replace(/^SILAM Pollen\s*-?\s*/i, "")
+                .replace(/\s+\p{L}+$/u, "")
+                .trim() ||
+              cfg.location;
+            title = title.replace(/^[-\s]+/, "");
+          }
+        }
+
+        loc = cfg.location && cfg.location !== "manual"
+          ? title || cfg.location || ""
+          : title;
       } else if (integration === "kleenex") {
         // Kleenex pollen radar: extract location from sensor attributes
         const kleenexEntities = Object.values(hass.states).filter((s) => {
@@ -1649,66 +1667,47 @@ class PollenPrognosCard extends LitElement {
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
           const availableSensorCount = availableSensors.length;
 
-          // --- AUTODETECT HASS-SLUG-SPRÅK FÖR SILAM ---
-          let silamReverse = {};
-          if (cfg.integration === "silam") {
-            // Alla silam-entiteter för platsen
-            const silamStates = Object.keys(hass.states).filter((id) => {
-              const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              return m && m[1] === (cfg.location || "");
-            });
-
-            // Loopa igenom alla sensors och alla mapping-språk
-            for (const eid of silamStates) {
-              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              if (!m) continue;
-              const haSlug = m[2];
-              // Gå igenom alla språk och leta master-slug
-              let found = false;
-              for (const [lang, mapping] of Object.entries(
-                silamAllergenMap.mapping,
-              )) {
-                if (mapping[haSlug]) {
-                  silamReverse[mapping[haSlug]] = haSlug;
-                  found = true;
-                  break; // sluta efter första träff (det räcker, unikt per system)
-                }
-              }
-              // Om ingen träff – debugga gärna
-              if (!found && this.debug) {
-                console.debug(
-                  `[Card][SILAM] Hittade ingen mapping för haSlug: '${haSlug}'`,
-                );
-              }
-            }
-            if (this.debug) {
-              console.debug(
-                "[Card][SILAM] silamReverse byggd baserat på existerande sensors:",
-                silamReverse,
-              );
-            }
-          }
-
           // Filtrera adapterns sensors så att endast de finns i availableSensors
           let filtered = sensors.filter((s) => {
             if (
               cfg.integration === "silam" &&
-              silamReverse &&
               (!cfg.mode || cfg.mode === "daily")
             ) {
-              const loc = cfg.location || "";
-              // Mappar master->haSlug för entity_id
-              const key =
-                silamReverse[s.allergenReplaced] || s.allergenReplaced;
-              const id = `sensor.silam_pollen_${loc}_${key}`;
-              if (this.debug) {
-                console.debug(
-                  `[Card][Debug][SILAM filter] allergenReplaced: '${s.allergenReplaced}', key: '${key}', id: '${id}', available: ${availableSensors.includes(id)}`,
-                );
+              // entity_id sätts av adaptern (discovery eller regex)
+              if (s.entity_id) {
+                return availableSensors.includes(s.entity_id);
               }
-              return availableSensors.includes(id);
+              // Fallback: bygg entity_id med silamReverse (äldre path)
+              const configLocation = cfg.location || "";
+              let silamReverse = {};
+              if (!isConfigEntryId(configLocation)) {
+                const loc = configLocation;
+                const locStates = Object.keys(hass.states).filter((id) => {
+                  const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                  return m && m[1] === loc;
+                });
+                for (const eid of locStates) {
+                  const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                  if (!m) continue;
+                  const haSlug = m[2];
+                  for (const [, mapping] of Object.entries(
+                    silamAllergenMap.mapping,
+                  )) {
+                    if (mapping[haSlug]) {
+                      silamReverse[mapping[haSlug]] = haSlug;
+                      break;
+                    }
+                  }
+                }
+                const key =
+                  silamReverse[s.allergenReplaced] || s.allergenReplaced;
+                const id = `sensor.silam_pollen_${loc}_${key}`;
+                return availableSensors.includes(id);
+              }
+              // config_entry_id path: entity_id saknas → sensorn hittades inte
+              return false;
             }
-            return true; // fallback: visa alla
+            return true;
           });
 
           // Endast *normalisering/namn*-filtrering för de andra integrationerna!

@@ -5,6 +5,7 @@ import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { PLU_ALIAS_MAP } from "../adapters/plu.js";
 import { ATMO_ALLERGEN_MAP } from "../adapters/atmo.js";
 import { discoverGplSensors } from "../adapters/gpl.js";
+import { discoverSilamSensors, resolveDiscoveredLocation } from "./silam.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -176,39 +177,54 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (exists) sensors.push(sensorId);
     }
   } else if (integration === "silam") {
-    const locationSlug = (cfg.location || "").toLowerCase();
-    for (const allergen of cfg.allergens || []) {
-      // Leta i ALLA språk-mappingar tills vi hittar rätt Home Assistant-slug
-      let hassSlug = null;
-      for (const mapping of Object.values(silamAllergenMap.mapping)) {
-        // mapping: { haSlug: "master" }
-        // Vi behöver master->haSlug, så invertera:
-        const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
-          acc[master] = ha;
-          return acc;
-        }, {});
-        if (inv[allergen]) {
-          const candidateSlug = inv[allergen];
-          const sensorId = `sensor.silam_pollen_${locationSlug}_${candidateSlug}`;
-          if (hass.states[sensorId]) {
-            hassSlug = candidateSlug;
-            // Hittade en existerande sensor!
-            if (debug) {
-              console.debug(
-                `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', hassSlug: '${hassSlug}', sensorId: '${sensorId}', exists: true`,
-                hass.states[sensorId],
-              );
+    // Primärt: entity registry (hanterar omdöpta entiteter)
+    const discovery = discoverSilamSensors(hass, debug);
+    const configLocation = cfg.location || "";
+    const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+    const discoveredSensors = discoveredLoc?.sensors || null;
+
+    if (discoveredSensors?.size) {
+      // Discovery-baserad lookup
+      for (const allergen of cfg.allergens || []) {
+        const sensorId = discoveredSensors.get(allergen) || null;
+        const exists = sensorId && !!hass.states[sensorId];
+        if (debug) {
+          console.debug(
+            `[findAvailableSensors][silam][discovery] allergen: '${allergen}', sensorId: '${sensorId}', exists: ${exists}`,
+          );
+        }
+        if (exists) sensors.push(sensorId);
+      }
+    } else {
+      // Fallback: regex-baserad lookup (äldre HA utan hass.entities)
+      const locationSlug = configLocation.toLowerCase();
+      for (const allergen of cfg.allergens || []) {
+        let hassSlug = null;
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inv[allergen]) {
+            const candidateSlug = inv[allergen];
+            const sensorId = `sensor.silam_pollen_${locationSlug}_${candidateSlug}`;
+            if (hass.states[sensorId]) {
+              hassSlug = candidateSlug;
+              if (debug) {
+                console.debug(
+                  `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', hassSlug: '${hassSlug}', sensorId: '${sensorId}', exists: true`,
+                );
+              }
+              sensors.push(sensorId);
+              break;
             }
-            sensors.push(sensorId);
-            break;
           }
         }
-      }
-      // Om vi inte hittade någon, debugga gärna:
-      if (!hassSlug && debug) {
-        console.debug(
-          `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', ingen sensor hittades!`,
-        );
+        if (!hassSlug && debug) {
+          console.debug(
+            `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', ingen sensor hittades!`,
+          );
+        }
       }
     }
   } else if (integration === "kleenex") {
