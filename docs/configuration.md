@@ -183,6 +183,10 @@ ragweed
 index
 ```
 
+#### Sensor detection
+
+The card tries to discover SILAM entities via the Home Assistant entity registry when available. If registry data is unavailable, it falls back to entity-id pattern matching; in that case renamed entities may not be detected. If the card does not find your sensors, set `location` explicitly in your config or use `location: manual` with `entity_prefix`/`entity_suffix`.
+
 #### SILAM threshold values
 
 For the SILAM integration, each allergen uses the following threshold values to determine pollen levels:
