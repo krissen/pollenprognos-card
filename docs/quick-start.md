@@ -60,7 +60,7 @@ location: stockholm
 # SILAM Pollen
 type: custom:pollenprognos-card
 integration: silam
-location: stockholm
+location: stockholm  # set explicitly if autodetection misses your location
 
 # Kleenex Pollen Radar
 type: custom:pollenprognos-card

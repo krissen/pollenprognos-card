@@ -56,7 +56,7 @@ A custom card for the DWD Pollenflug integration.
 
 - **Built-in SVG icon system** with 24+ scalable allergen icons and customizable colors
 - **Visual Home Assistant editor** for complete configuration without YAML editing
-- **Dynamic localization** in 13 languages that automatically follows Home Assistant's language setting
+- **Dynamic localization** in 14 languages that automatically follows Home Assistant's language setting
 - **Auto-detection** of available integrations and sensors
 - **HACS official repository** status with automatic updates
 - **Multiple display modes** including minimal, daily, hourly, and twice-daily forecast layouts
