@@ -103,6 +103,7 @@ Thank you to everyone who has contributed to this project:
 - [@danishru](https://github.com/danishru) - SILAM adapter improvements
 - [@hardebusch](https://github.com/hardebusch) - German translation improvements
 - [@Krzysztonek](https://github.com/Krzysztonek) - Polish localization
+- [@AndreasSkarpelos](https://github.com/AndreasSkarpelos) - Greek localization
 
 ---
 
