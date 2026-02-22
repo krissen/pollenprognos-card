@@ -56,6 +56,7 @@ Located in `src/adapters/`, each file exports:
 - `silam.js` - SILAM Pollen Allergy Sensor (forecast-based)
 - `kleenex.js` - Kleenex Pollen Radar (Dutch)
 - `plu.js` - Pollen.lu (Luxembourg)
+- `atmo.js` - Atmo France (French air quality/pollen)
 - `gpl.js` - Google Pollen Levels (global, via pollenlevels HACS integration)
 
 When adding support for a new integration, create a new adapter file following the existing pattern and register it in `src/constants.js` ADAPTERS map.
@@ -85,7 +86,7 @@ When adding support for a new integration, create a new adapter file following t
 - Eagerly loads all locale files from `src/locales/*.json` using Vite's `import.meta.glob`
 - `detectLang()` - Auto-detects language from Home Assistant settings
 - `t()` - Translation function using IntlMessageFormat for variable interpolation
-- 13 supported languages: cs, da, de, en, fi, fr, it, nl, no, pl, ru, sk, sv
+- 14 supported languages: cs, da, de, el, en, fi, fr, it, nl, no, pl, ru, sk, sv
 
 **Locale Files** (`src/locales/*.json`)
 - Flat JSON structure with dot-separated keys

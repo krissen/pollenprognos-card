@@ -13,6 +13,7 @@ This repository includes:
 - `src/locales/cs.json`
 - `src/locales/da.json`
 - `src/locales/de.json`
+- `src/locales/el.json`
 - `src/locales/en.json`
 - `src/locales/fi.json`
 - `src/locales/fr.json`

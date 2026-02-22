@@ -51,7 +51,7 @@ Install one of the supported integrations above. The card auto-detects which ada
 - **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
 - **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics
 - **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts
-- **Full Localization**: Dynamic language support with 13 translations following Home Assistant's language setting
+- **Full Localization**: Dynamic language support with 14 translations following Home Assistant's language setting
 - **Extensive Customization**: Configure colors, layouts, text size, sorting, and display options through the visual editor
 - **HACS Integration**: Official HACS repository with automatic updates and easy installation
 
