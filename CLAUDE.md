@@ -56,6 +56,7 @@ Located in `src/adapters/`, each file exports:
 - `silam.js` - SILAM Pollen Allergy Sensor (forecast-based)
 - `kleenex.js` - Kleenex Pollen Radar (Dutch)
 - `plu.js` - Pollen.lu (Luxembourg)
+- `gpl.js` - Google Pollen Levels (global, via pollenlevels HACS integration)
 
 When adding support for a new integration, create a new adapter file following the existing pattern and register it in `src/constants.js` ADAPTERS map.
 

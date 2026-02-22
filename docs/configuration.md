@@ -21,6 +21,8 @@ In this file:
   - [Kleenex Pollen Radar](#kleenex-pollen-radar)
     - [Category vs Individual Allergens](#category-vs-individual-allergens)
   - [Pollen.lu (PLU)](#pollenlu-plu)
+  - [Atmo France](#atmo-france)
+  - [Google Pollen Levels (GPL)](#google-pollen-levels-gpl)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -34,10 +36,10 @@ In this file:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu` or `kleenex`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo` or `gpl`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM, Kleenex only)* | `string` | **Required** (PEU/SILAM/Kleenex) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. |
+| `location` *(PEU, SILAM, Kleenex, Atmo, GPL)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For GPL, this is the `config_entry_id` of the `pollenlevels` config entry; leave empty for auto-detection when only one location is configured. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -79,8 +81,11 @@ In this file:
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. Available options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`, `none`. |
-| `sort_category_allergens_first` *(Kleenex only)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
-| `allergy_risk_top` *(PEU only)* | `boolean` | `true` | Show the `allergy_risk` or `index` sensor first in the list. |
+| `sort_category_allergens_first` *(Kleenex, GPL)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
+| `allergy_risk_top` *(PEU, Atmo)* | `boolean` | `true` | Show the `allergy_risk` and `qualite_globale` summary sensors first in the list. |
+| `sort_pollution_block` *(Atmo only)* | `boolean` | `true` | Group pollution sensors (PM2.5, PM10, O₃, NO₂, SO₂) separately from pollen allergens. Only applies when `sort` is not `none`. |
+| `pollution_block_position` *(Atmo only)* | `string` | `bottom` | Where to place the pollution group relative to pollen: `top` or `bottom`. Requires `sort_pollution_block: true`. |
+| `show_block_separator` *(Atmo only)* | `boolean` | `false` | Show a visual separator line between pollen and pollution groups. Requires `sort_pollution_block: true`. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
@@ -247,6 +252,53 @@ Sensors follow the pattern `sensor.pollen_<slug>` where `<slug>` matches one of 
 
 Use the localized allergen names in the editor; the card stores the canonical keys listed above in the configuration.
 
+### Atmo France
+
+The Atmo France integration provides pollen levels for French cities. Levels range from 0 to 6 and map directly to the card's scale without any conversion. The integration also provides optional J+1 (next-day) forecasts.
+
+```
+allergy_risk
+ragweed
+mugwort
+alder
+birch
+grass
+olive
+```
+
+Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for individual allergens and `sensor.qualite_globale_pollen_{city_slug}` for the global allergy risk. The `allergy_risk` allergen shows the overall pollen quality index and can be pinned to the top of the list with `allergy_risk_top: true`.
+
+### Google Pollen Levels (GPL)
+
+The Google Pollen Levels integration provides global pollen data via the Google Maps Pollen API. The card detects sensors by their platform or attribution attributes — entity IDs can be freely renamed or localized without affecting detection. See [integrations.md](integrations.md#google-pollen-levels--design-decisions) for details.
+
+```
+# Category sensors (type sensors)
+grass_cat
+trees_cat
+weeds_cat
+# Individual plant sensors (availability varies by region)
+alder
+ash
+birch
+cottonwood
+cypress_pine
+elm
+graminales
+hazel
+juniper
+maple
+mugwort
+oak
+olive
+pine
+ragweed
+```
+
+Levels range from 0 to 5 and are displayed with 5 doughnut segments. Level names are mapped to the card's standard terms (see [integrations.md](integrations.md#level-scale)). Forecast data is read from the sensor's `attributes.forecast[]` array.
+
+Like Kleenex, GPL distinguishes between category sensors and individual plant sensors. Category allergens can be sorted to the top of the list with `sort_category_allergens_first: true` (enabled by default).
+
 ## Color System Overview
 
 The card provides advanced color management with two interconnected systems:
@@ -333,6 +385,52 @@ type: custom:pollenprognos-card
 integration: kleenex
 location: amsterdam  # Location will be auto-detected if omitted
 days_to_show: 5
+```
+
+**Atmo France**
+
+```yaml
+type: custom:pollenprognos-card
+integration: atmo
+location: lyon  # Location will be auto-detected if omitted
+days_to_show: 2
+```
+
+Atmo France supports both pollen allergens and air quality (pollution) sensors. By default, pollution sensors are grouped below pollen. The `allergy_risk_top` option keeps the pollen index and air quality index at the top of the list.
+
+```yaml
+type: custom:pollenprognos-card
+integration: atmo
+allergy_risk_top: true            # Summary indices at the top
+sort_pollution_block: true        # Group pollution separately (default)
+pollution_block_position: bottom  # Pollution below pollen (default)
+show_block_separator: false      # Show line between blocks (default: off)
+allergens:
+  - allergy_risk
+  - qualite_globale
+  - birch
+  - grass
+  - olive
+  - pm25
+  - pm10
+  - ozone
+  - no2
+  - so2
+```
+
+**Google Pollen Levels**
+
+```yaml
+type: custom:pollenprognos-card
+integration: gpl
+# location auto-detected; set config_entry_id for multi-location setups
+days_to_show: 5
+allergens:
+  - grass_cat
+  - trees_cat
+  - weeds_cat
+  - birch
+  - oak
 ```
 
 **Minimal layout**

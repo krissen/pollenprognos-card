@@ -1,0 +1,54 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="200.000000pt" height="200.000000pt" viewBox="0 0 200.000000 200.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,200.000000) scale(0.100000,-0.100000)"
+fill="currentColor" stroke="none">
+<!-- Asymmetric anatomical lungs silhouette for Air Quality Index -->
+
+<!-- Trachea -->
+<path d="M 970 1860 L 970 1580 L 1030 1580 L 1030 1860 Z"/>
+
+<!-- Left bronchus (even-width tube, steeper angle) -->
+<path d="
+M 970 1580
+Q 925 1518 878 1448
+L 905 1460
+Q 948 1528 993 1580
+Z"/>
+
+<!-- Left lung: narrower, taller, with cardiac notch on inner-lower edge -->
+<path d="
+M 880 1450
+C 810 1490 720 1500 650 1470
+C 520 1400 400 1260 340 1060
+C 280 860 270 670 290 520
+C 310 370 400 290 530 260
+C 660 230 770 280 840 370
+C 880 420 900 480 910 560
+C 920 640 925 730 930 850
+Z"/>
+
+<!-- Right bronchus (even-width tube, gentler angle) -->
+<path d="
+M 1030 1580
+Q 1075 1518 1122 1448
+L 1095 1460
+Q 1052 1528 1007 1580
+Z"/>
+
+<!-- Right lung: wider, slightly shorter (liver pushes base up) -->
+<path d="
+M 1120 1450
+C 1190 1490 1300 1510 1380 1480
+C 1520 1410 1660 1270 1730 1060
+C 1800 850 1800 660 1770 520
+C 1740 380 1650 310 1510 290
+C 1370 260 1240 290 1160 380
+C 1100 440 1080 540 1075 680
+Z"/>
+</g>
+</svg>

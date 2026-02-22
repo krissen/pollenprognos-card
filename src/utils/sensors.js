@@ -3,6 +3,9 @@ import { normalize, normalizeDWD } from "./normalize.js";
 import { slugify } from "./slugify.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { PLU_ALIAS_MAP } from "../adapters/plu.js";
+import { ATMO_ALLERGEN_MAP } from "../adapters/atmo.js";
+import { discoverGplSensors } from "../adapters/gpl.js";
+import { discoverSilamSensors, resolveDiscoveredLocation } from "./silam.js";
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
 
 export function findAvailableSensors(cfg, hass, debug = false) {
@@ -14,7 +17,7 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const manual =
     cfg.city === "manual" ||
     cfg.region_id === "manual" ||
-    (cfg.location === "manual" && integration !== "kleenex");
+    (cfg.location === "manual" && integration !== "kleenex" && integration !== "gpl");
   if (manual) {
     let prefix = cfg.entity_prefix || "";
     // Remove 'sensor.' prefix if user included it
@@ -30,6 +33,8 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       let slug;
       if (integration === "dwd") {
         slug = normalizeDWD(allergen);
+      } else if (integration === "atmo") {
+        slug = ATMO_ALLERGEN_MAP[allergen] || normalize(allergen);
       } else if (integration === "silam") {
         slug = null;
         for (const mapping of Object.values(silamAllergenMap.mapping)) {
@@ -172,39 +177,54 @@ export function findAvailableSensors(cfg, hass, debug = false) {
       if (exists) sensors.push(sensorId);
     }
   } else if (integration === "silam") {
-    const locationSlug = (cfg.location || "").toLowerCase();
-    for (const allergen of cfg.allergens || []) {
-      // Leta i ALLA språk-mappingar tills vi hittar rätt Home Assistant-slug
-      let hassSlug = null;
-      for (const mapping of Object.values(silamAllergenMap.mapping)) {
-        // mapping: { haSlug: "master" }
-        // Vi behöver master->haSlug, så invertera:
-        const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
-          acc[master] = ha;
-          return acc;
-        }, {});
-        if (inv[allergen]) {
-          const candidateSlug = inv[allergen];
-          const sensorId = `sensor.silam_pollen_${locationSlug}_${candidateSlug}`;
-          if (hass.states[sensorId]) {
-            hassSlug = candidateSlug;
-            // Hittade en existerande sensor!
-            if (debug) {
-              console.debug(
-                `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', hassSlug: '${hassSlug}', sensorId: '${sensorId}', exists: true`,
-                hass.states[sensorId],
-              );
+    // Primärt: entity registry (hanterar omdöpta entiteter)
+    const discovery = discoverSilamSensors(hass, debug);
+    const configLocation = cfg.location || "";
+    const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+    const discoveredSensors = discoveredLoc?.sensors || null;
+
+    if (discoveredSensors?.size) {
+      // Discovery-baserad lookup
+      for (const allergen of cfg.allergens || []) {
+        const sensorId = discoveredSensors.get(allergen) || null;
+        const exists = sensorId && !!hass.states[sensorId];
+        if (debug) {
+          console.debug(
+            `[findAvailableSensors][silam][discovery] allergen: '${allergen}', sensorId: '${sensorId}', exists: ${exists}`,
+          );
+        }
+        if (exists) sensors.push(sensorId);
+      }
+    } else {
+      // Fallback: regex-baserad lookup (äldre HA utan hass.entities)
+      const locationSlug = configLocation.toLowerCase();
+      for (const allergen of cfg.allergens || []) {
+        let hassSlug = null;
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inv = Object.entries(mapping).reduce((acc, [ha, master]) => {
+            acc[master] = ha;
+            return acc;
+          }, {});
+          if (inv[allergen]) {
+            const candidateSlug = inv[allergen];
+            const sensorId = `sensor.silam_pollen_${locationSlug}_${candidateSlug}`;
+            if (hass.states[sensorId]) {
+              hassSlug = candidateSlug;
+              if (debug) {
+                console.debug(
+                  `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', hassSlug: '${hassSlug}', sensorId: '${sensorId}', exists: true`,
+                );
+              }
+              sensors.push(sensorId);
+              break;
             }
-            sensors.push(sensorId);
-            break;
           }
         }
-      }
-      // Om vi inte hittade någon, debugga gärna:
-      if (!hassSlug && debug) {
-        console.debug(
-          `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', ingen sensor hittades!`,
-        );
+        if (!hassSlug && debug) {
+          console.debug(
+            `[findAvailableSensors][silam] allergen: '${allergen}', locationSlug: '${locationSlug}', ingen sensor hittades!`,
+          );
+        }
       }
     }
   } else if (integration === "kleenex") {
@@ -361,6 +381,121 @@ export function findAvailableSensors(cfg, hass, debug = false) {
 
       if (sensorId) {
         sensors.push(sensorId);
+      }
+    }
+  } else if (integration === "atmo") {
+    const location = (cfg.location || "").toLowerCase();
+    const pollutionAllergens = new Set(["pm25", "pm10", "ozone", "no2", "so2"]);
+    for (const allergen of cfg.allergens || []) {
+      const frSlug = ATMO_ALLERGEN_MAP[allergen];
+      if (!frSlug) continue;
+
+      let sensorId;
+      if (allergen === "allergy_risk") {
+        sensorId = location
+          ? `sensor.qualite_globale_pollen_${location}`
+          : null;
+      } else if (allergen === "qualite_globale") {
+        sensorId = location
+          ? `sensor.qualite_globale_${location}`
+          : null;
+      } else if (pollutionAllergens.has(allergen)) {
+        sensorId = location
+          ? `sensor.${frSlug}_${location}`
+          : null;
+      } else {
+        sensorId = location
+          ? `sensor.niveau_${frSlug}_${location}`
+          : null;
+      }
+
+      let exists = sensorId && !!hass.states[sensorId];
+      if (!exists) {
+        // Fallback: search for matching entity
+        let prefix;
+        if (allergen === "allergy_risk") {
+          prefix = "sensor.qualite_globale_pollen_";
+        } else if (allergen === "qualite_globale") {
+          prefix = "sensor.qualite_globale_";
+        } else if (pollutionAllergens.has(allergen)) {
+          prefix = `sensor.${frSlug}_`;
+        } else {
+          prefix = `sensor.niveau_${frSlug}_`;
+        }
+        const candidates = Object.keys(hass.states).filter((id) => {
+          if (!id.startsWith(prefix) || id.includes("_j_")) return false;
+          if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
+          return true;
+        });
+        if (candidates.length === 1) {
+          sensorId = candidates[0];
+          exists = true;
+        }
+      }
+
+      if (debug) {
+        console.debug(
+          `[findAvailableSensors][atmo] allergen: '${allergen}', frSlug: '${frSlug}', location: '${location}', sensorId: '${sensorId}', exists: ${exists}`,
+        );
+      }
+      if (exists) sensors.push(sensorId);
+    }
+  } else if (integration === "gpl") {
+    const discovery = discoverGplSensors(hass, debug);
+    const configEntryId = cfg.location || "";
+
+    if (configEntryId === "manual") {
+      // Manual mode: use discovery to find all GPL sensors, then filter by prefix/suffix
+      let prefix = cfg.entity_prefix || "";
+      if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
+      const suffix = cfg.entity_suffix || "";
+
+      // Check each allergen across all discovered locations, matching prefix/suffix
+      for (const allergen of cfg.allergens || []) {
+        let matched = false;
+        for (const loc of discovery.locations.values()) {
+          const eid = loc.entities.get(allergen);
+          if (!eid) continue;
+          const idPart = eid.replace(/^sensor\./, "");
+          if (prefix && !idPart.startsWith(prefix)) continue;
+          if (suffix && !idPart.endsWith(suffix)) continue;
+          if (hass.states[eid]) {
+            sensors.push(eid);
+            matched = true;
+
+            if (debug) {
+              console.debug(
+                `[findAvailableSensors][gpl][manual] allergen: '${allergen}', prefix: '${prefix}', suffix: '${suffix}', eid: '${eid}', exists: true`,
+              );
+            }
+            break;
+          }
+        }
+        if (debug && !matched) {
+          console.debug(
+            `[findAvailableSensors][gpl][manual] allergen: '${allergen}', prefix: '${prefix}', suffix: '${suffix}', no match found`,
+          );
+        }
+      }
+    } else {
+      // Discovery-based lookup
+      let entityMap = null;
+      if (configEntryId && discovery.locations.has(configEntryId)) {
+        entityMap = discovery.locations.get(configEntryId).entities;
+      } else if (discovery.locations.size) {
+        entityMap = discovery.locations.values().next().value.entities;
+      }
+
+      for (const allergen of cfg.allergens || []) {
+        const sensorId = entityMap?.get(allergen) || null;
+        const exists = sensorId && !!hass.states[sensorId];
+
+        if (debug) {
+          console.debug(
+            `[findAvailableSensors][gpl] allergen: '${allergen}', configEntryId: '${configEntryId}', sensorId: '${sensorId}', exists: ${exists}`,
+          );
+        }
+        if (exists) sensors.push(sensorId);
       }
     }
   }

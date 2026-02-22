@@ -6,6 +6,8 @@ import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
 import * as KLEENEX from "./adapters/kleenex.js";
 import * as PLU from "./adapters/plu.js";
+import * as ATMO from "./adapters/atmo.js";
+import * as GPL from "./adapters/gpl.js";
 
 export const ADAPTERS = {
   pp: PP,
@@ -14,6 +16,8 @@ export const ADAPTERS = {
   silam: SILAM,
   kleenex: KLEENEX,
   plu: PLU,
+  atmo: ATMO,
+  gpl: GPL,
 };
 
 export const DWD_REGIONS = {
@@ -139,6 +143,29 @@ export const ALLERGEN_TRANSLATION = {
   plantain: "plantain",
   wegerich: "plantain",
   armoise: "mugwort",
+
+  // Atmo France specific translations
+  ambroisie: "ragweed",
+  gramine: "grass",
+  olivier: "olive",
+
+  // Atmo France pollution translations
+  pm25: "pm25",
+  pm10: "pm10",
+  ozone: "ozone",
+  no2: "no2",
+  so2: "so2",
+  dioxyde_d_azote: "no2",
+  dioxyde_de_soufre: "so2",
+  qualite_globale: "qualite_globale",
+
+  // Google Pollen Levels (pollenlevels) specific translations
+  cottonwood: "poplar",
+  juniper: "cypress",
+  japanese_cedar: "cypress",
+  japanese_cypress: "cypress",
+  graminales: "grass",
+  cypress_pine: "cypress",
 };
 
 // Icon fallback mapping for allergens that don't have their own icons
@@ -149,6 +176,14 @@ export const ALLERGEN_ICON_FALLBACK = {
   trees: "birch", // Keep original for compatibility
   weeds: "mugwort", // Keep original for compatibility
   // grass has its own icon, no fallback needed
+  // Google Pollen Levels fallbacks
+  cottonwood: "poplar",
+  juniper: "cypress",
+  japanese_cedar: "cypress",
+  japanese_cypress: "cypress",
+  graminales: "grass",
+  cypress_pine: "cypress",
+  maple: "oak",
 };
 
 // Mapping of localized category name prefixes to canonical names for Kleenex integration
@@ -229,5 +264,7 @@ export const COSMETIC_FIELDS = [
   "days_boldfaced",
   "text_size_ratio",
   "minimal_gap",
+  "show_block_separator",
   "title",
+  "card_mod",
 ];

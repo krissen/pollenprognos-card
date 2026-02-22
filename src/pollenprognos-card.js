@@ -19,8 +19,15 @@ import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { stubConfigATMO } from "./adapters/atmo.js";
+import { stubConfigGPL, GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
-import { getSilamReverseMap, findSilamWeatherEntity } from "./utils/silam.js";
+import {
+  findSilamWeatherEntity,
+  discoverSilamSensors,
+  resolveDiscoveredLocation,
+  isConfigEntryId,
+} from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
@@ -49,6 +56,7 @@ class PollenPrognosCard extends LitElement {
   _chartCache = new Map();
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
+  _skipIntegrations = new Set(); // Integrations that failed during autodetect
 
 
   _renderLevelCircle(
@@ -232,8 +240,8 @@ class PollenPrognosCard extends LitElement {
         }
       }
 
-      // Add numeric text overlay if requested
-      if (showValue) {
+      // Add numeric text overlay if requested (suppress negative values)
+      if (showValue && displayLevel >= 0) {
         const valueText = document.createElement("div");
         valueText.className = "level-value-text";
         valueText.textContent = displayLevel;
@@ -312,9 +320,12 @@ class PollenPrognosCard extends LitElement {
     if (cfg.show_empty_days) {
       daysCount = cfg.days_to_show;
     } else {
-      const sensorWithDays = filtered.find((s) => s.days && s.days.length > 0);
-      if (sensorWithDays) {
-        daysCount = Math.min(sensorWithDays.days.length, cfg.days_to_show);
+      // Use max real days across all sensors (not just the first one)
+      for (const s of filtered) {
+        if (!s.days || !s.days.length) continue;
+        const realDays = s.days.filter((d) => d.state >= 0).length;
+        const count = Math.min(realDays, cfg.days_to_show);
+        if (count > daysCount) daysCount = count;
       }
     }
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
@@ -424,32 +435,21 @@ class PollenPrognosCard extends LitElement {
 
     // Avsluta tidigare subscription (alltid promisifierat)
     if (this._forecastUnsub) {
-      Promise.resolve(this._forecastUnsub).then((fn) => {
-        if (typeof fn === "function") fn();
-      });
+      Promise.resolve(this._forecastUnsub)
+        .then((fn) => {
+          if (typeof fn === "function") fn();
+        })
+        .catch(() => {});
       this._forecastUnsub = null;
     }
 
     if (this.config.integration === "silam" && this.config.location) {
-      const locationSlug = this.config.location.toLowerCase();
+      const configLocation = this.config.location;
       const lang = this.config?.date_locale?.split("-")[0] || "en";
-      const suffixes =
-        silamAllergenMap.weather_suffixes?.[lang] ||
-        silamAllergenMap.weather_suffixes?.en ||
-        [];
       if (this.debug) {
-        const allWeather = Object.keys(this._hass.states).filter(
-          (id) =>
-            typeof id === "string" && id.startsWith("weather.silam_pollen_"),
-        );
-        console.debug(
-          "[Card][Debug] Alla weather-entities i hass.states:",
-          allWeather,
-        );
-        console.debug("[Card][Debug] locationSlug:", locationSlug);
-        console.debug("[Card][Debug] Suffixes:", suffixes);
+        console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, locationSlug, lang);
+      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug);
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -458,7 +458,7 @@ class PollenPrognosCard extends LitElement {
       }
       if (entityId) {
         this._error = null; // Clear location errors when entity is found
-        this._forecastUnsub = this._hass.connection.subscribeMessage(
+        const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
             if (this.debug) {
               console.debug(
@@ -477,6 +477,37 @@ class PollenPrognosCard extends LitElement {
             forecast_type: forecastType,
           },
         );
+        subPromise.catch((err) => {
+          console.warn(
+            "[Card][subscribeForecast] Subscription failed for",
+            entityId,
+            err,
+          );
+          this._forecastUnsub = null;
+          this._forecastEvent = null;
+          if (!this._integrationExplicit) {
+            // Autodetect: skip this integration and re-run detection
+            this._skipIntegrations.add(this.config.integration);
+            if (this.debug) {
+              console.debug(
+                "[Card] Autodetect: skipping",
+                this.config.integration,
+                "- will try next integration",
+              );
+            }
+            // Force re-evaluation by bypassing the reference equality check
+            const hass = this._hass;
+            this._hass = null;
+            this.hass = hass;
+          } else {
+            this.sensors = [];
+            this._availableSensorCount = 0;
+            this._isLoaded = true;
+            this._error = "card.error_location_not_found";
+            this.requestUpdate();
+          }
+        });
+        this._forecastUnsub = subPromise;
         if (this.debug) {
           console.debug("[Card][subscribeForecast] Subscribed for", entityId);
         }
@@ -728,7 +759,12 @@ class PollenPrognosCard extends LitElement {
     const color = stale ? "#e6a800" : this._colorForLevel(level, allergenKey);
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
-    const svgContent = getSvgContent(allergenKey);
+    // Select level-reactive icon variant for allergy_risk smiley
+    let effectiveKey = allergenKey;
+    if (allergenKey === "allergy_risk" && level > 0) {
+      effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
+    }
+    const svgContent = getSvgContent(effectiveKey);
 
     // Determine stroke color based on sync setting
     let actualStrokeColor;
@@ -800,6 +836,7 @@ class PollenPrognosCard extends LitElement {
 
     // Explicit integration
     this._integrationExplicit = config.hasOwnProperty("integration");
+    this._skipIntegrations.clear();
     this.tapAction = config.tap_action || null;
 
     // Select relevant stub for integration
@@ -818,10 +855,14 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") stub = stubConfigSILAM;
     else if (integration === "kleenex") stub = stubConfigKleenex;
     else if (integration === "plu") stub = stubConfigPLU;
+    else if (integration === "atmo") stub = stubConfigATMO;
+    else if (integration === "gpl") stub = stubConfigGPL;
     else stub = stubConfigPP;
 
     // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
+      "type",
+      "card_mod",
       "allergens",
       "icon_size",
       "icon_color_mode",
@@ -918,9 +959,21 @@ class PollenPrognosCard extends LitElement {
       (id) =>
         typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
-    const silamStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-    );
+    // SILAM: primary via hass.entities, fallback via regex
+    const silamDiscovery = discoverSilamSensors(hass, this.debug);
+    let silamStates = [];
+    if (silamDiscovery.locations.size > 0) {
+      for (const [, loc] of silamDiscovery.locations) {
+        for (const eid of loc.sensors.values()) {
+          silamStates.push(eid);
+        }
+      }
+    }
+    if (!silamStates.length) {
+      silamStates = Object.keys(hass.states).filter(
+        (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
+      );
+    }
     const kleenexStates = Object.keys(hass.states).filter(
       (id) =>
         typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
@@ -935,6 +988,27 @@ class PollenPrognosCard extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
+    const atmoStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
+    );
+    // GPL: use hass.entities (primary) or attribution (fallback)
+    let gplStates = [];
+    if (hass.entities) {
+      gplStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gplStates.length) {
+      gplStates = Object.keys(hass.states).filter((id) => {
+        const s = hass.states[id];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION
+          && s.attributes.device_class !== "date"
+          && s.attributes.device_class !== "timestamp";
+      });
+    }
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -944,6 +1018,8 @@ class PollenPrognosCard extends LitElement {
       console.debug("SILAM:", silamStates);
       console.debug("KLEENEX:", kleenexStates);
       console.debug("PLU:", pluStates);
+      console.debug("ATMO:", atmoStates);
+      console.debug("GPL:", gplStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -955,12 +1031,15 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (!explicit) {
-      if (ppStates.length) integration = "pp";
-      else if (pluStates.length) integration = "plu";
-      else if (peuStates.length) integration = "peu";
-      else if (dwdStates.length) integration = "dwd";
-      else if (silamStates.length) integration = "silam";
-      else if (kleenexStates.length) integration = "kleenex";
+      const skip = this._skipIntegrations;
+      if (ppStates.length && !skip.has("pp")) integration = "pp";
+      else if (pluStates.length && !skip.has("plu")) integration = "plu";
+      else if (peuStates.length && !skip.has("peu")) integration = "peu";
+      else if (dwdStates.length && !skip.has("dwd")) integration = "dwd";
+      else if (silamStates.length && !skip.has("silam")) integration = "silam";
+      else if (kleenexStates.length && !skip.has("kleenex")) integration = "kleenex";
+      else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
+      else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
     }
 
     // Plocka rätt stub
@@ -971,6 +1050,8 @@ class PollenPrognosCard extends LitElement {
     else if (integration === "silam") baseStub = stubConfigSILAM;
     else if (integration === "kleenex") baseStub = stubConfigKleenex;
     else if (integration === "plu") baseStub = stubConfigPLU;
+    else if (integration === "atmo") baseStub = stubConfigATMO;
+    else if (integration === "gpl") baseStub = stubConfigGPL;
     else {
       console.error(
         "Unknown integration:",
@@ -1027,6 +1108,10 @@ class PollenPrognosCard extends LitElement {
         cfg.allergens = stubConfigKleenex.allergens;
       else if (integration === "plu")
         cfg.allergens = stubConfigPLU.allergens;
+      else if (integration === "atmo")
+        cfg.allergens = stubConfigATMO.allergens;
+      else if (integration === "gpl")
+        cfg.allergens = stubConfigGPL.allergens;
     }
 
     // Fyll date_locale
@@ -1094,26 +1179,36 @@ class PollenPrognosCard extends LitElement {
       !cfg.location &&
       silamStates.length
     ) {
-      // Samla alla unika location-namn från entity_id
-      const silamLocations = Array.from(
-        new Set(
-          silamStates
-            .map((eid) => {
-              // sensor.silam_pollen_<location>_<allergen>
-              // plocka ut location (mellan "sensor.silam_pollen_" och sista "_")
-              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = silamLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][SILAM] Auto-set location (location):",
-          cfg.location,
-          silamLocations,
+      // Primärt: discovery-baserad auto-select (config_entry_id)
+      if (silamDiscovery.locations.size > 0) {
+        const firstLocId = silamDiscovery.locations.keys().next().value;
+        cfg.location = firstLocId || null;
+        if (this.debug)
+          console.debug(
+            "[Card][SILAM] Auto-set location (discovery):",
+            cfg.location,
+            [...silamDiscovery.locations.keys()],
+          );
+      } else {
+        // Fallback: regex-baserad auto-select (slug)
+        const silamLocations = Array.from(
+          new Set(
+            silamStates
+              .map((eid) => {
+                const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                return m ? m[1] : null;
+              })
+              .filter(Boolean),
+          ),
         );
+        cfg.location = silamLocations[0] || null;
+        if (this.debug)
+          console.debug(
+            "[Card][SILAM] Auto-set location (regex):",
+            cfg.location,
+            silamLocations,
+          );
+      }
     } else if (
       integration === "kleenex" &&
       cfg.location !== "manual" &&
@@ -1144,6 +1239,46 @@ class PollenPrognosCard extends LitElement {
           "[Card][KLEENEX] Auto-set location:",
           cfg.location,
           kleenexLocations,
+        );
+    } else if (
+      integration === "atmo" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      atmoStates.length
+    ) {
+      const atmoLocations = Array.from(
+        new Set(
+          atmoStates
+            .map((eid) => {
+              const m = eid.match(
+                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+              );
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      cfg.location = atmoLocations[0] || null;
+      if (this.debug)
+        console.debug(
+          "[Card][ATMO] Auto-set location:",
+          cfg.location,
+          atmoLocations,
+        );
+    } else if (
+      integration === "gpl" &&
+      cfg.location !== "manual" &&
+      !cfg.location &&
+      gplStates.length
+    ) {
+      const gplDiscovery = discoverGplSensors(hass, this.debug);
+      const firstLocId = gplDiscovery.locations.keys().next().value;
+      cfg.location = firstLocId || null;
+      if (this.debug)
+        console.debug(
+          "[Card][GPL] Auto-set location:",
+          cfg.location,
+          [...gplDiscovery.locations.keys()],
         );
     }
 
@@ -1238,68 +1373,72 @@ class PollenPrognosCard extends LitElement {
         }
         loc = wantedSlug ? title || cfg.location || "" : title;
       } else if (integration === "silam") {
-        const pollenAllergens = [
-          "alder",
-          "birch",
-          "grass",
-          "hazel",
-          "mugwort",
-          "olive",
-          "ragweed",
-        ];
-        const SilamValidAllergenSlugs = new Set(
-          Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
-            Object.entries(langMap)
-              .filter(([localSlug, engAllergen]) =>
-                pollenAllergens.includes(engAllergen),
-              )
-              .map(([localSlug]) => localSlug),
-          ),
-        );
-        // Hämta alla silam-entities med giltig allergen
-        const silamEntities = Object.values(hass.states).filter((s) => {
-          if (
-            !s ||
-            typeof s !== "object" ||
-            typeof s.entity_id !== "string" ||
-            !s.entity_id.startsWith("sensor.silam_pollen_")
-          )
-            return false;
-          const match = s.entity_id.match(
-            /^sensor\.silam_pollen_(.*)_([^_]+)$/,
-          );
-          if (!match) return false;
-          const allergenSlug = match[2];
-          return SilamValidAllergenSlugs.has(allergenSlug);
-        });
-        const wantedSlug =
-          cfg.location && cfg.location !== "manual"
-            ? slugify(cfg.location)
-            : "";
-
-        // Hitta första entity med samma slugificerade location
-        const match = wantedSlug
-          ? silamEntities.find((s) => {
-              const eid = s.entity_id.replace("sensor.silam_pollen_", "");
-              const locPart = eid.replace(/_[^_]+$/, "").replace(/^[-\s]+/, "");
-              return slugify(locPart) === wantedSlug;
-            })
-          : null;
-
+        // Primärt: discovery-baserad title
         let title = "";
-        if (match) {
-          const attr = match.attributes;
-          title =
-            attr.location_title ||
-            attr.friendly_name
-              ?.replace(/^SILAM Pollen\s*-?\s*/i, "")
-              .replace(/\s+\p{L}+$/u, "")
-              .trim() ||
-            cfg.location;
-          title = title.replace(/^[-\s]+/, "");
+        const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+        const discoveredLoc = resolveDiscoveredLocation(
+          silamDiscovery, configLocation, this.debug,
+        );
+        if (discoveredLoc) {
+          title = discoveredLoc.label
+            .replace(/^SILAM Pollen\s*-?\s*/i, "")
+            .trim();
         }
 
-        loc = wantedSlug ? title || cfg.location || "" : title;
+        // Fallback: regex-baserad title
+        if (!title && cfg.location && cfg.location !== "manual") {
+          const pollenAllergens = [
+            "alder", "birch", "grass", "hazel", "mugwort", "olive", "ragweed",
+          ];
+          const SilamValidAllergenSlugs = new Set(
+            Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
+              Object.entries(langMap)
+                .filter(([, engAllergen]) =>
+                  pollenAllergens.includes(engAllergen),
+                )
+                .map(([localSlug]) => localSlug),
+            ),
+          );
+          const silamEntities = Object.values(hass.states).filter((s) => {
+            if (
+              !s ||
+              typeof s !== "object" ||
+              typeof s.entity_id !== "string" ||
+              !s.entity_id.startsWith("sensor.silam_pollen_")
+            )
+              return false;
+            const match = s.entity_id.match(
+              /^sensor\.silam_pollen_(.*)_([^_]+)$/,
+            );
+            if (!match) return false;
+            return SilamValidAllergenSlugs.has(match[2]);
+          });
+          const wantedSlug = slugify(cfg.location);
+          const match = wantedSlug
+            ? silamEntities.find((s) => {
+                const eid = s.entity_id.replace("sensor.silam_pollen_", "");
+                const locPart = eid
+                  .replace(/_[^_]+$/, "")
+                  .replace(/^[-\s]+/, "");
+                return slugify(locPart) === wantedSlug;
+              })
+            : null;
+          if (match) {
+            const attr = match.attributes;
+            title =
+              attr.location_title ||
+              attr.friendly_name
+                ?.replace(/^SILAM Pollen\s*-?\s*/i, "")
+                .replace(/\s+\p{L}+$/u, "")
+                .trim() ||
+              cfg.location;
+            title = title.replace(/^[-\s]+/, "");
+          }
+        }
+
+        loc = cfg.location && cfg.location !== "manual"
+          ? title || cfg.location || ""
+          : title;
       } else if (integration === "kleenex") {
         // Kleenex pollen radar: extract location from sensor attributes
         const kleenexEntities = Object.values(hass.states).filter((s) => {
@@ -1359,6 +1498,71 @@ class PollenPrognosCard extends LitElement {
               .replace(/[\)\s]+\w+.*$/u, "")
               .trim() ||
             cfg.location;
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "atmo") {
+        // Atmo France: extract location from sensor attributes (pollen + pollution)
+        const atmoRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
+        const atmoEntities = Object.values(hass.states).filter(
+          (s) =>
+            s &&
+            typeof s === "object" &&
+            typeof s.entity_id === "string" &&
+            atmoRe.test(s.entity_id),
+        );
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location.toLowerCase()
+            : "";
+
+        let match = null;
+        if (wantedLocation) {
+          match = atmoEntities.find((s) => {
+            const m = s.entity_id.match(atmoRe);
+            return m && m[1] === wantedLocation;
+          });
+        } else if (atmoEntities.length) {
+          match = atmoEntities[0];
+        }
+
+        let title = "";
+        if (match) {
+          const attr = match.attributes || {};
+          title =
+            attr["Nom de la zone"] ||
+            cfg.location ||
+            "";
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "gpl") {
+        // Google Pollen Levels: extract location from discovery
+        const gplDiscovery = discoverGplSensors(hass, false);
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location
+            : "";
+
+        let title = "";
+        if (wantedLocation && gplDiscovery.locations.has(wantedLocation)) {
+          title = gplDiscovery.locations.get(wantedLocation).label;
+        } else if (gplDiscovery.locations.size) {
+          title = gplDiscovery.locations.values().next().value.label;
+        }
+
+        // Clean up device name if it looks like a friendly_name with type suffix
+        if (title) {
+          title = title
+            .replace(/\s*(grass|tree|weed)\s*$/i, "")
+            .replace(/\s*type\s*$/i, "")
+            .trim();
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
         }
 
         loc = title || cfg.location || "";
@@ -1463,66 +1667,47 @@ class PollenPrognosCard extends LitElement {
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
           const availableSensorCount = availableSensors.length;
 
-          // --- AUTODETECT HASS-SLUG-SPRÅK FÖR SILAM ---
-          let silamReverse = {};
-          if (cfg.integration === "silam") {
-            // Alla silam-entiteter för platsen
-            const silamStates = Object.keys(hass.states).filter((id) => {
-              const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              return m && m[1] === (cfg.location || "");
-            });
-
-            // Loopa igenom alla sensors och alla mapping-språk
-            for (const eid of silamStates) {
-              const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-              if (!m) continue;
-              const haSlug = m[2];
-              // Gå igenom alla språk och leta master-slug
-              let found = false;
-              for (const [lang, mapping] of Object.entries(
-                silamAllergenMap.mapping,
-              )) {
-                if (mapping[haSlug]) {
-                  silamReverse[mapping[haSlug]] = haSlug;
-                  found = true;
-                  break; // sluta efter första träff (det räcker, unikt per system)
-                }
-              }
-              // Om ingen träff – debugga gärna
-              if (!found && this.debug) {
-                console.debug(
-                  `[Card][SILAM] Hittade ingen mapping för haSlug: '${haSlug}'`,
-                );
-              }
-            }
-            if (this.debug) {
-              console.debug(
-                "[Card][SILAM] silamReverse byggd baserat på existerande sensors:",
-                silamReverse,
-              );
-            }
-          }
-
           // Filtrera adapterns sensors så att endast de finns i availableSensors
           let filtered = sensors.filter((s) => {
             if (
               cfg.integration === "silam" &&
-              silamReverse &&
               (!cfg.mode || cfg.mode === "daily")
             ) {
-              const loc = cfg.location || "";
-              // Mappar master->haSlug för entity_id
-              const key =
-                silamReverse[s.allergenReplaced] || s.allergenReplaced;
-              const id = `sensor.silam_pollen_${loc}_${key}`;
-              if (this.debug) {
-                console.debug(
-                  `[Card][Debug][SILAM filter] allergenReplaced: '${s.allergenReplaced}', key: '${key}', id: '${id}', available: ${availableSensors.includes(id)}`,
-                );
+              // entity_id sätts av adaptern (discovery eller regex)
+              if (s.entity_id) {
+                return availableSensors.includes(s.entity_id);
               }
-              return availableSensors.includes(id);
+              // Fallback: bygg entity_id med silamReverse (äldre path)
+              const configLocation = cfg.location || "";
+              let silamReverse = {};
+              if (!isConfigEntryId(configLocation)) {
+                const loc = configLocation;
+                const locStates = Object.keys(hass.states).filter((id) => {
+                  const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                  return m && m[1] === loc;
+                });
+                for (const eid of locStates) {
+                  const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+                  if (!m) continue;
+                  const haSlug = m[2];
+                  for (const [, mapping] of Object.entries(
+                    silamAllergenMap.mapping,
+                  )) {
+                    if (mapping[haSlug]) {
+                      silamReverse[mapping[haSlug]] = haSlug;
+                      break;
+                    }
+                  }
+                }
+                const key =
+                  silamReverse[s.allergenReplaced] || s.allergenReplaced;
+                const id = `sensor.silam_pollen_${loc}_${key}`;
+                return availableSensors.includes(id);
+              }
+              // config_entry_id path: entity_id saknas → sensorn hittades inte
+              return false;
             }
-            return true; // fallback: visa alla
+            return true;
           });
 
           // Endast *normalisering/namn*-filtrering för de andra integrationerna!
@@ -1662,7 +1847,8 @@ class PollenPrognosCard extends LitElement {
               `;
             }
             const txt = sensor.day0?.state_text ?? "";
-            const num = sensor.day0?.display_state ?? sensor.day0?.state ?? "";
+            const rawNum = sensor.day0?.display_state ?? sensor.day0?.state;
+            const num = rawNum != null && rawNum >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
@@ -1674,13 +1860,15 @@ class PollenPrognosCard extends LitElement {
               this.config?.show_value_numeric
             ) {
               if (label) label += ": ";
-              label += `${txt} (${num})`;
+              label += num !== "" ? `${txt} (${num})` : txt;
             } else if (this.config?.show_value_text) {
               if (label) label += ": ";
               label += txt;
             } else if (this.config?.show_value_numeric) {
-              if (label) label += " ";
-              label += `(${num})`;
+              if (num !== "") {
+                if (label) label += " ";
+                label += `(${num})`;
+              }
             }
             const levelForColor =
               this.config.integration === "plu"
@@ -1763,10 +1951,12 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
     
     // Number of segments in the level circle depends on the integration.
-    // PEU and Kleenex use four segments, PLU uses three, others use six.
+    // PEU and Kleenex use four segments, GPL uses five, PLU uses three, others use six.
     let segments = 6;
     if (this.config.integration === "peu" || this.config.integration === "kleenex") {
       segments = 4;
+    } else if (this.config.integration === "gpl") {
+      segments = 5;
     } else if (this.config.integration === "plu") {
       segments = 3;
     }
@@ -1834,8 +2024,17 @@ class PollenPrognosCard extends LitElement {
                 )}
               </tr>
             </thead>
-            ${this.sensors.map(
-              (sensor) => sensor.stale
+            ${this.sensors.flatMap(
+              (sensor, sIdx) => {
+                const separator =
+                  this.config.show_block_separator &&
+                  sIdx > 0 &&
+                  sensor.group &&
+                  this.sensors[sIdx - 1].group &&
+                  sensor.group !== this.sensors[sIdx - 1].group
+                    ? html`<tr class="block-separator-row"><td colspan="${cols.length + 1}"><hr class="block-separator" /></td></tr>`
+                    : "";
+                const row = sensor.stale
                 ? html`
                   <tr class="allergen-icon-row allergen-stale-row" valign="top">
                     <td>
@@ -1938,19 +2137,20 @@ class PollenPrognosCard extends LitElement {
                         </td>
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
-                          const num =
+                          const rawNum =
                             sensor.days[i]?.display_state ??
                             sensor.days[i]?.state;
+                          const num = rawNum != null && rawNum >= 0 ? rawNum : "";
                           let content = "";
                           if (
                             this.config.show_value_text &&
                             this.config.show_value_numeric
                           ) {
-                            content = `${txt} (${num})`;
+                            content = num !== "" ? `${txt} (${num})` : txt;
                           } else if (this.config.show_value_text) {
                             content = txt;
                           } else if (this.config.show_value_numeric) {
-                            content = String(num);
+                            content = num !== "" ? String(num) : "";
                           }
                           return html`<td>
                             <span style="font-size: ${1.0 * textSizeRatio}em;"
@@ -1961,8 +2161,9 @@ class PollenPrognosCard extends LitElement {
                       </tr>
                     `
                   : ""}
-              `,
-            )}
+              `;
+                return [separator, row];
+              })}
           </table>
         </div>
       </div>
@@ -2267,6 +2468,15 @@ class PollenPrognosCard extends LitElement {
         text-align: center;
         padding-top: 6px;
         padding-bottom: 2px; /* eller vad som känns lagom */
+      }
+
+      .block-separator-row td {
+        padding: 0;
+      }
+      .block-separator {
+        border: none;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        margin: 6px 0;
       }
 
       .icon-wrapper .circle-overlay {

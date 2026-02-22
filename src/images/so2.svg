@@ -1,0 +1,37 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="200.000000pt" height="200.000000pt" viewBox="0 0 200.000000 200.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,200.000000) scale(0.100000,-0.100000)"
+fill="currentColor" stroke="none">
+<!-- SO2 v2: Factory with chimneys integrated into roof -->
+<!-- Factory body + sawtooth roof + chimneys as unified shape -->
+<path d="M 300 200 L 300 700
+         L 400 800 L 480 720 L 480 720
+         L 480 1350 L 630 1350 L 630 800
+         L 700 720 L 800 800 L 900 720
+         L 1000 800 L 1100 720 L 1200 800
+         L 1330 700 L 1330 1450 L 1500 1450 L 1500 800
+         L 1600 720 L 1700 800 L 1700 200 Z"/>
+<!-- Left chimney top rim -->
+<path d="M 450 1350 L 450 1400 L 660 1400 L 660 1350 Z"/>
+<!-- Right chimney top rim -->
+<path d="M 1300 1450 L 1300 1500 L 1530 1500 L 1530 1450 Z"/>
+<!-- Smoke from left chimney -->
+<path d="M 500 1430 Q 540 1530 610 1500 Q 680 1470 710 1570 Q 740 1670 660 1720 Q 580 1770 540 1660 Q 500 1550 500 1430 Z"/>
+<path d="M 530 1700 Q 580 1830 670 1790 Q 760 1750 800 1870 Q 840 1990 740 2030 Q 640 2070 590 1930 Q 540 1790 530 1700 Z"/>
+<!-- Smoke from right chimney (bigger) -->
+<path d="M 1370 1530 Q 1420 1660 1510 1620 Q 1600 1580 1650 1710 Q 1700 1840 1590 1900 Q 1480 1960 1420 1810 Q 1360 1660 1370 1530 Z"/>
+<path d="M 1420 1820 Q 1480 1960 1580 1920 Q 1680 1880 1730 2020 Q 1780 2160 1660 2210 Q 1540 2260 1470 2100 Q 1400 1940 1420 1820 Z"/>
+<!-- Windows (cutouts in body) -->
+<path d="M 400 600 L 400 500 L 500 500 L 500 600 Z"/>
+<path d="M 650 600 L 650 500 L 750 500 L 750 600 Z"/>
+<path d="M 1200 600 L 1200 500 L 1300 500 L 1300 600 Z"/>
+<path d="M 1500 600 L 1500 500 L 1600 500 L 1600 600 Z"/>
+<!-- Door -->
+<path d="M 920 200 L 920 480 L 1060 480 L 1060 200 Z"/>
+</g>
+</svg>

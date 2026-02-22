@@ -1,0 +1,32 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="200.000000pt" height="200.000000pt" viewBox="0 0 200.000000 200.000000"
+ preserveAspectRatio="xMidYMid meet">
+
+<g transform="translate(0.000000,200.000000) scale(0.100000,-0.100000)"
+fill="currentColor" stroke="none">
+<!-- Ozone variant C: City skyline silhouette with smog layer above -->
+<!-- Smog/haze layer over city -->
+<path d="M 100 1200 Q 300 1250 600 1240 Q 900 1230 1200 1240 Q 1500 1250 1800 1230 L 1900 1220
+         L 1900 1050 Q 1600 1070 1300 1060 Q 1000 1050 700 1060 Q 400 1070 100 1050 Z"/>
+<!-- Thinner haze wisps above -->
+<path d="M 200 1400 Q 500 1420 900 1410 Q 1300 1400 1600 1410 L 1700 1400
+         L 1700 1350 Q 1400 1360 1000 1350 Q 600 1340 300 1350 L 200 1340 Z"/>
+<path d="M 350 1550 Q 600 1570 900 1560 Q 1200 1550 1500 1560 L 1600 1550
+         L 1600 1520 Q 1300 1530 1000 1520 Q 700 1510 400 1520 L 350 1510 Z"/>
+<!-- City skyline silhouette -->
+<path d="M 150 200 L 150 700 L 300 700 L 300 200 Z"/>
+<path d="M 320 200 L 320 900 L 480 900 L 480 200 Z"/>
+<path d="M 500 200 L 500 750 L 630 750 L 630 200 Z"/>
+<path d="M 650 200 L 650 1000 L 800 1000 L 800 200 Z"/>
+<path d="M 820 200 L 820 650 L 930 650 L 930 200 Z"/>
+<path d="M 950 200 L 950 850 L 1020 850 L 1020 950 L 1040 950 L 1040 850 L 1100 850 L 1100 200 Z"/>
+<path d="M 1120 200 L 1120 780 L 1260 780 L 1260 200 Z"/>
+<path d="M 1280 200 L 1280 920 L 1420 920 L 1420 200 Z"/>
+<path d="M 1440 200 L 1440 600 L 1560 600 L 1560 200 Z"/>
+<path d="M 1580 200 L 1580 750 L 1720 750 L 1720 200 Z"/>
+<path d="M 1740 200 L 1740 680 L 1850 680 L 1850 200 Z"/>
+</g>
+</svg>
