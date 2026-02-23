@@ -9,7 +9,7 @@ import {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
-import { buildDayLabel, sortSensors } from "../utils/adapter-helpers.js";
+import { buildDayLabel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -393,8 +393,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         dict.days.push(dict[`day${i}`]);
       }
 
-      const meets = dict.days.some((d) => d.state >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`[SILAM] Fel vid allergen ${allergen}:`, e);
     }

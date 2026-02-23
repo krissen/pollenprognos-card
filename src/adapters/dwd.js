@@ -3,7 +3,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -211,10 +211,7 @@ export async function fetchForecast(hass, config) {
       });
 
       // Filtrera med tröskel
-      const meets = levels
-        .slice(0, days_to_show)
-        .some((l) => l.level >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       console.warn(`DWD adapter error for allergen ${allergen}:`, e);
     }

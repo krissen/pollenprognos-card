@@ -3,7 +3,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, meetsThreshold } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -381,10 +381,7 @@ export async function fetchForecast(hass, config) {
       });
 
       // Threshold filter
-      const meets = levels
-        .slice(0, days_to_show)
-        .some((l) => l.level >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       console.warn(`ATMO adapter error for allergen ${allergen}:`, e);
     }

@@ -8,7 +8,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
@@ -437,10 +437,7 @@ export async function fetchForecast(hass, config) {
       }
 
       // Threshold filter
-      const meets = levels
-        .slice(0, days_to_show)
-        .some((l) => l.level >= pollen_threshold);
-      if (meets || pollen_threshold === 0) {
+      if (meetsThreshold(dict.days, pollen_threshold)) {
         sensors.push(dict);
       }
     } catch (e) {

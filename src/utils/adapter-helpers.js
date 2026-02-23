@@ -51,6 +51,19 @@ export function sortSensors(sensors, sortKey) {
   sensors.sort(sortFn);
 }
 
+/**
+ * Check whether any day in the array meets or exceeds the pollen threshold.
+ * Returns true when threshold is 0 (show-all mode) or when at least one
+ * day's state >= threshold.
+ *
+ * @param {object[]} days       - Array of day objects with a .state property.
+ * @param {number}   threshold  - Minimum state value to qualify.
+ * @returns {boolean}
+ */
+export function meetsThreshold(days, threshold) {
+  return threshold === 0 || days.some((d) => d.state >= threshold);
+}
+
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {
   let label;
   if (!daysRelative) {

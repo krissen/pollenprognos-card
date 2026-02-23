@@ -4,7 +4,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, meetsThreshold } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -260,10 +260,7 @@ export async function fetchForecast(hass, config) {
       });
     }
 
-    const meetsThreshold = dict.days.some(
-      (d, idx) => idx === 0 && d.state >= pollen_threshold,
-    );
-    if (meetsThreshold || pollen_threshold === 0) {
+    if (meetsThreshold(dict.days.slice(0, 1), pollen_threshold)) {
       sensors.push(dict);
     }
   }
