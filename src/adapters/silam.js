@@ -7,7 +7,7 @@ import {
 } from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
@@ -144,7 +144,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
   for (const rawAllergen of cfg.allergens || []) {
     const norm = normalize(rawAllergen);
-    const allergen = ALLERGEN_TRANSLATION[norm] || norm;
+    const allergen = toCanonicalAllergenKey(norm);
 
     let sensorId = null;
     if (cfg.location === "manual") {
@@ -222,7 +222,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   const allergens = rawAllergens.map((raw) => {
     const norm = normalize(raw);
     // Translate user-facing slugs (e.g. 'index') to internal canonicals
-    return ALLERGEN_TRANSLATION[norm] || norm;
+    return toCanonicalAllergenKey(norm);
   });
 
   // Forecast-array: från forecastEvent om det finns, annars från entity

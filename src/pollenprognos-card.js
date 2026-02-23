@@ -21,9 +21,9 @@ import {
 import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
-  ALLERGEN_TRANSLATION,
   ALLERGEN_ICON_FALLBACK,
   PP_POSSIBLE_CITIES,
+  toCanonicalAllergenKey,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 import {
@@ -609,7 +609,7 @@ class PollenPrognosCard extends LitElement {
     //   );
     // }
 
-    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    const key = toCanonicalAllergenKey(allergenReplaced);
     let specific = images[`${key}_${lvl}_png`];
 
     // If no specific image found, try icon fallback for category allergens
@@ -642,7 +642,7 @@ class PollenPrognosCard extends LitElement {
       return null;
     }
 
-    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    const key = toCanonicalAllergenKey(allergenReplaced);
     
     // Check if we have the primary key SVG available
     if (getSvgContent(key)) {

@@ -1,7 +1,7 @@
 // src/utils/adapter-helpers.js
 // Shared pure helpers used by multiple adapters.
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 
 /**
  * Build a day column label from a date and its offset from today.
@@ -68,7 +68,7 @@ export function meetsThreshold(days, threshold) {
 /**
  * Resolve full and short allergen display names.
  *
- * @param {string} allergenKey - Normalized/slugified allergen key for ALLERGEN_TRANSLATION.
+ * @param {string} allergenKey - Normalized/slugified allergen key for toCanonicalAllergenKey().
  * @param {object} opts
  * @param {object}  opts.fullPhrases   - User phrase overrides (full names).
  * @param {object}  opts.shortPhrases  - User phrase overrides (short names).
@@ -82,7 +82,7 @@ export function meetsThreshold(days, threshold) {
 export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, abbreviated, lang, capitalize: capFn, configKey }) {
   const cap = capFn || ((s) => s.charAt(0).toUpperCase() + s.slice(1));
   const ck = configKey ?? allergenKey;
-  const canonKey = ALLERGEN_TRANSLATION[allergenKey] || allergenKey;
+  const canonKey = toCanonicalAllergenKey(allergenKey);
 
   let allergenCapitalized;
   if (fullPhrases[ck]) {

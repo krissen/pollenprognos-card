@@ -1,6 +1,6 @@
 // src/adapters/atmo.js
 import { t } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
@@ -292,7 +292,7 @@ export async function fetchForecast(hass, config) {
   for (const allergen of config.allergens) {
     try {
       const dict = { days: [] };
-      const canonKey = ALLERGEN_TRANSLATION[allergen] || allergen;
+      const canonKey = toCanonicalAllergenKey(allergen);
       dict.allergenReplaced = allergen;
       // Group: allergy_risk belongs with pollen, qualite_globale with pollution
       dict.group = allergen === "qualite_globale" || ATMO_POLLUTION_ALLERGENS.has(allergen)

@@ -29,7 +29,7 @@ import {
 import {
   PP_POSSIBLE_CITIES,
   DWD_REGIONS,
-  ALLERGEN_TRANSLATION,
+  toCanonicalAllergenKey,
 } from "./constants.js";
 
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
@@ -157,7 +157,7 @@ class PollenPrognosCardEditor extends LitElement {
     // Använd canonical nyckel för lookup i locale-filerna
     rawKeys.forEach((raw) => {
       const normKey = normalize(raw); // ex 'alm' eller 'erle'
-      const canonKey = ALLERGEN_TRANSLATION[normKey] || normKey; // t.ex. 'alder'
+      const canonKey = toCanonicalAllergenKey(normKey); // t.ex. 'alder'
       // Use the SILAM-specific name 'index' instead of 'allergy_risk'
       const transKey = normKey === "index" ? "index" : canonKey;
       full[raw] = t(`editor.phrases_full.${transKey}`, lang);
@@ -228,7 +228,7 @@ class PollenPrognosCardEditor extends LitElement {
     if (allergenKey === undefined || allergenKey === null) return "";
     const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
     const slug = slugify(raw);
-    const canonical = ALLERGEN_TRANSLATION[slug] || slug;
+    const canonical = toCanonicalAllergenKey(slug);
     const translationKey = `phrases_full.${canonical}`;
     const translated = this._t(translationKey);
     if (translated && translated !== translationKey) {

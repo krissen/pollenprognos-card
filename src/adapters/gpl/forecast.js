@@ -1,5 +1,5 @@
 // src/adapters/gpl/forecast.js
-import { ALLERGEN_TRANSLATION } from "../../constants.js";
+import { toCanonicalAllergenKey } from "../../constants.js";
 import { buildLevelNames } from "../../utils/level-names.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../../utils/adapter-helpers.js";
 import { stubConfigGPL, capitalize } from "./constants.js";
@@ -30,7 +30,7 @@ export async function fetchForecast(hass, config) {
   for (const allergen of config.allergens) {
     try {
       const dict = { days: [] };
-      const canonKey = ALLERGEN_TRANSLATION[allergen] || allergen;
+      const canonKey = toCanonicalAllergenKey(allergen);
       dict.allergenReplaced = allergen;
 
       // Allergen name resolution
