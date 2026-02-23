@@ -60,6 +60,47 @@ export const stubConfigDWD = {
   },
 };
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  for (const allergen of cfg.allergens || []) {
+    const rawKey = normalizeDWD(allergen);
+    let sensorId;
+    if (cfg.region_id === "manual") {
+      const prefix = cfg.entity_prefix || "";
+      const suffix = cfg.entity_suffix || "";
+      sensorId = `sensor.${prefix}${rawKey}${suffix}`;
+      if (!hass.states[sensorId]) {
+        if (suffix === "") {
+          const base = `sensor.${prefix}${rawKey}`;
+          const candidates = Object.keys(hass.states).filter((id) =>
+            id.startsWith(base),
+          );
+          if (candidates.length === 1) sensorId = candidates[0];
+          else continue;
+        } else continue;
+      }
+    } else {
+      sensorId = cfg.region_id
+        ? `sensor.pollenflug_${rawKey}_${cfg.region_id}`
+        : null;
+      if (!sensorId || !hass.states[sensorId]) {
+        const candidates = Object.keys(hass.states).filter((id) =>
+          id.startsWith(`sensor.pollenflug_${rawKey}_`),
+        );
+        if (candidates.length === 1) sensorId = candidates[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[DWD:resolveEntityIds] allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(rawKey, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -81,6 +122,7 @@ export async function fetchForecast(hass, config) {
   today.setHours(0, 0, 0, 0);
 
   const sensors = [];
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   for (const allergen of config.allergens) {
     try {
@@ -94,35 +136,9 @@ export async function fetchForecast(hass, config) {
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
-      // Find sensor entity
-      let sensorId;
-      if (config.region_id === "manual") {
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
-        if (!hass.states[sensorId]) {
-          if (suffix === "") {
-            // Fallback: search for a unique candidate starting with prefix and slug
-            const base = `sensor.${prefix}${rawKey}`;
-            const candidates = Object.keys(hass.states).filter((id) =>
-              id.startsWith(base),
-            );
-            if (candidates.length === 1) sensorId = candidates[0];
-            else continue;
-          } else continue;
-        }
-      } else {
-        sensorId = config.region_id
-          ? `sensor.pollenflug_${rawKey}_${config.region_id}`
-          : null;
-        if (!sensorId || !hass.states[sensorId]) {
-          const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(`sensor.pollenflug_${rawKey}_`),
-          );
-          if (candidates.length === 1) sensorId = candidates[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(rawKey);
+      if (!sensorId) continue;
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
 
