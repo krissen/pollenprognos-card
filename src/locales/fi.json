@@ -45,6 +45,7 @@
   "card.error": "Pölytysantureita ei löytynyt. Oletko asentanut oikean integraation ja valinnut alueen kortin asetuksista?",
   "card.error_filtered_sensors": "Yksikään anturi ei vastaa valintojasi. Tarkista allergeenit ja kynnysarvo.",
   "card.error_location_not_found": "Sijaintia ei löytynyt. Tarkista sijainnin nimi kortin asetuksista.",
+  "card.error_entity_unavailable": "Sääentiteetti ei ole käytettävissä. Integraatio voi olla offline tai käynnistymässä uudelleen.",
   "card.error_no_sensors": "Pölytysantureita ei löytynyt. Oletko asentanut oikean integraation ja valinnut alueen kortin asetuksista?",
   "card.header_prefix": "Siitepölyennuste kohteessa",
   "card.integration.atmo": "Atmo France",

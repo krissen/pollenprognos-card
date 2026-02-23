@@ -45,6 +45,7 @@
   "card.error": "Žiadne peľové senzory nenájdené. Je nainštalovaná správna integrácia a zvolený región v nastavení karty?",
   "card.error_filtered_sensors": "Žiadne senzory nezodpovedajú filtrom. Skontrolujte zvolené alergény a prah.",
   "card.error_location_not_found": "Umiestnenie sa nenašlo. Skontrolujte názov umiestnenia v konfigurácii karty.",
+  "card.error_entity_unavailable": "Meteorologická entita nie je dostupná. Integrácia môže byť offline alebo sa reštartuje.",
   "card.error_no_sensors": "Žiadne peľové senzory nenájdené. Je nainštalovaná správna integrácia a zvolený región v nastavení karty?",
   "card.header_prefix": "Peľová predpoveď pre",
   "card.integration.atmo": "Atmo France",

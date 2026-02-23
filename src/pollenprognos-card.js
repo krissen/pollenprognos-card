@@ -284,6 +284,8 @@ class PollenPrognosCard extends LitElement {
         if (typeof fn === "function") fn();
       });
       this._forecastUnsub = null;
+      this._forecastSubEntity = null;
+      this._forecastSubType = null;
     }
 
     // Destroy cached charts
@@ -420,16 +422,6 @@ class PollenPrognosCard extends LitElement {
   _subscribeForecastIfNeeded() {
     if (!this.config || !this._hass) return;
 
-    // Avsluta tidigare subscription (alltid promisifierat)
-    if (this._forecastUnsub) {
-      Promise.resolve(this._forecastUnsub)
-        .then((fn) => {
-          if (typeof fn === "function") fn();
-        })
-        .catch(() => {});
-      this._forecastUnsub = null;
-    }
-
     if (this.config.integration === "silam" && this.config.location) {
       const configLocation = this.config.location;
       const lang = this.config?.date_locale?.split("-")[0] || "en";
@@ -443,8 +435,49 @@ class PollenPrognosCard extends LitElement {
       } else if (this.config && this.config.mode === "hourly") {
         forecastType = "hourly";
       }
+
+      // Already subscribed to the same entity+type — nothing to do
+      if (
+        entityId &&
+        this._forecastUnsub &&
+        this._forecastSubEntity === entityId &&
+        this._forecastSubType === forecastType
+      ) {
+        return;
+      }
+
+      // Cancel previous subscription
+      if (this._forecastUnsub) {
+        Promise.resolve(this._forecastUnsub)
+          .then((fn) => {
+            if (typeof fn === "function") fn();
+          })
+          .catch(() => {});
+        this._forecastUnsub = null;
+        this._forecastSubEntity = null;
+        this._forecastSubType = null;
+      }
+
       if (entityId) {
-        this._error = null; // Clear location errors when entity is found
+        // Check entity state — don't subscribe to unavailable entities
+        const entityState = this._hass.states[entityId];
+        if (!entityState || entityState.state === "unavailable") {
+          if (this.debug) {
+            console.debug(
+              "[Card][subscribeForecast] Entity unavailable, skipping:",
+              entityId,
+            );
+          }
+          this._forecastEvent = null;
+          this.sensors = [];
+          this._availableSensorCount = 0;
+          this._isLoaded = true;
+          this._error = "card.error_entity_unavailable";
+          this.requestUpdate();
+          return;
+        }
+
+        this._error = null; // Clear errors when entity is found and available
         const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
             if (this.debug) {
@@ -456,7 +489,6 @@ class PollenPrognosCard extends LitElement {
             this._forecastEvent = event;
             // Kör fetch direkt!
             this._updateSensorsAfterForecastEvent();
-            // this.requestUpdate();
           },
           {
             type: "weather/subscribe_forecast",
@@ -471,6 +503,8 @@ class PollenPrognosCard extends LitElement {
             err,
           );
           this._forecastUnsub = null;
+          this._forecastSubEntity = null;
+          this._forecastSubType = null;
           this._forecastEvent = null;
           if (!this._integrationExplicit) {
             // Autodetect: skip this integration and re-run detection
@@ -495,6 +529,8 @@ class PollenPrognosCard extends LitElement {
           }
         });
         this._forecastUnsub = subPromise;
+        this._forecastSubEntity = entityId;
+        this._forecastSubType = forecastType;
         if (this.debug) {
           console.debug("[Card][subscribeForecast] Subscribed for", entityId);
         }
@@ -502,7 +538,7 @@ class PollenPrognosCard extends LitElement {
         if (this.debug) {
           console.debug(
             "[Card] Hittar ingen weather-entity för location",
-            locationSlug,
+            configLocation,
           );
         }
         // Mark as loaded and store error so the user is informed

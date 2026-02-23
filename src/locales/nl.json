@@ -45,6 +45,7 @@
   "card.error": "Geen pollensensoren gevonden. Heb je de juiste integratie geïnstalleerd en een regio gekozen in de kaartinstellingen?",
   "card.error_filtered_sensors": "Geen sensoren voldoen aan je filters. Controleer de geselecteerde allergenen en drempelwaarde.",
   "card.error_location_not_found": "Locatie niet gevonden. Controleer de locatienaam in de kaartconfiguratie.",
+  "card.error_entity_unavailable": "Weerentiteit is niet beschikbaar. De integratie is mogelijk offline of wordt opnieuw gestart.",
   "card.error_no_sensors": "Geen pollensensoren gevonden. Heb je de juiste integratie geïnstalleerd en een regio gekozen in de kaartinstellingen?",
   "card.header_prefix": "Pollenverwachting voor",
   "card.integration.atmo": "Atmo France",

@@ -45,6 +45,7 @@
   "card.error": "Brak sensorów pyłków. Czy masz zainstalowaną właściwą integrację i wybrałeś region w konfiguracji karty?",
   "card.error_filtered_sensors": "Żaden sensor nie pasuje do filtrów. Sprawdź wybrane alergeny i ich wartości progowe.",
   "card.error_location_not_found": "Brak lokalizacji. Sprawdź jej nazwę w konfiguracji karty.",
+  "card.error_entity_unavailable": "Encja pogodowa jest niedostępna. Integracja może być offline lub uruchamiana ponownie.",
   "card.error_no_sensors": "Brak sensorów pyłków. Czy masz zainstalowaną właściwą integrację i wybrałeś region w konfiguracji karty?",
   "card.header_prefix": "Prognoza pylenia dla",
   "card.integration.atmo": "Atmo France",
