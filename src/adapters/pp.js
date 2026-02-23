@@ -49,6 +49,58 @@ export const stubConfigPP = {
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
 };
 
+function detectCity(cfg, hass) {
+  if (cfg.city === "manual") return "";
+  let cityKey = normalize(cfg.city || "");
+  if (!cityKey) {
+    const ppStates = Object.keys(hass.states).filter(
+      (id) =>
+        id.startsWith("sensor.pollen_") &&
+        /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+    );
+    if (ppStates.length) {
+      const m = ppStates[0].match(/^sensor\.pollen_(.+)_[^_]+$/);
+      cityKey = m ? m[1] : "";
+    }
+  }
+  return cityKey;
+}
+
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const cityKey = detectCity(cfg, hass);
+
+  for (const allergen of cfg.allergens || []) {
+    const rawKey = normalize(allergen);
+    let sensorId;
+    if (cfg.city === "manual") {
+      const prefix = cfg.entity_prefix || "";
+      const suffix = cfg.entity_suffix || "";
+      sensorId = `sensor.${prefix}${rawKey}${suffix}`;
+      if (!hass.states[sensorId]) continue;
+    } else {
+      sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
+      if (!sensorId || !hass.states[sensorId]) {
+        const base = cityKey
+          ? `sensor.pollen_${cityKey}_`
+          : "sensor.pollen_";
+        const cands = Object.keys(hass.states).filter(
+          (id) => id.startsWith(base) && id.endsWith(`_${rawKey}`),
+        );
+        if (cands.length === 1) sensorId = cands[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[PP:resolveEntityIds] allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(rawKey, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const sensors = [];
   const debug = Boolean(config.debug);
@@ -76,6 +128,8 @@ export async function fetchForecast(hass, config) {
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigPP.pollen_threshold;
 
+  const entityMap = resolveEntityIds(config, hass, debug);
+
   for (const allergen of config.allergens) {
     try {
       const dict = {};
@@ -89,41 +143,9 @@ export async function fetchForecast(hass, config) {
       });
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
-      // Sensor lookup
-      // Normalize city key unless manual mode is selected.
-      let cityKey =
-        config.city === "manual" ? "" : normalize(config.city || "");
-      // Autodetect city from existing sensors if not provided.
-      if (!cityKey) {
-        const ppStates = Object.keys(hass.states).filter(
-          (id) =>
-            id.startsWith("sensor.pollen_") &&
-            /^sensor\.pollen_(.+)_[^_]+$/.test(id),
-        );
-        if (ppStates.length) {
-          const m = ppStates[0].match(/^sensor\.pollen_(.+)_[^_]+$/);
-          cityKey = m ? m[1] : "";
-        }
-      }
-      let sensorId;
-      if (config.city === "manual") {
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
-        if (!hass.states[sensorId]) continue;
-      } else {
-        sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
-        if (!sensorId || !hass.states[sensorId]) {
-          const base = cityKey
-            ? `sensor.pollen_${cityKey}_`
-            : "sensor.pollen_";
-          const cands = Object.keys(hass.states).filter(
-            (id) => id.startsWith(base) && id.endsWith(`_${rawKey}`),
-          );
-          if (cands.length === 1) sensorId = cands[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(rawKey);
+      if (!sensorId) continue;
       const sensor = hass.states[sensorId];
       if (!sensor?.attributes?.forecast) throw "Missing forecast";
       dict.entity_id = sensorId;
