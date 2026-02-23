@@ -5,7 +5,7 @@ import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -217,11 +217,7 @@ export async function fetchForecast(hass, config) {
     config.pollen_threshold ?? stubConfigKleenex.pollen_threshold;
 
   // Kleenex uses 5-level system (0-4), validate and clamp level values
-  const maxLevel = 4;
-  const testVal = (v) => {
-    const n = Number(v);
-    return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
-  };
+  const testVal = (v) => clampLevel(v, 4, -1);
 
   if (debug)
     console.debug("[Kleenex] Adapter: start fetchForecast", { config, lang });

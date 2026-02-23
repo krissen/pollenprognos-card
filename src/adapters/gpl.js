@@ -8,7 +8,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
@@ -285,11 +285,7 @@ export async function fetchForecast(hass, config) {
     config.pollen_threshold ?? stubConfigGPL.pollen_threshold;
 
   // GPL uses 6-level system (0-5)
-  const maxLevel = 5;
-  const testVal = (v) => {
-    const n = Number(v);
-    return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
-  };
+  const testVal = (v) => clampLevel(v, 5, -1);
 
   if (debug) console.debug("[GPL] Adapter: start fetchForecast", { config, lang });
 

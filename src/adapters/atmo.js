@@ -3,7 +3,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -191,10 +191,7 @@ export async function fetchForecast(hass, config) {
   if (debug) console.debug("ATMO adapter: start fetchForecast", { config, lang });
 
   // Atmo France: 0 = indisponible, 1–6 = valid levels, 7 = événement
-  const testVal = (val) => {
-    const n = Number(val);
-    return isNaN(n) || n < 0 ? -1 : n;
-  };
+  const testVal = (v) => clampLevel(v, null, -1);
 
   // Labels for Atmo-specific special values (0 and 7)
   const atmoUnavailableLabel = t("card.atmo.unavailable", lang) || noInfoLabel;

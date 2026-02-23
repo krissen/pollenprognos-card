@@ -16,6 +16,20 @@ import { t } from "../i18n.js";
  * @param {string}  opts.locale        - Locale tag for date formatting.
  * @returns {string}
  */
+/**
+ * Clamp a sensor value to a valid level range.
+ *
+ * @param {*}      v         - Raw sensor value (will be coerced via Number()).
+ * @param {number|null} maxLevel - Upper clamp bound, or null for no upper clamp.
+ * @param {*}      nanResult - Value returned for NaN / negative input.
+ * @returns {number|null}
+ */
+export function clampLevel(v, maxLevel = 6, nanResult = -1) {
+  const n = Number(v);
+  if (isNaN(n) || n < 0) return nanResult;
+  return maxLevel != null ? Math.min(n, maxLevel) : n;
+}
+
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {
   let label;
   if (!daysRelative) {

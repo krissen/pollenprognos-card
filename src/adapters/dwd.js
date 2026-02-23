@@ -3,7 +3,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -88,10 +88,7 @@ export async function fetchForecast(hass, config) {
   if (debug)
     console.debug("DWD adapter: start fetchForecast", { config, lang });
 
-  const testVal = (val) => {
-    const n = Number(val);
-    return isNaN(n) ? -1 : n;
-  };
+  const testVal = (v) => clampLevel(v, null, -1);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

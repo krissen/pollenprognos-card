@@ -3,7 +3,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -96,10 +96,7 @@ export async function fetchForecast(hass, config) {
   if (debug)
     console.debug("PP.fetchForecast — start", { city: config.city, lang });
 
-  const testVal = (v) => {
-    const n = Number(v);
-    return isNaN(n) || n < 0 ? null : n > 6 ? 6 : n;
-  };
+  const testVal = (v) => clampLevel(v, 6, null);
 
   const days_to_show = config.days_to_show ?? stubConfigPP.days_to_show;
   const pollen_threshold =

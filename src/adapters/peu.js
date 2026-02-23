@@ -4,7 +4,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
-import { buildDayLabel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -110,13 +110,7 @@ export async function fetchForecast(hass, config) {
   const noInfoLabel = phrases.no_information || t("card.no_information", lang);
   const userDays = phrases.days;
 
-  const maxLevel =
-    config.integration === "dwd" ? 3 : config.integration === "peu" ? 4 : 6;
-
-  const testVal = (v) => {
-    const n = Number(v);
-    return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
-  };
+  const testVal = (v) => clampLevel(v, 4, -1);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
