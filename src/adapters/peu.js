@@ -3,6 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
+import { slugify } from "../utils/slugify.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
@@ -67,7 +68,7 @@ export const PEU_ALLERGENS = ["allergy_risk", ...stubConfigPEU.allergens];
 
 function detectLocation(cfg, hass) {
   if (cfg.location === "manual") return "";
-  let locationSlug = cfg.location || "";
+  let locationSlug = slugify(cfg.location || "");
   if (!locationSlug) {
     const peuStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.polleninformation_"),
