@@ -9,6 +9,7 @@ import {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { buildDayLabel } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -374,22 +375,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           }
         } else {
           d = new Date(today.getTime() + i * 86400000);
-          if (!daysRelative) {
-            label = d.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long",
-            });
-            label = label.charAt(0).toUpperCase() + label.slice(1);
-          } else if (userDays[i] != null) {
-            label = userDays[i];
-          } else if (i >= 0 && i <= 2) {
-            label = t(`card.days.${i}`, lang);
-          } else {
-            label = d.toLocaleDateString(locale, {
-              day: "numeric",
-              month: "short",
-            });
-          }
-          if (daysUppercase) label = label.toUpperCase();
+          label = buildDayLabel(d, i, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
           icon = null;
         }
 

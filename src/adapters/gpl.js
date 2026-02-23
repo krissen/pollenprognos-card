@@ -8,6 +8,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { buildDayLabel } from "../utils/adapter-helpers.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
@@ -409,24 +410,7 @@ export async function fetchForecast(hass, config) {
         if (!entry) continue;
 
         const diff = Math.round((entry.date - today) / 86400000);
-        let dayLabel;
-
-        if (!daysRelative) {
-          dayLabel = entry.date.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-        } else if (userDays[diff] !== undefined) {
-          dayLabel = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          dayLabel = t(`card.days.${diff}`, lang);
-        } else {
-          dayLabel = entry.date.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
-        }
-        if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+        const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
         // Scale level 0-5 to level name index 0-6 (like Kleenex does for 0-4)
         const level = entry.level;

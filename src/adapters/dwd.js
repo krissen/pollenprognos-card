@@ -3,6 +3,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { buildDayLabel } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -185,28 +186,7 @@ export async function fetchForecast(hass, config) {
       levels.forEach((entry, idx) => {
         if (entry.level !== null && entry.level >= 0) {
           const diff = Math.round((entry.date - today) / 86400000);
-          let dayLabel;
-
-          if (!daysRelative) {
-            // Visa absoluta veckodagar med versal
-            dayLabel = entry.date.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long",
-            });
-            dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-          } else if (userDays[diff] !== undefined) {
-            // Relativa dagar från användarens config
-            dayLabel = userDays[diff];
-          } else if (diff >= 0 && diff <= 2) {
-            // Standard relative days från i18n
-            dayLabel = t(`card.days.${diff}`, lang);
-          } else {
-            // Datum som dag mån
-            dayLabel = entry.date.toLocaleDateString(locale, {
-              day: "numeric",
-              month: "short",
-            });
-          }
-          if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+          const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
           const sensorDesc =
             sensor.attributes[

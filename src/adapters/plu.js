@@ -4,6 +4,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
+import { buildDayLabel } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -228,18 +229,7 @@ export async function fetchForecast(hass, config) {
       ? new Date(dict.attributes.last_update)
       : today;
 
-    let label;
-    if (!daysRelative) {
-      label = referenceDate.toLocaleDateString(locale, {
-        weekday: dayAbbrev ? "short" : "long",
-      });
-      label = label.charAt(0).toUpperCase() + label.slice(1);
-    } else if (userDays[0] != null) {
-      label = userDays[0];
-    } else {
-      label = t("card.days.0", lang);
-    }
-    if (daysUppercase) label = label.toUpperCase();
+    const label = buildDayLabel(referenceDate, 0, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
     const stateText =
       level < 0 ? noInfoLabel : levelNames[level] || noInfoLabel;

@@ -3,6 +3,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { buildDayLabel } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -227,24 +228,7 @@ export async function fetchForecast(hass, config) {
         const level = testVal(raw.level);
         const d = parseLocal(dateStr);
         const diff = Math.round((d - today) / 86400000);
-        let label;
-
-        if (!daysRelative) {
-          label = d.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          label = label.charAt(0).toUpperCase() + label.slice(1);
-        } else if (userDays[diff] != null) {
-          label = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          label = t(`card.days.${diff}`, lang);
-        } else {
-          label = d.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
-        }
-        if (daysUppercase) label = label.toUpperCase();
+        const label = buildDayLabel(d, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
         if (level !== null) {
           const dayObj = {

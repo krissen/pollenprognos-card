@@ -5,6 +5,7 @@ import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { buildDayLabel } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -740,24 +741,7 @@ export async function fetchForecast(hass, config) {
         const d = dayData.date;
         const diff = Math.round((d - today) / 86400000);
 
-        // Generate day label using same logic as other adapters
-        let dayLabel;
-        if (!daysRelative) {
-          dayLabel = d.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-        } else if (userDays[diff] != null) {
-          dayLabel = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          dayLabel = t(`card.days.${diff}`, lang);
-        } else {
-          dayLabel = d.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
-        }
-        if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+        const dayLabel = buildDayLabel(d, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
         // Scale level for display (keep raw 0-4 for state, but scale for level names like PEU)
         const level = dayData.level; // Raw level (0-4)
