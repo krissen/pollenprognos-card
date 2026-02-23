@@ -5,22 +5,12 @@ import { slugify } from "./utils/slugify.js";
 import { images } from "./pollenprognos-images.js";
 import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
-import * as PP from "./adapters/pp.js";
+import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { normalize, normalizeDWD } from "./utils/normalize.js";
 import { findAvailableSensors } from "./utils/sensors.js";
-import * as DWD from "./adapters/dwd.js";
-import * as PEU from "./adapters/peu.js";
-import * as SILAM from "./adapters/silam.js";
-import * as KLEENEX from "./adapters/kleenex.js";
-import { stubConfigPP } from "./adapters/pp.js";
-import { stubConfigDWD } from "./adapters/dwd.js";
 import { COSMETIC_FIELDS } from "./constants.js";
-import { stubConfigPEU } from "./adapters/peu.js";
-import { stubConfigSILAM } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex.js";
-import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { stubConfigATMO } from "./adapters/atmo.js";
-import { stubConfigGPL, GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
+import { PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -33,7 +23,6 @@ import {
   DWD_REGIONS,
   ALLERGEN_TRANSLATION,
   ALLERGEN_ICON_FALLBACK,
-  ADAPTERS as CONSTANT_ADAPTERS,
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
@@ -47,7 +36,6 @@ import {
 
 // Chart.js registreren
 Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
-const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   _forecastUnsub = null; // Unsubscribe-funktion
@@ -535,7 +523,7 @@ class PollenPrognosCard extends LitElement {
       this.config.integration === "silam" &&
       this._forecastEvent
     ) {
-      const adapter = ADAPTERS[this.config.integration] || PP;
+      const adapter = getAdapter(this.config.integration) || getAdapter("pp");
       this._isLoaded = false; // Forecast request is in progress.
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
@@ -848,16 +836,7 @@ class PollenPrognosCard extends LitElement {
       // Note: Don't modify the original config object as it may be read-only
     }
 
-    let stub;
-    if (integration === "pp") stub = stubConfigPP;
-    else if (integration === "peu") stub = stubConfigPEU;
-    else if (integration === "dwd") stub = stubConfigDWD;
-    else if (integration === "silam") stub = stubConfigSILAM;
-    else if (integration === "kleenex") stub = stubConfigKleenex;
-    else if (integration === "plu") stub = stubConfigPLU;
-    else if (integration === "atmo") stub = stubConfigATMO;
-    else if (integration === "gpl") stub = stubConfigGPL;
-    else stub = stubConfigPP;
+    const stub = getStubConfig(integration) || getStubConfig("pp");
 
     // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
@@ -1043,23 +1022,15 @@ class PollenPrognosCard extends LitElement {
     }
 
     // Plocka rätt stub
-    let baseStub;
-    if (integration === "dwd") baseStub = stubConfigDWD;
-    else if (integration === "peu") baseStub = stubConfigPEU;
-    else if (integration === "pp") baseStub = stubConfigPP;
-    else if (integration === "silam") baseStub = stubConfigSILAM;
-    else if (integration === "kleenex") baseStub = stubConfigKleenex;
-    else if (integration === "plu") baseStub = stubConfigPLU;
-    else if (integration === "atmo") baseStub = stubConfigATMO;
-    else if (integration === "gpl") baseStub = stubConfigGPL;
-    else {
+    let baseStub = getStubConfig(integration);
+    if (!baseStub) {
       console.error(
         "Unknown integration:",
         integration,
         "- falling back to PP",
       );
-      integration = "pp"; // Fallback to prevent further errors
-      baseStub = stubConfigPP;
+      integration = "pp";
+      baseStub = getStubConfig("pp");
     }
 
     // Sätt config rätt — utan allergens
@@ -1099,19 +1070,7 @@ class PollenPrognosCard extends LitElement {
         );
       }
       // Om integrationen INTE är explicit (autodetect): använd stubben
-      if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
-      else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
-      else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
-      else if (integration === "silam")
-        cfg.allergens = stubConfigSILAM.allergens;
-      else if (integration === "kleenex")
-        cfg.allergens = stubConfigKleenex.allergens;
-      else if (integration === "plu")
-        cfg.allergens = stubConfigPLU.allergens;
-      else if (integration === "atmo")
-        cfg.allergens = stubConfigATMO.allergens;
-      else if (integration === "gpl")
-        cfg.allergens = stubConfigGPL.allergens;
+      cfg.allergens = getStubConfig(integration).allergens;
     }
 
     // Fyll date_locale
@@ -1601,7 +1560,7 @@ class PollenPrognosCard extends LitElement {
     }
 
     // Hämta prognos via rätt adapter
-    const adapter = ADAPTERS[cfg.integration] || PP;
+    const adapter = getAdapter(cfg.integration) || getAdapter("pp");
     let fetchPromise = null;
     if (cfg.integration === "silam") {
       if (!this._forecastEvent) {

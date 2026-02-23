@@ -1,25 +1,5 @@
 // src/constants.js
 
-import * as PP from "./adapters/pp.js";
-import * as DWD from "./adapters/dwd.js";
-import * as PEU from "./adapters/peu.js";
-import * as SILAM from "./adapters/silam.js";
-import * as KLEENEX from "./adapters/kleenex.js";
-import * as PLU from "./adapters/plu.js";
-import * as ATMO from "./adapters/atmo.js";
-import * as GPL from "./adapters/gpl.js";
-
-export const ADAPTERS = {
-  pp: PP,
-  dwd: DWD,
-  peu: PEU,
-  silam: SILAM,
-  kleenex: KLEENEX,
-  plu: PLU,
-  atmo: ATMO,
-  gpl: GPL,
-};
-
 export const DWD_REGIONS = {
   11: "Schleswig-Holstein und Hamburg",
   12: "Schleswig-Holstein und Hamburg",

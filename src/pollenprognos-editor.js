@@ -10,15 +10,16 @@ import {
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
-// Stub-config från adaptrar (så att editorn vet vilka fält som finns)
+// Adapter registry (stub config lookup) + direct adapter imports for constants
+import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
-import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
+import { PEU_ALLERGENS } from "./adapters/peu.js";
+import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
-import { stubConfigGPL, GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
+import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
+import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -52,23 +53,6 @@ const deepMerge = (target, source) => {
   }
   return out;
 };
-
-const getStubConfig = (integration) =>
-  integration === "dwd"
-    ? stubConfigDWD
-    : integration === "peu"
-      ? stubConfigPEU
-      : integration === "silam"
-        ? stubConfigSILAM
-        : integration === "kleenex"
-          ? stubConfigKleenex
-          : integration === "plu"
-            ? stubConfigPLU
-            : integration === "atmo"
-              ? stubConfigATMO
-              : integration === "gpl"
-                ? stubConfigGPL
-                : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -349,15 +333,7 @@ class PollenPrognosCardEditor extends LitElement {
       // }
 
       // 4. Släpp aldrig in stub-pollen_threshold
-      const stubThresh = (
-        incoming.integration === "dwd"
-          ? stubConfigDWD
-          : incoming.integration === "peu"
-            ? stubConfigPEU
-            : incoming.integration === "silam"
-              ? stubConfigSILAM
-              : stubConfigPP
-      ).pollen_threshold;
+      const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")).pollen_threshold;
       if (
         incoming.hasOwnProperty("pollen_threshold") &&
         !this._thresholdExplicit &&
@@ -398,15 +374,7 @@ class PollenPrognosCardEditor extends LitElement {
         if (this.debug) console.debug("[Editor] dropped stub days_to_show");
         delete incoming.days_to_show;
       }
-      const stubLocale = (
-        incoming.integration === "dwd"
-          ? stubConfigDWD
-          : incoming.integration === "peu"
-            ? stubConfigPEU
-            : incoming.integration === "silam"
-              ? stubConfigSILAM
-              : stubConfigPP
-      ).date_locale;
+      const stubLocale = (getStubConfig(incoming.integration) || getStubConfig("pp")).date_locale;
       if (!this._localeExplicit && incoming.date_locale === stubLocale) {
         if (this.debug) console.debug("[Editor] dropped stub date_locale");
         delete incoming.date_locale;
@@ -917,22 +885,7 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     // 2) Slå ihop stub + användar-config
-    const base =
-      integration === "dwd"
-        ? stubConfigDWD
-        : integration === "peu"
-          ? stubConfigPEU
-          : integration === "silam"
-            ? stubConfigSILAM
-            : integration === "kleenex"
-              ? stubConfigKleenex
-              : integration === "plu"
-                ? stubConfigPLU
-                : integration === "atmo"
-                  ? stubConfigATMO
-                  : integration === "gpl"
-                    ? stubConfigGPL
-                    : stubConfigPP;
+    const base = getStubConfig(integration) || getStubConfig("pp");
 
     // Bygg merged-objekt (det är denna rad som saknas)
     if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
@@ -1561,22 +1514,7 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.index_top;
         this._allergensExplicit = false;
       }
-      const base =
-        newInt === "dwd"
-          ? stubConfigDWD
-          : newInt === "peu"
-            ? stubConfigPEU
-            : newInt === "silam"
-              ? stubConfigSILAM
-              : newInt === "kleenex"
-                ? stubConfigKleenex
-                : newInt === "plu"
-                  ? stubConfigPLU
-                  : newInt === "atmo"
-                    ? stubConfigATMO
-                    : newInt === "gpl"
-                      ? stubConfigGPL
-                      : stubConfigPP;
+      const base = getStubConfig(newInt) || getStubConfig("pp");
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
