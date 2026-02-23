@@ -1,10 +1,9 @@
 // src/adapters/plu.js
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { buildDayLabel, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -174,26 +173,11 @@ export async function fetchForecast(hass, config) {
     const dict = { days: [] };
     dict.allergenReplaced = allergen;
 
-    const canonicalKey = ALLERGEN_TRANSLATION[allergen] || allergen;
-    if (fullPhrases[allergen]) {
-      dict.allergenCapitalized = fullPhrases[allergen];
-    } else {
-      const lookup = t(`card.allergen.${canonicalKey}`, lang);
-      dict.allergenCapitalized =
-        lookup !== `card.allergen.${canonicalKey}`
-          ? lookup
-          : allergen.charAt(0).toUpperCase() + allergen.slice(1);
-    }
-
-    if (config.allergens_abbreviated) {
-      const userShort = shortPhrases[allergen];
-      dict.allergenShort =
-        userShort ||
-        t(`editor.phrases_short.${canonicalKey}`, lang) ||
-        dict.allergenCapitalized;
-    } else {
-      dict.allergenShort = dict.allergenCapitalized;
-    }
+    const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
+      fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+    });
+    dict.allergenCapitalized = allergenCapitalized;
+    dict.allergenShort = allergenShort;
 
     const sensorId = resolveSensorId(hass, allergen, debug);
     if (!sensorId) {

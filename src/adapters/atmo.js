@@ -3,7 +3,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -244,27 +244,12 @@ export async function fetchForecast(hass, config) {
         ? "pollution"
         : "pollen";
 
-      // Allergen name
-      const userFull = fullPhrases[allergen];
-      if (userFull) {
-        dict.allergenCapitalized = userFull;
-      } else {
-        const nameKey = `card.allergen.${canonKey}`;
-        const i18nName = t(nameKey, lang);
-        dict.allergenCapitalized =
-          i18nName !== nameKey ? i18nName : capitalize(allergen);
-      }
-
-      // Short name
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergen];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
       // Find sensor entity
       let sensorId;

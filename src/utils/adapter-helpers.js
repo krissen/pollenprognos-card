@@ -1,6 +1,7 @@
 // src/utils/adapter-helpers.js
 // Shared pure helpers used by multiple adapters.
 import { t } from "../i18n.js";
+import { ALLERGEN_TRANSLATION } from "../constants.js";
 
 /**
  * Build a day column label from a date and its offset from today.
@@ -62,6 +63,46 @@ export function sortSensors(sensors, sortKey) {
  */
 export function meetsThreshold(days, threshold) {
   return threshold === 0 || days.some((d) => d.state >= threshold);
+}
+
+/**
+ * Resolve full and short allergen display names.
+ *
+ * @param {string} allergenKey - Normalized/slugified allergen key for ALLERGEN_TRANSLATION.
+ * @param {object} opts
+ * @param {object}  opts.fullPhrases   - User phrase overrides (full names).
+ * @param {object}  opts.shortPhrases  - User phrase overrides (short names).
+ * @param {boolean} opts.abbreviated   - Whether to use abbreviated (short) names.
+ * @param {string}  opts.lang          - Language code for i18n.
+ * @param {Function} [opts.capitalize] - Custom capitalize function (default: first char upper).
+ * @param {string}  [opts.configKey]   - Original config key for phrases lookup when it
+ *                                       differs from allergenKey (e.g. PP/DWD raw names).
+ * @returns {{ allergenCapitalized: string, allergenShort: string }}
+ */
+export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, abbreviated, lang, capitalize: capFn, configKey }) {
+  const cap = capFn || ((s) => s.charAt(0).toUpperCase() + s.slice(1));
+  const ck = configKey ?? allergenKey;
+  const canonKey = ALLERGEN_TRANSLATION[allergenKey] || allergenKey;
+
+  let allergenCapitalized;
+  if (fullPhrases[ck]) {
+    allergenCapitalized = fullPhrases[ck];
+  } else {
+    const nameKey = `card.allergen.${canonKey}`;
+    const i18nName = t(nameKey, lang);
+    allergenCapitalized = i18nName !== nameKey ? i18nName : cap(ck);
+  }
+
+  let allergenShort;
+  if (abbreviated) {
+    allergenShort = shortPhrases[ck]
+      || t(`editor.phrases_short.${canonKey}`, lang)
+      || allergenCapitalized;
+  } else {
+    allergenShort = allergenCapitalized;
+  }
+
+  return { allergenCapitalized, allergenShort };
 }
 
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {

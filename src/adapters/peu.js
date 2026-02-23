@@ -1,10 +1,9 @@
 // src/adapters/peu.js
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -150,26 +149,12 @@ export async function fetchForecast(hass, config) {
       const allergenSlug = allergen; // redan slugifierat i peu
       dict.allergenReplaced = allergenSlug;
 
-      // Allergen-namn, phrases, i18n, capitalisering
-      const canonKey = ALLERGEN_TRANSLATION[allergenSlug] || allergenSlug;
-      if (fullPhrases[allergenSlug]) {
-        dict.allergenCapitalized = fullPhrases[allergenSlug];
-      } else {
-        const lookup = t(`card.allergen.${canonKey}`, lang);
-        dict.allergenCapitalized =
-          lookup !== `card.allergen.${canonKey}`
-            ? lookup
-            : allergenSlug.charAt(0).toUpperCase() + allergenSlug.slice(1);
-      }
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergenSlug];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergenSlug, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
       // Find sensor
       let sensorId;

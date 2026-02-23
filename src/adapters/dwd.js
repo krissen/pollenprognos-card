@@ -1,9 +1,8 @@
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -100,31 +99,12 @@ export async function fetchForecast(hass, config) {
       const dict = {};
       const rawKey = normalizeDWD(allergen);
       dict.allergenReplaced = rawKey;
-      // Canonical key for lookup in locales
-      const canonKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
-
-      // Allergen-namn: använd user phrase, annars i18n, annars default
-      const userFull = fullPhrases[allergen];
-      if (userFull) {
-        dict.allergenCapitalized = userFull;
-      } else {
-        const transKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
-        const nameKey = `card.allergen.${transKey}`;
-        const i18nName = t(nameKey, lang);
-        dict.allergenCapitalized =
-          i18nName !== nameKey ? i18nName : capitalize(allergen);
-      }
-
-      // Kortnamn beroende på config.allergens_abbreviated
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergen];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(rawKey, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang, configKey: allergen,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
       // Find sensor entity
       let sensorId;

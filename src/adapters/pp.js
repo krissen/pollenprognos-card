@@ -1,9 +1,8 @@
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -110,36 +109,11 @@ export async function fetchForecast(hass, config) {
       dict.allergenReplaced = rawKey;
 
       // Allergen name resolution
-      if (this.debug) {
-        console.log(
-          "[PP] allergen",
-          allergen,
-          "fullPhrases keys",
-          Object.keys(fullPhrases),
-        );
-      }
-      if (fullPhrases[allergen]) {
-        dict.allergenCapitalized = fullPhrases[allergen];
-      } else {
-        const transKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
-        const lookup = t(`card.allergen.${transKey}`, lang);
-        dict.allergenCapitalized =
-          lookup !== `card.allergen.${transKey}`
-            ? lookup
-            : capitalize(allergen);
-      }
-      // Kolla om vi ska använda kortnamn
-      if (config.allergens_abbreviated) {
-        // Canonical key för lookup i phrases_short
-        const canonKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
-        const userShort = shortPhrases[allergen];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(rawKey, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang, configKey: allergen,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
       // Sensor lookup
       // Normalize city key unless manual mode is selected.
       let cityKey =

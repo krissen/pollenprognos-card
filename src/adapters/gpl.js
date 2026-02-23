@@ -8,7 +8,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
@@ -324,27 +324,13 @@ export async function fetchForecast(hass, config) {
       const canonKey = ALLERGEN_TRANSLATION[allergen] || allergen;
       dict.allergenReplaced = allergen;
 
-      // Allergen name
-      const userFull = fullPhrases[allergen];
-      if (userFull) {
-        dict.allergenCapitalized = userFull;
-      } else {
-        const nameKey = `card.allergen.${canonKey}`;
-        const i18nName = t(nameKey, lang);
-        dict.allergenCapitalized =
-          i18nName !== nameKey ? i18nName : capitalize(allergen.replace(/_/g, " "));
-      }
-
-      // Short name
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergen];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+        capitalize: (s) => capitalize(s.replace(/_/g, " ")),
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
       // Find sensor entity
       const sensorId = resolveEntityId(allergen, hass, config, discoveredEntities, debug);

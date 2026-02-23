@@ -1,11 +1,11 @@
 // src/adapters/kleenex.js
 import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION, KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
+import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -662,31 +662,12 @@ export async function fetchForecast(hass, config) {
       dict.entity_id = allergenInfo.entity_id;
       dict.days = []; // Initialize days array
 
-      // Canonical key for lookup in locales
-      const canonKey = ALLERGEN_TRANSLATION[allergenKey] || allergenKey;
-
-      // Allergen name: use user phrase, else i18n, else default
-      const userFull = fullPhrases[allergenKey];
-      if (userFull) {
-        dict.allergenCapitalized = userFull;
-      } else {
-        const transKey = ALLERGEN_TRANSLATION[allergenKey] || allergenKey;
-        const nameKey = `card.allergen.${transKey}`;
-        const i18nName = t(nameKey, lang);
-        dict.allergenCapitalized =
-          i18nName !== nameKey ? i18nName : capitalize(allergenKey);
-      }
-
-      // Short name depending on config.allergens_abbreviated
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergenKey];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergenKey, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
       // Pad levels array to match days_to_show
       const levels = allergenInfo.levels;
