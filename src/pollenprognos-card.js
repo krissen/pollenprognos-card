@@ -10,7 +10,7 @@ import { normalize, normalizeDWD } from "./utils/normalize.js";
 import { findAvailableSensors } from "./utils/sensors.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
+import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,

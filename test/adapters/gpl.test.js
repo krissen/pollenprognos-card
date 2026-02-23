@@ -5,7 +5,7 @@ import {
   GPL_BASE_ALLERGENS,
   GPL_ATTRIBUTION,
   discoverGplSensors,
-} from "../../src/adapters/gpl.js";
+} from "../../src/adapters/gpl/index.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
 // ---------------------------------------------------------------------------

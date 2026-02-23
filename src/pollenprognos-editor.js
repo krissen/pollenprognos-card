@@ -16,10 +16,10 @@ import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { PEU_ALLERGENS } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex.js";
+import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
-import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
+import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigKleenex } from "../../src/adapters/kleenex.js";
+import { fetchForecast, stubConfigKleenex } from "../../src/adapters/kleenex/index.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
 function makeConfig(overrides = {}) {

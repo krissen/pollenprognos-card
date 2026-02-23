@@ -17,7 +17,7 @@
 
 import { describe, it, expect } from "vitest";
 import { PLU_ALIAS_MAP } from "../../src/adapters/plu.js";
-import { GPL_ATTRIBUTION } from "../../src/adapters/gpl.js";
+import { GPL_ATTRIBUTION } from "../../src/adapters/gpl/index.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers

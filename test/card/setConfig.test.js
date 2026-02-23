@@ -3,10 +3,10 @@ import { stubConfigPP } from "../../src/adapters/pp.js";
 import { stubConfigDWD } from "../../src/adapters/dwd.js";
 import { stubConfigPEU } from "../../src/adapters/peu.js";
 import { stubConfigSILAM } from "../../src/adapters/silam.js";
-import { stubConfigKleenex } from "../../src/adapters/kleenex.js";
+import { stubConfigKleenex } from "../../src/adapters/kleenex/index.js";
 import { stubConfigPLU } from "../../src/adapters/plu.js";
 import { stubConfigATMO } from "../../src/adapters/atmo.js";
-import { stubConfigGPL } from "../../src/adapters/gpl.js";
+import { stubConfigGPL } from "../../src/adapters/gpl/index.js";
 import { COSMETIC_FIELDS } from "../../src/constants.js";
 
 // ── Constants matching setConfig() implementation ──────────────────────

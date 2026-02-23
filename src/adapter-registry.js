@@ -6,19 +6,19 @@ import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
 import * as SILAM from "./adapters/silam.js";
-import * as KLEENEX from "./adapters/kleenex.js";
+import * as KLEENEX from "./adapters/kleenex/index.js";
 import * as PLU from "./adapters/plu.js";
 import * as ATMO from "./adapters/atmo.js";
-import * as GPL from "./adapters/gpl.js";
+import * as GPL from "./adapters/gpl/index.js";
 
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
 import { stubConfigPEU } from "./adapters/peu.js";
 import { stubConfigSILAM } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex.js";
+import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU } from "./adapters/plu.js";
 import { stubConfigATMO } from "./adapters/atmo.js";
-import { stubConfigGPL } from "./adapters/gpl.js";
+import { stubConfigGPL } from "./adapters/gpl/index.js";
 
 const registry = {
   pp: { module: PP, stub: stubConfigPP },
