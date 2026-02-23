@@ -65,6 +65,82 @@ export const stubConfigPEU = {
 // All possible allergens for the PEU integration
 export const PEU_ALLERGENS = ["allergy_risk", ...stubConfigPEU.allergens];
 
+function detectLocation(cfg, hass) {
+  if (cfg.location === "manual") return "";
+  let locationSlug = cfg.location || "";
+  if (!locationSlug) {
+    const peuStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.polleninformation_"),
+    );
+    if (peuStates.length) {
+      const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+      locationSlug = match ? match[1] : "";
+    }
+  }
+  return locationSlug;
+}
+
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const locationSlug = detectLocation(cfg, hass);
+  const mode = cfg.mode || stubConfigPEU.mode;
+  const peuStates = Object.keys(hass.states).filter((id) =>
+    id.startsWith("sensor.polleninformation_"),
+  );
+
+  for (const allergen of cfg.allergens || []) {
+    const allergenSlug = allergen;
+    let sensorId;
+    if (cfg.location === "manual") {
+      const prefix = cfg.entity_prefix || "";
+      const coreSlug =
+        mode !== "daily" && allergenSlug === "allergy_risk"
+          ? "allergy_risk_hourly"
+          : allergenSlug;
+      const suffix = cfg.entity_suffix || "";
+      sensorId = `sensor.${prefix}${coreSlug}${suffix}`;
+      if (!hass.states[sensorId]) continue;
+    } else {
+      if (mode !== "daily" && allergenSlug === "allergy_risk") {
+        sensorId = locationSlug
+          ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
+          : null;
+      } else {
+        sensorId = locationSlug
+          ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
+          : null;
+      }
+      if (!sensorId || !hass.states[sensorId]) {
+        const cands = peuStates.filter((id) => {
+          const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+          if (!match) return false;
+          const loc = match[1];
+          const allg = match[2];
+          if (mode !== "daily" && allergenSlug === "allergy_risk") {
+            return (
+              (!locationSlug || loc === locationSlug) &&
+              allg === "allergy_risk_hourly"
+            );
+          }
+          return (
+            (!locationSlug || loc === locationSlug) &&
+            allg === allergenSlug
+          );
+        });
+        if (cands.length === 1) sensorId = cands[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[PEU:resolveEntityIds] allergen: '${allergen}', locationSlug: '${locationSlug}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(allergenSlug, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
@@ -107,19 +183,7 @@ export async function fetchForecast(hass, config) {
     twice_daily: 12,
   };
 
-  // Plats/slug-hantering
-  // location_slug kan sättas explicit, men om inte så loopar vi igenom tillgängliga sensorer
-  const peuStates = Object.keys(hass.states).filter((id) =>
-    id.startsWith("sensor.polleninformation_"),
-  );
-  let locationSlug = config.location === "manual" ? "" : config.location;
-  if (!locationSlug && config.location !== "manual" && peuStates.length) {
-    // Extract full location slug (everything after "sensor.polleninformation_" and before last "_<allergen>")
-    const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
-    locationSlug = match ? match[1] : "";
-  }
-  // Lista platser om vi vill visa i editorn (kan samlas ihop)
-  // const availableLocations = Array.from(new Set(peuStates.map(id => id.split("_")[2])));
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   const sensors = [];
   for (const allergen of config.allergens) {
@@ -136,50 +200,9 @@ export async function fetchForecast(hass, config) {
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
-      // Find sensor
-      let sensorId;
-      if (config.location === "manual") {
-        const prefix = config.entity_prefix || "";
-        const coreSlug =
-          mode !== "daily" && allergenSlug === "allergy_risk"
-            ? "allergy_risk_hourly"
-            : allergenSlug;
-        const suffix = config.entity_suffix || "";
-        sensorId = `sensor.${prefix}${coreSlug}${suffix}`;
-        if (!hass.states[sensorId]) continue;
-      } else {
-        if (mode !== "daily" && allergenSlug === "allergy_risk") {
-          sensorId = locationSlug
-            ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
-            : null;
-        } else {
-          sensorId = locationSlug
-            ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
-            : null;
-        }
-        if (!sensorId || !hass.states[sensorId]) {
-          // Leta fallback-sensor bland peuStates
-          const cands = peuStates.filter((id) => {
-            const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
-            if (!match) return false;
-            const loc = match[1];
-            const allergen = match[2];
-            if (mode !== "daily" && allergenSlug === "allergy_risk") {
-              return (
-                (!locationSlug || loc === locationSlug) &&
-                allergen === "allergy_risk_hourly"
-              );
-            }
-            return (
-              (!locationSlug || loc === locationSlug) &&
-              allergen === allergenSlug
-            );
-          });
-
-          if (cands.length === 1) sensorId = cands[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergenSlug);
+      if (!sensorId) continue;
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
 
