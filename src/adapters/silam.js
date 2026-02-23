@@ -134,6 +134,61 @@ export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   return { allergenCapitalized, allergenShort };
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+  const locationSlug = configLocation.toLowerCase();
+
+  const discovery = discoverSilamSensors(hass, debug);
+  const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+
+  for (const rawAllergen of cfg.allergens || []) {
+    const norm = normalize(rawAllergen);
+    const allergen = ALLERGEN_TRANSLATION[norm] || norm;
+
+    let sensorId = null;
+    if (cfg.location === "manual") {
+      let slug = null;
+      for (const mapping of Object.values(silamAllergenMap.mapping)) {
+        const inverse = Object.entries(mapping).reduce(
+          (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+        );
+        if (inverse[allergen]) { slug = inverse[allergen]; break; }
+      }
+      slug = slug || allergen;
+      const prefix = cfg.entity_prefix || "";
+      const suffix = cfg.entity_suffix || "";
+      const candidate = `sensor.${prefix}${slug}${suffix}`;
+      if (hass.states[candidate]) sensorId = candidate;
+    } else if (discoveredLoc?.sensors?.size) {
+      sensorId = discoveredLoc.sensors.get(allergen) || null;
+      if (sensorId && !hass.states[sensorId]) sensorId = null;
+    }
+    if (!sensorId && cfg.location !== "manual") {
+      for (const mapping of Object.values(silamAllergenMap.mapping)) {
+        const inverse = Object.entries(mapping).reduce(
+          (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+        );
+        if (inverse[allergen]) {
+          const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
+          if (hass.states[candidate]) { sensorId = candidate; break; }
+        }
+      }
+      if (!sensorId) {
+        const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
+        if (hass.states[fallback]) sensorId = fallback;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[SILAM:resolveEntityIds] allergen: '${allergen}', sensorId: '${sensorId}'`,
+      );
+    }
+    if (sensorId) map.set(allergen, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
@@ -150,9 +205,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   // Hitta weather-entity och discovery-data
   const configLocation = config.location === "manual" ? "" : (config.location || "");
-  const locationSlug = configLocation.toLowerCase();
 
-  // Kör discovery en gång och återanvänd
+  // Discovery for weather entity (allergen sensors delegated to resolveEntityIds)
   const discovery = discoverSilamSensors(hass, debug);
   const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
 
@@ -194,6 +248,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     maxItems = Math.min(forecastArr.length + 1, days_to_show);
   }
 
+  const entityMap = resolveEntityIds(config, hass, debug);
+
   const sensors = [];
   for (const allergen of allergens) {
     try {
@@ -218,56 +274,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         dict.allergenShort = name;
       }
 
-      // Attempt to find the matching sensor entity for this allergen
-      let sensorId = null;
-      if (config.location === "manual") {
-        let slug = null;
-        for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce(
-            (acc, [ha, master]) => {
-              acc[master] = ha;
-              return acc;
-            },
-            {},
-          );
-          if (inverse[allergen]) {
-            slug = inverse[allergen];
-            break;
-          }
-        }
-        slug = slug || allergen;
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        const candidate = `sensor.${prefix}${slug}${suffix}`;
-        if (hass.states[candidate]) sensorId = candidate;
-      } else if (discoveredLoc?.sensors?.size) {
-        // Primärt: discovery-baserad lookup
-        sensorId = discoveredLoc.sensors.get(allergen) || null;
-        if (sensorId && !hass.states[sensorId]) sensorId = null;
-      }
-      if (!sensorId && config.location !== "manual") {
-        // Fallback: regex-baserad lookup
-        for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce(
-            (acc, [ha, master]) => {
-              acc[master] = ha;
-              return acc;
-            },
-            {},
-          );
-          if (inverse[allergen]) {
-            const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
-            if (hass.states[candidate]) {
-              sensorId = candidate;
-              break;
-            }
-          }
-        }
-        if (!sensorId) {
-          const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
-          if (hass.states[fallback]) sensorId = fallback;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergen) || null;
       dict.entity_id = sensorId;
 
       // Samla nivåer per dag/kolumn (olika för daily och övriga lägen)
