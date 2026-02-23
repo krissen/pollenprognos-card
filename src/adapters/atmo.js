@@ -167,6 +167,77 @@ function buildEntityId(allergen, location, forecast) {
   return forecast ? `${base}_j_1` : base;
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  let location = cfg.location || "";
+  if (location === "manual") {
+    // Manual mode handled per allergen below
+  } else if (!location) {
+    location = detectLocation(hass, debug) || "";
+  }
+
+  for (const allergen of cfg.allergens || []) {
+    const frSlug = ATMO_ALLERGEN_MAP[allergen];
+    if (!frSlug) continue;
+
+    let sensorId;
+    if (cfg.location === "manual") {
+      const prefix = cfg.entity_prefix || "";
+      const suffix = cfg.entity_suffix || "";
+      let stem;
+      if (allergen === "allergy_risk") {
+        stem = "qualite_globale_pollen";
+      } else if (allergen === "qualite_globale") {
+        stem = "qualite_globale";
+      } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+        stem = frSlug;
+      } else {
+        stem = `niveau_${frSlug}`;
+      }
+      sensorId = `sensor.${prefix}${stem}${suffix}`;
+      if (!hass.states[sensorId]) {
+        if (suffix === "") {
+          const base = `sensor.${prefix}${frSlug}`;
+          const candidates = Object.keys(hass.states).filter((id) =>
+            id.startsWith(base),
+          );
+          if (candidates.length === 1) sensorId = candidates[0];
+          else continue;
+        } else continue;
+      }
+    } else {
+      if (!location) continue;
+      sensorId = buildEntityId(allergen, location, false);
+      if (!sensorId || !hass.states[sensorId]) {
+        let prefix;
+        if (allergen === "allergy_risk") {
+          prefix = `sensor.qualite_globale_pollen_`;
+        } else if (allergen === "qualite_globale") {
+          prefix = `sensor.qualite_globale_`;
+        } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+          prefix = `sensor.${frSlug}_`;
+        } else {
+          prefix = `sensor.niveau_${frSlug}_`;
+        }
+        const candidates = Object.keys(hass.states).filter((id) => {
+          if (!id.startsWith(prefix) || id.includes("_j_")) return false;
+          if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
+          return true;
+        });
+        if (candidates.length === 1) sensorId = candidates[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[ATMO:resolveEntityIds] allergen: '${allergen}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(allergen, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -212,13 +283,15 @@ export async function fetchForecast(hass, config) {
     return { state: raw, display_state: Math.min(raw, 6), state_text: libelle || noInfoLabel };
   };
 
-  // Resolve location
+  // Resolve location (also used for J+1 forecast entities)
   let location = config.location || "";
   if (location === "manual") {
-    // Manual mode handled below per allergen
+    // Manual mode handled by resolveEntityIds
   } else if (!location) {
     location = detectLocation(hass, debug) || "";
   }
+
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -242,63 +315,9 @@ export async function fetchForecast(hass, config) {
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
-      // Find sensor entity
-      let sensorId;
-      if (location === "manual") {
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        const frSlug = ATMO_ALLERGEN_MAP[allergen];
-        if (!frSlug) continue;
-        // Apply same entity pattern as buildEntityId: pollen uses "niveau_" prefix,
-        // summaries use their full slug, pollution uses bare slug
-        let stem;
-        if (allergen === "allergy_risk") {
-          stem = "qualite_globale_pollen";
-        } else if (allergen === "qualite_globale") {
-          stem = "qualite_globale";
-        } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
-          stem = frSlug;
-        } else {
-          stem = `niveau_${frSlug}`;
-        }
-        sensorId = `sensor.${prefix}${stem}${suffix}`;
-        if (!hass.states[sensorId]) {
-          if (suffix === "") {
-            const base = `sensor.${prefix}${frSlug}`;
-            const candidates = Object.keys(hass.states).filter((id) =>
-              id.startsWith(base),
-            );
-            if (candidates.length === 1) sensorId = candidates[0];
-            else continue;
-          } else continue;
-        }
-      } else {
-        if (!location) continue;
-        sensorId = buildEntityId(allergen, location, false);
-        if (!sensorId || !hass.states[sensorId]) {
-          // Fallback: search for matching entity
-          const frSlug = ATMO_ALLERGEN_MAP[allergen];
-          if (!frSlug) continue;
-          let prefix;
-          if (allergen === "allergy_risk") {
-            prefix = `sensor.qualite_globale_pollen_`;
-          } else if (allergen === "qualite_globale") {
-            prefix = `sensor.qualite_globale_`;
-          } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
-            prefix = `sensor.${frSlug}_`;
-          } else {
-            prefix = `sensor.niveau_${frSlug}_`;
-          }
-          const candidates = Object.keys(hass.states).filter((id) => {
-            if (!id.startsWith(prefix) || id.includes("_j_")) return false;
-            // Exclude qualite_globale_pollen_* when searching for qualite_globale
-            if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
-            return true;
-          });
-          if (candidates.length === 1) sensorId = candidates[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergen);
+      if (!sensorId) continue;
 
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
