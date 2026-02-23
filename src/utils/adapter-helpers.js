@@ -2,6 +2,8 @@
 // Shared pure helpers used by multiple adapters.
 import { t, detectLang } from "../i18n.js";
 import { toCanonicalAllergenKey } from "../constants.js";
+import { normalize, normalizeDWD } from "./normalize.js";
+import { isConfigEntryId } from "./silam.js";
 
 /**
  * Build a day column label from a date and its offset from today.
@@ -208,4 +210,69 @@ export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUpperca
   }
   if (daysUppercase) label = label.toUpperCase();
   return label;
+}
+
+/**
+ * Filter adapter sensors after fetchForecast returns.
+ *
+ * Three branches:
+ * 1. SILAM daily: entity_id-based filtering with reverse-map fallback.
+ * 2. SILAM non-daily: no entity-level filtering (pass through).
+ * 3. Other integrations: name-based filtering (DWD uses normalizeDWD).
+ *
+ * @param {object[]} sensors          - Sensor dicts from fetchForecast.
+ * @param {object}   cfg              - Card config with integration, mode, location, allergens.
+ * @param {string[]} availableSensors - Entity IDs from findAvailableSensors.
+ * @param {string[]} hassStateKeys    - Object.keys(hass.states).
+ * @param {object}   silamMapping     - silamAllergenMap.mapping object.
+ * @returns {object[]}
+ */
+export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassStateKeys, silamMapping) {
+  let filtered = sensors.filter((s) => {
+    if (cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily")) {
+      if (s.entity_id) {
+        return availableSensors.includes(s.entity_id);
+      }
+      const configLocation = cfg.location || "";
+      if (!isConfigEntryId(configLocation)) {
+        const loc = configLocation;
+        const silamReverse = {};
+        const locStates = hassStateKeys.filter((id) => {
+          const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+          return m && m[1] === loc;
+        });
+        for (const eid of locStates) {
+          const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+          if (!m) continue;
+          const haSlug = m[2];
+          for (const [, mapping] of Object.entries(silamMapping)) {
+            if (mapping[haSlug]) {
+              silamReverse[mapping[haSlug]] = haSlug;
+              break;
+            }
+          }
+        }
+        const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
+        const id = `sensor.silam_pollen_${loc}_${key}`;
+        return availableSensors.includes(id);
+      }
+      return false;
+    }
+    return true;
+  });
+
+  if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0 && cfg.integration !== "silam") {
+    let allowed;
+    let getKey;
+    if (cfg.integration === "dwd") {
+      allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
+      getKey = (s) => normalizeDWD(s.allergenReplaced || "");
+    } else {
+      allowed = new Set(cfg.allergens.map((a) => normalize(a)));
+      getKey = (s) => normalize(s.allergenReplaced || "");
+    }
+    filtered = filtered.filter((s) => allowed.has(getKey(s)));
+  }
+
+  return filtered;
 }

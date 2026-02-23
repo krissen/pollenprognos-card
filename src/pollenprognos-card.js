@@ -6,8 +6,8 @@ import { images } from "./pollenprognos-images.js";
 import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
-import { normalize, normalizeDWD } from "./utils/normalize.js";
 import { findAvailableSensors } from "./utils/sensors.js";
+import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
@@ -16,7 +16,6 @@ import {
   findSilamWeatherEntity,
   discoverSilamSensors,
   resolveDiscoveredLocation,
-  isConfigEntryId,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -1626,82 +1625,11 @@ class PollenPrognosCard extends LitElement {
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
           const availableSensorCount = availableSensors.length;
 
-          // Filtrera adapterns sensors så att endast de finns i availableSensors
-          let filtered = sensors.filter((s) => {
-            if (
-              cfg.integration === "silam" &&
-              (!cfg.mode || cfg.mode === "daily")
-            ) {
-              // entity_id sätts av adaptern (discovery eller regex)
-              if (s.entity_id) {
-                return availableSensors.includes(s.entity_id);
-              }
-              // Fallback: bygg entity_id med silamReverse (äldre path)
-              const configLocation = cfg.location || "";
-              let silamReverse = {};
-              if (!isConfigEntryId(configLocation)) {
-                const loc = configLocation;
-                const locStates = Object.keys(hass.states).filter((id) => {
-                  const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                  return m && m[1] === loc;
-                });
-                for (const eid of locStates) {
-                  const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                  if (!m) continue;
-                  const haSlug = m[2];
-                  for (const [, mapping] of Object.entries(
-                    silamAllergenMap.mapping,
-                  )) {
-                    if (mapping[haSlug]) {
-                      silamReverse[mapping[haSlug]] = haSlug;
-                      break;
-                    }
-                  }
-                }
-                const key =
-                  silamReverse[s.allergenReplaced] || s.allergenReplaced;
-                const id = `sensor.silam_pollen_${loc}_${key}`;
-                return availableSensors.includes(id);
-              }
-              // config_entry_id path: entity_id saknas → sensorn hittades inte
-              return false;
-            }
-            return true;
-          });
-
-          // Endast *normalisering/namn*-filtrering för de andra integrationerna!
-          if (
-            Array.isArray(cfg.allergens) &&
-            cfg.allergens.length > 0 &&
-            cfg.integration !== "silam"
-          ) {
-            let allowed;
-            let getKey;
-            if (integration === "dwd") {
-              allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
-              getKey = (s) => normalizeDWD(s.allergenReplaced || "");
-            } else {
-              if (this.debug) {
-                console.debug(
-                  "[Card][Debug] Använder normalisering för allergener:",
-                  cfg.allergens,
-                );
-              }
-              allowed = new Set(cfg.allergens.map((a) => normalize(a)));
-              getKey = (s) => normalize(s.allergenReplaced || "");
-            }
-            filtered = filtered.filter((s) => {
-              const allergenKey = getKey(s);
-              const ok = allowed.has(allergenKey);
-              if (!ok && this.debug) {
-                console.debug(
-                  `[Card][Debug] Sensor '${allergenKey}' är EJ tillåten (ej i allowed)`,
-                  s,
-                );
-              }
-              return ok;
-            });
-          }
+          // Filter adapter sensors against availableSensors and allergen config
+          const filtered = filterSensorsPostFetch(
+            sensors, cfg, availableSensors,
+            Object.keys(hass.states), silamAllergenMap.mapping,
+          );
 
           if (this.debug) {
             console.debug(
