@@ -1220,7 +1220,7 @@ describe("findAvailableSensors", () => {
         );
         const cfg = {
           integration: "silam",
-          city: "manual",
+          location: "manual",
           entity_prefix: "custom_",
           entity_suffix: "",
           allergens: ["birch"],
@@ -1240,7 +1240,7 @@ describe("findAvailableSensors", () => {
         );
         const cfg = {
           integration: "silam",
-          city: "manual",
+          location: "manual",
           entity_prefix: "custom_",
           entity_suffix: "",
           allergens: ["unknown_plant"],
@@ -1256,11 +1256,11 @@ describe("findAvailableSensors", () => {
       it("uses ATMO_ALLERGEN_MAP for slug resolution", () => {
         // ATMO_ALLERGEN_MAP["birch"] = "bouleau"
         const hass = createHass({
-          "sensor.custom_bouleau": s(),
+          "sensor.custom_niveau_bouleau": s(),
         });
         const cfg = {
           integration: "atmo",
-          city: "manual",
+          location: "manual",
           entity_prefix: "custom_",
           entity_suffix: "",
           allergens: ["birch"],
@@ -1268,16 +1268,16 @@ describe("findAvailableSensors", () => {
 
         const result = findAvailableSensors(cfg, hass);
 
-        expect(result).toEqual(["sensor.custom_bouleau"]);
+        expect(result).toEqual(["sensor.custom_niveau_bouleau"]);
       });
 
-      it("uses normalize() fallback for unknown ATMO allergens", () => {
+      it("skips unknown allergens not in ATMO_ALLERGEN_MAP", () => {
         const hass = createHass({
           "sensor.custom_something": s(),
         });
         const cfg = {
           integration: "atmo",
-          city: "manual",
+          location: "manual",
           entity_prefix: "custom_",
           entity_suffix: "",
           allergens: ["something"],
@@ -1285,7 +1285,8 @@ describe("findAvailableSensors", () => {
 
         const result = findAvailableSensors(cfg, hass);
 
-        expect(result).toEqual(["sensor.custom_something"]);
+        // ATMO adapter skips allergens without a mapping in ATMO_ALLERGEN_MAP
+        expect(result).toEqual([]);
       });
     });
   });

@@ -151,6 +151,44 @@ export function getLangAndLocale(hass, config, defaultLocale = null) {
   return { lang, locale, daysRelative, dayAbbrev, daysUppercase };
 }
 
+/**
+ * Normalize a manual-mode entity prefix.
+ * Strips leading "sensor." and ensures a trailing "_" (unless empty).
+ *
+ * @param {string} raw - The raw entity_prefix from config.
+ * @returns {string}
+ */
+export function normalizeManualPrefix(raw) {
+  let p = raw || "";
+  if (p.startsWith("sensor.")) p = p.substring(7);
+  if (p && !p.endsWith("_")) p = p + "_";
+  return p;
+}
+
+/**
+ * Resolve a manual-mode entity ID from prefix + slug + suffix.
+ * Falls back to unique-candidate matching when suffix is empty
+ * and the exact ID is not found.
+ *
+ * @param {object} hass   - Home Assistant state object.
+ * @param {string} prefix - Already normalized prefix (via normalizeManualPrefix).
+ * @param {string} slug   - Allergen slug.
+ * @param {string} suffix - Entity suffix from config.
+ * @returns {string|null} - Matched entity ID or null.
+ */
+export function resolveManualEntity(hass, prefix, slug, suffix) {
+  const sensorId = `sensor.${prefix}${slug}${suffix}`;
+  if (hass.states[sensorId]) return sensorId;
+  if (suffix === "") {
+    const base = `sensor.${prefix}${slug}`;
+    const candidates = Object.keys(hass.states).filter((id) =>
+      id.startsWith(base),
+    );
+    if (candidates.length === 1) return candidates[0];
+  }
+  return null;
+}
+
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {
   let label;
   if (!daysRelative) {

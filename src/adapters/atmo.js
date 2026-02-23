@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -182,7 +182,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
     let sensorId;
     if (cfg.location === "manual") {
-      const prefix = cfg.entity_prefix || "";
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
       const suffix = cfg.entity_suffix || "";
       let stem;
       if (allergen === "allergy_risk") {
@@ -194,17 +194,8 @@ export function resolveEntityIds(cfg, hass, debug = false) {
       } else {
         stem = `niveau_${frSlug}`;
       }
-      sensorId = `sensor.${prefix}${stem}${suffix}`;
-      if (!hass.states[sensorId]) {
-        if (suffix === "") {
-          const base = `sensor.${prefix}${frSlug}`;
-          const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(base),
-          );
-          if (candidates.length === 1) sensorId = candidates[0];
-          else continue;
-        } else continue;
-      }
+      sensorId = resolveManualEntity(hass, prefix, stem, suffix);
+      if (!sensorId) continue;
     } else {
       if (!location) continue;
       sensorId = buildEntityId(allergen, location, false);

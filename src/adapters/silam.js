@@ -8,7 +8,7 @@ import {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -156,10 +156,8 @@ export function resolveEntityIds(cfg, hass, debug = false) {
         if (inverse[allergen]) { slug = inverse[allergen]; break; }
       }
       slug = slug || allergen;
-      const prefix = cfg.entity_prefix || "";
-      const suffix = cfg.entity_suffix || "";
-      const candidate = `sensor.${prefix}${slug}${suffix}`;
-      if (hass.states[candidate]) sensorId = candidate;
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      sensorId = resolveManualEntity(hass, prefix, slug, cfg.entity_suffix || "");
     } else if (discoveredLoc?.sensors?.size) {
       sensorId = discoveredLoc.sensors.get(allergen) || null;
       if (sensorId && !hass.states[sensorId]) sensorId = null;

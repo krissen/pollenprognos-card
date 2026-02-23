@@ -5,7 +5,7 @@ import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -244,9 +244,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   for (const category of needsCategories) {
     let sensorId;
     if (cfg.location === "manual") {
-      let prefix = cfg.entity_prefix || "";
-      if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
-      if (prefix && !prefix.endsWith("_")) prefix = prefix + "_";
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
       const suffix = cfg.entity_suffix || "";
 
       sensorId = `sensor.${prefix}${category}${suffix}`;

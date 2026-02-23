@@ -1,7 +1,7 @@
 import { normalize } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -74,10 +74,9 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     const rawKey = normalize(allergen);
     let sensorId;
     if (cfg.city === "manual") {
-      const prefix = cfg.entity_prefix || "";
-      const suffix = cfg.entity_suffix || "";
-      sensorId = `sensor.${prefix}${rawKey}${suffix}`;
-      if (!hass.states[sensorId]) continue;
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
+      if (!sensorId) continue;
     } else {
       sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
       if (!sensorId || !hass.states[sensorId]) {

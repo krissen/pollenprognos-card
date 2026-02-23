@@ -4,7 +4,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -93,14 +93,13 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     const allergenSlug = allergen;
     let sensorId;
     if (cfg.location === "manual") {
-      const prefix = cfg.entity_prefix || "";
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
       const coreSlug =
         mode !== "daily" && allergenSlug === "allergy_risk"
           ? "allergy_risk_hourly"
           : allergenSlug;
-      const suffix = cfg.entity_suffix || "";
-      sensorId = `sensor.${prefix}${coreSlug}${suffix}`;
-      if (!hass.states[sensorId]) continue;
+      sensorId = resolveManualEntity(hass, prefix, coreSlug, cfg.entity_suffix || "");
+      if (!sensorId) continue;
     } else {
       if (mode !== "daily" && allergenSlug === "allergy_risk") {
         sensorId = locationSlug

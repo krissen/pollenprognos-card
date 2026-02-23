@@ -1,7 +1,7 @@
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -66,19 +66,9 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     const rawKey = normalizeDWD(allergen);
     let sensorId;
     if (cfg.region_id === "manual") {
-      const prefix = cfg.entity_prefix || "";
-      const suffix = cfg.entity_suffix || "";
-      sensorId = `sensor.${prefix}${rawKey}${suffix}`;
-      if (!hass.states[sensorId]) {
-        if (suffix === "") {
-          const base = `sensor.${prefix}${rawKey}`;
-          const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(base),
-          );
-          if (candidates.length === 1) sensorId = candidates[0];
-          else continue;
-        } else continue;
-      }
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
+      if (!sensorId) continue;
     } else {
       sensorId = cfg.region_id
         ? `sensor.pollenflug_${rawKey}_${cfg.region_id}`
