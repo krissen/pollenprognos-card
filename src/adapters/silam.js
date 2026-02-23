@@ -1,5 +1,4 @@
 // src/adapters/silam.js
-import { t } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import {
   findSilamWeatherEntity,
@@ -9,7 +8,7 @@ import {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
-import { getLangAndLocale, buildDayLabel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -114,29 +113,11 @@ export function indexToLevel(val) {
   return -1;
 }
 
-export function getPhrases(config, lang) {
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-  phrases.no_information =
-    phrases.no_information || t("card.no_information", lang);
-  return phrases;
-}
-
-export function getLevelNames(phrases, lang) {
-  return buildLevelNames(phrases.levels, lang);
-}
-
-export function getAllergenNames(allergen, phrases, lang) {
+export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   // Capitalized: phrases > silamAllergenMap > fallback
   let allergenCapitalized;
-  if (phrases.full[allergen]) {
-    allergenCapitalized = phrases.full[allergen];
+  if (fullPhrases[allergen]) {
+    allergenCapitalized = fullPhrases[allergen];
   } else if (
     silamAllergenMap.names &&
     silamAllergenMap.names[allergen] &&
@@ -148,7 +129,7 @@ export function getAllergenNames(allergen, phrases, lang) {
   }
 
   // Short: phrases > capitalized
-  const allergenShort = phrases.short[allergen] || allergenCapitalized;
+  const allergenShort = shortPhrases[allergen] || allergenCapitalized;
 
   return { allergenCapitalized, allergenShort };
 }
@@ -157,10 +138,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  const phrases = getPhrases(config, lang);
-  const levelNames = getLevelNames(phrases, lang);
-  const noInfoLabel = phrases.no_information;
-  const userDays = phrases.days;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
+  const levelNames = buildLevelNames(userLevels, lang);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -225,7 +204,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // Namn-uppslag
       const { allergenCapitalized, allergenShort } = getAllergenNames(
         allergen,
-        phrases,
+        fullPhrases,
+        shortPhrases,
         lang,
       );
       dict.allergenCapitalized = allergenCapitalized;

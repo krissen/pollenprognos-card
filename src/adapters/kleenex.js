@@ -5,7 +5,7 @@ import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -211,8 +211,7 @@ export async function fetchForecast(hass, config) {
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
   const debug = config.debug;
   const days_to_show = config.days_to_show || stubConfigKleenex.days_to_show;
-  const shortPhrases = config.phrases?.short || {};
-  const fullPhrases = config.phrases?.full || {};
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigKleenex.pollen_threshold;
 
@@ -617,8 +616,6 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  const userDays = config.phrases?.days || {};
-
   // Build sensor data for each allergen
   if (debug) {
     console.debug(`[Kleenex] === BUILDING SENSORS FROM ${allergenData.size} COLLECTED ALLERGENS ===`);
@@ -684,9 +681,8 @@ export async function fetchForecast(hass, config) {
         }
       }
 
-      // Levels from Kleenex are reported as 0–4 but scaled to 0–6 in the card.
-      // Accept either five or seven custom names and map them to the 0–6 scale.
-      const userLevels = config.phrases.levels;
+      // Levels from Kleenex are reported as 0-4 but scaled to 0-6 in the card.
+      // Accept either five or seven custom names and map them to the 0-6 scale.
       const defaultNumLevels = 5; // original kleenex scale (none, low, moderate, high, very-high)
       const levelNamesDefault = Array.from({ length: 7 }, (_, i) =>
         t(`card.levels.${i}`, lang),
@@ -731,13 +727,13 @@ export async function fetchForecast(hass, config) {
           state: level, // Raw level for sorting and threshold checking
           state_text:
             scaledLevel < 0
-              ? config.phrases?.no_information || t("card.no_information", lang)
+              ? noInfoLabel
               : levelNames[scaledLevel] ||
                 t(`card.levels.${scaledLevel}`, lang),
           value: dayData.value,
           description:
             scaledLevel < 0
-              ? config.phrases?.no_information || t("card.no_information", lang)
+              ? noInfoLabel
               : levelNames[scaledLevel] ||
                 t(`card.levels.${scaledLevel}`, lang),
         };

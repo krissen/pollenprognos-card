@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -173,13 +173,8 @@ export async function fetchForecast(hass, config) {
 
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigATMO.date_locale);
 
-  const phrases = config.phrases || {};
-  const fullPhrases = phrases.full || {};
-  const shortPhrases = phrases.short || {};
-  const userLevels = phrases.levels;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigATMO.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigATMO.pollen_threshold;

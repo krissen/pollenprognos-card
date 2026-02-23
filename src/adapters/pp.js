@@ -1,8 +1,7 @@
-import { t } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -65,21 +64,8 @@ export async function fetchForecast(hass, config) {
 
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  // Phrases with user overrides
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-  const fullPhrases = phrases.full;
-  const shortPhrases = phrases.short;
-  const userLevels = phrases.levels;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days;
 
   if (debug)
     console.debug("PP.fetchForecast — start", { city: config.city, lang });

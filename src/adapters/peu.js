@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
-import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -69,19 +69,9 @@ export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-  const fullPhrases = phrases.full;
-  const shortPhrases = phrases.short;
-  const userLevels = phrases.levels;
-  // Levels from PEU are reported as 0–4 but scaled to 0–6 in the card.
-  // Accept either five or seven custom names and map them to the 0–6 scale.
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
+  // Levels from PEU are reported as 0-4 but scaled to 0-6 in the card.
+  // Accept either five or seven custom names and map them to the 0-6 scale.
   const defaultNumLevels = 5; // original scale
   const levelNamesDefault = Array.from({ length: 7 }, (_, i) =>
     t(`card.levels.${i}`, lang),
@@ -98,8 +88,6 @@ export async function fetchForecast(hass, config) {
       });
     }
   }
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days;
 
   const testVal = (v) => clampLevel(v, 4, -1);
 

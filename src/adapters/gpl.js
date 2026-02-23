@@ -4,11 +4,10 @@
 // Sensors classified by attributes.code (plants) or attributes.icon (types).
 // Each sensor has state 0-5 and attributes.forecast[] for multi-day data.
 
-import { t } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
@@ -269,13 +268,8 @@ export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigGPL.date_locale);
 
-  const phrases = config.phrases || {};
-  const fullPhrases = phrases.full || {};
-  const shortPhrases = phrases.short || {};
-  const userLevels = phrases.levels;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigGPL.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigGPL.pollen_threshold;

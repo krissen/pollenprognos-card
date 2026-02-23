@@ -106,6 +106,31 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
 }
 
 /**
+ * Merge user phrase overrides with defaults.
+ *
+ * Returns the five destructured fields adapters need. Custom level
+ * mapping (e.g. PEU's 5-to-7, PLU's 4-level) stays in the adapter
+ * and uses the returned userLevels array.
+ *
+ * @param {object} config - Card configuration (reads config.phrases).
+ * @param {string} lang   - Language code for the noInfoLabel fallback.
+ * @returns {{ fullPhrases: object, shortPhrases: object, userLevels: Array, userDays: object, noInfoLabel: string }}
+ */
+export function mergePhrases(config, lang) {
+  const phrases = {
+    full: {}, short: {}, levels: [], days: {}, no_information: "",
+    ...(config.phrases || {}),
+  };
+  return {
+    fullPhrases: phrases.full,
+    shortPhrases: phrases.short,
+    userLevels: phrases.levels,
+    userDays: phrases.days,
+    noInfoLabel: phrases.no_information || t("card.no_information", lang),
+  };
+}
+
+/**
  * Derive language, locale, and day-display flags from hass and config.
  *
  * @param {object} hass   - Home Assistant state object.

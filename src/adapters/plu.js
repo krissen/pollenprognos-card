@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -119,19 +119,7 @@ export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-
-  const fullPhrases = phrases.full;
-  const shortPhrases = phrases.short;
-  const userLevels = phrases.levels;
-  const userDays = phrases.days;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
 
   // Build level names. Allow users to supply 4 or 7 custom labels.
   const fullLevelNames = buildLevelNames(userLevels, lang);
@@ -141,9 +129,6 @@ export async function fetchForecast(hass, config) {
     if (custom != null && custom !== "") return custom;
     return fullLevelNames[idx] || t(`card.levels.${idx}`, lang);
   });
-
-  const noInfoLabel =
-    phrases.no_information || t("card.no_information", lang);
 
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigPLU.pollen_threshold;

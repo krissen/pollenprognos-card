@@ -1,8 +1,7 @@
-import { t } from "../i18n.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -67,14 +66,8 @@ export async function fetchForecast(hass, config) {
 
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigDWD.date_locale);
 
-  // Phrases från användar-config har förträde
-  const phrases = config.phrases || {};
-  const fullPhrases = phrases.full || {};
-  const shortPhrases = phrases.short || {};
-  const userLevels = phrases.levels;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
