@@ -1,5 +1,7 @@
 # Refactoring Plan: pollenprognos-card
 
+**Status: COMPLETED** (branch `refactor/incremental-cleanup`, Feb 2026)
+
 Incremental cleanup. Zero breaking changes to user config.
 Each step is a separate PR/commit, gated by `npm run build` + `npm run test`.
 

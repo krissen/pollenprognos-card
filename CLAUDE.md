@@ -42,24 +42,27 @@ A Lovelace custom card for Home Assistant that displays pollen forecasts from mu
 
 ### Adapter System
 
-Located in `src/adapters/`, each file exports:
+Located in `src/adapters/`. Each adapter exports:
 - `stubConfig*` - Default configuration template for the editor
-- `getAllergens()` - List of available allergen keys
-- `getPossibleCities()/getPossibleRegions()/getPossibleLocations()` - Location options
-- `getEntityPattern()` - Function to generate entity ID patterns
-- `getDataStructure()` - Map of allergen → entity IDs for a given config
+- `fetchForecast(hass, config)` - Returns normalized sensor array for rendering
+- `resolveEntityIds(cfg, hass, debug?)` - Maps allergen keys to HA entity IDs (both auto-detect and manual mode)
+
+**Adapter Registry** (`src/adapter-registry.js`)
+- `getAdapter(id)` - Returns the adapter module for an integration ID
+- `getStubConfig(id)` - Returns the stub config for an integration ID
+- `getAllAdapterIds()` - Returns all registered integration IDs
 
 **Supported Integrations:**
 - `pp.js` - Pollenprognos (Swedish)
 - `dwd.js` - DWD Pollenflug (German)
 - `peu.js` - Polleninformation EU (European)
 - `silam.js` - SILAM Pollen Allergy Sensor (forecast-based)
-- `kleenex.js` - Kleenex Pollen Radar (Dutch)
+- `kleenex/` - Kleenex Pollen Radar (Dutch, modularized into constants/levels/discovery/forecast)
 - `plu.js` - Pollen.lu (Luxembourg)
 - `atmo.js` - Atmo France (French air quality/pollen)
-- `gpl.js` - Google Pollen Levels (global, via pollenlevels HACS integration)
+- `gpl/` - Google Pollen Levels (global, modularized into constants/discovery/forecast)
 
-When adding support for a new integration, create a new adapter file following the existing pattern and register it in `src/constants.js` ADAPTERS map.
+When adding support for a new integration, see "Adding a New Integration" below.
 
 ### Utilities
 
@@ -69,8 +72,13 @@ When adding support for a new integration, create a new adapter file following t
 - Uses `slugify()` helper and `ALLERGEN_TRANSLATION` map from constants
 
 **Sensor Detection** (`src/utils/sensors.js`)
-- `findAvailableSensors()` - Auto-detects which integration is installed
-- Returns adapter key and location/city/region ID
+- `findAvailableSensors()` - Thin dispatcher that delegates to the adapter's `resolveEntityIds()`
+- Returns array of available entity IDs for a given config
+
+**Adapter Helpers** (`src/utils/adapter-helpers.js`)
+- Pure functions shared across adapters: `getLangAndLocale`, `mergePhrases`, `buildDayLabel`, `clampLevel`, `sortSensors`, `resolveAllergenNames`, `meetsThreshold`
+- Manual mode helpers: `normalizeManualPrefix`, `resolveManualEntity`
+- Post-fetch filtering: `filterSensorsPostFetch` (used by the card after fetchForecast)
 
 **Level Defaults** (`src/utils/levels-defaults.js`)
 - Default color schemes and styling for pollen level circles
@@ -114,9 +122,9 @@ When adding support for a new integration, create a new adapter file following t
 ### Configuration
 
 **Constants** (`src/constants.js`)
-- `ADAPTERS` - Registry of all adapter modules
-- `DWD_REGIONS` - German region code → name mapping
-- `ALLERGEN_TRANSLATION` - Allergen name normalization map
+- `ALLERGEN_TRANSLATION` - Allergen name normalization map (computed from per-adapter alias groups: PP_ALIASES, DWD_ALIASES, etc.)
+- `toCanonicalAllergenKey(raw)` - Single lookup function for allergen normalization
+- `DWD_REGIONS` - German region code to name mapping
 - `ALLERGEN_ICON_FALLBACK` - Default icon when allergen not recognized
 - `PP_POSSIBLE_CITIES` - List of Swedish cities
 - `COSMETIC_FIELDS` - Config fields that don't require data reload
@@ -199,17 +207,19 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 ## Common Patterns
 
 ### Adding a New Allergen
-1. Add translation to `ALLERGEN_TRANSLATION` in `src/constants.js`
+1. Add alias to the appropriate adapter's alias group (e.g. `PP_ALIASES`) in `src/constants.js`
 2. Add SVG icon to `svgs` object in `src/pollenprognos-svgs.js`
 3. Update locale files in `src/locales/*.json` with full/short names
-4. Add to adapter's `getAllergens()` if integration-specific
+4. Add to the adapter's stub config `allergens` array
 
 ### Adding a New Integration
-1. Create `src/adapters/newintegration.js` following existing pattern
-2. Export `stubConfig*`, `getAllergens()`, location getters, `getEntityPattern()`, `getDataStructure()`
-3. Register in `ADAPTERS` map in `src/constants.js`
-4. Update editor to handle integration-specific config fields
-5. Add normalization rules if allergen names differ
+1. Create `src/adapters/newintegration.js` (or a subdirectory with `index.js` for larger adapters)
+2. Export: `stubConfig*`, `fetchForecast(hass, config)`, `resolveEntityIds(cfg, hass, debug?)`
+3. Use shared helpers from `src/utils/adapter-helpers.js` (getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames)
+4. Register in `src/adapter-registry.js`
+5. Add adapter-specific allergen aliases to `src/constants.js` (e.g. `NEW_ALIASES`) and include in `ALLERGEN_TRANSLATION` spread
+6. Update editor (`src/pollenprognos-editor.js`) to handle integration-specific config fields
+7. Add contract tests in `test/adapters/newintegration.test.js`
 
 ### Modifying Display Layout
 - Lit template is in `render()` method of `src/pollenprognos-card.js`
