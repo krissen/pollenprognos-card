@@ -100,6 +100,16 @@ function resolveSensorId(hass, canonical, debug) {
   return null;
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  for (const allergen of cfg.allergens || []) {
+    if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
+    const sensorId = resolveSensorId(hass, allergen, debug);
+    if (sensorId) map.set(allergen, sensorId);
+  }
+  return map;
+}
+
 function parseThreshold(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -142,6 +152,7 @@ export async function fetchForecast(hass, config) {
   today.setHours(0, 0, 0, 0);
 
   const sensors = [];
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   for (const allergen of config.allergens || []) {
     if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
@@ -155,7 +166,8 @@ export async function fetchForecast(hass, config) {
     dict.allergenCapitalized = allergenCapitalized;
     dict.allergenShort = allergenShort;
 
-    const sensorId = resolveSensorId(hass, allergen, debug);
+    // Sensor lookup (delegated to resolveEntityIds)
+    const sensorId = entityMap.get(allergen);
     if (!sensorId) {
       if (debug) {
         console.debug(`[PLU] No sensor found for allergen '${allergen}'`);
