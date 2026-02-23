@@ -1,5 +1,5 @@
 // src/adapters/silam.js
-import { t, detectLang } from "../i18n.js";
+import { t } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import {
   findSilamWeatherEntity,
@@ -9,7 +9,7 @@ import {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
-import { buildDayLabel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, buildDayLabel, sortSensors, meetsThreshold } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -155,15 +155,7 @@ export function getAllergenNames(allergen, phrases, lang) {
 
 export async function fetchForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
-  const lang = detectLang(hass, config.date_locale);
-  const locale =
-    config.date_locale ||
-    hass.locale?.language ||
-    hass.language ||
-    `${lang}-${lang.toUpperCase()}`;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
   const phrases = getPhrases(config, lang);
   const levelNames = getLevelNames(phrases, lang);

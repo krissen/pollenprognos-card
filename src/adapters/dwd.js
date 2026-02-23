@@ -1,8 +1,8 @@
-import { t, detectLang } from "../i18n.js";
+import { t } from "../i18n.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -65,12 +65,7 @@ export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  // Språk- och lokaliseringsinställningar
-  const lang = detectLang(hass, config.date_locale);
-  const locale = config.date_locale || stubConfigDWD.date_locale;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigDWD.date_locale);
 
   // Phrases från användar-config har förträde
   const phrases = config.phrases || {};

@@ -1,9 +1,9 @@
 // src/adapters/atmo.js
-import { t, detectLang } from "../i18n.js";
+import { t } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -171,11 +171,7 @@ export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  const lang = detectLang(hass, config.date_locale);
-  const locale = config.date_locale || stubConfigATMO.date_locale;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigATMO.date_locale);
 
   const phrases = config.phrases || {};
   const fullPhrases = phrases.full || {};

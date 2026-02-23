@@ -1,11 +1,11 @@
 // src/adapters/kleenex.js
-import { t, detectLang } from "../i18n.js";
+import { t } from "../i18n.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../constants.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -208,7 +208,7 @@ function ppmToLevel(value, allergenName) {
 }
 
 export async function fetchForecast(hass, config) {
-  const lang = detectLang(hass, config.date_locale);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
   const debug = config.debug;
   const days_to_show = config.days_to_show || stubConfigKleenex.days_to_show;
   const shortPhrases = config.phrases?.short || {};
@@ -617,14 +617,7 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  // Configuration for day labels
-  const daysRelative = config.days_relative ?? stubConfigKleenex.days_relative;
-  const dayAbbrev =
-    config.days_abbreviated ?? stubConfigKleenex.days_abbreviated;
-  const daysUppercase =
-    config.days_uppercase ?? stubConfigKleenex.days_uppercase;
   const userDays = config.phrases?.days || {};
-  const locale = lang.replace("_", "-");
 
   // Build sensor data for each allergen
   if (debug) {

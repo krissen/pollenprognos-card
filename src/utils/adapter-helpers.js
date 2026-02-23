@@ -1,6 +1,6 @@
 // src/utils/adapter-helpers.js
 // Shared pure helpers used by multiple adapters.
-import { t } from "../i18n.js";
+import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 
 /**
@@ -103,6 +103,27 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   }
 
   return { allergenCapitalized, allergenShort };
+}
+
+/**
+ * Derive language, locale, and day-display flags from hass and config.
+ *
+ * @param {object} hass   - Home Assistant state object.
+ * @param {object} config - Card configuration.
+ * @param {string|undefined|null} [defaultLocale=null]
+ *   When null (default), locale cascades through hass fields.
+ *   When explicitly passed (even as undefined), used as the fallback locale.
+ * @returns {{ lang: string, locale: string|undefined, daysRelative: boolean, dayAbbrev: boolean, daysUppercase: boolean }}
+ */
+export function getLangAndLocale(hass, config, defaultLocale = null) {
+  const lang = detectLang(hass, config.date_locale);
+  const locale = defaultLocale !== null
+    ? (config.date_locale || defaultLocale)
+    : (config.date_locale || hass.locale?.language || hass.language || `${lang}-${lang.toUpperCase()}`);
+  const daysRelative = config.days_relative !== false;
+  const dayAbbrev = Boolean(config.days_abbreviated);
+  const daysUppercase = Boolean(config.days_uppercase);
+  return { lang, locale, daysRelative, dayAbbrev, daysUppercase };
 }
 
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {

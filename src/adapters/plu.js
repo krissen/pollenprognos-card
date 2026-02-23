@@ -1,9 +1,9 @@
 // src/adapters/plu.js
-import { t, detectLang } from "../i18n.js";
+import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -117,16 +117,7 @@ function valueToLevel(value, thresholds) {
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
-  const lang = detectLang(hass, config.date_locale);
-  const locale =
-    config.date_locale ||
-    hass.locale?.language ||
-    hass.language ||
-    `${lang}-${lang.toUpperCase()}`;
-
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
   const phrases = {
     full: {},
