@@ -558,8 +558,7 @@ export async function fetchForecast(hass, config) {
           console.debug(`[Kleenex] ${allergenKey} day${i}: state=${day.state}, value=${day.value}, day=${day.day}, meets_threshold=${day.state >= pollen_threshold}`);
         });
 
-        console.debug(`[Kleenex] meets = ${meets} (any day >= ${pollen_threshold})`);
-        console.debug(`[Kleenex] shouldAdd = ${shouldAdd} (meets || threshold===0)`);
+        console.debug(`[Kleenex] shouldAdd = ${shouldAdd} (any day >= ${pollen_threshold}, or threshold===0)`);
 
         if (isCategory && !shouldAdd) {
           console.debug(`[Kleenex] ❌ CATEGORY ALLERGEN ${allergenKey} FILTERED OUT BY THRESHOLD!`);
