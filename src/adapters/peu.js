@@ -4,7 +4,7 @@ import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
-import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -380,18 +380,7 @@ export async function fetchForecast(hass, config) {
   }
 
   // Sortera
-  if (config.sort !== "none") {
-    sensors.sort(
-      {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-        name_descending: (a, b) =>
-          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
-    );
-  }
+  sortSensors(sensors, config.sort);
 
   if (config.allergy_risk_top) {
     const idx = sensors.findIndex(

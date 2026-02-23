@@ -8,7 +8,7 @@ import { t, detectLang } from "../i18n.js";
 import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors } from "../utils/adapter-helpers.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
@@ -450,20 +450,7 @@ export async function fetchForecast(hass, config) {
 
   // Sorting
   if (config.sort !== "none") {
-    const sortFunction =
-      {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) =>
-          (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-        name_descending: (a, b) =>
-          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] ||
-      ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
-
     if (config.sort_category_allergens_first) {
-      // Two-tiered: categories first, then individual
       const categoryAllergens = sensors.filter((s) =>
         ["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
@@ -473,11 +460,11 @@ export async function fetchForecast(hass, config) {
             s.allergenReplaced,
           ),
       );
-      categoryAllergens.sort(sortFunction);
-      individualAllergens.sort(sortFunction);
+      sortSensors(categoryAllergens, config.sort);
+      sortSensors(individualAllergens, config.sort);
       sensors = [...categoryAllergens, ...individualAllergens];
     } else {
-      sensors.sort(sortFunction);
+      sortSensors(sensors, config.sort);
     }
   }
 

@@ -30,6 +30,27 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
   return maxLevel != null ? Math.min(n, maxLevel) : n;
 }
 
+/**
+ * Sort a sensors array in-place using one of the standard sort keys.
+ * Adapter-specific post-sorts (tiered, pin-to-top) are applied by the caller.
+ *
+ * @param {object[]} sensors  - Array of sensor dicts (mutated in-place).
+ * @param {string}   sortKey  - One of "value_ascending", "value_descending",
+ *                              "name_ascending", "name_descending", or "none".
+ */
+export function sortSensors(sensors, sortKey) {
+  if (sortKey === "none") return;
+  const sortFn = {
+    value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+    value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+    name_ascending: (a, b) =>
+      a.allergenCapitalized.localeCompare(b.allergenCapitalized),
+    name_descending: (a, b) =>
+      b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+  }[sortKey] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
+  sensors.sort(sortFn);
+}
+
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {
   let label;
   if (!daysRelative) {

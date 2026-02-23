@@ -5,7 +5,7 @@ import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { buildDayLabel, clampLevel } from "../utils/adapter-helpers.js";
+import { buildDayLabel, clampLevel, sortSensors } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "kleenex_pollen_radar";
 
@@ -821,18 +821,7 @@ export async function fetchForecast(hass, config) {
 
   // Sort sensors - implement two-tiered sorting for kleenex when sort_category_allergens_first is true
   if (config.sort !== "none") {
-    const sortFunction =
-      {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-        name_descending: (a, b) =>
-          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
-
     if (config.sort_category_allergens_first) {
-      // Two-tiered sorting: category allergens first, then individual allergens
       const categoryAllergens = sensors.filter((s) =>
         ["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
@@ -840,12 +829,8 @@ export async function fetchForecast(hass, config) {
         (s) =>
           !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
-
-      // Sort each group separately
-      categoryAllergens.sort(sortFunction);
-      individualAllergens.sort(sortFunction);
-
-      // Combine with categories first
+      sortSensors(categoryAllergens, config.sort);
+      sortSensors(individualAllergens, config.sort);
       sensors = [...categoryAllergens, ...individualAllergens];
 
       if (debug) {
@@ -854,8 +839,7 @@ export async function fetchForecast(hass, config) {
         );
       }
     } else {
-      // Standard sorting: all allergens together
-      sensors.sort(sortFunction);
+      sortSensors(sensors, config.sort);
 
       if (debug) {
         console.debug(
