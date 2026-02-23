@@ -264,6 +264,31 @@ function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
   return null;
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const discovery = discoverGplSensors(hass, debug);
+  const configEntryId = cfg.location || "";
+
+  let discoveredEntities = null;
+  if (configEntryId !== "manual") {
+    let location;
+    if (configEntryId && discovery.locations.has(configEntryId)) {
+      location = discovery.locations.get(configEntryId);
+    } else if (discovery.locations.size) {
+      location = discovery.locations.values().next().value;
+    }
+    if (location) discoveredEntities = location.entities;
+  }
+
+  for (const allergen of cfg.allergens || []) {
+    const sensorId = resolveEntityId(allergen, hass, cfg, discoveredEntities, debug);
+    if (sensorId && hass.states[sensorId]) {
+      map.set(allergen, sensorId);
+    }
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigGPL.date_locale);
@@ -279,29 +304,7 @@ export async function fetchForecast(hass, config) {
 
   if (debug) console.debug("[GPL] Adapter: start fetchForecast", { config, lang });
 
-  // Discover sensors (unless manual mode)
-  let discoveredEntities = null;
-  if (config.location !== "manual") {
-    const discovery = discoverGplSensors(hass, debug);
-    const configEntryId = config.location || "";
-
-    let location;
-    if (configEntryId && discovery.locations.has(configEntryId)) {
-      location = discovery.locations.get(configEntryId);
-    } else if (discovery.locations.size) {
-      // Use first available location
-      location = discovery.locations.values().next().value;
-    }
-
-    if (location) {
-      discoveredEntities = location.entities;
-    }
-
-    if (debug) {
-      console.debug("[GPL] Resolved location entities:",
-        discoveredEntities ? [...discoveredEntities.entries()] : "none");
-    }
-  }
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -322,9 +325,9 @@ export async function fetchForecast(hass, config) {
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
-      // Find sensor entity
-      const sensorId = resolveEntityId(allergen, hass, config, discoveredEntities, debug);
-      if (!sensorId || !hass.states[sensorId]) continue;
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergen);
+      if (!sensorId) continue;
 
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
