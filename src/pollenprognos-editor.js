@@ -1076,6 +1076,7 @@ class PollenPrognosCardEditor extends LitElement {
               title = title
                 .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
                 .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Graminées|Herbacées|Alberi|Graminacee|Erbacee).*$/i, "")
+                .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
                 .trim();
 
               // Fallback to locationSlug if cleaning resulted in empty string
