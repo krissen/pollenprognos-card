@@ -45,6 +45,7 @@
   "card.error": "No pollen sensors found. Have you installed the correct integration and selected a region in the card configuration?",
   "card.error_filtered_sensors": "No sensors match your filters. Check selected allergens and threshold.",
   "card.error_location_not_found": "Location not found. Check the location name in the card configuration.",
+  "card.error_entity_unavailable": "Weather entity is unavailable. The integration may be offline or restarting.",
   "card.error_no_sensors": "No pollen sensors found. Have you installed the correct integration and selected a region in the card configuration?",
   "card.stale_data": "Pollen data temporarily unavailable",
   "card.stale_data_subtitle": "The provider is not currently returning data for this region",

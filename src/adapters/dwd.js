@@ -1,8 +1,7 @@
-import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -61,25 +60,45 @@ export const stubConfigDWD = {
   },
 };
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  for (const allergen of cfg.allergens || []) {
+    const rawKey = normalizeDWD(allergen);
+    let sensorId;
+    if (cfg.region_id === "manual") {
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
+      if (!sensorId) continue;
+    } else {
+      sensorId = cfg.region_id
+        ? `sensor.pollenflug_${rawKey}_${cfg.region_id}`
+        : null;
+      if (!sensorId || !hass.states[sensorId]) {
+        const candidates = Object.keys(hass.states).filter((id) =>
+          id.startsWith(`sensor.pollenflug_${rawKey}_`),
+        );
+        if (candidates.length === 1) sensorId = candidates[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[DWD:resolveEntityIds] allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(rawKey, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  // Språk- och lokaliseringsinställningar
-  const lang = detectLang(hass, config.date_locale);
-  const locale = config.date_locale || stubConfigDWD.date_locale;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigDWD.date_locale);
 
-  // Phrases från användar-config har förträde
-  const phrases = config.phrases || {};
-  const fullPhrases = phrases.full || {};
-  const shortPhrases = phrases.short || {};
-  const userLevels = phrases.levels;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
@@ -87,76 +106,29 @@ export async function fetchForecast(hass, config) {
   if (debug)
     console.debug("DWD adapter: start fetchForecast", { config, lang });
 
-  const testVal = (val) => {
-    const n = Number(val);
-    return isNaN(n) ? -1 : n;
-  };
+  const testVal = (v) => clampLevel(v, null, -1);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const sensors = [];
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   for (const allergen of config.allergens) {
     try {
       const dict = {};
       const rawKey = normalizeDWD(allergen);
       dict.allergenReplaced = rawKey;
-      // Canonical key for lookup in locales
-      const canonKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(rawKey, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang, configKey: allergen,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
-      // Allergen-namn: använd user phrase, annars i18n, annars default
-      const userFull = fullPhrases[allergen];
-      if (userFull) {
-        dict.allergenCapitalized = userFull;
-      } else {
-        const transKey = ALLERGEN_TRANSLATION[rawKey] || rawKey;
-        const nameKey = `card.allergen.${transKey}`;
-        const i18nName = t(nameKey, lang);
-        dict.allergenCapitalized =
-          i18nName !== nameKey ? i18nName : capitalize(allergen);
-      }
-
-      // Kortnamn beroende på config.allergens_abbreviated
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergen];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
-
-      // Find sensor entity
-      let sensorId;
-      if (config.region_id === "manual") {
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        sensorId = `sensor.${prefix}${rawKey}${suffix}`;
-        if (!hass.states[sensorId]) {
-          if (suffix === "") {
-            // Fallback: search for a unique candidate starting with prefix and slug
-            const base = `sensor.${prefix}${rawKey}`;
-            const candidates = Object.keys(hass.states).filter((id) =>
-              id.startsWith(base),
-            );
-            if (candidates.length === 1) sensorId = candidates[0];
-            else continue;
-          } else continue;
-        }
-      } else {
-        sensorId = config.region_id
-          ? `sensor.pollenflug_${rawKey}_${config.region_id}`
-          : null;
-        if (!sensorId || !hass.states[sensorId]) {
-          const candidates = Object.keys(hass.states).filter((id) =>
-            id.startsWith(`sensor.pollenflug_${rawKey}_`),
-          );
-          if (candidates.length === 1) sensorId = candidates[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(rawKey);
+      if (!sensorId) continue;
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
 
@@ -185,28 +157,7 @@ export async function fetchForecast(hass, config) {
       levels.forEach((entry, idx) => {
         if (entry.level !== null && entry.level >= 0) {
           const diff = Math.round((entry.date - today) / 86400000);
-          let dayLabel;
-
-          if (!daysRelative) {
-            // Visa absoluta veckodagar med versal
-            dayLabel = entry.date.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long",
-            });
-            dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-          } else if (userDays[diff] !== undefined) {
-            // Relativa dagar från användarens config
-            dayLabel = userDays[diff];
-          } else if (diff >= 0 && diff <= 2) {
-            // Standard relative days från i18n
-            dayLabel = t(`card.days.${diff}`, lang);
-          } else {
-            // Datum som dag mån
-            dayLabel = entry.date.toLocaleDateString(locale, {
-              day: "numeric",
-              month: "short",
-            });
-          }
-          if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+          const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
           const sensorDesc =
             sensor.attributes[
@@ -234,28 +185,14 @@ export async function fetchForecast(hass, config) {
       });
 
       // Filtrera med tröskel
-      const meets = levels
-        .slice(0, days_to_show)
-        .some((l) => l.level >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       console.warn(`DWD adapter error for allergen ${allergen}:`, e);
     }
   }
 
   // Sortering
-  if (config.sort !== "none") {
-    sensors.sort(
-      {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-        name_descending: (a, b) =>
-          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
-    );
-  }
+  sortSensors(sensors, config.sort);
 
   if (debug) console.debug("DWD adapter complete sensors:", sensors);
   return sensors;

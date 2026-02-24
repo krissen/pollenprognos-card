@@ -45,6 +45,7 @@
   "card.error": "Aucun capteur de pollen trouvé. Avez-vous installé la bonne intégration et sélectionné une région dans la configuration de la carte ?",
   "card.error_filtered_sensors": "Aucun capteur ne correspond à vos filtres. Vérifiez les allergènes sélectionnés et leurs seuils.",
   "card.error_location_not_found": "Emplacement introuvable. Vérifiez le nom de l’emplacement dans la configuration de la carte.",
+  "card.error_entity_unavailable": "L’entité météo est indisponible. L’intégration est peut-être hors ligne ou en cours de redémarrage.",
   "card.error_no_sensors": "Aucun capteur de pollen trouvé. Avez-vous installé la bonne intégration et sélectionné une région dans la configuration de la carte ?",
   "card.header_prefix": "Prévisions des pollens pour",
   "card.integration.atmo": "Atmo France",

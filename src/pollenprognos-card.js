@@ -5,36 +5,24 @@ import { slugify } from "./utils/slugify.js";
 import { images } from "./pollenprognos-images.js";
 import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
-import * as PP from "./adapters/pp.js";
-import { normalize, normalizeDWD } from "./utils/normalize.js";
+import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
-import * as DWD from "./adapters/dwd.js";
-import * as PEU from "./adapters/peu.js";
-import * as SILAM from "./adapters/silam.js";
-import * as KLEENEX from "./adapters/kleenex.js";
-import { stubConfigPP } from "./adapters/pp.js";
-import { stubConfigDWD } from "./adapters/dwd.js";
+import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
-import { stubConfigPEU } from "./adapters/peu.js";
-import { stubConfigSILAM } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex.js";
-import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { stubConfigATMO } from "./adapters/atmo.js";
-import { stubConfigGPL, GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl.js";
+import { PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
   discoverSilamSensors,
   resolveDiscoveredLocation,
-  isConfigEntryId,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
-  ALLERGEN_TRANSLATION,
   ALLERGEN_ICON_FALLBACK,
-  ADAPTERS as CONSTANT_ADAPTERS,
   PP_POSSIBLE_CITIES,
+  toCanonicalAllergenKey,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 import {
@@ -47,7 +35,6 @@ import {
 
 // Chart.js registreren
 Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
-const ADAPTERS = CONSTANT_ADAPTERS;
 
 class PollenPrognosCard extends LitElement {
   _forecastUnsub = null; // Unsubscribe-funktion
@@ -297,6 +284,8 @@ class PollenPrognosCard extends LitElement {
         if (typeof fn === "function") fn();
       });
       this._forecastUnsub = null;
+      this._forecastSubEntity = null;
+      this._forecastSubType = null;
     }
 
     // Destroy cached charts
@@ -433,16 +422,6 @@ class PollenPrognosCard extends LitElement {
   _subscribeForecastIfNeeded() {
     if (!this.config || !this._hass) return;
 
-    // Avsluta tidigare subscription (alltid promisifierat)
-    if (this._forecastUnsub) {
-      Promise.resolve(this._forecastUnsub)
-        .then((fn) => {
-          if (typeof fn === "function") fn();
-        })
-        .catch(() => {});
-      this._forecastUnsub = null;
-    }
-
     if (this.config.integration === "silam" && this.config.location) {
       const configLocation = this.config.location;
       const lang = this.config?.date_locale?.split("-")[0] || "en";
@@ -456,8 +435,49 @@ class PollenPrognosCard extends LitElement {
       } else if (this.config && this.config.mode === "hourly") {
         forecastType = "hourly";
       }
+
+      // Already subscribed to the same entity+type — nothing to do
+      if (
+        entityId &&
+        this._forecastUnsub &&
+        this._forecastSubEntity === entityId &&
+        this._forecastSubType === forecastType
+      ) {
+        return;
+      }
+
+      // Cancel previous subscription
+      if (this._forecastUnsub) {
+        Promise.resolve(this._forecastUnsub)
+          .then((fn) => {
+            if (typeof fn === "function") fn();
+          })
+          .catch(() => {});
+        this._forecastUnsub = null;
+        this._forecastSubEntity = null;
+        this._forecastSubType = null;
+      }
+
       if (entityId) {
-        this._error = null; // Clear location errors when entity is found
+        // Check entity state — don't subscribe to unavailable entities
+        const entityState = this._hass.states[entityId];
+        if (!entityState || entityState.state === "unavailable") {
+          if (this.debug) {
+            console.debug(
+              "[Card][subscribeForecast] Entity unavailable, skipping:",
+              entityId,
+            );
+          }
+          this._forecastEvent = null;
+          this.sensors = [];
+          this._availableSensorCount = 0;
+          this._isLoaded = true;
+          this._error = "card.error_entity_unavailable";
+          this.requestUpdate();
+          return;
+        }
+
+        this._error = null; // Clear errors when entity is found and available
         const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
             if (this.debug) {
@@ -469,7 +489,6 @@ class PollenPrognosCard extends LitElement {
             this._forecastEvent = event;
             // Kör fetch direkt!
             this._updateSensorsAfterForecastEvent();
-            // this.requestUpdate();
           },
           {
             type: "weather/subscribe_forecast",
@@ -484,6 +503,8 @@ class PollenPrognosCard extends LitElement {
             err,
           );
           this._forecastUnsub = null;
+          this._forecastSubEntity = null;
+          this._forecastSubType = null;
           this._forecastEvent = null;
           if (!this._integrationExplicit) {
             // Autodetect: skip this integration and re-run detection
@@ -508,6 +529,8 @@ class PollenPrognosCard extends LitElement {
           }
         });
         this._forecastUnsub = subPromise;
+        this._forecastSubEntity = entityId;
+        this._forecastSubType = forecastType;
         if (this.debug) {
           console.debug("[Card][subscribeForecast] Subscribed for", entityId);
         }
@@ -515,7 +538,7 @@ class PollenPrognosCard extends LitElement {
         if (this.debug) {
           console.debug(
             "[Card] Hittar ingen weather-entity för location",
-            locationSlug,
+            configLocation,
           );
         }
         // Mark as loaded and store error so the user is informed
@@ -535,7 +558,7 @@ class PollenPrognosCard extends LitElement {
       this.config.integration === "silam" &&
       this._forecastEvent
     ) {
-      const adapter = ADAPTERS[this.config.integration] || PP;
+      const adapter = getAdapter(this.config.integration) || getAdapter("pp");
       this._isLoaded = false; // Forecast request is in progress.
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
@@ -621,7 +644,7 @@ class PollenPrognosCard extends LitElement {
     //   );
     // }
 
-    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    const key = toCanonicalAllergenKey(allergenReplaced);
     let specific = images[`${key}_${lvl}_png`];
 
     // If no specific image found, try icon fallback for category allergens
@@ -654,7 +677,7 @@ class PollenPrognosCard extends LitElement {
       return null;
     }
 
-    const key = ALLERGEN_TRANSLATION[allergenReplaced] || allergenReplaced;
+    const key = toCanonicalAllergenKey(allergenReplaced);
     
     // Check if we have the primary key SVG available
     if (getSvgContent(key)) {
@@ -848,16 +871,7 @@ class PollenPrognosCard extends LitElement {
       // Note: Don't modify the original config object as it may be read-only
     }
 
-    let stub;
-    if (integration === "pp") stub = stubConfigPP;
-    else if (integration === "peu") stub = stubConfigPEU;
-    else if (integration === "dwd") stub = stubConfigDWD;
-    else if (integration === "silam") stub = stubConfigSILAM;
-    else if (integration === "kleenex") stub = stubConfigKleenex;
-    else if (integration === "plu") stub = stubConfigPLU;
-    else if (integration === "atmo") stub = stubConfigATMO;
-    else if (integration === "gpl") stub = stubConfigGPL;
-    else stub = stubConfigPP;
+    const stub = getStubConfig(integration) || getStubConfig("pp");
 
     // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
@@ -1043,23 +1057,15 @@ class PollenPrognosCard extends LitElement {
     }
 
     // Plocka rätt stub
-    let baseStub;
-    if (integration === "dwd") baseStub = stubConfigDWD;
-    else if (integration === "peu") baseStub = stubConfigPEU;
-    else if (integration === "pp") baseStub = stubConfigPP;
-    else if (integration === "silam") baseStub = stubConfigSILAM;
-    else if (integration === "kleenex") baseStub = stubConfigKleenex;
-    else if (integration === "plu") baseStub = stubConfigPLU;
-    else if (integration === "atmo") baseStub = stubConfigATMO;
-    else if (integration === "gpl") baseStub = stubConfigGPL;
-    else {
+    let baseStub = getStubConfig(integration);
+    if (!baseStub) {
       console.error(
         "Unknown integration:",
         integration,
         "- falling back to PP",
       );
-      integration = "pp"; // Fallback to prevent further errors
-      baseStub = stubConfigPP;
+      integration = "pp";
+      baseStub = getStubConfig("pp");
     }
 
     // Sätt config rätt — utan allergens
@@ -1099,19 +1105,7 @@ class PollenPrognosCard extends LitElement {
         );
       }
       // Om integrationen INTE är explicit (autodetect): använd stubben
-      if (integration === "pp") cfg.allergens = stubConfigPP.allergens;
-      else if (integration === "peu") cfg.allergens = stubConfigPEU.allergens;
-      else if (integration === "dwd") cfg.allergens = stubConfigDWD.allergens;
-      else if (integration === "silam")
-        cfg.allergens = stubConfigSILAM.allergens;
-      else if (integration === "kleenex")
-        cfg.allergens = stubConfigKleenex.allergens;
-      else if (integration === "plu")
-        cfg.allergens = stubConfigPLU.allergens;
-      else if (integration === "atmo")
-        cfg.allergens = stubConfigATMO.allergens;
-      else if (integration === "gpl")
-        cfg.allergens = stubConfigGPL.allergens;
+      cfg.allergens = getStubConfig(integration).allergens;
     }
 
     // Fyll date_locale
@@ -1496,8 +1490,9 @@ class PollenPrognosCard extends LitElement {
             attr.friendly_name
               ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
               .replace(/[\)\s]+\w+.*$/u, "")
+              .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
               .trim() ||
-            cfg.location;
+            (cfg.location ? cfg.location.charAt(0).toUpperCase() + cfg.location.slice(1) : "");
         }
 
         loc = title || cfg.location || "";
@@ -1601,7 +1596,7 @@ class PollenPrognosCard extends LitElement {
     }
 
     // Hämta prognos via rätt adapter
-    const adapter = ADAPTERS[cfg.integration] || PP;
+    const adapter = getAdapter(cfg.integration) || getAdapter("pp");
     let fetchPromise = null;
     if (cfg.integration === "silam") {
       if (!this._forecastEvent) {
@@ -1667,82 +1662,11 @@ class PollenPrognosCard extends LitElement {
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
           const availableSensorCount = availableSensors.length;
 
-          // Filtrera adapterns sensors så att endast de finns i availableSensors
-          let filtered = sensors.filter((s) => {
-            if (
-              cfg.integration === "silam" &&
-              (!cfg.mode || cfg.mode === "daily")
-            ) {
-              // entity_id sätts av adaptern (discovery eller regex)
-              if (s.entity_id) {
-                return availableSensors.includes(s.entity_id);
-              }
-              // Fallback: bygg entity_id med silamReverse (äldre path)
-              const configLocation = cfg.location || "";
-              let silamReverse = {};
-              if (!isConfigEntryId(configLocation)) {
-                const loc = configLocation;
-                const locStates = Object.keys(hass.states).filter((id) => {
-                  const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                  return m && m[1] === loc;
-                });
-                for (const eid of locStates) {
-                  const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                  if (!m) continue;
-                  const haSlug = m[2];
-                  for (const [, mapping] of Object.entries(
-                    silamAllergenMap.mapping,
-                  )) {
-                    if (mapping[haSlug]) {
-                      silamReverse[mapping[haSlug]] = haSlug;
-                      break;
-                    }
-                  }
-                }
-                const key =
-                  silamReverse[s.allergenReplaced] || s.allergenReplaced;
-                const id = `sensor.silam_pollen_${loc}_${key}`;
-                return availableSensors.includes(id);
-              }
-              // config_entry_id path: entity_id saknas → sensorn hittades inte
-              return false;
-            }
-            return true;
-          });
-
-          // Endast *normalisering/namn*-filtrering för de andra integrationerna!
-          if (
-            Array.isArray(cfg.allergens) &&
-            cfg.allergens.length > 0 &&
-            cfg.integration !== "silam"
-          ) {
-            let allowed;
-            let getKey;
-            if (integration === "dwd") {
-              allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
-              getKey = (s) => normalizeDWD(s.allergenReplaced || "");
-            } else {
-              if (this.debug) {
-                console.debug(
-                  "[Card][Debug] Använder normalisering för allergener:",
-                  cfg.allergens,
-                );
-              }
-              allowed = new Set(cfg.allergens.map((a) => normalize(a)));
-              getKey = (s) => normalize(s.allergenReplaced || "");
-            }
-            filtered = filtered.filter((s) => {
-              const allergenKey = getKey(s);
-              const ok = allowed.has(allergenKey);
-              if (!ok && this.debug) {
-                console.debug(
-                  `[Card][Debug] Sensor '${allergenKey}' är EJ tillåten (ej i allowed)`,
-                  s,
-                );
-              }
-              return ok;
-            });
-          }
+          // Filter adapter sensors against availableSensors and allergen config
+          const filtered = filterSensorsPostFetch(
+            sensors, cfg, availableSensors,
+            Object.keys(hass.states), silamAllergenMap.mapping,
+          );
 
           if (this.debug) {
             console.debug(

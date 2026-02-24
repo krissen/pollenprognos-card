@@ -1,9 +1,10 @@
 // src/adapters/peu.js
-import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
+import { slugify } from "../utils/slugify.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -65,31 +66,88 @@ export const stubConfigPEU = {
 // All possible allergens for the PEU integration
 export const PEU_ALLERGENS = ["allergy_risk", ...stubConfigPEU.allergens];
 
+function detectLocation(cfg, hass) {
+  if (cfg.location === "manual") return "";
+  let locationSlug = slugify(cfg.location || "");
+  if (!locationSlug) {
+    const peuStates = Object.keys(hass.states).filter((id) =>
+      id.startsWith("sensor.polleninformation_"),
+    );
+    if (peuStates.length) {
+      const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+      locationSlug = match ? match[1] : "";
+    }
+  }
+  return locationSlug;
+}
+
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const locationSlug = detectLocation(cfg, hass);
+  const mode = cfg.mode || stubConfigPEU.mode;
+  const peuStates = Object.keys(hass.states).filter((id) =>
+    id.startsWith("sensor.polleninformation_"),
+  );
+
+  for (const allergen of cfg.allergens || []) {
+    const allergenSlug = allergen;
+    let sensorId;
+    if (cfg.location === "manual") {
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      const coreSlug =
+        mode !== "daily" && allergenSlug === "allergy_risk"
+          ? "allergy_risk_hourly"
+          : allergenSlug;
+      sensorId = resolveManualEntity(hass, prefix, coreSlug, cfg.entity_suffix || "");
+      if (!sensorId) continue;
+    } else {
+      if (mode !== "daily" && allergenSlug === "allergy_risk") {
+        sensorId = locationSlug
+          ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
+          : null;
+      } else {
+        sensorId = locationSlug
+          ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
+          : null;
+      }
+      if (!sensorId || !hass.states[sensorId]) {
+        const cands = peuStates.filter((id) => {
+          const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+          if (!match) return false;
+          const loc = match[1];
+          const allg = match[2];
+          if (mode !== "daily" && allergenSlug === "allergy_risk") {
+            return (
+              (!locationSlug || loc === locationSlug) &&
+              allg === "allergy_risk_hourly"
+            );
+          }
+          return (
+            (!locationSlug || loc === locationSlug) &&
+            allg === allergenSlug
+          );
+        });
+        if (cands.length === 1) sensorId = cands[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[PEU:resolveEntityIds] allergen: '${allergen}', locationSlug: '${locationSlug}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(allergenSlug, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
-  const lang = detectLang(hass, config.date_locale);
-  const locale =
-    config.date_locale ||
-    hass.locale?.language ||
-    hass.language ||
-    `${lang}-${lang.toUpperCase()}`;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-  const fullPhrases = phrases.full;
-  const shortPhrases = phrases.short;
-  const userLevels = phrases.levels;
-  // Levels from PEU are reported as 0–4 but scaled to 0–6 in the card.
-  // Accept either five or seven custom names and map them to the 0–6 scale.
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
+  // Levels from PEU are reported as 0-4 but scaled to 0-6 in the card.
+  // Accept either five or seven custom names and map them to the 0-6 scale.
   const defaultNumLevels = 5; // original scale
   const levelNamesDefault = Array.from({ length: 7 }, (_, i) =>
     t(`card.levels.${i}`, lang),
@@ -106,16 +164,8 @@ export async function fetchForecast(hass, config) {
       });
     }
   }
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days;
 
-  const maxLevel =
-    config.integration === "dwd" ? 3 : config.integration === "peu" ? 4 : 6;
-
-  const testVal = (v) => {
-    const n = Number(v);
-    return isNaN(n) || n < 0 ? -1 : n > maxLevel ? maxLevel : n;
-  };
+  const testVal = (v) => clampLevel(v, 4, -1);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -133,19 +183,7 @@ export async function fetchForecast(hass, config) {
     twice_daily: 12,
   };
 
-  // Plats/slug-hantering
-  // location_slug kan sättas explicit, men om inte så loopar vi igenom tillgängliga sensorer
-  const peuStates = Object.keys(hass.states).filter((id) =>
-    id.startsWith("sensor.polleninformation_"),
-  );
-  let locationSlug = config.location === "manual" ? "" : config.location;
-  if (!locationSlug && config.location !== "manual" && peuStates.length) {
-    // Extract full location slug (everything after "sensor.polleninformation_" and before last "_<allergen>")
-    const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
-    locationSlug = match ? match[1] : "";
-  }
-  // Lista platser om vi vill visa i editorn (kan samlas ihop)
-  // const availableLocations = Array.from(new Set(peuStates.map(id => id.split("_")[2])));
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   const sensors = [];
   for (const allergen of config.allergens) {
@@ -155,71 +193,16 @@ export async function fetchForecast(hass, config) {
       const allergenSlug = allergen; // redan slugifierat i peu
       dict.allergenReplaced = allergenSlug;
 
-      // Allergen-namn, phrases, i18n, capitalisering
-      const canonKey = ALLERGEN_TRANSLATION[allergenSlug] || allergenSlug;
-      if (fullPhrases[allergenSlug]) {
-        dict.allergenCapitalized = fullPhrases[allergenSlug];
-      } else {
-        const lookup = t(`card.allergen.${canonKey}`, lang);
-        dict.allergenCapitalized =
-          lookup !== `card.allergen.${canonKey}`
-            ? lookup
-            : allergenSlug.charAt(0).toUpperCase() + allergenSlug.slice(1);
-      }
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergenSlug];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergenSlug, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
-      // Find sensor
-      let sensorId;
-      if (config.location === "manual") {
-        const prefix = config.entity_prefix || "";
-        const coreSlug =
-          mode !== "daily" && allergenSlug === "allergy_risk"
-            ? "allergy_risk_hourly"
-            : allergenSlug;
-        const suffix = config.entity_suffix || "";
-        sensorId = `sensor.${prefix}${coreSlug}${suffix}`;
-        if (!hass.states[sensorId]) continue;
-      } else {
-        if (mode !== "daily" && allergenSlug === "allergy_risk") {
-          sensorId = locationSlug
-            ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
-            : null;
-        } else {
-          sensorId = locationSlug
-            ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
-            : null;
-        }
-        if (!sensorId || !hass.states[sensorId]) {
-          // Leta fallback-sensor bland peuStates
-          const cands = peuStates.filter((id) => {
-            const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
-            if (!match) return false;
-            const loc = match[1];
-            const allergen = match[2];
-            if (mode !== "daily" && allergenSlug === "allergy_risk") {
-              return (
-                (!locationSlug || loc === locationSlug) &&
-                allergen === "allergy_risk_hourly"
-              );
-            }
-            return (
-              (!locationSlug || loc === locationSlug) &&
-              allergen === allergenSlug
-            );
-          });
-
-          if (cands.length === 1) sensorId = cands[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergenSlug);
+      if (!sensorId) continue;
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
 
@@ -348,24 +331,7 @@ export async function fetchForecast(hass, config) {
           if (level !== null && level >= 0) {
             const d = new Date(dateStr);
             const diff = Math.round((d - today) / 86400000);
-            let label;
-
-            if (!daysRelative) {
-              label = d.toLocaleDateString(locale, {
-                weekday: dayAbbrev ? "short" : "long",
-              });
-              label = label.charAt(0).toUpperCase() + label.slice(1);
-            } else if (userDays[diff] != null) {
-              label = userDays[diff];
-            } else if (diff >= 0 && diff <= 2) {
-              label = t(`card.days.${diff}`, lang);
-            } else {
-              label = d.toLocaleDateString(locale, {
-                day: "numeric",
-                month: "short",
-              });
-            }
-            if (daysUppercase) label = label.toUpperCase();
+            const label = buildDayLabel(d, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
             let scaledLevel;
             if (level < 2) {
@@ -394,26 +360,14 @@ export async function fetchForecast(hass, config) {
       }
 
       // Threshold-filter
-      const meets = dict.days.some((d) => d.state >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`Fel vid allergen ${allergen}:`, e);
     }
   }
 
   // Sortera
-  if (config.sort !== "none") {
-    sensors.sort(
-      {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-        name_descending: (a, b) =>
-          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
-    );
-  }
+  sortSensors(sensors, config.sort);
 
   if (config.allergy_risk_top) {
     const idx = sensors.findIndex(
