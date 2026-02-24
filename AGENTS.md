@@ -29,11 +29,13 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - **Main Entry**: `src/index.js` (exports the card components)
 - **Card Component**: `src/pollenprognos-card.js` (main card implementation)
 - **Editor Component**: `src/pollenprognos-editor.js` (visual configuration editor)
-- **Adapters**: `src/adapters/` (integration-specific data handlers for pp, dwd, peu, silam, kleenex, plu)
+- **Adapters**: `src/adapters/` (integration-specific data handlers for pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
 - **Utilities**: `src/utils/` (shared helper functions)
 - **Constants**: `src/constants.js` (configuration and data constants)
 - **Internationalization**: `src/i18n.js` (language detection and text loading)
-- **Images**: `src/pollenprognos-images.js` (embedded SVG icons)
+- **Adapter Registry**: `src/adapter-registry.js` (central lookup for adapters and stub configs)
+- **Adapter Helpers**: `src/utils/adapter-helpers.js` (shared pure functions across adapters)
+- **Images**: `src/pollenprognos-images.js` (embedded PNG fallback images)
 
 ### Coding Standards and Patterns
 
@@ -62,9 +64,11 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - Use try-catch blocks around external API calls and data processing
 
 #### Adapter Pattern
-- Each integration has its own adapter in `src/adapters/`
-- Adapters implement consistent interface: `stubConfig`, `findSensors`, `getData`
-- Auto-detection of available integrations based on sensor entities
+- Each integration has its own adapter in `src/adapters/` (simple adapters are single files; larger ones like kleenex/ and gpl/ are subdirectories with index.js)
+- Adapters implement consistent interface: `stubConfig*`, `fetchForecast(hass, config)`, `resolveEntityIds(cfg, hass, debug?)`
+- Adapters are registered in `src/adapter-registry.js` via `getAdapter(id)`, `getStubConfig(id)`, `getAllAdapterIds()`
+- Sensor auto-detection delegates to each adapter's `resolveEntityIds()`
+- Shared helper functions live in `src/utils/adapter-helpers.js`
 
 ### Configuration and Validation
 - Configuration validation happens in editor component
@@ -91,6 +95,7 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - Use CSS Grid and Flexbox for layouts
 
 ### Testing and Validation
+- **Unit Tests**: `npx vitest run` runs adapter contract tests and utility tests
 - **Build Validation**: Always run `npm run build` to verify changes
 - **Manual Testing**: Test in Home Assistant environment when possible
 - **HACS Validation**: CI validates HACS compatibility automatically
