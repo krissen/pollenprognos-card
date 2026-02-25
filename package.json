@@ -1,6 +1,6 @@
 {
   "name": "pollenprognos-card",
-  "version": "2.9.1",
+  "version": "2.8.1",
   "description": "Custom card for Home Assistant showing pollen forecasts",
   "main": "dist/pollenprognos-card.js",
   "type": "module",
