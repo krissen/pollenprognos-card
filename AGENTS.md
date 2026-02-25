@@ -22,7 +22,6 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 ### Directory and File Handling
 - **IGNORE COMPLETELY**: `dist` directory (build artifacts)
 - **IGNORE COMPLETELY**: `node_modules` directory (dependencies)
-- **LOCALIZATION CONSTRAINT**: In `src/locales/` directory, only process `en.json` file. All other language files (cs.json, da.json, de.json, etc.) must be ignored to prevent translation corruption.
 - **BUILD ARTIFACTS**: Files in `dist/` are auto-generated - never edit manually
 
 ### Project Architecture
@@ -73,7 +72,6 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - Provide sensible defaults for all configuration options
 
 ### Internationalization (i18n)
-- **CRITICAL**: Only modify `src/locales/en.json` for English text changes
 - Use `t(key, hass)` function for all user-visible text
 - Language auto-detection follows Home Assistant's language setting
 - Fallback to English if translation key is missing
@@ -115,8 +113,7 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 
 ### Common Pitfalls to Avoid
 1. **Never edit generated files** in `dist/`
-2. **Never modify non-English locale files** in `src/locales/`
-3. **Don't break adapter interface consistency** when modifying integrations
+2. **Don't break adapter interface consistency** when modifying integrations
 4. **Avoid direct DOM manipulation** - use Lit's reactive rendering
 5. **Don't forget to register Chart.js components** before use
 6. **Always handle missing entities gracefully** in adapters
