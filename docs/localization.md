@@ -15,6 +15,7 @@ This repository includes:
 - `src/locales/de.json`
 - `src/locales/el.json`
 - `src/locales/en.json`
+- `src/locales/es.json`
 - `src/locales/fi.json`
 - `src/locales/fr.json`
 - `src/locales/it.json`
