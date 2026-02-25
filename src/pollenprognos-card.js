@@ -536,7 +536,6 @@ class PollenPrognosCard extends LitElement {
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
-      this._isLoaded = false; // Forecast request is in progress.
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
         .then((sensors) => {
@@ -1629,7 +1628,13 @@ class PollenPrognosCard extends LitElement {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
     if (fetchPromise) {
-      this._isLoaded = false; // Forecast request is in progress.
+      // Do NOT set _isLoaded = false here on every hass update.
+      // When sensors is empty (no pollen season), doing so makes render()
+      // toggle between the loading state and the "no allergens" state on
+      // every background HA state change, causing a visible height oscillation
+      // that makes the iOS scroll position jump. _isLoaded starts as undefined
+      // (falsy) in the constructor, so the initial loading state is shown
+      // correctly without needing to explicitly set it to false here.
       return fetchPromise
         .then((sensors) => {
           if (this.debug) {
