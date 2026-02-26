@@ -301,6 +301,12 @@ class PollenPrognosCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
 
+    // Clean up hass debounce timer
+    if (this._hassDebounceTimer) {
+      clearTimeout(this._hassDebounceTimer);
+      this._hassDebounceTimer = null;
+    }
+
     // Clean up forecast subscription
     if (this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub).then((fn) => {
@@ -832,6 +838,7 @@ class PollenPrognosCard extends LitElement {
     this._userConfig = {};
     this.sensors = [];
     this.tapAction = null;
+    this._hassDebounceTimer = null;
   }
 
   static async getConfigElement() {
@@ -922,6 +929,13 @@ class PollenPrognosCard extends LitElement {
       this._versionLogged = true;
     }
     this._initDone = false;
+    // Clear debounce and loaded state so hass processing runs immediately
+    // after a config change.
+    if (this._hassDebounceTimer) {
+      clearTimeout(this._hassDebounceTimer);
+      this._hassDebounceTimer = null;
+    }
+    this._isLoaded = undefined;
     if (this._hass) {
       this.hass = this._hass;
     }
@@ -929,6 +943,25 @@ class PollenPrognosCard extends LitElement {
   set hass(hass) {
     if (this._hass === hass) return;
     this._hass = hass;
+
+    // After the first successful data load, debounce heavy processing.
+    // Pollen data updates at most once per hour; running entity scanning,
+    // fetchForecast, and deepEqual on every HA state change (many times
+    // per minute) wastes CPU and can cause iOS scroll jank by blocking
+    // the main thread during scroll momentum.
+    if (this._isLoaded) {
+      if (this._hassDebounceTimer) return;
+      this._hassDebounceTimer = setTimeout(() => {
+        this._hassDebounceTimer = null;
+        this._processHass(this._hass);
+      }, 2000);
+      return;
+    }
+
+    this._processHass(hass);
+  }
+
+  _processHass(hass) {
     const explicit = !!this._integrationExplicit;
     if (this.debug)
       console.debug("[Card] set hass called; explicit:", explicit);
@@ -2322,6 +2355,13 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
+      /* Prevent internal layout changes from affecting parent scroll
+         position on iOS. contain:content = layout + style + paint
+         without size, so the card can still auto-size. */
+      :host {
+        contain: content;
+      }
+
       /* normalhtml */
       .forecast {
         width: 100%; /* Fyll hela kortet! */
@@ -2453,6 +2493,11 @@ class PollenPrognosCard extends LitElement {
         min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
+        /* Promote canvas containers to GPU layers to prevent iOS from
+           purging and re-rasterizing them during scroll, which can
+           trigger layout recalculation and scroll position jumps. */
+        will-change: transform;
+        contain: layout style;
       }
 
       .forecast-content {
