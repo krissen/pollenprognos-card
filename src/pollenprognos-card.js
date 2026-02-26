@@ -954,17 +954,10 @@ class PollenPrognosCard extends LitElement {
     if (this._hass === hass) return;
     this._hass = hass;
 
-    // After the first successful data load, debounce heavy processing.
-    // Pollen data updates at most once per hour; running entity scanning,
-    // fetchForecast, and deepEqual on every HA state change (many times
-    // per minute) wastes CPU and can cause iOS scroll jank by blocking
-    // the main thread during scroll momentum.
+    // DIAGNOSTIC TEST: Skip ALL hass processing after initial load.
+    // If the iOS scroll jump disappears with this, _processHass is the cause.
+    // If it persists, the cause is elsewhere (CSS, compositing, other cards).
     if (this._isLoaded) {
-      if (this._hassDebounceTimer) return;
-      this._hassDebounceTimer = setTimeout(() => {
-        this._hassDebounceTimer = null;
-        this._processHass(this._hass);
-      }, 2000);
       return;
     }
 
