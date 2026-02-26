@@ -280,6 +280,8 @@ class PollenPrognosCard extends LitElement {
   }
 
   updated(changedProps) {
+    console.warn("[Card][iOS-diag] updated() fired. Changed props:", [...changedProps.keys()]);
+
     // Handle forecast subscription
     if (changedProps.has("config") || changedProps.has("_hass")) {
       this._subscribeForecastIfNeeded();
@@ -356,6 +358,14 @@ class PollenPrognosCard extends LitElement {
     if (!needsUpdate) {
       return;
     }
+
+    console.warn("[Card][iOS-diag] _updateSensorsAndColumns: needsUpdate=true. Reasons:",
+      !this._isLoaded ? "NOT_LOADED" : "",
+      !deepEqual(this.sensors, filtered) ? "SENSORS_DIFF" : "",
+      this._availableSensorCount !== availableSensors.length ? "AVAIL_COUNT_DIFF" : "",
+      this.days_to_show !== daysCount ? "DAYS_DIFF" : "",
+      !deepEqual(this.displayCols, expectedDisplayCols) ? "COLS_DIFF" : "",
+    );
 
     // Store latest sensor information and mark data as loaded.
     this.sensors = filtered;
@@ -1330,10 +1340,19 @@ class PollenPrognosCard extends LitElement {
     // cycle including _rebuildCharts() DOM mutations on every HA state
     // change — the root cause of iOS scroll position jumps.
     if (!deepEqual(this.config, cfg)) {
+      console.warn("[Card][iOS-diag] config CHANGED, triggering render. Diff keys:",
+        Object.keys(cfg).filter(k => {
+          const a = this.config?.[k], b = cfg[k];
+          if (a === b) return false;
+          if (typeof a === "object" && typeof b === "object" && deepEqual({[k]:a},{[k]:b})) return false;
+          return true;
+        }),
+      );
       this.config = cfg;
     }
     const nextTapAction = cfg.tap_action || this.tapAction || null;
     if (this.tapAction !== nextTapAction) {
+      console.warn("[Card][iOS-diag] tapAction CHANGED");
       this.tapAction = nextTapAction;
     }
 
@@ -1652,6 +1671,7 @@ class PollenPrognosCard extends LitElement {
       if (this.debug) console.debug("[Card] header set to:", nextHeader);
     }
     if (this.header !== nextHeader) {
+      console.warn("[Card][iOS-diag] header CHANGED:", JSON.stringify(this.header), "→", JSON.stringify(nextHeader));
       this.header = nextHeader;
     }
 
