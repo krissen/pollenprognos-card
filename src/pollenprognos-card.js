@@ -154,10 +154,6 @@ class PollenPrognosCard extends LitElement {
       // Retrieve existing chart if it exists
       let chart = this._chartCache.get(container.id);
 
-      // Remove old text overlay, if any
-      const existingText = container.querySelector(".level-value-text");
-      if (existingText) existingText.remove();
-
       // Recreate chart if missing or detached
       if (!chart || !container.contains(chart.canvas)) {
         if (chart) chart.destroy();
@@ -228,35 +224,49 @@ class PollenPrognosCard extends LitElement {
 
         this._chartCache.set(container.id, chart);
       } else {
-        // Update existing chart if level changed
+        // Update existing chart only if colors actually changed
         const datasets = chart.data.datasets;
         if (datasets && datasets[0]) {
           const bg = Array(datasets[0].backgroundColor.length)
             .fill(emptyColor)
             .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
 
-          datasets[0].backgroundColor = bg;
-          chart.update("none");
+          const oldBg = datasets[0].backgroundColor;
+          const colorsChanged =
+            bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
+          if (colorsChanged) {
+            datasets[0].backgroundColor = bg;
+            chart.update("none");
+          }
         }
       }
 
-      // Add numeric text overlay if requested (suppress negative values)
+      // Add or update numeric text overlay (suppress negative values).
+      // Only mutate DOM when the displayed value actually changed.
+      const existingText = container.querySelector(".level-value-text");
       if (showValue && displayLevel >= 0) {
-        const valueText = document.createElement("div");
-        valueText.className = "level-value-text";
-        valueText.textContent = displayLevel;
-        valueText.style.position = "absolute";
-        valueText.style.top = "50%";
-        valueText.style.left = "50%";
-        valueText.style.transform = "translate(-50%, -50%)";
-        valueText.style.fontSize = `${size * fontSizeRatio}px`;
-        valueText.style.fontWeight = fontWeight;
-        valueText.style.color = textColor;
-        if (size < 42) {
-          valueText.style.lineHeight = "1";
-          valueText.style.height = "1em";
+        if (existingText && existingText.textContent === String(displayLevel)) {
+          // Value unchanged — skip DOM mutation.
+        } else {
+          if (existingText) existingText.remove();
+          const valueText = document.createElement("div");
+          valueText.className = "level-value-text";
+          valueText.textContent = displayLevel;
+          valueText.style.position = "absolute";
+          valueText.style.top = "50%";
+          valueText.style.left = "50%";
+          valueText.style.transform = "translate(-50%, -50%)";
+          valueText.style.fontSize = `${size * fontSizeRatio}px`;
+          valueText.style.fontWeight = fontWeight;
+          valueText.style.color = textColor;
+          if (size < 42) {
+            valueText.style.lineHeight = "1";
+            valueText.style.height = "1em";
+          }
+          container.appendChild(valueText);
         }
-        container.appendChild(valueText);
+      } else if (existingText) {
+        existingText.remove();
       }
     });
 
@@ -536,9 +546,6 @@ class PollenPrognosCard extends LitElement {
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
-      if (this.sensors && this.sensors.length > 0) {
-        this._isLoaded = false;
-      }
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
         .then((sensors) => {
@@ -1284,28 +1291,38 @@ class PollenPrognosCard extends LitElement {
         );
     }
 
-    // Spara config och header
-    this.config = cfg;
-    this.tapAction = cfg.tap_action || this.tapAction || null;
+    // Only update reactive properties when values actually changed.
+    // Lit's auto-generated accessor triggers requestUpdate on every
+    // assignment (new object ref ≠ old ref), which causes a full render
+    // cycle including _rebuildCharts() DOM mutations on every HA state
+    // change — the root cause of iOS scroll position jumps.
+    if (!deepEqual(this.config, cfg)) {
+      this.config = cfg;
+    }
+    const nextTapAction = cfg.tap_action || this.tapAction || null;
+    if (this.tapAction !== nextTapAction) {
+      this.tapAction = nextTapAction;
+    }
 
     if (this.debug) {
       console.debug("[Card][Debug] Aktiv integration:", integration);
       console.debug("[Card][Debug] Allergens i config:", cfg.allergens);
     }
 
-    // Header
+    // Compute header into a local variable, only assign if changed.
+    let nextHeader;
     if (
       cfg.title === "false" ||
       cfg.title === false ||
       (typeof cfg.title === "string" && cfg.title.trim() === "")
     ) {
-      this.header = "";
+      nextHeader = "";
     } else if (
       typeof cfg.title === "string" &&
       cfg.title.trim() !== "" &&
       cfg.title !== "true"
     ) {
-      this.header = cfg.title;
+      nextHeader = cfg.title;
     } else {
       let loc = "";
       if (integration === "dwd") {
@@ -1596,10 +1613,13 @@ class PollenPrognosCard extends LitElement {
           }
         }
       }
-      this.header = loc
+      nextHeader = loc
         ? `${this._t("card.header_prefix")} ${loc}`
         : this._t("card.header_prefix");
-      if (this.debug) console.debug("[Card] header set to:", this.header);
+      if (this.debug) console.debug("[Card] header set to:", nextHeader);
+    }
+    if (this.header !== nextHeader) {
+      this.header = nextHeader;
     }
 
     // Hämta prognos via rätt adapter
@@ -1619,15 +1639,6 @@ class PollenPrognosCard extends LitElement {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
     if (fetchPromise) {
-      // Only show loading state when we have existing data to replace.
-      // When sensors is empty (e.g. no pollen season), setting _isLoaded=false
-      // on every hass update causes render() to oscillate between the "loading"
-      // template and the "no allergens" template, producing a height change that
-      // makes iOS scroll position jump. On first load _isLoaded is undefined
-      // (falsy), so the loading state is shown correctly without this.
-      if (this.sensors && this.sensors.length > 0) {
-        this._isLoaded = false;
-      }
       return fetchPromise
         .then((sensors) => {
           if (this.debug) {
