@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.0.0] - Unreleased
+
+### Changed
+- **Adapter architecture refactored**: each adapter now exports `resolveEntityIds(cfg, hass, debug?)` for sensor detection, replacing centralized if/else chains in `sensors.js`
+- **Adapter registry** (`adapter-registry.js`): single lookup for adapter modules and stub configs via `getAdapter()`, `getStubConfig()`, `getAllAdapterIds()`
+- **Shared adapter helpers** (`utils/adapter-helpers.js`): extracted common logic from adapters into reusable pure functions (`getLangAndLocale`, `mergePhrases`, `buildDayLabel`, `clampLevel`, `sortSensors`, `resolveAllergenNames`, `meetsThreshold`, `normalizeManualPrefix`, `resolveManualEntity`)
+- **Post-fetch filtering** (`filterSensorsPostFetch`) extracted from card's `set hass()` into a utility
+- **Allergen translation** grouped by adapter with per-adapter alias maps (`PP_ALIASES`, `DWD_ALIASES`, etc.) and a single `toCanonicalAllergenKey()` lookup
+- Kleenex adapter modularized into `constants`, `levels`, `discovery`, `forecast`
+- GPL adapter modularized into `constants`, `discovery`, `forecast`
+- Net reduction of ~1,100 lines across `src/`
+
+### Added
+- Vitest test harness with shared test helpers
+- Contract tests for all 8 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
+- Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering (~8,700 lines of tests)
+
+### Fixed
+- Kleenex: location name extraction when `friendly_name` lacks location
+- Kleenex: undefined variable in debug threshold log
+- SILAM: guard forecast subscription against unavailable entities
+
 ## [2.9.2] - 2026-02-26
 
 ### Fixed
