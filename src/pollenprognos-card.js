@@ -126,6 +126,9 @@ class PollenPrognosCard extends LitElement {
    * reconstructed after the DOM is cloned or replaced.
    */
   _rebuildCharts() {
+    // DIAGNOSTIC: Skip ALL chart creation to test if canvas elements
+    // cause iOS scroll jumps via GPU re-rasterization.
+    return;
     const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
     const activeIds = new Set();
 
