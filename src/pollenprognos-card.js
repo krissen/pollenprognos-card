@@ -536,6 +536,9 @@ class PollenPrognosCard extends LitElement {
       this._forecastEvent
     ) {
       const adapter = ADAPTERS[this.config.integration] || PP;
+      if (this.sensors && this.sensors.length > 0) {
+        this._isLoaded = false;
+      }
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
         .then((sensors) => {
@@ -1611,30 +1614,20 @@ class PollenPrognosCard extends LitElement {
         }
         return;
       }
-      if (!this._forecastEvent) {
-        this.sensors = [];
-        this.days_to_show = 0;
-        this.displayCols = [];
-        if (this.debug) {
-          console.debug(
-            "[Card] Forecast mode: forecast-event saknas, nollställer sensordata och visar laddar...",
-          );
-        }
-        this.requestUpdate();
-        return;
-      }
       fetchPromise = adapter.fetchForecast(hass, cfg, this._forecastEvent);
     } else {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
     if (fetchPromise) {
-      // Do NOT set _isLoaded = false here on every hass update.
-      // When sensors is empty (no pollen season), doing so makes render()
-      // toggle between the loading state and the "no allergens" state on
-      // every background HA state change, causing a visible height oscillation
-      // that makes the iOS scroll position jump. _isLoaded starts as undefined
-      // (falsy) in the constructor, so the initial loading state is shown
-      // correctly without needing to explicitly set it to false here.
+      // Only show loading state when we have existing data to replace.
+      // When sensors is empty (e.g. no pollen season), setting _isLoaded=false
+      // on every hass update causes render() to oscillate between the "loading"
+      // template and the "no allergens" template, producing a height change that
+      // makes iOS scroll position jump. On first load _isLoaded is undefined
+      // (falsy), so the loading state is shown correctly without this.
+      if (this.sensors && this.sensors.length > 0) {
+        this._isLoaded = false;
+      }
       return fetchPromise
         .then((sensors) => {
           if (this.debug) {
