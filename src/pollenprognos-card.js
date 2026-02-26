@@ -2231,6 +2231,10 @@ class PollenPrognosCard extends LitElement {
   render() {
     if (!this.config) return html``;
 
+    // DIAGNOSTIC: Render absolute minimum DOM to test if scroll jump
+    // is caused by the card's DOM complexity or by ha-card itself.
+    return html`<ha-card><div style="padding:16px">Pollen (diagnostic mode)</div></ha-card>`;
+
     // Visa laddningsruta endast om vi INTE är laddade och saknar sensorer
     if (!this._isLoaded && (!this.sensors || !this.sensors.length)) {
       return html`
