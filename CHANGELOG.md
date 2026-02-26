@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.9.2] - 2026-02-26
+
+### Fixed
+- iOS scroll position jump caused by unnecessary re-renders on every HA state update (#186)
+- `deepEqual` array comparison gave false positives for object elements
+
+## [2.9.1] - 2026-02-25
+
+### Added
+- Spanish translations
+
 ## [2.9.0] - 2026-02-22
 
 ### Added
