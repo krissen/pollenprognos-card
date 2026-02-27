@@ -500,8 +500,11 @@ class PollenPrognosCard extends LitElement {
         }
 
         this._error = null; // Clear errors when entity is found and available
+        const subscribedEntity = entityId;
         const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
+            // Ignore stale callbacks from a cancelled subscription
+            if (this._forecastSubEntity !== subscribedEntity) return;
             if (this.debug) {
               console.debug(
                 "[Card][subscribeForecast] forecastEvent RECEIVED:",
@@ -509,7 +512,6 @@ class PollenPrognosCard extends LitElement {
               );
             }
             this._forecastEvent = event;
-            // Kör fetch direkt!
             this._updateSensorsAfterForecastEvent();
           },
           {
@@ -867,6 +869,8 @@ class PollenPrognosCard extends LitElement {
     this._userConfig = {};
     this.sensors = [];
     this.tapAction = null;
+    this._forecastSubEntity = null;
+    this._forecastSubType = null;
   }
 
   static async getConfigElement() {
