@@ -19,7 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 - Vitest test harness with shared test helpers
 - Contract tests for all 8 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
-- Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering (~8,700 lines of tests)
+- Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering
+- Unit tests for `clampLevel`, `detectLang`, `t()` locale fallback, and SVG contract (`getSvgContent`)
 
 ### Fixed
 - Kleenex: location name extraction when `friendly_name` lacks location
