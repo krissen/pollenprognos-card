@@ -1,5 +1,4 @@
 // src/adapters/silam.js
-import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import {
   findSilamWeatherEntity,
@@ -8,7 +7,9 @@ import {
 } from "../utils/silam.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { toCanonicalAllergenKey } from "../constants.js";
+import { t } from "../i18n.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -113,29 +114,11 @@ export function indexToLevel(val) {
   return -1;
 }
 
-export function getPhrases(config, lang) {
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-  phrases.no_information =
-    phrases.no_information || t("card.no_information", lang);
-  return phrases;
-}
-
-export function getLevelNames(phrases, lang) {
-  return buildLevelNames(phrases.levels, lang);
-}
-
-export function getAllergenNames(allergen, phrases, lang) {
+export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   // Capitalized: phrases > silamAllergenMap > fallback
   let allergenCapitalized;
-  if (phrases.full[allergen]) {
-    allergenCapitalized = phrases.full[allergen];
+  if (fullPhrases[allergen]) {
+    allergenCapitalized = fullPhrases[allergen];
   } else if (
     silamAllergenMap.names &&
     silamAllergenMap.names[allergen] &&
@@ -147,27 +130,70 @@ export function getAllergenNames(allergen, phrases, lang) {
   }
 
   // Short: phrases > capitalized
-  const allergenShort = phrases.short[allergen] || allergenCapitalized;
+  const allergenShort = shortPhrases[allergen] || allergenCapitalized;
 
   return { allergenCapitalized, allergenShort };
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+  const locationSlug = configLocation.toLowerCase();
+
+  const discovery = discoverSilamSensors(hass, debug);
+  const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+
+  for (const rawAllergen of cfg.allergens || []) {
+    const norm = normalize(rawAllergen);
+    const allergen = toCanonicalAllergenKey(norm);
+
+    let sensorId = null;
+    if (cfg.location === "manual") {
+      let slug = null;
+      for (const mapping of Object.values(silamAllergenMap.mapping)) {
+        const inverse = Object.entries(mapping).reduce(
+          (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+        );
+        if (inverse[allergen]) { slug = inverse[allergen]; break; }
+      }
+      slug = slug || allergen;
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      sensorId = resolveManualEntity(hass, prefix, slug, cfg.entity_suffix || "");
+    } else if (discoveredLoc?.sensors?.size) {
+      sensorId = discoveredLoc.sensors.get(allergen) || null;
+      if (sensorId && !hass.states[sensorId]) sensorId = null;
+    }
+    if (!sensorId && cfg.location !== "manual") {
+      for (const mapping of Object.values(silamAllergenMap.mapping)) {
+        const inverse = Object.entries(mapping).reduce(
+          (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+        );
+        if (inverse[allergen]) {
+          const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
+          if (hass.states[candidate]) { sensorId = candidate; break; }
+        }
+      }
+      if (!sensorId) {
+        const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
+        if (hass.states[fallback]) sensorId = fallback;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[SILAM:resolveEntityIds] allergen: '${allergen}', sensorId: '${sensorId}'`,
+      );
+    }
+    if (sensorId) map.set(allergen, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
-  const lang = detectLang(hass, config.date_locale);
-  const locale =
-    config.date_locale ||
-    hass.locale?.language ||
-    hass.language ||
-    `${lang}-${lang.toUpperCase()}`;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  const phrases = getPhrases(config, lang);
-  const levelNames = getLevelNames(phrases, lang);
-  const noInfoLabel = phrases.no_information;
-  const userDays = phrases.days;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
+  const levelNames = buildLevelNames(userLevels, lang);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -178,9 +204,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   // Hitta weather-entity och discovery-data
   const configLocation = config.location === "manual" ? "" : (config.location || "");
-  const locationSlug = configLocation.toLowerCase();
 
-  // Kör discovery en gång och återanvänd
+  // Discovery for weather entity (allergen sensors delegated to resolveEntityIds)
   const discovery = discoverSilamSensors(hass, debug);
   const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
 
@@ -198,7 +223,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   const allergens = rawAllergens.map((raw) => {
     const norm = normalize(raw);
     // Translate user-facing slugs (e.g. 'index') to internal canonicals
-    return ALLERGEN_TRANSLATION[norm] || norm;
+    return toCanonicalAllergenKey(norm);
   });
 
   // Forecast-array: från forecastEvent om det finns, annars från entity
@@ -222,6 +247,25 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     maxItems = Math.min(forecastArr.length + 1, days_to_show);
   }
 
+  const entityMap = resolveEntityIds(config, hass, debug);
+
+  // When entity-registry discovery found zero allergen sensors for this
+  // location (i.e. the user did not enable any allergens in the SILAM
+  // integration), auto-include allergy_risk so the card can still show
+  // the overall pollen index from the weather entity state.
+  let autoAddedAllergyRisk = false;
+  if (
+    config.location !== "manual" &&
+    discoveredLoc &&
+    discoveredLoc.sensors.size === 0 &&
+    !allergens.includes("allergy_risk")
+  ) {
+    allergens.push("allergy_risk");
+    autoAddedAllergyRisk = true;
+    if (debug)
+      console.debug("[SILAM] Discovery found 0 allergen sensors; auto-adding allergy_risk");
+  }
+
   const sensors = [];
   for (const allergen of allergens) {
     try {
@@ -232,7 +276,8 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // Namn-uppslag
       const { allergenCapitalized, allergenShort } = getAllergenNames(
         allergen,
-        phrases,
+        fullPhrases,
+        shortPhrases,
         lang,
       );
       dict.allergenCapitalized = allergenCapitalized;
@@ -245,59 +290,18 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         dict.allergenShort = name;
       }
 
-      // Attempt to find the matching sensor entity for this allergen
-      let sensorId = null;
-      if (config.location === "manual") {
-        let slug = null;
-        for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce(
-            (acc, [ha, master]) => {
-              acc[master] = ha;
-              return acc;
-            },
-            {},
-          );
-          if (inverse[allergen]) {
-            slug = inverse[allergen];
-            break;
-          }
-        }
-        slug = slug || allergen;
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        const candidate = `sensor.${prefix}${slug}${suffix}`;
-        if (hass.states[candidate]) sensorId = candidate;
-      } else if (discoveredLoc?.sensors?.size) {
-        // Primärt: discovery-baserad lookup
-        sensorId = discoveredLoc.sensors.get(allergen) || null;
-        if (sensorId && !hass.states[sensorId]) sensorId = null;
-      }
-      if (!sensorId && config.location !== "manual") {
-        // Fallback: regex-baserad lookup
-        for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce(
-            (acc, [ha, master]) => {
-              acc[master] = ha;
-              return acc;
-            },
-            {},
-          );
-          if (inverse[allergen]) {
-            const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
-            if (hass.states[candidate]) {
-              sensorId = candidate;
-              break;
-            }
-          }
-        }
-        if (!sensorId) {
-          const fallback = `sensor.silam_pollen_${locationSlug}_${allergen}`;
-          if (hass.states[fallback]) sensorId = fallback;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergen) || null;
       dict.entity_id = sensorId;
 
-      // Samla nivåer per dag/kolumn (olika för daily och övriga lägen)
+      // Collect levels per day/column (different for daily vs other modes).
+      //
+      // NOTE: For allergy_risk, daily mode reads entity.state (e.g. "very_low")
+      // while hourly/twice_daily reads forecast[].pollen_index from the
+      // subscription. The SILAM integration may report different values for
+      // these two sources (e.g. entity.state="very_low" but forecast
+      // pollen_index=1). This is an upstream data inconsistency; the card
+      // faithfully displays whatever each source reports.
       let stateList = [];
       if (allergen === "allergy_risk") {
         if (config.mode === "hourly" || config.mode === "twice_daily") {
@@ -374,28 +378,18 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           }
         } else {
           d = new Date(today.getTime() + i * 86400000);
-          if (!daysRelative) {
-            label = d.toLocaleDateString(locale, {
-              weekday: dayAbbrev ? "short" : "long",
-            });
-            label = label.charAt(0).toUpperCase() + label.slice(1);
-          } else if (userDays[i] != null) {
-            label = userDays[i];
-          } else if (i >= 0 && i <= 2) {
-            label = t(`card.days.${i}`, lang);
-          } else {
-            label = d.toLocaleDateString(locale, {
-              day: "numeric",
-              month: "short",
-            });
-          }
-          if (daysUppercase) label = label.toUpperCase();
+          label = buildDayLabel(d, i, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
           icon = null;
         }
 
         const lvlIndex = scaled < 0 ? 0 : Math.min(Math.round(scaled), 6);
+        // Auto-added allergy_risk at level 0: the integration reports
+        // "very_low" (has no "none" state). Show that localized rather
+        // than our level-0 label ("No pollen").
         const stateText =
-          scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled);
+          (autoAddedAllergyRisk && allergen === "allergy_risk" && scaled === 0)
+            ? (t("card.index.very_low", lang) || levelNames[0])
+            : (scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled));
 
         dict[`day${i}`] = {
           name: dict.allergenCapitalized,
@@ -407,26 +401,17 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         dict.days.push(dict[`day${i}`]);
       }
 
-      const meets = dict.days.some((d) => d.state >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      // Auto-added allergy_risk bypasses the threshold: even "very_low" (level 0)
+      // is worth showing when it is the only data available for this location.
+      const skipThreshold = autoAddedAllergyRisk && allergen === "allergy_risk";
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`[SILAM] Fel vid allergen ${allergen}:`, e);
     }
   }
 
   // Sortering
-  if (config.sort !== "none") {
-    sensors.sort(
-      {
-        value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-        name_descending: (a, b) =>
-          b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-      }[config.sort] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0)),
-    );
-  }
+  sortSensors(sensors, config.sort);
 
   if (config.index_top || config.allergy_risk_top) {
     const idx = sensors.findIndex(

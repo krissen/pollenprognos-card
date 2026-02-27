@@ -7,3 +7,10 @@ dist
 __pycache__/
 *.pyc
 *.pyo
+tmp
+
+# Team structure (local tooling, not shipped)
+.claude/agents/
+GUIDELINES.md
+research/
+_decisions/

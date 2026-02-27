@@ -1,8 +1,9 @@
 // src/adapters/atmo.js
-import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { t } from "../i18n.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -166,23 +167,76 @@ function buildEntityId(allergen, location, forecast) {
   return forecast ? `${base}_j_1` : base;
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  let location = cfg.location || "";
+  if (location === "manual") {
+    // Manual mode handled per allergen below
+  } else if (!location) {
+    location = detectLocation(hass, debug) || "";
+  }
+
+  for (const allergen of cfg.allergens || []) {
+    const frSlug = ATMO_ALLERGEN_MAP[allergen];
+    if (!frSlug) continue;
+
+    let sensorId;
+    if (cfg.location === "manual") {
+      const prefix = normalizeManualPrefix(cfg.entity_prefix);
+      const suffix = cfg.entity_suffix || "";
+      let stem;
+      if (allergen === "allergy_risk") {
+        stem = "qualite_globale_pollen";
+      } else if (allergen === "qualite_globale") {
+        stem = "qualite_globale";
+      } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+        stem = frSlug;
+      } else {
+        stem = `niveau_${frSlug}`;
+      }
+      sensorId = resolveManualEntity(hass, prefix, stem, suffix);
+      if (!sensorId) continue;
+    } else {
+      if (!location) continue;
+      sensorId = buildEntityId(allergen, location, false);
+      if (!sensorId || !hass.states[sensorId]) {
+        let prefix;
+        if (allergen === "allergy_risk") {
+          prefix = `sensor.qualite_globale_pollen_`;
+        } else if (allergen === "qualite_globale") {
+          prefix = `sensor.qualite_globale_`;
+        } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+          prefix = `sensor.${frSlug}_`;
+        } else {
+          prefix = `sensor.niveau_${frSlug}_`;
+        }
+        const candidates = Object.keys(hass.states).filter((id) => {
+          if (!id.startsWith(prefix) || id.includes("_j_")) return false;
+          if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
+          return true;
+        });
+        if (candidates.length === 1) sensorId = candidates[0];
+        else continue;
+      }
+    }
+    if (debug) {
+      console.debug(
+        `[ATMO:resolveEntityIds] allergen: '${allergen}', sensorId: '${sensorId}'`,
+      );
+    }
+    map.set(allergen, sensorId);
+  }
+  return map;
+}
+
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
   const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  const lang = detectLang(hass, config.date_locale);
-  const locale = config.date_locale || stubConfigATMO.date_locale;
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigATMO.date_locale);
 
-  const phrases = config.phrases || {};
-  const fullPhrases = phrases.full || {};
-  const shortPhrases = phrases.short || {};
-  const userLevels = phrases.levels;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
-  const noInfoLabel = phrases.no_information || t("card.no_information", lang);
-  const userDays = phrases.days || {};
   const days_to_show = config.days_to_show ?? stubConfigATMO.days_to_show;
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigATMO.pollen_threshold;
@@ -190,10 +244,7 @@ export async function fetchForecast(hass, config) {
   if (debug) console.debug("ATMO adapter: start fetchForecast", { config, lang });
 
   // Atmo France: 0 = indisponible, 1–6 = valid levels, 7 = événement
-  const testVal = (val) => {
-    const n = Number(val);
-    return isNaN(n) || n < 0 ? -1 : n;
-  };
+  const testVal = (v) => clampLevel(v, null, -1);
 
   // Labels for Atmo-specific special values (0 and 7)
   const atmoUnavailableLabel = t("card.atmo.unavailable", lang) || noInfoLabel;
@@ -223,13 +274,15 @@ export async function fetchForecast(hass, config) {
     return { state: raw, display_state: Math.min(raw, 6), state_text: libelle || noInfoLabel };
   };
 
-  // Resolve location
+  // Resolve location (also used for J+1 forecast entities)
   let location = config.location || "";
   if (location === "manual") {
-    // Manual mode handled below per allergen
+    // Manual mode handled by resolveEntityIds
   } else if (!location) {
     location = detectLocation(hass, debug) || "";
   }
+
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -239,92 +292,23 @@ export async function fetchForecast(hass, config) {
   for (const allergen of config.allergens) {
     try {
       const dict = { days: [] };
-      const canonKey = ALLERGEN_TRANSLATION[allergen] || allergen;
+      const canonKey = toCanonicalAllergenKey(allergen);
       dict.allergenReplaced = allergen;
       // Group: allergy_risk belongs with pollen, qualite_globale with pollution
       dict.group = allergen === "qualite_globale" || ATMO_POLLUTION_ALLERGENS.has(allergen)
         ? "pollution"
         : "pollen";
 
-      // Allergen name
-      const userFull = fullPhrases[allergen];
-      if (userFull) {
-        dict.allergenCapitalized = userFull;
-      } else {
-        const nameKey = `card.allergen.${canonKey}`;
-        const i18nName = t(nameKey, lang);
-        dict.allergenCapitalized =
-          i18nName !== nameKey ? i18nName : capitalize(allergen);
-      }
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
+        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+      });
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
 
-      // Short name
-      if (config.allergens_abbreviated) {
-        const userShort = shortPhrases[allergen];
-        dict.allergenShort =
-          userShort ||
-          t(`editor.phrases_short.${canonKey}`, lang) ||
-          dict.allergenCapitalized;
-      } else {
-        dict.allergenShort = dict.allergenCapitalized;
-      }
-
-      // Find sensor entity
-      let sensorId;
-      if (location === "manual") {
-        const prefix = config.entity_prefix || "";
-        const suffix = config.entity_suffix || "";
-        const frSlug = ATMO_ALLERGEN_MAP[allergen];
-        if (!frSlug) continue;
-        // Apply same entity pattern as buildEntityId: pollen uses "niveau_" prefix,
-        // summaries use their full slug, pollution uses bare slug
-        let stem;
-        if (allergen === "allergy_risk") {
-          stem = "qualite_globale_pollen";
-        } else if (allergen === "qualite_globale") {
-          stem = "qualite_globale";
-        } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
-          stem = frSlug;
-        } else {
-          stem = `niveau_${frSlug}`;
-        }
-        sensorId = `sensor.${prefix}${stem}${suffix}`;
-        if (!hass.states[sensorId]) {
-          if (suffix === "") {
-            const base = `sensor.${prefix}${frSlug}`;
-            const candidates = Object.keys(hass.states).filter((id) =>
-              id.startsWith(base),
-            );
-            if (candidates.length === 1) sensorId = candidates[0];
-            else continue;
-          } else continue;
-        }
-      } else {
-        if (!location) continue;
-        sensorId = buildEntityId(allergen, location, false);
-        if (!sensorId || !hass.states[sensorId]) {
-          // Fallback: search for matching entity
-          const frSlug = ATMO_ALLERGEN_MAP[allergen];
-          if (!frSlug) continue;
-          let prefix;
-          if (allergen === "allergy_risk") {
-            prefix = `sensor.qualite_globale_pollen_`;
-          } else if (allergen === "qualite_globale") {
-            prefix = `sensor.qualite_globale_`;
-          } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
-            prefix = `sensor.${frSlug}_`;
-          } else {
-            prefix = `sensor.niveau_${frSlug}_`;
-          }
-          const candidates = Object.keys(hass.states).filter((id) => {
-            if (!id.startsWith(prefix) || id.includes("_j_")) return false;
-            // Exclude qualite_globale_pollen_* when searching for qualite_globale
-            if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
-            return true;
-          });
-          if (candidates.length === 1) sensorId = candidates[0];
-          else continue;
-        }
-      }
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergen);
+      if (!sensorId) continue;
 
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
@@ -368,24 +352,7 @@ export async function fetchForecast(hass, config) {
       // Build day objects (always include placeholders for show_empty_days support)
       levels.forEach((entry, idx) => {
         const diff = Math.round((entry.date - today) / 86400000);
-        let dayLabel;
-
-        if (!daysRelative) {
-          dayLabel = entry.date.toLocaleDateString(locale, {
-            weekday: dayAbbrev ? "short" : "long",
-          });
-          dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-        } else if (userDays[diff] !== undefined) {
-          dayLabel = userDays[diff];
-        } else if (diff >= 0 && diff <= 2) {
-          dayLabel = t(`card.days.${diff}`, lang);
-        } else {
-          dayLabel = entry.date.toLocaleDateString(locale, {
-            day: "numeric",
-            month: "short",
-          });
-        }
-        if (daysUppercase) dayLabel = dayLabel.toUpperCase();
+        const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
         const mapped = mapAtmoLevel(entry.level, entry.libelle);
 
@@ -400,10 +367,7 @@ export async function fetchForecast(hass, config) {
       });
 
       // Threshold filter
-      const meets = levels
-        .slice(0, days_to_show)
-        .some((l) => l.level >= pollen_threshold);
-      if (meets || pollen_threshold === 0) sensors.push(dict);
+      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       console.warn(`ATMO adapter error for allergen ${allergen}:`, e);
     }

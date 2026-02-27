@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.0.0] - 2026-02-27
+
+### Changed
+- **Adapter architecture refactored**: each adapter now exports `resolveEntityIds(cfg, hass, debug?)` for sensor detection, replacing centralized if/else chains in `sensors.js`
+- **Adapter registry** (`adapter-registry.js`): single lookup for adapter modules and stub configs via `getAdapter()`, `getStubConfig()`, `getAllAdapterIds()`
+- **Shared adapter helpers** (`utils/adapter-helpers.js`): extracted common logic from adapters into reusable pure functions (`getLangAndLocale`, `mergePhrases`, `buildDayLabel`, `clampLevel`, `sortSensors`, `resolveAllergenNames`, `meetsThreshold`, `normalizeManualPrefix`, `resolveManualEntity`)
+- **Post-fetch filtering** (`filterSensorsPostFetch`) extracted from card's `set hass()` into a utility
+- **Allergen translation** grouped by adapter with per-adapter alias maps (`PP_ALIASES`, `DWD_ALIASES`, etc.) and a single `toCanonicalAllergenKey()` lookup
+- Kleenex adapter modularized into `constants`, `levels`, `discovery`, `forecast`
+- GPL adapter modularized into `constants`, `discovery`, `forecast`
+- Net reduction of ~1,100 lines across `src/`
+
+### Added
+- Vitest test harness with shared test helpers
+- Contract tests for all 8 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
+- Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering
+- Unit tests for `clampLevel`, `detectLang`, `t()` locale fallback, and SVG contract (`getSvgContent`)
+
+### Fixed
+- SILAM: fix infinite loop when using `location: "manual"` (weather entity lookup received raw `"manual"` string)
+- SILAM: auto-show overall pollen index for locations with no individual allergen sensors enabled
+- SILAM: show localized "Very low levels" label when the integration reports `very_low` (its lowest state, which lacks a true "none")
+- Card header: show generic "Pollen forecast" instead of trailing preposition when no location is resolved
+- Kleenex: location name extraction when `friendly_name` lacks location
+- Kleenex: undefined variable in debug threshold log
+- Kleenex: header truncation for locations with commas
+- Kleenex: editor header regex now matches card pattern for French allergen names
+- SILAM: guard forecast subscription against unavailable entities
+- SILAM: cancel forecast subscription when switching integration
+- SILAM: fix subscription race condition where cards showed no data until page refresh
+- SILAM: forecast callback now applies `filterSensorsPostFetch` (allergen filtering)
+- `clampLevel`: treat null/undefined as missing data instead of level 0
+- Removed dead `findSensors`/`getData` stubs from kleenex and gpl adapter facades
+
 ## [2.9.2] - 2026-02-26
 
 ### Fixed

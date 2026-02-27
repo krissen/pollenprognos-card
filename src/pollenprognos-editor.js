@@ -10,15 +10,16 @@ import {
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
-// Stub-config från adaptrar (så att editorn vet vilka fält som finns)
+// Adapter registry (stub config lookup) + direct adapter imports for constants
+import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
-import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex.js";
+import { PEU_ALLERGENS } from "./adapters/peu.js";
+import { SILAM_ALLERGENS } from "./adapters/silam.js";
+import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
-import { stubConfigGPL, GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
+import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
+import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -28,7 +29,7 @@ import {
 import {
   PP_POSSIBLE_CITIES,
   DWD_REGIONS,
-  ALLERGEN_TRANSLATION,
+  toCanonicalAllergenKey,
 } from "./constants.js";
 
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
@@ -52,23 +53,6 @@ const deepMerge = (target, source) => {
   }
   return out;
 };
-
-const getStubConfig = (integration) =>
-  integration === "dwd"
-    ? stubConfigDWD
-    : integration === "peu"
-      ? stubConfigPEU
-      : integration === "silam"
-        ? stubConfigSILAM
-        : integration === "kleenex"
-          ? stubConfigKleenex
-          : integration === "plu"
-            ? stubConfigPLU
-            : integration === "atmo"
-              ? stubConfigATMO
-              : integration === "gpl"
-                ? stubConfigGPL
-                : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -173,7 +157,7 @@ class PollenPrognosCardEditor extends LitElement {
     // Använd canonical nyckel för lookup i locale-filerna
     rawKeys.forEach((raw) => {
       const normKey = normalize(raw); // ex 'alm' eller 'erle'
-      const canonKey = ALLERGEN_TRANSLATION[normKey] || normKey; // t.ex. 'alder'
+      const canonKey = toCanonicalAllergenKey(normKey); // t.ex. 'alder'
       // Use the SILAM-specific name 'index' instead of 'allergy_risk'
       const transKey = normKey === "index" ? "index" : canonKey;
       full[raw] = t(`editor.phrases_full.${transKey}`, lang);
@@ -244,7 +228,7 @@ class PollenPrognosCardEditor extends LitElement {
     if (allergenKey === undefined || allergenKey === null) return "";
     const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
     const slug = slugify(raw);
-    const canonical = ALLERGEN_TRANSLATION[slug] || slug;
+    const canonical = toCanonicalAllergenKey(slug);
     const translationKey = `phrases_full.${canonical}`;
     const translated = this._t(translationKey);
     if (translated && translated !== translationKey) {
@@ -349,15 +333,7 @@ class PollenPrognosCardEditor extends LitElement {
       // }
 
       // 4. Släpp aldrig in stub-pollen_threshold
-      const stubThresh = (
-        incoming.integration === "dwd"
-          ? stubConfigDWD
-          : incoming.integration === "peu"
-            ? stubConfigPEU
-            : incoming.integration === "silam"
-              ? stubConfigSILAM
-              : stubConfigPP
-      ).pollen_threshold;
+      const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")).pollen_threshold;
       if (
         incoming.hasOwnProperty("pollen_threshold") &&
         !this._thresholdExplicit &&
@@ -398,15 +374,7 @@ class PollenPrognosCardEditor extends LitElement {
         if (this.debug) console.debug("[Editor] dropped stub days_to_show");
         delete incoming.days_to_show;
       }
-      const stubLocale = (
-        incoming.integration === "dwd"
-          ? stubConfigDWD
-          : incoming.integration === "peu"
-            ? stubConfigPEU
-            : incoming.integration === "silam"
-              ? stubConfigSILAM
-              : stubConfigPP
-      ).date_locale;
+      const stubLocale = (getStubConfig(incoming.integration) || getStubConfig("pp")).date_locale;
       if (!this._localeExplicit && incoming.date_locale === stubLocale) {
         if (this.debug) console.debug("[Editor] dropped stub date_locale");
         delete incoming.date_locale;
@@ -917,22 +885,7 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     // 2) Slå ihop stub + användar-config
-    const base =
-      integration === "dwd"
-        ? stubConfigDWD
-        : integration === "peu"
-          ? stubConfigPEU
-          : integration === "silam"
-            ? stubConfigSILAM
-            : integration === "kleenex"
-              ? stubConfigKleenex
-              : integration === "plu"
-                ? stubConfigPLU
-                : integration === "atmo"
-                  ? stubConfigATMO
-                  : integration === "gpl"
-                    ? stubConfigGPL
-                    : stubConfigPP;
+    const base = getStubConfig(integration) || getStubConfig("pp");
 
     // Bygg merged-objekt (det är denna rad som saknas)
     if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
@@ -1122,7 +1075,8 @@ class PollenPrognosCardEditor extends LitElement {
               // Clean up the title to show only the location
               title = title
                 .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
-                .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Graminées|Herbacées|Alberi|Graminacee|Erbacee).*$/i, "")
+                .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
+                .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
                 .trim();
 
               // Fallback to locationSlug if cleaning resulted in empty string
@@ -1561,22 +1515,7 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.index_top;
         this._allergensExplicit = false;
       }
-      const base =
-        newInt === "dwd"
-          ? stubConfigDWD
-          : newInt === "peu"
-            ? stubConfigPEU
-            : newInt === "silam"
-              ? stubConfigSILAM
-              : newInt === "kleenex"
-                ? stubConfigKleenex
-                : newInt === "plu"
-                  ? stubConfigPLU
-                  : newInt === "atmo"
-                    ? stubConfigATMO
-                    : newInt === "gpl"
-                      ? stubConfigGPL
-                      : stubConfigPP;
+      const base = getStubConfig(newInt) || getStubConfig("pp");
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
