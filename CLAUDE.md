@@ -232,3 +232,32 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 - Check `show_version: true` to log version on load
 - Use `findAvailableSensors()` to diagnose auto-detection issues
 - Inspect `this._error` for error translation keys
+
+## Subagents
+
+This project uses Claude Code's built-in subagent system. Agents are defined in
+`.claude/agents/` with YAML frontmatter and are discovered automatically.
+
+### Available Roles
+
+| Role | File | Responsibility |
+|------|------|----------------|
+| HR | `.claude/agents/hr.md` | Team composition, role profiles |
+| Frontend Developer | `.claude/agents/frontend-developer.md` | Card UI, editor, SVG icons, Chart.js |
+| Integration Developer | `.claude/agents/integration-developer.md` | Adapter system, entity discovery |
+| i18n Specialist | `.claude/agents/i18n-specialist.md` | Translations, locale files |
+| QA Tester | `.claude/agents/qa-tester.md` | Testing, contract validation |
+| HA Developer | `.claude/agents/ha-developer.md` | HA platform expertise, best practices |
+| User Panel | `.claude/agents/user-panel.md` | Simulated user feedback (4 personas) |
+
+### Delegation
+
+**Without approval:**
+- Delegate to subagents
+- Technical decisions within scope
+- Read documentation and research
+
+**Requires product owner approval:**
+- Scope changes
+- Architectural decisions affecting UX
+- Releases
