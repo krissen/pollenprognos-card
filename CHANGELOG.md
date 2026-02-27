@@ -29,7 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Kleenex: editor header regex now matches card pattern for French allergen names
 - SILAM: guard forecast subscription against unavailable entities
 - SILAM: cancel forecast subscription when switching integration
-- SILAM: guard subscription callback against stale events
+- SILAM: fix subscription race condition where cards showed no data until page refresh
 - SILAM: forecast callback now applies `filterSensorsPostFetch` (allergen filtering)
 - `clampLevel`: treat null/undefined as missing data instead of level 0
 - Removed dead `findSensors`/`getData` stubs from kleenex and gpl adapter facades
