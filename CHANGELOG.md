@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Unit tests for `clampLevel`, `detectLang`, `t()` locale fallback, and SVG contract (`getSvgContent`)
 
 ### Fixed
+- SILAM: fix infinite loop when using `location: "manual"` (weather entity lookup received raw `"manual"` string)
+- SILAM: auto-show overall pollen index for locations with no individual allergen sensors enabled
+- SILAM: show localized "Very low levels" label when the integration reports `very_low` (its lowest state, which lacks a true "none")
+- Card header: show generic "Pollen forecast" instead of trailing preposition when no location is resolved
 - Kleenex: location name extraction when `friendly_name` lacks location
 - Kleenex: undefined variable in debug threshold log
 - Kleenex: header truncation for locations with commas
