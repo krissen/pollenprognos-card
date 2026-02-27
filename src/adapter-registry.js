@@ -11,24 +11,15 @@ import * as PLU from "./adapters/plu.js";
 import * as ATMO from "./adapters/atmo.js";
 import * as GPL from "./adapters/gpl/index.js";
 
-import { stubConfigPP } from "./adapters/pp.js";
-import { stubConfigDWD } from "./adapters/dwd.js";
-import { stubConfigPEU } from "./adapters/peu.js";
-import { stubConfigSILAM } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex/index.js";
-import { stubConfigPLU } from "./adapters/plu.js";
-import { stubConfigATMO } from "./adapters/atmo.js";
-import { stubConfigGPL } from "./adapters/gpl/index.js";
-
 const registry = {
-  pp: { module: PP, stub: stubConfigPP },
-  dwd: { module: DWD, stub: stubConfigDWD },
-  peu: { module: PEU, stub: stubConfigPEU },
-  silam: { module: SILAM, stub: stubConfigSILAM },
-  kleenex: { module: KLEENEX, stub: stubConfigKleenex },
-  plu: { module: PLU, stub: stubConfigPLU },
-  atmo: { module: ATMO, stub: stubConfigATMO },
-  gpl: { module: GPL, stub: stubConfigGPL },
+  pp: { module: PP, stub: PP.stubConfigPP },
+  dwd: { module: DWD, stub: DWD.stubConfigDWD },
+  peu: { module: PEU, stub: PEU.stubConfigPEU },
+  silam: { module: SILAM, stub: SILAM.stubConfigSILAM },
+  kleenex: { module: KLEENEX, stub: KLEENEX.stubConfigKleenex },
+  plu: { module: PLU, stub: PLU.stubConfigPLU },
+  atmo: { module: ATMO, stub: ATMO.stubConfigATMO },
+  gpl: { module: GPL, stub: GPL.stubConfigGPL },
 };
 
 export function getAdapter(id) {
