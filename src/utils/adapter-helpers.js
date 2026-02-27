@@ -231,6 +231,9 @@ export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUpperca
 export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassStateKeys, silamMapping) {
   let filtered = sensors.filter((s) => {
     if (cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily")) {
+      // allergy_risk is derived from the weather entity state, not an
+      // individual sensor entity, so it has no entity_id to match.
+      if (s.allergenReplaced === "allergy_risk") return true;
       if (s.entity_id) {
         return availableSensors.includes(s.entity_id);
       }

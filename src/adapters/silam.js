@@ -8,6 +8,7 @@ import {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { toCanonicalAllergenKey } from "../constants.js";
+import { t } from "../i18n.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
@@ -248,6 +249,23 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   const entityMap = resolveEntityIds(config, hass, debug);
 
+  // When entity-registry discovery found zero allergen sensors for this
+  // location (i.e. the user did not enable any allergens in the SILAM
+  // integration), auto-include allergy_risk so the card can still show
+  // the overall pollen index from the weather entity state.
+  let autoAddedAllergyRisk = false;
+  if (
+    config.location !== "manual" &&
+    discoveredLoc &&
+    discoveredLoc.sensors.size === 0 &&
+    !allergens.includes("allergy_risk")
+  ) {
+    allergens.push("allergy_risk");
+    autoAddedAllergyRisk = true;
+    if (debug)
+      console.debug("[SILAM] Discovery found 0 allergen sensors; auto-adding allergy_risk");
+  }
+
   const sensors = [];
   for (const allergen of allergens) {
     try {
@@ -276,7 +294,14 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       const sensorId = entityMap.get(allergen) || null;
       dict.entity_id = sensorId;
 
-      // Samla nivåer per dag/kolumn (olika för daily och övriga lägen)
+      // Collect levels per day/column (different for daily vs other modes).
+      //
+      // NOTE: For allergy_risk, daily mode reads entity.state (e.g. "very_low")
+      // while hourly/twice_daily reads forecast[].pollen_index from the
+      // subscription. The SILAM integration may report different values for
+      // these two sources (e.g. entity.state="very_low" but forecast
+      // pollen_index=1). This is an upstream data inconsistency; the card
+      // faithfully displays whatever each source reports.
       let stateList = [];
       if (allergen === "allergy_risk") {
         if (config.mode === "hourly" || config.mode === "twice_daily") {
@@ -358,8 +383,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         }
 
         const lvlIndex = scaled < 0 ? 0 : Math.min(Math.round(scaled), 6);
+        // Auto-added allergy_risk at level 0: the integration reports
+        // "very_low" (has no "none" state). Show that localized rather
+        // than our level-0 label ("No pollen").
         const stateText =
-          scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled);
+          (autoAddedAllergyRisk && allergen === "allergy_risk" && scaled === 0)
+            ? (t("card.index.very_low", lang) || levelNames[0])
+            : (scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled));
 
         dict[`day${i}`] = {
           name: dict.allergenCapitalized,
@@ -371,7 +401,10 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         dict.days.push(dict[`day${i}`]);
       }
 
-      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
+      // Auto-added allergy_risk bypasses the threshold: even "very_low" (level 0)
+      // is worth showing when it is the only data available for this location.
+      const skipThreshold = autoAddedAllergyRisk && allergen === "allergy_risk";
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`[SILAM] Fel vid allergen ${allergen}:`, e);
     }
