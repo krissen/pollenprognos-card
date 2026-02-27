@@ -508,6 +508,12 @@ class PollenPrognosCard extends LitElement {
         // correct values.
         this._forecastSubEntity = entityId;
         this._forecastSubType = forecastType;
+        if (this.debug) {
+          console.debug(
+            "[Card][subscribeForecast] PRE-SUBSCRIBE _forecastSubEntity set to:",
+            this._forecastSubEntity,
+          );
+        }
 
         const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
@@ -518,6 +524,7 @@ class PollenPrognosCard extends LitElement {
                   "[Card][subscribeForecast] STALE callback ignored, expected:",
                   this._forecastSubEntity, "got:", subscribedEntity,
                 );
+                console.trace("[Card][subscribeForecast] STALE trace");
               }
               return;
             }
