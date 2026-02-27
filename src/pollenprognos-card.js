@@ -1522,9 +1522,10 @@ class PollenPrognosCard extends LitElement {
           const attr = match.attributes;
           title =
             attr.location_name ||
+            attr.friendly_name?.match(/\(([^)]+)\)/)?.[1] ||
             attr.friendly_name
               ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
-              .replace(/[\)\s]+\w+.*$/u, "")
+              .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
               .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
               .trim() ||
             (cfg.location ? cfg.location.charAt(0).toUpperCase() + cfg.location.slice(1) : "");
