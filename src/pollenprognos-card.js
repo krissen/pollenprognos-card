@@ -267,8 +267,19 @@ class PollenPrognosCard extends LitElement {
   }
 
   updated(changedProps) {
-    // Handle forecast subscription
-    if (changedProps.has("config") || changedProps.has("_hass")) {
+    // Handle forecast subscription.
+    // The config check covers initial setup and editor changes.
+    // The fallback covers the race where the first update cycle (from
+    // setConfig) fires before set hass() has run — in that case
+    // _subscribeForecastIfNeeded returns early (no hass), and the
+    // subsequent hass-triggered update cycle no longer has "config" in
+    // changedProps.  Re-check on every cycle until subscribed.
+    if (
+      changedProps.has("config") ||
+      (this.config?.integration === "silam" &&
+        !this._forecastUnsub &&
+        this._hass)
+    ) {
       this._subscribeForecastIfNeeded();
     }
 
