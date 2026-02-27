@@ -591,7 +591,11 @@ class PollenPrognosCard extends LitElement {
             this._hass,
             this.debug,
           );
-          this._updateSensorsAndColumns(sensors, availableSensors, this.config);
+          const filtered = filterSensorsPostFetch(
+            sensors, this.config, availableSensors,
+            Object.keys(this._hass.states), silamAllergenMap.mapping,
+          );
+          this._updateSensorsAndColumns(filtered, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
         })
