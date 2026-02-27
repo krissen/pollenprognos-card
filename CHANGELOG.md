@@ -25,10 +25,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Kleenex: location name extraction when `friendly_name` lacks location
 - Kleenex: undefined variable in debug threshold log
 - Kleenex: header truncation for locations with commas
+- Kleenex: editor header regex now matches card pattern for French allergen names
 - SILAM: guard forecast subscription against unavailable entities
 - SILAM: cancel forecast subscription when switching integration
 - SILAM: guard subscription callback against stale events
+- SILAM: forecast callback now applies `filterSensorsPostFetch` (allergen filtering)
 - `clampLevel`: treat null/undefined as missing data instead of level 0
+- Removed dead `findSensors`/`getData` stubs from kleenex and gpl adapter facades
 
 ## [2.9.2] - 2026-02-26
 
