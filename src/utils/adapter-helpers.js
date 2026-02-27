@@ -6,20 +6,6 @@ import { normalize, normalizeDWD } from "./normalize.js";
 import { isConfigEntryId } from "./silam.js";
 
 /**
- * Build a day column label from a date and its offset from today.
- *
- * @param {Date}   date  - The date to label.
- * @param {number} diff  - Day offset (0 = today, 1 = tomorrow, …).
- * @param {object} opts
- * @param {boolean} opts.daysRelative  - Show relative labels (today/tomorrow)?
- * @param {boolean} opts.dayAbbrev     - Abbreviate weekday names?
- * @param {boolean} opts.daysUppercase - Uppercase the final label?
- * @param {object}  opts.userDays      - User-defined day label overrides (keyed by diff).
- * @param {string}  opts.lang          - Language code for i18n.
- * @param {string}  opts.locale        - Locale tag for date formatting.
- * @returns {string}
- */
-/**
  * Clamp a sensor value to a valid level range.
  *
  * @param {*}      v         - Raw sensor value (will be coerced via Number()).
@@ -192,6 +178,20 @@ export function resolveManualEntity(hass, prefix, slug, suffix) {
   return null;
 }
 
+/**
+ * Build a day column label from a date and its offset from today.
+ *
+ * @param {Date}   date  - The date to label.
+ * @param {number} diff  - Day offset (0 = today, 1 = tomorrow, …).
+ * @param {object} opts
+ * @param {boolean} opts.daysRelative  - Show relative labels (today/tomorrow)?
+ * @param {boolean} opts.dayAbbrev     - Abbreviate weekday names?
+ * @param {boolean} opts.daysUppercase - Uppercase the final label?
+ * @param {object}  opts.userDays      - User-defined day label overrides (keyed by diff).
+ * @param {string}  opts.lang          - Language code for i18n.
+ * @param {string}  opts.locale        - Locale tag for date formatting.
+ * @returns {string}
+ */
 export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {
   let label;
   if (!daysRelative) {
