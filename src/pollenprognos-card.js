@@ -444,8 +444,8 @@ class PollenPrognosCard extends LitElement {
       return;
     }
 
-    if (this.config.integration === "silam" && this.config.location) {
-      const configLocation = this.config.location;
+    if (this.config.integration === "silam") {
+      const configLocation = this.config.location || "";
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
