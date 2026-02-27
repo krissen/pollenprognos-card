@@ -4,12 +4,3 @@ export { stubConfigKleenex, KLEENEX_ALLERGEN_MAP, KLEENEX_ALLERGEN_CATEGORIES, I
 export { ppmToLevel } from "./levels.js";
 export { resolveEntityIds } from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
-
-// Stub functions to match other adapters
-export function findSensors() {
-  return [];
-}
-
-export async function getData() {
-  return [];
-}
