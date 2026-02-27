@@ -28,6 +28,7 @@ import { isConfigEntryId } from "./silam.js";
  * @returns {number|null}
  */
 export function clampLevel(v, maxLevel = 6, nanResult = -1) {
+  if (v === null || v === undefined) return nanResult;
   const n = Number(v);
   if (isNaN(n) || n < 0) return nanResult;
   return maxLevel != null ? Math.min(n, maxLevel) : n;
