@@ -432,6 +432,18 @@ class PollenPrognosCard extends LitElement {
   _subscribeForecastIfNeeded() {
     if (!this.config || !this._hass) return;
 
+    // Cancel stale subscription when switching away from SILAM
+    if (this.config.integration !== "silam" && this._forecastUnsub) {
+      Promise.resolve(this._forecastUnsub)
+        .then((fn) => { if (typeof fn === "function") fn(); })
+        .catch(() => {});
+      this._forecastUnsub = null;
+      this._forecastSubEntity = null;
+      this._forecastSubType = null;
+      this._forecastEvent = null;
+      return;
+    }
+
     if (this.config.integration === "silam" && this.config.location) {
       const configLocation = this.config.location;
       const lang = this.config?.date_locale?.split("-")[0] || "en";
