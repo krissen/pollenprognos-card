@@ -278,6 +278,7 @@ class PollenPrognosCard extends LitElement {
       changedProps.has("config") ||
       (this.config?.integration === "silam" &&
         !this._forecastUnsub &&
+        !this._error &&
         this._hass)
     ) {
       this._subscribeForecastIfNeeded();
@@ -456,7 +457,7 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.config.integration === "silam") {
-      const configLocation = this.config.location || "";
+      const configLocation = this.config.location === "manual" ? "" : (this.config.location || "");
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
@@ -1422,13 +1423,15 @@ class PollenPrognosCard extends LitElement {
         // Primärt: discovery-baserad title
         let title = "";
         const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
-        const discoveredLoc = resolveDiscoveredLocation(
-          silamDiscovery, configLocation, this.debug,
-        );
-        if (discoveredLoc) {
-          title = discoveredLoc.label
-            .replace(/^SILAM Pollen\s*-?\s*/i, "")
-            .trim();
+        if (cfg.location !== "manual") {
+          const discoveredLoc = resolveDiscoveredLocation(
+            silamDiscovery, configLocation, this.debug,
+          );
+          if (discoveredLoc) {
+            title = discoveredLoc.label
+              .replace(/^SILAM Pollen\s*-?\s*/i, "")
+              .trim();
+          }
         }
 
         // Fallback: regex-baserad title
@@ -1644,7 +1647,7 @@ class PollenPrognosCard extends LitElement {
       }
       nextHeader = loc
         ? `${this._t("card.header_prefix")} ${loc}`
-        : this._t("card.header_prefix");
+        : this._t("card.header_no_location");
       if (this.debug) console.debug("[Card] header set to:", nextHeader);
     }
     if (this.header !== nextHeader) {
