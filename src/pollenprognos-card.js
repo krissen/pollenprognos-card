@@ -501,10 +501,26 @@ class PollenPrognosCard extends LitElement {
 
         this._error = null; // Clear errors when entity is found and available
         const subscribedEntity = entityId;
+
+        // Set tracking fields BEFORE subscribing — HA may deliver the
+        // initial forecast event synchronously inside subscribeMessage,
+        // so the callback's stale-entity check must already see the
+        // correct values.
+        this._forecastSubEntity = entityId;
+        this._forecastSubType = forecastType;
+
         const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
             // Ignore stale callbacks from a cancelled subscription
-            if (this._forecastSubEntity !== subscribedEntity) return;
+            if (this._forecastSubEntity !== subscribedEntity) {
+              if (this.debug) {
+                console.debug(
+                  "[Card][subscribeForecast] STALE callback ignored, expected:",
+                  this._forecastSubEntity, "got:", subscribedEntity,
+                );
+              }
+              return;
+            }
             if (this.debug) {
               console.debug(
                 "[Card][subscribeForecast] forecastEvent RECEIVED:",
@@ -553,10 +569,11 @@ class PollenPrognosCard extends LitElement {
           }
         });
         this._forecastUnsub = subPromise;
-        this._forecastSubEntity = entityId;
-        this._forecastSubType = forecastType;
         if (this.debug) {
-          console.debug("[Card][subscribeForecast] Subscribed for", entityId);
+          console.debug(
+            "[Card][subscribeForecast] Subscribed for", entityId,
+            "forecast_type:", forecastType,
+          );
         }
       } else {
         if (this.debug) {
