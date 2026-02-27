@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.0.0] - Unreleased
+## [3.0.0] - 2026-02-27
 
 ### Changed
 - **Adapter architecture refactored**: each adapter now exports `resolveEntityIds(cfg, hass, debug?)` for sensor detection, replacing centralized if/else chains in `sensors.js`
@@ -24,7 +24,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Kleenex: location name extraction when `friendly_name` lacks location
 - Kleenex: undefined variable in debug threshold log
+- Kleenex: header truncation for locations with commas
 - SILAM: guard forecast subscription against unavailable entities
+- SILAM: cancel forecast subscription when switching integration
+- SILAM: guard subscription callback against stale events
+- `clampLevel`: treat null/undefined as missing data instead of level 0
 
 ## [2.9.2] - 2026-02-26
 
