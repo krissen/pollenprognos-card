@@ -500,34 +500,12 @@ class PollenPrognosCard extends LitElement {
         }
 
         this._error = null; // Clear errors when entity is found and available
-        const subscribedEntity = entityId;
 
-        // Set tracking fields BEFORE subscribing — HA may deliver the
-        // initial forecast event synchronously inside subscribeMessage,
-        // so the callback's stale-entity check must already see the
-        // correct values.
         this._forecastSubEntity = entityId;
         this._forecastSubType = forecastType;
-        if (this.debug) {
-          console.debug(
-            "[Card][subscribeForecast] PRE-SUBSCRIBE _forecastSubEntity set to:",
-            this._forecastSubEntity,
-          );
-        }
 
         const subPromise = this._hass.connection.subscribeMessage(
           (event) => {
-            // Ignore stale callbacks from a cancelled subscription
-            if (this._forecastSubEntity !== subscribedEntity) {
-              if (this.debug) {
-                console.debug(
-                  "[Card][subscribeForecast] STALE callback ignored, expected:",
-                  this._forecastSubEntity, "got:", subscribedEntity,
-                );
-                console.trace("[Card][subscribeForecast] STALE trace");
-              }
-              return;
-            }
             if (this.debug) {
               console.debug(
                 "[Card][subscribeForecast] forecastEvent RECEIVED:",
@@ -1666,14 +1644,9 @@ class PollenPrognosCard extends LitElement {
     const adapter = getAdapter(cfg.integration) || getAdapter("pp");
     let fetchPromise = null;
     if (cfg.integration === "silam") {
-      if (!this._forecastEvent) {
-        if (this.debug) {
-          console.debug(
-            "[Card] Forecast mode: väntar på forecast-event innan fetch.",
-          );
-        }
-        return;
-      }
+      // Pass forecastEvent when available; fetchForecast falls back to
+      // entity.attributes.forecast when forecastEvent is null (daily mode
+      // or before the subscription delivers its first event).
       fetchPromise = adapter.fetchForecast(hass, cfg, this._forecastEvent);
     } else {
       fetchPromise = adapter.fetchForecast(hass, cfg);
