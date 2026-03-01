@@ -84,8 +84,10 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
 
   let allergenShort;
   if (abbreviated) {
+    const shortKey = `editor.phrases_short.${canonKey}`;
+    const i18nShort = t(shortKey, lang);
     allergenShort = shortPhrases[ck]
-      || t(`editor.phrases_short.${canonKey}`, lang)
+      || (i18nShort !== shortKey ? i18nShort : null)
       || allergenCapitalized;
   } else {
     allergenShort = allergenCapitalized;
@@ -131,7 +133,7 @@ export function mergePhrases(config, lang) {
  */
 export function getLangAndLocale(hass, config, defaultLocale = null) {
   const lang = detectLang(hass, config.date_locale);
-  const locale = defaultLocale !== null
+  const locale = defaultLocale != null
     ? (config.date_locale || defaultLocale)
     : (config.date_locale || hass.locale?.language || hass.language || `${lang}-${lang.toUpperCase()}`);
   const daysRelative = config.days_relative !== false;
