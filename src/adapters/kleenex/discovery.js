@@ -63,6 +63,10 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
         const candidates = Object.keys(hass.states).filter((id) => {
           if (!id.startsWith("sensor.kleenex_pollen_radar_")) return false;
+          if (locationSlug) {
+            const afterPrefix = id.substring("sensor.kleenex_pollen_radar_".length);
+            if (!afterPrefix.startsWith(locationSlug + "_")) return false;
+          }
           const parts = id.split("_");
           const suffix = parts[parts.length - 1];
           return possiblePrefixes.some((lp) => suffix.startsWith(lp));
