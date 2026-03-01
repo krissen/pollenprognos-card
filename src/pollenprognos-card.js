@@ -278,7 +278,7 @@ class PollenPrognosCard extends LitElement {
       changedProps.has("config") ||
       (this.config?.integration === "silam" &&
         !this._forecastUnsub &&
-        !this._error &&
+        (!this._error || this._error === "card.error_entity_unavailable") &&
         this._hass)
     ) {
       this._subscribeForecastIfNeeded();
@@ -503,11 +503,12 @@ class PollenPrognosCard extends LitElement {
             );
           }
           this._forecastEvent = null;
+          const alreadyShowingError = this._error === "card.error_entity_unavailable";
           this.sensors = [];
           this._availableSensorCount = 0;
           this._isLoaded = true;
           this._error = "card.error_entity_unavailable";
-          this.requestUpdate();
+          if (!alreadyShowingError) this.requestUpdate();
           return;
         }
 
