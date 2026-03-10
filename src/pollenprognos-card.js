@@ -1149,7 +1149,7 @@ class PollenPrognosCard extends LitElement {
         );
       }
       // Om integrationen INTE är explicit (autodetect): använd stubben
-      cfg.allergens = getStubConfig(integration).allergens;
+      cfg.allergens = (getStubConfig(integration) || getStubConfig("pp")).allergens;
     }
 
     // Fyll date_locale
