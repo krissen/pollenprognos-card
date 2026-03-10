@@ -283,9 +283,13 @@ class PollenPrognosCardEditor extends LitElement {
       this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
 
       // 1. Identify stub values and clone incoming config
-      const baseDefaults = getStubConfig(config.integration || "pp");
-      const stubAllergens = baseDefaults.allergens;
+      // Normalize integration to lowercase (user may type "SILAM" in YAML)
       const incoming = { ...config };
+      if (typeof incoming.integration === "string") {
+        incoming.integration = incoming.integration.toLowerCase();
+      }
+      const baseDefaults = getStubConfig(incoming.integration || "pp") || getStubConfig("pp");
+      const stubAllergens = baseDefaults.allergens;
       
       if (this.debug) console.log("[ALLERGEN-DEBUG] Stub allergens for integration:", config.integration || "pp", stubAllergens);
 
@@ -402,9 +406,9 @@ class PollenPrognosCardEditor extends LitElement {
       } else if (this._allergensExplicit && incoming.allergens) {
         // We have explicit allergens and incoming is different/exists
         // Only overwrite if incoming explicitly differs from stub (is a user choice)
-        const stubAllergens = getStubConfig(
+        const stubAllergens = (getStubConfig(
           incoming.integration || this._config.integration || "pp",
-        ).allergens;
+        ) || getStubConfig("pp")).allergens;
         if (this.debug) console.log("[ALLERGEN-DEBUG] Checking if incoming matches stub...");
         if (this.debug) console.log("[ALLERGEN-DEBUG] incoming.allergens:", incoming.allergens);
         if (this.debug) console.log("[ALLERGEN-DEBUG] stubAllergens:", stubAllergens);
@@ -532,7 +536,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 10. Bygg config från stub + userConfig (bara EN gång!)
-      const baseStub = getStubConfig(integration);
+      const baseStub = getStubConfig(integration) || getStubConfig("pp");
       let merged = deepMerge(baseStub, this._userConfig);
 
       // Default for levels_* if not set
@@ -1519,6 +1523,11 @@ class PollenPrognosCardEditor extends LitElement {
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
+
+      // Immediately mark integration as explicit so set hass() won't
+      // override the user's choice before the round-trip completes.
+      this._userConfig.integration = newInt;
+      this._integrationExplicit = true;
     } else {
       cfg = { ...this._config, [prop]: value };
 
