@@ -822,6 +822,8 @@ class PollenPrognosCardEditor extends LitElement {
       else if (atmoStates.length) integration = "atmo";
       else if (gplStates.length) integration = "gpl";
       this._userConfig.integration = integration;
+      if (this.debug)
+        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoStates.length, gpl: gplStates.length, chosen: integration });
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data
