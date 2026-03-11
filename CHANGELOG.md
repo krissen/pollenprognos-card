@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- Editor: replaced `ha-select`/`mwc-list-item` dropdowns with `ha-selector` for compatibility with HA 2026.2+ (MWC components removed from HA frontend)
+
 ### Fixed
+- Editor: infinite `set hass()` dispatch loop caused by `deepEqual()` key count mismatch with `LEVELS_DEFAULTS` (#191)
 - Editor: integration dropdown selection race condition where `set hass()` autodetection could override the user's choice before the config round-trip completed
 - Editor: case sensitivity for integration ID in YAML mode (e.g. "SILAM" now correctly maps to "silam")
 - Editor: no longer crashes on invalid or partial integration strings typed in YAML (e.g. "s", "sil", "silam pollen")
