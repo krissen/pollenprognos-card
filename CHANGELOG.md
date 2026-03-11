@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- Editor: integration dropdown selection race condition where `set hass()` autodetection could override the user's choice before the config round-trip completed
+- Editor: case sensitivity for integration ID in YAML mode (e.g. "SILAM" now correctly maps to "silam")
+- Editor: no longer crashes on invalid or partial integration strings typed in YAML (e.g. "s", "sil", "silam pollen")
+- Sensor detection: unavailable or unknown entities (e.g. from disabled integrations) are now excluded from available sensor count, so the card correctly shows "no sensors found" instead of "no allergens"
+- SILAM: forecast subscription recovery after weather entity transitions from unavailable to available
+- Kleenex: fallback sensor search now scoped to configured location, preventing cross-location matches
+- Adapter helpers: locale fallback when `defaultLocale` is undefined
+
 ## [3.0.0] - 2026-02-27
 
 ### Changed
