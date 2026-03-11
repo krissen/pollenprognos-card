@@ -1704,262 +1704,307 @@ class PollenPrognosCardEditor extends LitElement {
         <details open>
           <summary>${this._t("summary_integration_and_place")}</summary>
           <ha-formfield label="${this._t("integration")}">
-            <ha-select
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: [
+                    { value: "pp", label: this._t("integration.pp") },
+                    { value: "peu", label: this._t("integration.peu") },
+                    { value: "dwd", label: this._t("integration.dwd") },
+                    { value: "silam", label: this._t("integration.silam") },
+                    { value: "plu", label: this._t("integration.plu") },
+                    {
+                      value: "kleenex",
+                      label: this._t("integration.kleenex"),
+                    },
+                    { value: "atmo", label: this._t("integration.atmo") },
+                    { value: "gpl", label: this._t("integration.gpl") },
+                  ],
+                },
+              }}
               .value=${c.integration}
-              @selected=${(e) =>
-                this._updateConfig("integration", e.target.value)}
-              @closed=${(e) => e.stopPropagation()}
-            >
-              <mwc-list-item value="pp"
-                >${this._t("integration.pp")}</mwc-list-item
-              >
-              <mwc-list-item value="peu"
-                >${this._t("integration.peu")}</mwc-list-item
-              >
-              <mwc-list-item value="dwd"
-                >${this._t("integration.dwd")}</mwc-list-item
-              >
-              <mwc-list-item value="silam"
-                >${this._t("integration.silam")}</mwc-list-item
-              >
-              <mwc-list-item value="plu"
-                >${this._t("integration.plu")}</mwc-list-item
-              >
-              <mwc-list-item value="kleenex"
-                >${this._t("integration.kleenex")}</mwc-list-item
-              >
-              <mwc-list-item value="atmo"
-                >${this._t("integration.atmo")}</mwc-list-item
-              >
-              <mwc-list-item value="gpl"
-                >${this._t("integration.gpl")}</mwc-list-item
-              >
-            </ha-select>
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._updateConfig("integration", v);
+              }}
+            ></ha-selector>
           </ha-formfield>
           ${c.integration === "pp"
             ? html`
                 <ha-formfield label="${this._t("city")}">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          {
+                            value: "",
+                            label: this._t("location_autodetect"),
+                          },
+                          ...this.installedCities.map((city) => ({
+                            value: city,
+                            label: city,
+                          })),
+                          {
+                            value: "manual",
+                            label: this._t("location_manual"),
+                          },
+                        ],
+                      },
+                    }}
                     .value=${c.city || ""}
-                    @selected=${(e) =>
-                      this._updateConfig("city", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    <mwc-list-item value=""
-                      >${this._t("location_autodetect")}</mwc-list-item
-                    >
-                    ${this.installedCities.map(
-                      (city) =>
-                        html`<mwc-list-item .value=${city}
-                          >${city}</mwc-list-item
-                        >`,
-                    )}
-                    <mwc-list-item value="manual"
-                      >${this._t("location_manual")}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined) this._updateConfig("city", v);
+                    }}
+                  ></ha-selector>
                 </ha-formfield>
               `
             : c.integration === "peu"
               ? html`
                   <ha-formfield label="${this._t("location")}">
-                    <ha-select
+                    <ha-selector
+                      .hass=${this._hass}
+                      .selector=${{
+                        select: {
+                          mode: "dropdown",
+                          options: [
+                            {
+                              value: "",
+                              label: this._t("location_autodetect"),
+                            },
+                            ...this.installedPeuLocations.map(([slug, title]) => ({
+                              value: slug,
+                              label: title,
+                            })),
+                            {
+                              value: "manual",
+                              label: this._t("location_manual"),
+                            },
+                          ],
+                        },
+                      }}
                       .value=${c.location || ""}
-                      @selected=${(e) =>
-                        this._updateConfig("location", e.target.value)}
-                      @closed=${(e) => e.stopPropagation()}
-                    >
-                      <mwc-list-item value=""
-                        >${this._t("location_autodetect")}</mwc-list-item
-                      >
-                      ${this.installedPeuLocations.map(
-                        ([slug, title]) =>
-                          html`<mwc-list-item .value=${slug}
-                            >${title}</mwc-list-item
-                          >`,
-                      )}
-                      <mwc-list-item value="manual"
-                        >${this._t("location_manual")}</mwc-list-item
-                      >
-                    </ha-select>
+                      @value-changed=${(e) => {
+                        const v = e.detail?.value;
+                        if (v !== undefined) this._updateConfig("location", v);
+                      }}
+                    ></ha-selector>
                   </ha-formfield>
                 `
               : c.integration === "silam"
                 ? html`
                     <ha-formfield label="${this._t("location")}">
-                      <ha-select
+                      <ha-selector
+                        .hass=${this._hass}
+                        .selector=${{
+                          select: {
+                            mode: "dropdown",
+                            options: [
+                              {
+                                value: "",
+                                label: this._t("location_autodetect"),
+                              },
+                              ...this.installedSilamLocations.map(([slug, title]) => ({
+                                value: slug,
+                                label: title,
+                              })),
+                              {
+                                value: "manual",
+                                label: this._t("location_manual"),
+                              },
+                            ],
+                          },
+                        }}
                         .value=${c.location || ""}
-                        @selected=${(e) =>
-                          this._updateConfig("location", e.target.value)}
-                        @closed=${(e) => e.stopPropagation()}
-                      >
-                        <mwc-list-item value=""
-                          >${this._t("location_autodetect")}</mwc-list-item
-                        >
-                        ${this.installedSilamLocations.map(
-                          ([slug, title]) =>
-                            html`<mwc-list-item .value=${slug}
-                              >${title}</mwc-list-item
-                            >`,
-                        )}
-                        <mwc-list-item value="manual"
-                          >${this._t("location_manual")}</mwc-list-item
-                        >
-                      </ha-select>
+                        @value-changed=${(e) => {
+                          const v = e.detail?.value;
+                          if (v !== undefined) this._updateConfig("location", v);
+                        }}
+                      ></ha-selector>
                     </ha-formfield>
                   `
                 : c.integration === "kleenex"
                   ? html`
                       <ha-formfield label="${this._t("location")}">
-                        <ha-select
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "",
+                                  label: this._t("location_autodetect"),
+                                },
+                                ...this.installedKleenexLocations.map(([slug, title]) => ({
+                                  value: slug,
+                                  label: title,
+                                })),
+                                {
+                                  value: "manual",
+                                  label: this._t("location_manual"),
+                                },
+                              ],
+                            },
+                          }}
                           .value=${c.location || ""}
-                          @selected=${(e) =>
-                            this._updateConfig("location", e.target.value)}
-                          @closed=${(e) => e.stopPropagation()}
-                        >
-                          <mwc-list-item value=""
-                            >${this._t("location_autodetect")}</mwc-list-item
-                          >
-                          ${this.installedKleenexLocations.map(
-                            ([slug, title]) =>
-                              html`<mwc-list-item .value=${slug}
-                                >${title}</mwc-list-item
-                              >`,
-                          )}
-                          <mwc-list-item value="manual"
-                            >${this._t("location_manual")}</mwc-list-item
-                          >
-                        </ha-select>
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined) this._updateConfig("location", v);
+                          }}
+                        ></ha-selector>
                       </ha-formfield>
                     `
                   : c.integration === "atmo"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
-                          <ha-select
+                          <ha-selector
+                            .hass=${this._hass}
+                            .selector=${{
+                              select: {
+                                mode: "dropdown",
+                                options: [
+                                  {
+                                    value: "",
+                                    label: this._t("location_autodetect"),
+                                  },
+                                  ...this.installedAtmoLocations.map(([slug, title]) => ({
+                                    value: slug,
+                                    label: title,
+                                  })),
+                                  {
+                                    value: "manual",
+                                    label: this._t("location_manual"),
+                                  },
+                                ],
+                              },
+                            }}
                             .value=${c.location || ""}
-                            @selected=${(e) =>
-                              this._updateConfig("location", e.target.value)}
-                            @closed=${(e) => e.stopPropagation()}
-                          >
-                            <mwc-list-item value=""
-                              >${this._t("location_autodetect")}</mwc-list-item
-                            >
-                            ${this.installedAtmoLocations.map(
-                              ([slug, title]) =>
-                                html`<mwc-list-item .value=${slug}
-                                  >${title}</mwc-list-item
-                                >`,
-                            )}
-                            <mwc-list-item value="manual"
-                              >${this._t("location_manual")}</mwc-list-item
-                            >
-                          </ha-select>
+                            @value-changed=${(e) => {
+                              const v = e.detail?.value;
+                              if (v !== undefined) this._updateConfig("location", v);
+                            }}
+                          ></ha-selector>
                         </ha-formfield>
                       `
                   : c.integration === "gpl"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
-                          <ha-select
+                          <ha-selector
+                            .hass=${this._hass}
+                            .selector=${{
+                              select: {
+                                mode: "dropdown",
+                                options: [
+                                  {
+                                    value: "",
+                                    label: this._t("location_autodetect"),
+                                  },
+                                  ...(this.installedGplLocations || []).map(([slug, title]) => ({
+                                    value: slug,
+                                    label: title,
+                                  })),
+                                  {
+                                    value: "manual",
+                                    label: this._t("location_manual"),
+                                  },
+                                ],
+                              },
+                            }}
                             .value=${c.location || ""}
-                            @selected=${(e) =>
-                              this._updateConfig("location", e.target.value)}
-                            @closed=${(e) => e.stopPropagation()}
-                          >
-                            <mwc-list-item value=""
-                              >${this._t("location_autodetect")}</mwc-list-item
-                            >
-                            ${(this.installedGplLocations || []).map(
-                              ([slug, title]) =>
-                                html`<mwc-list-item .value=${slug}
-                                  >${title}</mwc-list-item
-                                >`,
-                            )}
-                            <mwc-list-item value="manual"
-                              >${this._t("location_manual")}</mwc-list-item
-                            >
-                          </ha-select>
+                            @value-changed=${(e) => {
+                              const v = e.detail?.value;
+                              if (v !== undefined) this._updateConfig("location", v);
+                            }}
+                          ></ha-selector>
                         </ha-formfield>
                       `
                   : c.integration === "plu"
                     ? ""
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
-                        <ha-select
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "",
+                                  label: this._t("location_autodetect"),
+                                },
+                                ...this.installedRegionIds.map((id) => ({
+                                  value: id,
+                                  label: `${id} — ${DWD_REGIONS[id] || id}`,
+                                })),
+                                {
+                                  value: "manual",
+                                  label: this._t("location_manual"),
+                                },
+                              ],
+                            },
+                          }}
                           .value=${c.region_id || ""}
-                          @selected=${(e) =>
-                            this._updateConfig("region_id", e.target.value)}
-                          @closed=${(e) => e.stopPropagation()}
-                        >
-                          <mwc-list-item value=""
-                            >${this._t("location_autodetect")}</mwc-list-item
-                          >
-                          ${this.installedRegionIds.map(
-                            (id) =>
-                              html`<mwc-list-item .value=${id}>
-                                ${id} — ${DWD_REGIONS[id] || id}
-                              </mwc-list-item>`,
-                          )}
-                          <mwc-list-item value="manual"
-                            >${this._t("location_manual")}</mwc-list-item
-                          >
-                        </ha-select>
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined) this._updateConfig("region_id", v);
+                          }}
+                        ></ha-selector>
                       </ha-formfield>
                     `}
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          { value: "daily", label: this._t("mode_daily") },
+                          { value: "twice_daily", label: this._t("mode_twice_daily") },
+                          { value: "hourly", label: this._t("mode_hourly") },
+                        ],
+                      },
+                    }}
                     .value=${c.mode || "daily"}
-                    @selected=${(e) =>
-                      this._updateConfig("mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    <mwc-list-item value="daily"
-                      >${this._t("mode_daily")}</mwc-list-item
-                    >
-                    <mwc-list-item value="twice_daily"
-                      >${this._t("mode_twice_daily")}</mwc-list-item
-                    >
-                    <mwc-list-item value="hourly"
-                      >${this._t("mode_hourly")}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined) this._updateConfig("mode", v);
+                    }}
+                  ></ha-selector>
                 </ha-formfield>
               `
             : c.integration === "peu"
               ? html`
                   <ha-formfield label="${this._t("mode")}">
-                    <ha-select
+                    <ha-selector
+                      .hass=${this._hass}
+                      .selector=${{
+                        select: {
+                          mode: "dropdown",
+                          options: [
+                            { value: "daily", label: this._t("mode_daily") },
+                            { value: "twice_daily", label: this._t("mode_twice_daily") },
+                            { value: "hourly", label: this._t("mode_hourly") },
+                            { value: "hourly_second", label: this._t("mode_hourly_second") },
+                            { value: "hourly_third", label: this._t("mode_hourly_third") },
+                            { value: "hourly_fourth", label: this._t("mode_hourly_fourth") },
+                            { value: "hourly_sixth", label: this._t("mode_hourly_sixth") },
+                            { value: "hourly_eighth", label: this._t("mode_hourly_eighth") },
+                          ],
+                        },
+                      }}
                       .value=${c.mode || "daily"}
-                      @selected=${(e) =>
-                        this._updateConfig("mode", e.target.value)}
-                      @closed=${(e) => e.stopPropagation()}
-                    >
-                      <mwc-list-item value="daily"
-                        >${this._t("mode_daily")}</mwc-list-item
-                      >
-                      <mwc-list-item value="twice_daily"
-                        >${this._t("mode_twice_daily")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly"
-                        >${this._t("mode_hourly")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_second"
-                        >${this._t("mode_hourly_second")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_third"
-                        >${this._t("mode_hourly_third")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_fourth"
-                        >${this._t("mode_hourly_fourth")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_sixth"
-                        >${this._t("mode_hourly_sixth")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_eighth"
-                        >${this._t("mode_hourly_eighth")}</mwc-list-item
-                      >
-                    </ha-select>
+                      @value-changed=${(e) => {
+                        const v = e.detail?.value;
+                        if (v !== undefined) this._updateConfig("mode", v);
+                      }}
+                    ></ha-selector>
                   </ha-formfield>
                   <p>${this._t("peu_nondaily_expl")}</p>
                 `
@@ -2121,22 +2166,33 @@ class PollenPrognosCardEditor extends LitElement {
                 "Allergen Color Mode"}"
               >
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          {
+                            value: "default_colors",
+                            label:
+                              this._t("allergen_color_default_colors") ||
+                              "Default Colors",
+                          },
+                          {
+                            value: "custom",
+                            label:
+                              this._t("allergen_color_custom") || "Custom Colors",
+                          },
+                        ],
+                      },
+                    }}
                     .value=${c.allergen_color_mode || "default_colors"}
-                    @selected=${(e) =>
-                      this._updateConfig("allergen_color_mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                    style="min-width: 140px;"
-                  >
-                    <mwc-list-item value="default_colors"
-                      >${this._t("allergen_color_default_colors") ||
-                      "Default Colors"}</mwc-list-item
-                    >
-                    <mwc-list-item value="custom"
-                      >${this._t("allergen_color_custom") ||
-                      "Custom Colors"}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined)
+                        this._updateConfig("allergen_color_mode", v);
+                    }}
+                  ></ha-selector>
                 </div>
               </ha-formfield>
 
@@ -2416,22 +2472,32 @@ class PollenPrognosCardEditor extends LitElement {
                 "Level Circle Color Mode"}"
               >
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          {
+                            value: "inherit_allergen",
+                            label:
+                              this._t("levels_inherit_allergen") ||
+                              "Inherit from Allergen Colors",
+                          },
+                          {
+                            value: "custom",
+                            label:
+                              this._t("levels_custom") || "Use Custom Level Colors",
+                          },
+                        ],
+                      },
+                    }}
                     .value=${c.levels_inherit_mode || "inherit_allergen"}
-                    @selected=${(e) =>
-                      this._updateConfig("levels_inherit_mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                    style="min-width: 140px;"
-                  >
-                    <mwc-list-item value="inherit_allergen"
-                      >${this._t("levels_inherit_allergen") ||
-                      "Inherit from Allergen Colors"}</mwc-list-item
-                    >
-                    <mwc-list-item value="custom"
-                      >${this._t("levels_custom") ||
-                      "Use Custom Level Colors"}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined) this._updateConfig("levels_inherit_mode", v);
+                    }}
+                  ></ha-selector>
                 </div>
               </ha-formfield>
 
@@ -2690,16 +2756,24 @@ class PollenPrognosCardEditor extends LitElement {
                   `}
 
               <ha-formfield label="${this._t("levels_text_weight")}">
-                <ha-select
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        { value: "normal", label: "Normal" },
+                        { value: "500", label: "Medium" },
+                        { value: "bold", label: "Bold" },
+                      ],
+                    },
+                  }}
                   .value=${c.levels_text_weight || "normal"}
-                  @selected=${(e) =>
-                    this._updateConfig("levels_text_weight", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  <mwc-list-item value="normal">Normal</mwc-list-item>
-                  <mwc-list-item value="500">Medium</mwc-list-item>
-                  <mwc-list-item value="bold">Bold</mwc-list-item>
-                </ha-select>
+                  @value-changed=${(e) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined) this._updateConfig("levels_text_weight", v);
+                  }}
+                ></ha-selector>
               </ha-formfield>
 
               <ha-formfield label="${this._t("levels_text_size")}">
@@ -3158,16 +3232,20 @@ class PollenPrognosCardEditor extends LitElement {
             ></ha-slider>
           </div>
           <ha-formfield label="${this._t("sort")}">
-            <ha-select
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: sortOptions,
+                },
+              }}
               .value=${c.sort}
-              @selected=${(e) => this._updateConfig("sort", e.target.value)}
-              @closed=${(e) => e.stopPropagation()}
-            >
-              ${sortOptions.map(
-                ({ value, label }) =>
-                  html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
-              )}
-            </ha-select>
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._updateConfig("sort", v);
+              }}
+            ></ha-selector>
           </ha-formfield>
           ${c.integration === "kleenex" || c.integration === "gpl"
             ? html`
@@ -3226,22 +3304,30 @@ class PollenPrognosCardEditor extends LitElement {
                       <ha-formfield
                         label="${this._t("pollution_block_position")}"
                       >
-                        <ha-select
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "bottom",
+                                  label: this._t("pollution_block_bottom"),
+                                },
+                                {
+                                  value: "top",
+                                  label: this._t("pollution_block_top"),
+                                },
+                              ],
+                            },
+                          }}
                           .value=${c.pollution_block_position || "bottom"}
-                          @selected=${(e) =>
-                            this._updateConfig(
-                              "pollution_block_position",
-                              e.target.value,
-                            )}
-                          @closed=${(e) => e.stopPropagation()}
-                        >
-                          <mwc-list-item value="bottom"
-                            >${this._t("pollution_block_bottom")}</mwc-list-item
-                          >
-                          <mwc-list-item value="top"
-                            >${this._t("pollution_block_top")}</mwc-list-item
-                          >
-                        </ha-select>
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined)
+                              this._updateConfig("pollution_block_position", v);
+                          }}
+                        ></ha-selector>
                       </ha-formfield>
                       <ha-formfield
                         label="${this._t("show_block_separator")}"
@@ -3273,21 +3359,26 @@ class PollenPrognosCardEditor extends LitElement {
           <h3>${this._t("phrases")}</h3>
           <div class="preset-buttons">
             <ha-formfield label="${this._t("phrases_translate_all")}">
-              <ha-select
+              <ha-selector
+                .hass=${this._hass}
+                .selector=${{
+                  select: {
+                    mode: "dropdown",
+                    options: SUPPORTED_LOCALES.map((code) => ({
+                      value: code,
+                      label:
+                        new Intl.DisplayNames([this._lang], {
+                          type: "language",
+                        }).of(code) || code,
+                    })),
+                  },
+                }}
                 .value=${this._selectedPhraseLang}
-                @selected=${(e) => (this._selectedPhraseLang = e.target.value)}
-                @closed=${(e) => e.stopPropagation()}
-              >
-                ${SUPPORTED_LOCALES.map(
-                  (code) => html`
-                    <mwc-list-item .value=${code}>
-                      ${new Intl.DisplayNames([this._lang], {
-                        type: "language",
-                      }).of(code) || code}
-                    </mwc-list-item>
-                  `,
-                )}
-              </ha-select>
+                @value-changed=${(e) => {
+                  const v = e.detail?.value;
+                  if (v !== undefined) this._selectedPhraseLang = v;
+                }}
+              ></ha-selector>
             </ha-formfield>
             <!-- Use Home Assistant's button with outlined style for clarity -->
             <ha-button
@@ -3417,10 +3508,23 @@ class PollenPrognosCardEditor extends LitElement {
             ? html`
                 <div style="margin-top: 10px;">
                   <label>Action type</label>
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          { value: "more-info", label: "More Info" },
+                          { value: "navigate", label: "Navigate" },
+                          { value: "call-service", label: "Call Service" },
+                        ],
+                      },
+                    }}
                     .value=${this._tapType}
-                    @selected=${(e) => {
-                      this._tapType = e.target.value;
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v === undefined) return;
+                      this._tapType = v;
                       let tapAction = { type: this._tapType };
                       if (this._tapType === "more-info")
                         tapAction.entity = this._tapEntity;
@@ -3439,14 +3543,7 @@ class PollenPrognosCardEditor extends LitElement {
                       this._updateConfig("tap_action", tapAction);
                       this.requestUpdate();
                     }}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    <mwc-list-item value="more-info">More Info</mwc-list-item>
-                    <mwc-list-item value="navigate">Navigate</mwc-list-item>
-                    <mwc-list-item value="call-service"
-                      >Call Service</mwc-list-item
-                    >
-                  </ha-select>
+                  ></ha-selector>
                 </div>
                 ${this._tapType === "more-info"
                   ? html`
@@ -3596,7 +3693,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       /* Select styling */
-      ha-select {
+      ha-selector {
         width: 100%;
         --mdc-theme-primary: var(--primary-color);
       }
