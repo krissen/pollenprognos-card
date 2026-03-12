@@ -94,9 +94,12 @@ describe("PP adapter: fetchForecast", () => {
 
     // Level 8 should be clamped to 6
     expect(result[0].day0.state).toBe(6);
-    // -1 and NaN produce null, which means those days get state: 0 (with threshold 0)
-    // or are skipped (PP uses null for invalid, and only creates dayObj when level !== null
-    // OR when pollen_threshold === 0)
+    // -1 and NaN produce null via clampLevel; with pollen_threshold 0
+    // these days still appear but with state: 0
+    expect(result[0].day1.state).toBe(0);
+    expect(result[0].day2.state).toBe(0);
+    // Valid level passes through
+    expect(result[0].day3.state).toBe(3);
   });
 
   it("filters allergens below pollen_threshold", async () => {
