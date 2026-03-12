@@ -126,9 +126,9 @@ export function mergePhrases(config, lang) {
  *
  * @param {object} hass   - Home Assistant state object.
  * @param {object} config - Card configuration.
- * @param {string|undefined|null} [defaultLocale=null]
- *   When null (default), locale cascades through hass fields.
- *   When explicitly passed (even as undefined), used as the fallback locale.
+ * @param {string|null} [defaultLocale=null]
+ *   When null/omitted (default), locale cascades through hass fields.
+ *   When a string is passed, it is used as the fallback locale.
  * @returns {{ lang: string, locale: string|undefined, daysRelative: boolean, dayAbbrev: boolean, daysUppercase: boolean }}
  */
 export function getLangAndLocale(hass, config, defaultLocale = null) {
@@ -239,7 +239,7 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
       if (s.entity_id) {
         return availableSensors.includes(s.entity_id);
       }
-      const configLocation = cfg.location || "";
+      const configLocation = (cfg.location || "").toLowerCase();
       if (!isConfigEntryId(configLocation)) {
         const loc = configLocation;
         const silamReverse = {};

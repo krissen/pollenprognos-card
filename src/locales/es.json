@@ -46,6 +46,7 @@
   "card.error_filtered_sensors": "Ningún sensor coincide con tus filtros. Revisa los alérgenos seleccionados y el umbral.",
   "card.error_location_not_found": "Ubicación no encontrada. Revisa el nombre de la ubicación en la configuración de la tarjeta.",
   "card.error_no_sensors": "No se encontraron sensores de polen. ¿Has instalado la integración correcta y seleccionado una región en la configuración de la tarjeta?",
+  "card.error_entity_unavailable": "La entidad meteorológica no está disponible. Es posible que la integración esté desconectada o reiniciándose.",
   "card.stale_data": "Datos de polen temporalmente no disponibles",
   "card.stale_data_subtitle": "El proveedor no está devolviendo datos actualmente para esta región",
   "card.stale_allergen": "Sin datos",

@@ -746,20 +746,12 @@ describe("fetchForecast: twice_daily mode", () => {
 
 describe("fetchForecast: manual mode", () => {
   /**
-   * In manual mode, config.location === "manual" is treated as an empty
-   * configLocation internally. The regex fallback path in findSilamWeatherEntity
-   * is skipped when location is empty. So the weather entity must be found via
-   * discoverSilamSensors (hass.entities). We supply a minimal entity registry
-   * entry with platform "silam_pollen" for a weather entity (no entity_category),
-   * which causes discovery to pick it up automatically as the first (and only)
-   * location.
+   * In manual mode, entity_prefix is used both for sensor resolution and as a
+   * location hint for weather entity discovery. The prefix (minus trailing _)
+   * is matched against discovered location labels.
    */
-  it("resolves sensor via entity_prefix/entity_suffix in manual mode", async () => {
-    const weatherEntityId = "weather.silam_pollen_myplace_forecast";
-    // The manual mode slug lookup iterates silamAllergenMap.mapping in JSON key order
-    // (nl, de, ru, fi, sk, en, ...). For allergen "birch", the Dutch mapping
-    // "berk" -> "birch" is found first, so slug = "berk" and the expected
-    // candidate entity is "sensor.custom_berk_end".
+  it("resolves sensor via canonical slug and matches weather entity via prefix", async () => {
+    const weatherEntityId = "weather.custom_forecast";
     const states = {
       [weatherEntityId]: {
         state: "sunny",
@@ -768,23 +760,27 @@ describe("fetchForecast: manual mode", () => {
           forecast: [],
         },
       },
-      "sensor.custom_berk_end": {
+      "sensor.custom_birch_end": {
         state: "30",
         attributes: {},
       },
     };
-    // Entity registry entry for the weather entity: platform=silam_pollen,
-    // no entity_category. The entity ID starts with "weather." so discovery
-    // treats it as the weather entity for its config entry group.
+    const deviceId = "dev_custom";
     const entities = {
       [weatherEntityId]: {
         entity_id: weatherEntityId,
         platform: "silam_pollen",
-        device_id: null,
+        device_id: deviceId,
         entity_category: null,
       },
     };
-    const hass = createHass(states, { entities, language: "en" });
+    const devices = {
+      [deviceId]: {
+        name: "Custom Location",
+        config_entries: ["entry_custom"],
+      },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
     const config = makeConfig({
       location: "manual",
       allergens: ["birch"],
@@ -797,8 +793,53 @@ describe("fetchForecast: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    // entity_id is set to whichever sensor slug was resolved from the
-    // allergen map (first-language match). "berk" is the Dutch slug for birch.
+    expect(result[0].entity_id).toBe("sensor.custom_birch_end");
+  });
+
+  it("falls back to localized slug when canonical slug has no match", async () => {
+    const weatherEntityId = "weather.custom_forecast";
+    const states = {
+      [weatherEntityId]: {
+        state: "sunny",
+        attributes: {
+          pollen_birch: 30,
+          forecast: [],
+        },
+      },
+      // Only the Dutch slug "berk" exists, not the canonical "birch"
+      "sensor.custom_berk_end": {
+        state: "30",
+        attributes: {},
+      },
+    };
+    const deviceId = "dev_custom";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+      },
+    };
+    const devices = {
+      [deviceId]: {
+        name: "Custom Location",
+        config_entries: ["entry_custom"],
+      },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+    const config = makeConfig({
+      location: "manual",
+      allergens: ["birch"],
+      entity_prefix: "custom_",
+      entity_suffix: "_end",
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.custom_berk_end");
   });
 });

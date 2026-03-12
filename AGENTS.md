@@ -34,7 +34,7 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - **Internationalization**: `src/i18n.js` (language detection and text loading)
 - **Adapter Registry**: `src/adapter-registry.js` (central lookup for adapters and stub configs)
 - **Adapter Helpers**: `src/utils/adapter-helpers.js` (shared pure functions across adapters)
-- **Images**: `src/pollenprognos-images.js` (embedded PNG fallback images)
+
 
 ### Coding Standards and Patterns
 

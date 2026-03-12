@@ -2,7 +2,6 @@
 import { LitElement, html, css } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { slugify } from "./utils/slugify.js";
-import { images } from "./pollenprognos-images.js";
 import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
@@ -655,58 +654,8 @@ class PollenPrognosCard extends LitElement {
     };
   }
 
-  _getImageSrc(allergenReplaced, state) {
-    const raw = Number(state);
-    let scaled = raw;
-    let min = -1,
-      max = 6;
-    if (this.config.integration === "dwd") {
-      scaled = raw * 2;
-      max = 6;
-    } else if (
-      this.config.integration === "peu" ||
-      this.config.integration === "kleenex"
-    ) {
-      // PEU and Kleenex no longer scale values, the circle max level is four.
-      scaled = raw;
-      max = 4;
-      min = 0;
-    } else if (this.config.integration === "plu") {
-      scaled = raw;
-      max = 3;
-      min = 0;
-    }
-    let lvl = Math.round(scaled);
-    if (isNaN(lvl) || lvl < min) lvl = min;
-    if (lvl > max) lvl = max;
-
-    // if (this.debug) {
-    //   console.debug(
-    //     `[getImageSrc] allergenReplaced=${allergenReplaced} state=${state} scaled=${scaled} lvl=${lvl}`,
-    //   );
-    // }
-
-    const key = toCanonicalAllergenKey(allergenReplaced);
-    let specific = images[`${key}_${lvl}_png`];
-
-    // If no specific image found, try icon fallback for category allergens
-    if (!specific && ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
-      const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
-      specific = images[`${fallbackKey}_${lvl}_png`];
-    }
-
-    // if (this.debug) {
-    //   console.debug(
-    //     `[getImageSrc] key=${key} specific=${!!specific} images[${key}_${lvl}_png]`,
-    //     images[`${key}_${lvl}_png`],
-    //   );
-    // }
-
-    return specific || images[`${lvl}_png`];
-  }
-
   /**
-   * Gets the SVG key for an allergen, using the same logic as PNG system
+   * Gets the SVG key for an allergen
    * @param {string} allergenReplaced - The allergen identifier
    * @returns {string|null} The key to use for SVG loading, or null if invalid
    */

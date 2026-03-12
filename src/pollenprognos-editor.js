@@ -246,7 +246,6 @@ class PollenPrognosCardEditor extends LitElement {
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
-    // this._config = stubConfigPP;
     this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];

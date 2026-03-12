@@ -149,16 +149,22 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
     let sensorId = null;
     if (cfg.location === "manual") {
-      let slug = null;
-      for (const mapping of Object.values(silamAllergenMap.mapping)) {
-        const inverse = Object.entries(mapping).reduce(
-          (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
-        );
-        if (inverse[allergen]) { slug = inverse[allergen]; break; }
-      }
-      slug = slug || allergen;
       const prefix = normalizeManualPrefix(cfg.entity_prefix);
-      sensorId = resolveManualEntity(hass, prefix, slug, cfg.entity_suffix || "");
+      const suffix = cfg.entity_suffix || "";
+      // Try canonical (English) slug first
+      sensorId = resolveManualEntity(hass, prefix, allergen, suffix);
+      // Fall back to localized HA slugs from the allergen map
+      if (!sensorId) {
+        for (const mapping of Object.values(silamAllergenMap.mapping)) {
+          const inverse = Object.entries(mapping).reduce(
+            (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+          );
+          if (inverse[allergen] && inverse[allergen] !== allergen) {
+            sensorId = resolveManualEntity(hass, prefix, inverse[allergen], suffix);
+            if (sensorId) break;
+          }
+        }
+      }
     } else if (discoveredLoc?.sensors?.size) {
       sensorId = discoveredLoc.sensors.get(allergen) || null;
       if (sensorId && !hass.states[sensorId]) sensorId = null;
@@ -203,7 +209,16 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
 
   // Hitta weather-entity och discovery-data
-  const configLocation = config.location === "manual" ? "" : (config.location || "");
+  // In manual mode, use entity_prefix as location hint for weather entity discovery
+  // so the weather entity matches the sensor entities.
+  let configLocation;
+  if (config.location === "manual" && config.entity_prefix) {
+    configLocation = normalizeManualPrefix(config.entity_prefix).replace(/_$/, "");
+  } else if (config.location === "manual") {
+    configLocation = "";
+  } else {
+    configLocation = config.location || "";
+  }
 
   // Discovery for weather entity (allergen sensors delegated to resolveEntityIds)
   const discovery = discoverSilamSensors(hass, debug);

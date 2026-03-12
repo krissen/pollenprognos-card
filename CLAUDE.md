@@ -109,10 +109,6 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - Icons use both fill and stroke for visual depth
 - Rendered via Lit's `unsafeSVG` directive
 
-**Raster Fallback** (`src/pollenprognos-images.js`)
-- PNG fallback images for older browsers
-- Not actively used but kept for backwards compatibility
-
 **Chart.js Integration**
 - Doughnut charts for pollen level circles
 - Lazy canvas creation on first render
