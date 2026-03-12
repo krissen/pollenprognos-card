@@ -58,14 +58,6 @@ describe("i18n", () => {
       expect(t("card.allergen.birch", "sv")).toBe("Björk");
     });
 
-    it("falls back to English for missing key in non-English locale", () => {
-      // Use a key that exists in en but verify fallback works
-      const enResult = t("card.allergen.birch", "en");
-      const svResult = t("card.allergen.birch", "sv");
-      expect(enResult).toBe("Birch");
-      expect(svResult).toBe("Björk");
-    });
-
     it("returns the key itself when not found in any locale", () => {
       expect(t("nonexistent.key.that.does.not.exist", "en")).toBe(
         "nonexistent.key.that.does.not.exist",
