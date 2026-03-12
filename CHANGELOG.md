@@ -51,6 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Kleenex: fallback sensor search now scoped to configured location, preventing cross-location matches
 - Card header: show generic "Pollen forecast" instead of trailing preposition when no location is resolved
 - Adapter helpers: locale fallback when `defaultLocale` is undefined
+- Sensor detection: non-existent entity IDs (stale or incorrect) are now excluded instead of silently passing through
 - `clampLevel`: treat null/undefined as missing data instead of level 0
 - Removed dead `findSensors`/`getData` stubs from kleenex and gpl adapter facades
 
