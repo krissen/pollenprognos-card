@@ -13,9 +13,10 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const map = adapter.resolveEntityIds(cfg, hass, debug);
   const sensors = [...map.values()].filter((eid) => {
     if (!eid) return false;
-    const state = hass?.states?.[eid]?.state;
-    // Exclude entities that are unavailable or unknown (e.g. disabled integration)
-    return state !== "unavailable" && state !== "unknown";
+    const entity = hass?.states?.[eid];
+    // Exclude non-existent, unavailable, or unknown entities
+    if (!entity) return false;
+    return entity.state !== "unavailable" && entity.state !== "unknown";
   });
 
   if (debug) {

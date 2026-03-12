@@ -231,6 +231,29 @@ export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUpperca
  * @returns {object[]}
  */
 export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassStateKeys, silamMapping) {
+  // Precompute SILAM reverse mapping (master allergen -> HA slug) once,
+  // rather than rebuilding it per sensor inside the filter callback.
+  let silamReverse = null;
+  let silamLoc = null;
+  if (cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily")) {
+    const configLocation = (cfg.location || "").toLowerCase();
+    if (!isConfigEntryId(configLocation)) {
+      silamLoc = configLocation;
+      silamReverse = {};
+      for (const id of hassStateKeys) {
+        const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+        if (!m || m[1] !== silamLoc) continue;
+        const haSlug = m[2];
+        for (const [, mapping] of Object.entries(silamMapping)) {
+          if (mapping[haSlug]) {
+            silamReverse[mapping[haSlug]] = haSlug;
+            break;
+          }
+        }
+      }
+    }
+  }
+
   let filtered = sensors.filter((s) => {
     if (cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily")) {
       // allergy_risk is derived from the weather entity state, not an
@@ -239,27 +262,9 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
       if (s.entity_id) {
         return availableSensors.includes(s.entity_id);
       }
-      const configLocation = (cfg.location || "").toLowerCase();
-      if (!isConfigEntryId(configLocation)) {
-        const loc = configLocation;
-        const silamReverse = {};
-        const locStates = hassStateKeys.filter((id) => {
-          const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-          return m && m[1] === loc;
-        });
-        for (const eid of locStates) {
-          const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-          if (!m) continue;
-          const haSlug = m[2];
-          for (const [, mapping] of Object.entries(silamMapping)) {
-            if (mapping[haSlug]) {
-              silamReverse[mapping[haSlug]] = haSlug;
-              break;
-            }
-          }
-        }
+      if (silamReverse !== null) {
         const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
-        const id = `sensor.silam_pollen_${loc}_${key}`;
+        const id = `sensor.silam_pollen_${silamLoc}_${key}`;
         return availableSensors.includes(id);
       }
       return false;
