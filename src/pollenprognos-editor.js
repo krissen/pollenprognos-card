@@ -10,15 +10,16 @@ import {
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
-// Stub-config från adaptrar (så att editorn vet vilka fält som finns)
+// Adapter registry (stub config lookup) + direct adapter imports for constants
+import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP } from "./adapters/pp.js";
 import { stubConfigDWD } from "./adapters/dwd.js";
-import { stubConfigPEU, PEU_ALLERGENS } from "./adapters/peu.js";
-import { stubConfigSILAM, SILAM_ALLERGENS } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex.js";
+import { PEU_ALLERGENS } from "./adapters/peu.js";
+import { SILAM_ALLERGENS } from "./adapters/silam.js";
+import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { stubConfigATMO, ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
-import { stubConfigGPL, GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl.js";
+import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
+import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -28,7 +29,7 @@ import {
 import {
   PP_POSSIBLE_CITIES,
   DWD_REGIONS,
-  ALLERGEN_TRANSLATION,
+  toCanonicalAllergenKey,
 } from "./constants.js";
 
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
@@ -52,23 +53,6 @@ const deepMerge = (target, source) => {
   }
   return out;
 };
-
-const getStubConfig = (integration) =>
-  integration === "dwd"
-    ? stubConfigDWD
-    : integration === "peu"
-      ? stubConfigPEU
-      : integration === "silam"
-        ? stubConfigSILAM
-        : integration === "kleenex"
-          ? stubConfigKleenex
-          : integration === "plu"
-            ? stubConfigPLU
-            : integration === "atmo"
-              ? stubConfigATMO
-              : integration === "gpl"
-                ? stubConfigGPL
-                : stubConfigPP;
 
 class PollenPrognosCardEditor extends LitElement {
   get debug() {
@@ -173,7 +157,7 @@ class PollenPrognosCardEditor extends LitElement {
     // Använd canonical nyckel för lookup i locale-filerna
     rawKeys.forEach((raw) => {
       const normKey = normalize(raw); // ex 'alm' eller 'erle'
-      const canonKey = ALLERGEN_TRANSLATION[normKey] || normKey; // t.ex. 'alder'
+      const canonKey = toCanonicalAllergenKey(normKey); // t.ex. 'alder'
       // Use the SILAM-specific name 'index' instead of 'allergy_risk'
       const transKey = normKey === "index" ? "index" : canonKey;
       full[raw] = t(`editor.phrases_full.${transKey}`, lang);
@@ -244,7 +228,7 @@ class PollenPrognosCardEditor extends LitElement {
     if (allergenKey === undefined || allergenKey === null) return "";
     const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
     const slug = slugify(raw);
-    const canonical = ALLERGEN_TRANSLATION[slug] || slug;
+    const canonical = toCanonicalAllergenKey(slug);
     const translationKey = `phrases_full.${canonical}`;
     const translated = this._t(translationKey);
     if (translated && translated !== translationKey) {
@@ -258,12 +242,10 @@ class PollenPrognosCardEditor extends LitElement {
 
   constructor() {
     super();
-    if (this.debug) console.log("[ALLERGEN-DEBUG] ========== Constructor called ==========");
     // Sätt ALLT till neutrala värden, oavsett state på this._hass eller this._config
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
-    // this._config = stubConfigPP;
     this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];
@@ -283,15 +265,10 @@ class PollenPrognosCardEditor extends LitElement {
     this._tapNavigation = "";
     this._tapService = "";
     this._tapServiceData = "";
-    if (this.debug) console.log("[ALLERGEN-DEBUG] Constructor complete - _allergensExplicit:", this._allergensExplicit);
   }
 
   setConfig(config) {
     try {
-      if (this.debug) console.log("[ALLERGEN-DEBUG] ========== setConfig() called ==========");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Incoming config.allergens:", config.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Current _userConfig.allergens:", this._userConfig?.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Current _allergensExplicit:", this._allergensExplicit);
       
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
       if (config.phrases) this._userConfig.phrases = config.phrases;
@@ -299,11 +276,14 @@ class PollenPrognosCardEditor extends LitElement {
       this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
 
       // 1. Identify stub values and clone incoming config
-      const baseDefaults = getStubConfig(config.integration || "pp");
-      const stubAllergens = baseDefaults.allergens;
+      // Normalize integration to lowercase (user may type "SILAM" in YAML)
       const incoming = { ...config };
+      if (typeof incoming.integration === "string") {
+        incoming.integration = incoming.integration.toLowerCase();
+      }
+      const baseDefaults = getStubConfig(incoming.integration || "pp") || getStubConfig("pp");
+      const stubAllergens = baseDefaults.allergens;
       
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Stub allergens for integration:", config.integration || "pp", stubAllergens);
 
       // Insert default for levels_* if missing
       Object.entries(LEVELS_DEFAULTS).forEach(([key, val]) => {
@@ -314,10 +294,6 @@ class PollenPrognosCardEditor extends LitElement {
 
       // 2. Save user-provided allergens if they differ from defaults  
       // OR if allergens were previously explicit (user made changes)
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Checking if allergens differ from stub...");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] config.allergens is array:", Array.isArray(config.allergens));
-      if (this.debug) console.log("[ALLERGEN-DEBUG] deepEqual result:", deepEqual(config.allergens, stubAllergens));
-      if (this.debug) console.log("[ALLERGEN-DEBUG] _allergensExplicit was:", this._allergensExplicit);
       
       if (
         Array.isArray(config.allergens) &&
@@ -325,15 +301,12 @@ class PollenPrognosCardEditor extends LitElement {
       ) {
         this._userConfig.allergens = [...config.allergens];
         this._allergensExplicit = true;
-        if (this.debug) console.log("[ALLERGEN-DEBUG] ✓ Saved user-chosen allergens to _userConfig:", this._userConfig.allergens);
-        if (this.debug) console.log("[ALLERGEN-DEBUG] ✓ Set _allergensExplicit = true");
         if (this.debug)
           console.debug(
             "[Editor] saved user-chosen allergens:",
             this._userConfig.allergens,
           );
       } else {
-        if (this.debug) console.log("[ALLERGEN-DEBUG] ✗ Allergens match stub AND not explicit, NOT saving");
       }
 
       // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
@@ -349,15 +322,7 @@ class PollenPrognosCardEditor extends LitElement {
       // }
 
       // 4. Släpp aldrig in stub-pollen_threshold
-      const stubThresh = (
-        incoming.integration === "dwd"
-          ? stubConfigDWD
-          : incoming.integration === "peu"
-            ? stubConfigPEU
-            : incoming.integration === "silam"
-              ? stubConfigSILAM
-              : stubConfigPP
-      ).pollen_threshold;
+      const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")).pollen_threshold;
       if (
         incoming.hasOwnProperty("pollen_threshold") &&
         !this._thresholdExplicit &&
@@ -398,15 +363,7 @@ class PollenPrognosCardEditor extends LitElement {
         if (this.debug) console.debug("[Editor] dropped stub days_to_show");
         delete incoming.days_to_show;
       }
-      const stubLocale = (
-        incoming.integration === "dwd"
-          ? stubConfigDWD
-          : incoming.integration === "peu"
-            ? stubConfigPEU
-            : incoming.integration === "silam"
-              ? stubConfigSILAM
-              : stubConfigPP
-      ).date_locale;
+      const stubLocale = (getStubConfig(incoming.integration) || getStubConfig("pp")).date_locale;
       if (!this._localeExplicit && incoming.date_locale === stubLocale) {
         if (this.debug) console.debug("[Editor] dropped stub date_locale");
         delete incoming.date_locale;
@@ -414,10 +371,6 @@ class PollenPrognosCardEditor extends LitElement {
 
       // 6.1. Don't overwrite explicit user allergens with incoming allergens
       // If we already have user allergens saved, only overwrite if incoming is explicitly different
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Checking whether to drop incoming allergens...");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] _userConfig.allergens exists:", !!this._userConfig.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] incoming.allergens exists:", !!incoming.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] _allergensExplicit:", this._allergensExplicit);
       
       if (
         this._userConfig.allergens &&
@@ -425,7 +378,6 @@ class PollenPrognosCardEditor extends LitElement {
         deepEqual(incoming.allergens, this._userConfig.allergens)
       ) {
         // Incoming allergens are same as what we have, drop them to avoid unnecessary updates
-        if (this.debug) console.log("[ALLERGEN-DEBUG] → Dropping incoming (same as saved)");
         if (this.debug)
           console.debug(
             "[Editor] dropping incoming allergens (same as saved)",
@@ -434,36 +386,26 @@ class PollenPrognosCardEditor extends LitElement {
       } else if (this._allergensExplicit && incoming.allergens) {
         // We have explicit allergens and incoming is different/exists
         // Only overwrite if incoming explicitly differs from stub (is a user choice)
-        const stubAllergens = getStubConfig(
+        const stubAllergens = (getStubConfig(
           incoming.integration || this._config.integration || "pp",
-        ).allergens;
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Checking if incoming matches stub...");
-        if (this.debug) console.log("[ALLERGEN-DEBUG] incoming.allergens:", incoming.allergens);
-        if (this.debug) console.log("[ALLERGEN-DEBUG] stubAllergens:", stubAllergens);
-        if (this.debug) console.log("[ALLERGEN-DEBUG] deepEqual:", deepEqual(incoming.allergens, stubAllergens));
+        ) || getStubConfig("pp")).allergens;
         
         if (deepEqual(incoming.allergens, stubAllergens)) {
           // Incoming matches stub, so it's not a user choice - keep our explicit allergens
-          if (this.debug) console.log("[ALLERGEN-DEBUG] → Dropping incoming (matches stub, keeping explicit)");
           if (this.debug)
             console.debug(
               "[Editor] dropping incoming allergens (matches stub, keeping explicit)",
             );
           delete incoming.allergens;
         } else {
-          if (this.debug) console.log("[ALLERGEN-DEBUG] → Keeping incoming (different from stub)");
         }
       } else {
-        if (this.debug) console.log("[ALLERGEN-DEBUG] → No action taken on incoming allergens");
       }
 
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Before merge - _userConfig.allergens:", this._userConfig.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Before merge - incoming.allergens:", incoming.allergens);
       
       this._userConfig = deepMerge(this._userConfig, incoming);
       
-      if (this.debug) console.log("[ALLERGEN-DEBUG] After merge - _userConfig.allergens:", this._userConfig.allergens);
 
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit =
@@ -472,7 +414,6 @@ class PollenPrognosCardEditor extends LitElement {
       this._integrationExplicit =
         this._userConfig.hasOwnProperty("integration");
       
-      if (this.debug) console.log("[ALLERGEN-DEBUG] After setting flags - _allergensExplicit:", this._allergensExplicit);
       this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
       this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
 
@@ -564,7 +505,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 10. Bygg config från stub + userConfig (bara EN gång!)
-      const baseStub = getStubConfig(integration);
+      const baseStub = getStubConfig(integration) || getStubConfig("pp");
       let merged = deepMerge(baseStub, this._userConfig);
 
       // Default for levels_* if not set
@@ -592,10 +533,6 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       // 12. Alltid använd explicit userConfig.allergens om det finns, annars stub
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Final allergen assignment:");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] _userConfig.allergens:", this._userConfig.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] baseStub.allergens:", baseStub.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Using:", Array.isArray(this._userConfig.allergens) ? "_userConfig" : "baseStub");
       
       merged.allergens = Array.isArray(this._userConfig.allergens)
         ? this._userConfig.allergens
@@ -606,10 +543,6 @@ class PollenPrognosCardEditor extends LitElement {
       merged.type = "custom:pollenprognos-card";
       this._config = merged;
       this._prevIntegration = integration;
-
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Final _config.allergens:", this._config.allergens);
-      if (this.debug) console.log("[ALLERGEN-DEBUG] ========== setConfig() complete ==========");
-
       if (this.debug)
         console.debug(
           "[Editor][F] slutgiltigt this._config.allergens:",
@@ -743,8 +676,6 @@ class PollenPrognosCardEditor extends LitElement {
         changedKeys.every((k) => COSMETIC_FIELDS.includes(k));
       if (!onlyCosmetic && !deepEqual(prevConfig, merged)) {
         this._config = merged;
-        if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-1-setConfig] Dispatching from setConfig() end");
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", this._config.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: this._config },
@@ -785,9 +716,6 @@ class PollenPrognosCardEditor extends LitElement {
   }
 
   set hass(hass) {
-    if (this.debug) console.log("[ALLERGEN-DEBUG] ========== set hass() called ==========");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] _initDone:", this._initDone);
-    if (this.debug) console.log("[ALLERGEN-DEBUG] Current _userConfig.allergens:", this._userConfig?.allergens);
     
     if (this._hass === hass) return; // Avoid unnecessary work
     this._hass = hass;
@@ -893,6 +821,8 @@ class PollenPrognosCardEditor extends LitElement {
       else if (atmoStates.length) integration = "atmo";
       else if (gplStates.length) integration = "gpl";
       this._userConfig.integration = integration;
+      if (this.debug)
+        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoStates.length, gpl: gplStates.length, chosen: integration });
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data
@@ -917,31 +847,12 @@ class PollenPrognosCardEditor extends LitElement {
     }
 
     // 2) Slå ihop stub + användar-config
-    const base =
-      integration === "dwd"
-        ? stubConfigDWD
-        : integration === "peu"
-          ? stubConfigPEU
-          : integration === "silam"
-            ? stubConfigSILAM
-            : integration === "kleenex"
-              ? stubConfigKleenex
-              : integration === "plu"
-                ? stubConfigPLU
-                : integration === "atmo"
-                  ? stubConfigATMO
-                  : integration === "gpl"
-                    ? stubConfigGPL
-                    : stubConfigPP;
+    const base = getStubConfig(integration) || getStubConfig("pp");
 
     // Bygg merged-objekt (det är denna rad som saknas)
-    if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() building merged config");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] base (stub) allergens:", base.allergens?.slice(0, 5), "... (", base.allergens?.length, "total)");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] _userConfig.allergens:", this._userConfig.allergens?.slice(0, 5), "... (", this._userConfig.allergens?.length, "total)");
     
     let merged = deepMerge(base, this._userConfig);
     
-    if (this.debug) console.log("[ALLERGEN-DEBUG] After deepMerge - merged.allergens:", merged.allergens?.slice(0, 5), "... (", merged.allergens?.length, "total)");
 
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
     if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
@@ -955,18 +866,17 @@ class PollenPrognosCardEditor extends LitElement {
 
     merged.sort = merged.sort || "value_ascending";
 
+    // Strip default LEVELS_DEFAULTS keys so comparison matches setConfig() output
+    Object.entries(LEVELS_DEFAULTS).forEach(([key, val]) => {
+      if (merged[key] === val) {
+        delete merged[key];
+      }
+    });
+
     // Only dispatch if config actually changed, to avoid UI blinking/loops
-    if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() checking if config changed");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] Current _config.allergens:", this._config.allergens?.slice(0, 5), "... (", this._config.allergens?.length, "total)");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] New merged.allergens:", merged.allergens?.slice(0, 5), "... (", merged.allergens?.length, "total)");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] deepEqual result:", deepEqual(this._config, merged));
     
     if (!deepEqual(this._config, merged)) {
       this._config = merged;
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config changed! Updated _config.allergens");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] ========== set hass() complete (config changed) ==========");
-
-
       // 3) Fyll installerade regioner/städer
       this.installedRegionIds = Array.from(
         new Set(dwdStates.map((id) => id.split("_").pop())),
@@ -1122,7 +1032,8 @@ class PollenPrognosCardEditor extends LitElement {
               // Clean up the title to show only the location
               title = title
                 .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
-                .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Graminées|Herbacées|Alberi|Graminacee|Erbacee).*$/i, "")
+                .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
+                .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
                 .trim();
 
               // Fallback to locationSlug if cleaning resulted in empty string
@@ -1212,19 +1123,13 @@ class PollenPrognosCardEditor extends LitElement {
         }),
       );
     } else {
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config unchanged in set hass(), NOT dispatching");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] ========== set hass() complete (no change) ==========");
     }
 
     this.requestUpdate();
     this._initDone = true;
-    if (this.debug) console.log("[ALLERGEN-DEBUG] set hass() final - _initDone set to true");
   }
 
   _onAllergenToggle(allergen, checked) {
-    if (this.debug) console.log("[ALLERGEN-DEBUG] ========== _onAllergenToggle called ==========");
-    if (this.debug) console.log("[ALLERGEN-DEBUG] Allergen:", allergen, "Checked:", checked);
-    if (this.debug) console.log("[ALLERGEN-DEBUG] Current _config.allergens:", this._config.allergens);
     
     if (
       this._config.integration === "peu" &&
@@ -1237,7 +1142,6 @@ class PollenPrognosCardEditor extends LitElement {
     const set = new Set(this._config.allergens);
     checked ? set.add(allergen) : set.delete(allergen);
     
-    if (this.debug) console.log("[ALLERGEN-DEBUG] New allergen set:", [...set]);
     this._updateConfig("allergens", [...set]);
   }
 
@@ -1303,8 +1207,6 @@ class PollenPrognosCardEditor extends LitElement {
       this._config = newConfig;
       this._userConfig.sort = value;
 
-      if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-3-sort-none] Dispatching from sort=none handler");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", this._config.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1334,8 +1236,6 @@ class PollenPrognosCardEditor extends LitElement {
         delete this._userConfig.levels_empty_color;
         delete this._userConfig.levels_gap_color;
 
-        if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-4-levels-inherit-custom] Dispatching from levels_inherit_mode=custom");
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: newConfig },
@@ -1373,8 +1273,6 @@ class PollenPrognosCardEditor extends LitElement {
         this._userConfig.levels_empty_color = syncedEmptyColor;
         this._userConfig.allergen_levels_gap_synced = true;
 
-        if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-5-levels-inherit-sync] Dispatching from levels_inherit_mode!=custom");
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: newConfig },
@@ -1436,8 +1334,6 @@ class PollenPrognosCardEditor extends LitElement {
 
       this._config = newConfig;
 
-      if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-7-levels-stroke] Dispatching from levels_stroke_width change");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1462,8 +1358,6 @@ class PollenPrognosCardEditor extends LitElement {
       this._config = newConfig;
       this._userConfig[prop] = value;
 
-      if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-8-levels-visual] Dispatching from levels visual prop change");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1493,8 +1387,6 @@ class PollenPrognosCardEditor extends LitElement {
       delete this._userConfig.allergen_outline_color;
       delete this._userConfig.no_allergens_color;
 
-      if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-9-allergen-color-mode] Dispatching from allergen_color_mode change");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", newConfig.allergens);
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: newConfig },
@@ -1527,8 +1419,6 @@ class PollenPrognosCardEditor extends LitElement {
           mode: prevMode,
         };
         this.requestUpdate();
-        if (this.debug) console.log("[ALLERGEN-DEBUG] [DISPATCH-11-locale-reset] Dispatching from date_locale setTimeout restore");
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens:", this._config.allergens);
         this.dispatchEvent(
           new CustomEvent("config-changed", {
             detail: { config: this._config },
@@ -1561,39 +1451,24 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.index_top;
         this._allergensExplicit = false;
       }
-      const base =
-        newInt === "dwd"
-          ? stubConfigDWD
-          : newInt === "peu"
-            ? stubConfigPEU
-            : newInt === "silam"
-              ? stubConfigSILAM
-              : newInt === "kleenex"
-                ? stubConfigKleenex
-                : newInt === "plu"
-                  ? stubConfigPLU
-                  : newInt === "atmo"
-                    ? stubConfigATMO
-                    : newInt === "gpl"
-                      ? stubConfigGPL
-                      : stubConfigPP;
+      const base = getStubConfig(newInt) || getStubConfig("pp");
 
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
+
+      // Immediately mark integration as explicit so set hass() won't
+      // override the user's choice before the round-trip completes.
+      this._userConfig.integration = newInt;
+      this._integrationExplicit = true;
     } else {
       cfg = { ...this._config, [prop]: value };
 
       // Track explicit allergen changes
       if (prop === "allergens") {
-        if (this.debug) console.log("[ALLERGEN-DEBUG] _updateConfig called with allergens:", value);
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Before update - _userConfig.allergens:", this._userConfig.allergens);
-        if (this.debug) console.log("[ALLERGEN-DEBUG] Before update - _allergensExplicit:", this._allergensExplicit);
         
         this._userConfig.allergens = value;
         this._allergensExplicit = true;
         
-        if (this.debug) console.log("[ALLERGEN-DEBUG] After update - _userConfig.allergens:", this._userConfig.allergens);
-        if (this.debug) console.log("[ALLERGEN-DEBUG] After update - _allergensExplicit:", this._allergensExplicit);
         
         if (this.debug)
           console.debug(
@@ -1659,8 +1534,6 @@ class PollenPrognosCardEditor extends LitElement {
       this._config = cfg;
       if (this.debug) console.debug("[Editor] updated _config:", this._config);
       
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Dispatching config-changed event");
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config allergens being dispatched:", this._config.allergens);
       
       this.dispatchEvent(
         new CustomEvent("config-changed", {
@@ -1671,7 +1544,6 @@ class PollenPrognosCardEditor extends LitElement {
       );
     } else {
       this._config = cfg;
-      if (this.debug) console.log("[ALLERGEN-DEBUG] Config unchanged, NOT dispatching");
     }
   }
 
@@ -1756,262 +1628,307 @@ class PollenPrognosCardEditor extends LitElement {
         <details open>
           <summary>${this._t("summary_integration_and_place")}</summary>
           <ha-formfield label="${this._t("integration")}">
-            <ha-select
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: [
+                    { value: "pp", label: this._t("integration.pp") },
+                    { value: "peu", label: this._t("integration.peu") },
+                    { value: "dwd", label: this._t("integration.dwd") },
+                    { value: "silam", label: this._t("integration.silam") },
+                    { value: "plu", label: this._t("integration.plu") },
+                    {
+                      value: "kleenex",
+                      label: this._t("integration.kleenex"),
+                    },
+                    { value: "atmo", label: this._t("integration.atmo") },
+                    { value: "gpl", label: this._t("integration.gpl") },
+                  ],
+                },
+              }}
               .value=${c.integration}
-              @selected=${(e) =>
-                this._updateConfig("integration", e.target.value)}
-              @closed=${(e) => e.stopPropagation()}
-            >
-              <mwc-list-item value="pp"
-                >${this._t("integration.pp")}</mwc-list-item
-              >
-              <mwc-list-item value="peu"
-                >${this._t("integration.peu")}</mwc-list-item
-              >
-              <mwc-list-item value="dwd"
-                >${this._t("integration.dwd")}</mwc-list-item
-              >
-              <mwc-list-item value="silam"
-                >${this._t("integration.silam")}</mwc-list-item
-              >
-              <mwc-list-item value="plu"
-                >${this._t("integration.plu")}</mwc-list-item
-              >
-              <mwc-list-item value="kleenex"
-                >${this._t("integration.kleenex")}</mwc-list-item
-              >
-              <mwc-list-item value="atmo"
-                >${this._t("integration.atmo")}</mwc-list-item
-              >
-              <mwc-list-item value="gpl"
-                >${this._t("integration.gpl")}</mwc-list-item
-              >
-            </ha-select>
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._updateConfig("integration", v);
+              }}
+            ></ha-selector>
           </ha-formfield>
           ${c.integration === "pp"
             ? html`
                 <ha-formfield label="${this._t("city")}">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          {
+                            value: "",
+                            label: this._t("location_autodetect"),
+                          },
+                          ...this.installedCities.map((city) => ({
+                            value: city,
+                            label: city,
+                          })),
+                          {
+                            value: "manual",
+                            label: this._t("location_manual"),
+                          },
+                        ],
+                      },
+                    }}
                     .value=${c.city || ""}
-                    @selected=${(e) =>
-                      this._updateConfig("city", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    <mwc-list-item value=""
-                      >${this._t("location_autodetect")}</mwc-list-item
-                    >
-                    ${this.installedCities.map(
-                      (city) =>
-                        html`<mwc-list-item .value=${city}
-                          >${city}</mwc-list-item
-                        >`,
-                    )}
-                    <mwc-list-item value="manual"
-                      >${this._t("location_manual")}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined) this._updateConfig("city", v);
+                    }}
+                  ></ha-selector>
                 </ha-formfield>
               `
             : c.integration === "peu"
               ? html`
                   <ha-formfield label="${this._t("location")}">
-                    <ha-select
+                    <ha-selector
+                      .hass=${this._hass}
+                      .selector=${{
+                        select: {
+                          mode: "dropdown",
+                          options: [
+                            {
+                              value: "",
+                              label: this._t("location_autodetect"),
+                            },
+                            ...this.installedPeuLocations.map(([slug, title]) => ({
+                              value: slug,
+                              label: title,
+                            })),
+                            {
+                              value: "manual",
+                              label: this._t("location_manual"),
+                            },
+                          ],
+                        },
+                      }}
                       .value=${c.location || ""}
-                      @selected=${(e) =>
-                        this._updateConfig("location", e.target.value)}
-                      @closed=${(e) => e.stopPropagation()}
-                    >
-                      <mwc-list-item value=""
-                        >${this._t("location_autodetect")}</mwc-list-item
-                      >
-                      ${this.installedPeuLocations.map(
-                        ([slug, title]) =>
-                          html`<mwc-list-item .value=${slug}
-                            >${title}</mwc-list-item
-                          >`,
-                      )}
-                      <mwc-list-item value="manual"
-                        >${this._t("location_manual")}</mwc-list-item
-                      >
-                    </ha-select>
+                      @value-changed=${(e) => {
+                        const v = e.detail?.value;
+                        if (v !== undefined) this._updateConfig("location", v);
+                      }}
+                    ></ha-selector>
                   </ha-formfield>
                 `
               : c.integration === "silam"
                 ? html`
                     <ha-formfield label="${this._t("location")}">
-                      <ha-select
+                      <ha-selector
+                        .hass=${this._hass}
+                        .selector=${{
+                          select: {
+                            mode: "dropdown",
+                            options: [
+                              {
+                                value: "",
+                                label: this._t("location_autodetect"),
+                              },
+                              ...this.installedSilamLocations.map(([slug, title]) => ({
+                                value: slug,
+                                label: title,
+                              })),
+                              {
+                                value: "manual",
+                                label: this._t("location_manual"),
+                              },
+                            ],
+                          },
+                        }}
                         .value=${c.location || ""}
-                        @selected=${(e) =>
-                          this._updateConfig("location", e.target.value)}
-                        @closed=${(e) => e.stopPropagation()}
-                      >
-                        <mwc-list-item value=""
-                          >${this._t("location_autodetect")}</mwc-list-item
-                        >
-                        ${this.installedSilamLocations.map(
-                          ([slug, title]) =>
-                            html`<mwc-list-item .value=${slug}
-                              >${title}</mwc-list-item
-                            >`,
-                        )}
-                        <mwc-list-item value="manual"
-                          >${this._t("location_manual")}</mwc-list-item
-                        >
-                      </ha-select>
+                        @value-changed=${(e) => {
+                          const v = e.detail?.value;
+                          if (v !== undefined) this._updateConfig("location", v);
+                        }}
+                      ></ha-selector>
                     </ha-formfield>
                   `
                 : c.integration === "kleenex"
                   ? html`
                       <ha-formfield label="${this._t("location")}">
-                        <ha-select
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "",
+                                  label: this._t("location_autodetect"),
+                                },
+                                ...this.installedKleenexLocations.map(([slug, title]) => ({
+                                  value: slug,
+                                  label: title,
+                                })),
+                                {
+                                  value: "manual",
+                                  label: this._t("location_manual"),
+                                },
+                              ],
+                            },
+                          }}
                           .value=${c.location || ""}
-                          @selected=${(e) =>
-                            this._updateConfig("location", e.target.value)}
-                          @closed=${(e) => e.stopPropagation()}
-                        >
-                          <mwc-list-item value=""
-                            >${this._t("location_autodetect")}</mwc-list-item
-                          >
-                          ${this.installedKleenexLocations.map(
-                            ([slug, title]) =>
-                              html`<mwc-list-item .value=${slug}
-                                >${title}</mwc-list-item
-                              >`,
-                          )}
-                          <mwc-list-item value="manual"
-                            >${this._t("location_manual")}</mwc-list-item
-                          >
-                        </ha-select>
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined) this._updateConfig("location", v);
+                          }}
+                        ></ha-selector>
                       </ha-formfield>
                     `
                   : c.integration === "atmo"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
-                          <ha-select
+                          <ha-selector
+                            .hass=${this._hass}
+                            .selector=${{
+                              select: {
+                                mode: "dropdown",
+                                options: [
+                                  {
+                                    value: "",
+                                    label: this._t("location_autodetect"),
+                                  },
+                                  ...this.installedAtmoLocations.map(([slug, title]) => ({
+                                    value: slug,
+                                    label: title,
+                                  })),
+                                  {
+                                    value: "manual",
+                                    label: this._t("location_manual"),
+                                  },
+                                ],
+                              },
+                            }}
                             .value=${c.location || ""}
-                            @selected=${(e) =>
-                              this._updateConfig("location", e.target.value)}
-                            @closed=${(e) => e.stopPropagation()}
-                          >
-                            <mwc-list-item value=""
-                              >${this._t("location_autodetect")}</mwc-list-item
-                            >
-                            ${this.installedAtmoLocations.map(
-                              ([slug, title]) =>
-                                html`<mwc-list-item .value=${slug}
-                                  >${title}</mwc-list-item
-                                >`,
-                            )}
-                            <mwc-list-item value="manual"
-                              >${this._t("location_manual")}</mwc-list-item
-                            >
-                          </ha-select>
+                            @value-changed=${(e) => {
+                              const v = e.detail?.value;
+                              if (v !== undefined) this._updateConfig("location", v);
+                            }}
+                          ></ha-selector>
                         </ha-formfield>
                       `
                   : c.integration === "gpl"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
-                          <ha-select
+                          <ha-selector
+                            .hass=${this._hass}
+                            .selector=${{
+                              select: {
+                                mode: "dropdown",
+                                options: [
+                                  {
+                                    value: "",
+                                    label: this._t("location_autodetect"),
+                                  },
+                                  ...(this.installedGplLocations || []).map(([slug, title]) => ({
+                                    value: slug,
+                                    label: title,
+                                  })),
+                                  {
+                                    value: "manual",
+                                    label: this._t("location_manual"),
+                                  },
+                                ],
+                              },
+                            }}
                             .value=${c.location || ""}
-                            @selected=${(e) =>
-                              this._updateConfig("location", e.target.value)}
-                            @closed=${(e) => e.stopPropagation()}
-                          >
-                            <mwc-list-item value=""
-                              >${this._t("location_autodetect")}</mwc-list-item
-                            >
-                            ${(this.installedGplLocations || []).map(
-                              ([slug, title]) =>
-                                html`<mwc-list-item .value=${slug}
-                                  >${title}</mwc-list-item
-                                >`,
-                            )}
-                            <mwc-list-item value="manual"
-                              >${this._t("location_manual")}</mwc-list-item
-                            >
-                          </ha-select>
+                            @value-changed=${(e) => {
+                              const v = e.detail?.value;
+                              if (v !== undefined) this._updateConfig("location", v);
+                            }}
+                          ></ha-selector>
                         </ha-formfield>
                       `
                   : c.integration === "plu"
                     ? ""
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
-                        <ha-select
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "",
+                                  label: this._t("location_autodetect"),
+                                },
+                                ...this.installedRegionIds.map((id) => ({
+                                  value: id,
+                                  label: `${id} — ${DWD_REGIONS[id] || id}`,
+                                })),
+                                {
+                                  value: "manual",
+                                  label: this._t("location_manual"),
+                                },
+                              ],
+                            },
+                          }}
                           .value=${c.region_id || ""}
-                          @selected=${(e) =>
-                            this._updateConfig("region_id", e.target.value)}
-                          @closed=${(e) => e.stopPropagation()}
-                        >
-                          <mwc-list-item value=""
-                            >${this._t("location_autodetect")}</mwc-list-item
-                          >
-                          ${this.installedRegionIds.map(
-                            (id) =>
-                              html`<mwc-list-item .value=${id}>
-                                ${id} — ${DWD_REGIONS[id] || id}
-                              </mwc-list-item>`,
-                          )}
-                          <mwc-list-item value="manual"
-                            >${this._t("location_manual")}</mwc-list-item
-                          >
-                        </ha-select>
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined) this._updateConfig("region_id", v);
+                          }}
+                        ></ha-selector>
                       </ha-formfield>
                     `}
           ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          { value: "daily", label: this._t("mode_daily") },
+                          { value: "twice_daily", label: this._t("mode_twice_daily") },
+                          { value: "hourly", label: this._t("mode_hourly") },
+                        ],
+                      },
+                    }}
                     .value=${c.mode || "daily"}
-                    @selected=${(e) =>
-                      this._updateConfig("mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    <mwc-list-item value="daily"
-                      >${this._t("mode_daily")}</mwc-list-item
-                    >
-                    <mwc-list-item value="twice_daily"
-                      >${this._t("mode_twice_daily")}</mwc-list-item
-                    >
-                    <mwc-list-item value="hourly"
-                      >${this._t("mode_hourly")}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined) this._updateConfig("mode", v);
+                    }}
+                  ></ha-selector>
                 </ha-formfield>
               `
             : c.integration === "peu"
               ? html`
                   <ha-formfield label="${this._t("mode")}">
-                    <ha-select
+                    <ha-selector
+                      .hass=${this._hass}
+                      .selector=${{
+                        select: {
+                          mode: "dropdown",
+                          options: [
+                            { value: "daily", label: this._t("mode_daily") },
+                            { value: "twice_daily", label: this._t("mode_twice_daily") },
+                            { value: "hourly", label: this._t("mode_hourly") },
+                            { value: "hourly_second", label: this._t("mode_hourly_second") },
+                            { value: "hourly_third", label: this._t("mode_hourly_third") },
+                            { value: "hourly_fourth", label: this._t("mode_hourly_fourth") },
+                            { value: "hourly_sixth", label: this._t("mode_hourly_sixth") },
+                            { value: "hourly_eighth", label: this._t("mode_hourly_eighth") },
+                          ],
+                        },
+                      }}
                       .value=${c.mode || "daily"}
-                      @selected=${(e) =>
-                        this._updateConfig("mode", e.target.value)}
-                      @closed=${(e) => e.stopPropagation()}
-                    >
-                      <mwc-list-item value="daily"
-                        >${this._t("mode_daily")}</mwc-list-item
-                      >
-                      <mwc-list-item value="twice_daily"
-                        >${this._t("mode_twice_daily")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly"
-                        >${this._t("mode_hourly")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_second"
-                        >${this._t("mode_hourly_second")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_third"
-                        >${this._t("mode_hourly_third")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_fourth"
-                        >${this._t("mode_hourly_fourth")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_sixth"
-                        >${this._t("mode_hourly_sixth")}</mwc-list-item
-                      >
-                      <mwc-list-item value="hourly_eighth"
-                        >${this._t("mode_hourly_eighth")}</mwc-list-item
-                      >
-                    </ha-select>
+                      @value-changed=${(e) => {
+                        const v = e.detail?.value;
+                        if (v !== undefined) this._updateConfig("mode", v);
+                      }}
+                    ></ha-selector>
                   </ha-formfield>
                   <p>${this._t("peu_nondaily_expl")}</p>
                 `
@@ -2173,22 +2090,33 @@ class PollenPrognosCardEditor extends LitElement {
                 "Allergen Color Mode"}"
               >
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          {
+                            value: "default_colors",
+                            label:
+                              this._t("allergen_color_default_colors") ||
+                              "Default Colors",
+                          },
+                          {
+                            value: "custom",
+                            label:
+                              this._t("allergen_color_custom") || "Custom Colors",
+                          },
+                        ],
+                      },
+                    }}
                     .value=${c.allergen_color_mode || "default_colors"}
-                    @selected=${(e) =>
-                      this._updateConfig("allergen_color_mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                    style="min-width: 140px;"
-                  >
-                    <mwc-list-item value="default_colors"
-                      >${this._t("allergen_color_default_colors") ||
-                      "Default Colors"}</mwc-list-item
-                    >
-                    <mwc-list-item value="custom"
-                      >${this._t("allergen_color_custom") ||
-                      "Custom Colors"}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined)
+                        this._updateConfig("allergen_color_mode", v);
+                    }}
+                  ></ha-selector>
                 </div>
               </ha-formfield>
 
@@ -2468,22 +2396,32 @@ class PollenPrognosCardEditor extends LitElement {
                 "Level Circle Color Mode"}"
               >
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          {
+                            value: "inherit_allergen",
+                            label:
+                              this._t("levels_inherit_allergen") ||
+                              "Inherit from Allergen Colors",
+                          },
+                          {
+                            value: "custom",
+                            label:
+                              this._t("levels_custom") || "Use Custom Level Colors",
+                          },
+                        ],
+                      },
+                    }}
                     .value=${c.levels_inherit_mode || "inherit_allergen"}
-                    @selected=${(e) =>
-                      this._updateConfig("levels_inherit_mode", e.target.value)}
-                    @closed=${(e) => e.stopPropagation()}
-                    style="min-width: 140px;"
-                  >
-                    <mwc-list-item value="inherit_allergen"
-                      >${this._t("levels_inherit_allergen") ||
-                      "Inherit from Allergen Colors"}</mwc-list-item
-                    >
-                    <mwc-list-item value="custom"
-                      >${this._t("levels_custom") ||
-                      "Use Custom Level Colors"}</mwc-list-item
-                    >
-                  </ha-select>
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined) this._updateConfig("levels_inherit_mode", v);
+                    }}
+                  ></ha-selector>
                 </div>
               </ha-formfield>
 
@@ -2742,16 +2680,24 @@ class PollenPrognosCardEditor extends LitElement {
                   `}
 
               <ha-formfield label="${this._t("levels_text_weight")}">
-                <ha-select
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        { value: "normal", label: "Normal" },
+                        { value: "500", label: "Medium" },
+                        { value: "bold", label: "Bold" },
+                      ],
+                    },
+                  }}
                   .value=${c.levels_text_weight || "normal"}
-                  @selected=${(e) =>
-                    this._updateConfig("levels_text_weight", e.target.value)}
-                  @closed=${(e) => e.stopPropagation()}
-                >
-                  <mwc-list-item value="normal">Normal</mwc-list-item>
-                  <mwc-list-item value="500">Medium</mwc-list-item>
-                  <mwc-list-item value="bold">Bold</mwc-list-item>
-                </ha-select>
+                  @value-changed=${(e) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined) this._updateConfig("levels_text_weight", v);
+                  }}
+                ></ha-selector>
               </ha-formfield>
 
               <ha-formfield label="${this._t("levels_text_size")}">
@@ -3210,16 +3156,20 @@ class PollenPrognosCardEditor extends LitElement {
             ></ha-slider>
           </div>
           <ha-formfield label="${this._t("sort")}">
-            <ha-select
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: sortOptions,
+                },
+              }}
               .value=${c.sort}
-              @selected=${(e) => this._updateConfig("sort", e.target.value)}
-              @closed=${(e) => e.stopPropagation()}
-            >
-              ${sortOptions.map(
-                ({ value, label }) =>
-                  html`<mwc-list-item .value=${value}>${label}</mwc-list-item>`,
-              )}
-            </ha-select>
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._updateConfig("sort", v);
+              }}
+            ></ha-selector>
           </ha-formfield>
           ${c.integration === "kleenex" || c.integration === "gpl"
             ? html`
@@ -3278,22 +3228,30 @@ class PollenPrognosCardEditor extends LitElement {
                       <ha-formfield
                         label="${this._t("pollution_block_position")}"
                       >
-                        <ha-select
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "bottom",
+                                  label: this._t("pollution_block_bottom"),
+                                },
+                                {
+                                  value: "top",
+                                  label: this._t("pollution_block_top"),
+                                },
+                              ],
+                            },
+                          }}
                           .value=${c.pollution_block_position || "bottom"}
-                          @selected=${(e) =>
-                            this._updateConfig(
-                              "pollution_block_position",
-                              e.target.value,
-                            )}
-                          @closed=${(e) => e.stopPropagation()}
-                        >
-                          <mwc-list-item value="bottom"
-                            >${this._t("pollution_block_bottom")}</mwc-list-item
-                          >
-                          <mwc-list-item value="top"
-                            >${this._t("pollution_block_top")}</mwc-list-item
-                          >
-                        </ha-select>
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined)
+                              this._updateConfig("pollution_block_position", v);
+                          }}
+                        ></ha-selector>
                       </ha-formfield>
                       <ha-formfield
                         label="${this._t("show_block_separator")}"
@@ -3325,21 +3283,26 @@ class PollenPrognosCardEditor extends LitElement {
           <h3>${this._t("phrases")}</h3>
           <div class="preset-buttons">
             <ha-formfield label="${this._t("phrases_translate_all")}">
-              <ha-select
+              <ha-selector
+                .hass=${this._hass}
+                .selector=${{
+                  select: {
+                    mode: "dropdown",
+                    options: SUPPORTED_LOCALES.map((code) => ({
+                      value: code,
+                      label:
+                        new Intl.DisplayNames([this._lang], {
+                          type: "language",
+                        }).of(code) || code,
+                    })),
+                  },
+                }}
                 .value=${this._selectedPhraseLang}
-                @selected=${(e) => (this._selectedPhraseLang = e.target.value)}
-                @closed=${(e) => e.stopPropagation()}
-              >
-                ${SUPPORTED_LOCALES.map(
-                  (code) => html`
-                    <mwc-list-item .value=${code}>
-                      ${new Intl.DisplayNames([this._lang], {
-                        type: "language",
-                      }).of(code) || code}
-                    </mwc-list-item>
-                  `,
-                )}
-              </ha-select>
+                @value-changed=${(e) => {
+                  const v = e.detail?.value;
+                  if (v !== undefined) this._selectedPhraseLang = v;
+                }}
+              ></ha-selector>
             </ha-formfield>
             <!-- Use Home Assistant's button with outlined style for clarity -->
             <ha-button
@@ -3469,10 +3432,23 @@ class PollenPrognosCardEditor extends LitElement {
             ? html`
                 <div style="margin-top: 10px;">
                   <label>Action type</label>
-                  <ha-select
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: [
+                          { value: "more-info", label: "More Info" },
+                          { value: "navigate", label: "Navigate" },
+                          { value: "call-service", label: "Call Service" },
+                        ],
+                      },
+                    }}
                     .value=${this._tapType}
-                    @selected=${(e) => {
-                      this._tapType = e.target.value;
+                    @value-changed=${(e) => {
+                      const v = e.detail?.value;
+                      if (v === undefined) return;
+                      this._tapType = v;
                       let tapAction = { type: this._tapType };
                       if (this._tapType === "more-info")
                         tapAction.entity = this._tapEntity;
@@ -3491,14 +3467,7 @@ class PollenPrognosCardEditor extends LitElement {
                       this._updateConfig("tap_action", tapAction);
                       this.requestUpdate();
                     }}
-                    @closed=${(e) => e.stopPropagation()}
-                  >
-                    <mwc-list-item value="more-info">More Info</mwc-list-item>
-                    <mwc-list-item value="navigate">Navigate</mwc-list-item>
-                    <mwc-list-item value="call-service"
-                      >Call Service</mwc-list-item
-                    >
-                  </ha-select>
+                  ></ha-selector>
                 </div>
                 ${this._tapType === "more-info"
                   ? html`
@@ -3648,7 +3617,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       /* Select styling */
-      ha-select {
+      ha-selector {
         width: 100%;
         --mdc-theme-primary: var(--primary-color);
       }

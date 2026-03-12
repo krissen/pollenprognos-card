@@ -1,9 +1,9 @@
 // src/adapters/plu.js
-import { t, detectLang } from "../i18n.js";
-import { ALLERGEN_TRANSLATION } from "../constants.js";
+import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -100,6 +100,16 @@ function resolveSensorId(hass, canonical, debug) {
   return null;
 }
 
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  for (const allergen of cfg.allergens || []) {
+    if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
+    const sensorId = resolveSensorId(hass, allergen, debug);
+    if (sensorId) map.set(allergen, sensorId);
+  }
+  return map;
+}
+
 function parseThreshold(value, fallback) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -117,30 +127,9 @@ function valueToLevel(value, thresholds) {
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
-  const lang = detectLang(hass, config.date_locale);
-  const locale =
-    config.date_locale ||
-    hass.locale?.language ||
-    hass.language ||
-    `${lang}-${lang.toUpperCase()}`;
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
-  const daysRelative = config.days_relative !== false;
-  const dayAbbrev = Boolean(config.days_abbreviated);
-  const daysUppercase = Boolean(config.days_uppercase);
-
-  const phrases = {
-    full: {},
-    short: {},
-    levels: [],
-    days: {},
-    no_information: "",
-    ...(config.phrases || {}),
-  };
-
-  const fullPhrases = phrases.full;
-  const shortPhrases = phrases.short;
-  const userLevels = phrases.levels;
-  const userDays = phrases.days;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
 
   // Build level names. Allow users to supply 4 or 7 custom labels.
   const fullLevelNames = buildLevelNames(userLevels, lang);
@@ -150,9 +139,6 @@ export async function fetchForecast(hass, config) {
     if (custom != null && custom !== "") return custom;
     return fullLevelNames[idx] || t(`card.levels.${idx}`, lang);
   });
-
-  const noInfoLabel =
-    phrases.no_information || t("card.no_information", lang);
 
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigPLU.pollen_threshold;
@@ -166,6 +152,7 @@ export async function fetchForecast(hass, config) {
   today.setHours(0, 0, 0, 0);
 
   const sensors = [];
+  const entityMap = resolveEntityIds(config, hass, debug);
 
   for (const allergen of config.allergens || []) {
     if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
@@ -173,28 +160,14 @@ export async function fetchForecast(hass, config) {
     const dict = { days: [] };
     dict.allergenReplaced = allergen;
 
-    const canonicalKey = ALLERGEN_TRANSLATION[allergen] || allergen;
-    if (fullPhrases[allergen]) {
-      dict.allergenCapitalized = fullPhrases[allergen];
-    } else {
-      const lookup = t(`card.allergen.${canonicalKey}`, lang);
-      dict.allergenCapitalized =
-        lookup !== `card.allergen.${canonicalKey}`
-          ? lookup
-          : allergen.charAt(0).toUpperCase() + allergen.slice(1);
-    }
+    const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
+      fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
+    });
+    dict.allergenCapitalized = allergenCapitalized;
+    dict.allergenShort = allergenShort;
 
-    if (config.allergens_abbreviated) {
-      const userShort = shortPhrases[allergen];
-      dict.allergenShort =
-        userShort ||
-        t(`editor.phrases_short.${canonicalKey}`, lang) ||
-        dict.allergenCapitalized;
-    } else {
-      dict.allergenShort = dict.allergenCapitalized;
-    }
-
-    const sensorId = resolveSensorId(hass, allergen, debug);
+    // Sensor lookup (delegated to resolveEntityIds)
+    const sensorId = entityMap.get(allergen);
     if (!sensorId) {
       if (debug) {
         console.debug(`[PLU] No sensor found for allergen '${allergen}'`);
@@ -228,18 +201,7 @@ export async function fetchForecast(hass, config) {
       ? new Date(dict.attributes.last_update)
       : today;
 
-    let label;
-    if (!daysRelative) {
-      label = referenceDate.toLocaleDateString(locale, {
-        weekday: dayAbbrev ? "short" : "long",
-      });
-      label = label.charAt(0).toUpperCase() + label.slice(1);
-    } else if (userDays[0] != null) {
-      label = userDays[0];
-    } else {
-      label = t("card.days.0", lang);
-    }
-    if (daysUppercase) label = label.toUpperCase();
+    const label = buildDayLabel(referenceDate, 0, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
     const stateText =
       level < 0 ? noInfoLabel : levelNames[level] || noInfoLabel;
@@ -270,10 +232,7 @@ export async function fetchForecast(hass, config) {
       });
     }
 
-    const meetsThreshold = dict.days.some(
-      (d, idx) => idx === 0 && d.state >= pollen_threshold,
-    );
-    if (meetsThreshold || pollen_threshold === 0) {
+    if (meetsThreshold(dict.days.slice(0, 1), pollen_threshold)) {
       sensors.push(dict);
     }
   }

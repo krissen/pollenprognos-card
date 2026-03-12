@@ -177,7 +177,7 @@ Test results directly inform expansion of the card's allergen support:
 1. **`src/constants.js`** - Add new allergens to `ALLERGEN_TRANSLATION`
 2. **`src/locales/en.json`** - Add English translations for new allergens  
 3. **`src/adapters/kleenex.js`** - Update allergen detection patterns if needed
-4. **`src/pollenprognos-images.js`** - Add SVG icons for new allergens
+4. **`src/pollenprognos-svgs.js`** - Add SVG icons for new allergens
 
 The analyzer output provides specific recommendations for which allergens to prioritize based on real-world API data.
 

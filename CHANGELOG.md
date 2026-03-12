@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+## [3.0.0] - 2026-03-12
+
+### Changed
+- **Adapter architecture refactored**: each adapter now exports `resolveEntityIds(cfg, hass, debug?)` for sensor detection, replacing centralized if/else chains in `sensors.js`
+- **Adapter registry** (`adapter-registry.js`): single lookup for adapter modules and stub configs via `getAdapter()`, `getStubConfig()`, `getAllAdapterIds()`
+- **Shared adapter helpers** (`utils/adapter-helpers.js`): extracted common logic from adapters into reusable pure functions (`getLangAndLocale`, `mergePhrases`, `buildDayLabel`, `clampLevel`, `sortSensors`, `resolveAllergenNames`, `meetsThreshold`, `normalizeManualPrefix`, `resolveManualEntity`)
+- **Post-fetch filtering** (`filterSensorsPostFetch`) extracted from card's `set hass()` into a utility
+- **Allergen translation** grouped by adapter with per-adapter alias maps (`PP_ALIASES`, `DWD_ALIASES`, etc.) and a single `toCanonicalAllergenKey()` lookup
+- Kleenex adapter modularized into `constants`, `levels`, `discovery`, `forecast`
+- GPL adapter modularized into `constants`, `discovery`, `forecast`
+- Editor: replaced `ha-select`/`mwc-list-item` dropdowns with `ha-selector` for compatibility with HA 2026.2+ (MWC components removed from HA frontend)
+- Removed legacy PNG image system (`pollenprognos-images.js`); all icons are now SVG-only
+- Net reduction of ~1,200 lines across `src/`
+
+### Added
+- Vitest test harness with shared test helpers
+- Contract tests for all 8 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
+- Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering
+- Unit tests for `clampLevel`, `detectLang`, `t()` locale fallback, and SVG contract (`getSvgContent`)
+- Spanish translation for `card.error_entity_unavailable`
+
+### Fixed
+- Editor: infinite `set hass()` dispatch loop caused by `deepEqual()` key count mismatch with `LEVELS_DEFAULTS` (#191)
+- Editor: integration dropdown selection race condition where `set hass()` autodetection could override the user's choice before the config round-trip completed
+- Editor: case sensitivity for integration ID in YAML mode (e.g. "SILAM" now correctly maps to "silam")
+- Editor: no longer crashes on invalid or partial integration strings typed in YAML (e.g. "s", "sil", "silam pollen")
+- Sensor detection: unavailable or unknown entities (e.g. from disabled integrations) are now excluded from available sensor count, so the card correctly shows "no sensors found" instead of "no allergens"
+- SILAM: fix infinite loop when using `location: "manual"` (weather entity lookup received raw `"manual"` string)
+- SILAM: auto-show overall pollen index for locations with no individual allergen sensors enabled
+- SILAM: show localized "Very low levels" label when the integration reports `very_low` (its lowest state, which lacks a true "none")
+- SILAM: guard forecast subscription against unavailable entities
+- SILAM: cancel forecast subscription when switching integration
+- SILAM: fix subscription race condition where cards showed no data until page refresh
+- SILAM: forecast callback now applies `filterSensorsPostFetch` (allergen filtering)
+- SILAM: forecast subscription recovery after weather entity transitions from unavailable to available
+- SILAM: daily fallback now lowercases location for entity ID matching
+- SILAM: manual mode now tries canonical (English) allergen slug first, then localized slugs; previously the first language mapping (Dutch) was always used, causing entity lookup failures for non-Dutch installations
+- SILAM: manual mode now uses `entity_prefix` as location hint for weather entity discovery; previously an empty location caused the first discovered location to be used, mismatching weather data and sensors
+- Kleenex: location name extraction when `friendly_name` lacks location
+- Kleenex: undefined variable in debug threshold log
+- Kleenex: header truncation for locations with commas
+- Kleenex: editor header regex now matches card pattern for French allergen names
+- Kleenex: fallback sensor search now scoped to configured location, preventing cross-location matches
+- Card header: show generic "Pollen forecast" instead of trailing preposition when no location is resolved
+- Adapter helpers: locale fallback when `defaultLocale` is undefined
+- Sensor detection: non-existent entity IDs (stale or incorrect) are now excluded instead of silently passing through
+- `clampLevel`: treat null/undefined as missing data instead of level 0
+- Removed dead `findSensors`/`getData` stubs from kleenex and gpl adapter facades
+
 ## [2.9.2] - 2026-02-26
 
 ### Fixed

@@ -1,25 +1,5 @@
 // src/constants.js
 
-import * as PP from "./adapters/pp.js";
-import * as DWD from "./adapters/dwd.js";
-import * as PEU from "./adapters/peu.js";
-import * as SILAM from "./adapters/silam.js";
-import * as KLEENEX from "./adapters/kleenex.js";
-import * as PLU from "./adapters/plu.js";
-import * as ATMO from "./adapters/atmo.js";
-import * as GPL from "./adapters/gpl.js";
-
-export const ADAPTERS = {
-  pp: PP,
-  dwd: DWD,
-  peu: PEU,
-  silam: SILAM,
-  kleenex: KLEENEX,
-  plu: PLU,
-  atmo: ATMO,
-  gpl: GPL,
-};
-
 export const DWD_REGIONS = {
   11: "Schleswig-Holstein und Hamburg",
   12: "Schleswig-Holstein und Hamburg",
@@ -50,8 +30,11 @@ export const DWD_REGIONS = {
   124: "Bayern",
 };
 
-export const ALLERGEN_TRANSLATION = {
-  // Svenska
+// Per-adapter allergen alias maps.
+// Each maps raw/localized allergen slugs to canonical keys.
+// The global ALLERGEN_TRANSLATION is computed from these at the bottom.
+
+const PP_ALIASES = {
   al: "alder",
   alm: "elm",
   bok: "beech",
@@ -62,27 +45,28 @@ export const ALLERGEN_TRANSLATION = {
   hassel: "hazel",
   malortsambrosia: "ragweed",
   salg_och_viden: "willow",
+};
 
-  // Tyska (DWD), normaliserade via replaceAAO
+const DWD_ALIASES = {
   erle: "alder",
   ambrosia: "ragweed",
   esche: "ash",
   birke: "birch",
   buche: "beech",
   hasel: "hazel",
-  graser: "grass", // från 'gräser'
-  graeser: "grass", // från 'gräser'
-  beifuss: "mugwort", // från 'beifuss'
+  graser: "grass",
+  graeser: "grass",
+  beifuss: "mugwort",
   roggen: "rye",
+};
 
-  // Engelska (PEU)
+const PEU_ALIASES = {
   olive: "olive",
   plane: "plane",
   cypress: "cypress",
   lime: "lime",
   mold_spores: "mold_spores",
   nettle_and_pellitory: "nettle_and_pellitory",
-  // Add PEU (new API) English names
   fungal_spores: "mold_spores",
   grasses: "grass",
   cypress_family: "cypress",
@@ -94,24 +78,22 @@ export const ALLERGEN_TRANSLATION = {
   alder: "alder",
   hazel: "hazel",
   mugwort: "mugwort",
-  olive: "olive",
   allergy_risk: "allergy_risk",
   index: "allergy_risk",
+};
 
-  // Kleenex pollen radar - individual allergens
+const KLEENEX_ALIASES = {
   pine: "pine",
   poplar: "poplar",
   poaceae: "poaceae",
   chenopod: "chenopod",
   nettle: "nettle",
-  // Kleenex pollen radar - category allergens (to distinguish from individual allergens)
   grass_cat: "grass_cat",
   trees_cat: "trees_cat",
   weeds_cat: "weeds_cat",
-  // Note: Category allergens use _cat suffix to distinguish from individuals
-  // Icon mapping is handled separately in the image system
+};
 
-  // Pollen.lu specific translations and aliases
+const PLU_ALIASES = {
   sorrel: "sorrel",
   rumex: "sorrel",
   ampfer: "sorrel",
@@ -143,13 +125,12 @@ export const ALLERGEN_TRANSLATION = {
   plantain: "plantain",
   wegerich: "plantain",
   armoise: "mugwort",
+};
 
-  // Atmo France specific translations
+const ATMO_ALIASES = {
   ambroisie: "ragweed",
   gramine: "grass",
   olivier: "olive",
-
-  // Atmo France pollution translations
   pm25: "pm25",
   pm10: "pm10",
   ozone: "ozone",
@@ -158,8 +139,9 @@ export const ALLERGEN_TRANSLATION = {
   dioxyde_d_azote: "no2",
   dioxyde_de_soufre: "so2",
   qualite_globale: "qualite_globale",
+};
 
-  // Google Pollen Levels (pollenlevels) specific translations
+const GPL_ALIASES = {
   cottonwood: "poplar",
   juniper: "cypress",
   japanese_cedar: "cypress",
@@ -167,6 +149,25 @@ export const ALLERGEN_TRANSLATION = {
   graminales: "grass",
   cypress_pine: "cypress",
 };
+
+// Merged map: computed from per-adapter aliases (order matches legacy map).
+export const ALLERGEN_TRANSLATION = {
+  ...PP_ALIASES,
+  ...DWD_ALIASES,
+  ...PEU_ALIASES,
+  ...KLEENEX_ALIASES,
+  ...PLU_ALIASES,
+  ...ATMO_ALIASES,
+  ...GPL_ALIASES,
+};
+
+/**
+ * Resolve a raw allergen slug to its canonical key.
+ * Returns the canonical key if found, otherwise the input unchanged.
+ */
+export function toCanonicalAllergenKey(raw) {
+  return ALLERGEN_TRANSLATION[raw] || raw;
+}
 
 // Icon fallback mapping for allergens that don't have their own icons
 export const ALLERGEN_ICON_FALLBACK = {
