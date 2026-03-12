@@ -1657,9 +1657,11 @@ class PollenPrognosCard extends LitElement {
           const availableSensorCount = availableSensors.length;
 
           // Filter adapter sensors against availableSensors and allergen config
+          const isSilamDaily = cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily");
           const filtered = filterSensorsPostFetch(
             sensors, cfg, availableSensors,
-            Object.keys(hass.states), silamAllergenMap.mapping,
+            isSilamDaily ? Object.keys(hass.states) : [],
+            isSilamDaily ? silamAllergenMap.mapping : {},
           );
 
           if (this.debug) {
