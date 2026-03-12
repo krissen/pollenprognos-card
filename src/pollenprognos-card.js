@@ -865,6 +865,9 @@ class PollenPrognosCard extends LitElement {
     }
 
     const stub = getStubConfig(integration) || getStubConfig("pp");
+    // Default to stub's integration when user didn't set one, so
+    // this.config.integration is never undefined.
+    if (!integration) integration = stub.integration;
 
     // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
