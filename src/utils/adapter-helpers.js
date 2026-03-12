@@ -254,18 +254,20 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
     }
   }
 
+  const availableSet = new Set(availableSensors);
+
   let filtered = sensors.filter((s) => {
     if (cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily")) {
       // allergy_risk is derived from the weather entity state, not an
       // individual sensor entity, so it has no entity_id to match.
       if (s.allergenReplaced === "allergy_risk") return true;
       if (s.entity_id) {
-        return availableSensors.includes(s.entity_id);
+        return availableSet.has(s.entity_id);
       }
       if (silamReverse !== null) {
         const key = silamReverse[s.allergenReplaced] || s.allergenReplaced;
         const id = `sensor.silam_pollen_${silamLoc}_${key}`;
-        return availableSensors.includes(id);
+        return availableSet.has(id);
       }
       return false;
     }
