@@ -492,12 +492,12 @@ class PollenPrognosCard extends LitElement {
       }
 
       if (entityId) {
-        // Check entity state — don't subscribe to unavailable entities
+        // Check entity state — don't subscribe to unavailable/unknown entities
         const entityState = this._hass.states[entityId];
-        if (!entityState || entityState.state === "unavailable") {
+        if (!entityState || entityState.state === "unavailable" || entityState.state === "unknown") {
           if (this.debug) {
             console.debug(
-              "[Card][subscribeForecast] Entity unavailable, skipping:",
+              "[Card][subscribeForecast] Entity unavailable/unknown, skipping:",
               entityId,
             );
           }
