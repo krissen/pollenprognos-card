@@ -563,11 +563,13 @@ class PollenPrognosCard extends LitElement {
             this._hass = null;
             this.hass = hass;
           } else {
-            this.sensors = [];
-            this._availableSensorCount = 0;
-            this._isLoaded = true;
-            this._error = "card.error_location_not_found";
-            this.requestUpdate();
+            if (this.sensors?.length !== 0) this.sensors = [];
+            if (this._availableSensorCount !== 0) this._availableSensorCount = 0;
+            if (!this._isLoaded) this._isLoaded = true;
+            if (this._error !== "card.error_location_not_found") {
+              this._error = "card.error_location_not_found";
+              this.requestUpdate();
+            }
           }
         });
         this._forecastUnsub = subPromise;
@@ -585,12 +587,14 @@ class PollenPrognosCard extends LitElement {
           );
         }
         // Mark as loaded and store error so the user is informed
-        this.sensors = [];
-        this._availableSensorCount = 0;
-        this._forecastEvent = null;
-        this._isLoaded = true;
-        this._error = "card.error_location_not_found";
-        this.requestUpdate();
+        if (this.sensors?.length !== 0) this.sensors = [];
+        if (this._availableSensorCount !== 0) this._availableSensorCount = 0;
+        if (this._forecastEvent != null) this._forecastEvent = null;
+        if (!this._isLoaded) this._isLoaded = true;
+        if (this._error !== "card.error_location_not_found") {
+          this._error = "card.error_location_not_found";
+          this.requestUpdate();
+        }
       }
     }
   }
