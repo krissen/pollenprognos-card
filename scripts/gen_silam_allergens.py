@@ -93,6 +93,10 @@ def main():
                     # Lokal slug
                     local_name = info.get("name", key)
                     local_slug = slugify(local_name)
+                    # Reject empty slugs (e.g. Cyrillic stripped without unidecode)
+                    if not local_slug:
+                        print(f"  WARNING: empty slug for {lang}/{key} (name='{local_name}'), skipping")
+                        continue
                     # Undvik dubletter: bara lokalt namn om det skiljer sig från engelsk slug
                     if local_slug != key:
                         mapping[local_slug] = key

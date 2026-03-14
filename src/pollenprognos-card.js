@@ -461,7 +461,7 @@ class PollenPrognosCard extends LitElement {
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug);
+      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -503,11 +503,16 @@ class PollenPrognosCard extends LitElement {
           }
           this._forecastEvent = null;
           const alreadyShowingError = this._error === "card.error_entity_unavailable";
-          this.sensors = [];
-          this._availableSensorCount = 0;
-          this._isLoaded = true;
-          this._error = "card.error_entity_unavailable";
-          if (!alreadyShowingError) this.requestUpdate();
+          // Only assign reactive properties when values actually change,
+          // otherwise each assignment triggers requestUpdate() -> updated()
+          // -> _subscribeForecastIfNeeded() in an infinite microtask loop.
+          if (this.sensors?.length !== 0) this.sensors = [];
+          if (this._availableSensorCount !== 0) this._availableSensorCount = 0;
+          if (!this._isLoaded) this._isLoaded = true;
+          if (!alreadyShowingError) {
+            this._error = "card.error_entity_unavailable";
+            this.requestUpdate();
+          }
           return;
         }
 
@@ -971,6 +976,7 @@ class PollenPrognosCard extends LitElement {
     );
     // SILAM: primary via hass.entities, fallback via regex
     const silamDiscovery = discoverSilamSensors(hass, this.debug);
+    this._silamDiscovery = silamDiscovery;
     let silamStates = [];
     if (silamDiscovery.locations.size > 0) {
       for (const [, loc] of silamDiscovery.locations) {
