@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   fetchForecast,
+  resolveEntityIds,
   stubConfigSILAM,
   SILAM_ALLERGENS,
   SILAM_THRESHOLDS,
@@ -8,6 +9,7 @@ import {
   indexToLevel,
 } from "../../src/adapters/silam.js";
 import { createHass, assertSensorShape } from "../helpers.js";
+import silamAllergenMap from "../../src/adapters/silam_allergen_map.json" assert { type: "json" };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -885,5 +887,106 @@ describe("fetchForecast: 'index' allergen alias", () => {
 
     // index=3 via indexToLevel(3) -> scale[3] = 5
     expect(result[0].day0.state).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: unavailable / missing entity scenarios
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: unavailable entity scenarios", () => {
+  it("returns empty array when weather entity exists but is unavailable", async () => {
+    const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+    const states = {
+      [weatherEntityId]: {
+        state: "unavailable",
+        attributes: {},
+      },
+    };
+    const hass = createHass(states, { entities: {}, language: "en" });
+    const config = makeConfig({ location: "stockholm", allergens: ["birch"] });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+
+  it("returns empty array when no SILAM entities exist at all", async () => {
+    const hass = createHass({}, { entities: {}, language: "en" });
+    const config = makeConfig({ location: "stockholm", allergens: ["birch"] });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveEntityIds: precomputed discovery
+// ---------------------------------------------------------------------------
+
+describe("resolveEntityIds", () => {
+  it("accepts precomputed discovery to avoid redundant calls", async () => {
+    const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+    const sensorId = "sensor.silam_pollen_stockholm_birch";
+    const states = {
+      [weatherEntityId]: { state: "sunny", attributes: {} },
+      [sensorId]: { state: "30", attributes: {} },
+    };
+    const deviceId = "dev_sthlm";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "forecast",
+      },
+      [sensorId]: {
+        entity_id: sensorId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "birch",
+      },
+    };
+    const devices = {
+      [deviceId]: { name: "Stockholm", config_entries: ["entry_sthlm"] },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+
+    // Build discovery once
+    const { discoverSilamSensors } = await import("../../src/utils/silam.js");
+    const discovery = discoverSilamSensors(hass);
+
+    // Pass precomputed discovery
+    const cfg = makeConfig({ location: "stockholm", allergens: ["birch"] });
+    const result = resolveEntityIds(cfg, hass, false, discovery);
+
+    expect(result.get("birch")).toBe(sensorId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// silam_allergen_map.json: data integrity
+// ---------------------------------------------------------------------------
+
+describe("silam_allergen_map.json integrity", () => {
+  it("has no empty keys in any mapping", () => {
+    for (const [lang, mapping] of Object.entries(silamAllergenMap.mapping)) {
+      for (const key of Object.keys(mapping)) {
+        expect(key, `empty key in mapping.${lang}`).not.toBe("");
+      }
+    }
+  });
+
+  it("has no empty values in any mapping", () => {
+    for (const [lang, mapping] of Object.entries(silamAllergenMap.mapping)) {
+      for (const [key, value] of Object.entries(mapping)) {
+        expect(value, `empty value for mapping.${lang}.${key}`).not.toBe("");
+      }
+    }
   });
 });

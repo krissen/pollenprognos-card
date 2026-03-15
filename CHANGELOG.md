@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- SILAM: cache discovery results across `set hass()`, forecast subscription, and `fetchForecast()` to eliminate redundant entity scans
+- SILAM: precompute inverse allergen maps once per `resolveEntityIds()` call instead of per allergen
+- SILAM: add `performance.now()` timing instrumentation under `debug: true`
+- SILAM: fix invalid empty key in Russian allergen mapping; add empty-slug validation to generator script
+
+## [3.0.1] - 2026-03-15
+
+### Fixed
+- SILAM: fix browser freeze when entity is unavailable; infinite microtask loop caused by reactive property assignments triggering re-renders (#193)
+- SILAM: guard reactive assignments in subscription failure and missing weather entity error paths to avoid unnecessary extra renders
+
 ## [3.0.0] - 2026-03-12
 
 ### Changed
