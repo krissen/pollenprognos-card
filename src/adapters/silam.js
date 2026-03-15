@@ -135,13 +135,20 @@ export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   return { allergenCapitalized, allergenShort };
 }
 
-export function resolveEntityIds(cfg, hass, debug = false) {
+export function resolveEntityIds(cfg, hass, debug = false, precomputedDiscovery = null) {
   const map = new Map();
   const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
   const locationSlug = configLocation.toLowerCase();
 
-  const discovery = discoverSilamSensors(hass, debug);
+  const discovery = precomputedDiscovery || discoverSilamSensors(hass, debug);
   const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+
+  // Precompute inverse maps once (master -> HA slug) for all languages
+  const inverseMaps = Object.values(silamAllergenMap.mapping).map(
+    (mapping) => Object.entries(mapping).reduce(
+      (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+    ),
+  );
 
   for (const rawAllergen of cfg.allergens || []) {
     const norm = normalize(rawAllergen);
@@ -155,10 +162,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
       sensorId = resolveManualEntity(hass, prefix, allergen, suffix);
       // Fall back to localized HA slugs from the allergen map
       if (!sensorId) {
-        for (const mapping of Object.values(silamAllergenMap.mapping)) {
-          const inverse = Object.entries(mapping).reduce(
-            (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
-          );
+        for (const inverse of inverseMaps) {
           if (inverse[allergen] && inverse[allergen] !== allergen) {
             sensorId = resolveManualEntity(hass, prefix, inverse[allergen], suffix);
             if (sensorId) break;
@@ -170,10 +174,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
       if (sensorId && !hass.states[sensorId]) sensorId = null;
     }
     if (!sensorId && cfg.location !== "manual") {
-      for (const mapping of Object.values(silamAllergenMap.mapping)) {
-        const inverse = Object.entries(mapping).reduce(
-          (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
-        );
+      for (const inverse of inverseMaps) {
         if (inverse[allergen]) {
           const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
           if (hass.states[candidate]) { sensorId = candidate; break; }
@@ -196,6 +197,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
 export async function fetchForecast(hass, config, forecastEvent = null) {
   const debug = Boolean(config.debug);
+  const t0 = debug ? performance.now() : 0;
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
   const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
@@ -221,8 +223,10 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   }
 
   // Discovery for weather entity (allergen sensors delegated to resolveEntityIds)
+  const tDisc = debug ? performance.now() : 0;
   const discovery = discoverSilamSensors(hass, debug);
   const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+  if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
 
   const weatherEntity = discoveredLoc?.weatherEntity
     || findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);
@@ -262,7 +266,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     maxItems = Math.min(forecastArr.length + 1, days_to_show);
   }
 
-  const entityMap = resolveEntityIds(config, hass, debug);
+  const tRes = debug ? performance.now() : 0;
+  const entityMap = resolveEntityIds(config, hass, debug, discovery);
+  if (debug) console.debug(`[SILAM] resolveEntityIds took ${(performance.now() - tRes).toFixed(1)}ms, resolved: ${entityMap.size}/${allergens.length}`);
 
   // When entity-registry discovery found zero allergen sensors for this
   // location (i.e. the user did not enable any allergens in the SILAM
@@ -439,6 +445,6 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     }
   }
 
-  if (debug) console.debug("[SILAM] fetchForecast klar:", sensors);
+  if (debug) console.debug(`[SILAM] fetchForecast done in ${(performance.now() - t0).toFixed(1)}ms, sensors: ${sensors.length}`);
   return sensors;
 }
