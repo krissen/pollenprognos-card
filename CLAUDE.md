@@ -14,7 +14,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Version is embedded in the build via Vite's `__VERSION__` define
 
 ### Testing
-There are no automated tests in this project. Manual testing is done by loading the card in Home Assistant.
+- `npm run test` - Run all tests with vitest
+- Tests located in `test/` with subdirectories mirroring `src/`:
+  - `test/adapters/` - Contract tests for each adapter (fetchForecast, resolveEntityIds, stubConfig)
+  - `test/utils/` - Unit tests for utility modules
+  - `test/card/` - Card-level logic tests
+  - `test/adapter-registry.test.js` - Registry integration tests
+- Manual testing is also done by loading the card in Home Assistant
 
 ## Project Architecture
 
@@ -88,12 +94,22 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - Special handling for SILAM's weather entity pattern
 - Reverse mapping from weather entity attributes to allergen data
 
+**Slugify** (`src/utils/slugify.js`)
+- `slugify()` helper used by normalize.js to convert allergen names to canonical slugs
+
+**Level Names** (`src/utils/level-names.js`)
+- `buildLevelNames()` - Constructs localized level name lookup from locale data
+
+**Config Comparison** (`src/utils/confcompare.js`)
+- `deepEqual()` - Deep equality comparison for config objects, used to detect meaningful config changes
+
 ### Internationalization
 
 **Translation System** (`src/i18n.js`)
 - Eagerly loads all locale files from `src/locales/*.json` using Vite's `import.meta.glob`
 - `detectLang()` - Auto-detects language from Home Assistant settings
 - `t()` - Translation function using IntlMessageFormat for variable interpolation
+- `SUPPORTED_LOCALES` - Exported array of available locale codes (computed from loaded files)
 - 15 supported languages: cs, da, de, el, en, es, fi, fr, it, nl, no, pl, ru, sk, sv
 
 **Locale Files** (`src/locales/*.json`)
@@ -104,8 +120,9 @@ When adding support for a new integration, see "Adding a New Integration" below.
 ### Graphics
 
 **SVG Icons** (`src/pollenprognos-svgs.js`)
-- Procedurally generated SVG icons for 24+ allergen types
-- `getSvgContent()` returns SVG markup with dynamic styling (fill, stroke, size)
+- 36 static SVG files in `src/images/` imported via Vite's `?raw` query
+- Includes allergen icons (birch, grass, mugwort, etc.) and pollution icons (no2, ozone, pm10, pm25, so2, air_quality) plus allergy risk variants
+- `getSvgContent()` applies dynamic styling (fill, stroke, size) to the static SVGs
 - Icons use both fill and stroke for visual depth
 - Rendered via Lit's `unsafeSVG` directive
 
@@ -124,6 +141,7 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - `ALLERGEN_ICON_FALLBACK` - Default icon when allergen not recognized
 - `PP_POSSIBLE_CITIES` - List of Swedish cities
 - `COSMETIC_FIELDS` - Config fields that don't require data reload
+- `KLEENEX_LOCALIZED_CATEGORY_NAMES` - Localized category name mapping for Kleenex adapter
 
 **Stub Configs**
 Each adapter exports a `stubConfig*` object with all possible configuration options and their defaults. The editor merges user config with stub config to determine which options to display.
