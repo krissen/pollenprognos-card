@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Troubleshooting Guide
+    url: https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md
+    about: Check the troubleshooting guide before opening an issue
+  - name: Documentation
+    url: https://github.com/krissen/pollenprognos-card/tree/master/docs
+    about: Full documentation (installation, configuration, integrations)
