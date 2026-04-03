@@ -1,0 +1,148 @@
+name: Bug Report
+description: Report a bug with pollenprognos-card
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the fields below so we can diagnose the issue quickly.
+
+        **Before submitting**, please check the [Troubleshooting Guide](https://github.com/krissen/pollenprognos-card/blob/HEAD/docs/troubleshooting.md):
+        - [ ] I verified my **running** card version (from the browser console, not HACS)
+        - [ ] I cleared my browser cache / reset frontend cache in the Companion app
+        - [ ] I checked that no other pollen cards are installed (see Troubleshooting Guide)
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+      placeholder: |
+        When I open the card, it shows "No pollen sensors found" even though sensors exist in Developer Tools > States.
+    validations:
+      required: true
+
+  - type: input
+    id: card-version
+    attributes:
+      label: Card version (from browser console)
+      description: |
+        Open your browser's developer console (press F12, then click the "Console" tab) and look for `Pollenprognos Card: version <tag-or-short-sha>`.
+        This is the version actually running in your browser, which may differ from what HACS shows.
+        See [how to check](https://github.com/krissen/pollenprognos-card/blob/HEAD/docs/troubleshooting.md#how-to-check-the-running-version).
+      placeholder: "v3.0.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration
+      description: Which pollen data integration are you using?
+      options:
+        - Pollenprognos (PP)
+        - DWD Pollenflug
+        - Polleninformation EU (PEU)
+        - SILAM Pollen Allergy Sensor
+        - Kleenex Pollen Radar
+        - Pollen.lu (PLU)
+        - Atmo France
+        - Google Pollen Levels (GPL)
+        - Other / Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Pollen data integration version
+      description: |
+        This is the version of the pollen data integration (not the card).
+        Find it in Settings > Devices & Services > click your pollen integration > three-dot menu > About.
+      placeholder: "v0.4.4"
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      description: Found in Settings > About, or click the version number at the bottom of the sidebar
+      placeholder: "2026.3.4"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / platform
+      description: Which browser or app are you using?
+      placeholder: "Chrome on Windows / Safari on iOS / HA Companion on Android"
+    validations:
+      required: true
+
+  - type: textarea
+    id: yaml-config
+    attributes:
+      label: Card configuration
+      description: |
+        Copy from the card's code editor:
+        1. Edit your dashboard
+        2. Click "Edit" on the card (pencil icon)
+        3. Click "Show code editor" (if you see a visual form)
+        4. Copy everything shown
+      render: yaml
+      placeholder: |
+        type: custom:pollenprognos-card
+        integration: silam
+        location: stockholm
+        allergens:
+          - birch
+          - grass
+    validations:
+      required: true
+
+  - type: textarea
+    id: entity-ids
+    attributes:
+      label: Sensor entity IDs
+      description: |
+        Go to Developer Tools > States (Settings > Developer Tools > States in HA 2026.2+).
+        Search for your pollen sensors. Copy 2-3 example entity IDs as text (not a screenshot).
+      placeholder: |
+        sensor.silam_pollen_home_birch_2
+        sensor.silam_pollen_home_grass_2
+        sensor.silam_pollen_home_mugwort_2
+    validations:
+      required: false
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Browser console output
+      description: |
+        Open the browser console (F12 > Console tab). Copy any red errors or warnings related to the card.
+        For detection issues, add `debug: true` to your card config first, then copy the debug output.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: ha-logs
+    attributes:
+      label: Home Assistant log errors
+      description: |
+        Check Settings > System > Logs for errors from your pollen integration.
+        Search for the integration name (e.g., "silam", "pollenprognos") and copy any relevant entries.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help (screenshots, steps to reproduce, things you already tried).
+    validations:
+      required: false

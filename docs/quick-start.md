@@ -262,23 +262,12 @@ Now that you have a basic card running, explore more options:
 
 ## Troubleshooting
 
-### Card shows "No sensors found"
+If something is not working, see the [Troubleshooting Guide](troubleshooting.md) for step-by-step solutions to common issues:
 
-1. Verify your integration is working: Developer Tools → States
-2. Check that you selected the correct `integration` and location
-3. See [installation.md](installation.md#troubleshooting) for more help
-
-### Allergens not showing
-
-1. Make sure the allergen names match your integration's sensor names
-2. Check the `pollen_threshold` setting (default is 1, try setting to 0)
-3. See the allergen keys for your integration in [configuration.md](configuration.md#valid-allergen-keys)
-
-### Card not updating
-
-1. Check that your pollen integration is updating its sensors
-2. Verify the integration version compatibility in [integrations.md](integrations.md)
-3. Try refreshing your browser cache (Ctrl+F5)
+- [No sensors found](troubleshooting.md#no-pollen-sensors-found)
+- [Allergens missing](troubleshooting.md#allergens-missing-from-the-card)
+- [Cache and version problems](troubleshooting.md#cache-and-version-problems)
+- [Is it a card issue or an integration issue?](troubleshooting.md#is-it-a-card-issue-or-an-integration-issue)
 
 ## Getting Help
 

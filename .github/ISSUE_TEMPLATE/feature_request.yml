@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What would you like the card to do?
+      placeholder: |
+        I would like the card to support a new integration / show data differently / add a config option for...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: Why is this feature useful? What problem does it solve?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Related integration (if any)
+      options:
+        - Not integration-specific
+        - Pollenprognos (PP)
+        - DWD Pollenflug
+        - Polleninformation EU (PEU)
+        - SILAM Pollen Allergy Sensor
+        - Kleenex Pollen Radar
+        - Pollen.lu (PLU)
+        - Atmo France
+        - Google Pollen Levels (GPL)
+        - New integration
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any mockups, examples from other cards, or further details.
+    validations:
+      required: false
