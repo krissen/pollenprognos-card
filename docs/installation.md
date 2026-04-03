@@ -143,21 +143,8 @@ Install via HACS:
 
 ## Troubleshooting
 
-### Card Not Found
+For detailed troubleshooting, see the [Troubleshooting Guide](troubleshooting.md). Common issues include:
 
-If the card doesn't appear in the Lovelace card picker:
-1. Make sure you reloaded your browser cache (Ctrl+F5)
-2. Check the browser console for errors (F12)
-3. Verify the file exists in `/config/www/pollenprognos-card.js` (for manual installation)
-
-### No Sensors Showing
-
-If the card shows "No pollen sensors found":
-1. Verify your pollen integration is installed and configured
-2. Check that sensors are available in Developer Tools → States
-3. Make sure sensor names match the expected pattern for your integration
-4. See [integrations.md](integrations.md) for integration-specific requirements
-
-### Version Compatibility
-
-Different card versions require specific integration versions. See [integrations.md](integrations.md) for the compatibility matrix.
+- **Card not found**: Clear your browser cache (Ctrl+Shift+R) and check for [conflicting card installations](troubleshooting.md#conflicting-card-installations)
+- **No sensors showing**: Check that sensors exist in Developer Tools > States and that [your integration version is compatible](integrations.md)
+- **Version mismatch**: Verify the [actually running version](troubleshooting.md#how-to-check-the-running-version) matches what HACS installed
