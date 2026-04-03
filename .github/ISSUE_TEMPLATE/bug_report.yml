@@ -28,10 +28,10 @@ body:
     attributes:
       label: Card version (from browser console)
       description: |
-        Open your browser's developer console (press F12, then click the "Console" tab) and look for `Pollenprognos Card vX.Y.Z`.
+        Open your browser's developer console (press F12, then click the "Console" tab) and look for `Pollenprognos Card: version <tag-or-short-sha>`.
         This is the version actually running in your browser, which may differ from what HACS shows.
         See [how to check](https://github.com/krissen/pollenprognos-card/blob/HEAD/docs/troubleshooting.md#how-to-check-the-running-version).
-      placeholder: "v3.0.1 (commit abc1234)"
+      placeholder: "v3.0.1"
     validations:
       required: true
 

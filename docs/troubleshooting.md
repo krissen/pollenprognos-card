@@ -54,9 +54,9 @@ The card prints its version to the **browser console** on load. The browser cons
 2. Open the browser console:
    - **Desktop browsers**: Press F12 (or right-click anywhere on the page and select "Inspect"), then click the **Console** tab
    - **HA Companion app**: The console is not directly accessible; add `show_version: true` to your card config instead (see tip below)
-3. Look for a line like: `Pollenprognos Card vX.Y.Z (commit abc1234)`
+3. Look for a line like: `Pollenprognos Card: version v3.0.1`
 
-This is the **actually running** version. If it does not match what HACS shows as installed, you have a cache problem (see above).
+This is the **actually running** version. The value after `version` is either a git tag (e.g. `v3.0.1`) or a short commit hash when the build is not on an exact tag. If it does not match what HACS shows as installed, you have a cache problem (see above).
 
 > **Tip:** Add `show_version: true` to your card config to ensure the version is always logged to the console.
 
@@ -130,7 +130,7 @@ Some or all allergens are not showing even though sensors exist.
 - Enable `debug: true` in YAML mode and check the console for detection messages
 
 **Allergen list resets when opening the editor:**
-- This was fixed in v2.6.0. Update the card.
+- This was fixed in v2.7.1. Update the card.
 
 **Editor text unreadable (wrong colors):**
 - This was a CSS theme compatibility issue fixed in v2.3.4. Update the card.
@@ -146,7 +146,7 @@ If selecting an integration or loading the card causes the browser tab to freeze
 3. Try removing and re-adding the integration.
 4. If the issue is with SILAM, check that the integration itself is working: verify that the weather entity (e.g., `weather.silam_pollen_home`) has valid attributes.
 
-This was specifically addressed for SILAM in card v3.0.1 by adding timeouts to forecast subscriptions.
+This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-property infinite microtask loop that could freeze the browser.
 
 ---
 
