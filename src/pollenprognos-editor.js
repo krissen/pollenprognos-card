@@ -813,23 +813,9 @@ class PollenPrognosCardEditor extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
-    // Atmo France: use hass.entities (primary) or regex (fallback)
-    let atmoStates = [];
-    if (hass.entities) {
-      atmoStates = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "atmofrance" && !entry.entity_category)
-        .map(([eid]) => eid)
-        .filter((id) => !/_j_\d+$/.test(id) && !id.includes("concentration_"));
-    }
-    if (!atmoStates.length) {
-      atmoStates = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          /(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-          !/_j_\d+$/.test(id) &&
-          !id.includes("concentration_"),
-      );
-    }
+    // Atmo France: discovery-based detection (same function used for location list)
+    const atmoDiscovery = discoverAtmoSensors(hass, false);
+    const atmoDetected = atmoDiscovery.locations.size > 0;
     // GPL: use hass.entities (primary) or attribution (fallback)
     let gplStates = [];
     if (hass.entities) {
@@ -866,12 +852,12 @@ class PollenPrognosCardEditor extends LitElement {
       else if (peuStates.length) integration = "peu";
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
-      else if (atmoStates.length) integration = "atmo";
+      else if (atmoDetected) integration = "atmo";
       else if (gpStates.length) integration = "gp";
       else if (gplStates.length) integration = "gpl";
       this._userConfig.integration = integration;
       if (this.debug)
-        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoStates.length, gp: gpStates.length, gpl: gplStates.length, chosen: integration });
+        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoDiscovery.locations.size, gp: gpStates.length, gpl: gplStates.length, chosen: integration });
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data
@@ -1110,8 +1096,7 @@ class PollenPrognosCardEditor extends LitElement {
         ),
       );
 
-      // Collect Atmo France locations via discovery (handles prefixed entity IDs)
-      const atmoDiscovery = discoverAtmoSensors(hass, false);
+      // Collect Atmo France locations (reuse discovery from autodetect above)
       this.installedAtmoLocations = Array.from(atmoDiscovery.locations.entries())
         .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
