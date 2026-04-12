@@ -18,7 +18,7 @@ import { PEU_ALLERGENS } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
+import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP, discoverAtmoSensors } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import {
   discoverSilamSensors,
@@ -788,12 +788,23 @@ class PollenPrognosCardEditor extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
-    const atmoStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-        !/_j_\d+$/.test(id),
-    );
+    // Atmo France: use hass.entities (primary) or regex (fallback)
+    let atmoStates = [];
+    if (hass.entities) {
+      atmoStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "atmofrance" && !entry.entity_category)
+        .map(([eid]) => eid)
+        .filter((id) => !/_j_\d+$/.test(id) && !id.includes("concentration_"));
+    }
+    if (!atmoStates.length) {
+      atmoStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+          !/_j_\d+$/.test(id) &&
+          !id.includes("concentration_"),
+      );
+    }
     // GPL: use hass.entities (primary) or attribution (fallback)
     let gplStates = [];
     if (hass.entities) {
@@ -1048,25 +1059,10 @@ class PollenPrognosCardEditor extends LitElement {
         ),
       );
 
-      // Collect Atmo France locations (pollen + pollution entities)
-      const atmoLocationRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
-      this.installedAtmoLocations = Array.from(
-        new Map(
-          atmoStates
-            .map((id) => {
-              const m = id.match(atmoLocationRe);
-              if (!m) return null;
-              const locationSlug = m[1];
-              const entity = hass.states[id];
-              const title =
-                entity?.attributes?.["Nom de la zone"] ||
-                locationSlug.charAt(0).toUpperCase() +
-                  locationSlug.slice(1).replace(/_/g, " ");
-              return [locationSlug, title];
-            })
-            .filter((entry) => entry !== null),
-        ),
-      );
+      // Collect Atmo France locations via discovery (handles prefixed entity IDs)
+      const atmoDiscovery = discoverAtmoSensors(hass, false);
+      this.installedAtmoLocations = Array.from(atmoDiscovery.locations.entries())
+        .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
