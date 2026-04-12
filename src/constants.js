@@ -151,11 +151,41 @@ const GPL_ALIASES = {
 };
 
 // GP (svenove/home-assistant-google-pollen) shares Google Pollen API allergens.
-// Plant aliases are already covered by GPL_ALIASES; GP_ALIASES adds only
-// display_name variants that differ.
+// Covers slugified display_names from the Google Pollen API in common languages.
+// Swedish names that overlap with PP_ALIASES (bjork, ek, hassel, al, grabo,
+// malortsambrosia, gras) are already handled; these cover the rest.
 const GP_ALIASES = {
+  // Multi-word English/API codes
   cypress_pine: "cypress",
   japanese_cedar: "cypress",
+  // Swedish
+  ask: "ash",
+  poppel: "poplar",
+  tall: "pine",
+  oliv: "olive",
+  lonn: "maple",
+  // German
+  eiche: "oak",
+  kiefer: "pine",
+  olive: "olive",
+  ahorn: "maple",
+  // French
+  bouleau: "birch",
+  chene: "oak",
+  aulne: "alder",
+  noisetier: "hazel",
+  frene: "ash",
+  orme: "elm",
+  olivier: "olive",
+  erable: "maple",
+  // Dutch
+  berk: "birch",
+  eik: "oak",
+  els: "alder",
+  es: "ash",
+  den: "pine",
+  iep: "elm",
+  olijf: "olive",
 };
 
 // Merged map: computed from per-adapter aliases (order matches legacy map).

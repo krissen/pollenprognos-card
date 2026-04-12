@@ -30,6 +30,19 @@ function classifyCode(code) {
 }
 
 /**
+ * Classify a sensor as a plant only (skip category map).
+ * Used when a collision is detected and we need the plant interpretation.
+ */
+function classifySensorAsPlant(state, entityEntry) {
+  const code = codeFromUniqueId(entityEntry?.unique_id);
+  if (code) return toCanonicalAllergenKey(code);
+
+  const displayName = state?.attributes?.display_name;
+  if (!displayName) return null;
+  return toCanonicalAllergenKey(slugify(displayName));
+}
+
+/**
  * Classify a google_pollen sensor.
  *
  * Tries three strategies in order:
@@ -102,7 +115,7 @@ export function discoverGpSensors(hass, debug = false) {
     if (!state) continue;
 
     const entityEntry = usedPrimary ? hass.entities?.[eid] : undefined;
-    const allergenKey = classifySensor(state, entityEntry);
+    let allergenKey = classifySensor(state, entityEntry);
     if (!allergenKey) {
       if (debug) console.debug("[GP] Could not classify sensor:", eid);
       continue;
@@ -131,7 +144,22 @@ export function discoverGpSensors(hass, debug = false) {
       result.locations.set(configEntryId, { label, entities: new Map() });
     }
 
-    result.locations.get(configEntryId).entities.set(allergenKey, eid);
+    // Handle collision: when two sensors share the same slugified display_name
+    // (e.g. Swedish "Gräs" = both GRASS category and GRAMINALES plant), the
+    // first gets the category key; the second retries as a plant.
+    const locEntities = result.locations.get(configEntryId).entities;
+    if (locEntities.has(allergenKey)) {
+      const altKey = classifySensorAsPlant(state, entityEntry);
+      if (altKey && altKey !== allergenKey && !locEntities.has(altKey)) {
+        if (debug) console.debug("[GP] Collision on", allergenKey, "-> reclassified as", altKey, "for", eid);
+        allergenKey = altKey;
+      } else {
+        if (debug) console.debug("[GP] Collision: duplicate key", allergenKey, "for", eid, "(skipped)");
+        continue;
+      }
+    }
+
+    locEntities.set(allergenKey, eid);
   }
 
   if (debug) {
