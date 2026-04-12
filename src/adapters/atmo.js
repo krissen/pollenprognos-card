@@ -24,26 +24,6 @@ export const ATMO_ALLERGEN_MAP = {
   qualite_globale: "qualite_globale",
 };
 
-// Reverse map for sensor detection: French slug → canonical
-const ATMO_REVERSE_MAP = Object.fromEntries(
-  Object.entries(ATMO_ALLERGEN_MAP).map(([k, v]) => [v, k]),
-);
-
-// Known French allergen slugs (excluding allergy_risk special entity)
-const ATMO_KNOWN_FR_SLUGS = new Set([
-  "ambroisie",
-  "armoise",
-  "aulne",
-  "bouleau",
-  "gramine",
-  "olivier",
-  "pm25",
-  "pm10",
-  "ozone",
-  "dioxyde_d_azote",
-  "dioxyde_de_soufre",
-]);
-
 // Pollution allergens use a different entity pattern (no "niveau_" prefix)
 export const ATMO_POLLUTION_ALLERGENS = new Set(["pm25", "pm10", "ozone", "no2", "so2"]);
 
@@ -162,9 +142,10 @@ export function discoverAtmoSensors(hass, debug = false) {
 
   // Fallback: regex scan (matches both prefixed and non-prefixed patterns)
   if (!entityIds.length && hass.states) {
+    const atmoFallbackRe = /^sensor\.(?:\w+_)?(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
     entityIds = Object.keys(hass.states).filter((id) =>
       typeof id === "string" &&
-      /(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:^sensor\.(?:\w+_)?(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre))|qualite_globale(?:_pollen)?)_/.test(id) &&
+      atmoFallbackRe.test(id) &&
       !/_j_\d+$/.test(id) &&
       !id.includes("concentration_"),
     );
