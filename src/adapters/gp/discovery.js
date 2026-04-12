@@ -1,22 +1,57 @@
 // src/adapters/gp/discovery.js
 import { toCanonicalAllergenKey } from "../../constants.js";
+import { slugify } from "../../utils/slugify.js";
 import { normalizeManualPrefix, resolveManualEntity } from "../../utils/adapter-helpers.js";
 import { GP_DOMAIN, GP_CATEGORY_MAP, GP_BASE_ALLERGENS } from "./constants.js";
 
+// Regex to extract pollen code from unique_id.
+// Format: google_pollen_{code}_{lat}_{lon}
+// Pollen codes never start with a digit; coordinates always do.
+const UNIQUE_ID_RE = /^google_pollen_(.+?)_-?\d/;
+
 /**
- * Classify a google_pollen sensor by its display_name attribute.
- * Returns the canonical allergen key (e.g. "birch", "grass_cat") or null.
+ * Extract the pollen code from a unique_id string.
+ * Returns the lowercase code (e.g. "birch", "tree") or null.
  */
-export function classifySensor(state) {
+function codeFromUniqueId(uniqueId) {
+  if (!uniqueId) return null;
+  const m = UNIQUE_ID_RE.exec(uniqueId);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/**
+ * Map a raw pollen code (English, from unique_id or display_name) to a
+ * canonical allergen key. Categories are checked first.
+ */
+function classifyCode(code) {
+  if (!code) return null;
+  if (GP_CATEGORY_MAP[code]) return GP_CATEGORY_MAP[code];
+  return toCanonicalAllergenKey(code);
+}
+
+/**
+ * Classify a google_pollen sensor.
+ *
+ * Tries three strategies in order:
+ * 1. unique_id from entity registry (language-independent, always English)
+ * 2. display_name with slugify (strips diacritics) + alias lookup
+ * 3. Returns null if unclassifiable
+ */
+export function classifySensor(state, entityEntry) {
+  // 1. unique_id (best: always English pollen code)
+  const code = codeFromUniqueId(entityEntry?.unique_id);
+  if (code) {
+    const key = classifyCode(code);
+    if (key) return key;
+  }
+
+  // 2. display_name with slugify (handles diacritics: Björk -> bjork)
   const displayName = state?.attributes?.display_name;
   if (!displayName) return null;
 
-  const slug = displayName.trim().toLowerCase().replace(/\s+/g, "_");
+  const slug = slugify(displayName);
 
-  // Check for category (grass, tree, weed)
   if (GP_CATEGORY_MAP[slug]) return GP_CATEGORY_MAP[slug];
-
-  // Plant: normalize through the global alias map
   return toCanonicalAllergenKey(slug);
 }
 
@@ -66,7 +101,8 @@ export function discoverGpSensors(hass, debug = false) {
     const state = hass.states[eid];
     if (!state) continue;
 
-    const allergenKey = classifySensor(state);
+    const entityEntry = usedPrimary ? hass.entities?.[eid] : undefined;
+    const allergenKey = classifySensor(state, entityEntry);
     if (!allergenKey) {
       if (debug) console.debug("[GP] Could not classify sensor:", eid);
       continue;
@@ -160,7 +196,8 @@ function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
       if (prefix && !idPart.startsWith(prefix)) continue;
       if (suffix && !idPart.endsWith(suffix)) continue;
 
-      const key = classifySensor(state);
+      const entityEntry = hass.entities?.[eid];
+      const key = classifySensor(state, entityEntry);
       if (key === allergen) return eid;
     }
 

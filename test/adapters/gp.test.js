@@ -252,6 +252,136 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// discoverGpSensors: unique_id classification (language-independent)
+// ---------------------------------------------------------------------------
+
+describe("discoverGpSensors: unique_id classification", () => {
+  it("classifies via unique_id when display_name is localized (Swedish)", () => {
+    const statesMap = {
+      "sensor.google_pollen_svenove_bjork": makeSensor("Björk", 4),
+      "sensor.google_pollen_svenove_trad": makeSensor("Träd", 2),
+      "sensor.google_pollen_svenove_ogras": makeSensor("Ogräs", 1),
+    };
+    const entities = {
+      "sensor.google_pollen_svenove_bjork": {
+        entity_id: "sensor.google_pollen_svenove_bjork",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_birch_59.3773_13.5313",
+      },
+      "sensor.google_pollen_svenove_trad": {
+        entity_id: "sensor.google_pollen_svenove_trad",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_tree_59.3773_13.5313",
+      },
+      "sensor.google_pollen_svenove_ogras": {
+        entity_id: "sensor.google_pollen_svenove_ogras",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_weed_59.3773_13.5313",
+      },
+    };
+    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const result = discoverGpSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.has("birch")).toBe(true);
+    expect(loc.entities.has("trees_cat")).toBe(true);
+    expect(loc.entities.has("weeds_cat")).toBe(true);
+  });
+
+  it("distinguishes category 'Gräs' from plant 'Gräs' via unique_id", () => {
+    const statesMap = {
+      "sensor.google_pollen_svenove_gras": makeSensor("Gräs", 3),
+      "sensor.google_pollen_svenove_gras_2": makeSensor("Gräs", 2),
+    };
+    const entities = {
+      "sensor.google_pollen_svenove_gras": {
+        entity_id: "sensor.google_pollen_svenove_gras",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_graminales_59.3773_13.5313",
+      },
+      "sensor.google_pollen_svenove_gras_2": {
+        entity_id: "sensor.google_pollen_svenove_gras_2",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_grass_59.3773_13.5313",
+      },
+    };
+    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const result = discoverGpSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.has("grass")).toBe(true);
+    expect(loc.entities.has("grass_cat")).toBe(true);
+    expect(loc.entities.size).toBe(2);
+  });
+
+  it("handles multi-word pollen codes like cypress_pine", () => {
+    const statesMap = {
+      "sensor.google_pollen_cp": makeSensor("Cypress Pine", 1),
+    };
+    const entities = {
+      "sensor.google_pollen_cp": {
+        entity_id: "sensor.google_pollen_cp",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_cypress_pine_59.3773_13.5313",
+      },
+    };
+    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const result = discoverGpSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.has("cypress")).toBe(true);
+  });
+
+  it("handles negative coordinates in unique_id", () => {
+    const statesMap = {
+      "sensor.google_pollen_birch": makeSensor("Birch", 3),
+    };
+    const entities = {
+      "sensor.google_pollen_birch": {
+        entity_id: "sensor.google_pollen_birch",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        unique_id: "google_pollen_birch_-33.8688_151.2093",
+      },
+    };
+    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const result = discoverGpSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.has("birch")).toBe(true);
+  });
+
+  it("falls back to display_name with slugify when unique_id is absent", () => {
+    const statesMap = {
+      "sensor.google_pollen_svenove_bjork": makeSensor("Björk", 4),
+    };
+    const entities = {
+      "sensor.google_pollen_svenove_bjork": {
+        entity_id: "sensor.google_pollen_svenove_bjork",
+        platform: GP_DOMAIN,
+        device_id: "dev1",
+        entity_category: null,
+        // no unique_id
+      },
+    };
+    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const result = discoverGpSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    // slugify("Björk") -> "bjork" -> PP_ALIASES -> "birch"
+    expect(loc.entities.has("birch")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // fetchForecast: basic shape
 // ---------------------------------------------------------------------------
 
