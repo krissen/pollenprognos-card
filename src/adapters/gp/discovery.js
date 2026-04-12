@@ -20,26 +20,32 @@ function codeFromUniqueId(uniqueId) {
 }
 
 /**
- * Map a raw pollen code (English, from unique_id or display_name) to a
- * canonical allergen key. Categories are checked first.
+ * Map a raw pollen code to an allergen key.
+ * Categories get mapped to their canonical keys (grass_cat, trees_cat, weeds_cat).
+ * Plant codes are kept as-is (matching GPL behavior), since canonicalization
+ * for display/icons happens later via resolveAllergenNames/ALLERGEN_ICON_FALLBACK.
  */
 function classifyCode(code) {
   if (!code) return null;
   if (GP_CATEGORY_MAP[code]) return GP_CATEGORY_MAP[code];
-  return toCanonicalAllergenKey(code);
+  return code;
 }
 
 /**
  * Classify a sensor as a plant only (skip category map).
  * Used when a collision is detected and we need the plant interpretation.
+ * Returns the raw pollen code (not canonicalized) to match GPL behavior.
  */
 function classifySensorAsPlant(state, entityEntry) {
   const code = codeFromUniqueId(entityEntry?.unique_id);
-  if (code) return toCanonicalAllergenKey(code);
+  if (code) return code;
 
   const displayName = state?.attributes?.display_name;
   if (!displayName) return null;
-  return toCanonicalAllergenKey(slugify(displayName));
+  const slug = slugify(displayName);
+  // For plant collision fallback, try alias map but prefer raw code.
+  // toCanonicalAllergenKey maps display_name slugs to known allergen keys.
+  return toCanonicalAllergenKey(slug);
 }
 
 /**

@@ -29,12 +29,14 @@ const LANGUAGES = [
 // Pollen codes from the API (categories)
 const CATEGORY_CODES = ["GRASS", "TREE", "WEED"];
 
-// Canonical keys for our card
+// Category keys use special suffixed names; plant keys use the raw API code
+// (lowercase). This matches GPL behavior where raw codes are preserved and
+// canonicalization only happens at display/icon time.
 const CATEGORY_CANONICAL = { GRASS: "grass_cat", TREE: "trees_cat", WEED: "weeds_cat" };
 const PLANT_CANONICAL = {
-  ALDER: "alder", ASH: "ash", BIRCH: "birch", COTTONWOOD: "poplar",
-  CYPRESS_PINE: "cypress", ELM: "elm", GRAMINALES: "grass",
-  HAZEL: "hazel", JAPANESE_CEDAR: "cypress", JUNIPER: "cypress",
+  ALDER: "alder", ASH: "ash", BIRCH: "birch", COTTONWOOD: "cottonwood",
+  CYPRESS_PINE: "cypress_pine", ELM: "elm", GRAMINALES: "graminales",
+  HAZEL: "hazel", JAPANESE_CEDAR: "japanese_cedar", JUNIPER: "juniper",
   MAPLE: "maple", MUGWORT: "mugwort", OAK: "oak", OLIVE: "olive",
   PINE: "pine", RAGWEED: "ragweed",
 };

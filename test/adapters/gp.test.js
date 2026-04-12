@@ -317,7 +317,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     const hass = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
-    expect(loc.entities.has("grass")).toBe(true);
+    expect(loc.entities.has("graminales")).toBe(true);
     expect(loc.entities.has("grass_cat")).toBe(true);
     expect(loc.entities.size).toBe(2);
   });
@@ -338,7 +338,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     const hass = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
-    expect(loc.entities.has("cypress")).toBe(true);
+    expect(loc.entities.has("cypress_pine")).toBe(true);
   });
 
   it("handles negative coordinates in unique_id", () => {
