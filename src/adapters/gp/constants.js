@@ -5,48 +5,62 @@ import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 export const GP_DOMAIN = "google_pollen";
 
 // Map slugified category display_names to canonical category keys.
-// Covers the Google Pollen API's category names in supported languages.
+// Auto-generated from the Google Pollen API for 35 supported languages
+// by scripts/fetch-gp-translations.js. Slugs <= 2 chars excluded (ambiguous).
 export const GP_CATEGORY_MAP = {
-  // English
-  grass: "grass_cat",
-  tree: "trees_cat",
-  weed: "weeds_cat",
-  // Swedish
-  gras: "grass_cat",
-  trad: "trees_cat",
-  ogras: "weeds_cat",
-  // German
-  baum: "trees_cat",
-  unkraut: "weeds_cat",
-  // French
-  arbre: "trees_cat",
-  herbe: "grass_cat",
-  // Dutch
-  boom: "trees_cat",
-  onkruid: "weeds_cat",
-  // Spanish
+  agac: "trees_cat",
+  alberi: "trees_cat",
   arbol: "trees_cat",
-  hierba: "grass_cat",
-  maleza: "weeds_cat",
-  // Italian
-  albero: "trees_cat",
+  arbore: "trees_cat",
+  arbre: "trees_cat",
+  arvore: "trees_cat",
+  baume: "trees_cat",
+  bomen: "trees_cat",
+  bur_ian: "weeds_cat",
+  burina: "weeds_cat",
+  buruieni: "weeds_cat",
+  c_d_i: "weeds_cat",
+  cay: "trees_cat",
+  chwasty: "weeds_cat",
+  cimen: "grass_cat",
+  derevo: "trees_cat",
+  drzewa: "trees_cat",
   erba: "grass_cat",
-  erbaccia: "weeds_cat",
-  // Danish/Norwegian
-  trae: "trees_cat",
-  ukrudt: "weeds_cat",
-  ugress: "weeds_cat",
-  // Finnish
+  erbacce: "weeds_cat",
+  ervas: "weeds_cat",
+  grama: "grass_cat",
+  gramineas: "grass_cat",
+  gras: "grass_cat",
+  grass: "grass_cat",
+  grasser: "weeds_cat",
+  gress: "grass_cat",
+  gulma: "weeds_cat",
+  gyomnoveny: "weeds_cat",
+  heinakasvit: "weeds_cat",
+  herbacee: "grass_cat",
+  herbacees: "weeds_cat",
+  iarba: "grass_cat",
+  maleza: "weeds_cat",
+  ogras: "weeds_cat",
+  onkruid: "weeds_cat",
+  plevelne_rostliny: "weeds_cat",
+  pohon: "trees_cat",
   puu: "trees_cat",
-  rikkaruoho: "weeds_cat",
-  // Polish
-  drzewo: "trees_cat",
-  trawa: "grass_cat",
-  chwast: "weeds_cat",
-  // Czech/Slovak
-  strom: "trees_cat",
+  rumput: "grass_cat",
+  ruoho: "grass_cat",
+  sorniaki: "weeds_cat",
+  stromy: "trees_cat",
+  tra: "trees_cat",
+  trad: "trees_cat",
   trava: "grass_cat",
-  plevel: "weeds_cat",
+  travy: "grass_cat",
+  trawy: "grass_cat",
+  tre: "trees_cat",
+  tree: "trees_cat",
+  ugress: "weeds_cat",
+  unkraut: "weeds_cat",
+  weed: "weeds_cat",
+  yabanci_ot: "weeds_cat",
 };
 
 // Base allergens (categories) always available
