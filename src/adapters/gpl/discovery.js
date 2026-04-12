@@ -101,9 +101,7 @@ export function discoverGplSensors(hass, debug = false) {
       if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
         const deviceId = hass.entities[eid].device_id;
         const device = hass.devices[deviceId];
-        if (device?.name) {
-          label = device.name;
-        }
+        label = device?.name_by_user || device?.name || label;
       } else {
         // Fallback: try friendly_name from first sensor
         const friendly = state.attributes?.friendly_name || "";

@@ -123,7 +123,7 @@ export function discoverGpSensors(hass, debug = false) {
       if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
         const deviceId = hass.entities[eid].device_id;
         const device = hass.devices[deviceId];
-        if (device?.name) label = device.name;
+        label = device?.name_by_user || device?.name || label;
       } else {
         const friendly = state.attributes?.friendly_name || "";
         if (friendly) label = friendly;
