@@ -191,6 +191,21 @@ const GP_ALIASES = {
   c_ph_n_h_ng: "ragweed",
   cam: "pine",
   carvalho: "oak",
+  // GRAMINALES plant aliases for languages where GRASS category and GRAMINALES
+  // plant share the same display_name (collision fallback needs these).
+  // These slugs also exist in GP_CATEGORY_MAP -> grass_cat; the plant alias
+  // is used by the collision handler when the category slot is already taken.
+  cimen: "grass",
+  erba: "grass",
+  grama: "grass",
+  gramineas: "grass",
+  gress: "grass",
+  iarba: "grass",
+  rumput: "grass",
+  ruoho: "grass",
+  trava: "grass",
+  travy: "grass",
+  trawy: "grass",
   cay_b_ch_d_ng: "birch",
   cay_d_ng_tia: "alder",
   cay_g_d_ng: "poplar",
