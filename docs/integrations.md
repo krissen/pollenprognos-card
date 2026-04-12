@@ -90,12 +90,13 @@ The Google Pollen (GP) adapter supports the [home-assistant-google-pollen](https
 
 ### Sensor classification
 
-Allergens are identified via the `display_name` attribute. The value is lowercased, spaces replaced with underscores, then looked up:
+The adapter uses a three-tier strategy:
 
-- `"Grass"`, `"Tree"`, `"Weed"` map to category keys (`grass_cat`, `trees_cat`, `weeds_cat`)
-- Plant names (e.g. `"Birch"`, `"Cypress Pine"`) are normalized through the global allergen translation map
+1. **`unique_id`** (primary, language-independent): If available in `hass.entities`, the pollen code is extracted from the unique_id pattern `google_pollen_{code}_{lat}_{lon}`. This always contains the English code regardless of language setting.
 
-Since `display_name` is localized by the integration's language setting, the card's existing normalization handles common translations. English display names are supported out of the box.
+2. **`display_name` with transliteration** (fallback): The `display_name` attribute is transliterated to ASCII using `any-ascii` (matching HA's backend transliteration), then looked up in the category map and allergen alias tables. Supports all 35 languages the Google Pollen API offers.
+
+3. **Collision handling**: When two sensors share the same display name (e.g. Swedish "Gräs" for both GRASS category and GRAMINALES plant), the first gets the category key and the second is reclassified as a plant.
 
 ### Level scale
 

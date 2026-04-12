@@ -306,7 +306,7 @@ Like Kleenex, GPL distinguishes between category sensors and individual plant se
 
 ### Google Pollen (GP)
 
-The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. See [integrations.md](integrations.md#google-pollen-svenove--design-decisions) for the technical details.
+The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. Sensors are classified via `unique_id` (language-independent) or `display_name` with full Unicode transliteration (supports all 35 API languages). See [integrations.md](integrations.md#google-pollen-svenove--design-decisions) for the technical details.
 
 The available allergens are the same as GPL:
 

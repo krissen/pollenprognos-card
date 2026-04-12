@@ -96,7 +96,10 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - Reverse mapping from weather entity attributes to allergen data
 
 **Slugify** (`src/utils/slugify.js`)
-- `slugify()` helper used by normalize.js to convert allergen names to canonical slugs
+- `slugify()` uses `any-ascii` for full Unicode-to-ASCII transliteration (CJK, Cyrillic, Thai, Arabic, etc.)
+- Matches HA backend behavior (`python-slugify` with `text-unidecode`)
+- Used by normalize.js, GP discovery, and location matching across all adapters
+- Regenerate GP alias maps with `node scripts/fetch-gp-translations.js` after changes
 
 **Level Names** (`src/utils/level-names.js`)
 - `buildLevelNames()` - Constructs localized level name lookup from locale data
