@@ -20,7 +20,7 @@ import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
-import { GP_BASE_ALLERGENS, GP_DOMAIN, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
+import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,

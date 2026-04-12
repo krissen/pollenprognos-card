@@ -10,7 +10,7 @@
 //
 // If no key is provided, tries ./tmp/google-pollen-api.key
 
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { slugify } from "../src/utils/slugify.js";
@@ -208,6 +208,7 @@ async function main() {
     conflicts: Object.fromEntries([...slugConflicts].map(([k, v]) => [k, [...v]])),
   };
   const outPath = resolve(projectRoot, "tmp/gp-translations.json");
+  mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(output, null, 2) + "\n");
   console.log(`\nFull data written to ${outPath}`);
 }

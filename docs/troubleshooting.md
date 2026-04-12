@@ -184,7 +184,7 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - Detected by `google_pollen` platform or `sensor.google_pollen_*` entity prefix
 - Allergens are classified via the `display_name` attribute, which is localized by the integration's language setting; English names are supported out of the box
 - The API provides up to 4 forecast days (today + 3)
-- If you have both `pollenlevels` and `google_pollen` installed, set `integration: gp` explicitly
+- If you have both `pollenlevels` and `google_pollen` installed, the card auto-detects GP first; set `integration: gpl` explicitly if you prefer the other adapter
 
 ---
 
