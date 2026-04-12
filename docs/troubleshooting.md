@@ -30,6 +30,20 @@ If the issue persists after these steps, open an issue with the diagnostic info 
 
 **How to fix:**
 
+*First: check that the resource is registered.*
+
+The card must be registered as a Lovelace resource to load. HACS does this automatically, but manual installations (or failed HACS installs) may be missing it:
+
+1. Go to **Settings > Dashboards**, click the three-dot menu (top right), then **Resources**
+   (Note: the Resources tab requires **Advanced Mode** enabled in your user profile)
+2. Verify an entry exists with type **JavaScript Module** pointing to one of:
+   - `/hacsfiles/pollenprognos-card/pollenprognos-card.js` (HACS install)
+   - `/local/pollenprognos-card.js` (manual install)
+3. If missing, click **Add Resource** and add the appropriate URL
+4. Reload the page
+
+If the resource exists, the problem is likely a stale browser cache:
+
 *Desktop browser (quick method):*
 1. Press Ctrl+Shift+R (or Cmd+Shift+R on Mac) to force-reload
 2. If that is not enough, open the browser's developer tools (usually F12 or right-click > "Inspect"), go to the **Network** tab, check **Disable cache**, and reload again

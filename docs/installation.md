@@ -147,6 +147,8 @@ Install via HACS:
    - Search for your pollen sensors (e.g., `sensor.birch_stockholm` for Pollenprognos)
 2. If you see pollen sensors, you're ready to add the card!
 
+> **"Custom element doesn't exist"?** The card resource may not have registered properly. See the [troubleshooting guide](troubleshooting.md#card-not-found--old-version-still-running) for how to verify and fix resource registration.
+
 ## Next Steps
 
 - See [quick-start.md](quick-start.md) for adding your first card
