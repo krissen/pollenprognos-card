@@ -100,7 +100,129 @@ export const stubConfigATMO = {
 export const ATMO_ALLERGENS = [...stubConfigATMO.allergens];
 
 /**
+ * Classify an Atmo France entity by its entity_id.
+ * Returns the canonical allergen key (e.g. "birch", "pm25") or null.
+ */
+function classifyAtmoEntity(entityId) {
+  const id = entityId.replace(/^sensor\./, "");
+
+  // Summary entities (most specific first)
+  if (id.includes("qualite_globale_pollen")) return "allergy_risk";
+  if (id.includes("qualite_globale") && !id.includes("qualite_globale_pollen")) return "qualite_globale";
+
+  // Pollen: niveau_{fr_slug}
+  for (const [canonical, frSlug] of Object.entries(ATMO_ALLERGEN_MAP)) {
+    if (canonical === "allergy_risk" || canonical === "qualite_globale") continue;
+    if (ATMO_POLLUTION_ALLERGENS.has(canonical)) continue;
+    if (id.includes(`niveau_${frSlug}`)) return canonical;
+  }
+
+  // Pollution: {fr_slug} without niveau_ or concentration_ prefix
+  for (const canonical of ATMO_POLLUTION_ALLERGENS) {
+    const frSlug = ATMO_ALLERGEN_MAP[canonical];
+    if (id.includes(frSlug) && !id.includes(`niveau_${frSlug}`) && !id.includes(`concentration_${frSlug}`)) {
+      return canonical;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Discover all Atmo France sensors using hass.entities (primary) or regex (fallback).
+ *
+ * Returns: { locations: Map<configEntryId, { label, entities: Map<allergenKey, entityId> }> }
+ *
+ * Primary: hass.entities -> filter platform === "atmofrance", no entity_category
+ * Fallback: hass.states -> regex scan for known Atmo entity patterns
+ */
+export function discoverAtmoSensors(hass, debug = false) {
+  const result = { locations: new Map() };
+  if (!hass) return result;
+
+  let entityIds = [];
+  let usedRegistry = false;
+
+  // Primary: hass.entities (entity registry)
+  if (hass.entities) {
+    const candidates = Object.entries(hass.entities)
+      .filter(([, entry]) =>
+        entry.platform === "atmofrance" &&
+        !entry.entity_category
+      )
+      .map(([eid]) => eid)
+      .filter((id) => !/_j_\d+$/.test(id) && !id.includes("concentration_"));
+
+    if (candidates.length > 0) {
+      entityIds = candidates;
+      usedRegistry = true;
+      if (debug) console.debug("[ATMO] Discovery: using hass.entities, found", candidates.length, "candidates");
+    }
+  }
+
+  // Fallback: regex scan (matches both prefixed and non-prefixed patterns)
+  if (!entityIds.length && hass.states) {
+    entityIds = Object.keys(hass.states).filter((id) =>
+      typeof id === "string" &&
+      /(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:^sensor\.(?:\w+_)?(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre))|qualite_globale(?:_pollen)?)_/.test(id) &&
+      !/_j_\d+$/.test(id) &&
+      !id.includes("concentration_"),
+    );
+    if (debug) console.debug("[ATMO] Discovery: using regex fallback, found", entityIds.length, "candidates");
+  }
+
+  if (!entityIds.length) return result;
+
+  // Group by config_entry_id
+  for (const eid of entityIds) {
+    const state = hass.states?.[eid];
+    if (!state) continue;
+
+    const allergenKey = classifyAtmoEntity(eid);
+    if (!allergenKey) {
+      if (debug) console.debug("[ATMO] Could not classify entity:", eid);
+      continue;
+    }
+
+    // Resolve config_entry_id via device lookup (same pattern as GPL)
+    let configEntryId = "default";
+    if (usedRegistry && hass.entities?.[eid]?.device_id && hass.devices) {
+      const deviceId = hass.entities[eid].device_id;
+      const device = hass.devices[deviceId];
+      if (device?.config_entries?.length) {
+        configEntryId = device.config_entries[0];
+      }
+    }
+
+    if (!result.locations.has(configEntryId)) {
+      // Label: prefer "Nom de la zone" attribute, then device name
+      let label = "Auto";
+      const zoneName = state.attributes?.["Nom de la zone"];
+      if (zoneName) {
+        label = zoneName;
+      } else if (usedRegistry && hass.entities?.[eid]?.device_id && hass.devices) {
+        const device = hass.devices[hass.entities[eid].device_id];
+        if (device?.name) label = device.name;
+      }
+      result.locations.set(configEntryId, { label, entities: new Map() });
+    }
+
+    result.locations.get(configEntryId).entities.set(allergenKey, eid);
+  }
+
+  if (debug) {
+    console.debug("[ATMO] Discovery result:", result.locations.size, "locations");
+    for (const [locId, loc] of result.locations) {
+      console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Detect location slug from available Atmo France entities.
+ * Legacy fallback for slug-based configs without hass.entities.
  */
 function detectLocation(hass, debug) {
   // Try pollen entities first (most reliable pattern)
@@ -169,19 +291,12 @@ function buildEntityId(allergen, location, forecast) {
 
 export function resolveEntityIds(cfg, hass, debug = false) {
   const map = new Map();
-  let location = cfg.location || "";
-  if (location === "manual") {
-    // Manual mode handled per allergen below
-  } else if (!location) {
-    location = detectLocation(hass, debug) || "";
-  }
 
-  for (const allergen of cfg.allergens || []) {
-    const frSlug = ATMO_ALLERGEN_MAP[allergen];
-    if (!frSlug) continue;
-
-    let sensorId;
-    if (cfg.location === "manual") {
+  if (cfg.location === "manual") {
+    // Manual mode: prefix/suffix based lookup
+    for (const allergen of cfg.allergens || []) {
+      const frSlug = ATMO_ALLERGEN_MAP[allergen];
+      if (!frSlug) continue;
       const prefix = normalizeManualPrefix(cfg.entity_prefix);
       const suffix = cfg.entity_suffix || "";
       let stem;
@@ -194,36 +309,67 @@ export function resolveEntityIds(cfg, hass, debug = false) {
       } else {
         stem = `niveau_${frSlug}`;
       }
-      sensorId = resolveManualEntity(hass, prefix, stem, suffix);
+      const sensorId = resolveManualEntity(hass, prefix, stem, suffix);
       if (!sensorId) continue;
-    } else {
-      if (!location) continue;
-      sensorId = buildEntityId(allergen, location, false);
-      if (!sensorId || !hass.states[sensorId]) {
-        let prefix;
-        if (allergen === "allergy_risk") {
-          prefix = `sensor.qualite_globale_pollen_`;
-        } else if (allergen === "qualite_globale") {
-          prefix = `sensor.qualite_globale_`;
-        } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
-          prefix = `sensor.${frSlug}_`;
-        } else {
-          prefix = `sensor.niveau_${frSlug}_`;
-        }
-        const candidates = Object.keys(hass.states).filter((id) => {
-          if (!id.startsWith(prefix) || id.includes("_j_")) return false;
-          if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
-          return true;
-        });
-        if (candidates.length === 1) sensorId = candidates[0];
-        else continue;
+      if (debug) console.debug(`[ATMO:resolveEntityIds] manual: '${allergen}' -> '${sensorId}'`);
+      map.set(allergen, sensorId);
+    }
+    return map;
+  }
+
+  // Discovery-based resolution (handles prefixed entity IDs)
+  const discovery = discoverAtmoSensors(hass, debug);
+  const location = cfg.location || "";
+  let discoveredEntities = null;
+
+  if (location && discovery.locations.has(location)) {
+    // Config entry ID match (new-style config)
+    discoveredEntities = discovery.locations.get(location).entities;
+  } else if (!location && discovery.locations.size) {
+    // Auto-detect: use first discovered location
+    discoveredEntities = discovery.locations.values().next().value.entities;
+  }
+
+  if (discoveredEntities) {
+    for (const allergen of cfg.allergens || []) {
+      const sensorId = discoveredEntities.get(allergen);
+      if (sensorId && hass.states?.[sensorId]) {
+        if (debug) console.debug(`[ATMO:resolveEntityIds] discovery: '${allergen}' -> '${sensorId}'`);
+        map.set(allergen, sensorId);
       }
     }
-    if (debug) {
-      console.debug(
-        `[ATMO:resolveEntityIds] allergen: '${allergen}', sensorId: '${sensorId}'`,
-      );
+    return map;
+  }
+
+  // Slug fallback (backward compat for location: "nice" style configs)
+  const slugLocation = location || detectLocation(hass, debug) || "";
+  if (!slugLocation) return map;
+
+  for (const allergen of cfg.allergens || []) {
+    const frSlug = ATMO_ALLERGEN_MAP[allergen];
+    if (!frSlug) continue;
+
+    let sensorId = buildEntityId(allergen, slugLocation, false);
+    if (!sensorId || !hass.states[sensorId]) {
+      let pfx;
+      if (allergen === "allergy_risk") {
+        pfx = `sensor.qualite_globale_pollen_`;
+      } else if (allergen === "qualite_globale") {
+        pfx = `sensor.qualite_globale_`;
+      } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+        pfx = `sensor.${frSlug}_`;
+      } else {
+        pfx = `sensor.niveau_${frSlug}_`;
+      }
+      const candidates = Object.keys(hass.states).filter((id) => {
+        if (!id.startsWith(pfx) || id.includes("_j_")) return false;
+        if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen")) return false;
+        return true;
+      });
+      if (candidates.length === 1) sensorId = candidates[0];
+      else continue;
     }
+    if (debug) console.debug(`[ATMO:resolveEntityIds] slug fallback: '${allergen}' -> '${sensorId}'`);
     map.set(allergen, sensorId);
   }
   return map;
@@ -274,14 +420,6 @@ export async function fetchForecast(hass, config) {
     return { state: raw, display_state: Math.min(raw, 6), state_text: libelle || noInfoLabel };
   };
 
-  // Resolve location (also used for J+1 forecast entities)
-  let location = config.location || "";
-  if (location === "manual") {
-    // Manual mode handled by resolveEntityIds
-  } else if (!location) {
-    location = detectLocation(hass, debug) || "";
-  }
-
   const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
@@ -317,22 +455,13 @@ export async function fetchForecast(hass, config) {
       const todayVal = testVal(sensor.state);
       const todayLibelle = sensor.attributes?.["Libellé"] || "";
 
-      // J+1 forecast
+      // J+1 forecast: always derive from {sensorId}_j_1 (works for prefixed entities)
       let tomorrowVal = -1;
       let tomorrowLibelle = "";
-      if (location !== "manual") {
-        const j1Id = buildEntityId(allergen, location, true);
-        if (j1Id && hass.states[j1Id]) {
-          tomorrowVal = testVal(hass.states[j1Id].state);
-          tomorrowLibelle = hass.states[j1Id].attributes?.["Libellé"] || "";
-        }
-      } else {
-        // Manual mode: try {sensorId}_j_1
-        const j1Id = `${sensorId}_j_1`;
-        if (hass.states[j1Id]) {
-          tomorrowVal = testVal(hass.states[j1Id].state);
-          tomorrowLibelle = hass.states[j1Id].attributes?.["Libellé"] || "";
-        }
+      const j1Id = `${sensorId}_j_1`;
+      if (hass.states[j1Id]) {
+        tomorrowVal = testVal(hass.states[j1Id].state);
+        tomorrowLibelle = hass.states[j1Id].attributes?.["Libellé"] || "";
       }
 
       // Build level entries with per-entity Libellé
