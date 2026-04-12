@@ -9,6 +9,7 @@ import { findAvailableSensors } from "./utils/sensors.js";
 import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { discoverAtmoSensors } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
@@ -1516,40 +1517,22 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "atmo") {
-        // Atmo France: extract location from sensor attributes (pollen + pollution)
-        const atmoRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
-        const atmoEntities = Object.values(hass.states).filter(
-          (s) =>
-            s &&
-            typeof s === "object" &&
-            typeof s.entity_id === "string" &&
-            atmoRe.test(s.entity_id),
-        );
+        // Atmo France: use discovery to resolve location title
+        const atmoDiscovery = discoverAtmoSensors(hass, false);
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
-            ? cfg.location.toLowerCase()
+            ? cfg.location
             : "";
 
-        let match = null;
-        if (wantedLocation) {
-          match = atmoEntities.find((s) => {
-            const m = s.entity_id.match(atmoRe);
-            return m && m[1] === wantedLocation;
-          });
-        } else if (atmoEntities.length) {
-          match = atmoEntities[0];
+        let title = "";
+        if (wantedLocation && atmoDiscovery.locations.has(wantedLocation)) {
+          title = atmoDiscovery.locations.get(wantedLocation).label;
+        } else if (atmoDiscovery.locations.size) {
+          title = atmoDiscovery.locations.values().next().value.label;
         }
 
-        let title = "";
-        if (match) {
-          const attr = match.attributes || {};
-          title =
-            attr["Nom de la zone"] ||
-            cfg.location ||
-            "";
-          if (title) {
-            title = title.charAt(0).toUpperCase() + title.slice(1);
-          }
+        if (title) {
+          title = title.charAt(0).toUpperCase() + title.slice(1);
         }
 
         loc = title || cfg.location || "";
