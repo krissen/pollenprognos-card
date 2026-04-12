@@ -5,6 +5,8 @@ import {
   ATMO_ALLERGENS,
   ATMO_ALLERGEN_MAP,
   ATMO_POLLUTION_ALLERGENS,
+  discoverAtmoSensors,
+  resolveEntityIds,
 } from "../../src/adapters/atmo.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
@@ -910,5 +912,238 @@ describe("ATMO adapter: fetchForecast", () => {
 
       expect(result[0].allergenShort).toBe("Bou.");
     });
+  });
+});
+
+// Helper: create a hass mock with prefixed entity IDs (multi-instance pattern)
+function makePrefixedHass(prefix, location, allergenStates, configEntryId) {
+  const states = {};
+  const entities = {};
+  const deviceId = `device_${location}`;
+  for (const [allergen, todayVal, tomorrowVal] of allergenStates) {
+    const frSlug = ATMO_ALLERGEN_MAP[allergen];
+    let todayId;
+    if (allergen === "allergy_risk") {
+      todayId = `sensor.${prefix}_qualite_globale_pollen_${location}`;
+    } else if (allergen === "qualite_globale") {
+      todayId = `sensor.${prefix}_qualite_globale_${location}`;
+    } else if (ATMO_POLLUTION_ALLERGENS.has(allergen)) {
+      todayId = `sensor.${prefix}_${frSlug}_${location}`;
+    } else {
+      todayId = `sensor.${prefix}_niveau_${frSlug}_${location}`;
+    }
+    const j1Id = `${todayId}_j_1`;
+    states[todayId] = { state: String(todayVal), attributes: { "Libellé": "", "Nom de la zone": location.charAt(0).toUpperCase() + location.slice(1) } };
+    entities[todayId] = { platform: "atmofrance", device_id: deviceId };
+    if (tomorrowVal !== undefined) {
+      states[j1Id] = { state: String(tomorrowVal), attributes: { "Libellé": "" } };
+      entities[j1Id] = { platform: "atmofrance", device_id: deviceId };
+    }
+  }
+  const devices = {
+    [deviceId]: { name: `Atmo France - ${location.charAt(0).toUpperCase() + location.slice(1)}`, config_entries: [configEntryId] },
+  };
+  return createHass(states, { language: "fr", entities, devices });
+}
+
+describe("discoverAtmoSensors", () => {
+  it("discovers entities grouped by config_entry_id via hass.entities", () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+      ["pm25", 4, 3],
+    ], "entry_toulouse");
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has("entry_toulouse")).toBe(true);
+    const loc = result.locations.get("entry_toulouse");
+    expect(loc.entities.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+    expect(loc.entities.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
+  });
+
+  it("discovers multiple locations from different config entries", () => {
+    const hass1 = makePrefixedHass("toulouse", "toulouse", [["birch", 3, 2]], "entry_toulouse");
+    const hass2 = makeHass("nice", [["birch", 4, 3]]);
+    // Merge: nice uses non-prefixed entities, add entity registry entries for nice
+    const merged = createHass(
+      { ...hass1.states, ...hass2.states },
+      {
+        language: "fr",
+        entities: {
+          ...hass1.entities,
+          "sensor.niveau_bouleau_nice": { platform: "atmofrance", device_id: "device_nice" },
+          "sensor.niveau_bouleau_nice_j_1": { platform: "atmofrance", device_id: "device_nice" },
+        },
+        devices: {
+          ...hass1.devices,
+          device_nice: { name: "Atmo France - Nice", config_entries: ["entry_nice"] },
+        },
+      },
+    );
+
+    const result = discoverAtmoSensors(merged);
+
+    expect(result.locations.size).toBe(2);
+    expect(result.locations.has("entry_toulouse")).toBe(true);
+    expect(result.locations.has("entry_nice")).toBe(true);
+  });
+
+  it("classifies all allergen types correctly", () => {
+    const hass = makePrefixedHass("pfx", "city", [
+      ["birch", 3, 2],
+      ["ragweed", 2, 1],
+      ["mugwort", 1, 0],
+      ["alder", 2, 1],
+      ["grass", 3, 2],
+      ["olive", 1, 0],
+      ["allergy_risk", 4, 3],
+      ["qualite_globale", 3, 2],
+      ["pm25", 2, 1],
+      ["pm10", 3, 2],
+      ["ozone", 1, 0],
+      ["no2", 2, 1],
+      ["so2", 1, 0],
+    ], "entry_city");
+
+    const result = discoverAtmoSensors(hass);
+    const entities = result.locations.get("entry_city").entities;
+
+    expect(entities.size).toBe(13);
+    expect(entities.get("birch")).toContain("niveau_bouleau");
+    expect(entities.get("allergy_risk")).toContain("qualite_globale_pollen");
+    expect(entities.get("qualite_globale")).toMatch(/qualite_globale_city$/);
+    expect(entities.get("pm25")).toContain("pm25");
+    expect(entities.get("no2")).toContain("dioxyde_d_azote");
+  });
+
+  it("excludes concentration entities", () => {
+    const states = {
+      "sensor.toulouse_concentration_ambroisie_toulouse": { state: "42", attributes: {} },
+      "sensor.toulouse_niveau_bouleau_toulouse": { state: "3", attributes: { "Libellé": "" } },
+    };
+    const entities = {
+      "sensor.toulouse_concentration_ambroisie_toulouse": { platform: "atmofrance", device_id: "d1" },
+      "sensor.toulouse_niveau_bouleau_toulouse": { platform: "atmofrance", device_id: "d1" },
+    };
+    const hass = createHass(states, {
+      language: "fr",
+      entities,
+      devices: { d1: { name: "Test", config_entries: ["e1"] } },
+    });
+
+    const result = discoverAtmoSensors(hass);
+    const loc = result.locations.get("e1");
+
+    expect(loc.entities.has("birch")).toBe(true);
+    // concentration entity should not produce a ragweed entry
+    expect(loc.entities.has("ragweed")).toBe(false);
+  });
+
+  it("falls back to regex scan when hass.entities is unavailable", () => {
+    const states = {
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.pm25_nice": { state: "2", attributes: {} },
+    };
+    const hass = createHass(states, { language: "fr", entities: undefined });
+
+    const result = discoverAtmoSensors(hass);
+
+    // Falls back to "default" grouping (no config_entry_id)
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has("default")).toBe(true);
+    expect(result.locations.get("default").entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+  });
+});
+
+describe("resolveEntityIds with discovery (prefixed entities)", () => {
+  it("resolves prefixed entities via config_entry_id", () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+      ["pm25", 4, 3],
+      ["allergy_risk", 2, 1],
+    ], "entry_toulouse");
+
+    const config = makeConfig({
+      location: "entry_toulouse",
+      allergens: ["birch", "pm25", "allergy_risk"],
+    });
+
+    const map = resolveEntityIds(config, hass);
+
+    expect(map.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+    expect(map.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
+    expect(map.get("allergy_risk")).toBe("sensor.toulouse_qualite_globale_pollen_toulouse");
+  });
+
+  it("auto-detects prefixed location when location is empty", () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+    ], "entry_toulouse");
+
+    const config = makeConfig({ location: "", allergens: ["birch"] });
+
+    const map = resolveEntityIds(config, hass);
+
+    expect(map.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+  });
+
+  it("falls back to slug-based resolution for old configs", () => {
+    const hass = makeHass("nice", [["birch", 3, 2]]);
+    const config = makeConfig({ location: "nice", allergens: ["birch"] });
+
+    const map = resolveEntityIds(config, hass);
+
+    expect(map.get("birch")).toBe("sensor.niveau_bouleau_nice");
+  });
+});
+
+describe("fetchForecast with prefixed entities", () => {
+  it("returns correct data for prefixed entity IDs", async () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+      ["grass", 5, 4],
+    ], "entry_toulouse");
+
+    const config = makeConfig({
+      location: "entry_toulouse",
+      allergens: ["birch", "grass"],
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(2);
+    expect(result[0].entity_id).toContain("toulouse_niveau_");
+    expect(result[0].day0.state).toBeGreaterThan(0);
+    expect(result[0].day1.state).toBeGreaterThan(0);
+  });
+
+  it("reads j+1 forecast from {entity_id}_j_1 for prefixed entities", async () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 5],
+    ], "entry_toulouse");
+
+    const config = makeConfig({
+      location: "entry_toulouse",
+      allergens: ["birch"],
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].day0.state).toBe(3);
+    expect(result[0].day1.state).toBe(5);
+  });
+
+  it("handles mixed prefixed and non-prefixed locations", async () => {
+    // Nice (non-prefixed) via old slug config still works
+    const hass = makeHass("nice", [["birch", 4, 2]]);
+    const config = makeConfig({ location: "nice", allergens: ["birch"] });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.niveau_bouleau_nice");
+    expect(result[0].day0.state).toBe(4);
+    expect(result[0].day1.state).toBe(2);
   });
 });
