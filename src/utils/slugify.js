@@ -1,42 +1,18 @@
 // src/utils/slugify.js
-// from https://github.com/home-assistant/frontend/blob/dev/src/common/string/slugify.ts
-// https://gist.github.com/hagemann/382adfc57adbd5af078dc93feef01fe1
+// Unicode → ASCII transliteration using any-ascii, matching HA's backend behavior.
+// Replaces the previous limited Latin+Cyrillic character table.
+import anyAscii from "any-ascii";
+
 export const slugify = (value, delimiter = "_") => {
-  const a =
-    "àáâäæãåāăąабçćčđďдèéêëēėęěеёэфğǵгḧхîïíīįìıİийкłлḿмñńǹňнôöòóœøōõőоṕпŕřрßśšşșсťțтûüùúūǘůűųувẃẍÿýыžźżз·";
-  const b = `aaaaaaaaaaabcccdddeeeeeeeeeeefggghhiiiiiiiiijkllmmnnnnnoooooooooopprrrsssssstttuuuuuuuuuuvwxyyyzzzz${delimiter}`;
-  const p = new RegExp(a.split("").join("|"), "g");
-  const complex_cyrillic = {
-    ж: "zh",
-    х: "kh",
-    ц: "ts",
-    ч: "ch",
-    ш: "sh",
-    щ: "shch",
-    ю: "iu",
-    я: "ia",
-  };
+  if (value === "") return "";
 
-  let slugified;
+  const slugified = anyAscii(value)
+    .toLowerCase()
+    .replace(/(\d),(?=\d)/g, "$1")
+    .replace(/[^a-z0-9]+/g, delimiter)
+    .replace(new RegExp(`(${delimiter})\\1+`, "g"), "$1")
+    .replace(new RegExp(`^${delimiter}+`), "")
+    .replace(new RegExp(`${delimiter}+$`), "");
 
-  if (value === "") {
-    slugified = "";
-  } else {
-    slugified = value
-      .toString()
-      .toLowerCase()
-      .replace(p, (c) => b.charAt(a.indexOf(c))) // Replace special characters
-      .replace(/[а-я]/g, (c) => complex_cyrillic[c] || "") // Replace some cyrillic characters
-      .replace(/(\d),(?=\d)/g, "$1") // Remove Commas between numbers
-      .replace(/[^a-z0-9]+/g, delimiter) // Replace all non-word characters
-      .replace(new RegExp(`(${delimiter})\\1+`, "g"), "$1") // Replace multiple delimiters with single delimiter
-      .replace(new RegExp(`^${delimiter}+`), "") // Trim delimiter from start of text
-      .replace(new RegExp(`${delimiter}+$`), ""); // Trim delimiter from end of text
-
-    if (slugified === "") {
-      slugified = "unknown";
-    }
-  }
-
-  return slugified;
+  return slugified || "unknown";
 };
