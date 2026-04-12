@@ -10,6 +10,7 @@ import * as KLEENEX from "./adapters/kleenex/index.js";
 import * as PLU from "./adapters/plu.js";
 import * as ATMO from "./adapters/atmo.js";
 import * as GPL from "./adapters/gpl/index.js";
+import * as GP from "./adapters/gp/index.js";
 
 const registry = {
   pp: { module: PP, stub: PP.stubConfigPP },
@@ -20,6 +21,7 @@ const registry = {
   plu: { module: PLU, stub: PLU.stubConfigPLU },
   atmo: { module: ATMO, stub: ATMO.stubConfigATMO },
   gpl: { module: GPL, stub: GPL.stubConfigGPL },
+  gp: { module: GP, stub: GP.stubConfigGP },
 };
 
 export function getAdapter(id) {

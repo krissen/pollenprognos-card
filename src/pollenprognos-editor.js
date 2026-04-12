@@ -20,6 +20,7 @@ import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
+import { GP_BASE_ALLERGENS, GP_DOMAIN, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -127,12 +128,16 @@ class PollenPrognosCardEditor extends LitElement {
     this._updateConfig("date_locale", lang);
 
     // Välj rätt lista med raw-allergener
-    // Discover GPL allergens if applicable
+    // Discover GPL/GP allergens if applicable
     let gplDiscoveredPlants = [];
     if (this._config.integration === "gpl" && this._hass) {
       gplDiscoveredPlants = discoverGplAllergens(this._hass, this._config.location, false);
-      // Remove base allergens since they're added separately via GPL_BASE_ALLERGENS
       gplDiscoveredPlants = gplDiscoveredPlants.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+    }
+    let gpDiscoveredPlants = [];
+    if (this._config.integration === "gp" && this._hass) {
+      gpDiscoveredPlants = discoverGpAllergens(this._hass, this._config.location, false);
+      gpDiscoveredPlants = gpDiscoveredPlants.filter((k) => !GP_BASE_ALLERGENS.includes(k));
     }
 
     const rawKeys =
@@ -148,7 +153,9 @@ class PollenPrognosCardEditor extends LitElement {
                 ? ATMO_ALLERGENS
                 : this._config.integration === "gpl"
                   ? [...GPL_BASE_ALLERGENS, ...gplDiscoveredPlants]
-                  : stubConfigPP.allergens;
+                  : this._config.integration === "gp"
+                    ? [...GP_BASE_ALLERGENS, ...gpDiscoveredPlants]
+                    : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -170,7 +177,7 @@ class PollenPrognosCardEditor extends LitElement {
         ? 4
         : this._config.integration === "peu"
           ? 5
-          : this._config.integration === "gpl"
+          : this._config.integration === "gpl" || this._config.integration === "gp"
             ? 6
             : this._config.integration === "silam"
               ? 7
@@ -476,6 +483,15 @@ class PollenPrognosCardEditor extends LitElement {
           integration = "atmo";
         } else if (
           this._hass && (
+            (this._hass.entities && Object.values(this._hass.entities).some(
+              (e) => e.platform === "google_pollen" && !e.entity_category
+            )) ||
+            all.some((id) => typeof id === "string" && id.startsWith("sensor.google_pollen_"))
+          )
+        ) {
+          integration = "gp";
+        } else if (
+          this._hass && (
             // Primary: check hass.entities for pollenlevels platform
             (this._hass.entities && Object.values(this._hass.entities).some(
               (e) => e.platform === "pollenlevels" && !e.entity_category
@@ -700,6 +716,15 @@ class PollenPrognosCardEditor extends LitElement {
         const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId, false);
         this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
       }
+      // GP discovery
+      if (this._config.integration === "gp" && this._hass) {
+        const gpDiscovery = discoverGpSensors(this._hass, false);
+        this.installedGpLocations = Array.from(gpDiscovery.locations.entries())
+          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
+        const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId, false);
+        this.installedGpPlants = allGpAllergens.filter((k) => !GP_BASE_ALLERGENS.includes(k));
+      }
 
       // SILAM discovery: run here too for same reason as GPL above
       if (this._config.integration === "silam" && this._hass) {
@@ -809,6 +834,18 @@ class PollenPrognosCardEditor extends LitElement {
           && s.attributes.device_class !== "timestamp";
       });
     }
+    // GP (svenove/google_pollen): hass.entities (primary) or entity prefix (fallback)
+    let gpStates = [];
+    if (hass.entities) {
+      gpStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gpStates.length) {
+      gpStates = Object.keys(hass.states).filter((id) =>
+        typeof id === "string" && id.startsWith("sensor.google_pollen_")
+      );
+    }
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -819,10 +856,11 @@ class PollenPrognosCardEditor extends LitElement {
       else if (dwdStates.length) integration = "dwd";
       else if (silamStates.length) integration = "silam";
       else if (atmoStates.length) integration = "atmo";
+      else if (gpStates.length) integration = "gp";
       else if (gplStates.length) integration = "gpl";
       this._userConfig.integration = integration;
       if (this.debug)
-        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoStates.length, gpl: gplStates.length, chosen: integration });
+        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoStates.length, gp: gpStates.length, gpl: gplStates.length, chosen: integration });
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data
@@ -836,6 +874,19 @@ class PollenPrognosCardEditor extends LitElement {
       this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
     } else {
       this.installedGplPlants = [];
+    }
+
+    // 1.2) GP discovery
+    const gpDiscovery = discoverGpSensors(hass, false);
+    this.installedGpLocations = Array.from(gpDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+
+    if (integration === "gp") {
+      const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
+      const allGpAllergens = discoverGpAllergens(hass, gpConfigEntryId, false);
+      this.installedGpPlants = allGpAllergens.filter((k) => !GP_BASE_ALLERGENS.includes(k));
+    } else {
+      this.installedGpPlants = [];
     }
 
     // 1.2) Set default mode for SILAM and PEU if not specified
@@ -1112,6 +1163,13 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           this._config.location = this.installedGplLocations[0][0];
         }
+        if (
+          integration === "gp" &&
+          !this._userConfig.location &&
+          this.installedGpLocations?.length
+        ) {
+          this._config.location = this.installedGpLocations[0][0];
+        }
       }
 
       // 5) Dispatch'a så att HA:r-editorn ritar om formuläret med nya värden
@@ -1185,7 +1243,7 @@ class PollenPrognosCardEditor extends LitElement {
 
       // Uncheck incompatible special sort options
       if (
-        (this._config.integration === "kleenex" || this._config.integration === "gpl") &&
+        (this._config.integration === "kleenex" || this._config.integration === "gpl" || this._config.integration === "gp") &&
         this._config.sort_category_allergens_first
       ) {
         newConfig.sort_category_allergens_first = false;
@@ -1573,16 +1631,18 @@ class PollenPrognosCardEditor extends LitElement {
                 ? stubConfigPLU.allergens
                 : c.integration === "gpl"
                   ? [...GPL_BASE_ALLERGENS, ...(this.installedGplPlants || [])]
-                  : c.integration === "atmo"
-                    ? ATMO_ALLERGENS
-                    : stubConfigPP.allergens;
+                  : c.integration === "gp"
+                    ? [...GP_BASE_ALLERGENS, ...(this.installedGpPlants || [])]
+                    : c.integration === "atmo"
+                      ? ATMO_ALLERGENS
+                      : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd"
         ? 4
         : c.integration === "peu"
           ? 5
-          : c.integration === "gpl"
+          : c.integration === "gpl" || c.integration === "gp"
             ? 6
             : c.integration === "plu"
               ? 4
@@ -1594,7 +1654,7 @@ class PollenPrognosCardEditor extends LitElement {
         ? { min: 0, max: 3, step: 0.5 }
         : c.integration === "peu"
           ? { min: 0, max: 4, step: 1 }
-          : c.integration === "gpl"
+          : c.integration === "gpl" || c.integration === "gp"
             ? { min: 0, max: 5, step: 1 }
             : c.integration === "plu"
               ? { min: 0, max: 3, step: 1 }
@@ -1645,6 +1705,7 @@ class PollenPrognosCardEditor extends LitElement {
                     },
                     { value: "atmo", label: this._t("integration.atmo") },
                     { value: "gpl", label: this._t("integration.gpl") },
+                    { value: "gp", label: this._t("integration.gp") },
                   ],
                 },
               }}
@@ -1815,7 +1876,7 @@ class PollenPrognosCardEditor extends LitElement {
                           ></ha-selector>
                         </ha-formfield>
                       `
-                  : c.integration === "gpl"
+                  : c.integration === "gpl" || c.integration === "gp"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
                           <ha-selector
@@ -1828,7 +1889,10 @@ class PollenPrognosCardEditor extends LitElement {
                                     value: "",
                                     label: this._t("location_autodetect"),
                                   },
-                                  ...(this.installedGplLocations || []).map(([slug, title]) => ({
+                                  ...(c.integration === "gp"
+                                    ? (this.installedGpLocations || [])
+                                    : (this.installedGplLocations || [])
+                                  ).map(([slug, title]) => ({
                                     value: slug,
                                     label: title,
                                   })),
@@ -1935,7 +1999,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl" || c.integration === "gp") &&
             c.location === "manual")
             ? html`
                 <details>
@@ -2933,7 +2997,7 @@ class PollenPrognosCardEditor extends LitElement {
         <!-- Allergens -->
         <details>
           <summary>${this._t("summary_allergens")}</summary>
-          ${c.integration === "kleenex" || c.integration === "gpl"
+          ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
             ? html`
                 <!-- Category allergens (controlled by checkbox) -->
                 <div class="allergen-section">
@@ -3171,7 +3235,7 @@ class PollenPrognosCardEditor extends LitElement {
               }}
             ></ha-selector>
           </ha-formfield>
-          ${c.integration === "kleenex" || c.integration === "gpl"
+          ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
             ? html`
                 <ha-formfield
                   label="${this._t("sort_category_allergens_first")}"

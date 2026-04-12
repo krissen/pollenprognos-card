@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- New `gp` adapter for [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) by svenove (#198). Uses the same Google Pollen API as the existing `gpl` adapter but supports the different entity format (flat forecast attributes, `display_name`-based allergen classification). Auto-detection, visual editor, location discovery, and manual mode all supported.
+
 ### Changed
 - SILAM: cache discovery results across `set hass()`, forecast subscription, and `fetchForecast()` to eliminate redundant entity scans
 - SILAM: precompute inverse allergen maps once per `resolveEntityIds()` call instead of per allergen

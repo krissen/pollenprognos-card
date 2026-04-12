@@ -67,6 +67,7 @@ Located in `src/adapters/`. Each adapter exports:
 - `plu.js` - Pollen.lu (Luxembourg)
 - `atmo.js` - Atmo France (French air quality/pollen)
 - `gpl/` - Google Pollen Levels (global, modularized into constants/discovery/forecast)
+- `gp/` - Google Pollen by svenove (global, modularized into constants/discovery/forecast)
 
 When adding support for a new integration, see "Adding a New Integration" below.
 

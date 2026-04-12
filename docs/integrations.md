@@ -10,6 +10,7 @@
 - [Pollen.lu](https://github.com/Foxi352/pollen_lu)
 - [Atmo France](https://github.com/sebcaps/atmofrance)
 - [Google Pollen Levels](https://github.com/eXPerience83/pollenlevels)
+- [Google Pollen](https://github.com/svenove/home-assistant-google-pollen)
 
 The card tries to auto-detect which adapter to use based on your sensors. The table below lists version requirements and other notes for each integration.
 
@@ -23,6 +24,7 @@ The card tries to auto-detect which adapter to use based on your sensors. The ta
 | **Pollen.lu** | Keep the default sensor names. The integration exposes current-day pollen levels for Luxembourg with one sensor per allergen. Added in card **v2.8.0**. |
 | **Atmo France** | Keep the default sensor names. The integration provides pollen levels (0–6) for French cities with optional J+1 forecasts. Added in card **v2.9.0**. |
 | **Google Pollen Levels** | Entity names can be freely renamed or localized — the card detects sensors by their `platform` attribute or `attribution` string, not by entity ID patterns. Works with any Home Assistant language. Supports multi-location setups via separate config entries. Added in card **v2.9.0**. |
+| **Google Pollen** | For `home-assistant-google-pollen` by svenove. Uses the same Google Pollen API but a different HA integration. The card detects sensors by the `google_pollen` platform or entity prefix `sensor.google_pollen_*`. Allergens are identified via the `display_name` attribute. The API returns up to 4 days of forecast. Supports multi-location setups. Added in card **v3.1.0**. |
 
 ## Google Pollen Levels — design decisions
 
@@ -66,3 +68,35 @@ If only the fallback path is available, all sensors are grouped into a single de
 ### Level scale
 
 Google Pollen API uses a 0–5 scale. The card keeps this scale as-is and displays 5 segments in the doughnut chart (one per active level, excluding level 0 "None"). Level names are mapped to the card's standard terminology the same way as for Kleenex and PEU — the raw level is preserved for sorting and thresholds while the display text is looked up from the card's localized level name table.
+
+## Google Pollen (svenove) — design decisions
+
+The Google Pollen (GP) adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. Both GP and GPL use the same underlying Google Pollen API, but the two HA integrations expose data in different formats.
+
+### Differences from GPL
+
+| Aspect | GPL (`pollenlevels`) | GP (`google_pollen`) |
+|--------|---------------------|---------------------|
+| Allergen identification | `code` attribute + icon mapping | `display_name` attribute |
+| Forecast format | `attributes.forecast[]` array | Flat attributes: `tomorrow`, `day 3`, `day 4` |
+| Today's level | `sensor.state` (numeric) | `attributes.index_value` (numeric); state is text category |
+| Max forecast days | 5 | 4 |
+| Attribution string | `"Data provided by Google Maps Pollen API"` | None |
+
+### Sensor discovery
+
+1. **Primary**: `hass.entities` filtered by `platform === "google_pollen"`, excluding diagnostic sensors.
+2. **Fallback**: Entity IDs starting with `sensor.google_pollen_`.
+
+### Sensor classification
+
+Allergens are identified via the `display_name` attribute. The value is lowercased, spaces replaced with underscores, then looked up:
+
+- `"Grass"`, `"Tree"`, `"Weed"` map to category keys (`grass_cat`, `trees_cat`, `weeds_cat`)
+- Plant names (e.g. `"Birch"`, `"Cypress Pine"`) are normalized through the global allergen translation map
+
+Since `display_name` is localized by the integration's language setting, the card's existing normalization handles common translations. English display names are supported out of the box.
+
+### Level scale
+
+Same as GPL: 0–5 UPI scale, mapped to the card's 6-level display system.

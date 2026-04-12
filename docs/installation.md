@@ -106,6 +106,18 @@ Install via HACS:
 
 **Repository**: [pollenlevels](https://github.com/eXPerience83/pollenlevels)
 
+### Option I: Google Pollen (Global)
+
+Install via HACS:
+1. Open HACS → Integrations
+2. Click the "+" button
+3. Search for "Google Pollen" or "home-assistant-google-pollen"
+4. Install the integration
+5. Restart Home Assistant
+6. Add the integration via Settings → Devices & Services (requires a Google Cloud API key)
+
+**Repository**: [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen)
+
 ## Step 2: Install Pollenprognos Card
 
 ### Via HACS (Recommended)

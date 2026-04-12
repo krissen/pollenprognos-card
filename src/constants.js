@@ -150,6 +150,14 @@ const GPL_ALIASES = {
   cypress_pine: "cypress",
 };
 
+// GP (svenove/home-assistant-google-pollen) shares Google Pollen API allergens.
+// Plant aliases are already covered by GPL_ALIASES; GP_ALIASES adds only
+// display_name variants that differ.
+const GP_ALIASES = {
+  cypress_pine: "cypress",
+  japanese_cedar: "cypress",
+};
+
 // Merged map: computed from per-adapter aliases (order matches legacy map).
 export const ALLERGEN_TRANSLATION = {
   ...PP_ALIASES,
@@ -159,6 +167,7 @@ export const ALLERGEN_TRANSLATION = {
   ...PLU_ALIASES,
   ...ATMO_ALIASES,
   ...GPL_ALIASES,
+  ...GP_ALIASES,
 };
 
 /**
