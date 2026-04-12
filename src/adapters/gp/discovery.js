@@ -1,7 +1,7 @@
 // src/adapters/gp/discovery.js
 import { toCanonicalAllergenKey } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
-import { normalizeManualPrefix, resolveManualEntity } from "../../utils/adapter-helpers.js";
+import { normalizeManualPrefix } from "../../utils/adapter-helpers.js";
 import { GP_DOMAIN, GP_CATEGORY_MAP, GP_BASE_ALLERGENS } from "./constants.js";
 
 // Regex to extract pollen code from unique_id.

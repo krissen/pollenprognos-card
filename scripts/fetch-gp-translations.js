@@ -2,7 +2,8 @@
 // scripts/fetch-gp-translations.js
 //
 // Fetches display names from the Google Pollen API for all supported languages
-// and generates GP_CATEGORY_MAP and GP_ALIASES data for src/adapters/gp/constants.js
+// and generates GP_CATEGORY_MAP data for src/adapters/gp/constants.js
+// and GP_ALIASES data for src/constants.js
 //
 // Usage:
 //   node scripts/fetch-gp-translations.js [--api-key KEY | --api-key-file PATH]
@@ -25,13 +26,8 @@ const LANGUAGES = [
   "th", "tr", "uk", "vi", "zh",
 ];
 
-// Pollen codes from the API (categories + plants)
+// Pollen codes from the API (categories)
 const CATEGORY_CODES = ["GRASS", "TREE", "WEED"];
-const PLANT_CODES = [
-  "ALDER", "ASH", "BIRCH", "COTTONWOOD", "CYPRESS_PINE", "ELM",
-  "GRAMINALES", "HAZEL", "JAPANESE_CEDAR", "JUNIPER", "MAPLE",
-  "MUGWORT", "OAK", "OLIVE", "PINE", "RAGWEED",
-];
 
 // Canonical keys for our card
 const CATEGORY_CANONICAL = { GRASS: "grass_cat", TREE: "trees_cat", WEED: "weeds_cat" };
@@ -174,7 +170,6 @@ async function main() {
     if (slug === canonical) delete plantAliases[slug];
   }
   // Remove trivial category entries
-  const trivialCategories = { grass: "grass_cat", tree: "trees_cat", weed: "weeds_cat" };
   // Keep all category entries (they're all needed for slugified lookups)
 
   // Output
