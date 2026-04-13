@@ -10,6 +10,7 @@ import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
+import { discoverGpSensors } from "./adapters/gp/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -1590,6 +1591,22 @@ class PollenPrognosCard extends LitElement {
           if (title) {
             title = title.charAt(0).toUpperCase() + title.slice(1);
           }
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "gp") {
+        // Google Pollen (svenove): extract location from discovery
+        const gpDiscovery = discoverGpSensors(hass, false);
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location
+            : "";
+
+        let title = "";
+        if (wantedLocation && gpDiscovery.locations.has(wantedLocation)) {
+          title = gpDiscovery.locations.get(wantedLocation).label;
+        } else if (gpDiscovery.locations.size) {
+          title = gpDiscovery.locations.values().next().value.label;
         }
 
         loc = title || cfg.location || "";
