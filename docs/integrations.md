@@ -107,7 +107,7 @@ Category codes from `unique_id` are mapped to canonical keys:
 
 Plant codes (e.g. `birch`, `oak`, `ragweed`) are kept as-is.
 
-**Collision handling**: In some languages, a category sensor and a plant sensor share the same `display_name` (e.g. Swedish "Gras" for both the GRASS category and the GRAMINALES plant). When this happens, the first sensor gets the category key and the second is reclassified as a plant via `GP_COLLISION_PLANTS`.
+**Collision handling**: In some languages, a category sensor and a plant sensor share the same `display_name` (e.g. Swedish "Gräs" for both the GRASS category and the GRAMINALES plant). When this happens, the first sensor gets the category key and the second is reclassified as a plant via `GP_COLLISION_PLANTS`.
 
 ### Multi-location support
 
