@@ -3,8 +3,8 @@
 //
 // Fetches display names from the Google Pollen API for all supported languages,
 // writes the raw translation data to tmp/gp-translations.json, and prints
-// generated GP_DISPLAY_NAME_MAP / GP_ALIASES JS snippets to stdout for manual
-// insertion into src/adapters/gp/constants.js and src/constants.js.
+// generated GP_DISPLAY_NAME_MAP / GP_COLLISION_PLANTS JS snippets to stdout
+// for manual insertion into src/adapters/gp/constants.js.
 //
 // Usage:
 //   node scripts/fetch-gp-translations.js [--api-key KEY | --api-key-file PATH]
@@ -118,7 +118,7 @@ async function main() {
     allNames[lang] = {};
     for (const loc of locations) {
       try {
-        // Rate limit: ~2 requests per second
+        // Burst throttle: 500ms pause every 5 requests
         if (requestCount > 0 && requestCount % 5 === 0) {
           await new Promise((r) => setTimeout(r, 500));
         }

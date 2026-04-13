@@ -94,7 +94,7 @@ The adapter uses a three-tier strategy:
 
 1. **`unique_id`** (primary, language-independent): If available in `hass.entities`, the pollen code is extracted from the unique_id pattern `google_pollen_{code}_{lat}_{lon}`. This always contains the English code regardless of language setting.
 
-2. **`display_name` direct lookup** (fallback): The `display_name` attribute is looked up directly in `GP_DISPLAY_NAME_MAP` (categories) and `GP_ALIASES` (allergens). These pre-generated maps cover all 35 languages the Google Pollen API offers, so no runtime transliteration is needed.
+2. **`display_name` direct lookup** (fallback): If `unique_id` is unavailable, the `display_name` attribute is looked up directly in `GP_DISPLAY_NAME_MAP`. This pre-generated map covers all 35 languages the Google Pollen API offers, so no runtime transliteration is needed.
 
 3. **Collision handling**: When two sensors share the same display name (e.g. Swedish "Gräs" for both GRASS category and GRAMINALES plant), the first gets the category key and the second is reclassified as a plant.
 
