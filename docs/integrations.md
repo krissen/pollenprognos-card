@@ -24,7 +24,7 @@ The card tries to auto-detect which adapter to use based on your sensors. The ta
 | **Pollen.lu** | Keep the default sensor names. The integration exposes current-day pollen levels for Luxembourg with one sensor per allergen. Added in card **v2.8.0**. |
 | **Atmo France** | Keep the default sensor names. The integration provides pollen levels (0–6) for French cities with optional J+1 forecasts. Added in card **v2.9.0**. |
 | **Google Pollen Levels** | Entity names can be freely renamed or localized — the card detects sensors by their `platform` attribute or `attribution` string, not by entity ID patterns. Works with any Home Assistant language. Supports multi-location setups via separate config entries. Added in card **v2.9.0**. |
-| **Google Pollen** | For `home-assistant-google-pollen` by svenove. Uses the same Google Pollen API but a different HA integration. The card detects sensors by the `google_pollen` platform or entity prefix `sensor.google_pollen_*`. Allergens are identified via the `display_name` attribute. The API returns up to 4 days of forecast. Supports multi-location setups. Added in card **v3.1.0**. |
+| **Google Pollen** | For `home-assistant-google-pollen` by svenove. Uses the same Google Pollen API but a different HA integration. Sensors are detected by the `google_pollen` platform or entity prefix `sensor.google_pollen_*`. Allergens are classified primarily via `unique_id` (language-independent) with `display_name` lookup as fallback, covering all 35 languages the API supports via pre-generated name maps. The API returns up to 4 days of forecast. Supports multi-location setups via separate config entries. Added in card **v3.1.0**. |
 
 ## Google Pollen Levels — design decisions
 
@@ -90,14 +90,31 @@ The Google Pollen (GP) adapter supports the [home-assistant-google-pollen](https
 
 ### Sensor classification
 
-The adapter uses a three-tier strategy:
+Each sensor is classified as either a **category sensor** or an **individual plant sensor**. The adapter tries two strategies in order:
 
-1. **`unique_id`** (primary, language-independent): If available in `hass.entities`, the pollen code is extracted from the unique_id pattern `google_pollen_{code}_{lat}_{lon}`. This always contains the English code regardless of language setting.
+| Strategy | When used | How it works | Example |
+|----------|-----------|-------------|---------|
+| `unique_id` extraction | `hass.entities` available | Extract code from `google_pollen_{code}_{lat}_{lon}` | `google_pollen_birch_59.33_18.07` -> `birch` |
+| `display_name` lookup | Fallback when `unique_id` unavailable | Trim + lowercase, then look up in `GP_DISPLAY_NAME_MAP` | `"Björk"` -> `birch` |
 
-2. **`display_name` direct lookup** (fallback): If `unique_id` is unavailable, the `display_name` attribute is looked up directly in `GP_DISPLAY_NAME_MAP`. This pre-generated map covers all 35 languages the Google Pollen API offers, so no runtime transliteration is needed.
+Category codes from `unique_id` are mapped to canonical keys:
 
-3. **Collision handling**: When two sensors share the same display name (e.g. Swedish "Gräs" for both GRASS category and GRAMINALES plant), the first gets the category key and the second is reclassified as a plant.
+| `unique_id` code | Allergen key |
+|-----------------|-------------|
+| `grass` | `grass_cat` |
+| `tree` | `trees_cat` |
+| `weed` | `weeds_cat` |
+
+Plant codes (e.g. `birch`, `oak`, `ragweed`) are kept as-is.
+
+**Collision handling**: In some languages, a category sensor and a plant sensor share the same `display_name` (e.g. Swedish "Gras" for both the GRASS category and the GRAMINALES plant). When this happens, the first sensor gets the category key and the second is reclassified as a plant via `GP_COLLISION_PLANTS`.
+
+### Multi-location support
+
+Like GPL, the adapter groups sensors by `config_entry_id` (resolved via the device registry). Each `google_pollen` config entry represents one location. The card stores the `config_entry_id` in the `location` field and shows human-readable labels derived from device names (preferring `name_by_user` if the user has renamed the device) in the editor dropdown.
+
+If only the fallback detection path is available (no `hass.entities`), all sensors are grouped into a single default location.
 
 ### Level scale
 
-Same as GPL: 0–5 UPI scale, mapped to the card's 6-level display system.
+Same as GPL: 0-5 UPI scale, mapped to the card's 6-level display system.

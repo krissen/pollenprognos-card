@@ -39,7 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - Vitest test harness with shared test helpers
-- Contract tests for all 8 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
+- Contract tests for all 9 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl, gp)
 - Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering
 - Unit tests for `clampLevel`, `detectLang`, `t()` locale fallback, and SVG contract (`getSvgContent`)
 - Spanish translation for `card.error_entity_unavailable`
