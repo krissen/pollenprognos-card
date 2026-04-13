@@ -268,10 +268,7 @@ const GP_ALIASES = {
   gddi: "graminales",
   grabo: "mugwort",
   grabynke: "mugwort",
-  graminees: "graminales",
-  graser: "graminales",
   grassen: "graminales",
-  grasses: "graminales",
   hakoyanagi: "cottonwood",
   hannoki: "alder",
   haselnuss: "hazel",
@@ -481,10 +478,10 @@ const GP_ALIASES = {
   zaitun: "olive",
   zeytin: "olive",
   zhenshu: "hazel",
-  // GRAMINALES plant aliases for languages where GRASS category and GRAMINALES
-  // plant share the same display_name (collision fallback needs these).
-  // These slugs also exist in GP_DISPLAY_NAME_MAP -> grass_cat; the plant alias
-  // is used by the collision handler when the category slot is already taken.
+  // GRAMINALES plant aliases: slugified display_names that refer to the
+  // graminales plant (not the grass category). Only includes slugs that
+  // do NOT collide with other adapter alias maps (graser/grasses/graminees
+  // are intentionally excluded to avoid overriding DWD/PEU/PLU mappings).
   cao: "graminales",
   cimen: "graminales",
   co: "graminales",
