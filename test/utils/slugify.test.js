@@ -50,70 +50,46 @@ describe("slugify: Latin diacritics", () => {
   it("ñ -> n", () => expect(slugify("España")).toBe("espana"));
 });
 
-describe("slugify: HA compatibility fixes (æ, ß)", () => {
-  it("æ -> ae (matches HA backend)", () => {
-    expect(slugify("Træ")).toBe("trae");
-    expect(slugify("Præstø")).toBe("praesto");
-    expect(slugify("Græs")).toBe("graes");
+describe("slugify: HA frontend character table behavior", () => {
+  it("æ -> a (HA frontend maps æ to single a)", () => {
+    expect(slugify("Træ")).toBe("tra");
+    expect(slugify("Græs")).toBe("gras");
   });
 
-  it("ß -> ss (matches HA backend)", () => {
-    expect(slugify("Beifuß")).toBe("beifuss");
-    expect(slugify("Straße")).toBe("strasse");
+  it("ß -> s (HA frontend maps ß to single s)", () => {
+    expect(slugify("Beifuß")).toBe("beifus");
   });
 });
 
-describe("slugify: Cyrillic transliteration", () => {
-  it("Ukrainian names produce valid slugs", () => {
+describe("slugify: Cyrillic (basic Russian)", () => {
+  it("common Russian letters produce valid slugs", () => {
     expect(slugify("Береза")).toBe("bereza");
     expect(slugify("Трава")).toBe("trava");
-    expect(slugify("Ясен")).toBe("yasen");
     expect(slugify("Сосна")).toBe("sosna");
   });
 
-  it("Ukrainian names with special chars", () => {
-    expect(slugify("Вільха")).toBe("vil_kha");
-    expect(slugify("Ліщина")).toBe("lishchina");
-    expect(slugify("Бур'ян")).toBe("bur_yan");
-    expect(slugify("Амброзія")).toBe("ambroziya");
-  });
-
-  it("Russian names", () => {
-    expect(slugify("Москва")).toBe("moskva");
-    expect(slugify("Сорняки")).toBe("sornyaki");
+  it("complex Cyrillic (ж, ш, щ, я) handled", () => {
+    expect(slugify("Жук")).toBe("zhuk");
+    expect(slugify("Шум")).toBe("shum");
   });
 });
 
-describe("slugify: CJK transliteration", () => {
-  it("Chinese", () => {
-    expect(slugify("草")).toBe("cao");
-    expect(slugify("桦树")).toBe("huashu");
-    expect(slugify("橡树")).toBe("xiangshu");
+describe("slugify: known limitations (character table)", () => {
+  it("CJK produces 'unknown' (handled by GP display_name map instead)", () => {
+    expect(slugify("草")).toBe("unknown");
+    expect(slugify("잔디")).toBe("unknown");
   });
 
-  it("Japanese", () => {
-    expect(slugify("ヨモギ")).toBe("yomogi");
-    expect(slugify("スギ")).toBe("sugi");
-    expect(slugify("マツ")).toBe("matsu");
+  it("Thai/Arabic produce 'unknown' (handled by GP display_name map instead)", () => {
+    expect(slugify("หญ้า")).toBe("unknown");
+    expect(slugify("شجرة")).toBe("unknown");
   });
 
-  it("Korean", () => {
-    expect(slugify("잔디")).toBe("jandi");
-    expect(slugify("자작나무")).toBe("jajagnamu");
-  });
-});
-
-describe("slugify: Thai and other scripts", () => {
-  it("Thai produces valid slug", () => {
-    const result = slugify("หญ้า");
-    expect(result).not.toBe("unknown");
-    expect(result.length).toBeGreaterThan(0);
-  });
-
-  it("Arabic produces valid slug", () => {
-    const result = slugify("شجرة");
-    expect(result).not.toBe("unknown");
-    expect(result.length).toBeGreaterThan(0);
+  it("Ukrainian і (U+0456) falls through to delimiter (not in а-я range)", () => {
+    // This is a known limitation of HA's frontend slugify.
+    // GP adapter uses direct display_name lookup for Ukrainian.
+    const result = slugify("Вільха");
+    expect(result).toContain("lha");
   });
 });
 

@@ -134,78 +134,60 @@ async function main() {
     process.stdout.write(`  ${lang}: ${codes.length} pollen types\n`);
   }
 
-  // Build category map: slug -> canonical key
-  const categoryMap = {};
-  // Build plant aliases: slug -> canonical key
-  const plantAliases = {};
-  // Track which slugs are ambiguous (same slug maps to different canonical keys)
-  const slugConflicts = new Map();
+  // Build direct display_name lookup: lowercased name -> allergen key.
+  // Category-first: if a name maps to both a category and a plant, the
+  // primary map gets the category key; collisionPlants gets the plant key.
+  const displayNameMap = {};
+  const collisionPlants = {};
 
   for (const lang of LANGUAGES) {
     for (const [code, displayName] of Object.entries(allNames[lang])) {
-      const slug = slugify(displayName);
-      if (!slug || slug === "unknown") continue;
+      const key = displayName.trim().toLowerCase();
+      if (!key) continue;
 
       if (CATEGORY_CODES.includes(code)) {
-        const canonical = CATEGORY_CANONICAL[code];
-        if (categoryMap[slug] && categoryMap[slug] !== canonical) {
-          if (!slugConflicts.has(slug)) slugConflicts.set(slug, new Set());
-          slugConflicts.get(slug).add(`${lang}:${code}=${displayName}`);
-        }
-        categoryMap[slug] = canonical;
+        displayNameMap[key] = CATEGORY_CANONICAL[code];
       } else if (PLANT_CANONICAL[code]) {
-        const canonical = PLANT_CANONICAL[code];
-        // Skip if this slug is also a category (category takes priority)
-        if (!categoryMap[slug]) {
-          if (plantAliases[slug] && plantAliases[slug] !== canonical) {
-            if (!slugConflicts.has(slug)) slugConflicts.set(slug, new Set());
-            slugConflicts.get(slug).add(`${lang}:${code}=${displayName}`);
-          }
-          plantAliases[slug] = canonical;
+        const plantKey = PLANT_CANONICAL[code];
+        if (displayNameMap[key] && Object.values(CATEGORY_CANONICAL).includes(displayNameMap[key])) {
+          // Collision: this name is already a category; store plant separately
+          collisionPlants[key] = plantKey;
+        } else if (!displayNameMap[key]) {
+          displayNameMap[key] = plantKey;
         }
       }
     }
   }
 
-  // Remove entries where slug === canonical (no translation needed)
-  for (const [slug, canonical] of Object.entries(plantAliases)) {
-    if (slug === canonical) delete plantAliases[slug];
-  }
-  // Remove trivial category entries
-  // Keep all category entries (they're all needed for slugified lookups)
-
   // Output
-  console.log("\n=== GP_CATEGORY_MAP ===\n");
-  const sortedCategories = Object.entries(categoryMap).sort(([a], [b]) => a.localeCompare(b));
-  console.log("export const GP_CATEGORY_MAP = {");
-  for (const [slug, canonical] of sortedCategories) {
-    console.log(`  ${slug}: "${canonical}",`);
+  const sortedMain = Object.entries(displayNameMap).sort(([a], [b]) => a.localeCompare(b));
+  const sortedCollisions = Object.entries(collisionPlants).sort(([a], [b]) => a.localeCompare(b));
+
+  console.log("\n=== GP_DISPLAY_NAME_MAP (for src/adapters/gp/constants.js) ===\n");
+  console.log(`// ${sortedMain.length} entries across ${LANGUAGES.length} languages`);
+  console.log("export const GP_DISPLAY_NAME_MAP = {");
+  for (const [name, canonical] of sortedMain) {
+    const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    console.log(`  "${escaped}": "${canonical}",`);
   }
   console.log("};");
 
-  console.log("\n=== GP_ALIASES (for constants.js) ===\n");
-  const sortedAliases = Object.entries(plantAliases).sort(([a], [b]) => a.localeCompare(b));
-  console.log("const GP_ALIASES = {");
-  for (const [slug, canonical] of sortedAliases) {
-    console.log(`  ${slug}: "${canonical}",`);
+  console.log(`\n=== GP_COLLISION_PLANTS (for src/adapters/gp/constants.js) ===\n`);
+  console.log(`// ${sortedCollisions.length} entries where GRASS category and GRAMINALES plant share display_name`);
+  console.log("export const GP_COLLISION_PLANTS = {");
+  for (const [name, canonical] of sortedCollisions) {
+    const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    console.log(`  "${escaped}": "${canonical}",`);
   }
   console.log("};");
-
-  if (slugConflicts.size) {
-    console.log("\n=== CONFLICTS (same slug, different canonical) ===\n");
-    for (const [slug, sources] of slugConflicts) {
-      console.log(`  ${slug}: ${[...sources].join(", ")}`);
-    }
-  }
 
   // Write machine-readable JSON for reference
   const output = {
     generated: new Date().toISOString(),
     languages: LANGUAGES,
-    categoryMap,
-    plantAliases,
+    displayNameMap,
+    collisionPlants,
     rawNames: allNames,
-    conflicts: Object.fromEntries([...slugConflicts].map(([k, v]) => [k, [...v]])),
   };
   const outPath = resolve(projectRoot, "tmp/gp-translations.json");
   mkdirSync(dirname(outPath), { recursive: true });

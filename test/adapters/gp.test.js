@@ -149,22 +149,22 @@ describe("discoverGpSensors: prefix fallback path", () => {
     expect(loc.entities.get("birch")).toBe("sensor.google_pollen_birch");
   });
 
-  it("normalizes multi-word display_name 'Cypress Pine' -> cypress", () => {
+  it("looks up multi-word display_name 'Cypress Pine' -> cypress_pine", () => {
     const hass = makeHassFallback({
       "sensor.google_pollen_cypress_pine": makeSensor("Cypress Pine", 2),
     });
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
-    expect(loc.entities.has("cypress")).toBe(true);
+    expect(loc.entities.has("cypress_pine")).toBe(true);
   });
 
-  it("normalizes 'Cottonwood' -> poplar via ALLERGEN_TRANSLATION", () => {
+  it("looks up 'Cottonwood' -> cottonwood via GP_DISPLAY_NAME_MAP", () => {
     const hass = makeHassFallback({
       "sensor.google_pollen_cottonwood": makeSensor("Cottonwood", 1),
     });
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
-    expect(loc.entities.has("poplar")).toBe(true);
+    expect(loc.entities.has("cottonwood")).toBe(true);
   });
 
   it("groups multiple sensors under a single location", () => {

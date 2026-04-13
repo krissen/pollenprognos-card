@@ -1,8 +1,6 @@
 // src/adapters/gp/discovery.js
-import { toCanonicalAllergenKey } from "../../constants.js";
-import { slugify } from "../../utils/slugify.js";
 import { normalizeManualPrefix } from "../../utils/adapter-helpers.js";
-import { GP_DOMAIN, GP_CATEGORY_MAP, GP_BASE_ALLERGENS } from "./constants.js";
+import { GP_DOMAIN, GP_DISPLAY_NAME_MAP, GP_COLLISION_PLANTS, GP_BASE_ALLERGENS } from "./constants.js";
 
 // Regex to extract pollen code from unique_id.
 // Format: google_pollen_{code}_{lat}_{lon}
@@ -19,20 +17,22 @@ function codeFromUniqueId(uniqueId) {
   return m ? m[1].toLowerCase() : null;
 }
 
+// Category codes used in unique_id for the three base category sensors.
+const CATEGORY_CODES = { grass: "grass_cat", tree: "trees_cat", weed: "weeds_cat" };
+
 /**
- * Map a raw pollen code to an allergen key.
- * Categories get mapped to their canonical keys (grass_cat, trees_cat, weeds_cat).
- * Plant codes are kept as-is (matching GPL behavior), since canonicalization
- * for display/icons happens later via resolveAllergenNames/ALLERGEN_ICON_FALLBACK.
+ * Map a raw pollen code (from unique_id) to an allergen key.
+ * Category codes get mapped to their canonical keys (grass_cat, trees_cat, weeds_cat).
+ * Plant codes are kept as-is, since canonicalization for display/icons happens
+ * later via resolveAllergenNames/ALLERGEN_ICON_FALLBACK.
  */
 function classifyCode(code) {
   if (!code) return null;
-  if (GP_CATEGORY_MAP[code]) return GP_CATEGORY_MAP[code];
-  return code;
+  return CATEGORY_CODES[code] || code;
 }
 
 /**
- * Classify a sensor as a plant only (skip category map).
+ * Classify a sensor as a plant only (skip the category interpretation).
  * Used when a collision is detected and we need the plant interpretation.
  * Returns the raw pollen code (not canonicalized) to match GPL behavior.
  */
@@ -42,18 +42,19 @@ function classifySensorAsPlant(state, entityEntry) {
 
   const displayName = state?.attributes?.display_name;
   if (!displayName) return null;
-  const slug = slugify(displayName);
-  // For plant collision fallback, try alias map but prefer raw code.
-  // toCanonicalAllergenKey maps display_name slugs to known allergen keys.
-  return toCanonicalAllergenKey(slug);
+  const key = displayName.trim().toLowerCase();
+  // GP_COLLISION_PLANTS holds the plant interpretation for names that are shared
+  // between the grass category and the graminales plant. Fall back to the main
+  // map for display names that are not collision candidates.
+  return GP_COLLISION_PLANTS[key] || GP_DISPLAY_NAME_MAP[key] || null;
 }
 
 /**
  * Classify a google_pollen sensor.
  *
- * Tries three strategies in order:
+ * Tries two strategies in order:
  * 1. unique_id from entity registry (language-independent, always English)
- * 2. display_name with slugify (strips diacritics) + alias lookup
+ * 2. display_name direct lookup in GP_DISPLAY_NAME_MAP (trimmed, lowercased)
  * 3. Returns null if unclassifiable
  */
 export function classifySensor(state, entityEntry) {
@@ -64,14 +65,12 @@ export function classifySensor(state, entityEntry) {
     if (key) return key;
   }
 
-  // 2. display_name with slugify (handles diacritics: Björk -> bjork)
+  // 2. display_name direct lookup (no transliteration needed)
   const displayName = state?.attributes?.display_name;
   if (!displayName) return null;
 
-  const slug = slugify(displayName);
-
-  if (GP_CATEGORY_MAP[slug]) return GP_CATEGORY_MAP[slug];
-  return toCanonicalAllergenKey(slug);
+  const key = displayName.trim().toLowerCase();
+  return GP_DISPLAY_NAME_MAP[key] || null;
 }
 
 /**
