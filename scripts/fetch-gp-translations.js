@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // scripts/fetch-gp-translations.js
 //
-// Fetches display names from the Google Pollen API for all supported languages
-// and generates GP_CATEGORY_MAP data for src/adapters/gp/constants.js
-// and GP_ALIASES data for src/constants.js
+// Fetches display names from the Google Pollen API for all supported languages,
+// writes the raw translation data to tmp/gp-translations.json, and prints
+// generated GP_DISPLAY_NAME_MAP / GP_ALIASES JS snippets to stdout for manual
+// insertion into src/adapters/gp/constants.js and src/constants.js.
 //
 // Usage:
 //   node scripts/fetch-gp-translations.js [--api-key KEY | --api-key-file PATH]
@@ -13,7 +14,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { slugify } from "../src/utils/slugify.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");

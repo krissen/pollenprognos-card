@@ -10,8 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - New `gp` adapter for [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) by svenove (#198). Uses the same Google Pollen API as the existing `gpl` adapter but supports the different entity format (flat forecast attributes, `display_name`-based allergen classification). Auto-detection, visual editor, location discovery, and manual mode all supported.
 
 ### Changed
-- **Slugify upgraded to `any-ascii`**: Full Unicode transliteration replacing the limited Latin+Cyrillic character table. Enables proper handling of CJK, Thai, Korean, Arabic, and all other scripts. Fixes `æ`→`ae` and `ß`→`ss` to match HA backend behavior. All 22 Swedish PP cities verified unchanged. Bundle size increased from 227KB to 447KB (gzipped) due to Unicode lookup tables.
-- GP adapter: sensor classification now works for all 35 Google Pollen API languages (was limited to Latin+Cyrillic). Uses `unique_id` as primary classification and `display_name` with `any-ascii` transliteration as fallback.
+- GP adapter: sensor classification now works for all 35 Google Pollen API languages. Uses `unique_id` as primary classification and pre-generated `display_name` lookup maps as fallback (no runtime transliteration needed).
 - GP/GPL adapters: location dropdown now shows user-renamed device names (`name_by_user`) instead of default device name
 - SILAM: cache discovery results across `set hass()`, forecast subscription, and `fetchForecast()` to eliminate redundant entity scans
 - SILAM: precompute inverse allergen maps once per `resolveEntityIds()` call instead of per allergen
