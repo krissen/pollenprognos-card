@@ -152,8 +152,7 @@ const GPL_ALIASES = {
 
 // GP (svenove/home-assistant-google-pollen) slugified display_name aliases.
 // Auto-generated from the Google Pollen API for 35 languages
-// by scripts/fetch-gp-translations.js using the card's own slugify().
-// Non-Latin scripts are now properly transliterated via any-ascii.
+// by scripts/fetch-gp-translations.js.
 const GP_ALIASES = {
   abedul: "birch",
   aeoch: "ash",
@@ -484,7 +483,7 @@ const GP_ALIASES = {
   zhenshu: "hazel",
   // GRAMINALES plant aliases for languages where GRASS category and GRAMINALES
   // plant share the same display_name (collision fallback needs these).
-  // These slugs also exist in GP_CATEGORY_MAP -> grass_cat; the plant alias
+  // These slugs also exist in GP_DISPLAY_NAME_MAP -> grass_cat; the plant alias
   // is used by the collision handler when the category slot is already taken.
   cao: "graminales",
   cimen: "graminales",
