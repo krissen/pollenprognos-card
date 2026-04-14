@@ -109,90 +109,214 @@ function classifyAtmoEntity(entityId) {
 }
 
 /**
- * Discover all Atmo France sensors using hass.entities (primary) or regex (fallback).
+ * Relaxed classifier for entities already known to belong to an Atmo France device.
+ * Unlike classifyAtmoEntity(), pollen entities don't need the "niveau_" prefix;
+ * the allergen slug alone suffices (e.g. "ambroisie"), as long as it's not
+ * a concentration entity.
+ */
+export function classifyAtmoEntityRelaxed(entityId) {
+  const id = entityId.replace(/^sensor\./, "");
+
+  // Summary entities (most specific first)
+  if (id.includes("qualite_globale_pollen")) return "allergy_risk";
+  if (id.includes("qualite_globale") && !id.includes("qualite_globale_pollen")) return "qualite_globale";
+
+  // Pollen: allergen slug present, not a concentration entity
+  for (const [canonical, frSlug] of Object.entries(ATMO_ALLERGEN_MAP)) {
+    if (canonical === "allergy_risk" || canonical === "qualite_globale") continue;
+    if (ATMO_POLLUTION_ALLERGENS.has(canonical)) continue;
+    if (id.includes(frSlug) && !id.includes(`concentration_${frSlug}`)) return canonical;
+  }
+
+  // Pollution: same logic as strict classifier
+  for (const canonical of ATMO_POLLUTION_ALLERGENS) {
+    const frSlug = ATMO_ALLERGEN_MAP[canonical];
+    if (id.includes(frSlug) && !id.includes(`niveau_${frSlug}`) && !id.includes(`concentration_${frSlug}`)) {
+      return canonical;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolve a human-readable label for an Atmo France location.
+ * Priority: device name_by_user > city from identifier > zone attribute > device name > "Auto"
+ *
+ * "Nom de la zone" is deprioritized because it often contains administrative
+ * zone names (e.g. "CC Leff Armor Communauté" instead of "Plouha") or is in
+ * ALL CAPS ("CHAMBRAY-LÈS-TOURS").
+ */
+function resolveAtmoLabel(state, device) {
+  if (device?.name_by_user) return device.name_by_user;
+
+  // Extract city from device identifier: ["atmofrance", "Lig'Air-Chambray-les-Tours"]
+  if (device?.identifiers) {
+    for (const tuple of device.identifiers) {
+      if (Array.isArray(tuple) && tuple[0] === "atmofrance" && tuple[1]) {
+        const dashIdx = tuple[1].indexOf("-");
+        if (dashIdx >= 0) return tuple[1].slice(dashIdx + 1);
+      }
+    }
+  }
+
+  const zoneName = state?.attributes?.["Nom de la zone"];
+  if (zoneName) return zoneName;
+
+  if (device?.name && device.name !== "Atmo France") return device.name;
+
+  return "Auto";
+}
+
+/**
+ * Discover all Atmo France sensors.
  *
  * Returns: { locations: Map<configEntryId, { label, entities: Map<allergenKey, entityId> }> }
  *
- * Primary: hass.entities -> filter platform === "atmofrance", no entity_category
- * Fallback: hass.states -> regex scan for known Atmo entity patterns
+ * Three-tier discovery:
+ *   1. Device-based: hass.devices (identifiers containing "atmofrance") -> entities by device_id
+ *   2. Entity-registry: hass.entities filtered by platform === "atmofrance"
+ *   3. Regex fallback: hass.states scanned for known Atmo entity patterns
  */
 export function discoverAtmoSensors(hass, debug = false) {
   const result = { locations: new Map() };
   if (!hass) return result;
 
-  let entityIds = [];
-  let usedRegistry = false;
+  // Helper: classify and group a set of entity IDs into result.locations
+  const classifyAndGroup = (entityIds, classifier, getConfigEntryId, getDevice) => {
+    for (const eid of entityIds) {
+      const state = hass.states?.[eid];
+      if (!state) continue;
 
-  // Primary: hass.entities (entity registry)
+      const allergenKey = classifier(eid);
+      if (!allergenKey) {
+        if (debug) console.debug("[ATMO] Could not classify entity:", eid);
+        continue;
+      }
+
+      const configEntryId = getConfigEntryId(eid);
+      if (!result.locations.has(configEntryId)) {
+        const device = getDevice(eid);
+        const label = resolveAtmoLabel(state, device);
+        result.locations.set(configEntryId, { label, entities: new Map() });
+      }
+      result.locations.get(configEntryId).entities.set(allergenKey, eid);
+    }
+  };
+
+  const isRelevant = (eid) => !/_j_\d+$/.test(eid) && !eid.includes("concentration_");
+
+  // --- Tier 1: Device-based discovery ---
+  if (hass.devices && hass.entities) {
+    const atmoDeviceIds = Object.entries(hass.devices)
+      .filter(([, dev]) =>
+        dev.identifiers?.some((tuple) => Array.isArray(tuple) && tuple[0] === "atmofrance")
+      )
+      .map(([devId]) => devId);
+
+    if (atmoDeviceIds.length) {
+      if (debug) console.debug("[ATMO] Discovery tier 1 (device-based): found", atmoDeviceIds.length, "devices");
+
+      // Build device-id set for fast lookup
+      const deviceIdSet = new Set(atmoDeviceIds);
+
+      const candidates = Object.entries(hass.entities)
+        .filter(([eid, entry]) =>
+          deviceIdSet.has(entry.device_id) &&
+          !entry.entity_category &&
+          isRelevant(eid)
+        )
+        .map(([eid]) => eid);
+
+      classifyAndGroup(
+        candidates,
+        classifyAtmoEntityRelaxed,
+        (eid) => {
+          const deviceId = hass.entities[eid]?.device_id;
+          const device = hass.devices[deviceId];
+          return device?.config_entries?.[0] || "default";
+        },
+        (eid) => {
+          const deviceId = hass.entities[eid]?.device_id;
+          return hass.devices[deviceId];
+        },
+      );
+
+      if (result.locations.size > 0) {
+        if (debug) {
+          console.debug("[ATMO] Discovery tier 1 result:", result.locations.size, "locations");
+          for (const [locId, loc] of result.locations) {
+            console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+          }
+        }
+        return result;
+      }
+    }
+  }
+
+  // --- Tier 2: Entity-registry scan (secondary) ---
   if (hass.entities) {
     const candidates = Object.entries(hass.entities)
-      .filter(([, entry]) =>
+      .filter(([eid, entry]) =>
         entry.platform === "atmofrance" &&
-        !entry.entity_category
+        !entry.entity_category &&
+        isRelevant(eid)
       )
-      .map(([eid]) => eid)
-      .filter((id) => !/_j_\d+$/.test(id) && !id.includes("concentration_"));
+      .map(([eid]) => eid);
 
-    if (candidates.length > 0) {
-      entityIds = candidates;
-      usedRegistry = true;
-      if (debug) console.debug("[ATMO] Discovery: using hass.entities, found", candidates.length, "candidates");
+    if (candidates.length) {
+      if (debug) console.debug("[ATMO] Discovery tier 2 (entity-registry): found", candidates.length, "candidates");
+
+      classifyAndGroup(
+        candidates,
+        classifyAtmoEntity,
+        (eid) => {
+          if (hass.entities[eid]?.device_id && hass.devices) {
+            const device = hass.devices[hass.entities[eid].device_id];
+            if (device?.config_entries?.length) return device.config_entries[0];
+          }
+          return "default";
+        },
+        (eid) => {
+          const deviceId = hass.entities[eid]?.device_id;
+          return deviceId && hass.devices ? hass.devices[deviceId] : undefined;
+        },
+      );
+
+      if (result.locations.size > 0) {
+        if (debug) {
+          console.debug("[ATMO] Discovery tier 2 result:", result.locations.size, "locations");
+          for (const [locId, loc] of result.locations) {
+            console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+          }
+        }
+        return result;
+      }
     }
   }
 
-  // Fallback: regex scan (matches both prefixed and non-prefixed patterns)
-  if (!entityIds.length && hass.states) {
-    const atmoFallbackRe = /^sensor\.(?:\w+_)?(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
-    entityIds = Object.keys(hass.states).filter((id) =>
+  // --- Tier 3: Regex fallback ---
+  if (hass.states) {
+    // (?:\w+_)* handles multi-word prefixes like "chambray_les_tours_"
+    const atmoFallbackRe = /^sensor\.(?:\w+_)*(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
+    const candidates = Object.keys(hass.states).filter((id) =>
       typeof id === "string" &&
       atmoFallbackRe.test(id) &&
-      !/_j_\d+$/.test(id) &&
-      !id.includes("concentration_"),
+      isRelevant(id),
     );
-    if (debug) console.debug("[ATMO] Discovery: using regex fallback, found", entityIds.length, "candidates");
-  }
-
-  if (!entityIds.length) return result;
-
-  // Group by config_entry_id
-  for (const eid of entityIds) {
-    const state = hass.states?.[eid];
-    if (!state) continue;
-
-    const allergenKey = classifyAtmoEntity(eid);
-    if (!allergenKey) {
-      if (debug) console.debug("[ATMO] Could not classify entity:", eid);
-      continue;
+    if (candidates.length) {
+      if (debug) console.debug("[ATMO] Discovery tier 3 (regex fallback): found", candidates.length, "candidates");
+      classifyAndGroup(
+        candidates,
+        classifyAtmoEntity,
+        () => "default",
+        () => undefined,
+      );
     }
-
-    // Resolve config_entry_id via device lookup (same pattern as GPL)
-    let configEntryId = "default";
-    if (usedRegistry && hass.entities?.[eid]?.device_id && hass.devices) {
-      const deviceId = hass.entities[eid].device_id;
-      const device = hass.devices[deviceId];
-      if (device?.config_entries?.length) {
-        configEntryId = device.config_entries[0];
-      }
-    }
-
-    if (!result.locations.has(configEntryId)) {
-      // Label: prefer "Nom de la zone" attribute, then device name
-      let label = "Auto";
-      const zoneName = state.attributes?.["Nom de la zone"];
-      if (zoneName) {
-        label = zoneName;
-      } else if (usedRegistry && hass.entities?.[eid]?.device_id && hass.devices) {
-        const device = hass.devices[hass.entities[eid].device_id];
-        if (device?.name) label = device.name;
-      }
-      result.locations.set(configEntryId, { label, entities: new Map() });
-    }
-
-    result.locations.get(configEntryId).entities.set(allergenKey, eid);
   }
 
   if (debug) {
-    console.debug("[ATMO] Discovery result:", result.locations.size, "locations");
+    console.debug("[ATMO] Discovery final result:", result.locations.size, "locations");
     for (const [locId, loc] of result.locations) {
       console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
     }

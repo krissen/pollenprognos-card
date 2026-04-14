@@ -7,6 +7,7 @@ import {
   ATMO_POLLUTION_ALLERGENS,
   discoverAtmoSensors,
   resolveEntityIds,
+  classifyAtmoEntityRelaxed,
 } from "../../src/adapters/atmo.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
@@ -940,8 +941,13 @@ function makePrefixedHass(prefix, location, allergenStates, configEntryId) {
       entities[j1Id] = { platform: "atmofrance", device_id: deviceId };
     }
   }
+  const cityLabel = location.charAt(0).toUpperCase() + location.slice(1);
   const devices = {
-    [deviceId]: { name: `Atmo France - ${location.charAt(0).toUpperCase() + location.slice(1)}`, config_entries: [configEntryId] },
+    [deviceId]: {
+      name: "Atmo France",
+      config_entries: [configEntryId],
+      identifiers: [["atmofrance", `Test-${cityLabel}`]],
+    },
   };
   return createHass(states, { language: "fr", entities, devices });
 }
@@ -977,7 +983,7 @@ describe("discoverAtmoSensors", () => {
         },
         devices: {
           ...hass1.devices,
-          device_nice: { name: "Atmo France - Nice", config_entries: ["entry_nice"] },
+          device_nice: { name: "Atmo France", config_entries: ["entry_nice"], identifiers: [["atmofrance", "AtmoSud-Nice"]] },
         },
       },
     );
@@ -1145,5 +1151,203 @@ describe("fetchForecast with prefixed entities", () => {
     expect(result[0].entity_id).toBe("sensor.niveau_bouleau_nice");
     expect(result[0].day0.state).toBe(4);
     expect(result[0].day1.state).toBe(2);
+  });
+});
+
+describe("classifyAtmoEntityRelaxed", () => {
+  it("matches standard niveau_ entities", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_ambroisie_nice")).toBe("ragweed");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_bouleau_paris")).toBe("birch");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_gramine_nice")).toBe("grass");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_olivier_nice")).toBe("olive");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_armoise_nice")).toBe("mugwort");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_aulne_nice")).toBe("alder");
+  });
+
+  it("matches old-style niveau_alerte_ entities", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_alerte_ambroisie_nice")).toBe("ragweed");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_alerte_bouleau_paris")).toBe("birch");
+  });
+
+  it("matches bare allergen slug (no niveau_ prefix)", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.ambroisie_nice")).toBe("ragweed");
+    expect(classifyAtmoEntityRelaxed("sensor.bouleau_paris")).toBe("birch");
+  });
+
+  it("matches prefixed entities (HA disambiguation)", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours")).toBe("ragweed");
+    expect(classifyAtmoEntityRelaxed("sensor.plouha_niveau_bouleau_plouha")).toBe("birch");
+  });
+
+  it("rejects concentration entities", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.concentration_ambroisie_nice")).toBeNull();
+    expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_concentration_bouleau_chambray_les_tours")).toBeNull();
+  });
+
+  it("classifies summary entities", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.qualite_globale_pollen_nice")).toBe("allergy_risk");
+    expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours")).toBe("allergy_risk");
+    expect(classifyAtmoEntityRelaxed("sensor.qualite_globale_nice")).toBe("qualite_globale");
+  });
+
+  it("classifies pollution entities", () => {
+    expect(classifyAtmoEntityRelaxed("sensor.pm25_nice")).toBe("pm25");
+    expect(classifyAtmoEntityRelaxed("sensor.ozone_nice")).toBe("ozone");
+    expect(classifyAtmoEntityRelaxed("sensor.dioxyde_d_azote_nice")).toBe("no2");
+    expect(classifyAtmoEntityRelaxed("sensor.dioxyde_de_soufre_nice")).toBe("so2");
+  });
+});
+
+describe("discoverAtmoSensors: device-based discovery", () => {
+  it("discovers entities via device identifiers (tier 1)", () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+      ["pm25", 4, 3],
+    ], "entry_toulouse");
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has("entry_toulouse")).toBe(true);
+    const loc = result.locations.get("entry_toulouse");
+    expect(loc.entities.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+    expect(loc.entities.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
+  });
+
+  it("discovers multi-word prefix entities via device path", () => {
+    const states = {
+      "sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours": {
+        state: "3", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
+      },
+      "sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours": {
+        state: "5", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
+      },
+      "sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours": {
+        state: "4", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
+      },
+    };
+    const entities = {};
+    for (const eid of Object.keys(states)) {
+      entities[eid] = { platform: "atmofrance", device_id: "dev_chambray" };
+    }
+    const devices = {
+      dev_chambray: {
+        name: "Atmo France",
+        config_entries: ["entry_chambray"],
+        identifiers: [["atmofrance", "Lig'Air-Chambray-lès-Tours"]],
+      },
+    };
+    const hass = createHass(states, { language: "fr", entities, devices });
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has("entry_chambray")).toBe(true);
+    const loc = result.locations.get("entry_chambray");
+    expect(loc.entities.get("ragweed")).toBe("sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours");
+    expect(loc.entities.get("birch")).toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
+    expect(loc.entities.get("allergy_risk")).toBe("sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours");
+  });
+
+  it("resolves label from device identifier (city after first dash)", () => {
+    const states = {
+      "sensor.pfx_niveau_bouleau_city": { state: "3", attributes: { "Libellé": "", "Nom de la zone": "Some Admin Zone" } },
+    };
+    const entities = {
+      "sensor.pfx_niveau_bouleau_city": { platform: "atmofrance", device_id: "d1" },
+    };
+    const devices = {
+      d1: {
+        name: "Atmo France",
+        config_entries: ["e1"],
+        identifiers: [["atmofrance", "Air Breizh-Plouha"]],
+      },
+    };
+    const hass = createHass(states, { language: "fr", entities, devices });
+
+    const result = discoverAtmoSensors(hass);
+    // Identifier city takes precedence over "Nom de la zone"
+    expect(result.locations.get("e1").label).toBe("Plouha");
+  });
+
+  it("resolves label from device name_by_user (highest priority)", () => {
+    const states = {
+      "sensor.pfx_niveau_bouleau_city": { state: "3", attributes: { "Libellé": "", "Nom de la zone": "Zone Name" } },
+    };
+    const entities = {
+      "sensor.pfx_niveau_bouleau_city": { platform: "atmofrance", device_id: "d1" },
+    };
+    const devices = {
+      d1: {
+        name: "Atmo France",
+        name_by_user: "Mon Emplacement",
+        config_entries: ["e1"],
+        identifiers: [["atmofrance", "Test-City"]],
+      },
+    };
+    const hass = createHass(states, { language: "fr", entities, devices });
+
+    const result = discoverAtmoSensors(hass);
+    // name_by_user wins over identifier and zone name
+    expect(result.locations.get("e1").label).toBe("Mon Emplacement");
+  });
+
+  it("falls back to Nom de la zone when no device info", () => {
+    const states = {
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "", "Nom de la zone": "Nice" } },
+    };
+    // Tier 3 fallback: no entities, no devices
+    const hass = createHass(states, { language: "fr", entities: undefined });
+
+    const result = discoverAtmoSensors(hass);
+    expect(result.locations.get("default").label).toBe("Nice");
+  });
+
+  it("falls back to tier 2 when no devices have atmofrance identifiers", () => {
+    const states = {
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+    };
+    const entities = {
+      "sensor.niveau_bouleau_nice": { platform: "atmofrance", device_id: "d1" },
+    };
+    const devices = {
+      d1: { name: "Something Else", config_entries: ["e1"] },
+    };
+    const hass = createHass(states, { language: "fr", entities, devices });
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has("e1")).toBe(true);
+    expect(result.locations.get("e1").entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+  });
+
+  it("falls back to tier 3 (regex) when hass.entities is unavailable", () => {
+    const states = {
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.pm25_nice": { state: "2", attributes: {} },
+    };
+    const hass = createHass(states, { language: "fr", entities: undefined });
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has("default")).toBe(true);
+    expect(result.locations.get("default").entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+  });
+
+  it("regex fallback handles multi-word prefix", () => {
+    const states = {
+      "sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours": {
+        state: "3", attributes: { "Libellé": "" },
+      },
+    };
+    const hass = createHass(states, { language: "fr", entities: undefined });
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.get("default").entities.get("birch"))
+      .toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
   });
 });
