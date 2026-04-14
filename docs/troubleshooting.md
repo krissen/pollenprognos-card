@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This guide covers the most common issues reported with pollenprognos-card and how to resolve them. If your issue is not listed here, please [open a GitHub issue](https://github.com/krissen/pollenprognos-card/issues/new/choose) with the diagnostic information described in [Collecting diagnostic information](#collecting-diagnostic-information).
+This guide covers the most common issues reported with pollenprognos-card and how to resolve them. If your issue is not listed here, please [open a GitHub issue](https://github.com/krissen/pollenprognos-card/issues/new/choose) with the diagnostic information described in [What to include when reporting a bug](#what-to-include-when-reporting-a-bug).
 
 ## Before you report an issue
 
@@ -10,7 +10,7 @@ Most reported issues fall into a few well-known categories. Please work through 
 2. **Force-refresh your browser cache** (see [Cache and version problems](#cache-and-version-problems))
 3. **Check for conflicting cards** (see [Conflicting card installations](#conflicting-card-installations))
 4. **Test with a minimal config** to rule out config-related issues
-5. **Enable debug mode** and check the browser console for clues
+5. **Enable debug mode** and check the browser console for clues (see [Debug console output](#6-debug-console-output-helpful-for-detection-issues))
 
 If the issue persists after these steps, open an issue with the diagnostic info from the template.
 
@@ -36,8 +36,8 @@ If the issue persists after these steps, open an issue with the diagnostic info 
 
 *Home Assistant Companion app (iOS/Android):*
 1. Open the Companion App
-2. Go to **Settings** (gear icon) > **Companion App**
-3. Scroll down to **Troubleshooting**
+2. Go to **Settings** (gear icon, bottom right) > **Companion App**
+3. Scroll down to **Debug**
 4. Tap **Reset Frontend Cache**
 5. Restart the app
 
@@ -48,17 +48,19 @@ If the issue persists after these steps, open an issue with the diagnostic info 
 
 ### How to check the running version
 
-The card prints its version to the **browser console** on load. The browser console is a built-in tool in all browsers that shows technical messages from the page. Here is how to open it:
+The card prints its version to the **browser console** on load. The browser console is a built-in panel in all desktop browsers that shows technical messages from the page. You do not need to install anything to use it.
 
 1. Open your dashboard with the card
 2. Open the browser console:
-   - **Desktop browsers**: Press F12 (or right-click anywhere on the page and select "Inspect"), then click the **Console** tab
-   - **HA Companion app**: The console is not directly accessible; add `show_version: true` to your card config instead (see tip below)
+   - **Chrome/Edge**: Press F12 (or Ctrl+Shift+J on Windows, Cmd+Option+J on Mac), then click the **Console** tab
+   - **Firefox**: Press F12 (or Ctrl+Shift+K on Windows, Cmd+Option+K on Mac)
+   - **Safari**: First enable the Develop menu (Safari > Settings > Advanced > Show features for web developers), then press Cmd+Option+C
+   - **HA Companion app**: The console is not directly accessible. Enable **Log version to console** in the card editor (see tip below) and check the version on a desktop browser instead.
 3. Look for a line like: `Pollenprognos Card: version v3.0.1`
 
 This is the **actually running** version. The value after `version` is either a git tag (e.g. `v3.0.1`) or a short commit hash when the build is not on an exact tag. If it does not match what HACS shows as installed, you have a cache problem (see above).
 
-> **Tip:** Add `show_version: true` to your card config to ensure the version is always logged to the console.
+> **Tip:** To ensure the version is always logged to the console: in the **visual editor**, open the **Advanced** section and enable **Log version to console**. In YAML mode, add `show_version: true` to your card config.
 
 ### Conflicting card installations
 
@@ -86,7 +88,7 @@ The card could not find any sensors matching your integration and location.
 
 **Common causes:**
 
-1. **Integration not installed or not configured.** Check Developer Tools > States (in HA 2026.2+: Settings > Developer Tools > States) and search for your pollen sensors (e.g., `sensor.pollen_`, `sensor.dwd_pollenflug_`, `sensor.silam_pollen_`). If no sensors appear, the issue is with the integration, not the card.
+1. **Integration not installed or not configured.** Check Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K) and search for your pollen sensors (e.g., `sensor.pollen_`, `sensor.dwd_pollenflug_`, `sensor.silam_pollen_`). If no sensors appear, the issue is with the integration, not the card.
 
 2. **Wrong integration selected.** Make sure the `integration` field in your card config matches your installed integration. Valid values: `pp`, `dwd`, `peu`, `silam`, `kleenex`, `plu`, `atmo`, `gpl`.
 
@@ -126,8 +128,8 @@ Some or all allergens are not showing even though sensors exist.
 
 **Can't select integration, region, or allergens in the visual editor:**
 - Verify that you typed the integration name in lowercase (e.g., `silam`, not `SILAM`)
-- Check that the integration's sensors are available in Developer Tools > States (Settings > Developer Tools > States in HA 2026.2+)
-- Enable `debug: true` in YAML mode and check the console for detection messages
+- Check that the integration's sensors are available in Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K)
+- Enable debug mode (visual editor: **Advanced** > **Debug**; YAML: `debug: true`) and check the console for detection messages
 
 **Allergen list resets when opening the editor:**
 - This was fixed in v2.7.1. Update the card.
@@ -182,7 +184,7 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 
 ---
 
-## Collecting diagnostic information
+## What to include when reporting a bug
 
 When reporting an issue, include the following. This information lets us diagnose the problem without multiple rounds of back-and-forth questions.
 
@@ -206,7 +208,7 @@ Copy your card config from the YAML editor:
 
 ### 4. Sensor entity IDs (required for "sensors not found" issues)
 
-Go to Developer Tools > States (Settings > Developer Tools > States in HA 2026.2+) and search for your pollen sensors. Copy 2-3 example entity IDs exactly as shown, e.g.:
+Go to Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K) and search for your pollen sensors. Copy 2-3 example entity IDs exactly as shown, e.g.:
 ```
 sensor.silam_pollen_home_birch_2
 sensor.dwd_pollenflug_31_hasel
@@ -219,12 +221,14 @@ For a relevant sensor, click on it in Developer Tools > States and copy the full
 
 ### 6. Debug console output (helpful for detection issues)
 
-1. Add `debug: true` to your card config:
-   ```yaml
-   type: custom:pollenprognos-card
-   debug: true
-   # ... rest of your config
-   ```
+1. Enable debug mode using one of these methods:
+   - **Visual editor:** Edit the card, open the **Advanced** section, and toggle **Debug** on.
+   - **YAML mode:** Add `debug: true` to your card config:
+     ```yaml
+     type: custom:pollenprognos-card
+     debug: true
+     # ... rest of your config
+     ```
 2. Reload the page
 3. Open the browser console (F12 > Console tab, see [How to check the running version](#how-to-check-the-running-version) for details)
 4. Copy all lines that mention "pollenprognos" or your integration name
@@ -243,14 +247,14 @@ Check Settings > System > Logs for errors from your pollen integration. Search f
 
 Many reported issues turn out to be problems with the underlying integration, not the card itself. Here is how to tell:
 
-| Check | If yes | Likely issue in |
-|-------|--------|-----------------|
-| Sensors missing from Developer Tools > States | No sensors at all | **Integration** |
-| Sensor state is "unavailable" or "unknown" | Sensor exists but has no data | **Integration** |
-| Sensor attributes empty or have unexpected values | Data looks wrong | **Integration** |
-| HA logs show errors from the pollen integration | Integration errors | **Integration** |
-| Card shows "No sensors found" but sensors exist in States | Detection failure | **Card** |
-| Card shows wrong levels/colors for existing sensors | Rendering bug | **Card** |
-| Editor options missing or broken | UI bug | **Card** |
+| Symptom | Likely issue in |
+|---------|-----------------|
+| No pollen sensors in Developer Tools > States | **Integration** |
+| Sensor state is "unavailable" or "unknown" | **Integration** |
+| Sensor attributes empty or have unexpected values | **Integration** |
+| HA logs show errors from the pollen integration | **Integration** |
+| Card shows "No sensors found" but sensors exist in States | **Card** |
+| Card shows wrong levels or colors for existing sensors | **Card** |
+| Editor options missing or broken | **Card** |
 
 If the issue is in the integration, report it on the integration's GitHub repository (linked in [integrations.md](integrations.md)).
