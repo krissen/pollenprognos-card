@@ -64,6 +64,35 @@ export function discoverGplSensors(hass, debug = false) {
         return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
       }),
 
+    /**
+     * resolveLabel priority for GPL:
+     *   1. device.name_by_user -- explicit user override.
+     *   2. device.name with the "- Pollentyper (lat, lon)" suffix stripped,
+     *      since the HA integration names devices "{user-name} - Pollentyper
+     *      ({lat}, {lon})". Without stripping, the label becomes a useless
+     *      coordinate-laden title in both editor dropdown and card header.
+     *   3. device.name as-is (defensive).
+     *   4. friendly_name from state.attributes.
+     *   5. "Auto" fallback.
+     */
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+      const raw = ctx.device?.name;
+      if (typeof raw === "string" && raw.trim()) {
+        // Strip " - Pollentyper (...)" / " - Pollen types (...)" /
+        // " - Pollentypen (...)" suffixes the upstream integration appends.
+        const cleaned = raw
+          .replace(/\s*[-–—]\s*pollen\s*(?:typer|typen|types)\s*\([^)]*\)\s*$/i, "")
+          .trim();
+        if (cleaned) return cleaned;
+        return raw.trim();
+      }
+      if (ctx.state?.attributes?.friendly_name) {
+        return ctx.state.attributes.friendly_name;
+      }
+      return "Auto";
+    },
+
     debug,
     logTag: "GPL",
   });
