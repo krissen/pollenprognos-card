@@ -156,7 +156,7 @@ export function discoverDwdSensors(hass, debug = false) {
      */
     fallbackRegex: /^sensor\.pollenflug_.+_\d+$/,
     debug,
-    logTag: "[DWD]",
+    logTag: "DWD",
   });
 
   return { locations, tierUsed };

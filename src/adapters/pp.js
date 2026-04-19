@@ -139,7 +139,7 @@ export function discoverPpSensors(hass, debug = false) {
      */
     fallbackRegex: /^sensor\.pollen_.+_[^_]+$/,
     debug,
-    logTag: "[PP]",
+    logTag: "PP",
   });
 
   return { locations, tierUsed };

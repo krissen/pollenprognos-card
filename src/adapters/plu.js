@@ -98,7 +98,7 @@ export function discoverPluSensors(hass, debug = false) {
     resolveLocationKey: () => "default",
     fallbackRegex: null,
     debug,
-    logTag: "[PLU]",
+    logTag: "PLU",
   });
 }
 

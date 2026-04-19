@@ -203,7 +203,7 @@ export function discoverPeuSensors(hass, debug = false) {
      */
     fallbackRegex: /^sensor\.polleninformation_.+$/,
     debug,
-    logTag: "[PEU]",
+    logTag: "PEU",
   });
 
   return { locations, tierUsed };
