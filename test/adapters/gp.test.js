@@ -360,7 +360,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     expect(loc.entities.has("birch")).toBe(true);
   });
 
-  it("falls back to display_name with slugify when unique_id is absent", () => {
+  it("falls back to display_name lookup when unique_id is absent", () => {
     const statesMap = {
       "sensor.google_pollen_svenove_bjork": makeSensor("Björk", 4),
     };
@@ -376,7 +376,8 @@ describe("discoverGpSensors: unique_id classification", () => {
     const hass = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
-    // slugify("Björk") -> "bjork" -> PP_ALIASES -> "birch"
+    // classifySensor lowercases display_name and looks it up directly in
+    // GP_DISPLAY_NAME_MAP ("björk" -> "birch"). No slugify, no PP_ALIASES.
     expect(loc.entities.has("birch")).toBe(true);
   });
 });
