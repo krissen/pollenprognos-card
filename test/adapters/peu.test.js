@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigPEU, PEU_ALLERGENS } from "../../src/adapters/peu.js";
-import { createHass, createPEUSensor, assertSensorShape } from "../helpers.js";
+import { fetchForecast, stubConfigPEU, PEU_ALLERGENS, discoverPeuSensors, resolveEntityIds } from "../../src/adapters/peu.js";
+import { createHass, createHassWithRegistry, createPEUSensor, assertSensorShape } from "../helpers.js";
 
 function makeConfig(overrides = {}) {
   return { ...stubConfigPEU, ...overrides };
@@ -877,6 +877,95 @@ describe("PEU adapter: fetchForecast", () => {
 
       expect(result.length).toBe(1);
       expect(result[0].entity_id).toBe("sensor.birch");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Device-based discovery
+  // -------------------------------------------------------------------------
+  describe("device-based discovery", () => {
+    it("tier 2 hit: entity-registry platform 'polleninformation' resolves allergens", () => {
+      // Simulate hass with entities registered under platform "polleninformation"
+      // but without device registry (tier 2 path).
+      const hass = createHassWithRegistry([
+        {
+          entityId: "sensor.polleninformation_wien_birch",
+          state: "2",
+          attributes: { forecast: [], data_stale: false },
+          deviceId: null,
+          platform: "polleninformation",
+        },
+        {
+          entityId: "sensor.polleninformation_wien_grasses",
+          state: "1",
+          attributes: { forecast: [], data_stale: false },
+          deviceId: null,
+          platform: "polleninformation",
+        },
+      ]);
+
+      const cfg = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
+      const map = resolveEntityIds(cfg, hass);
+
+      expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
+      expect(map.get("grasses")).toBe("sensor.polleninformation_wien_grasses");
+    });
+
+    it("tier 3 (state fallback) with slug config resolves allergens for cfg.location = 'wien'", () => {
+      // No entity/device registry - pure state fallback (tier 3).
+      const states = {
+        "sensor.polleninformation_wien_birch": makePEUSensor([2, 1, 0, 0]),
+        "sensor.polleninformation_wien_grasses": makePEUSensor([1, 0, 0, 0]),
+      };
+      const hass = createHass(states);
+
+      const cfg = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
+      const map = resolveEntityIds(cfg, hass);
+
+      expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
+      expect(map.get("grasses")).toBe("sensor.polleninformation_wien_grasses");
+    });
+
+    it("mode mapping: cfg.mode = 'hourly' + allergens = ['allergy_risk'] resolves to allergy_risk_hourly entity", () => {
+      const states = {
+        "sensor.polleninformation_wien_allergy_risk_hourly": {
+          state: "2",
+          attributes: { forecast: [], data_stale: false },
+        },
+      };
+      const hass = createHass(states);
+
+      const cfg = { ...stubConfigPEU, location: "wien", mode: "hourly", allergens: ["allergy_risk"] };
+      const map = resolveEntityIds(cfg, hass);
+
+      expect(map.get("allergy_risk")).toBe(
+        "sensor.polleninformation_wien_allergy_risk_hourly",
+      );
+    });
+
+    it("whitelist classifier: allergy_risk_hourly is not misclassified as allergy_risk", () => {
+      const states = {
+        "sensor.polleninformation_amsterdam_allergy_risk_hourly": makePEUSensor([3]),
+        "sensor.polleninformation_amsterdam_allergy_risk": makePEUSensor([2]),
+        "sensor.polleninformation_amsterdam_birch": makePEUSensor([1]),
+      };
+      const hass = createHass(states);
+
+      const discovery = discoverPeuSensors(hass);
+      const loc = discovery.locations.get("amsterdam");
+
+      expect(loc).toBeDefined();
+      // Both keys must be separately registered
+      expect(loc.entities.get("allergy_risk")).toBe(
+        "sensor.polleninformation_amsterdam_allergy_risk",
+      );
+      expect(loc.entities.get("allergy_risk_hourly")).toBe(
+        "sensor.polleninformation_amsterdam_allergy_risk_hourly",
+      );
+      // birch must not bleed into the allergy_risk key
+      expect(loc.entities.get("birch")).toBe(
+        "sensor.polleninformation_amsterdam_birch",
+      );
     });
   });
 

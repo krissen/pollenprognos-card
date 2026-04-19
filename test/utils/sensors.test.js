@@ -171,19 +171,19 @@ describe("findAvailableSensors", () => {
     it("returns sensors for a configured location and allergens", () => {
       const hass = createHass({
         "sensor.polleninformation_wien_birch": s(),
-        "sensor.polleninformation_wien_grass": s(),
+        "sensor.polleninformation_wien_grasses": s(),
       });
       const cfg = {
         integration: "peu",
         location: "Wien",
-        allergens: ["birch", "grass"],
+        allergens: ["birch", "grasses"],
       };
 
       const result = findAvailableSensors(cfg, hass);
 
       expect(result).toEqual([
         "sensor.polleninformation_wien_birch",
-        "sensor.polleninformation_wien_grass",
+        "sensor.polleninformation_wien_grasses",
       ]);
     });
 
