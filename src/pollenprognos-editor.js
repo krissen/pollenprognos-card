@@ -18,7 +18,7 @@ import { PEU_ALLERGENS } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP, discoverAtmoSensors } from "./adapters/atmo.js";
+import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP, discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import {
@@ -1097,6 +1097,23 @@ class PollenPrognosCardEditor extends LitElement {
       // Collect Atmo France locations (reuse discovery from autodetect above)
       this.installedAtmoLocations = Array.from(atmoDiscovery.locations.entries())
         .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+
+      // Compatibility: if the config carries a legacy slug location
+      // (e.g. "nice") that matches a discovered instance, expose the slug
+      // as an extra dropdown entry so existing configs stay visible and
+      // editable. Users can re-select the config_entry_id option to migrate.
+      const cfgLoc = this._config?.location;
+      if (
+        cfgLoc &&
+        cfgLoc !== "manual" &&
+        !atmoDiscovery.locations.has(cfgLoc)
+      ) {
+        const matchEntryId = findAtmoLocationBySlug(atmoDiscovery, cfgLoc);
+        if (matchEntryId) {
+          const label = atmoDiscovery.locations.get(matchEntryId).label;
+          this.installedAtmoLocations.push([cfgLoc, label]);
+        }
+      }
 
       // 4) Auto-välj första region/stad om användaren inte satt något
       if (!this._initDone) {
