@@ -549,9 +549,15 @@ export async function fetchForecast(hass, config) {
   // Atmo France: 0 = indisponible, 1–6 = valid levels, 7 = événement
   const testVal = (v) => clampLevel(v, null, -1);
 
-  // Labels for Atmo-specific special values (0 and 7)
-  const atmoUnavailableLabel = t("card.atmo.unavailable", lang) || noInfoLabel;
-  const atmoEventLabel = t("card.atmo.event", lang) || noInfoLabel;
+  // Labels for Atmo-specific special values (0 and 7).
+  // t() returns the lookup key itself when a translation is missing, so we
+  // treat that sentinel as "no localized label" rather than a real string.
+  const localizedOrNull = (key) => {
+    const v = t(key, lang);
+    return v !== key ? v : null;
+  };
+  const atmoUnavailableLabel = localizedOrNull("card.atmo.unavailable");
+  const atmoEventLabel = localizedOrNull("card.atmo.event");
 
   /**
    * Map raw Atmo level to state/display_state/state_text.
@@ -565,15 +571,18 @@ export async function fetchForecast(hass, config) {
     if (raw === 0) {
       // Indisponible — show as empty circle. Prefer the card's localized label
       // over the integration's Libellé (which is always French "Indisponible").
-      return { state: 0, display_state: -1, state_text: atmoUnavailableLabel || libelle };
+      // If no translation exists for this locale, fall back to Libellé, then
+      // the generic noInfoLabel.
+      return { state: 0, display_state: -1, state_text: atmoUnavailableLabel || libelle || noInfoLabel };
     }
     if (raw >= 1 && raw <= 6) {
       return { state: raw, display_state: raw, state_text: levelNames[raw] || libelle || noInfoLabel };
     }
     if (raw === 7) {
       // Événement — cap circle at 6. Prefer the localized label so non-French
-      // users don't see the raw French wording.
-      return { state: 7, display_state: 6, state_text: atmoEventLabel || libelle };
+      // users don't see the raw French wording; fall back to Libellé, then
+      // noInfoLabel.
+      return { state: 7, display_state: 6, state_text: atmoEventLabel || libelle || noInfoLabel };
     }
     // Unexpected value — treat as max
     return { state: raw, display_state: Math.min(raw, 6), state_text: libelle || noInfoLabel };
