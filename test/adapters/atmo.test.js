@@ -6,6 +6,7 @@ import {
   ATMO_ALLERGEN_MAP,
   ATMO_POLLUTION_ALLERGENS,
   discoverAtmoSensors,
+  findAtmoLocationBySlug,
   resolveEntityIds,
   classifyAtmoEntityRelaxed,
 } from "../../src/adapters/atmo.js";
@@ -1412,5 +1413,46 @@ describe("discoverAtmoSensors: device-based discovery", () => {
       .toBe("sensor.niveau_alerte_bouleau_nice");
     expect(result.locations.get("default").entities.get("ragweed"))
       .toBe("sensor.niveau_alerte_ambroisie_nice");
+  });
+});
+
+describe("findAtmoLocationBySlug", () => {
+  it("maps a legacy slug to a discovered config_entry_id (non-prefixed)", () => {
+    const hass = makeHass("nice", [["birch", 3, 2]]);
+    const discovery = discoverAtmoSensors(hass);
+    expect(findAtmoLocationBySlug(discovery, "nice")).toBe("default");
+  });
+
+  it("maps a legacy slug to a discovered config_entry_id (prefixed)", () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [["birch", 3, 2]], "entry_toulouse");
+    const discovery = discoverAtmoSensors(hass);
+    expect(findAtmoLocationBySlug(discovery, "toulouse")).toBe("entry_toulouse");
+  });
+
+  it("handles multi-word slugs", () => {
+    const hass = makePrefixedHass("chambray_les_tours", "chambray_les_tours", [
+      ["birch", 3, 2],
+    ], "entry_chambray");
+    const discovery = discoverAtmoSensors(hass);
+    expect(findAtmoLocationBySlug(discovery, "chambray_les_tours")).toBe("entry_chambray");
+  });
+
+  it("returns null for unknown slugs", () => {
+    const hass = makeHass("nice", [["birch", 3, 2]]);
+    const discovery = discoverAtmoSensors(hass);
+    expect(findAtmoLocationBySlug(discovery, "marseille")).toBeNull();
+    expect(findAtmoLocationBySlug(discovery, "")).toBeNull();
+    expect(findAtmoLocationBySlug(discovery, null)).toBeNull();
+  });
+
+  it("lets resolveEntityIds serve prefixed entities when config carries a legacy slug", () => {
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+    ], "entry_toulouse");
+    const cfg = makeConfig({ location: "toulouse", allergens: ["birch"] });
+
+    const map = resolveEntityIds(cfg, hass);
+
+    expect(map.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
   });
 });

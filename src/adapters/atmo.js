@@ -183,6 +183,27 @@ function resolveAtmoLabel(state, device) {
 }
 
 /**
+ * Resolve a legacy slug-style location (e.g. "nice") to its config_entry_id
+ * in a discovery result. Returns null if no match is found.
+ *
+ * Matches by scanning discovered entity IDs for ones ending in `_{slug}`
+ * (or `_{slug}_j_1`). This covers both non-prefixed (`sensor.niveau_bouleau_nice`)
+ * and prefixed (`sensor.toulouse_niveau_bouleau_toulouse`) entity formats.
+ */
+export function findAtmoLocationBySlug(discovery, slug) {
+  if (!slug || !discovery?.locations) return null;
+  const needle = `_${String(slug).toLowerCase()}`;
+  const needleJ1 = `${needle}_j_1`;
+  for (const [configEntryId, loc] of discovery.locations) {
+    for (const eid of loc.entities.values()) {
+      const lid = String(eid).toLowerCase();
+      if (lid.endsWith(needle) || lid.endsWith(needleJ1)) return configEntryId;
+    }
+  }
+  return null;
+}
+
+/**
  * Discover all Atmo France sensors.
  *
  * Returns: { locations: Map<configEntryId, { label, entities: Map<allergenKey, entityId> }> }
@@ -461,7 +482,23 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     return map;
   }
 
-  // Slug fallback (backward compat for location: "nice" style configs)
+  // Slug fallback (backward compat for location: "nice" style configs).
+  // If the slug matches a discovered location, prefer its entities so prefixed
+  // multi-instance setups still work when the config carries a legacy slug.
+  if (location && !discovery.locations.has(location)) {
+    const entryId = findAtmoLocationBySlug(discovery, location);
+    if (entryId) {
+      discoveredEntities = discovery.locations.get(entryId).entities;
+      for (const allergen of cfg.allergens || []) {
+        const sensorId = discoveredEntities.get(allergen);
+        if (sensorId && hass.states?.[sensorId]) {
+          if (debug) console.debug(`[ATMO:resolveEntityIds] slug->discovery: '${allergen}' -> '${sensorId}'`);
+          map.set(allergen, sensorId);
+        }
+      }
+      return map;
+    }
+  }
   const slugLocation = location || detectLocation(hass, debug) || "";
   if (!slugLocation) return map;
 
