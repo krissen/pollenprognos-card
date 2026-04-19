@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigDWD } from "../../src/adapters/dwd.js";
-import { createHass, createDWDSensor, assertSensorShape } from "../helpers.js";
+import { fetchForecast, stubConfigDWD, discoverDwdSensors, resolveEntityIds } from "../../src/adapters/dwd.js";
+import { createHass, createDWDSensor, assertSensorShape, assertDiscoveryShape, createHassWithRegistry } from "../helpers.js";
 
 function makeConfig(overrides = {}) {
   return { ...stubConfigDWD, ...overrides };
@@ -186,5 +186,137 @@ describe("DWD adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].entity_id).toBe("sensor.pollenflug_erle_50");
+  });
+});
+
+describe("DWD adapter: discoverDwdSensors", () => {
+  it("returns empty discovery for null hass", () => {
+    const result = discoverDwdSensors(null);
+    assertDiscoveryShape(result);
+    expect(result.locations.size).toBe(0);
+    expect(result.tierUsed).toBe(0);
+  });
+
+  it("tier 3 (fallback): discovers sensors via regex when no registry is available", () => {
+    const hass = makeHass("50", {
+      erle: [1, 0, 0],
+      birke: [2, 1, 0],
+      graeser: [0, 1, 0],
+    });
+
+    const result = discoverDwdSensors(hass);
+
+    assertDiscoveryShape(result);
+    expect(result.tierUsed).toBe(3);
+    expect(result.locations.size).toBe(1);
+
+    // In tier 3, the location key is the region ID string
+    const [locKey, loc] = [...result.locations.entries()][0];
+    expect(locKey).toBe("50");
+    expect(loc.entities.has("erle")).toBe(true);
+    expect(loc.entities.has("birke")).toBe(true);
+    expect(loc.entities.has("graeser")).toBe(true);
+    expect(loc.entities.get("erle")).toBe("sensor.pollenflug_erle_50");
+  });
+
+  it("tier 2 (entity registry): discovers sensors when platform matches", () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollenflug_erle_50",
+        state: "1",
+        attributes: {
+          state_tomorrow: "0",
+          state_in_2_days: "0",
+          state_today_desc: "",
+          state_tomorrow_desc: "",
+          state_in_2_days_desc: "",
+        },
+        deviceId: "dev_dwd_50",
+        platform: "dwd_pollenflug",
+        deviceMeta: {
+          identifiers: [],
+          configEntries: ["cfg_dwd_50"],
+          name: "DWD Region 50",
+        },
+      },
+      {
+        entityId: "sensor.pollenflug_birke_50",
+        state: "2",
+        attributes: {
+          state_tomorrow: "1",
+          state_in_2_days: "0",
+          state_today_desc: "",
+          state_tomorrow_desc: "",
+          state_in_2_days_desc: "",
+        },
+        deviceId: "dev_dwd_50",
+        platform: "dwd_pollenflug",
+      },
+    ]);
+
+    const result = discoverDwdSensors(hass);
+
+    assertDiscoveryShape(result);
+    expect(result.tierUsed).toBe(2);
+    expect(result.locations.size).toBe(1);
+
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.has("erle")).toBe(true);
+    expect(loc.entities.has("birke")).toBe(true);
+    expect(loc.entities.get("erle")).toBe("sensor.pollenflug_erle_50");
+  });
+
+  it("tier 3: multi-region — two regions, resolveEntityIds picks correct one via region_id", () => {
+    // Simulate two DWD regions (50 and 91) in hass.states
+    const states = {
+      "sensor.pollenflug_erle_50": createDWDSensor(1, 0, 0),
+      "sensor.pollenflug_birke_50": createDWDSensor(2, 1, 0),
+      "sensor.pollenflug_erle_91": createDWDSensor(3, 2, 1),
+      "sensor.pollenflug_birke_91": createDWDSensor(0, 0, 0),
+    };
+    const hass = createHass(states, { language: "de" });
+
+    // Config selects region 91
+    const config = makeConfig({
+      region_id: "91",
+      allergens: ["erle", "birke"],
+      pollen_threshold: 0,
+    });
+
+    const entityMap = resolveEntityIds(config, hass);
+
+    // Should resolve to region 91 entities
+    expect(entityMap.get("erle")).toBe("sensor.pollenflug_erle_91");
+    expect(entityMap.get("birke")).toBe("sensor.pollenflug_birke_91");
+  });
+
+  it("tier 3: resolveEntityIds auto-selects single region when region_id is empty", () => {
+    const states = {
+      "sensor.pollenflug_erle_50": createDWDSensor(1, 0, 0),
+      "sensor.pollenflug_birke_50": createDWDSensor(2, 1, 0),
+    };
+    const hass = createHass(states, { language: "de" });
+
+    const config = makeConfig({
+      region_id: "",
+      allergens: ["erle", "birke"],
+      pollen_threshold: 0,
+    });
+
+    const entityMap = resolveEntityIds(config, hass);
+
+    // With a single region and empty region_id, resolveLocationByKey returns first location
+    expect(entityMap.get("erle")).toBe("sensor.pollenflug_erle_50");
+    expect(entityMap.get("birke")).toBe("sensor.pollenflug_birke_50");
+  });
+
+  it("region label falls back to DWD_REGIONS lookup (tier 3)", () => {
+    const hass = makeHass("50", { erle: [1, 0, 0] });
+
+    const result = discoverDwdSensors(hass);
+
+    const [, loc] = [...result.locations.entries()][0];
+    // Region 50 = "Brandenburg und Berlin" in DWD_REGIONS
+    expect(loc.label).toBe("Brandenburg und Berlin");
   });
 });

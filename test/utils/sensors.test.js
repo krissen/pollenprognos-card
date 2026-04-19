@@ -143,7 +143,7 @@ describe("findAvailableSensors", () => {
       expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
 
-    it("returns empty when multiple candidates exist without explicit region_id", () => {
+    it("auto-selects first region when multiple candidates exist without explicit region_id", () => {
       const hass = createHass({
         "sensor.pollenflug_birke_50": s(),
         "sensor.pollenflug_birke_91": s(),
@@ -156,8 +156,10 @@ describe("findAvailableSensors", () => {
 
       const result = findAvailableSensors(cfg, hass);
 
-      // Two candidates -> no unique match -> empty
-      expect(result).toEqual([]);
+      // Discovery groups by region; empty region_id picks the first location.
+      // The exact entity returned depends on Map insertion order (region 50 first).
+      expect(result.length).toBe(1);
+      expect(result[0]).toMatch(/^sensor\.pollenflug_birke_\d+$/);
     });
   });
 
