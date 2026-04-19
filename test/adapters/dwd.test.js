@@ -351,6 +351,55 @@ describe("DWD adapter: discoverDwdSensors", () => {
     expect(loc.label).toBe("Brandenburg und Berlin");
   });
 
+  it("duplicate region labels get disambiguated with region ID suffix", () => {
+    // Regions 121-124 all map to "Bayern" in DWD_REGIONS. When multiple
+    // appear in discovery, editor/card must be able to distinguish them.
+    const hass = {
+      states: {
+        "sensor.pollenflug_erle_121": { state: "1", attributes: {} },
+        "sensor.pollenflug_erle_122": { state: "0", attributes: {} },
+      },
+      entities: {
+        "sensor.pollenflug_erle_121": {
+          device_id: "dev_121",
+          platform: "dwd_pollenflug",
+          entity_category: null,
+        },
+        "sensor.pollenflug_erle_122": {
+          device_id: "dev_122",
+          platform: "dwd_pollenflug",
+          entity_category: null,
+        },
+      },
+      devices: {
+        dev_121: {
+          identifiers: [["dwd_pollenflug", "121"]],
+          config_entries: ["cfg_121"],
+          name: "Pollenflug Gefahrenindex",
+        },
+        dev_122: {
+          identifiers: [["dwd_pollenflug", "122"]],
+          config_entries: ["cfg_122"],
+          name: "Pollenflug Gefahrenindex",
+        },
+      },
+      locale: { language: "en" },
+      language: "en",
+    };
+
+    const result = discoverDwdSensors(hass);
+    const labels = [...result.locations.values()].map((l) => l.label).sort();
+    expect(labels).toEqual(["Bayern (121)", "Bayern (122)"]);
+  });
+
+  it("unique region label stays clean (no disambiguation suffix)", () => {
+    const hass = makeHass("50", { erle: [1, 0, 0] });
+    const result = discoverDwdSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    // Only one region 50 present; label stays bare.
+    expect(loc.label).toBe("Brandenburg und Berlin");
+  });
+
   it("user-customized device name wins over region-derived label", () => {
     const hass = {
       states: {

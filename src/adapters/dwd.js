@@ -168,6 +168,26 @@ export function discoverDwdSensors(hass, debug = false) {
     logTag: "DWD",
   });
 
+  // Disambiguate duplicate labels. DWD_REGIONS is not a bijection: several
+  // region IDs share the same name (e.g. 121/122/123/124 all "Bayern").
+  // When discovery surfaces two or more locations with identical labels,
+  // append the region ID in parens so the editor dropdown can distinguish
+  // them. Unique labels stay clean ("Brandenburg und Berlin").
+  const labelCounts = new Map();
+  for (const loc of locations.values()) {
+    labelCounts.set(loc.label, (labelCounts.get(loc.label) || 0) + 1);
+  }
+  for (const loc of locations.values()) {
+    if ((labelCounts.get(loc.label) || 0) <= 1) continue;
+    const anyEntityId = loc.entities.values().next().value;
+    const regionId = anyEntityId
+      ? extractRegionIdFromEntityId(anyEntityId)
+      : null;
+    if (regionId) {
+      loc.label = `${loc.label} (${regionId})`;
+    }
+  }
+
   return { locations, tierUsed };
 }
 
