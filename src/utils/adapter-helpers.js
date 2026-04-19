@@ -396,7 +396,10 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
     if (!locations.has(locationKey)) {
       const label = getLabel(enrichedCtx);
       const loc = { label, entities: new Map() };
-      if (ctx.device !== null && ctx.device !== undefined && ctx.deviceId !== null && ctx.deviceId !== undefined) {
+      // Set deviceId whenever we have one, even if hass.devices lookup failed
+      // (tier 2 can have entry.device_id populated without hass.devices). Downstream
+      // consumers (e.g. SILAM weather-entity postprocess) rely on this.
+      if (ctx.deviceId !== null && ctx.deviceId !== undefined) {
         loc.deviceId = ctx.deviceId;
       }
       locations.set(locationKey, loc);
@@ -602,10 +605,15 @@ export function resolveLocationByKey(discovery, cfgLocation, opts = {}) {
   if (discovery === null || discovery === undefined || !discovery.locations) return null;
   const locs = discovery.locations;
 
-  // 1. Empty location -> first entry
+  // 1. Empty location -> pick first deterministically. Enumeration order of
+  // hass.devices / hass.entities is insertion-order and stable within a
+  // session, but can differ across HA restarts or integration reinstalls.
+  // Sort by locationKey so auto-select is reproducible.
   if (!cfgLocation) {
-    const first = locs.entries().next();
-    return first.done ? null : [first.value[0], first.value[1]];
+    if (locs.size === 0) return null;
+    const sortedKeys = Array.from(locs.keys()).sort();
+    const key = sortedKeys[0];
+    return [key, locs.get(key)];
   }
 
   // 2. Exact key match

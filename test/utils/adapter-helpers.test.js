@@ -506,6 +506,37 @@ describe("discoverEntitiesByDevice", () => {
     expect(discovery.locations.size).toBe(1);
   });
 
+  it("tier 2 without hass.devices still sets loc.deviceId when entry.device_id is present", () => {
+    // Regression: early versions only set loc.deviceId when ctx.device was
+    // non-null, which meant tier 2 without hass.devices lost deviceId even
+    // though entry.device_id was available. SILAM weather postprocess relies
+    // on this.
+    const hass = {
+      states: {
+        "sensor.abc_birch": { state: "1", attributes: {} },
+      },
+      entities: {
+        "sensor.abc_birch": {
+          device_id: "dev_known",
+          platform: "abc",
+          entity_category: null,
+        },
+      },
+      // No hass.devices — lookup of ctx.device will fail.
+      locale: { language: "en" },
+      language: "en",
+    };
+
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "abc",
+      classify: (eid) => eid.includes("birch") ? "birch" : null,
+    });
+
+    expect(discovery.tierUsed).toBe(2);
+    const [, location] = discovery.locations.entries().next().value;
+    expect(location.deviceId).toBe("dev_known");
+  });
+
   // --- Multi-instance ---
 
   it("multi-instance: two devices produce two separate locations", () => {
@@ -578,6 +609,19 @@ describe("resolveLocationByKey", () => {
     const discovery = { locations: new Map(), tierUsed: 0 };
     const result = resolveLocationByKey(discovery, "");
     expect(result).toBeNull();
+  });
+
+  it("empty cfgLocation picks deterministically by sorted key, not insertion order", () => {
+    // Insert cfg_xyz first, cfg_abc second. Insertion-order "first" would be
+    // cfg_xyz, but sorted-key "first" must be cfg_abc.
+    const discovery = makeDiscovery([
+      ["cfg_xyz", "City X", { grass: "sensor.grass_x" }],
+      ["cfg_abc", "City A", { birch: "sensor.birch_a" }],
+    ]);
+
+    const result = resolveLocationByKey(discovery, "");
+    expect(result).not.toBeNull();
+    expect(result[0]).toBe("cfg_abc");
   });
 
   it("exact key match", () => {

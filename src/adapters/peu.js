@@ -81,15 +81,15 @@ const PEU_PREFIX = "sensor.polleninformation_";
  * @param {string} eid
  * @returns {string|null}
  */
+// Precomputed longest-first whitelist. Sorting once at module load avoids
+// reallocating and re-sorting on every classifier invocation during discovery.
+const PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST = [...PEU_ALLERGENS, "allergy_risk_hourly"]
+  .sort((a, b) => b.length - a.length);
+
 function classifyPeuEntity(eid) {
   if (!eid.startsWith(PEU_PREFIX)) return null;
   const rest = eid.substring(PEU_PREFIX.length);
-  // Sort longest allergen name first to prevent shorter names from matching
-  // a suffix that is actually part of a longer allergen name.
-  const allergens = [...PEU_ALLERGENS, "allergy_risk_hourly"].sort(
-    (a, b) => b.length - a.length,
-  );
-  for (const allergen of allergens) {
+  for (const allergen of PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST) {
     const suffix = `_${allergen}`;
     if (rest.endsWith(suffix) && rest.length > suffix.length) {
       return allergen;
