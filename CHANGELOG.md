@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 - Atmo France: card could not find sensors after upstream integration change where entity IDs include a configurable instance prefix; prefixed entity IDs are now recognized in auto-detect (#200).
+- Atmo France: special states `Indisponible` (level 0) and `Événement` (level 7) now use the card's localized label instead of the integration's always-French `Libellé` attribute, so non-French users see translated text.
 - SILAM: invalid empty key in Russian allergen mapping; added empty-slug validation to the generator script.
 
 ### Documentation
