@@ -179,13 +179,8 @@ function detectEditorSetConfig(hass) {
     return "kleenex";
   }
 
-  if (
-    all.some(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
-    )
-  ) {
+  // ATMO: discovery-based detection handles prefixed multi-instance entity IDs
+  if (discoverAtmoSensors(hass, false).locations.size > 0) {
     return "atmo";
   }
 
@@ -902,10 +897,12 @@ describe("ATMO detection", () => {
     expect(detectEditorSetHass(hass)).toBe("atmo");
   });
 
-  it("editor setConfig() only matches pollen allergens, not pollution sensors", () => {
-    // Editor setConfig() uses a narrower regex (only niveau_ pollen names)
+  it("editor setConfig() matches ATMO pollution sensors via discovery fallback", () => {
+    // Editor setConfig() now uses discoverAtmoSensors(), whose tier 3 regex
+    // covers pollution (pm25/pm10/ozone/dioxyde_*/qualite_globale) as well
+    // as pollen. Previously this path was limited to the niveau_{slug} form.
     const hass = mkHass(["sensor.pm25_montpellier"]);
-    expect(detectEditorSetConfig(hass)).toBeUndefined();
+    expect(detectEditorSetConfig(hass)).toBe("atmo");
   });
 
   it("excludes forecast day entities (_j_N suffix) in card and editor set hass()", () => {
@@ -925,6 +922,26 @@ describe("ATMO detection", () => {
   ])("all six ATMO pollen allergens are detected: %s", (id) => {
     const hass = mkHass([id]);
     expect(detectCardSetHass(hass)).toBe("atmo");
+    expect(detectEditorSetConfig(hass)).toBe("atmo");
+  });
+
+  it("editor setConfig() detects ATMO via discovery for prefixed entity IDs", () => {
+    // Multi-instance prefixed entity IDs don't match the legacy regex, but
+    // tier 1 device-based discovery finds them via hass.devices/entities.
+    const eid = "sensor.toulouse_niveau_bouleau_toulouse";
+    const hass = {
+      states: { [eid]: { state: "2", attributes: {} } },
+      entities: {
+        [eid]: { platform: "atmofrance", device_id: "dev_toulouse" },
+      },
+      devices: {
+        dev_toulouse: {
+          name: "Atmo France",
+          config_entries: ["entry_toulouse"],
+          identifiers: [["atmofrance", "Test-Toulouse"]],
+        },
+      },
+    };
     expect(detectEditorSetConfig(hass)).toBe("atmo");
   });
 });
@@ -948,13 +965,12 @@ describe("cross-path divergence documentation", () => {
     expect(detectEditorSetHass(hass)).toBeUndefined(); // divergence
   });
 
-  it("ATMO pollution sensors detected in card/editor set hass() but not editor setConfig()", () => {
-    // The card and editor set hass() paths use a broader ATMO regex that
-    // includes pm25, pm10, ozone, dioxyde_*, qualite_globale sensors.
-    // The editor setConfig() path only matches niveau_{allergen} pollen sensors.
+  it("ATMO pollution sensors detected consistently in all three paths", () => {
+    // All three paths now use discoverAtmoSensors() whose tier 3 regex covers
+    // pm25, pm10, ozone, dioxyde_*, qualite_globale alongside niveau_{slug}.
     const hass = mkHass(["sensor.qualite_globale_montpellier"]);
     expect(detectCardSetHass(hass)).toBe("atmo");
     expect(detectEditorSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetConfig(hass)).toBeUndefined(); // divergence: narrower regex
+    expect(detectEditorSetConfig(hass)).toBe("atmo");
   });
 });

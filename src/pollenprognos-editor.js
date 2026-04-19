@@ -474,11 +474,9 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           integration = "kleenex";
         } else if (
-          all.some(
-            (id) =>
-              typeof id === "string" &&
-              /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_/.test(id),
-          )
+          // Discovery-based detection so prefixed multi-instance entity IDs
+          // (e.g. sensor.toulouse_niveau_bouleau_toulouse) are recognized.
+          discoverAtmoSensors(this._hass, false).locations.size > 0
         ) {
           integration = "atmo";
         } else if (
