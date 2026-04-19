@@ -405,6 +405,52 @@ describe("discoverEntitiesByDevice", () => {
     expect(loc.entities.has("birch_alt")).toBe(true);
   });
 
+  it("onCollision returning a key that already exists is ignored (no overwrite)", () => {
+    // Regression: earlier code used locEntities.set(newKey, eid) unconditionally.
+    // If onCollision returned an already-occupied key (including existingKey),
+    // the original sensor mapping would be silently overwritten.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.testint_grass_cat",
+        state: "3",
+        deviceId: "dev_abc",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [["testint", "loc1"]],
+          configEntries: ["cfg_loc1"],
+        },
+      },
+      {
+        entityId: "sensor.testint_graminales",
+        state: "2",
+        deviceId: "dev_abc",
+        platform: "testint",
+      },
+      {
+        entityId: "sensor.testint_gras_2",
+        state: "1",
+        deviceId: "dev_abc",
+        platform: "testint",
+      },
+    ]);
+
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "testint",
+      classify: (eid) => {
+        if (eid.includes("grass_cat") || eid.includes("gras_2")) return "grass_cat";
+        if (eid.includes("graminales")) return "graminales";
+        return null;
+      },
+      // Collision handler returns an already-used key → must be ignored.
+      onCollision: () => "graminales",
+    });
+
+    const loc = discovery.locations.values().next().value;
+    expect(loc.entities.get("grass_cat")).toBe("sensor.testint_grass_cat");
+    expect(loc.entities.get("graminales")).toBe("sensor.testint_graminales");
+    expect(loc.entities.size).toBe(2);
+  });
+
   it("onCollision returning null skips the colliding entity", () => {
     const hass = createHassWithRegistry([
       {
@@ -537,6 +583,45 @@ describe("discoverEntitiesByDevice", () => {
     expect(loc).toBeDefined();
     expect(loc.deviceId).toBe("dev_later");
     expect(loc.entities.size).toBe(2);
+  });
+
+  it("label is upgraded when device context first becomes available for a bucket", () => {
+    // First entity has no device → label falls back to friendly_name.
+    // Second entity provides a device with name_by_user → label must upgrade.
+    const hass = {
+      states: {
+        "sensor.abc_alder": { state: "0", attributes: { friendly_name: "Fallback name" } },
+        "sensor.abc_birch": { state: "1", attributes: {} },
+      },
+      entities: {
+        "sensor.abc_alder": { device_id: null, platform: "abc", entity_category: null },
+        "sensor.abc_birch": { device_id: "dev_rich", platform: "abc", entity_category: null },
+      },
+      devices: {
+        dev_rich: {
+          identifiers: [],
+          config_entries: ["cfg_rich"],
+          name: "Device Name",
+          name_by_user: "User Label",
+        },
+      },
+      locale: { language: "en" },
+      language: "en",
+    };
+
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "abc",
+      classify: (eid) => {
+        if (eid.includes("alder")) return "alder";
+        if (eid.includes("birch")) return "birch";
+        return null;
+      },
+      resolveLocationKey: () => "shared",
+    });
+
+    const loc = discovery.locations.get("shared");
+    expect(loc.label).toBe("User Label");
+    expect(loc.deviceId).toBe("dev_rich");
   });
 
   it("tier 2 without hass.devices still sets loc.deviceId when entry.device_id is present", () => {

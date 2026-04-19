@@ -3,7 +3,21 @@
 import { t, detectLang } from "../i18n.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { normalize, normalizeDWD } from "./normalize.js";
-import { isConfigEntryId } from "./silam.js";
+
+/**
+ * Test if a value is a Home Assistant config_entry_id (ULID-format string,
+ * 26 Crockford base32 characters). Used by adapters to distinguish between
+ * new-style config_entry_id location keys and legacy slug configs.
+ *
+ * Defined here (rather than in silam.js) to avoid a circular dependency,
+ * since silam.js also imports discoverEntitiesByDevice from this module.
+ *
+ * @param {*} value
+ * @returns {boolean}
+ */
+export function isConfigEntryId(value) {
+  return typeof value === "string" && /^[0-9A-Z]{26}$/i.test(value);
+}
 
 /**
  * Clamp a sensor value to a valid level range.
@@ -398,17 +412,31 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
       locations.set(locationKey, { label, entities: new Map() });
     }
 
+    const location = locations.get(locationKey);
+
     // Set/backfill deviceId whenever ctx provides one and the location is
     // still missing it. Backfill handles the case where the first entity in a
     // bucket had no deviceId but a later entity does. Downstream consumers
     // (e.g. SILAM weather-entity postprocess) rely on this field.
-    const location = locations.get(locationKey);
+    //
+    // Recompute the label when device context first becomes available: the
+    // first entity in this bucket may have produced a fallback label (e.g.
+    // friendly_name or "Auto") because it lacked device info; now that a
+    // later entity has the device, prefer the richer resolver output.
     if (
       (location.deviceId === null || location.deviceId === undefined) &&
       ctx.deviceId !== null &&
       ctx.deviceId !== undefined
     ) {
       location.deviceId = ctx.deviceId;
+      const updatedLabel = getLabel(enrichedCtx);
+      if (
+        updatedLabel !== null &&
+        updatedLabel !== undefined &&
+        updatedLabel !== location.label
+      ) {
+        location.label = updatedLabel;
+      }
     }
 
     const locEntities = location.entities;
@@ -419,11 +447,17 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
           existingEntityId: locEntities.get(allergenKey),
           locEntities,
         });
-        if (newKey !== null && newKey !== undefined) {
+        // Only accept a non-null new key that is not already in use. Overwriting
+        // would silently drop an existing sensor mapping.
+        if (
+          newKey !== null &&
+          newKey !== undefined &&
+          !locEntities.has(newKey)
+        ) {
           locEntities.set(newKey, eid);
         }
       }
-      // If no onCollision or it returned null, skip silently
+      // If no onCollision, it returned null, or the returned key collides, skip.
     } else {
       locEntities.set(allergenKey, eid);
     }
@@ -627,9 +661,14 @@ export function resolveLocationByKey(discovery, cfgLocation, opts = {}) {
     return [cfgLocation, locs.get(cfgLocation)];
   }
 
-  // 3. Label substring / exact match
+  // 3. Label substring / exact match (case-insensitive; mirrors SILAM's
+  // legacy resolveDiscoveredLocation so user-entered labels with different
+  // casing still resolve).
+  const cfgLower = String(cfgLocation).toLowerCase();
   for (const [key, loc] of locs) {
-    if (loc.label && (loc.label === cfgLocation || loc.label.includes(cfgLocation))) {
+    if (!loc.label) continue;
+    const labelLower = String(loc.label).toLowerCase();
+    if (labelLower === cfgLower || labelLower.includes(cfgLower)) {
       return [key, loc];
     }
   }

@@ -1,5 +1,8 @@
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
-import { discoverEntitiesByDevice } from "./adapter-helpers.js";
+import { discoverEntitiesByDevice, isConfigEntryId } from "./adapter-helpers.js";
+
+// Re-export so editor and other callers can keep their silam.js import path.
+export { isConfigEntryId };
 
 // Skapa dynamisk reverse-map: masterAllergen => slug för rätt språk
 export function getSilamReverseMap(lang) {
@@ -10,11 +13,6 @@ export function getSilamReverseMap(lang) {
     reverse[master] = slug;
   }
   return reverse;
-}
-
-/** Test if a config.location value is a config_entry_id (ULID format). */
-export function isConfigEntryId(value) {
-  return typeof value === "string" && /^[0-9A-Z]{26}$/i.test(value);
 }
 
 /**
