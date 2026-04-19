@@ -121,17 +121,29 @@ export function classifyAtmoEntityRelaxed(entityId) {
   if (id.includes("qualite_globale_pollen")) return "allergy_risk";
   if (id.includes("qualite_globale") && !id.includes("qualite_globale_pollen")) return "qualite_globale";
 
-  // Pollen: allergen slug present, not a concentration entity
+  // Pollen, first pass: prefer explicit niveau_{slug} segment so that user
+  // prefixes which happen to contain an allergen slug don't misclassify.
   for (const [canonical, frSlug] of Object.entries(ATMO_ALLERGEN_MAP)) {
     if (canonical === "allergy_risk" || canonical === "qualite_globale") continue;
     if (ATMO_POLLUTION_ALLERGENS.has(canonical)) continue;
-    if (id.includes(frSlug) && !id.includes(`concentration_${frSlug}`)) return canonical;
+    if (new RegExp(`(?:^|_)niveau_${frSlug}(?:_|$)`).test(id)) return canonical;
   }
 
-  // Pollution: same logic as strict classifier
+  // Pollen, second pass: relaxed bounded-token match (no niveau_ required)
+  // for resilience against upstream renaming. Segment boundaries prevent
+  // substring misclassification (e.g. "bouleau" inside a user prefix).
+  for (const [canonical, frSlug] of Object.entries(ATMO_ALLERGEN_MAP)) {
+    if (canonical === "allergy_risk" || canonical === "qualite_globale") continue;
+    if (ATMO_POLLUTION_ALLERGENS.has(canonical)) continue;
+    const boundary = new RegExp(`(?:^|_)${frSlug}(?:_|$)`);
+    if (boundary.test(id) && !id.includes(`concentration_${frSlug}`)) return canonical;
+  }
+
+  // Pollution: bounded-token match, excluding niveau_/concentration_ variants.
   for (const canonical of ATMO_POLLUTION_ALLERGENS) {
     const frSlug = ATMO_ALLERGEN_MAP[canonical];
-    if (id.includes(frSlug) && !id.includes(`niveau_${frSlug}`) && !id.includes(`concentration_${frSlug}`)) {
+    const boundary = new RegExp(`(?:^|_)${frSlug}(?:_|$)`);
+    if (boundary.test(id) && !id.includes(`niveau_${frSlug}`) && !id.includes(`concentration_${frSlug}`)) {
       return canonical;
     }
   }

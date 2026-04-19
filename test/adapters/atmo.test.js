@@ -1179,6 +1179,13 @@ describe("classifyAtmoEntityRelaxed", () => {
     expect(classifyAtmoEntityRelaxed("sensor.plouha_niveau_bouleau_plouha")).toBe("birch");
   });
 
+  it("prefers niveau_{slug} over a slug-shaped user prefix", () => {
+    // bouleau appears in the prefix but ambroisie is the actual pollen slug;
+    // classifier must return ragweed, not birch.
+    expect(classifyAtmoEntityRelaxed("sensor.bouleau_niveau_ambroisie_nice")).toBe("ragweed");
+    expect(classifyAtmoEntityRelaxed("sensor.ambroisie_niveau_bouleau_nice")).toBe("birch");
+  });
+
   it("rejects concentration entities", () => {
     expect(classifyAtmoEntityRelaxed("sensor.concentration_ambroisie_nice")).toBeNull();
     expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_concentration_bouleau_chambray_les_tours")).toBeNull();
