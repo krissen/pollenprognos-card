@@ -4,7 +4,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -66,6 +66,177 @@ export const stubConfigPEU = {
 // All possible allergens for the PEU integration
 export const PEU_ALLERGENS = ["allergy_risk", ...stubConfigPEU.allergens];
 
+const PEU_PREFIX = "sensor.polleninformation_";
+
+/**
+ * Classify a PEU entity ID using a whitelist of known allergen keys.
+ *
+ * Probes the longest suffix first to avoid greedy-split collisions when
+ * allergen names contain underscores (e.g. "allergy_risk_hourly" must not
+ * be classified as "allergy_risk" with an extra "_hourly" location suffix).
+ *
+ * Returns the allergen key string, or null if the entity ID does not match
+ * any known PEU allergen pattern.
+ *
+ * @param {string} eid
+ * @returns {string|null}
+ */
+// Precomputed longest-first whitelist. Sorting once at module load avoids
+// reallocating and re-sorting on every classifier invocation during discovery.
+const PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST = [...PEU_ALLERGENS, "allergy_risk_hourly"]
+  .sort((a, b) => b.length - a.length);
+
+function classifyPeuEntity(eid) {
+  if (!eid.startsWith(PEU_PREFIX)) return null;
+  const rest = eid.substring(PEU_PREFIX.length);
+  for (const allergen of PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST) {
+    const suffix = `_${allergen}`;
+    if (rest.endsWith(suffix) && rest.length > suffix.length) {
+      return allergen;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract the location slug from a PEU entity ID given a known allergen key.
+ * "sensor.polleninformation_wien_birch" + "birch" -> "wien"
+ *
+ * Returns null if the entity ID does not follow the expected pattern.
+ *
+ * @param {string} eid
+ * @param {string} allergenKey
+ * @returns {string|null}
+ */
+function extractPeuLocationSlug(eid, allergenKey) {
+  if (!eid.startsWith(PEU_PREFIX)) return null;
+  const rest = eid.substring(PEU_PREFIX.length);
+  const suffix = `_${allergenKey}`;
+  if (!rest.endsWith(suffix) || rest.length <= suffix.length) return null;
+  return rest.slice(0, rest.length - suffix.length);
+}
+
+/**
+ * Extract the location slug from a PEU entity ID by running classifyPeuEntity
+ * to discover the allergen key, then stripping it from the tail.
+ *
+ * Returns null if the entity ID cannot be classified.
+ *
+ * @param {string} eid
+ * @returns {string|null}
+ */
+function extractPeuLocationSlugFromEntityId(eid) {
+  const allergen = classifyPeuEntity(eid);
+  if (!allergen) return null;
+  return extractPeuLocationSlug(eid, allergen);
+}
+
+/**
+ * Prettify a PEU location slug for display.
+ * "wien" -> "Wien", "new_york" -> "New_york"
+ *
+ * Returns null when no slug can be extracted.
+ *
+ * @param {string} eid
+ * @returns {string|null}
+ */
+function extractPeuLocationLabel(eid) {
+  const slug = extractPeuLocationSlugFromEntityId(eid);
+  if (!slug) return null;
+  return slug.charAt(0).toUpperCase() + slug.slice(1);
+}
+
+/**
+ * Discover all PEU (Polleninformation EU) sensors, grouped by location/device.
+ *
+ * Uses three-tier discovery via discoverEntitiesByDevice:
+ *   Tier 1: device-based (hass.devices with identifiers["polleninformation", ...])
+ *   Tier 2: entity-registry scan by platform === "polleninformation"
+ *   Tier 3: regex fallback scanning hass.states for sensor.polleninformation_*
+ *
+ * The whitelist classifier (classifyPeuEntity) avoids greedy-regex collisions
+ * by probing allergen suffixes from longest to shortest. allergy_risk_hourly
+ * is stored under its own key so that mode-mapping in resolveEntityIds can
+ * look it up directly.
+ *
+ * @param {object}  hass
+ * @param {boolean} [debug=false]
+ * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
+ */
+export function discoverPeuSensors(hass, debug = false) {
+  if (!hass) return { locations: new Map(), tierUsed: 0 };
+
+  const { locations, tierUsed } = discoverEntitiesByDevice(hass, {
+    platform: ["polleninformation"],
+    /**
+     * Strict classifier: use the whitelist to extract the allergen key.
+     * Returns null for entity IDs that do not match any known allergen.
+     */
+    classify: (eid) => classifyPeuEntity(eid),
+    classifyRelaxed: (eid) => classifyPeuEntity(eid),
+    /**
+     * isRelevant: quick pre-filter before classify runs.
+     */
+    isRelevant: (eid) => eid.startsWith(PEU_PREFIX),
+    /**
+     * resolveLabel priority:
+     *   1. device.name_by_user -- explicit user override.
+     *   2. state.attributes.location_title -- integration's clean location
+     *      name when exposed.
+     *   3. device.name with the "Polleninformation " prefix stripped and
+     *      parenthesised wrappers unwrapped ("Polleninformation (Hamburg)"
+     *      → "Hamburg"), since the HA integration often packages the
+     *      location inside a generic device name.
+     *   4. device.name as-is (uncommon but defensive).
+     *   5. Prettified location slug from entity ID.
+     *   6. "Auto" fallback.
+     */
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+
+      const attrTitle = ctx.state?.attributes?.location_title;
+      if (typeof attrTitle === "string" && attrTitle.trim()) {
+        return attrTitle.trim();
+      }
+
+      const rawName = ctx.device?.name;
+      if (typeof rawName === "string" && rawName.trim()) {
+        // Strip a leading "Polleninformation" (any case, optional separators)
+        // and unwrap a trailing "(location)" if present.
+        const stripped = rawName
+          .replace(/^\s*polleninformation\b[\s:\-–—]*/i, "")
+          .trim();
+        const paren = stripped.match(/^\(([^)]+)\)$/);
+        if (paren) return paren[1].trim();
+        if (stripped) return stripped;
+        return rawName.trim();
+      }
+
+      return extractPeuLocationLabel(ctx.entityId) || "Auto";
+    },
+    /**
+     * resolveLocationKey:
+     *   - Tier 3 (state fallback): use location slug from entity ID as key
+     *     so that cfg.location = "wien" matches directly via exact key match.
+     *   - Tier 1/2 (device/registry): use config_entry_id as stable location key.
+     */
+    resolveLocationKey: (ctx) => {
+      if (ctx.tier === 3) {
+        return extractPeuLocationSlugFromEntityId(ctx.entityId) || "default";
+      }
+      return ctx.device?.config_entries?.[0] || "default";
+    },
+    /**
+     * fallbackRegex: matches all PEU entity IDs; classifier filters further.
+     */
+    fallbackRegex: /^sensor\.polleninformation_.+$/,
+    debug,
+    logTag: "PEU",
+  });
+
+  return { locations, tierUsed };
+}
+
 function detectLocation(cfg, hass) {
   if (cfg.location === "manual") return "";
   let locationSlug = slugify(cfg.location || "");
@@ -83,57 +254,101 @@ function detectLocation(cfg, hass) {
 
 export function resolveEntityIds(cfg, hass, debug = false) {
   const map = new Map();
-  const locationSlug = detectLocation(cfg, hass);
   const mode = cfg.mode || stubConfigPEU.mode;
+
+  // --- Path 1: Manual mode ---
+  if (cfg.location === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    for (const allergen of cfg.allergens || []) {
+      const allergenSlug = allergen;
+      const coreSlug =
+        mode !== "daily" && allergenSlug === "allergy_risk"
+          ? "allergy_risk_hourly"
+          : allergenSlug;
+      const sensorId = resolveManualEntity(hass, prefix, coreSlug, cfg.entity_suffix || "");
+      if (!sensorId) continue;
+      if (debug) {
+        console.debug(
+          `[PEU:resolveEntityIds] manual allergen: '${allergen}', coreSlug: '${coreSlug}', sensorId: '${sensorId}'`,
+        );
+      }
+      map.set(allergenSlug, sensorId);
+    }
+    return map;
+  }
+
+  // --- Path 2: Device-based discovery (tier 1/2) or state fallback (tier 3) ---
+  const discovery = discoverPeuSensors(hass, debug);
+
+  if (discovery.locations.size > 0) {
+    const match = resolveLocationByKey(discovery, cfg.location, {
+      slugExtractor: extractPeuLocationSlugFromEntityId,
+    });
+
+    if (match) {
+      const [, location] = match;
+      for (const allergen of cfg.allergens || []) {
+        const allergenSlug = allergen;
+        // Mode mapping: in non-daily modes, allergy_risk sensor is the hourly variant.
+        const lookupKey =
+          mode !== "daily" && allergenSlug === "allergy_risk"
+            ? "allergy_risk_hourly"
+            : allergenSlug;
+        const eid = location.entities.get(lookupKey);
+        if (!eid) continue;
+        if (debug) {
+          console.debug(
+            `[PEU:resolveEntityIds] discovery allergen: '${allergen}', lookupKey: '${lookupKey}', sensorId: '${eid}'`,
+          );
+        }
+        map.set(allergenSlug, eid);
+      }
+
+      if (map.size > 0) return map;
+    }
+  }
+
+  // --- Path 3: Template fallback (legacy / when discovery yields nothing) ---
+  const locationSlug = detectLocation(cfg, hass);
   const peuStates = Object.keys(hass.states).filter((id) =>
-    id.startsWith("sensor.polleninformation_"),
+    id.startsWith(PEU_PREFIX),
   );
 
   for (const allergen of cfg.allergens || []) {
     const allergenSlug = allergen;
     let sensorId;
-    if (cfg.location === "manual") {
-      const prefix = normalizeManualPrefix(cfg.entity_prefix);
-      const coreSlug =
-        mode !== "daily" && allergenSlug === "allergy_risk"
-          ? "allergy_risk_hourly"
-          : allergenSlug;
-      sensorId = resolveManualEntity(hass, prefix, coreSlug, cfg.entity_suffix || "");
-      if (!sensorId) continue;
+    if (mode !== "daily" && allergenSlug === "allergy_risk") {
+      sensorId = locationSlug
+        ? `${PEU_PREFIX}${locationSlug}_allergy_risk_hourly`
+        : null;
     } else {
-      if (mode !== "daily" && allergenSlug === "allergy_risk") {
-        sensorId = locationSlug
-          ? `sensor.polleninformation_${locationSlug}_allergy_risk_hourly`
-          : null;
-      } else {
-        sensorId = locationSlug
-          ? `sensor.polleninformation_${locationSlug}_${allergenSlug}`
-          : null;
-      }
-      if (!sensorId || !hass.states[sensorId]) {
-        const cands = peuStates.filter((id) => {
-          const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
-          if (!match) return false;
-          const loc = match[1];
-          const allg = match[2];
-          if (mode !== "daily" && allergenSlug === "allergy_risk") {
-            return (
-              (!locationSlug || loc === locationSlug) &&
-              allg === "allergy_risk_hourly"
-            );
-          }
+      sensorId = locationSlug
+        ? `${PEU_PREFIX}${locationSlug}_${allergenSlug}`
+        : null;
+    }
+    if (!sensorId || !hass.states[sensorId]) {
+      const cands = peuStates.filter((id) => {
+        const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
+        if (!match) return false;
+        const loc = match[1];
+        const allg = match[2];
+        if (mode !== "daily" && allergenSlug === "allergy_risk") {
           return (
             (!locationSlug || loc === locationSlug) &&
-            allg === allergenSlug
+            allg === "allergy_risk_hourly"
           );
-        });
-        if (cands.length === 1) sensorId = cands[0];
-        else continue;
-      }
+        }
+        return (
+          (!locationSlug || loc === locationSlug) &&
+          allg === allergenSlug
+        );
+      });
+      if (cands.length === 1) sensorId = cands[0];
+      else continue;
     }
     if (debug) {
       console.debug(
-        `[PEU:resolveEntityIds] allergen: '${allergen}', locationSlug: '${locationSlug}', sensorId: '${sensorId}'`,
+        `[PEU:resolveEntityIds] template fallback allergen: '${allergen}', locationSlug: '${locationSlug}', sensorId: '${sensorId}'`,
       );
     }
     map.set(allergenSlug, sensorId);

@@ -234,10 +234,11 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 1. Create `src/adapters/newintegration.js` (or a subdirectory with `index.js` for larger adapters)
 2. Export: `stubConfig*`, `fetchForecast(hass, config)`, `resolveEntityIds(cfg, hass, debug?)`
 3. Use shared helpers from `src/utils/adapter-helpers.js` (getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames)
-4. Register in `src/adapter-registry.js`
-5. Add adapter-specific allergen aliases to `src/constants.js` (e.g. `NEW_ALIASES`) and include in `ALLERGEN_TRANSLATION` spread
-6. Update editor (`src/pollenprognos-editor.js`) to handle integration-specific config fields
-7. Add contract tests in `test/adapters/newintegration.test.js`
+4. For entity discovery, prefer `discoverEntitiesByDevice(hass, opts)` from `src/utils/adapter-helpers.js`. It runs a three-tier cascade (device identifiers → platform scan → regex/selector fallback) and returns `{ locations: Map<locationKey, { label, entities: Map }>, tierUsed }`. Pair with `resolveLocationByKey(discovery, cfgLocation, { slugExtractor })` and `findLocationBySlug(...)` for backward-compatible config resolution. See `src/adapters/atmo.js` or `src/adapters/pp.js` for reference wrappers.
+5. Register in `src/adapter-registry.js`
+6. Add adapter-specific allergen aliases to `src/constants.js` (e.g. `NEW_ALIASES`) and include in `ALLERGEN_TRANSLATION` spread
+7. Update editor (`src/pollenprognos-editor.js`) to handle integration-specific config fields
+8. Add contract tests in `test/adapters/newintegration.test.js`
 
 ### Modifying Display Layout
 - Lit template is in `render()` method of `src/pollenprognos-card.js`

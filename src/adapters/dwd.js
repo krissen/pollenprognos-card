@@ -1,7 +1,8 @@
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey } from "../utils/adapter-helpers.js";
+import { DWD_REGIONS } from "../constants.js";
 
 const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
@@ -60,30 +61,198 @@ export const stubConfigDWD = {
   },
 };
 
+/**
+ * Extract the numeric region ID from a DWD entity ID.
+ * "sensor.pollenflug_erle_50" -> "50"
+ * Returns null if no trailing numeric segment is found.
+ *
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function extractRegionIdFromEntityId(entityId) {
+  return entityId.match(/_(\d+)$/)?.[1] || null;
+}
+
+/**
+ * Extract a human-readable region label from a DWD entity ID by looking up
+ * the region ID in DWD_REGIONS. Falls back to "Region {id}" for unknown IDs.
+ *
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function extractRegionLabel(entityId) {
+  const regionId = extractRegionIdFromEntityId(entityId);
+  if (regionId === null) return null;
+  const name = DWD_REGIONS[Number(regionId)];
+  return name || `Region ${regionId}`;
+}
+
+/**
+ * Discover all DWD Pollenflug sensors, grouped by region.
+ *
+ * Uses three-tier discovery via discoverEntitiesByDevice:
+ *   Tier 1: device-based (hass.devices with identifiers["dwd_pollenflug", ...])
+ *   Tier 2: entity-registry scan by platform === "dwd_pollenflug" or "pollenflug"
+ *   Tier 3: regex fallback scanning hass.states for sensor.pollenflug_*
+ *
+ * NOTE: The official HA integration platform string is assumed to be
+ * "dwd_pollenflug". The array ["dwd_pollenflug", "pollenflug"] is used as a
+ * defensive default in case some installations use the shorter name. Tier 3
+ * (regex fallback) guarantees discovery regardless of the actual platform name.
+ *
+ * In tier 3 the region ID (numeric suffix) is used as the location key so that
+ * cfg.region_id = "50" matches entities like sensor.pollenflug_erle_50.
+ *
+ * @param {object}  hass
+ * @param {boolean} [debug=false]
+ * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
+ */
+export function discoverDwdSensors(hass, debug = false) {
+  if (!hass) return { locations: new Map(), tierUsed: 0 };
+
+  const { locations, tierUsed } = discoverEntitiesByDevice(hass, {
+    platform: ["dwd_pollenflug", "pollenflug"],
+    /**
+     * Strict classifier: derive the normalized allergen key from the entity ID.
+     * DWD entity IDs follow the pattern sensor.pollenflug_{allergen}_{region_id}.
+     * The allergen segment may contain underscores; region_id is always numeric.
+     */
+    classify: (eid) => {
+      const m = eid.match(/^sensor\.pollenflug_(.+)_(\d+)$/);
+      if (!m) return null;
+      return normalizeDWD(m[1]);
+    },
+    classifyRelaxed: (eid) => {
+      const m = eid.match(/^sensor\.pollenflug_(.+)_(\d+)$/);
+      if (!m) return null;
+      return normalizeDWD(m[1]);
+    },
+    /**
+     * isRelevant: quick pre-filter before classify runs.
+     */
+    isRelevant: (eid) => eid.startsWith("sensor.pollenflug_"),
+    /**
+     * resolveLabel priority:
+     *   1. device.name_by_user -- explicit user override always wins.
+     *   2. Region name derived from the numeric suffix in the entity ID.
+     *      The DWD integration sets a generic device.name ("Pollenflug
+     *      Gefahrenindex") that is identical for every region, so region
+     *      derivation must outrank device.name to produce usable titles.
+     *   3. device.name -- last-resort generic label.
+     *   4. "Auto" fallback.
+     */
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+      const regionLabel = extractRegionLabel(ctx.entityId);
+      if (regionLabel) return regionLabel;
+      if (ctx.device?.name) return ctx.device.name;
+      return "Auto";
+    },
+    /**
+     * resolveLocationKey:
+     *   - Tier 3 (regex fallback): use the numeric region ID as the location key
+     *     so that cfg.region_id = "50" resolves directly via exact key match.
+     *   - Tier 1/2 (device/registry): use config_entry_id as stable location key.
+     */
+    resolveLocationKey: (ctx) => {
+      if (ctx.tier === 3) {
+        return extractRegionIdFromEntityId(ctx.entityId) || "default";
+      }
+      return ctx.device?.config_entries?.[0] || "default";
+    },
+    /**
+     * fallbackRegex: matches the standard DWD entity ID pattern used in tier 3.
+     */
+    fallbackRegex: /^sensor\.pollenflug_.+_\d+$/,
+    debug,
+    logTag: "DWD",
+  });
+
+  // Disambiguate duplicate labels. DWD_REGIONS is not a bijection: several
+  // region IDs share the same name (e.g. 121/122/123/124 all "Bayern").
+  // When discovery surfaces two or more locations with identical labels,
+  // append the region ID in parens so the editor dropdown can distinguish
+  // them. Unique labels stay clean ("Brandenburg und Berlin").
+  const labelCounts = new Map();
+  for (const loc of locations.values()) {
+    labelCounts.set(loc.label, (labelCounts.get(loc.label) || 0) + 1);
+  }
+  for (const loc of locations.values()) {
+    if ((labelCounts.get(loc.label) || 0) <= 1) continue;
+    const anyEntityId = loc.entities.values().next().value;
+    const regionId = anyEntityId
+      ? extractRegionIdFromEntityId(anyEntityId)
+      : null;
+    if (regionId) {
+      loc.label = `${loc.label} (${regionId})`;
+    }
+  }
+
+  return { locations, tierUsed };
+}
+
 export function resolveEntityIds(cfg, hass, debug = false) {
   const map = new Map();
+
+  // --- Path 1: Manual mode ---
+  if (cfg.region_id === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    for (const allergen of cfg.allergens || []) {
+      const rawKey = normalizeDWD(allergen);
+      const sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
+      if (!sensorId) continue;
+      if (debug) {
+        console.debug(
+          `[DWD:resolveEntityIds] manual allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+        );
+      }
+      map.set(rawKey, sensorId);
+    }
+    return map;
+  }
+
+  // --- Path 2: Device-based discovery (tier 1/2) or regex fallback (tier 3) ---
+  const discovery = discoverDwdSensors(hass, debug);
+
+  if (discovery.locations.size > 0) {
+    const match = resolveLocationByKey(discovery, cfg.region_id, {
+      slugExtractor: extractRegionIdFromEntityId,
+    });
+
+    if (match) {
+      const [, location] = match;
+      for (const allergen of cfg.allergens || []) {
+        const rawKey = normalizeDWD(allergen);
+        const eid = location.entities.get(rawKey);
+        if (!eid) continue;
+        if (debug) {
+          console.debug(
+            `[DWD:resolveEntityIds] discovery allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${eid}'`,
+          );
+        }
+        map.set(rawKey, eid);
+      }
+
+      if (map.size > 0) return map;
+    }
+  }
+
+  // --- Path 3: Template fallback (legacy / when discovery yields nothing) ---
   for (const allergen of cfg.allergens || []) {
     const rawKey = normalizeDWD(allergen);
-    let sensorId;
-    if (cfg.region_id === "manual") {
-      const prefix = normalizeManualPrefix(cfg.entity_prefix);
-      sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
-      if (!sensorId) continue;
-    } else {
-      sensorId = cfg.region_id
-        ? `sensor.pollenflug_${rawKey}_${cfg.region_id}`
-        : null;
-      if (!sensorId || !hass.states[sensorId]) {
-        const candidates = Object.keys(hass.states).filter((id) =>
-          id.startsWith(`sensor.pollenflug_${rawKey}_`),
-        );
-        if (candidates.length === 1) sensorId = candidates[0];
-        else continue;
-      }
+    let sensorId = cfg.region_id
+      ? `sensor.pollenflug_${rawKey}_${cfg.region_id}`
+      : null;
+    if (!sensorId || !hass.states[sensorId]) {
+      const candidates = Object.keys(hass.states).filter((id) =>
+        id.startsWith(`sensor.pollenflug_${rawKey}_`),
+      );
+      if (candidates.length === 1) sensorId = candidates[0];
+      else continue;
     }
     if (debug) {
       console.debug(
-        `[DWD:resolveEntityIds] allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+        `[DWD:resolveEntityIds] template fallback allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
       );
     }
     map.set(rawKey, sensorId);

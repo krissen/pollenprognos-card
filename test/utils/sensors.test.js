@@ -143,7 +143,7 @@ describe("findAvailableSensors", () => {
       expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
 
-    it("returns empty when multiple candidates exist without explicit region_id", () => {
+    it("auto-selects first region when multiple candidates exist without explicit region_id", () => {
       const hass = createHass({
         "sensor.pollenflug_birke_50": s(),
         "sensor.pollenflug_birke_91": s(),
@@ -156,8 +156,9 @@ describe("findAvailableSensors", () => {
 
       const result = findAvailableSensors(cfg, hass);
 
-      // Two candidates -> no unique match -> empty
-      expect(result).toEqual([]);
+      // Discovery groups by region; when region_id is empty, location keys
+      // are sorted lexicographically and the first ("50") is selected.
+      expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
   });
 
@@ -169,19 +170,19 @@ describe("findAvailableSensors", () => {
     it("returns sensors for a configured location and allergens", () => {
       const hass = createHass({
         "sensor.polleninformation_wien_birch": s(),
-        "sensor.polleninformation_wien_grass": s(),
+        "sensor.polleninformation_wien_grasses": s(),
       });
       const cfg = {
         integration: "peu",
         location: "Wien",
-        allergens: ["birch", "grass"],
+        allergens: ["birch", "grasses"],
       };
 
       const result = findAvailableSensors(cfg, hass);
 
       expect(result).toEqual([
         "sensor.polleninformation_wien_birch",
-        "sensor.polleninformation_wien_grass",
+        "sensor.polleninformation_wien_grasses",
       ]);
     });
 
