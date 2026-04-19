@@ -146,7 +146,10 @@ const GPL_ALIASES = {
   juniper: "cypress",
   japanese_cedar: "cypress",
   japanese_cypress: "cypress",
-  graminales: "grass",
+  // NOTE: graminales is NOT aliased to grass here. GP's category-vs-plant
+  // collision handling depends on graminales staying distinct from grass
+  // (the category). Icon presentation is still handled via
+  // ALLERGEN_ICON_FALLBACK.graminales = "grass".
   cypress_pine: "cypress",
 };
 
