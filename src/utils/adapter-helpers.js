@@ -395,17 +395,23 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
 
     if (!locations.has(locationKey)) {
       const label = getLabel(enrichedCtx);
-      const loc = { label, entities: new Map() };
-      // Set deviceId whenever we have one, even if hass.devices lookup failed
-      // (tier 2 can have entry.device_id populated without hass.devices). Downstream
-      // consumers (e.g. SILAM weather-entity postprocess) rely on this.
-      if (ctx.deviceId !== null && ctx.deviceId !== undefined) {
-        loc.deviceId = ctx.deviceId;
-      }
-      locations.set(locationKey, loc);
+      locations.set(locationKey, { label, entities: new Map() });
     }
 
-    const locEntities = locations.get(locationKey).entities;
+    // Set/backfill deviceId whenever ctx provides one and the location is
+    // still missing it. Backfill handles the case where the first entity in a
+    // bucket had no deviceId but a later entity does. Downstream consumers
+    // (e.g. SILAM weather-entity postprocess) rely on this field.
+    const location = locations.get(locationKey);
+    if (
+      (location.deviceId === null || location.deviceId === undefined) &&
+      ctx.deviceId !== null &&
+      ctx.deviceId !== undefined
+    ) {
+      location.deviceId = ctx.deviceId;
+    }
+
+    const locEntities = location.entities;
     if (locEntities.has(allergenKey)) {
       if (onCollision) {
         const newKey = onCollision(enrichedCtx, {

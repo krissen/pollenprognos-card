@@ -83,7 +83,11 @@ function extractRegionIdFromEntityId(entityId) {
 function extractRegionLabel(entityId) {
   const regionId = extractRegionIdFromEntityId(entityId);
   if (regionId === null) return null;
-  return DWD_REGIONS[Number(regionId)] || `Region ${regionId}`;
+  // DWD_REGIONS is not a bijection (e.g. 11 and 12 both map to
+  // "Schleswig-Holstein und Hamburg"). Prefix with region ID so the label
+  // stays unique per region in editor dropdowns when tier 3 fallback runs.
+  const name = DWD_REGIONS[Number(regionId)];
+  return name ? `${regionId} ${name}` : `Region ${regionId}`;
 }
 
 /**

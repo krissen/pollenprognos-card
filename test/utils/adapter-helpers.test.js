@@ -92,9 +92,9 @@ describe("discoverEntitiesByDevice", () => {
     expect(discovery.locations.get("cfg_loc1").label).toBe("MyCity");
   });
 
-  it("tier 1: entities filtered by isRelevant fall through to tier 2 if tier 2 matches", () => {
-    // Set up: device exists (tier 1 capable) but isRelevant filters all out.
-    // tier 2 entities have matching platform, so tier 2 should fire.
+  it("isRelevant blocking all entities yields tierUsed 0 in every tier", () => {
+    // isRelevant applied uniformly to tier 1/2/3 → when it blocks everything,
+    // no tier produces locations and tierUsed must be 0.
     const hass = createHassWithRegistry([
       {
         entityId: "sensor.testint_birch_loc1",
@@ -114,8 +114,6 @@ describe("discoverEntitiesByDevice", () => {
       isRelevant: () => false, // filter everything
     });
 
-    // Tier 1 and tier 2 both produce nothing (isRelevant blocks all).
-    // Result should be tierUsed 0.
     expect(discovery.tierUsed).toBe(0);
     expect(discovery.locations.size).toBe(0);
   });
@@ -504,6 +502,41 @@ describe("discoverEntitiesByDevice", () => {
 
     expect(discovery.tierUsed).toBe(2);
     expect(discovery.locations.size).toBe(1);
+  });
+
+  it("deviceId is backfilled when the first entity lacks it but a later one has it", () => {
+    // First entity has no device_id (tier 3 fallback match), second entity in
+    // the same location has a device_id. Earlier code only set deviceId on
+    // bucket creation, which silently lost it.
+    const hass = {
+      states: {
+        "sensor.abc_alder": { state: "0", attributes: {} },
+        "sensor.abc_birch": { state: "1", attributes: {} },
+      },
+      entities: {
+        // First entity in iteration order has no device_id.
+        "sensor.abc_alder": { device_id: null, platform: "abc", entity_category: null },
+        "sensor.abc_birch": { device_id: "dev_later", platform: "abc", entity_category: null },
+      },
+      locale: { language: "en" },
+      language: "en",
+    };
+
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "abc",
+      classify: (eid) => {
+        if (eid.includes("alder")) return "alder";
+        if (eid.includes("birch")) return "birch";
+        return null;
+      },
+      // Collapse both entities into the same location.
+      resolveLocationKey: () => "shared",
+    });
+
+    const loc = discovery.locations.get("shared");
+    expect(loc).toBeDefined();
+    expect(loc.deviceId).toBe("dev_later");
+    expect(loc.entities.size).toBe(2);
   });
 
   it("tier 2 without hass.devices still sets loc.deviceId when entry.device_id is present", () => {

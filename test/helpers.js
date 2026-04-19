@@ -116,9 +116,11 @@ export function createPEUSensor(level, forecastLevels = [], opts = {}) {
  * @param {string}   [opts.nameByUser]  - User-assigned device name.
  * @returns {object}
  */
+let _makeDeviceCounter = 0;
+
 export function makeDevice({ deviceId, identifiers, configEntries = ["cfg_default"], name, nameByUser } = {}) {
   return {
-    device_id: deviceId || `device_${Math.random().toString(36).slice(2, 9)}`,
+    device_id: deviceId || `device_auto_${++_makeDeviceCounter}`,
     identifiers: identifiers || [],
     config_entries: configEntries,
     name: name || null,

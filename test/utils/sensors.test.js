@@ -156,10 +156,9 @@ describe("findAvailableSensors", () => {
 
       const result = findAvailableSensors(cfg, hass);
 
-      // Discovery groups by region; empty region_id picks the first location.
-      // The exact entity returned depends on Map insertion order (region 50 first).
-      expect(result.length).toBe(1);
-      expect(result[0]).toMatch(/^sensor\.pollenflug_birke_\d+$/);
+      // Discovery groups by region; when region_id is empty, location keys
+      // are sorted lexicographically and the first ("50") is selected.
+      expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
   });
 
