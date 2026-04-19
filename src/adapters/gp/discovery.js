@@ -1,0 +1,273 @@
+// src/adapters/gp/discovery.js
+import { normalizeManualPrefix } from "../../utils/adapter-helpers.js";
+import { GP_DOMAIN, GP_DISPLAY_NAME_MAP, GP_COLLISION_PLANTS, GP_BASE_ALLERGENS } from "./constants.js";
+
+// Regex to extract pollen code from unique_id.
+// Format: google_pollen_{code}_{lat}_{lon}
+// Pollen codes never start with a digit; coordinates always do.
+const UNIQUE_ID_RE = /^google_pollen_(.+?)_-?\d/;
+
+/**
+ * Extract the pollen code from a unique_id string.
+ * Returns the lowercase code (e.g. "birch", "tree") or null.
+ */
+function codeFromUniqueId(uniqueId) {
+  if (!uniqueId) return null;
+  const m = UNIQUE_ID_RE.exec(uniqueId);
+  return m ? m[1].toLowerCase() : null;
+}
+
+// Category codes used in unique_id for the three base category sensors.
+const CATEGORY_CODES = { grass: "grass_cat", tree: "trees_cat", weed: "weeds_cat" };
+
+/**
+ * Map a raw pollen code (from unique_id) to an allergen key.
+ * Category codes get mapped to their canonical keys (grass_cat, trees_cat, weeds_cat).
+ * Plant codes are kept as-is, since canonicalization for display/icons happens
+ * later via resolveAllergenNames/ALLERGEN_ICON_FALLBACK.
+ */
+function classifyCode(code) {
+  if (!code) return null;
+  return CATEGORY_CODES[code] || code;
+}
+
+/**
+ * Classify a sensor as a plant only (skip the category interpretation).
+ * Used when a collision is detected and we need the plant interpretation.
+ * Returns the raw pollen code (not canonicalized) to match GPL behavior.
+ */
+function classifySensorAsPlant(state, entityEntry) {
+  const code = codeFromUniqueId(entityEntry?.unique_id);
+  if (code) return code;
+
+  const displayName = state?.attributes?.display_name;
+  if (!displayName) return null;
+  const key = displayName.trim().toLowerCase();
+  // GP_COLLISION_PLANTS holds the plant interpretation for names that are shared
+  // between the grass category and the graminales plant. Fall back to the main
+  // map for display names that are not collision candidates.
+  return GP_COLLISION_PLANTS[key] || GP_DISPLAY_NAME_MAP[key] || null;
+}
+
+/**
+ * Classify a google_pollen sensor.
+ *
+ * Tries two strategies in order:
+ * 1. unique_id from entity registry (language-independent, always English)
+ * 2. display_name direct lookup in GP_DISPLAY_NAME_MAP (trimmed, lowercased)
+ * 3. Returns null if unclassifiable
+ */
+export function classifySensor(state, entityEntry) {
+  // 1. unique_id (best: always English pollen code)
+  const code = codeFromUniqueId(entityEntry?.unique_id);
+  if (code) {
+    const key = classifyCode(code);
+    if (key) return key;
+  }
+
+  // 2. display_name direct lookup (no transliteration needed)
+  const displayName = state?.attributes?.display_name;
+  if (!displayName) return null;
+
+  const key = displayName.trim().toLowerCase();
+  return GP_DISPLAY_NAME_MAP[key] || null;
+}
+
+/**
+ * Discover all google_pollen sensors.
+ *
+ * Returns: { locations: Map<configEntryId, { label, entities: Map<allergenKey, entityId> }> }
+ *
+ * Primary: hass.entities with platform === "google_pollen", no entity_category
+ * Fallback: hass.states where entity_id starts with "sensor.google_pollen_"
+ */
+export function discoverGpSensors(hass, debug = false) {
+  const result = { locations: new Map() };
+  if (!hass) return result;
+
+  let entityIds = [];
+  let usedPrimary = false;
+
+  // Primary: hass.entities (entity registry)
+  if (hass.entities) {
+    const candidates = Object.entries(hass.entities)
+      .filter(([, entry]) =>
+        entry.platform === GP_DOMAIN &&
+        !entry.entity_category
+      )
+      .map(([eid]) => eid);
+
+    if (candidates.length > 0) {
+      entityIds = candidates;
+      usedPrimary = true;
+      if (debug) console.debug("[GP] Discovery: using hass.entities, found", candidates.length, "candidates");
+    }
+  }
+
+  // Fallback: entity_id prefix scan
+  if (!entityIds.length && hass.states) {
+    entityIds = Object.keys(hass.states).filter((eid) =>
+      eid.startsWith("sensor.google_pollen_")
+    );
+    if (debug) console.debug("[GP] Discovery: using prefix fallback, found", entityIds.length, "candidates");
+  }
+
+  if (!entityIds.length) return result;
+
+  // Group by config_entry_id (primary) or device_id
+  for (const eid of entityIds) {
+    const state = hass.states[eid];
+    if (!state) continue;
+
+    const entityEntry = usedPrimary ? hass.entities?.[eid] : undefined;
+    let allergenKey = classifySensor(state, entityEntry);
+    if (!allergenKey) {
+      if (debug) console.debug("[GP] Could not classify sensor:", eid);
+      continue;
+    }
+
+    // Resolve config_entry_id for location grouping
+    let configEntryId = "default";
+    if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
+      const deviceId = hass.entities[eid].device_id;
+      const device = hass.devices[deviceId];
+      if (device?.config_entries?.length) {
+        configEntryId = device.config_entries[0];
+      }
+    }
+
+    if (!result.locations.has(configEntryId)) {
+      let label = "Auto";
+      if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
+        const deviceId = hass.entities[eid].device_id;
+        const device = hass.devices[deviceId];
+        label = device?.name_by_user || device?.name || label;
+      } else {
+        const friendly = state.attributes?.friendly_name || "";
+        if (friendly) label = friendly;
+      }
+      result.locations.set(configEntryId, { label, entities: new Map() });
+    }
+
+    // Handle collision: when two sensors share the same slugified display_name
+    // (e.g. Swedish "Gräs" = both GRASS category and GRAMINALES plant), the
+    // first gets the category key; the second retries as a plant.
+    const locEntities = result.locations.get(configEntryId).entities;
+    if (locEntities.has(allergenKey)) {
+      const altKey = classifySensorAsPlant(state, entityEntry);
+      if (altKey && altKey !== allergenKey && !locEntities.has(altKey)) {
+        if (debug) console.debug("[GP] Collision on", allergenKey, "-> reclassified as", altKey, "for", eid);
+        allergenKey = altKey;
+      } else {
+        if (debug) console.debug("[GP] Collision: duplicate key", allergenKey, "for", eid, "(skipped)");
+        continue;
+      }
+    }
+
+    locEntities.set(allergenKey, eid);
+  }
+
+  if (debug) {
+    console.debug("[GP] Discovery result:", result.locations.size, "locations");
+    for (const [locId, loc] of result.locations) {
+      console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get available allergen keys for a given location.
+ * Returns sorted array: categories first, then plants alphabetically.
+ */
+export function discoverGpAllergens(hass, configEntryId, debug = false) {
+  const discovery = discoverGpSensors(hass, debug);
+  if (!discovery.locations.size) return [];
+
+  let location;
+  if (configEntryId && discovery.locations.has(configEntryId)) {
+    location = discovery.locations.get(configEntryId);
+  } else {
+    location = discovery.locations.values().next().value;
+  }
+
+  if (!location) return [];
+
+  const keys = [...location.entities.keys()];
+  const categories = keys.filter((k) => GP_BASE_ALLERGENS.includes(k)).sort();
+  const plants = keys.filter((k) => !GP_BASE_ALLERGENS.includes(k)).sort();
+  return [...categories, ...plants];
+}
+
+/**
+ * Resolve entity ID for a single allergen, using discovery or manual mode.
+ */
+function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
+  if (config.location === "manual") {
+    const prefix = normalizeManualPrefix(config.entity_prefix || "");
+    const suffix = config.entity_suffix || "";
+
+    // Collect candidate entity IDs
+    let candidateIds = [];
+    if (hass.entities) {
+      candidateIds = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === GP_DOMAIN && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!candidateIds.length) {
+      candidateIds = Object.keys(hass.states || {}).filter((eid) =>
+        eid.startsWith("sensor.google_pollen_")
+      );
+    }
+
+    for (const eid of candidateIds) {
+      const state = hass.states[eid];
+      if (!state) continue;
+
+      const idPart = eid.replace(/^sensor\./, "");
+      if (prefix && !idPart.startsWith(prefix)) continue;
+      if (suffix && !idPart.endsWith(suffix)) continue;
+
+      const entityEntry = hass.entities?.[eid];
+      const key = classifySensor(state, entityEntry);
+      if (key === allergen) return eid;
+    }
+
+    if (debug) console.debug(`[GP] Manual mode: no sensor found for allergen "${allergen}"`);
+    return null;
+  }
+
+  // Discovery-based lookup
+  if (discoveredEntities && discoveredEntities.has(allergen)) {
+    return discoveredEntities.get(allergen);
+  }
+
+  if (debug) console.debug(`[GP] Sensor not found for allergen "${allergen}"`);
+  return null;
+}
+
+export function resolveEntityIds(cfg, hass, debug = false) {
+  const map = new Map();
+  const discovery = discoverGpSensors(hass, debug);
+  const configEntryId = cfg.location || "";
+
+  let discoveredEntities = null;
+  if (configEntryId !== "manual") {
+    let location;
+    if (configEntryId && discovery.locations.has(configEntryId)) {
+      location = discovery.locations.get(configEntryId);
+    } else if (discovery.locations.size) {
+      location = discovery.locations.values().next().value;
+    }
+    if (location) discoveredEntities = location.entities;
+  }
+
+  for (const allergen of cfg.allergens || []) {
+    const sensorId = resolveEntityId(allergen, hass, cfg, discoveredEntities, debug);
+    if (sensorId && hass.states[sensorId]) {
+      map.set(allergen, sensorId);
+    }
+  }
+  return map;
+}

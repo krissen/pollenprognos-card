@@ -10,6 +10,7 @@ import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
+import { discoverGpSensors } from "./adapters/gp/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -1029,6 +1030,18 @@ class PollenPrognosCard extends LitElement {
           && s.attributes.device_class !== "timestamp";
       });
     }
+    // GP (svenove/google_pollen): hass.entities (primary) or entity prefix (fallback)
+    let gpStates = [];
+    if (hass.entities) {
+      gpStates = Object.entries(hass.entities)
+        .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
+        .map(([eid]) => eid);
+    }
+    if (!gpStates.length) {
+      gpStates = Object.keys(hass.states).filter((id) =>
+        typeof id === "string" && id.startsWith("sensor.google_pollen_")
+      );
+    }
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -1059,6 +1072,7 @@ class PollenPrognosCard extends LitElement {
       else if (silamStates.length && !skip.has("silam")) integration = "silam";
       else if (kleenexStates.length && !skip.has("kleenex")) integration = "kleenex";
       else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
+      else if (gpStates.length && !skip.has("gp")) integration = "gp";
       else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
     }
 
@@ -1580,6 +1594,22 @@ class PollenPrognosCard extends LitElement {
         }
 
         loc = title || cfg.location || "";
+      } else if (integration === "gp") {
+        // Google Pollen (svenove): extract location from discovery
+        const gpDiscovery = discoverGpSensors(hass, false);
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location
+            : "";
+
+        let title = "";
+        if (wantedLocation && gpDiscovery.locations.has(wantedLocation)) {
+          title = gpDiscovery.locations.get(wantedLocation).label;
+        } else if (gpDiscovery.locations.size) {
+          title = gpDiscovery.locations.values().next().value.label;
+        }
+
+        loc = title || cfg.location || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location
         const translated = this._t("card.location.plu");
@@ -1885,7 +1915,7 @@ class PollenPrognosCard extends LitElement {
     let segments = 6;
     if (this.config.integration === "peu" || this.config.integration === "kleenex") {
       segments = 4;
-    } else if (this.config.integration === "gpl") {
+    } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
       segments = 5;
     } else if (this.config.integration === "plu") {
       segments = 3;

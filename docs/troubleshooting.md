@@ -30,6 +30,20 @@ If the issue persists after these steps, open an issue with the diagnostic info 
 
 **How to fix:**
 
+*First: check that the resource is registered.*
+
+The card must be registered as a Lovelace resource to load. HACS does this automatically, but manual installations (or failed HACS installs) may be missing it:
+
+1. Go to **Settings > Dashboards**, click the three-dot menu (top right), then **Resources**
+   (Note: the Resources tab requires **Advanced Mode** enabled in your user profile)
+2. Verify an entry exists with type **JavaScript Module** pointing to one of:
+   - `/hacsfiles/pollenprognos-card/pollenprognos-card.js` (HACS install)
+   - `/local/pollenprognos-card.js` (manual install)
+3. If missing, click **Add Resource** and add the appropriate URL
+4. Reload the page
+
+If the resource exists, the problem is likely a stale browser cache:
+
 *Desktop browser (quick method):*
 1. Press Ctrl+Shift+R (or Cmd+Shift+R on Mac) to force-reload
 2. If that is not enough, open the browser's developer tools (usually F12 or right-click > "Inspect"), go to the **Network** tab, check **Disable cache**, and reload again
@@ -90,7 +104,7 @@ The card could not find any sensors matching your integration and location.
 
 1. **Integration not installed or not configured.** Check Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K) and search for your pollen sensors (e.g., `sensor.pollen_`, `sensor.dwd_pollenflug_`, `sensor.silam_pollen_`). If no sensors appear, the issue is with the integration, not the card.
 
-2. **Wrong integration selected.** Make sure the `integration` field in your card config matches your installed integration. Valid values: `pp`, `dwd`, `peu`, `silam`, `kleenex`, `plu`, `atmo`, `gpl`.
+2. **Wrong integration selected.** Make sure the `integration` field in your card config matches your installed integration. Valid values: `pp`, `dwd`, `peu`, `silam`, `kleenex`, `plu`, `atmo`, `gpl`, `gp`.
 
 3. **Wrong location/city/region.** The location value must match what the integration created. Check your sensor entity IDs in Developer Tools > States to find the correct value.
 
@@ -181,6 +195,12 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - Entities can be renamed freely; the card detects them by platform attribute, not entity ID
 - Works with any HA language
 - Multi-location setups are supported via separate config entries
+
+#### Google Pollen (GP, svenove)
+- Detected by `google_pollen` platform or `sensor.google_pollen_*` entity prefix
+- Allergens are classified via the `display_name` attribute, which is localized by the integration's language setting; English names are supported out of the box
+- The API provides up to 4 forecast days (today + 3)
+- If you have both `pollenlevels` and `google_pollen` installed, the card auto-detects GP first; set `integration: gpl` explicitly if you prefer the other adapter
 
 ---
 

@@ -67,6 +67,7 @@ Located in `src/adapters/`. Each adapter exports:
 - `plu.js` - Pollen.lu (Luxembourg)
 - `atmo.js` - Atmo France (French air quality/pollen)
 - `gpl/` - Google Pollen Levels (global, modularized into constants/discovery/forecast)
+- `gp/` - Google Pollen by svenove (global, modularized into constants/discovery/forecast)
 
 When adding support for a new integration, see "Adding a New Integration" below.
 
@@ -95,7 +96,10 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - Reverse mapping from weather entity attributes to allergen data
 
 **Slugify** (`src/utils/slugify.js`)
-- `slugify()` helper used by normalize.js to convert allergen names to canonical slugs
+- `slugify()` matches HA frontend behavior (Latin diacritics + Cyrillic character table)
+- Used by normalize.js and location matching across adapters
+- GP adapter uses pre-generated display_name maps instead of runtime slugification
+- Regenerate GP alias maps with `node scripts/fetch-gp-translations.js` after changes
 
 **Level Names** (`src/utils/level-names.js`)
 - `buildLevelNames()` - Constructs localized level name lookup from locale data

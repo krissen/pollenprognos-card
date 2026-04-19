@@ -6,7 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- New `gp` adapter for [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) by svenove (#198). Uses the same Google Pollen API as the existing `gpl` adapter but supports the different entity format (flat forecast attributes, `display_name`-based allergen classification). Auto-detection, visual editor, location discovery, and manual mode all supported.
+
 ### Changed
+- GP adapter: sensor classification now works for all 35 Google Pollen API languages. Uses `unique_id` as primary classification and pre-generated `display_name` lookup maps as fallback (no runtime transliteration needed).
+- GP/GPL adapters: location dropdown now shows user-renamed device names (`name_by_user`) instead of default device name
 - SILAM: cache discovery results across `set hass()`, forecast subscription, and `fetchForecast()` to eliminate redundant entity scans
 - SILAM: precompute inverse allergen maps once per `resolveEntityIds()` call instead of per allergen
 - SILAM: add `performance.now()` timing instrumentation under `debug: true`
@@ -34,7 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - Vitest test harness with shared test helpers
-- Contract tests for all 8 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl)
+- Contract tests for all 9 adapters (pp, dwd, peu, silam, kleenex, plu, atmo, gpl, gp)
 - Tests for sensor detection, autodetect, setConfig, normalization, and post-fetch filtering
 - Unit tests for `clampLevel`, `detectLang`, `t()` locale fallback, and SVG contract (`getSvgContent`)
 - Spanish translation for `card.error_entity_unavailable`
