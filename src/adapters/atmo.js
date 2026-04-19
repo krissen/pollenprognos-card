@@ -90,11 +90,13 @@ function classifyAtmoEntity(entityId) {
   if (id.includes("qualite_globale_pollen")) return "allergy_risk";
   if (id.includes("qualite_globale") && !id.includes("qualite_globale_pollen")) return "qualite_globale";
 
-  // Pollen: niveau_{fr_slug}
+  // Pollen: niveau_{fr_slug} (current) or legacy niveau_alerte_{fr_slug}.
+  // Tier 2/3 discovery uses this classifier, so covering the legacy pattern
+  // keeps them consistent with classifyAtmoEntityRelaxed (used by tier 1).
   for (const [canonical, frSlug] of Object.entries(ATMO_ALLERGEN_MAP)) {
     if (canonical === "allergy_risk" || canonical === "qualite_globale") continue;
     if (ATMO_POLLUTION_ALLERGENS.has(canonical)) continue;
-    if (id.includes(`niveau_${frSlug}`)) return canonical;
+    if (id.includes(`niveau_${frSlug}`) || id.includes(`niveau_alerte_${frSlug}`)) return canonical;
   }
 
   // Pollution: {fr_slug} without niveau_ or concentration_ prefix
@@ -309,8 +311,9 @@ export function discoverAtmoSensors(hass, debug = false) {
 
   // --- Tier 3: Regex fallback ---
   if (hass.states) {
-    // (?:\w+_)* handles multi-word prefixes like "chambray_les_tours_"
-    const atmoFallbackRe = /^sensor\.(?:\w+_)*(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
+    // (?:\w+_)* handles multi-word prefixes like "chambray_les_tours_".
+    // (?:alerte_)? keeps legacy niveau_alerte_{slug} entities in scope.
+    const atmoFallbackRe = /^sensor\.(?:\w+_)*(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
     const candidates = Object.keys(hass.states).filter((id) =>
       typeof id === "string" &&
       atmoFallbackRe.test(id) &&

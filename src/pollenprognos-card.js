@@ -1022,10 +1022,12 @@ class PollenPrognosCard extends LitElement {
       }
     }
     if (!atmoStates.length) {
+      // Legacy fallback for older HA registries without device/platform metadata.
+      // Matches both current niveau_{slug} and legacy niveau_alerte_{slug}.
       atmoStates = Object.keys(hass.states).filter(
         (id) =>
           typeof id === "string" &&
-          /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+          /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
           !/_j_\d+$/.test(id),
       );
     }

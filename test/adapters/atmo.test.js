@@ -1397,4 +1397,20 @@ describe("discoverAtmoSensors: device-based discovery", () => {
     expect(result.locations.get("default").entities.get("birch"))
       .toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
   });
+
+  it("regex fallback handles legacy niveau_alerte_{slug} entities", () => {
+    const states = {
+      "sensor.niveau_alerte_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.niveau_alerte_ambroisie_nice": { state: "2", attributes: { "Libellé": "" } },
+    };
+    const hass = createHass(states, { language: "fr", entities: undefined });
+
+    const result = discoverAtmoSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.get("default").entities.get("birch"))
+      .toBe("sensor.niveau_alerte_bouleau_nice");
+    expect(result.locations.get("default").entities.get("ragweed"))
+      .toBe("sensor.niveau_alerte_ambroisie_nice");
+  });
 });
