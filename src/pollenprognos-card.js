@@ -1069,6 +1069,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("PLU:", pluStates);
       console.debug("ATMO:", atmoStates);
       console.debug("GPL:", gplStates);
+      console.debug("GP:", gpStates);
     }
 
     // Bestäm integration (PEU går före DWD)
