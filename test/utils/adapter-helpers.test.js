@@ -742,6 +742,19 @@ describe("resolveLocationByKey", () => {
     expect(result[0]).toBe("cfg_abc");
   });
 
+  it("empty cfgLocation with all-numeric keys sorts numerically, not lexicographically", () => {
+    // "102" < "50" lexicographically but 50 < 102 numerically. DWD region IDs
+    // are numeric strings; the user expects region 50 to come first.
+    const discovery = makeDiscovery([
+      ["102", "102 Mittelgebirge", { birke: "sensor.pollenflug_birke_102" }],
+      ["50", "50 Brandenburg", { birke: "sensor.pollenflug_birke_50" }],
+    ]);
+
+    const result = resolveLocationByKey(discovery, "");
+    expect(result).not.toBeNull();
+    expect(result[0]).toBe("50");
+  });
+
   it("exact key match", () => {
     const discovery = makeDiscovery([
       ["cfg_abc", "City A", { birch: "sensor.birch_a" }],
@@ -771,6 +784,36 @@ describe("resolveLocationByKey", () => {
     const result = resolveLocationByKey(discovery, "paris");
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
+  });
+
+  it("slug extractor takes precedence over fuzzy label substring", () => {
+    // Regression: cfg.region_id "50" must resolve to the region-50 entity
+    // via its slugExtractor match, not to a location whose label happens to
+    // include "50" as a substring (e.g. "150 Other Place").
+    const discovery = makeDiscovery([
+      ["cfg_wrong", "150 Other Place", { birke: "sensor.pollenflug_birke_150" }],
+      ["cfg_right", "50 Brandenburg", { birke: "sensor.pollenflug_birke_50" }],
+    ]);
+
+    const result = resolveLocationByKey(discovery, "50", {
+      slugExtractor: (eid) => {
+        const m = eid.match(/_(\d+)$/);
+        return m ? m[1] : null;
+      },
+    });
+    expect(result).not.toBeNull();
+    expect(result[0]).toBe("cfg_right");
+  });
+
+  it("exact case-insensitive label equality beats fuzzy substring", () => {
+    const discovery = makeDiscovery([
+      ["cfg_substr", "Hamburger Meile", { birch: "sensor.x_birch" }],
+      ["cfg_exact",  "Hamburg",          { birch: "sensor.y_birch" }],
+    ]);
+
+    const result = resolveLocationByKey(discovery, "hamburg");
+    expect(result).not.toBeNull();
+    expect(result[0]).toBe("cfg_exact");
   });
 
   it("no match returns null", () => {

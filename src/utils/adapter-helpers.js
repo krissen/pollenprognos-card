@@ -648,35 +648,52 @@ export function resolveLocationByKey(discovery, cfgLocation, opts = {}) {
   // 1. Empty location -> pick first deterministically. Enumeration order of
   // hass.devices / hass.entities is insertion-order and stable within a
   // session, but can differ across HA restarts or integration reinstalls.
-  // Sort by locationKey so auto-select is reproducible.
+  // Sort numerically for all-digit keys (DWD region IDs), lexicographically
+  // otherwise, so auto-select is reproducible and intuitive.
   if (!cfgLocation) {
     if (locs.size === 0) return null;
-    const sortedKeys = Array.from(locs.keys()).sort();
+    const keys = Array.from(locs.keys());
+    const allNumeric = keys.every((k) => /^\d+$/.test(String(k)));
+    const sortedKeys = allNumeric
+      ? keys.sort((a, b) => Number(a) - Number(b))
+      : keys.sort();
     const key = sortedKeys[0];
     return [key, locs.get(key)];
   }
 
-  // 2. Exact key match
+  // 2. Exact key match.
   if (locs.has(cfgLocation)) {
     return [cfgLocation, locs.get(cfgLocation)];
   }
 
-  // 3. Label substring / exact match (case-insensitive; mirrors SILAM's
-  // legacy resolveDiscoveredLocation so user-entered labels with different
-  // casing still resolve).
+  // 3. Exact case-insensitive label equality. Quick, precise path for user
+  // configs that mirror the device name ("Hamburg" == label "Hamburg").
   const cfgLower = String(cfgLocation).toLowerCase();
   for (const [key, loc] of locs) {
     if (!loc.label) continue;
-    const labelLower = String(loc.label).toLowerCase();
-    if (labelLower === cfgLower || labelLower.includes(cfgLower)) {
+    if (String(loc.label).toLowerCase() === cfgLower) {
       return [key, loc];
     }
   }
 
-  // 4. Slug fallback
+  // 4. Slug fallback. Respects entity-ID structure via slugExtractor, so
+  // short/numeric configs like DWD region_id "50" resolve to entity suffix
+  // "_50" without being confused by fuzzy label matching.
   const slugMatch = findLocationBySlug(discovery, cfgLocation, opts);
   if (slugMatch !== null) return slugMatch;
 
-  // 5. No match
+  // 5. Fuzzy label includes (last resort). Kept so configs that were a
+  // substring of a legacy friendly_name still resolve when no slugExtractor
+  // is supplied. Placed after the slug match so specific entity-structure
+  // resolution wins over loose substring matches (e.g. region_id "50" must
+  // not bind to a label containing "150").
+  for (const [key, loc] of locs) {
+    if (!loc.label) continue;
+    if (String(loc.label).toLowerCase().includes(cfgLower)) {
+      return [key, loc];
+    }
+  }
+
+  // 6. No match.
   return null;
 }
