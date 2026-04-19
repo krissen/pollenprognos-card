@@ -135,13 +135,21 @@ export function discoverDwdSensors(hass, debug = false) {
      */
     isRelevant: (eid) => eid.startsWith("sensor.pollenflug_"),
     /**
-     * resolveLabel: prefer device name, then fall back to the region name
-     * derived from the region ID in the entity ID.
+     * resolveLabel priority:
+     *   1. device.name_by_user -- explicit user override always wins.
+     *   2. Region name derived from the numeric suffix in the entity ID.
+     *      The DWD integration sets a generic device.name ("Pollenflug
+     *      Gefahrenindex") that is identical for every region, so region
+     *      derivation must outrank device.name to produce usable titles.
+     *   3. device.name -- last-resort generic label.
+     *   4. "Auto" fallback.
      */
     resolveLabel: (ctx) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+      const regionLabel = extractRegionLabel(ctx.entityId);
+      if (regionLabel) return regionLabel;
       if (ctx.device?.name) return ctx.device.name;
-      return extractRegionLabel(ctx.entityId) || "Auto";
+      return "Auto";
     },
     /**
      * resolveLocationKey:

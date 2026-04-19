@@ -332,4 +332,48 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
     expect(result.get("bjork")).toBe("sensor.pollen_stockholm_bjork");
     expect(result.get("al")).toBe("sensor.pollen_stockholm_al");
   });
+
+  it("discovery label strips 'Pollenprognos ' prefix from device name", () => {
+    // The HA integration sets device.name = "Pollenprognos Visby", which
+    // would render as a duplicated title ("Pollenprognos för Pollenprognos
+    // Visby") in the card header.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_visby_bjork",
+        attributes: { forecast: createPPSensor([1, 0, 0, 0]).attributes.forecast },
+        platform: "pollenprognos",
+        deviceId: "device_visby",
+        deviceMeta: {
+          name: "Pollenprognos Visby",
+          configEntries: ["cfg_visby"],
+          identifiers: [["pollenprognos", "visby"]],
+        },
+      },
+    ]);
+
+    const discovery = PP.discoverPpSensors(hass);
+    const [, loc] = [...discovery.locations.entries()][0];
+    expect(loc.label).toBe("Visby");
+  });
+
+  it("user-customized device name wins over prefix stripping", () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_visby_bjork",
+        attributes: { forecast: createPPSensor([1, 0, 0, 0]).attributes.forecast },
+        platform: "pollenprognos",
+        deviceId: "device_visby",
+        deviceMeta: {
+          name: "Pollenprognos Visby",
+          nameByUser: "My Visby card",
+          configEntries: ["cfg_visby"],
+          identifiers: [["pollenprognos", "visby"]],
+        },
+      },
+    ]);
+
+    const discovery = PP.discoverPpSensors(hass);
+    const [, loc] = [...discovery.locations.entries()][0];
+    expect(loc.label).toBe("My Visby card");
+  });
 });

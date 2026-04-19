@@ -321,4 +321,65 @@ describe("DWD adapter: discoverDwdSensors", () => {
     // entries (e.g. regions 11 and 12 share a name).
     expect(loc.label).toBe("50 Brandenburg und Berlin");
   });
+
+  it("region label beats generic device name", () => {
+    // The DWD integration sets device.name = "Pollenflug Gefahrenindex" for
+    // every region, which is useless as a card title. Region-derived label
+    // from entity_id must outrank the generic device name.
+    const hass = {
+      states: {
+        "sensor.pollenflug_erle_50": { state: "1", attributes: {} },
+      },
+      entities: {
+        "sensor.pollenflug_erle_50": {
+          device_id: "dev_dwd",
+          platform: "dwd_pollenflug",
+          entity_category: null,
+        },
+      },
+      devices: {
+        dev_dwd: {
+          identifiers: [["dwd_pollenflug", "50"]],
+          config_entries: ["cfg_dwd"],
+          name: "Pollenflug Gefahrenindex",
+          name_by_user: null,
+        },
+      },
+      locale: { language: "en" },
+      language: "en",
+    };
+
+    const result = discoverDwdSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.label).toBe("50 Brandenburg und Berlin");
+  });
+
+  it("user-customized device name wins over region-derived label", () => {
+    const hass = {
+      states: {
+        "sensor.pollenflug_erle_50": { state: "1", attributes: {} },
+      },
+      entities: {
+        "sensor.pollenflug_erle_50": {
+          device_id: "dev_dwd",
+          platform: "dwd_pollenflug",
+          entity_category: null,
+        },
+      },
+      devices: {
+        dev_dwd: {
+          identifiers: [["dwd_pollenflug", "50"]],
+          config_entries: ["cfg_dwd"],
+          name: "Pollenflug Gefahrenindex",
+          name_by_user: "My custom region",
+        },
+      },
+      locale: { language: "en" },
+      language: "en",
+    };
+
+    const result = discoverDwdSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.label).toBe("My custom region");
+  });
 });

@@ -179,11 +179,39 @@ export function discoverPeuSensors(hass, debug = false) {
      */
     isRelevant: (eid) => eid.startsWith(PEU_PREFIX),
     /**
-     * resolveLabel: prefer device name, fall back to prettified location slug.
+     * resolveLabel priority:
+     *   1. device.name_by_user -- explicit user override.
+     *   2. state.attributes.location_title -- integration's clean location
+     *      name when exposed.
+     *   3. device.name with the "Polleninformation " prefix stripped and
+     *      parenthesised wrappers unwrapped ("Polleninformation (Hamburg)"
+     *      → "Hamburg"), since the HA integration often packages the
+     *      location inside a generic device name.
+     *   4. device.name as-is (uncommon but defensive).
+     *   5. Prettified location slug from entity ID.
+     *   6. "Auto" fallback.
      */
     resolveLabel: (ctx) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
-      if (ctx.device?.name) return ctx.device.name;
+
+      const attrTitle = ctx.state?.attributes?.location_title;
+      if (typeof attrTitle === "string" && attrTitle.trim()) {
+        return attrTitle.trim();
+      }
+
+      const rawName = ctx.device?.name;
+      if (typeof rawName === "string" && rawName.trim()) {
+        // Strip a leading "Polleninformation" (any case, optional separators)
+        // and unwrap a trailing "(location)" if present.
+        const stripped = rawName
+          .replace(/^\s*polleninformation\b[\s:\-–—]*/i, "")
+          .trim();
+        const paren = stripped.match(/^\(([^)]+)\)$/);
+        if (paren) return paren[1].trim();
+        if (stripped) return stripped;
+        return rawName.trim();
+      }
+
       return extractPeuLocationLabel(ctx.entityId) || "Auto";
     },
     /**

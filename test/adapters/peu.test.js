@@ -943,6 +943,54 @@ describe("PEU adapter: fetchForecast", () => {
       );
     });
 
+    it("discovery label strips 'Polleninformation' prefix and unwraps parens", () => {
+      // The HA integration sets device.name = "Polleninformation (Hamburg)",
+      // which would produce a duplicated title in the card header.
+      const hass = createHassWithRegistry([
+        {
+          entityId: "sensor.polleninformation_hamburg_birch",
+          state: "2",
+          attributes: { forecast: [], data_stale: false },
+          platform: "polleninformation",
+          deviceId: "device_hamburg",
+          deviceMeta: {
+            name: "Polleninformation (Hamburg)",
+            configEntries: ["cfg_hamburg"],
+            identifiers: [["polleninformation", "hamburg"]],
+          },
+        },
+      ]);
+
+      const discovery = discoverPeuSensors(hass);
+      const [, loc] = [...discovery.locations.entries()][0];
+      expect(loc.label).toBe("Hamburg");
+    });
+
+    it("discovery label prefers state.attributes.location_title when present", () => {
+      const hass = createHassWithRegistry([
+        {
+          entityId: "sensor.polleninformation_hamburg_birch",
+          state: "2",
+          attributes: {
+            forecast: [],
+            data_stale: false,
+            location_title: "Hamburg",
+          },
+          platform: "polleninformation",
+          deviceId: "device_hamburg",
+          deviceMeta: {
+            name: "Polleninformation (Hamburg)",
+            configEntries: ["cfg_hamburg"],
+            identifiers: [["polleninformation", "hamburg"]],
+          },
+        },
+      ]);
+
+      const discovery = discoverPeuSensors(hass);
+      const [, loc] = [...discovery.locations.entries()][0];
+      expect(loc.label).toBe("Hamburg");
+    });
+
     it("whitelist classifier: allergy_risk_hourly is not misclassified as allergy_risk", () => {
       const states = {
         "sensor.polleninformation_amsterdam_allergy_risk_hourly": makePEUSensor([3]),

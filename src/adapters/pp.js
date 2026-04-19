@@ -115,11 +115,27 @@ export function discoverPpSensors(hass, debug = false) {
      */
     isRelevant: (eid) => eid.startsWith("sensor.pollen_"),
     /**
-     * resolveLabel: use device name when available, fall back to city slug from entity ID.
+     * resolveLabel priority:
+     *   1. device.name_by_user -- explicit user override.
+     *   2. device.name with a leading "Pollenprognos" prefix stripped
+     *      ("Pollenprognos Visby" → "Visby"), since the HA integration
+     *      packages the city inside a generic device name.
+     *   3. device.name as-is (defensive).
+     *   4. Prettified city slug from entity ID.
+     *   5. "Auto" fallback.
      */
     resolveLabel: (ctx) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
-      if (ctx.device?.name) return ctx.device.name;
+
+      const rawName = ctx.device?.name;
+      if (typeof rawName === "string" && rawName.trim()) {
+        const stripped = rawName
+          .replace(/^\s*pollenprognos\b[\s:\-–—]*/i, "")
+          .trim();
+        if (stripped) return stripped;
+        return rawName.trim();
+      }
+
       return extractCityFromEntityId(ctx.entityId) || "Auto";
     },
     /**

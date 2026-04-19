@@ -53,6 +53,17 @@ function classifySilamEntity(eid, { entry }) {
  * entity_id starts with "weather.". They are excluded from the sensor map and
  * attached as weatherEntity per location instead.
  */
+/**
+ * Strip the generic "SILAM Pollen" prefix (with optional separators) from a
+ * device name so downstream consumers (editor dropdown, card title) get a
+ * clean location label like "Karis" rather than "SILAM Pollen - Karis".
+ */
+function stripSilamPrefix(name) {
+  if (typeof name !== "string") return name;
+  const stripped = name.replace(/^\s*silam\s*pollen\b[\s:\-–—]*/i, "").trim();
+  return stripped || name;
+}
+
 export function discoverSilamSensors(hass, debug = false) {
   const result = { locations: new Map() };
   if (!hass?.entities) return result;
@@ -63,6 +74,14 @@ export function discoverSilamSensors(hass, debug = false) {
     platform: "silam_pollen",
     classify: classifySilamEntity,
     classifyRelaxed: classifySilamEntity,
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+      if (ctx.device?.name) return stripSilamPrefix(ctx.device.name);
+      if (ctx.state?.attributes?.friendly_name) {
+        return stripSilamPrefix(ctx.state.attributes.friendly_name);
+      }
+      return "Auto";
+    },
     fallbackRegex: null,
     debug,
     logTag: "SILAM",
@@ -85,7 +104,10 @@ export function discoverSilamSensors(hass, debug = false) {
         if (!deviceInfoMap.has(deviceId)) {
           const device = hass.devices?.[deviceId];
           const configEntryId = device?.config_entries?.[0] ?? "default";
-          const label = device?.name_by_user || device?.name || "Auto";
+          const label =
+            device?.name_by_user ||
+            (device?.name ? stripSilamPrefix(device.name) : null) ||
+            "Auto";
           deviceInfoMap.set(deviceId, { configEntryId, label });
         }
       }
