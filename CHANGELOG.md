@@ -6,16 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-04-19
+
 ### Added
-- New `gp` adapter for [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) by svenove (#198). Uses the same Google Pollen API as the existing `gpl` adapter but supports the different entity format (flat forecast attributes, `display_name`-based allergen classification). Auto-detection, visual editor, location discovery, and manual mode all supported.
+- New `gp` adapter for [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) by svenove (#199). Uses the same Google Pollen API as the existing `gpl` adapter but supports the different entity format (flat forecast attributes, `display_name`-based allergen classification). Auto-detection, visual editor, location discovery, and manual mode all supported.
+- Troubleshooting guide (`docs/troubleshooting.md`) covering common installation, cache, version and integration issues; linked from README and issue templates.
+- GitHub issue templates for bug reports and feature requests, with direct links to the troubleshooting guide.
 
 ### Changed
+- Atmo France: discovery refactored to a three-tier strategy (device registry, entity registry by platform, legacy regex fallback). Primary path now uses device identifiers, which survives entity renaming and correctly groups sensors per config entry in multi-instance setups (#201).
+- Atmo France: card header auto-title now resolved through discovery instead of attribute scanning.
 - GP adapter: sensor classification now works for all 35 Google Pollen API languages. Uses `unique_id` as primary classification and pre-generated `display_name` lookup maps as fallback (no runtime transliteration needed).
-- GP/GPL adapters: location dropdown now shows user-renamed device names (`name_by_user`) instead of default device name
-- SILAM: cache discovery results across `set hass()`, forecast subscription, and `fetchForecast()` to eliminate redundant entity scans
-- SILAM: precompute inverse allergen maps once per `resolveEntityIds()` call instead of per allergen
-- SILAM: add `performance.now()` timing instrumentation under `debug: true`
-- SILAM: fix invalid empty key in Russian allergen mapping; add empty-slug validation to generator script
+- GP/GPL adapters: location dropdown now shows user-renamed device names (`name_by_user`) instead of default device name.
+- Slugify: replaced `any-ascii` runtime dependency with pre-generated display-name maps for the GP adapter, reducing bundle size and runtime work.
+- SILAM: cache discovery results across `set hass()`, forecast subscription, and `fetchForecast()` to eliminate redundant entity scans.
+- SILAM: precompute inverse allergen maps once per `resolveEntityIds()` call instead of per allergen.
+- SILAM: add `performance.now()` timing instrumentation under `debug: true`.
+- HACS: removed country filter from `hacs.json` to fix visibility of the card in HACS for users outside the previously listed countries.
+
+### Fixed
+- Atmo France: card could not find sensors after upstream integration change where entity IDs include a configurable instance prefix; prefixed entity IDs are now recognized in auto-detect (#200).
+- SILAM: invalid empty key in Russian allergen mapping; added empty-slug validation to the generator script.
+
+### Documentation
+- Expanded troubleshooting guide covering browser cache, installation conflicts, verifying the running version, resource registration and integration-specific notes.
+- Brought GP adapter documentation up to par with GPL (design decisions, sensor discovery, classification, collision handling, multi-location support).
+- Various consistency fixes: branch-agnostic links, removed stale `any-ascii` references, corrected console log examples and version references.
 
 ## [3.0.1] - 2026-03-15
 

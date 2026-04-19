@@ -70,9 +70,9 @@ The card prints its version to the **browser console** on load. The browser cons
    - **Firefox**: Press F12 (or Ctrl+Shift+K on Windows, Cmd+Option+K on Mac)
    - **Safari**: First enable the Develop menu (Safari > Settings > Advanced > Show features for web developers), then press Cmd+Option+C
    - **HA Companion app**: The console is not directly accessible. Enable **Log version to console** in the card editor (see tip below) and check the version on a desktop browser instead.
-3. Look for a line like: `Pollenprognos Card: version v3.0.1`
+3. Look for a line like: `Pollenprognos Card: version v3.1.0`
 
-This is the **actually running** version. The value after `version` is either a git tag (e.g. `v3.0.1`) or a short commit hash when the build is not on an exact tag. If it does not match what HACS shows as installed, you have a cache problem (see above).
+This is the **actually running** version. The value after `version` is either a git tag (e.g. `v3.1.0`) or a short commit hash when the build is not on an exact tag. If it does not match what HACS shows as installed, you have a cache problem (see above).
 
 > **Tip:** To ensure the version is always logged to the console: in the **visual editor**, open the **Advanced** section and enable **Log version to console**. In YAML mode, add `show_version: true` to your card config.
 
