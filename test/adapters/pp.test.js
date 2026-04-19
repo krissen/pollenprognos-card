@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as PP from "../../src/adapters/pp.js";
-import { createHass, createPPSensor, assertSensorShape } from "../helpers.js";
+import { createHass, createPPSensor, assertSensorShape, createHassWithRegistry } from "../helpers.js";
 
 const { stubConfigPP } = PP;
 // Call fetchForecast as method on module to match production call pattern
@@ -251,5 +251,85 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].entity_id).toBe("sensor.pollen_stockholm_bjork");
+  });
+});
+
+describe("PP adapter: resolveEntityIds — device-based discovery", () => {
+  const { resolveEntityIds } = PP;
+
+  it("tier 2 hit: entity registry with platform pollenprognos returns correct entity IDs", () => {
+    // Simulates tier 2: hass.entities present, no hass.devices with PP identifiers
+    const levels = [3, 2, 1, 0];
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_stockholm_bjork",
+        attributes: { forecast: createPPSensor(levels).attributes.forecast },
+        platform: "pollenprognos",
+        deviceId: "device_sthlm",
+        deviceMeta: {
+          name: "Stockholm",
+          configEntries: ["cfg_sthlm"],
+        },
+      },
+      {
+        entityId: "sensor.pollen_stockholm_al",
+        attributes: { forecast: createPPSensor(levels).attributes.forecast },
+        platform: "pollenprognos",
+        deviceId: "device_sthlm",
+      },
+    ]);
+
+    const cfg = {
+      city: "Stockholm",
+      allergens: ["Björk", "Al"],
+    };
+    const result = resolveEntityIds(cfg, hass, false);
+
+    expect(result instanceof Map).toBe(true);
+    expect(result.get("bjork")).toBe("sensor.pollen_stockholm_bjork");
+    expect(result.get("al")).toBe("sensor.pollen_stockholm_al");
+  });
+
+  it("multi-city: two discovered locations, config selects the correct one", () => {
+    const levels = [2, 1, 0, 0];
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_goteborg_bjork",
+        attributes: { forecast: createPPSensor(levels).attributes.forecast },
+        platform: "pollenprognos",
+        deviceId: "device_gbg",
+        deviceMeta: { name: "Goteborg", configEntries: ["cfg_gbg"] },
+      },
+      {
+        entityId: "sensor.pollen_stockholm_bjork",
+        attributes: { forecast: createPPSensor(levels).attributes.forecast },
+        platform: "pollenprognos",
+        deviceId: "device_sthlm",
+        deviceMeta: { name: "Stockholm", configEntries: ["cfg_sthlm"] },
+      },
+    ]);
+
+    const cfgGbg = { city: "goteborg", allergens: ["Björk"] };
+    const resultGbg = resolveEntityIds(cfgGbg, hass, false);
+    expect(resultGbg.get("bjork")).toBe("sensor.pollen_goteborg_bjork");
+
+    const cfgSthlm = { city: "stockholm", allergens: ["Björk"] };
+    const resultSthlm = resolveEntityIds(cfgSthlm, hass, false);
+    expect(resultSthlm.get("bjork")).toBe("sensor.pollen_stockholm_bjork");
+  });
+
+  it("legacy slug config (city as slug) falls through to tier 3 regex fallback when no registry", () => {
+    // createHass does not provide hass.entities with platform info,
+    // so tiers 1 and 2 yield nothing; tier 3 (regex) must fire.
+    const hass = createHass({
+      "sensor.pollen_stockholm_bjork": createPPSensor([4, 3, 2, 1]),
+      "sensor.pollen_stockholm_al": createPPSensor([1, 0, 0, 0]),
+    });
+
+    const cfg = { city: "stockholm", allergens: ["Björk", "Al"] };
+    const result = resolveEntityIds(cfg, hass, false);
+
+    expect(result.get("bjork")).toBe("sensor.pollen_stockholm_bjork");
+    expect(result.get("al")).toBe("sensor.pollen_stockholm_al");
   });
 });
