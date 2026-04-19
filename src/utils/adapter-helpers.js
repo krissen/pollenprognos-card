@@ -289,3 +289,341 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
 
   return filtered;
 }
+
+/**
+ * Discover HA entities grouped by device/location using a three-tier strategy.
+ *
+ * Tier 1 (device-based): Scan hass.devices for devices whose identifiers match
+ *   the given platform. Then collect entities from hass.entities whose device_id
+ *   belongs to one of those devices.
+ * Tier 2 (entity-registry): Scan hass.entities filtered by entry.platform.
+ *   Used when hass.devices is unavailable or tier 1 yields no results.
+ * Tier 3 (fallback): Scan hass.states using fallbackSelector or fallbackRegex.
+ *   Used when both tier 1 and tier 2 yield no results.
+ *
+ * @param {object} hass - Home Assistant state object.
+ * @param {object} opts
+ * @param {string|string[]} opts.platform
+ *   Platform name(s). Matched against entry.platform (tier 2) and against the
+ *   first element of each device.identifiers tuple (tier 1).
+ * @param {Function} opts.classify
+ *   (entityId, ctx) => string|null. Strict classifier used in tiers 2 and 3.
+ *   ctx = { state, entry?, device? }.
+ * @param {Function} [opts.classifyRelaxed]
+ *   (entityId, ctx) => string|null. Used only in tier 1. Defaults to opts.classify.
+ * @param {Function} [opts.isRelevant]
+ *   (entityId, ctx) => boolean. Pre-classification filter. Default: always true.
+ * @param {Function} [opts.excludeEntry]
+ *   (entry) => boolean. True means skip. Default: skip entries with entity_category.
+ * @param {Function} [opts.resolveLabel]
+ *   (ctx) => string. ctx includes { state, entry, device, entityId, tier, locationKey }.
+ *   Default: device.name_by_user || device.name || state.attributes.friendly_name || "Auto".
+ * @param {Function} [opts.resolveLocationKey]
+ *   (ctx) => string. Default: device.config_entries[0] || "default".
+ * @param {Function} [opts.onCollision]
+ *   (ctx, { existingKey, existingEntityId, locEntities }) => string|null.
+ *   Called when classify returns a key already present in the current location.
+ *   Return a new key or null to skip the entity.
+ * @param {RegExp|null} [opts.fallbackRegex]
+ *   Regex to filter hass.states keys in tier 3. Null disables tier 3 regex path.
+ * @param {Function} [opts.fallbackSelector]
+ *   (hass) => string[]. Alternative to fallbackRegex; overrides it when provided.
+ * @param {boolean} [opts.debug]
+ * @param {string}  [opts.logTag]
+ * @returns {{ locations: Map<string, { label: string, entities: Map<string, string>, deviceId?: string }>, tierUsed: 0|1|2|3 }}
+ */
+export function discoverEntitiesByDevice(hass, opts = {}) {
+  const {
+    platform,
+    classify,
+    classifyRelaxed,
+    isRelevant,
+    excludeEntry,
+    resolveLabel,
+    resolveLocationKey,
+    onCollision,
+    fallbackRegex,
+    fallbackSelector,
+    debug = false,
+  } = opts;
+
+  const platforms = Array.isArray(platform) ? platform : (platform ? [platform] : []);
+  const logTag = opts.logTag || (platforms.length > 0 ? platforms[0] : "discovery");
+  const classifyStrict = classify || (() => null);
+  const classifyTier1 = classifyRelaxed || classifyStrict;
+
+  const defaultExcludeEntry = (entry) => !!(entry !== null && entry !== undefined && entry.entity_category);
+  const shouldExclude = excludeEntry || defaultExcludeEntry;
+
+  const defaultIsRelevant = () => true;
+  const checkRelevant = isRelevant || defaultIsRelevant;
+
+  const defaultResolveLabel = (ctx) => {
+    const { device, state } = ctx;
+    if (device !== null && device !== undefined && device.name_by_user) return device.name_by_user;
+    if (device !== null && device !== undefined && device.name) return device.name;
+    if (state !== null && state !== undefined && state.attributes !== null && state.attributes !== undefined) {
+      if (state.attributes.friendly_name) return state.attributes.friendly_name;
+    }
+    return "Auto";
+  };
+  const getLabel = resolveLabel || defaultResolveLabel;
+
+  const defaultResolveLocationKey = (ctx) => {
+    const { device } = ctx;
+    if (device !== null && device !== undefined) {
+      const entries = device.config_entries;
+      if (Array.isArray(entries) && entries.length > 0) return entries[0];
+    }
+    return "default";
+  };
+  const getLocationKey = resolveLocationKey || defaultResolveLocationKey;
+
+  const locations = new Map();
+
+  /**
+   * Add a single classified entity to locations.
+   * @param {string}      eid
+   * @param {string|null} allergenKey
+   * @param {object}      ctx          - { state, entry, device, entityId, tier }
+   */
+  const addEntity = (eid, allergenKey, ctx) => {
+    if (allergenKey === null || allergenKey === undefined) return;
+
+    const locationKey = getLocationKey({ ...ctx, locationKey: undefined });
+    const enrichedCtx = { ...ctx, locationKey };
+
+    if (!locations.has(locationKey)) {
+      const label = getLabel(enrichedCtx);
+      const loc = { label, entities: new Map() };
+      if (ctx.device !== null && ctx.device !== undefined && ctx.deviceId !== null && ctx.deviceId !== undefined) {
+        loc.deviceId = ctx.deviceId;
+      }
+      locations.set(locationKey, loc);
+    }
+
+    const locEntities = locations.get(locationKey).entities;
+    if (locEntities.has(allergenKey)) {
+      if (onCollision) {
+        const newKey = onCollision(enrichedCtx, {
+          existingKey: allergenKey,
+          existingEntityId: locEntities.get(allergenKey),
+          locEntities,
+        });
+        if (newKey !== null && newKey !== undefined) {
+          locEntities.set(newKey, eid);
+        }
+      }
+      // If no onCollision or it returned null, skip silently
+    } else {
+      locEntities.set(allergenKey, eid);
+    }
+  };
+
+  // --- Tier 1: Device-based discovery ---
+  if (hass !== null && hass !== undefined && hass.devices !== null && hass.devices !== undefined && hass.entities !== null && hass.entities !== undefined) {
+    // Find devices whose identifiers contain a matching platform as first element
+    const matchingDeviceIds = new Set();
+    for (const [devId, dev] of Object.entries(hass.devices)) {
+      if (dev === null || dev === undefined) continue;
+      const identifiers = dev.identifiers;
+      if (!Array.isArray(identifiers)) continue;
+      for (const tuple of identifiers) {
+        if (Array.isArray(tuple) && platforms.includes(tuple[0])) {
+          matchingDeviceIds.add(devId);
+          break;
+        }
+      }
+    }
+
+    if (matchingDeviceIds.size > 0) {
+      if (debug) console.debug(`[${logTag}] Discovery tier 1 (device-based): found`, matchingDeviceIds.size, "devices");
+
+      for (const [eid, entry] of Object.entries(hass.entities)) {
+        if (entry === null || entry === undefined) continue;
+        if (!matchingDeviceIds.has(entry.device_id)) continue;
+        if (shouldExclude(entry)) continue;
+
+        const state = hass.states !== null && hass.states !== undefined ? hass.states[eid] : undefined;
+        if (state === null || state === undefined) continue;
+
+        const deviceId = entry.device_id;
+        const device = hass.devices[deviceId];
+        const ctx = { state, entry, device, deviceId, entityId: eid, tier: 1 };
+
+        if (!checkRelevant(eid, ctx)) continue;
+
+        const allergenKey = classifyTier1(eid, ctx);
+        addEntity(eid, allergenKey, ctx);
+      }
+
+      if (locations.size > 0) {
+        if (debug) {
+          console.debug(`[${logTag}] Discovery tier 1 result:`, locations.size, "locations");
+          for (const [locId, loc] of locations) {
+            console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+          }
+        }
+        return { locations, tierUsed: 1 };
+      }
+    }
+  }
+
+  // --- Tier 2: Entity-registry scan ---
+  if (hass !== null && hass !== undefined && hass.entities !== null && hass.entities !== undefined) {
+    for (const [eid, entry] of Object.entries(hass.entities)) {
+      if (entry === null || entry === undefined) continue;
+      if (!platforms.includes(entry.platform)) continue;
+      if (shouldExclude(entry)) continue;
+
+      const state = hass.states !== null && hass.states !== undefined ? hass.states[eid] : undefined;
+      if (state === null || state === undefined) continue;
+
+      const deviceId = entry.device_id;
+      const device = (deviceId !== null && deviceId !== undefined && hass.devices !== null && hass.devices !== undefined)
+        ? hass.devices[deviceId]
+        : undefined;
+      const ctx = { state, entry, device, deviceId, entityId: eid, tier: 2 };
+
+      if (!checkRelevant(eid, ctx)) continue;
+
+      const allergenKey = classifyStrict(eid, ctx);
+      addEntity(eid, allergenKey, ctx);
+    }
+
+    if (locations.size > 0) {
+      if (debug) {
+        console.debug(`[${logTag}] Discovery tier 2 result:`, locations.size, "locations");
+        for (const [locId, loc] of locations) {
+          console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+        }
+      }
+      return { locations, tierUsed: 2 };
+    }
+  }
+
+  // --- Tier 3: Fallback (selector or regex) ---
+  if (hass !== null && hass !== undefined && hass.states !== null && hass.states !== undefined) {
+    let candidates = null;
+
+    if (typeof fallbackSelector === "function") {
+      candidates = fallbackSelector(hass);
+    } else if (fallbackRegex instanceof RegExp) {
+      candidates = Object.keys(hass.states).filter((eid) => fallbackRegex.test(eid));
+    }
+
+    if (candidates !== null && candidates.length > 0) {
+      if (debug) console.debug(`[${logTag}] Discovery tier 3 (fallback): found`, candidates.length, "candidates");
+
+      for (const eid of candidates) {
+        const state = hass.states[eid];
+        if (state === null || state === undefined) continue;
+
+        const ctx = { state, entry: undefined, device: undefined, deviceId: undefined, entityId: eid, tier: 3 };
+
+        if (!checkRelevant(eid, ctx)) continue;
+
+        const allergenKey = classifyStrict(eid, ctx);
+        addEntity(eid, allergenKey, ctx);
+      }
+    }
+  }
+
+  if (debug) {
+    console.debug(`[${logTag}] Discovery final result:`, locations.size, "locations");
+    for (const [locId, loc] of locations) {
+      console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+    }
+  }
+
+  return { locations, tierUsed: locations.size > 0 ? 3 : 0 };
+}
+
+/**
+ * Find a location in a discovery result by matching entity IDs against a slug.
+ *
+ * Checks each entity ID using an optional slugExtractor, and also checks
+ * suffix variants like `_{slug}` and `_{slug}_j_1` (suffix extras).
+ *
+ * @param {{ locations: Map }} discovery       - Result from discoverEntitiesByDevice.
+ * @param {string}             slug            - Location slug to match against.
+ * @param {object}             [opts]
+ * @param {Function}           [opts.slugExtractor] - (entityId) => string|null. Custom slug extractor.
+ * @param {string[]}           [opts.suffixExtras]  - Additional suffixes to test. Default: ["", "_j_1"].
+ * @returns {[string, object]|null} - [locationKey, location] or null.
+ */
+export function findLocationBySlug(discovery, slug, opts = {}) {
+  if (slug === null || slug === undefined || !slug) return null;
+  if (discovery === null || discovery === undefined || !discovery.locations) return null;
+
+  const { slugExtractor, suffixExtras = ["", "_j_1"] } = opts;
+  const needle = String(slug).toLowerCase();
+  const suffixVariants = suffixExtras.map((s) => `_${needle}${s}`);
+
+  for (const [key, loc] of discovery.locations) {
+    for (const eid of loc.entities.values()) {
+      const lid = String(eid).toLowerCase();
+
+      // Custom extractor path
+      if (typeof slugExtractor === "function") {
+        const extracted = slugExtractor(eid);
+        if (extracted !== null && extracted !== undefined && String(extracted).toLowerCase() === needle) {
+          return [key, loc];
+        }
+      }
+
+      // Suffix variant path
+      for (const variant of suffixVariants) {
+        if (lid.endsWith(variant)) return [key, loc];
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolve a location from a discovery result using a priority chain.
+ *
+ * Priority:
+ *   1. Empty cfgLocation -> first location in the map (or null if empty).
+ *   2. Exact key match.
+ *   3. Substring or exact match against location label.
+ *   4. findLocationBySlug fallback.
+ *   5. null if nothing matches.
+ *
+ * @param {{ locations: Map }} discovery    - Result from discoverEntitiesByDevice.
+ * @param {string}             cfgLocation - Location value from card config.
+ * @param {object}             [opts]
+ * @param {Function}           [opts.slugExtractor] - Passed to findLocationBySlug.
+ * @returns {[string, object]|null} - [locationKey, location] or null.
+ */
+export function resolveLocationByKey(discovery, cfgLocation, opts = {}) {
+  if (discovery === null || discovery === undefined || !discovery.locations) return null;
+  const locs = discovery.locations;
+
+  // 1. Empty location -> first entry
+  if (!cfgLocation) {
+    const first = locs.entries().next();
+    return first.done ? null : [first.value[0], first.value[1]];
+  }
+
+  // 2. Exact key match
+  if (locs.has(cfgLocation)) {
+    return [cfgLocation, locs.get(cfgLocation)];
+  }
+
+  // 3. Label substring / exact match
+  for (const [key, loc] of locs) {
+    if (loc.label && (loc.label === cfgLocation || loc.label.includes(cfgLocation))) {
+      return [key, loc];
+    }
+  }
+
+  // 4. Slug fallback
+  const slugMatch = findLocationBySlug(discovery, cfgLocation, opts);
+  if (slugMatch !== null) return slugMatch;
+
+  // 5. No match
+  return null;
+}
