@@ -1046,17 +1046,28 @@ class PollenPrognosCard extends LitElement {
           && s.attributes.device_class !== "timestamp";
       });
     }
-    // GP (svenove/google_pollen): hass.entities (primary) or entity prefix (fallback)
+    // GP (svenove/google_pollen): full discovery once; state list derived
+    // from it so the header auto-title path can reuse the same result later.
+    const gpDiscovery = discoverGpSensors(hass, this.debug);
     let gpStates = [];
-    if (hass.entities) {
-      gpStates = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
-        .map(([eid]) => eid);
+    if (gpDiscovery.locations.size > 0) {
+      for (const [, loc] of gpDiscovery.locations) {
+        for (const eid of loc.entities.values()) {
+          gpStates.push(eid);
+        }
+      }
     }
     if (!gpStates.length) {
-      gpStates = Object.keys(hass.states).filter((id) =>
-        typeof id === "string" && id.startsWith("sensor.google_pollen_")
-      );
+      if (hass.entities) {
+        gpStates = Object.entries(hass.entities)
+          .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
+          .map(([eid]) => eid);
+      }
+      if (!gpStates.length) {
+        gpStates = Object.keys(hass.states).filter((id) =>
+          typeof id === "string" && id.startsWith("sensor.google_pollen_")
+        );
+      }
     }
 
     if (this.debug) {
@@ -1601,8 +1612,8 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "gp") {
-        // Google Pollen (svenove): extract location from discovery
-        const gpDiscovery = discoverGpSensors(hass, false);
+        // Google Pollen (svenove): reuse the discovery computed earlier in
+        // set hass() so we don't run a second registry/state scan per update.
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
             ? cfg.location
