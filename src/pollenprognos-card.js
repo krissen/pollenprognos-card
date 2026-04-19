@@ -9,7 +9,7 @@ import { findAvailableSensors } from "./utils/sensors.js";
 import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { discoverAtmoSensors } from "./adapters/atmo.js";
+import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -1555,9 +1555,16 @@ class PollenPrognosCard extends LitElement {
             : "";
 
         let title = "";
-        if (wantedLocation && atmoDiscovery.locations.has(wantedLocation)) {
-          title = atmoDiscovery.locations.get(wantedLocation).label;
+        if (wantedLocation) {
+          if (atmoDiscovery.locations.has(wantedLocation)) {
+            title = atmoDiscovery.locations.get(wantedLocation).label;
+          } else {
+            // Legacy slug configs ("nice"): map slug -> config_entry_id via discovery
+            const entryId = findAtmoLocationBySlug(atmoDiscovery, wantedLocation);
+            if (entryId) title = atmoDiscovery.locations.get(entryId).label;
+          }
         } else if (atmoDiscovery.locations.size) {
+          // No explicit location: pick first discovered
           title = atmoDiscovery.locations.values().next().value.label;
         }
 
