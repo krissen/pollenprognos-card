@@ -18,6 +18,7 @@
 import { describe, it, expect } from "vitest";
 import { PLU_ALIAS_MAP } from "../../src/adapters/plu.js";
 import { GPL_ATTRIBUTION } from "../../src/adapters/gpl/index.js";
+import { discoverAtmoSensors } from "../../src/adapters/atmo.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -88,12 +89,24 @@ function detectCardSetHass(hass) {
     (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
   );
 
-  const atmoStates = all.filter(
-    (id) =>
-      typeof id === "string" &&
-      /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-      !/_j_\d+$/.test(id),
-  );
+  // ATMO: primary via discovery (handles prefixed entity IDs), fallback to regex
+  const atmoDiscovery = discoverAtmoSensors(hass, false);
+  let atmoStates = [];
+  if (atmoDiscovery.locations.size > 0) {
+    for (const [, loc] of atmoDiscovery.locations) {
+      for (const eid of loc.entities.values()) {
+        atmoStates.push(eid);
+      }
+    }
+  }
+  if (!atmoStates.length) {
+    atmoStates = all.filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
+    );
+  }
 
   // GPL: primary via hass.entities, fallback via attribution
   let gplStates = [];
@@ -247,12 +260,24 @@ function detectEditorSetHass(hass) {
 
   // No Kleenex detection in this path
 
-  const atmoStates = all.filter(
-    (id) =>
-      typeof id === "string" &&
-      /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-      !/_j_\d+$/.test(id),
-  );
+  // ATMO: primary via discovery (handles prefixed entity IDs), fallback to regex
+  const atmoDiscovery = discoverAtmoSensors(hass, false);
+  let atmoStates = [];
+  if (atmoDiscovery.locations.size > 0) {
+    for (const [, loc] of atmoDiscovery.locations) {
+      for (const eid of loc.entities.values()) {
+        atmoStates.push(eid);
+      }
+    }
+  }
+  if (!atmoStates.length) {
+    atmoStates = all.filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+        !/_j_\d+$/.test(id),
+    );
+  }
 
   // GPL: primary via hass.entities, fallback via attribution
   let gplStates = [];
@@ -406,6 +431,26 @@ describe("Card set hass() autodetect", () => {
 
     it("selects ATMO when only ATMO and GPL are present", () => {
       expect(detect(hassWithIntegrations("atmo", "gpl"))).toBe("atmo");
+    });
+
+    it("detects ATMO via discovery for prefixed entity IDs", () => {
+      // Multi-instance prefix: entity IDs don't match the legacy regex,
+      // but tier 1 device-based discovery finds them.
+      const eid = "sensor.toulouse_niveau_bouleau_toulouse";
+      const hass = {
+        states: { [eid]: { state: "2", attributes: {} } },
+        entities: {
+          [eid]: { platform: "atmofrance", device_id: "dev_toulouse" },
+        },
+        devices: {
+          dev_toulouse: {
+            name: "Atmo France",
+            config_entries: ["entry_toulouse"],
+            identifiers: [["atmofrance", "Test-Toulouse"]],
+          },
+        },
+      };
+      expect(detect(hass)).toBe("atmo");
     });
 
     it("selects GPL when only GPL is present", () => {

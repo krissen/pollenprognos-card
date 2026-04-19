@@ -1010,12 +1010,25 @@ class PollenPrognosCard extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
-    const atmoStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-        !/_j_\d+$/.test(id),
-    );
+    // ATMO: primary via discovery (handles prefixed entity IDs and
+    // device-based detection); fallback to regex for older HA registries.
+    const atmoDiscovery = discoverAtmoSensors(hass, this.debug);
+    let atmoStates = [];
+    if (atmoDiscovery.locations.size > 0) {
+      for (const [, loc] of atmoDiscovery.locations) {
+        for (const eid of loc.entities.values()) {
+          atmoStates.push(eid);
+        }
+      }
+    }
+    if (!atmoStates.length) {
+      atmoStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+          !/_j_\d+$/.test(id),
+      );
+    }
     // GPL: use hass.entities (primary) or attribution (fallback)
     let gplStates = [];
     if (hass.entities) {
