@@ -316,10 +316,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
     const result = discoverDwdSensors(hass);
 
     const [, loc] = [...result.locations.entries()][0];
-    // Region 50 = "Brandenburg und Berlin" in DWD_REGIONS. Label is prefixed
-    // with the region ID so tier-3 labels remain unique for non-bijective
-    // entries (e.g. regions 11 and 12 share a name).
-    expect(loc.label).toBe("50 Brandenburg und Berlin");
+    expect(loc.label).toBe("Brandenburg und Berlin");
   });
 
   it("region label beats generic device name", () => {
@@ -351,7 +348,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
 
     const result = discoverDwdSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
-    expect(loc.label).toBe("50 Brandenburg und Berlin");
+    expect(loc.label).toBe("Brandenburg und Berlin");
   });
 
   it("user-customized device name wins over region-derived label", () => {
