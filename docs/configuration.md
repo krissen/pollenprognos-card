@@ -23,6 +23,7 @@ In this file:
   - [Pollen.lu (PLU)](#pollenlu-plu)
   - [Atmo France](#atmo-france)
   - [Google Pollen Levels (GPL)](#google-pollen-levels-gpl)
+  - [Google Pollen (GP)](#google-pollen-gp)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -36,10 +37,10 @@ In this file:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo` or `gpl`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo`, `gpl` or `gp`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM, Kleenex, Atmo, GPL)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For GPL, this is the `config_entry_id` of the `pollenlevels` config entry; leave empty for auto-detection when only one location is configured. |
+| `location` *(PEU, SILAM, Kleenex, Atmo, GPL, GP)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For GPL/GP, this is the `config_entry_id` of the config entry; leave empty for auto-detection when only one location is configured. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -303,6 +304,26 @@ Levels range from 0 to 5 and are displayed with 5 doughnut segments. Level names
 
 Like Kleenex, GPL distinguishes between category sensors and individual plant sensors. Category allergens can be sorted to the top of the list with `sort_category_allergens_first: true` (enabled by default).
 
+### Google Pollen (GP)
+
+The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. Sensors are classified via `unique_id` (language-independent) or by direct `display_name` matching against pre-generated name maps (supports all 35 API languages). See [integrations.md](integrations.md#google-pollen-svenove--design-decisions) for the technical details.
+
+The available allergens are the same as GPL:
+
+```
+# Category sensors
+grass_cat
+trees_cat
+weeds_cat
+# Individual plant sensors (availability varies by region)
+alder, ash, birch, cottonwood, cypress_pine, elm, graminales,
+hazel, juniper, maple, mugwort, oak, olive, pine, ragweed
+```
+
+Levels range from 0 to 5. Forecast data is read from flat sensor attributes (`index_value`, `tomorrow`, `day 3`, `day 4`), giving up to 4 days of data.
+
+Like GPL and Kleenex, GP supports `sort_category_allergens_first: true` (default).
+
 ## Color System Overview
 
 The card provides advanced color management with two interconnected systems:
@@ -435,6 +456,21 @@ allergens:
   - weeds_cat
   - birch
   - oak
+```
+
+**Google Pollen (svenove)**
+
+```yaml
+type: custom:pollenprognos-card
+integration: gp
+# location auto-detected; set config_entry_id for multi-location setups
+days_to_show: 4
+allergens:
+  - grass_cat
+  - trees_cat
+  - weeds_cat
+  - birch
+  - ragweed
 ```
 
 **Minimal layout**

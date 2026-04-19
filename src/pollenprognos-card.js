@@ -9,7 +9,9 @@ import { findAvailableSensors } from "./utils/sensors.js";
 import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
+import { discoverGpSensors } from "./adapters/gp/index.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -1008,12 +1010,27 @@ class PollenPrognosCard extends LitElement {
         return pluAllergenSlugs.has(allergenSlug);
       },
     );
-    const atmoStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-        !/_j_\d+$/.test(id),
-    );
+    // ATMO: primary via discovery (handles prefixed entity IDs and
+    // device-based detection); fallback to regex for older HA registries.
+    const atmoDiscovery = discoverAtmoSensors(hass, this.debug);
+    let atmoStates = [];
+    if (atmoDiscovery.locations.size > 0) {
+      for (const [, loc] of atmoDiscovery.locations) {
+        for (const eid of loc.entities.values()) {
+          atmoStates.push(eid);
+        }
+      }
+    }
+    if (!atmoStates.length) {
+      // Legacy fallback for older HA registries without device/platform metadata.
+      // Matches both current niveau_{slug} and legacy niveau_alerte_{slug}.
+      atmoStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
+          !/_j_\d+$/.test(id),
+      );
+    }
     // GPL: use hass.entities (primary) or attribution (fallback)
     let gplStates = [];
     if (hass.entities) {
@@ -1029,6 +1046,29 @@ class PollenPrognosCard extends LitElement {
           && s.attributes.device_class !== "timestamp";
       });
     }
+    // GP (svenove/google_pollen): full discovery once; state list derived
+    // from it so the header auto-title path can reuse the same result later.
+    const gpDiscovery = discoverGpSensors(hass, this.debug);
+    let gpStates = [];
+    if (gpDiscovery.locations.size > 0) {
+      for (const [, loc] of gpDiscovery.locations) {
+        for (const eid of loc.entities.values()) {
+          gpStates.push(eid);
+        }
+      }
+    }
+    if (!gpStates.length) {
+      if (hass.entities) {
+        gpStates = Object.entries(hass.entities)
+          .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
+          .map(([eid]) => eid);
+      }
+      if (!gpStates.length) {
+        gpStates = Object.keys(hass.states).filter((id) =>
+          typeof id === "string" && id.startsWith("sensor.google_pollen_")
+        );
+      }
+    }
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -1040,6 +1080,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("PLU:", pluStates);
       console.debug("ATMO:", atmoStates);
       console.debug("GPL:", gplStates);
+      console.debug("GP:", gpStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -1059,6 +1100,7 @@ class PollenPrognosCard extends LitElement {
       else if (silamStates.length && !skip.has("silam")) integration = "silam";
       else if (kleenexStates.length && !skip.has("kleenex")) integration = "kleenex";
       else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
+      else if (gpStates.length && !skip.has("gp")) integration = "gp";
       else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
     }
 
@@ -1516,40 +1558,29 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "atmo") {
-        // Atmo France: extract location from sensor attributes (pollen + pollution)
-        const atmoRe = /^sensor\.(?:niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_(.+?)(?:_j_\d+)?$/;
-        const atmoEntities = Object.values(hass.states).filter(
-          (s) =>
-            s &&
-            typeof s === "object" &&
-            typeof s.entity_id === "string" &&
-            atmoRe.test(s.entity_id),
-        );
+        // Atmo France: reuse the discovery result computed earlier in set hass()
+        // for sensor detection, to avoid a second registry/regex scan.
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
-            ? cfg.location.toLowerCase()
+            ? cfg.location
             : "";
 
-        let match = null;
+        let title = "";
         if (wantedLocation) {
-          match = atmoEntities.find((s) => {
-            const m = s.entity_id.match(atmoRe);
-            return m && m[1] === wantedLocation;
-          });
-        } else if (atmoEntities.length) {
-          match = atmoEntities[0];
+          if (atmoDiscovery.locations.has(wantedLocation)) {
+            title = atmoDiscovery.locations.get(wantedLocation).label;
+          } else {
+            // Legacy slug configs ("nice"): map slug -> config_entry_id via discovery
+            const entryId = findAtmoLocationBySlug(atmoDiscovery, wantedLocation);
+            if (entryId) title = atmoDiscovery.locations.get(entryId).label;
+          }
+        } else if (atmoDiscovery.locations.size) {
+          // No explicit location: pick first discovered
+          title = atmoDiscovery.locations.values().next().value.label;
         }
 
-        let title = "";
-        if (match) {
-          const attr = match.attributes || {};
-          title =
-            attr["Nom de la zone"] ||
-            cfg.location ||
-            "";
-          if (title) {
-            title = title.charAt(0).toUpperCase() + title.slice(1);
-          }
+        if (title) {
+          title = title.charAt(0).toUpperCase() + title.slice(1);
         }
 
         loc = title || cfg.location || "";
@@ -1577,6 +1608,22 @@ class PollenPrognosCard extends LitElement {
           if (title) {
             title = title.charAt(0).toUpperCase() + title.slice(1);
           }
+        }
+
+        loc = title || cfg.location || "";
+      } else if (integration === "gp") {
+        // Google Pollen (svenove): reuse the discovery computed earlier in
+        // set hass() so we don't run a second registry/state scan per update.
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual"
+            ? cfg.location
+            : "";
+
+        let title = "";
+        if (wantedLocation && gpDiscovery.locations.has(wantedLocation)) {
+          title = gpDiscovery.locations.get(wantedLocation).label;
+        } else if (gpDiscovery.locations.size) {
+          title = gpDiscovery.locations.values().next().value.label;
         }
 
         loc = title || cfg.location || "";
@@ -1885,7 +1932,7 @@ class PollenPrognosCard extends LitElement {
     let segments = 6;
     if (this.config.integration === "peu" || this.config.integration === "kleenex") {
       segments = 4;
-    } else if (this.config.integration === "gpl") {
+    } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
       segments = 5;
     } else if (this.config.integration === "plu") {
       segments = 3;

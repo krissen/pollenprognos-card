@@ -106,6 +106,18 @@ Install via HACS:
 
 **Repository**: [pollenlevels](https://github.com/eXPerience83/pollenlevels)
 
+### Option I: Google Pollen (Global)
+
+Install via HACS:
+1. Open HACS → Integrations
+2. Click the "+" button
+3. Search for "Google Pollen" or "home-assistant-google-pollen"
+4. Install the integration
+5. Restart Home Assistant
+6. Add the integration via Settings → Devices & Services (requires a Google Cloud API key)
+
+**Repository**: [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen)
+
 ## Step 2: Install Pollenprognos Card
 
 ### Via HACS (Recommended)
@@ -134,6 +146,8 @@ Install via HACS:
    - Go to Developer Tools → States
    - Search for your pollen sensors (e.g., `sensor.birch_stockholm` for Pollenprognos)
 2. If you see pollen sensors, you're ready to add the card!
+
+> **"Custom element doesn't exist"?** The card resource may not have registered properly. See the [troubleshooting guide](troubleshooting.md#card-not-found--old-version-still-running) for how to verify and fix resource registration.
 
 ## Next Steps
 

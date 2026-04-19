@@ -1,6 +1,7 @@
 // src/utils/slugify.js
-// from https://github.com/home-assistant/frontend/blob/dev/src/common/string/slugify.ts
-// https://gist.github.com/hagemann/382adfc57adbd5af078dc93feef01fe1
+// Matches Home Assistant frontend slugify (common/string/slugify.ts).
+// Uses character table for Latin diacritics + Cyrillic transliteration.
+// https://github.com/home-assistant/frontend/blob/dev/src/common/string/slugify.ts
 export const slugify = (value, delimiter = "_") => {
   const a =
     "àáâäæãåāăąабçćčđďдèéêëēėęěеёэфğǵгḧхîïíīįìıİийкłлḿмñńǹňнôöòóœøōõőоṕпŕřрßśšşșсťțтûüùúūǘůűųувẃẍÿýыžźżз·";
@@ -25,13 +26,13 @@ export const slugify = (value, delimiter = "_") => {
     slugified = value
       .toString()
       .toLowerCase()
-      .replace(p, (c) => b.charAt(a.indexOf(c))) // Replace special characters
-      .replace(/[а-я]/g, (c) => complex_cyrillic[c] || "") // Replace some cyrillic characters
-      .replace(/(\d),(?=\d)/g, "$1") // Remove Commas between numbers
-      .replace(/[^a-z0-9]+/g, delimiter) // Replace all non-word characters
-      .replace(new RegExp(`(${delimiter})\\1+`, "g"), "$1") // Replace multiple delimiters with single delimiter
-      .replace(new RegExp(`^${delimiter}+`), "") // Trim delimiter from start of text
-      .replace(new RegExp(`${delimiter}+$`), ""); // Trim delimiter from end of text
+      .replace(p, (c) => b.charAt(a.indexOf(c)))
+      .replace(/[а-я]/g, (c) => complex_cyrillic[c] || "")
+      .replace(/(\d),(?=\d)/g, "$1")
+      .replace(/[^a-z0-9]+/g, delimiter)
+      .replace(new RegExp(`(${delimiter})\\1+`, "g"), "$1")
+      .replace(new RegExp(`^${delimiter}+`), "")
+      .replace(new RegExp(`${delimiter}+$`), "");
 
     if (slugified === "") {
       slugified = "unknown";

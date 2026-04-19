@@ -79,6 +79,10 @@ location: lyon
 # Google Pollen Levels (global)
 type: custom:pollenprognos-card
 integration: gpl
+
+# Google Pollen — svenove (global)
+type: custom:pollenprognos-card
+integration: gp
 ```
 
 ## Common Customizations
@@ -249,6 +253,20 @@ allergens:
   - birch
   - olive
 days_to_show: 5
+```
+
+### Global (Google Pollen -- svenove)
+
+```yaml
+type: custom:pollenprognos-card
+integration: gp
+allergens:
+  - grass_cat
+  - trees_cat
+  - weeds_cat
+  - birch
+  - ragweed
+days_to_show: 4
 ```
 
 ## Next Steps
