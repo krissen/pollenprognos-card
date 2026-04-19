@@ -1546,8 +1546,8 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "atmo") {
-        // Atmo France: use discovery to resolve location title
-        const atmoDiscovery = discoverAtmoSensors(hass, false);
+        // Atmo France: reuse the discovery result computed earlier in set hass()
+        // for sensor detection, to avoid a second registry/regex scan.
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
             ? cfg.location
