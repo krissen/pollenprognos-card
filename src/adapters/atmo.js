@@ -523,15 +523,17 @@ export async function fetchForecast(hass, config) {
       return { state: -1, display_state: -1, state_text: noInfoLabel };
     }
     if (raw === 0) {
-      // Indisponible — show as empty circle, text = Libellé or "unavailable"
-      return { state: 0, display_state: -1, state_text: libelle || atmoUnavailableLabel };
+      // Indisponible — show as empty circle. Prefer the card's localized label
+      // over the integration's Libellé (which is always French "Indisponible").
+      return { state: 0, display_state: -1, state_text: atmoUnavailableLabel || libelle };
     }
     if (raw >= 1 && raw <= 6) {
       return { state: raw, display_state: raw, state_text: levelNames[raw] || libelle || noInfoLabel };
     }
     if (raw === 7) {
-      // Événement — cap circle at 6, text marks event
-      return { state: 7, display_state: 6, state_text: libelle || atmoEventLabel };
+      // Événement — cap circle at 6. Prefer the localized label so non-French
+      // users don't see the raw French wording.
+      return { state: 7, display_state: 6, state_text: atmoEventLabel || libelle };
     }
     // Unexpected value — treat as max
     return { state: raw, display_state: Math.min(raw, 6), state_text: libelle || noInfoLabel };

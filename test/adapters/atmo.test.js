@@ -193,7 +193,7 @@ describe("ATMO adapter: fetchForecast", () => {
       expect(result[0].day0.display_state).toBe(-1);
     });
 
-    it("returns state_text for level 0 (uses Libelle or unavailable label)", async () => {
+    it("uses localized label for level 0 (Indisponible) in French UI", async () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "0",
@@ -212,11 +212,32 @@ describe("ATMO adapter: fetchForecast", () => {
       expect(result[0].day0.state_text).toBe("Indisponible");
     });
 
-    it("returns state_text for level 7 (uses Libelle or event label)", async () => {
+    it("uses localized label for level 0 in non-French UI even when Libelle is French", async () => {
+      // Regression: the integration always reports 'Libellé: "Indisponible"' for
+      // level 0, which previously leaked into non-French UIs.
+      const states = {
+        "sensor.niveau_bouleau_paris": {
+          state: "0",
+          attributes: { "Libellé": "Indisponible" },
+        },
+      };
+      const hass = createHass(states, { language: "sv" });
+      const config = makeConfig({
+        location: "paris",
+        allergens: ["birch"],
+        pollen_threshold: 0,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result[0].day0.state_text).toBe("Otillgänglig");
+    });
+
+    it("uses localized label for level 7 (Événement) in French UI", async () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "7",
-          attributes: { "Libellé": "Evenement" },
+          attributes: { "Libellé": "Événement" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -228,7 +249,26 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].day0.state_text).toBe("Evenement");
+      expect(result[0].day0.state_text).toBe("Événement");
+    });
+
+    it("uses localized label for level 7 in non-French UI", async () => {
+      const states = {
+        "sensor.niveau_bouleau_paris": {
+          state: "7",
+          attributes: { "Libellé": "Événement" },
+        },
+      };
+      const hass = createHass(states, { language: "sv" });
+      const config = makeConfig({
+        location: "paris",
+        allergens: ["birch"],
+        pollen_threshold: 0,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result[0].day0.state_text).toBe("Händelse");
     });
   });
 
