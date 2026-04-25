@@ -1224,6 +1224,37 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(ids).not.toContain("last_updated");
     expect(ids).not.toContain("region");
   });
+
+  it("Test 9b - manual mode resolves DetailSensor when entity_prefix covers full domain+location", async () => {
+    const treesEntity = {
+      entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_trees",
+      state: "200",
+      attributes: { details: [], forecast: [
+        { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+        { datetime: "2026-04-27", level: 2, value: 200, details: [] },
+      ] },
+    };
+    const birchDetail = {
+      entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_birch",
+      state: "150",
+      attributes: { forecast: [{ date: "2026-04-26", value: 100 }] },
+    };
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_radar_atlanta_georgia_",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0].entity_id).toBe(
+      "sensor.kleenex_pollen_radar_atlanta_georgia_birch",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

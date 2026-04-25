@@ -408,27 +408,28 @@ export async function fetchForecast(hass, config) {
     // Skip _level variants and known diagnostic suffixes.
     if (DIAGNOSTIC_SUFFIXES.has(entitySuffix)) continue;
 
-    // Derive the suffix after stripping the domain prefix and location slug.
-    // entity_id format: sensor.kleenex_pollen_radar_<location>_<allergen>
-    const domainPrefix = `sensor.${DOMAIN}_`;
-    let suffixAfterDomain = sensor.entity_id.startsWith(domainPrefix)
-      ? sensor.entity_id.slice(domainPrefix.length)
-      : sensor.entity_id;
-
-    // Strip location slug: find the part after "<location>_".
-    let allergenSuffix = suffixAfterDomain;
-    if (config.location && config.location !== "manual") {
-      const locationSlug = slugify(config.location);
-      if (allergenSuffix.startsWith(locationSlug + "_")) {
-        allergenSuffix = allergenSuffix.slice(locationSlug.length + 1);
-      }
-    } else if (config.location === "manual" && config.entity_prefix) {
-      // In manual mode strip the user prefix portion.
+    // Derive the allergen suffix from the entity_id.
+    let allergenSuffix;
+    if (config.location === "manual" && config.entity_prefix) {
+      // Manual mode: user-supplied entity_prefix already covers the whole prefix
+      // up to <allergen>; strip it from the full entity_id.
       let prefix = config.entity_prefix;
       if (prefix.startsWith("sensor.")) prefix = prefix.slice(7);
       if (!prefix.endsWith("_")) prefix = prefix + "_";
-      if (allergenSuffix.startsWith(prefix)) {
-        allergenSuffix = allergenSuffix.slice(prefix.length);
+      const fullPrefix = `sensor.${prefix}`;
+      if (!sensor.entity_id.startsWith(fullPrefix)) continue;
+      allergenSuffix = sensor.entity_id.slice(fullPrefix.length);
+    } else {
+      // Standard mode: strip domain prefix, then the configured location slug.
+      const domainPrefix = `sensor.${DOMAIN}_`;
+      allergenSuffix = sensor.entity_id.startsWith(domainPrefix)
+        ? sensor.entity_id.slice(domainPrefix.length)
+        : sensor.entity_id;
+      if (config.location && config.location !== "manual") {
+        const locationSlug = slugify(config.location);
+        if (allergenSuffix.startsWith(locationSlug + "_")) {
+          allergenSuffix = allergenSuffix.slice(locationSlug.length + 1);
+        }
       }
     }
 
@@ -520,7 +521,7 @@ export async function fetchForecast(hass, config) {
       );
       if (allDetailsEmpty && !hasAnyCategoryConfigured) {
         console.warn(
-          "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
+          "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/HEAD/docs/troubleshooting.md#kleenex",
         );
       }
     }
