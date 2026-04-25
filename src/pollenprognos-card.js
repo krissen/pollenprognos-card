@@ -17,7 +17,7 @@ import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
 import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors } from "./adapters/dwd.js";
-import { discoverPeuSensors } from "./adapters/peu.js";
+import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -1417,10 +1417,7 @@ class PollenPrognosCard extends LitElement {
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const peuMatch = resolveLocationByKey(peuDiscovery, wantedLocation, {
-          slugExtractor: (eid) => {
-            const m = eid.match(/^sensor\.polleninformation_(.+?)_[a-z_]+$/);
-            return m ? m[1] : null;
-          },
+          slugExtractor: extractPeuLocationSlugFromEntityId,
         });
         if (peuMatch) {
           loc = peuMatch[1].label;

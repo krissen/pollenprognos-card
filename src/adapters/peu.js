@@ -125,7 +125,7 @@ function extractPeuLocationSlug(eid, allergenKey) {
  * @param {string} eid
  * @returns {string|null}
  */
-function extractPeuLocationSlugFromEntityId(eid) {
+export function extractPeuLocationSlugFromEntityId(eid) {
   const allergen = classifyPeuEntity(eid);
   if (!allergen) return null;
   return extractPeuLocationSlug(eid, allergen);

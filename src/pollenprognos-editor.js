@@ -14,7 +14,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { stubConfigDWD, discoverDwdSensors } from "./adapters/dwd.js";
-import { PEU_ALLERGENS, discoverPeuSensors } from "./adapters/peu.js";
+import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -970,10 +970,7 @@ class PollenPrognosCardEditor extends LitElement {
         const cfgCity = this._config?.city;
         if (cfgCity && cfgCity !== "manual" && !ppDiscovery.locations.has(cfgCity)) {
           const match = findLocationBySlug(ppDiscovery, cfgCity, {
-            slugExtractor: (eid) => {
-              const m = eid.match(/^sensor\.pollen_(.+)_[^_]+$/);
-              return m ? m[1] : null;
-            },
+            slugExtractor: extractPpCitySlugFromEntityId,
           });
           if (match) {
             const [, loc] = match;
@@ -1068,12 +1065,7 @@ class PollenPrognosCardEditor extends LitElement {
           integration === "peu"
         ) {
           const match = findLocationBySlug(peuDiscovery, cfgPeuLoc, {
-            slugExtractor: (eid) => {
-              if (!eid.startsWith("sensor.polleninformation_")) return null;
-              const rest = eid.substring("sensor.polleninformation_".length);
-              const m = rest.match(/^(.+?)_[^_]+$/);
-              return m ? m[1] : null;
-            },
+            slugExtractor: extractPeuLocationSlugFromEntityId,
           });
           if (match) {
             const [, loc] = match;
