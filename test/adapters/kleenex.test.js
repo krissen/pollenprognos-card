@@ -1278,6 +1278,26 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(ids).not.toContain("region");
   });
 
+  it("Test 9a - DetailSensor with non-numeric state ('unknown'/'unavailable') is skipped, not treated as 0 ppm", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    const unknownDetail = {
+      entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch",
+      state: "unknown",
+      attributes: { forecast: [{ date: "2026-04-26", value: 100 }] },
+    };
+    const hass = makeHassFromEntities([treesEntity, unknownDetail]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // Birch must NOT be added to the result with a fake 0 ppm reading.
+    expect(result.every((s) => s.allergenReplaced !== "birch")).toBe(true);
+  });
+
   it("Test 9b - manual mode resolves DetailSensor when entity_prefix covers full domain+location", async () => {
     const treesEntity = {
       entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_trees",

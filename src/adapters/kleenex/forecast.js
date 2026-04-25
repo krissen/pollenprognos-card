@@ -461,6 +461,12 @@ export async function fetchForecast(hass, config) {
     // Only fill slots not already populated by category-sensor pass.
     if (allergenData.has(canonicalName)) continue;
 
+    // Skip when the sensor reports a non-numeric state (`unknown`,
+    // `unavailable`, etc.) — treating those as 0 ppm would mask real
+    // outages and falsely suppress the NA warning.
+    const parsedState = Number(sensor.state);
+    if (!Number.isFinite(parsedState)) continue;
+
     if (debug) {
       console.debug(
         `[Kleenex] DetailSensor fallback: ${sensor.entity_id} -> ${canonicalName}`,
@@ -474,21 +480,24 @@ export async function fetchForecast(hass, config) {
     });
 
     const allergenEntry = allergenData.get(canonicalName);
-    const sensorValue = Number(sensor.state) || 0;
-    const rawLevel = ppmToLevel(sensorValue, canonicalName);
+    const rawLevel = ppmToLevel(parsedState, canonicalName);
     const currentLevel = testVal(rawLevel);
 
     allergenEntry.levels[0] = {
       date: new Date(today),
       level: currentLevel,
-      value: sensorValue,
+      value: parsedState,
     };
 
     // DetailSensor forecast: [{date, value}] — no per-allergen level field.
+    // Non-numeric forecast values are treated as missing-day sentinels (-1).
     const detailForecast = sensor.attributes?.forecast || [];
     detailForecast.forEach((forecastItem, dayIndex) => {
-      const forecastValue = Number(forecastItem.value) || 0;
-      const fRawLevel = ppmToLevel(forecastValue, canonicalName);
+      const parsedForecast = Number(forecastItem.value);
+      const forecastValue = Number.isFinite(parsedForecast) ? parsedForecast : -1;
+      const fRawLevel = forecastValue < 0
+        ? -1
+        : ppmToLevel(forecastValue, canonicalName);
       const forecastLevel = testVal(fRawLevel);
       allergenEntry.levels[dayIndex + 1] = {
         date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
