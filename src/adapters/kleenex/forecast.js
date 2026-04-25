@@ -374,6 +374,155 @@ export async function fetchForecast(hass, config) {
     }
   }
 
+  // --- Pass 2: DetailSensor fallback ---
+  // For zones where category sensor details[] is empty (e.g. NA/US endpoint hardcodes
+  // empty details — see api.py:__decode_raw_data_na), try individually-enabled
+  // DetailSensor entities (disabled by default in HA registry).
+  // Build a lookup: slugified alias key -> canonical allergen name.
+  const slugifiedAliasMap = new Map();
+  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
+    const slug = slugify(alias);
+    if (!slugifiedAliasMap.has(slug)) {
+      slugifiedAliasMap.set(slug, canonical);
+    }
+  }
+
+  // Diagnostic suffixes that are not allergen names — skip them.
+  const DIAGNOSTIC_SUFFIXES = new Set([
+    "level", "date", "last_updated", "latitude", "longitude",
+    "city", "region", "error",
+  ]);
+
+  for (const sensor of kleenexSensors) {
+    // Only consider sensors that were NOT identified as category sensors.
+    const entitySuffix = sensor.entity_id.split("_").pop();
+    let isCategorySensor = false;
+    for (const localizedPrefix of Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
+      if (entitySuffix.startsWith(localizedPrefix)) {
+        isCategorySensor = true;
+        break;
+      }
+    }
+    if (isCategorySensor) continue;
+
+    // Skip _level variants and known diagnostic suffixes.
+    if (DIAGNOSTIC_SUFFIXES.has(entitySuffix)) continue;
+
+    // Derive the suffix after stripping the domain prefix and location slug.
+    // entity_id format: sensor.kleenex_pollen_radar_<location>_<allergen>
+    const domainPrefix = `sensor.${DOMAIN}_`;
+    let suffixAfterDomain = sensor.entity_id.startsWith(domainPrefix)
+      ? sensor.entity_id.slice(domainPrefix.length)
+      : sensor.entity_id;
+
+    // Strip location slug: find the part after "<location>_".
+    let allergenSuffix = suffixAfterDomain;
+    if (config.location && config.location !== "manual") {
+      const locationSlug = slugify(config.location);
+      if (allergenSuffix.startsWith(locationSlug + "_")) {
+        allergenSuffix = allergenSuffix.slice(locationSlug.length + 1);
+      }
+    } else if (config.location === "manual" && config.entity_prefix) {
+      // In manual mode strip the user prefix portion.
+      let prefix = config.entity_prefix;
+      if (prefix.startsWith("sensor.")) prefix = prefix.slice(7);
+      if (!prefix.endsWith("_")) prefix = prefix + "_";
+      if (allergenSuffix.startsWith(prefix)) {
+        allergenSuffix = allergenSuffix.slice(prefix.length);
+      }
+    }
+
+    // Check whether this suffix matches a known allergen alias (by slug).
+    const canonicalName = slugifiedAliasMap.get(allergenSuffix);
+    if (!canonicalName) continue;
+
+    // Skip allergens not requested in config.
+    if (!config.allergens.includes(canonicalName)) continue;
+
+    // Only fill slots not already populated by category-sensor pass.
+    if (allergenData.has(canonicalName)) continue;
+
+    if (debug) {
+      console.debug(
+        `[Kleenex] DetailSensor fallback: ${sensor.entity_id} -> ${canonicalName}`,
+      );
+    }
+
+    allergenData.set(canonicalName, {
+      levels: [],
+      entity_id: sensor.entity_id,
+      source: "detail_sensor",
+    });
+
+    const allergenEntry = allergenData.get(canonicalName);
+    const sensorValue = Number(sensor.state) || 0;
+    const rawLevel = ppmToLevel(sensorValue, canonicalName);
+    const currentLevel = testVal(rawLevel);
+
+    allergenEntry.levels[0] = {
+      date: new Date(today),
+      level: currentLevel,
+      value: sensorValue,
+    };
+
+    // DetailSensor forecast: [{date, value}] — no per-allergen level field.
+    const detailForecast = sensor.attributes?.forecast || [];
+    detailForecast.forEach((forecastItem, dayIndex) => {
+      const forecastValue = Number(forecastItem.value) || 0;
+      const fRawLevel = ppmToLevel(forecastValue, canonicalName);
+      const forecastLevel = testVal(fRawLevel);
+      allergenEntry.levels[dayIndex + 1] = {
+        date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
+        level: forecastLevel,
+        value: forecastValue,
+      };
+    });
+  }
+
+  // --- NA-zone warning ---
+  // Warn when the user requested individual allergens but got no data AND the
+  // category sensors all had empty details (NA endpoint fingerprint — see
+  // api.py:__decode_raw_data_na which hardcodes pollen[f"{type}_details"] = []).
+  const categoryAllergenKeys = ["trees_cat", "grass_cat", "weeds_cat"];
+  const requestedIndividual = (config.allergens || []).filter(
+    (a) => !categoryAllergenKeys.includes(a),
+  );
+  // Only evaluate when at least one category sensor was actually found (guards
+  // against vacuous-truth on empty kleenexSensors when location doesn't match).
+  const categorySensorsFound = kleenexSensors.filter((sensor) => {
+    const suffix = sensor.entity_id.split("_").pop();
+    return Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES).some((lp) =>
+      suffix.startsWith(lp),
+    );
+  });
+  if (requestedIndividual.length > 0 && categorySensorsFound.length > 0) {
+    const allIndividualEmpty = requestedIndividual.every(
+      (a) => !allergenData.has(a),
+    );
+    if (allIndividualEmpty) {
+      // NA fingerprint: every category sensor has empty details[] and
+      // empty forecast[i].details[].
+      const allDetailsEmpty = categorySensorsFound.every((sensor) => {
+        const attrs = sensor.attributes || {};
+        const detailsEmpty = (attrs.details || []).length === 0;
+        const forecastDetailsEmpty = (attrs.forecast || []).every(
+          (f) => (f.details || []).length === 0,
+        );
+        return detailsEmpty && forecastDetailsEmpty;
+      });
+      // Only emit the warning when the user hasn't already configured category allergens
+      // (if they have, they are already on the right path).
+      const hasAnyCategoryConfigured = categoryAllergenKeys.some((k) =>
+        (config.allergens || []).includes(k),
+      );
+      if (allDetailsEmpty && !hasAnyCategoryConfigured) {
+        console.warn(
+          "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
+        );
+      }
+    }
+  }
+
   if (debug) {
     console.debug(
       `[Kleenex] === ALLERGEN DATA COLLECTION COMPLETE ===`,
