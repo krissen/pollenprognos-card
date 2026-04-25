@@ -1,7 +1,7 @@
 import { normalize } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -163,7 +163,11 @@ export function discoverPpSensors(hass, debug = false) {
 
 function detectCity(cfg, hass) {
   if (cfg.city === "manual") return "";
-  let cityKey = normalize(cfg.city || "");
+  // Treat a config_entry_id as autodetect: normalize() would otherwise produce
+  // a non-empty cityKey from the ULID, blocking the entity-id scan below when
+  // tier 1/2 discovery has already failed (e.g. unknown platform slug).
+  const cityCfg = isConfigEntryId(cfg.city) ? "" : cfg.city;
+  let cityKey = normalize(cityCfg || "");
   if (!cityKey) {
     const ppStates = Object.keys(hass.states).filter(
       (id) =>
