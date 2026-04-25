@@ -1067,6 +1067,28 @@ describe("Kleenex adapter: NA-zone warning", () => {
     expect(naWarningCalled).toBe(false);
   });
 
+  it("Test 2b - emits warning when user mixes raw category and individual allergens but only category resolves", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // NA category sensor has data (trees ppm) but no per-allergen breakdown.
+    const treesEntity = makeNACategory("atlanta", "trees", 200);
+    const hass = makeHassFromEntities([treesEntity]);
+    // Config has raw `trees` (not `trees_cat`) plus `birch`. Birch will silently
+    // fail on NA; the warning should still fire so the user notices.
+    const config = makeConfig({
+      location: "atlanta",
+      allergens: ["trees", "birch"],
+      pollen_threshold: 0,
+    });
+
+    await fetchForecast(hass, config);
+
+    const naWarningCalled = warnSpy.mock.calls.some(
+      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+    );
+    expect(naWarningCalled).toBe(true);
+  });
+
   it("Test 4b - emits warning in manual mode with entity_suffix when category sensor would otherwise be missed", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 

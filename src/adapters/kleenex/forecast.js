@@ -502,7 +502,16 @@ export async function fetchForecast(hass, config) {
   // Warn when the user requested individual allergens but got no data AND the
   // category sensors all had empty details (NA endpoint fingerprint — see
   // api.py:__decode_raw_data_na which hardcodes pollen[f"{type}_details"] = []).
-  const categoryAllergenKeys = ["trees_cat", "grass_cat", "weeds_cat"];
+  // Both `trees_cat` and bare `trees` are valid category-level configs in this
+  // adapter — exclude both shapes from the "individual" set so a config like
+  // ["trees", "birch"] doesn't treat raw `trees` as individual.
+  const categoryAllergenKeys = [
+    "trees_cat", "grass_cat", "weeds_cat",
+    "trees", "grass", "weeds",
+  ];
+  // The recommended set for the warning's suggested fix (NA users should
+  // switch to *_cat, not raw category names).
+  const recommendedCategoryKeys = ["trees_cat", "grass_cat", "weeds_cat"];
   const requestedIndividual = (config.allergens || []).filter(
     (a) => !categoryAllergenKeys.includes(a),
   );
@@ -532,9 +541,9 @@ export async function fetchForecast(hass, config) {
         );
         return detailsEmpty && forecastDetailsEmpty;
       });
-      // Only emit the warning when the user hasn't already configured category allergens
-      // (if they have, they are already on the right path).
-      const hasAnyCategoryConfigured = categoryAllergenKeys.some((k) =>
+      // Only emit the warning when the user hasn't already configured a recommended
+      // category allergen (if they have *_cat, they are already on the right path).
+      const hasAnyCategoryConfigured = recommendedCategoryKeys.some((k) =>
         (config.allergens || []).includes(k),
       );
       if (allDetailsEmpty && !hasAnyCategoryConfigured) {
