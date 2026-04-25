@@ -5,9 +5,15 @@ import { normalizeManualPrefix } from "../../utils/adapter-helpers.js";
 import { INDIVIDUAL_TO_CATEGORY, KLEENEX_ALLERGEN_MAP } from "./constants.js";
 
 /**
- * Resolve category-level entity IDs for sensor detection.
- * Returns Map<categoryName, entityId> for the 3 category sensors
- * needed by the configured allergens.
+ * Resolve entity IDs for sensor detection.
+ *
+ * Returns Map<key, entityId> where each key is either:
+ *   - a category name (`trees`/`grass`/`weeds`) mapped to the category sensor,
+ *     covered when the configured allergens include that category or any
+ *     individual allergen belonging to it; or
+ *   - an individual allergen name (e.g. `birch`, `oak`) mapped to a per-allergen
+ *     `KleenexDetailSensor` entity, covered when such an entity exists in HA
+ *     (the user has manually enabled the disabled-by-default detail sensors).
  */
 export function resolveEntityIds(cfg, hass, debug = false) {
   const map = new Map();
