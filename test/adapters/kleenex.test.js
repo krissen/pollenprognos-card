@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchForecast, stubConfigKleenex, resolveEntityIds } from "../../src/adapters/kleenex/index.js";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { fetchForecast, stubConfigKleenex, resolveEntityIds, _resetNaWarningsForTest } from "../../src/adapters/kleenex/index.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
 function makeConfig(overrides = {}) {
@@ -970,6 +970,9 @@ function makeNACategory(location, category, ppmToday, forecastDays = 4) {
 // 12. NA-zone console.warn
 // ---------------------------------------------------------------------------
 describe("Kleenex adapter: NA-zone warning", () => {
+  beforeEach(() => {
+    _resetNaWarningsForTest();
+  });
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -1087,6 +1090,28 @@ describe("Kleenex adapter: NA-zone warning", () => {
       (args) => typeof args[0] === "string" && args[0].includes("North America"),
     );
     expect(naWarningCalled).toBe(true);
+  });
+
+  it("Test 1b - NA warning fires only once per (location, prefix, suffix) combination", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const treesEntity = makeNACategory("atlanta", "trees", 200);
+    const hass = makeHassFromEntities([treesEntity]);
+    const config = makeConfig({
+      location: "atlanta",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    // Simulate three HA state updates within the same session.
+    await fetchForecast(hass, config);
+    await fetchForecast(hass, config);
+    await fetchForecast(hass, config);
+
+    const naWarnings = warnSpy.mock.calls.filter(
+      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+    );
+    expect(naWarnings.length).toBe(1);
   });
 
   it("Test 4b - emits warning in manual mode with entity_suffix when category sensor would otherwise be missed", async () => {

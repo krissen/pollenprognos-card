@@ -24,6 +24,15 @@ const DIAGNOSTIC_SUFFIXES = new Set([
   "city", "region", "error",
 ]);
 
+// Track which (location, entity_prefix) combinations have already received the
+// NA-zone warning so it isn't re-emitted on every HA state update.
+const NA_WARNED_KEYS = new Set();
+
+// Test-only hook to clear the dedup state between cases.
+export function _resetNaWarningsForTest() {
+  NA_WARNED_KEYS.clear();
+}
+
 export async function fetchForecast(hass, config) {
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
   const debug = config.debug;
@@ -572,9 +581,13 @@ export async function fetchForecast(hass, config) {
         (config.allergens || []).includes(k),
       );
       if (allDetailsEmpty && !hasAnyCategoryConfigured) {
-        console.warn(
-          "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
-        );
+        const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
+        if (!NA_WARNED_KEYS.has(warnKey)) {
+          NA_WARNED_KEYS.add(warnKey);
+          console.warn(
+            "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
+          );
+        }
       }
     }
   }
