@@ -109,18 +109,19 @@ export function createPEUSensor(level, forecastLevels = [], opts = {}) {
  * Create a minimal device registry entry.
  *
  * @param {object} opts
- * @param {string}   [opts.deviceId]    - Device ID. Auto-generated if omitted.
+ * @param {string}   opts.deviceId      - Device ID (required, must be explicit).
  * @param {Array[]}  opts.identifiers   - Array of [domain, unique_id] tuples.
  * @param {string[]} [opts.configEntries] - Config entry IDs. Default: ["cfg_default"].
  * @param {string}   [opts.name]        - Device name.
  * @param {string}   [opts.nameByUser]  - User-assigned device name.
  * @returns {object}
  */
-let _makeDeviceCounter = 0;
-
 export function makeDevice({ deviceId, identifiers, configEntries = ["cfg_default"], name, nameByUser } = {}) {
+  if (!deviceId) {
+    throw new Error("makeDevice: deviceId is required");
+  }
   return {
-    device_id: deviceId || `device_auto_${++_makeDeviceCounter}`,
+    device_id: deviceId,
     identifiers: identifiers || [],
     config_entries: configEntries,
     name: name || null,
@@ -164,13 +165,17 @@ export function createHassWithRegistry(entries, { locale = { language: "en" } } 
   const entities = {};
   const devices = {};
   const seenDevices = new Set();
+  // Per-call counter so any auto-assigned device IDs are deterministic and
+  // independent of test execution order. Earlier versions used a module-level
+  // counter, which made test failures order-dependent.
+  let autoDeviceCounter = 0;
 
   for (const entry of entries) {
     const {
       entityId,
       state: stateVal = "0",
       attributes = {},
-      deviceId = null,
+      deviceId: rawDeviceId = null,
       platform = null,
       translationKey = null,
       uniqueId = null,
@@ -178,8 +183,16 @@ export function createHassWithRegistry(entries, { locale = { language: "en" } } 
       deviceMeta = {},
     } = entry;
 
-    // Build state
+    let deviceId = rawDeviceId;
+    if (deviceId === "auto") {
+      deviceId = `device_auto_${++autoDeviceCounter}`;
+    }
+
+    // Build state. Include entity_id so the mock matches real HA, where
+    // production code can iterate Object.values(hass.states) and read
+    // s.entity_id directly (e.g. editor/card slug-based fallbacks).
     states[entityId] = {
+      entity_id: entityId,
       state: String(stateVal),
       attributes: { friendly_name: entityId, ...attributes },
     };

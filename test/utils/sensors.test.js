@@ -239,7 +239,7 @@ describe("findAvailableSensors", () => {
     describe("discovery path (hass.entities available)", () => {
       it("returns sensors via entity registry discovery", () => {
         const deviceId = "device_1";
-        const configEntryId = "01ABCDEFGHIJKLMNOPQRSTUVWX";
+        const configEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ12";
         const hass = createHass(
           {
             "sensor.silam_pollen_london_birch_pollen": s(),
@@ -284,7 +284,7 @@ describe("findAvailableSensors", () => {
 
       it("maps translation_key through silam allergen map to master key", () => {
         const deviceId = "device_1";
-        const configEntryId = "01ABCDEFGHIJKLMNOPQRSTUVWX";
+        const configEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ12";
         // Dutch translation_key "berk" maps to master "birch"
         const hass = createHass(
           {
