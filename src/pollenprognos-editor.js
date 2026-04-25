@@ -983,6 +983,11 @@ class PollenPrognosCardEditor extends LitElement {
             this.installedPpLocations.push([cfgCity, loc.label]);
           }
         }
+        // Sort by label so dropdown order stays stable across HA restarts
+        // (Map iteration order tracks hass-registry insertion).
+        this.installedPpLocations.sort(([, a], [, b]) =>
+          String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+        );
         // Keep installedCities in sync (used by setConfig legacy path)
         this.installedCities = this.installedPpLocations.map(([, label]) => label);
       } else {
@@ -1023,6 +1028,17 @@ class PollenPrognosCardEditor extends LitElement {
             this.installedDwdLocations.push([cfgRegion, loc.label]);
           }
         }
+        // Sort numerically when all keys are digit strings (legacy region IDs),
+        // otherwise by label, so dropdown order stays stable across HA restarts.
+        const allNumeric = this.installedDwdLocations.every(([k]) =>
+          /^\d+$/.test(String(k)),
+        );
+        this.installedDwdLocations.sort(
+          allNumeric
+            ? ([a], [b]) => Number(a) - Number(b)
+            : ([, a], [, b]) =>
+                String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+        );
         // Keep installedRegionIds in sync (used by setConfig legacy path)
         this.installedRegionIds = this.installedDwdLocations.map(([key]) => key);
       } else {
