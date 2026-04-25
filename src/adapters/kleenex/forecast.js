@@ -500,12 +500,15 @@ export async function fetchForecast(hass, config) {
       (a) => !allergenData.has(a),
     );
     if (allIndividualEmpty) {
-      // NA fingerprint: every category sensor has empty details[] and
-      // empty forecast[i].details[].
+      // NA fingerprint: a forecast is present (NA returns 4 days) but every
+      // category sensor has empty details[] AND every forecast[i].details[] is empty.
+      // Require non-empty forecast to avoid false positives on synthetic/empty fixtures.
       const allDetailsEmpty = categorySensorsFound.every((sensor) => {
         const attrs = sensor.attributes || {};
+        const forecast = attrs.forecast || [];
+        if (forecast.length === 0) return false;
         const detailsEmpty = (attrs.details || []).length === 0;
-        const forecastDetailsEmpty = (attrs.forecast || []).every(
+        const forecastDetailsEmpty = forecast.every(
           (f) => (f.details || []).length === 0,
         );
         return detailsEmpty && forecastDetailsEmpty;
