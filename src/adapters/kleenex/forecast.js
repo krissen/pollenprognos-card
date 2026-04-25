@@ -419,6 +419,11 @@ export async function fetchForecast(hass, config) {
       const fullPrefix = `sensor.${prefix}`;
       if (!sensor.entity_id.startsWith(fullPrefix)) continue;
       allergenSuffix = sensor.entity_id.slice(fullPrefix.length);
+      // Discovery builds entity_ids as `${prefix}${aliasSlug}${entity_suffix}` —
+      // strip the same trailing suffix here so the alias lookup matches.
+      if (config.entity_suffix && allergenSuffix.endsWith(config.entity_suffix)) {
+        allergenSuffix = allergenSuffix.slice(0, -config.entity_suffix.length);
+      }
     } else {
       // Standard mode: strip domain prefix, then the configured location slug.
       const domainPrefix = `sensor.${DOMAIN}_`;
