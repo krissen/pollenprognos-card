@@ -6,8 +6,12 @@ import { normalize, normalizeDWD } from "./normalize.js";
 
 /**
  * Test if a value is a Home Assistant config_entry_id (ULID-format string,
- * 26 Crockford base32 characters). Used by adapters to distinguish between
- * new-style config_entry_id location keys and legacy slug configs.
+ * 26 Crockford base32 characters). Crockford base32 excludes I, L, O, U to
+ * avoid ambiguity with 1/0 and offensive substrings, so the regex rejects
+ * those letters as well as the literal characters.
+ *
+ * Used by adapters to distinguish between new-style config_entry_id location
+ * keys and legacy slug configs.
  *
  * Defined here (rather than in silam.js) to avoid a circular dependency,
  * since silam.js also imports discoverEntitiesByDevice from this module.
@@ -16,7 +20,7 @@ import { normalize, normalizeDWD } from "./normalize.js";
  * @returns {boolean}
  */
 export function isConfigEntryId(value) {
-  return typeof value === "string" && /^[0-9A-Z]{26}$/i.test(value);
+  return typeof value === "string" && /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$/i.test(value);
 }
 
 /**
