@@ -3,7 +3,7 @@ import { t } from "../../i18n.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix } from "../../utils/adapter-helpers.js";
 import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
 import { ppmToLevel } from "./levels.js";
 
@@ -424,10 +424,7 @@ export async function fetchForecast(hass, config) {
     if (config.location === "manual" && config.entity_prefix) {
       // Manual mode: user-supplied entity_prefix already covers the whole prefix
       // up to <allergen>; strip it from the full entity_id.
-      let prefix = config.entity_prefix;
-      if (prefix.startsWith("sensor.")) prefix = prefix.slice(7);
-      if (!prefix.endsWith("_")) prefix = prefix + "_";
-      const fullPrefix = `sensor.${prefix}`;
+      const fullPrefix = `sensor.${normalizeManualPrefix(config.entity_prefix)}`;
       if (!sensor.entity_id.startsWith(fullPrefix)) continue;
       allergenSuffix = sensor.entity_id.slice(fullPrefix.length);
       // Discovery builds entity_ids as `${prefix}${aliasSlug}${entity_suffix}` —
