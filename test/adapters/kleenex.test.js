@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { fetchForecast, stubConfigKleenex, resolveEntityIds, _resetNaWarningsForTest } from "../../src/adapters/kleenex/index.js";
+import { fetchForecast, stubConfigKleenex, resolveEntityIds } from "../../src/adapters/kleenex/index.js";
+import { _resetNaWarningsForTest } from "../../src/adapters/kleenex/forecast.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
 function makeConfig(overrides = {}) {
