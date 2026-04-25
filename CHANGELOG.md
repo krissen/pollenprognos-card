@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- (kleenex) Add per-allergen DetailSensor fallback and a clearer warning for US zones where the API only returns category totals (issue #206).
+
 ## [3.1.0] - 2026-04-19
 
 ### Added
