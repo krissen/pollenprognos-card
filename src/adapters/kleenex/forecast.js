@@ -395,18 +395,15 @@ export async function fetchForecast(hass, config) {
 
   for (const sensor of kleenexSensors) {
     // Only consider sensors that were NOT identified as category sensors.
-    const entitySuffix = sensor.entity_id.split("_").pop();
+    const lastToken = sensor.entity_id.split("_").pop();
     let isCategorySensor = false;
     for (const localizedPrefix of Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
-      if (entitySuffix.startsWith(localizedPrefix)) {
+      if (lastToken.startsWith(localizedPrefix)) {
         isCategorySensor = true;
         break;
       }
     }
     if (isCategorySensor) continue;
-
-    // Skip _level variants and known diagnostic suffixes.
-    if (DIAGNOSTIC_SUFFIXES.has(entitySuffix)) continue;
 
     // Derive the allergen suffix from the entity_id.
     let allergenSuffix;
@@ -437,6 +434,11 @@ export async function fetchForecast(hass, config) {
         }
       }
     }
+
+    // Skip diagnostic entities (single-token like `date`, `region`, multi-token
+    // like `last_updated`, and any `<allergen>_level` variant).
+    if (DIAGNOSTIC_SUFFIXES.has(allergenSuffix)) continue;
+    if (allergenSuffix.endsWith("_level")) continue;
 
     // Check whether this suffix matches a known allergen alias (by slug).
     const canonicalName = slugifiedAliasMap.get(allergenSuffix);
