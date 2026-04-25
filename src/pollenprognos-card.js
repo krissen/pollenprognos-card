@@ -1345,7 +1345,7 @@ class PollenPrognosCard extends LitElement {
       !cfg.location &&
       gplStates.length
     ) {
-      const gplDiscovery = discoverGplSensors(hass, this.debug);
+      const gplDiscovery = getGplDiscovery();
       const firstLocId = gplDiscovery.locations.keys().next().value;
       cfg.location = firstLocId || null;
       if (this.debug)
