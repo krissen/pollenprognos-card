@@ -12,9 +12,9 @@ import { COSMETIC_FIELDS } from "./constants.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
-import { stubConfigPP } from "./adapters/pp.js";
-import { stubConfigDWD } from "./adapters/dwd.js";
-import { PEU_ALLERGENS } from "./adapters/peu.js";
+import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
+import { stubConfigDWD, discoverDwdSensors } from "./adapters/dwd.js";
+import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -26,6 +26,7 @@ import {
   resolveDiscoveredLocation,
   isConfigEntryId,
 } from "./utils/silam.js";
+import { findLocationBySlug } from "./utils/adapter-helpers.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -212,6 +213,8 @@ class PollenPrognosCardEditor extends LitElement {
       hass: { type: Object },
       installedCities: { type: Array },
       installedRegionIds: { type: Array },
+      installedPpLocations: { type: Array },
+      installedDwdLocations: { type: Array },
       _initDone: { type: Boolean },
       _selectedPhraseLang: { state: true },
       _tapType: { type: String },
@@ -261,6 +264,8 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedAtmoLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
+    this.installedPpLocations = [];
+    this.installedDwdLocations = [];
     this._initDone = false;
     // Ensure phrase language defaults to a sensible locale
     this._selectedPhraseLang = detectLang();
@@ -594,57 +599,87 @@ class PollenPrognosCardEditor extends LitElement {
 
       // 16. Uppdatera listor för cities/regions om hass finns
       if (this._hass) {
-        const all = Object.keys(this._hass.states);
-
-        this.installedRegionIds = Array.from(
-          new Set(
+        // PP: use discovery helper, fall back to PP_POSSIBLE_CITIES filter.
+        // Sort by label alphabetically so the dropdown order is stable across
+        // HA restarts (Map iteration order tracks hass-registry insertion).
+        const ppDiscovery = discoverPpSensors(this._hass, false);
+        if (ppDiscovery.locations.size > 0) {
+          this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
+            .map(([key, loc]) => [key, loc.label])
+            .sort(([, a], [, b]) =>
+              String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+            );
+          this.installedCities = this.installedPpLocations.map(([, label]) => label);
+        } else {
+          const all = Object.keys(this._hass.states);
+          // Use the allergen-suffix whitelist from pp.js so multi-word slugs
+          // like "salg_och_viden" don't truncate the city.
+          const ppKeys = new Set(
             all
-              .filter(
-                (id) =>
-                  typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+              .map((id) =>
+                typeof id === "string" ? extractPpCitySlugFromEntityId(id) : null,
               )
-              .map((id) => id.split("_").pop()),
-          ),
-        ).sort((a, b) => Number(a) - Number(b));
-
-        const ppKeys = new Set(
-          all
-            .filter(
-              (id) =>
-                typeof id === "string" &&
-                id.startsWith("sensor.pollen_") &&
-                !id.startsWith("sensor.pollenflug_"),
-            )
-            .map((id) =>
-              id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+              .filter(Boolean),
+          );
+          this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
+            ppKeys.has(
+              c
+                .toLowerCase()
+                .replace(/[åä]/g, "a")
+                .replace(/ö/g, "o")
+                .replace(/[-\s]/g, "_"),
             ),
-        );
+          ).sort();
+          this.installedPpLocations = this.installedCities.map((city) => [city, city]);
+        }
 
-        this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
-          ppKeys.has(
-            c
-              .toLowerCase()
-              .replace(/[åä]/g, "a")
-              .replace(/ö/g, "o")
-              .replace(/[-\s]/g, "_"),
-          ),
-        ).sort();
+        // DWD: use discovery helper, fall back to regex-based region IDs.
+        // Sort numerically for region-ID keys (legacy tier 3) and by label
+        // for config_entry_id keys (tier 1/2), so the dropdown is stable.
+        const dwdDiscovery = discoverDwdSensors(this._hass, false);
+        if (dwdDiscovery.locations.size > 0) {
+          const entries = Array.from(dwdDiscovery.locations.entries())
+            .map(([key, loc]) => [key, loc.label]);
+          const allNumeric = entries.every(([k]) => /^\d+$/.test(String(k)));
+          this.installedDwdLocations = allNumeric
+            ? entries.sort(([a], [b]) => Number(a) - Number(b))
+            : entries.sort(([, a], [, b]) =>
+                String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+              );
+          this.installedRegionIds = this.installedDwdLocations.map(([key]) => key);
+        } else {
+          const all = Object.keys(this._hass.states);
+          this.installedRegionIds = Array.from(
+            new Set(
+              all
+                .filter(
+                  (id) =>
+                    typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+                )
+                .map((id) => id.split("_").pop()),
+            ),
+          ).sort((a, b) => Number(a) - Number(b));
+          this.installedDwdLocations = this.installedRegionIds.map((id) => [
+            id,
+            `${id} — ${DWD_REGIONS[id] || id}`,
+          ]);
+        }
       }
       // 17. Auto-välj city/region om inte explicit
       if (!this._integrationExplicit) {
         if (
           integration === "dwd" &&
           !this._userConfig.region_id &&
-          this.installedRegionIds.length
+          this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedRegionIds[0];
+          this._config.region_id = this.installedDwdLocations[0][0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
-          this.installedCities.length
+          this.installedPpLocations.length
         ) {
-          this._config.city = this.installedCities[0];
+          this._config.city = this.installedPpLocations[0][0];
         }
         if (
           integration === "silam" &&
@@ -923,54 +958,149 @@ class PollenPrognosCardEditor extends LitElement {
     
     if (!deepEqual(this._config, merged)) {
       this._config = merged;
-      // 3) Fyll installerade regioner/städer
-      this.installedRegionIds = Array.from(
-        new Set(dwdStates.map((id) => id.split("_").pop())),
-      ).sort((a, b) => Number(a) - Number(b));
+      // 3) Fyll installerade regioner/städer via discovery helpers
 
-      const uniqKeys = Array.from(
-        new Set(
-          ppStates.map((id) =>
-            id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+      // PP: device-based discovery with legacy slug fallback
+      const ppDiscovery = discoverPpSensors(hass, false);
+      if (ppDiscovery.locations.size > 0) {
+        this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
+          .map(([key, loc]) => [key, loc.label]);
+        // Legacy compatibility: if config.city is a slug not present as a key,
+        // check if it matches via slug extractor and expose it as an extra entry.
+        const cfgCity = this._config?.city;
+        if (cfgCity && cfgCity !== "manual" && !ppDiscovery.locations.has(cfgCity)) {
+          const match = findLocationBySlug(ppDiscovery, cfgCity, {
+            slugExtractor: extractPpCitySlugFromEntityId,
+          });
+          if (match) {
+            const [, loc] = match;
+            this.installedPpLocations.push([cfgCity, loc.label]);
+          }
+        }
+        // Sort by label so dropdown order stays stable across HA restarts
+        // (Map iteration order tracks hass-registry insertion).
+        this.installedPpLocations.sort(([, a], [, b]) =>
+          String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+        );
+        // Keep installedCities in sync (used by setConfig legacy path)
+        this.installedCities = this.installedPpLocations.map(([, label]) => label);
+      } else {
+        // Fallback to PP_POSSIBLE_CITIES when discovery yields nothing.
+        // Use the allergen-suffix whitelist so multi-word slugs like
+        // "salg_och_viden" don't truncate the city.
+        const uniqKeys = Array.from(
+          new Set(
+            ppStates.map((id) => extractPpCitySlugFromEntityId(id)).filter(Boolean),
           ),
-        ),
-      );
-      this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
-        uniqKeys.includes(
-          city
-            .toLowerCase()
-            .replace(/[åä]/g, "a")
-            .replace(/ö/g, "o")
-            .replace(/[-\s]/g, "_"),
-        ),
-      ).sort((a, b) => a.localeCompare(b));
+        );
+        this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
+          uniqKeys.includes(
+            city
+              .toLowerCase()
+              .replace(/[åä]/g, "a")
+              .replace(/ö/g, "o")
+              .replace(/[-\s]/g, "_"),
+          ),
+        ).sort((a, b) => a.localeCompare(b));
+        this.installedPpLocations = this.installedCities.map((city) => [city, city]);
+      }
 
-      this.installedPeuLocations = Array.from(
-        new Map(
-          Object.values(hass.states)
-            .filter(
-              (s) =>
-                s &&
-                typeof s === "object" &&
-                typeof s.entity_id === "string" &&
-                s.entity_id.startsWith("sensor.polleninformation_"),
-            )
-            .map((s) => {
-              const locationSlug =
-                s.attributes?.location_slug ||
-                s.entity_id
-                  .replace("sensor.polleninformation_", "")
-                  .replace(/_[^_]+$/, "");
-              const title =
-                s.attributes?.location_title ||
-                (typeof s.attributes?.friendly_name === "string"
-                  ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
-                  : undefined) ||
-                locationSlug;
-              return [locationSlug, title];
-            }),
-        ),
-      );
+      // DWD: device-based discovery with legacy region_id fallback
+      const dwdDiscovery = discoverDwdSensors(hass, false);
+      if (dwdDiscovery.locations.size > 0) {
+        this.installedDwdLocations = Array.from(dwdDiscovery.locations.entries())
+          .map(([key, loc]) => [key, loc.label]);
+        // Legacy compatibility: if config.region_id is a numeric ID not present as a key,
+        // expose it as an extra entry so the saved config remains visible.
+        const cfgRegion = this._config?.region_id;
+        if (cfgRegion && cfgRegion !== "manual" && !dwdDiscovery.locations.has(cfgRegion)) {
+          const match = findLocationBySlug(dwdDiscovery, cfgRegion, {
+            slugExtractor: (eid) => eid.match(/_(\d+)$/)?.[1] || null,
+          });
+          if (match) {
+            const [, loc] = match;
+            this.installedDwdLocations.push([cfgRegion, loc.label]);
+          }
+        }
+        // Sort numerically when all keys are digit strings (legacy region IDs),
+        // otherwise by label, so dropdown order stays stable across HA restarts.
+        const allNumeric = this.installedDwdLocations.every(([k]) =>
+          /^\d+$/.test(String(k)),
+        );
+        this.installedDwdLocations.sort(
+          allNumeric
+            ? ([a], [b]) => Number(a) - Number(b)
+            : ([, a], [, b]) =>
+                String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+        );
+        // Keep installedRegionIds in sync (used by setConfig legacy path)
+        this.installedRegionIds = this.installedDwdLocations.map(([key]) => key);
+      } else {
+        // Fallback to regex-based region ID extraction
+        this.installedRegionIds = Array.from(
+          new Set(dwdStates.map((id) => id.split("_").pop())),
+        ).sort((a, b) => Number(a) - Number(b));
+        this.installedDwdLocations = this.installedRegionIds.map((id) => [
+          id,
+          `${id} — ${DWD_REGIONS[id] || id}`,
+        ]);
+      }
+
+      // PEU: device-based discovery with legacy location slug fallback.
+      // Sort by label so the dropdown stays stable across HA restarts.
+      const peuDiscovery = discoverPeuSensors(hass, false);
+      if (peuDiscovery.locations.size > 0) {
+        this.installedPeuLocations = Array.from(peuDiscovery.locations.entries())
+          .map(([key, loc]) => [key, loc.label])
+          .sort(([, a], [, b]) =>
+            String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+          );
+        // Legacy compatibility: if config.location is a slug not present as a key,
+        // expose it as an extra entry so the saved config remains visible.
+        const cfgPeuLoc = this._config?.location;
+        if (
+          cfgPeuLoc &&
+          cfgPeuLoc !== "manual" &&
+          !peuDiscovery.locations.has(cfgPeuLoc) &&
+          integration === "peu"
+        ) {
+          const match = findLocationBySlug(peuDiscovery, cfgPeuLoc, {
+            slugExtractor: extractPeuLocationSlugFromEntityId,
+          });
+          if (match) {
+            const [, loc] = match;
+            this.installedPeuLocations.push([cfgPeuLoc, loc.label]);
+          }
+        }
+      } else {
+        // Fallback to state-based location detection
+        this.installedPeuLocations = Array.from(
+          new Map(
+            Object.values(hass.states)
+              .filter(
+                (s) =>
+                  s &&
+                  typeof s === "object" &&
+                  typeof s.entity_id === "string" &&
+                  s.entity_id.startsWith("sensor.polleninformation_"),
+              )
+              .map((s) => {
+                const locationSlug =
+                  s.attributes?.location_slug ||
+                  s.entity_id
+                    .replace("sensor.polleninformation_", "")
+                    .replace(/_[^_]+$/, "");
+                const title =
+                  s.attributes?.location_title ||
+                  (typeof s.attributes?.friendly_name === "string"
+                    ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
+                    : undefined) ||
+                  locationSlug;
+                return [locationSlug, title];
+              }),
+          ),
+        );
+      }
       // Primärt: discovery-baserad SILAM location list
       if (silamDiscovery.locations.size > 0) {
         this.installedSilamLocations = Array.from(
@@ -1120,16 +1250,16 @@ class PollenPrognosCardEditor extends LitElement {
         if (
           integration === "dwd" &&
           !this._userConfig.region_id &&
-          this.installedRegionIds.length
+          this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedRegionIds[0];
+          this._config.region_id = this.installedDwdLocations[0][0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
-          this.installedCities.length
+          this.installedPpLocations.length
         ) {
-          this._config.city = this.installedCities[0];
+          this._config.city = this.installedPpLocations[0][0];
         }
         if (
           integration === "silam" &&
@@ -1725,9 +1855,9 @@ class PollenPrognosCardEditor extends LitElement {
                             value: "",
                             label: this._t("location_autodetect"),
                           },
-                          ...this.installedCities.map((city) => ({
-                            value: city,
-                            label: city,
+                          ...this.installedPpLocations.map(([key, label]) => ({
+                            value: key,
+                            label,
                           })),
                           {
                             value: "manual",
@@ -1921,9 +2051,9 @@ class PollenPrognosCardEditor extends LitElement {
                                   value: "",
                                   label: this._t("location_autodetect"),
                                 },
-                                ...this.installedRegionIds.map((id) => ({
-                                  value: id,
-                                  label: `${id} — ${DWD_REGIONS[id] || id}`,
+                                ...this.installedDwdLocations.map(([key, label]) => ({
+                                  value: key,
+                                  label,
                                 })),
                                 {
                                   value: "manual",

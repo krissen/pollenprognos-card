@@ -106,6 +106,165 @@ export function createPEUSensor(level, forecastLevels = [], opts = {}) {
 }
 
 /**
+ * Create a minimal device registry entry.
+ *
+ * @param {object} opts
+ * @param {string}   opts.deviceId      - Device ID (required, must be explicit).
+ * @param {Array[]}  opts.identifiers   - Array of [domain, unique_id] tuples.
+ * @param {string[]} [opts.configEntries] - Config entry IDs. Default: ["cfg_default"].
+ * @param {string}   [opts.name]        - Device name.
+ * @param {string}   [opts.nameByUser]  - User-assigned device name.
+ * @returns {object}
+ */
+export function makeDevice({ deviceId, identifiers, configEntries = ["cfg_default"], name, nameByUser } = {}) {
+  if (!deviceId) {
+    throw new Error("makeDevice: deviceId is required");
+  }
+  return {
+    device_id: deviceId,
+    identifiers: identifiers || [],
+    config_entries: configEntries,
+    name: name || null,
+    name_by_user: nameByUser || null,
+  };
+}
+
+/**
+ * Create a minimal entity registry entry.
+ *
+ * @param {object} opts
+ * @param {string} [opts.deviceId]        - Device ID the entity belongs to.
+ * @param {string} [opts.platform]        - Integration platform name.
+ * @param {string} [opts.translationKey]  - Translation key.
+ * @param {string} [opts.uniqueId]        - Unique ID.
+ * @param {string|null} [opts.entityCategory] - Entity category (e.g. "diagnostic"). Default: null.
+ * @returns {object}
+ */
+export function makeEntityEntry({ deviceId, platform, translationKey, uniqueId, entityCategory = null } = {}) {
+  return {
+    device_id: deviceId || null,
+    platform: platform || null,
+    translation_key: translationKey || null,
+    unique_id: uniqueId || null,
+    entity_category: entityCategory,
+  };
+}
+
+/**
+ * Create a hass mock with wired states, entities, and devices registries.
+ *
+ * @param {Array} entries - Array of entity descriptors:
+ *   { entityId, state, attributes, deviceId, platform, translationKey, uniqueId, entityCategory, deviceMeta }
+ *   deviceMeta is passed to makeDevice() (keyed by deviceId, first occurrence wins).
+ * @param {object} [opts]
+ * @param {object} [opts.locale] - Default: { language: "en" }.
+ * @returns {object} hass mock
+ */
+export function createHassWithRegistry(entries, { locale = { language: "en" } } = {}) {
+  const states = {};
+  const entities = {};
+  const devices = {};
+  const seenDevices = new Set();
+  // Per-call counter so any auto-assigned device IDs are deterministic and
+  // independent of test execution order. Earlier versions used a module-level
+  // counter, which made test failures order-dependent.
+  let autoDeviceCounter = 0;
+
+  for (const entry of entries) {
+    const {
+      entityId,
+      state: stateVal = "0",
+      attributes = {},
+      deviceId: rawDeviceId = null,
+      platform = null,
+      translationKey = null,
+      uniqueId = null,
+      entityCategory = null,
+      deviceMeta = {},
+    } = entry;
+
+    let deviceId = rawDeviceId;
+    if (deviceId === "auto") {
+      deviceId = `device_auto_${++autoDeviceCounter}`;
+    }
+
+    // Build state. Include entity_id so the mock matches real HA, where
+    // production code can iterate Object.values(hass.states) and read
+    // s.entity_id directly (e.g. editor/card slug-based fallbacks).
+    states[entityId] = {
+      entity_id: entityId,
+      state: String(stateVal),
+      attributes: { friendly_name: entityId, ...attributes },
+    };
+
+    // Build entity registry entry
+    entities[entityId] = makeEntityEntry({
+      deviceId,
+      platform,
+      translationKey,
+      uniqueId,
+      entityCategory,
+    });
+
+    // Build device registry entry (first occurrence wins)
+    if (deviceId && !seenDevices.has(deviceId)) {
+      seenDevices.add(deviceId);
+      const dev = makeDevice({ deviceId, ...deviceMeta });
+      devices[deviceId] = {
+        identifiers: dev.identifiers,
+        config_entries: dev.config_entries,
+        name: dev.name,
+        name_by_user: dev.name_by_user,
+      };
+    }
+  }
+
+  return {
+    states,
+    entities,
+    devices,
+    locale,
+    language: locale.language,
+  };
+}
+
+/**
+ * Assert the structural contract of a discoverEntitiesByDevice() result.
+ *
+ * @param {{ locations: Map, tierUsed: number }} discovery
+ */
+export function assertDiscoveryShape(discovery) {
+  if (!discovery || typeof discovery !== "object") {
+    throw new Error("discovery must be an object");
+  }
+  if (!(discovery.locations instanceof Map)) {
+    throw new Error("discovery.locations must be a Map");
+  }
+  if (typeof discovery.tierUsed !== "number" || discovery.tierUsed < 0 || discovery.tierUsed > 3) {
+    throw new Error(`discovery.tierUsed must be 0-3, got ${discovery.tierUsed}`);
+  }
+  for (const [key, loc] of discovery.locations) {
+    if (typeof key !== "string") {
+      throw new Error(`location key must be string, got ${typeof key}`);
+    }
+    if (typeof loc.label !== "string") {
+      throw new Error(`location.label must be string, got ${typeof loc.label}`);
+    }
+    if (!(loc.entities instanceof Map)) {
+      throw new Error("location.entities must be a Map");
+    }
+    for (const [allergenKey, entityId] of loc.entities) {
+      if (typeof allergenKey !== "string") {
+        throw new Error(`allergen key must be string, got ${typeof allergenKey}`);
+      }
+      if (typeof entityId !== "string") {
+        throw new Error(`entity ID must be string, got ${typeof entityId}`);
+      }
+    }
+  }
+}
+
+/**
  * Assert the contract shape of a sensor dict returned by any adapter's fetchForecast().
  * @param {Object} sensor - A single sensor dict from fetchForecast result
  * @param {Object} [opts] - Optional expectations

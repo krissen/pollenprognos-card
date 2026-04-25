@@ -1,7 +1,9 @@
 import { normalize } from "../utils/normalize.js";
+import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import { PP_POSSIBLE_CITIES, PP_ALLERGEN_SLUGS } from "../constants.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
   integration: "pp",
@@ -49,18 +51,175 @@ export const stubConfigPP = {
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
 };
 
+/**
+ * Extract a prettified city name from a PP entity ID.
+ * "sensor.pollen_goteborg_bjork" -> "Göteborg" when the slug matches a
+ * canonical city in PP_POSSIBLE_CITIES (preserving diacritics), otherwise
+ * falls back to "Goteborg" via simple capitalization.
+ * Returns null if the entity ID does not match the expected pattern.
+ *
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function extractCityFromEntityId(entityId) {
+  const slug = extractCitySlugFromEntityId(entityId);
+  if (!slug) return null;
+  const canonical = PP_POSSIBLE_CITIES.find((c) => slugify(c) === slug);
+  if (canonical) return canonical;
+  return slug.charAt(0).toUpperCase() + slug.slice(1);
+}
+
+/**
+ * Extract the city slug from a PP entity ID by stripping a recognized
+ * allergen suffix. PP allergen slugs may contain underscores (e.g.
+ * "salg_och_viden"), so a naive `_[^_]+$` split would misclassify the
+ * city. PP_ALLERGEN_SLUGS is sorted longest-first to ensure the longest
+ * matching suffix wins.
+ *
+ * "sensor.pollen_goteborg_bjork" -> "goteborg"
+ * "sensor.pollen_visby_salg_och_viden" -> "visby"
+ * Returns null if the entity ID does not match the expected pattern or
+ * its suffix isn't a known allergen.
+ *
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+export function extractCitySlugFromEntityId(entityId) {
+  const prefix = "sensor.pollen_";
+  if (!entityId.startsWith(prefix)) return null;
+  const remainder = entityId.slice(prefix.length);
+  for (const allergenSlug of PP_ALLERGEN_SLUGS) {
+    const suffix = `_${allergenSlug}`;
+    if (remainder.endsWith(suffix)) {
+      const citySlug = remainder.slice(0, -suffix.length);
+      return citySlug || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract the allergen slug from a PP entity ID using the same suffix
+ * whitelist as extractCitySlugFromEntityId. Returns the canonical
+ * (master) key via normalize() so callers can look it up directly in
+ * cfg.allergens.
+ *
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function extractAllergenKeyFromEntityId(entityId) {
+  const prefix = "sensor.pollen_";
+  if (!entityId.startsWith(prefix)) return null;
+  const remainder = entityId.slice(prefix.length);
+  for (const allergenSlug of PP_ALLERGEN_SLUGS) {
+    const suffix = `_${allergenSlug}`;
+    if (remainder.endsWith(suffix)) {
+      return normalize(allergenSlug);
+    }
+  }
+  return null;
+}
+
+/**
+ * Discover all Pollenprognos sensors, grouped by city/device.
+ *
+ * Uses three-tier discovery via discoverEntitiesByDevice:
+ *   Tier 1: device-based (hass.devices with identifiers["pollenprognos", ...])
+ *   Tier 2: entity-registry scan by platform === "pollenprognos"
+ *   Tier 3: regex fallback scanning hass.states for sensor.pollen_*
+ *
+ * NOTE: The HA integration platform string "pollenprognos" is an assumption
+ * based on the integration name. If the integration uses a different identifier
+ * (e.g. after a rename), tier 1 and tier 2 will yield no results and tier 3
+ * (regex fallback) will still provide discovery. Pass an array like
+ * ["pollenprognos", "other_name"] to support multiple platform names.
+ *
+ * @param {object}  hass
+ * @param {boolean} [debug=false]
+ * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
+ */
+export function discoverPpSensors(hass, debug = false) {
+  if (!hass) return { locations: new Map(), tierUsed: 0 };
+
+  const { locations, tierUsed } = discoverEntitiesByDevice(hass, {
+    platform: ["pollenprognos"],
+    /**
+     * Strict classifier: derive the canonical allergen key from the entity ID.
+     * PP entity IDs follow the pattern sensor.pollen_{city}_{allergen}, but
+     * the allergen slug can contain underscores (e.g. "salg_och_viden"), so
+     * use a longest-suffix whitelist match rather than splitting on `_`.
+     */
+    classify: (eid) => extractAllergenKeyFromEntityId(eid),
+    /**
+     * isRelevant: quick pre-filter before classify runs.
+     */
+    isRelevant: (eid) => eid.startsWith("sensor.pollen_"),
+    /**
+     * resolveLabel priority:
+     *   1. device.name_by_user -- explicit user override.
+     *   2. device.name with a leading "Pollenprognos" prefix stripped
+     *      ("Pollenprognos Visby" → "Visby"), since the HA integration
+     *      packages the city inside a generic device name.
+     *   3. device.name as-is (defensive).
+     *   4. Prettified city slug from entity ID.
+     *   5. "Auto" fallback.
+     */
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+
+      const rawName = ctx.device?.name;
+      if (typeof rawName === "string" && rawName.trim()) {
+        const stripped = rawName
+          .replace(/^\s*pollenprognos\b[\s:\-–—]*/i, "")
+          .trim();
+        if (stripped) return stripped;
+        return rawName.trim();
+      }
+
+      return extractCityFromEntityId(ctx.entityId) || "Auto";
+    },
+    /**
+     * resolveLocationKey:
+     *   - Tier 3 (regex fallback): use city slug from entity ID as location key
+     *     to preserve backwards compatibility with slug-based city configs.
+     *   - Tier 1/2 (device/registry): use config_entry_id as stable location key.
+     */
+    resolveLocationKey: (ctx) => {
+      if (ctx.tier === 3) {
+        return extractCitySlugFromEntityId(ctx.entityId) || "default";
+      }
+      return ctx.device?.config_entries?.[0] || "default";
+    },
+    /**
+     * fallbackSelector: tier 3 uses the same allergen-suffix whitelist as
+     * the classifier so multi-word allergen slugs are matched correctly.
+     */
+    fallbackSelector: (h) =>
+      Object.keys(h.states).filter(
+        (id) => extractAllergenKeyFromEntityId(id) !== null,
+      ),
+    debug,
+    logTag: "PP",
+  });
+
+  return { locations, tierUsed };
+}
+
 function detectCity(cfg, hass) {
   if (cfg.city === "manual") return "";
-  let cityKey = normalize(cfg.city || "");
+  // Treat a config_entry_id as autodetect: normalize() would otherwise produce
+  // a non-empty cityKey from the ULID, blocking the entity-id scan below when
+  // tier 1/2 discovery has already failed (e.g. unknown platform slug).
+  const cityCfg = isConfigEntryId(cfg.city) ? "" : cfg.city;
+  let cityKey = normalize(cityCfg || "");
   if (!cityKey) {
+    // Use the allergen-suffix whitelist to handle multi-word slugs like
+    // "salg_och_viden" correctly when extracting the city.
     const ppStates = Object.keys(hass.states).filter(
-      (id) =>
-        id.startsWith("sensor.pollen_") &&
-        /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+      (id) => extractCitySlugFromEntityId(id) !== null,
     );
     if (ppStates.length) {
-      const m = ppStates[0].match(/^sensor\.pollen_(.+)_[^_]+$/);
-      cityKey = m ? m[1] : "";
+      cityKey = extractCitySlugFromEntityId(ppStates[0]) || "";
     }
   }
   return cityKey;
@@ -68,31 +227,66 @@ function detectCity(cfg, hass) {
 
 export function resolveEntityIds(cfg, hass, debug = false) {
   const map = new Map();
-  const cityKey = detectCity(cfg, hass);
 
+  // --- Path 1: Manual mode ---
+  if (cfg.city === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    for (const allergen of cfg.allergens || []) {
+      const rawKey = normalize(allergen);
+      const sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
+      if (!sensorId) continue;
+      if (debug) {
+        console.debug(
+          `[PP:resolveEntityIds] manual allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+        );
+      }
+      map.set(rawKey, sensorId);
+    }
+    return map;
+  }
+
+  // --- Path 2: Device-based discovery (tier 1/2) or regex fallback (tier 3) ---
+  const discovery = discoverPpSensors(hass, debug);
+
+  if (discovery.locations.size > 0) {
+    const match = resolveLocationByKey(discovery, cfg.city, {
+      slugExtractor: extractCitySlugFromEntityId,
+    });
+
+    if (match) {
+      const [, location] = match;
+      for (const allergen of cfg.allergens || []) {
+        const rawKey = normalize(allergen);
+        const eid = location.entities.get(rawKey);
+        if (!eid) continue;
+        if (debug) {
+          console.debug(
+            `[PP:resolveEntityIds] discovery allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${eid}'`,
+          );
+        }
+        map.set(rawKey, eid);
+      }
+
+      if (map.size > 0) return map;
+    }
+  }
+
+  // --- Path 3: Template fallback (legacy / when discovery yields nothing) ---
+  const cityKey = detectCity(cfg, hass);
   for (const allergen of cfg.allergens || []) {
     const rawKey = normalize(allergen);
-    let sensorId;
-    if (cfg.city === "manual") {
-      const prefix = normalizeManualPrefix(cfg.entity_prefix);
-      sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
-      if (!sensorId) continue;
-    } else {
-      sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
-      if (!sensorId || !hass.states[sensorId]) {
-        const base = cityKey
-          ? `sensor.pollen_${cityKey}_`
-          : "sensor.pollen_";
-        const cands = Object.keys(hass.states).filter(
-          (id) => id.startsWith(base) && id.endsWith(`_${rawKey}`),
-        );
-        if (cands.length === 1) sensorId = cands[0];
-        else continue;
-      }
+    let sensorId = cityKey ? `sensor.pollen_${cityKey}_${rawKey}` : null;
+    if (!sensorId || !hass.states[sensorId]) {
+      const base = cityKey ? `sensor.pollen_${cityKey}_` : "sensor.pollen_";
+      const cands = Object.keys(hass.states).filter(
+        (id) => id.startsWith(base) && id.endsWith(`_${rawKey}`),
+      );
+      if (cands.length === 1) sensorId = cands[0];
+      else continue;
     }
     if (debug) {
       console.debug(
-        `[PP:resolveEntityIds] allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
+        `[PP:resolveEntityIds] template fallback allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
       );
     }
     map.set(rawKey, sensorId);

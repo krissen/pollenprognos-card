@@ -1,5 +1,6 @@
 // src/adapters/gpl/discovery.js
 import { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
+import { discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
 
 /**
  * Classify a GPL sensor by its attributes.
@@ -27,100 +28,76 @@ export function isGplDataSensor(state) {
 }
 
 /**
- * Discover all GPL sensors using hass.entities (primary) or attribution (fallback).
+ * Discover all GPL sensors using the shared discoverEntitiesByDevice helper.
  *
  * Returns: { locations: Map<configEntryId, { label: string, entities: Map<allergenKey, entityId> }> }
  *
- * Primary path: hass.entities -> filter platform === "pollenlevels", no entity_category
- * Fallback path: hass.states -> filter attribution === GPL_ATTRIBUTION, exclude date/timestamp
+ * Tier 1: device identifier match (platform "pollenlevels" in device.identifiers).
+ * Tier 2: entity registry scan filtering by entry.platform === "pollenlevels".
+ * Tier 3: attribution scan -- filters states by GPL_ATTRIBUTION attribute.
  */
 export function discoverGplSensors(hass, debug = false) {
-  const result = { locations: new Map() };
-  if (!hass) return result;
+  if (!hass) return { locations: new Map() };
 
-  // Collect candidate entity IDs
-  let entityIds = [];
-  let usedPrimary = false;
+  const { locations } = discoverEntitiesByDevice(hass, {
+    platform: "pollenlevels",
 
-  // Primary: hass.entities (entity registry)
-  if (hass.entities) {
-    const candidates = Object.entries(hass.entities)
-      .filter(([, entry]) =>
-        entry.platform === "pollenlevels" &&
-        !entry.entity_category
-      )
-      .map(([eid]) => eid);
+    // classify is used in tier 2 and tier 3; reads state.attributes.code or icon
+    classify: (eid, { state }) => {
+      if (!isGplDataSensor(state)) return null;
+      return classifySensor(state);
+    },
 
-    if (candidates.length > 0) {
-      entityIds = candidates;
-      usedPrimary = true;
-      if (debug) console.debug("[GPL] Discovery: using hass.entities, found", candidates.length, "candidates");
-    }
-  }
+    // classifyRelaxed used in tier 1 -- same logic, no relaxation needed for GPL
+    classifyRelaxed: (eid, { state }) => {
+      if (!isGplDataSensor(state)) return null;
+      return classifySensor(state);
+    },
 
-  // Fallback: attribution scan
-  if (!entityIds.length && hass.states) {
-    entityIds = Object.keys(hass.states).filter((eid) => {
-      const s = hass.states[eid];
-      return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
-    });
-    if (debug) console.debug("[GPL] Discovery: using attribution fallback, found", entityIds.length, "candidates");
-  }
+    // isRelevant: additional pre-classification filter (device_class check handled in classify)
+    isRelevant: (eid, { state }) => isGplDataSensor(state),
 
-  if (!entityIds.length) return result;
+    // fallbackSelector: tier 3 uses attribution attribute instead of entity ID regex
+    fallbackSelector: (h) =>
+      Object.keys(h.states).filter((eid) => {
+        const s = h.states[eid];
+        return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
+      }),
 
-  // Group by config_entry_id
-  for (const eid of entityIds) {
-    const state = hass.states[eid];
-    if (!state) continue;
-
-    // Filter out meta sensors in both paths
-    if (!isGplDataSensor(state)) continue;
-
-    // Classify sensor
-    const allergenKey = classifySensor(state);
-    if (!allergenKey) {
-      if (debug) console.debug("[GPL] Could not classify sensor:", eid);
-      continue;
-    }
-
-    // Resolve config_entry_id
-    let configEntryId = "default";
-    if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
-      const deviceId = hass.entities[eid].device_id;
-      const device = hass.devices[deviceId];
-      if (device?.config_entries?.length) {
-        configEntryId = device.config_entries[0];
+    /**
+     * resolveLabel priority for GPL:
+     *   1. device.name_by_user -- explicit user override.
+     *   2. device.name with the "- Pollentyper (lat, lon)" suffix stripped,
+     *      since the HA integration names devices "{user-name} - Pollentyper
+     *      ({lat}, {lon})". Without stripping, the label becomes a useless
+     *      coordinate-laden title in both editor dropdown and card header.
+     *   3. device.name as-is (defensive).
+     *   4. friendly_name from state.attributes.
+     *   5. "Auto" fallback.
+     */
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+      const raw = ctx.device?.name;
+      if (typeof raw === "string" && raw.trim()) {
+        // Strip " - Pollentyper (...)" / " - Pollen types (...)" /
+        // " - Pollentypen (...)" suffixes the upstream integration appends.
+        const cleaned = raw
+          .replace(/\s*[-–—]\s*pollen\s*(?:typer|typen|types)\s*\([^)]*\)\s*$/i, "")
+          .trim();
+        if (cleaned) return cleaned;
+        return raw.trim();
       }
-    }
-
-    // Get or create location entry
-    if (!result.locations.has(configEntryId)) {
-      // Generate label from device name or "Auto"
-      let label = "Auto";
-      if (usedPrimary && hass.entities?.[eid]?.device_id && hass.devices) {
-        const deviceId = hass.entities[eid].device_id;
-        const device = hass.devices[deviceId];
-        label = device?.name_by_user || device?.name || label;
-      } else {
-        // Fallback: try friendly_name from first sensor
-        const friendly = state.attributes?.friendly_name || "";
-        if (friendly) label = friendly;
+      if (ctx.state?.attributes?.friendly_name) {
+        return ctx.state.attributes.friendly_name;
       }
-      result.locations.set(configEntryId, { label, entities: new Map() });
-    }
+      return "Auto";
+    },
 
-    result.locations.get(configEntryId).entities.set(allergenKey, eid);
-  }
+    debug,
+    logTag: "GPL",
+  });
 
-  if (debug) {
-    console.debug("[GPL] Discovery result:", result.locations.size, "locations");
-    for (const [locId, loc] of result.locations) {
-      console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
-    }
-  }
-
-  return result;
+  return { locations };
 }
 
 /**
@@ -210,13 +187,15 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
   let discoveredEntities = null;
   if (configEntryId !== "manual") {
-    let location;
-    if (configEntryId && discovery.locations.has(configEntryId)) {
-      location = discovery.locations.get(configEntryId);
-    } else if (discovery.locations.size) {
-      location = discovery.locations.values().next().value;
+    let resolved = resolveLocationByKey(discovery, configEntryId);
+    // Stale-config recovery: a saved ULID that no longer matches any
+    // discovered location (e.g. integration reinstalled, tier 3 collapsed
+    // into a single "default" bucket) used to silently produce an empty map.
+    // Retry with autodetect semantics so legacy/changed configs still work.
+    if (!resolved && configEntryId && isConfigEntryId(configEntryId)) {
+      resolved = resolveLocationByKey(discovery, "");
     }
-    if (location) discoveredEntities = location.entities;
+    if (resolved) discoveredEntities = resolved[1].entities;
   }
 
   for (const allergen of cfg.allergens || []) {
