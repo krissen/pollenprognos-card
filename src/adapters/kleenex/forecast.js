@@ -393,9 +393,23 @@ export async function fetchForecast(hass, config) {
     "city", "region", "error",
   ]);
 
+  // Effective last token of an entity_id, accounting for manual-mode
+  // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`).
+  const effectiveLastToken = (entityId) => {
+    let id = entityId;
+    if (
+      config.location === "manual" &&
+      config.entity_suffix &&
+      id.endsWith(config.entity_suffix)
+    ) {
+      id = id.slice(0, -config.entity_suffix.length);
+    }
+    return id.split("_").pop();
+  };
+
   for (const sensor of kleenexSensors) {
     // Only consider sensors that were NOT identified as category sensors.
-    const lastToken = sensor.entity_id.split("_").pop();
+    const lastToken = effectiveLastToken(sensor.entity_id);
     let isCategorySensor = false;
     for (const localizedPrefix of Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
       if (lastToken.startsWith(localizedPrefix)) {
@@ -498,7 +512,7 @@ export async function fetchForecast(hass, config) {
   // Only evaluate when at least one category sensor was actually found (guards
   // against vacuous-truth on empty kleenexSensors when location doesn't match).
   const categorySensorsFound = kleenexSensors.filter((sensor) => {
-    const suffix = sensor.entity_id.split("_").pop();
+    const suffix = effectiveLastToken(sensor.entity_id);
     return Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES).some((lp) =>
       suffix.startsWith(lp),
     );

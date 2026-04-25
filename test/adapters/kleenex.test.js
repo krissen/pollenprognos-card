@@ -1066,6 +1066,37 @@ describe("Kleenex adapter: NA-zone warning", () => {
     );
     expect(naWarningCalled).toBe(false);
   });
+
+  it("Test 4b - emits warning in manual mode with entity_suffix when category sensor would otherwise be missed", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const treesEntity = {
+      entity_id: "sensor.kleenex_pollen_radar_atlanta_trees_v2",
+      state: "200",
+      attributes: {
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          { datetime: "2026-04-27", level: 2, value: 200, details: [] },
+        ],
+      },
+    };
+    const hass = makeHassFromEntities([treesEntity]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_radar_atlanta_",
+      entity_suffix: "_v2",
+      allergens: ["birch", "oak"],
+      pollen_threshold: 0,
+    });
+
+    await fetchForecast(hass, config);
+
+    const naWarningCalled = warnSpy.mock.calls.some(
+      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+    );
+    expect(naWarningCalled).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
