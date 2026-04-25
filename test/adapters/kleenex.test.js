@@ -1278,6 +1278,26 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(ids).not.toContain("region");
   });
 
+  it("Test 9d - DetailSensor fallback works when config.location is empty (auto-detect mode)", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    const birchDetail = makeDetailSensorEntity("amsterdam", "birch", 150, [
+      { value: 100 },
+    ]);
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      // Empty location: stubConfigKleenex default; means "don't filter by location".
+      location: "",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+  });
+
   it("Test 9a - DetailSensor with non-numeric state ('unknown'/'unavailable') is skipped, not treated as 0 ppm", async () => {
     const treesEntity = makeNACategory("amsterdam", "trees", 200);
     const unknownDetail = {

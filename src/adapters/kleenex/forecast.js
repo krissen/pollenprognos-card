@@ -454,8 +454,21 @@ export async function fetchForecast(hass, config) {
     if (DIAGNOSTIC_SUFFIXES.has(allergenSuffix)) continue;
     if (allergenSuffix.endsWith("_level")) continue;
 
-    // Check whether this suffix matches a known allergen alias (by slug).
-    const canonicalName = SLUGIFIED_ALIAS_MAP.get(allergenSuffix);
+    // Check whether this suffix matches a known allergen alias (by slug). When
+    // config.location is unset, the location segment couldn't be stripped above,
+    // so fall back to progressively shorter trailing slug candidates.
+    let canonicalName = SLUGIFIED_ALIAS_MAP.get(allergenSuffix);
+    if (!canonicalName && allergenSuffix.includes("_")) {
+      const parts = allergenSuffix.split("_");
+      for (let i = 1; i < parts.length; i++) {
+        const candidate = parts.slice(i).join("_");
+        const match = SLUGIFIED_ALIAS_MAP.get(candidate);
+        if (match) {
+          canonicalName = match;
+          break;
+        }
+      }
+    }
     if (!canonicalName) continue;
 
     // Skip allergens not requested in config.
