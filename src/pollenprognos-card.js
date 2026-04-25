@@ -1076,6 +1076,32 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
+    // Discovery results for adapters whose header label resolution would
+    // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached
+    // above; PP, DWD, PEU, and GPL go here so the header block can reuse the
+    // same result instead of calling discover*Sensors a second time per HA
+    // update.
+    let _ppDiscovery = null;
+    let _dwdDiscovery = null;
+    let _peuDiscovery = null;
+    let _gplDiscovery = null;
+    const getPpDiscovery = () => {
+      if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, this.debug);
+      return _ppDiscovery;
+    };
+    const getDwdDiscovery = () => {
+      if (_dwdDiscovery === null) _dwdDiscovery = discoverDwdSensors(hass, this.debug);
+      return _dwdDiscovery;
+    };
+    const getPeuDiscovery = () => {
+      if (_peuDiscovery === null) _peuDiscovery = discoverPeuSensors(hass, this.debug);
+      return _peuDiscovery;
+    };
+    const getGplDiscovery = () => {
+      if (_gplDiscovery === null) _gplDiscovery = discoverGplSensors(hass, this.debug);
+      return _gplDiscovery;
+    };
+
     if (this.debug) {
       console.debug("Sensor states detected:");
       console.debug("PP:", ppStates);
@@ -1367,8 +1393,9 @@ class PollenPrognosCard extends LitElement {
       if (integration === "dwd") {
         // Resolve title via shared discovery so config_entry_id keys, legacy
         // numeric region_id slugs and user-customized device names all render
-        // the friendly location name instead of the raw config value.
-        const dwdDiscovery = discoverDwdSensors(hass, false);
+        // the friendly location name instead of the raw config value. Reuses
+        // the cached discovery from set hass() to avoid a second registry scan.
+        const dwdDiscovery = getDwdDiscovery();
         const wantedLocation =
           cfg.region_id && cfg.region_id !== "manual" ? cfg.region_id : "";
         const match = resolveLocationByKey(dwdDiscovery, wantedLocation, {
@@ -1385,7 +1412,8 @@ class PollenPrognosCard extends LitElement {
       } else if (integration === "peu") {
         // Primary: resolve via shared discovery so config_entry_id keys and
         // legacy lowercase slugs both produce the friendly location name.
-        const peuDiscovery = discoverPeuSensors(hass, false);
+        // Reuses cached discovery from set hass() to avoid a second scan.
+        const peuDiscovery = getPeuDiscovery();
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const peuMatch = resolveLocationByKey(peuDiscovery, wantedLocation, {
@@ -1620,7 +1648,8 @@ class PollenPrognosCard extends LitElement {
       } else if (integration === "gpl") {
         // Google Pollen Levels: resolve via shared discovery so config_entry_id
         // keys and legacy label slugs both produce the friendly location name.
-        const gplDiscovery = discoverGplSensors(hass, false);
+        // Reuses cached discovery from set hass() to avoid a second scan.
+        const gplDiscovery = getGplDiscovery();
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
@@ -1655,8 +1684,9 @@ class PollenPrognosCard extends LitElement {
       } else {
         // Pollenprognos integration (PP): resolve city via shared discovery so
         // config_entry_id keys, legacy city slugs and user-customized device
-        // names all render the friendly location name.
-        const ppDiscovery = discoverPpSensors(hass, false);
+        // names all render the friendly location name. Reuses cached discovery
+        // from set hass() to avoid a second scan.
+        const ppDiscovery = getPpDiscovery();
         const wantedLocation =
           cfg.city && cfg.city !== "manual" ? cfg.city : "";
         const ppMatch = resolveLocationByKey(ppDiscovery, wantedLocation, {
