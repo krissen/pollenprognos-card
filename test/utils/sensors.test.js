@@ -157,7 +157,8 @@ describe("findAvailableSensors", () => {
       const result = findAvailableSensors(cfg, hass);
 
       // Discovery groups by region; when region_id is empty, location keys
-      // are sorted lexicographically and the first ("50") is selected.
+      // are sorted deterministically (numerically for all-digit DWD region IDs)
+      // and the first ("50") is selected.
       expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
   });
