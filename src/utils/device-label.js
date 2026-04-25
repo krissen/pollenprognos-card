@@ -34,16 +34,24 @@ export function cleanDeviceLabel(raw) {
   const trimmed = raw.trim();
   if (!trimmed) return trimmed;
 
-  const COORD_PAREN = /\s*\([\s\d.,+\-]+\)\s*$/;
+  // Require two numeric values separated by a comma (i.e. lat/lng shape) so
+  // legitimate names like "Office (123)" or "Paris (2024)" aren't stripped.
+  // Each value: optional sign, digits, optional decimal part. Whitespace
+  // tolerated around values and the comma.
+  const COORD_PAREN = /\s*\(\s*[+\-]?\d+(?:\.\d+)?\s*,\s*[+\-]?\d+(?:\.\d+)?\s*\)\s*$/;
   const stripped = trimmed.replace(COORD_PAREN, "").trim();
   if (stripped === trimmed) return trimmed;
 
-  // Match the LAST " - " / " – " / " — " separator so hyphenated locations
-  // like "Saint-Cloud" survive while a trailing " - <category>" is removed.
-  const SEP = /\s+[-–—]\s+(?=[^-–—]*$)/;
-  const sepMatch = stripped.match(SEP);
-  const final = sepMatch
-    ? stripped.slice(0, sepMatch.index).trim()
-    : stripped;
+  // Drop a trailing " - <suffix>" / " – <suffix>" / " — <suffix>" using the
+  // LAST occurrence of any of the separator variants. Hyphenated location
+  // names like "Saint-Cloud" survive because their internal hyphen has no
+  // surrounding spaces. Suffixes that contain hyphens (e.g. "Pollen-types")
+  // are still removed because we match on the separator's whitespace context,
+  // not on what follows.
+  const lastHyphen = stripped.lastIndexOf(" - ");
+  const lastEnDash = stripped.lastIndexOf(" – ");
+  const lastEmDash = stripped.lastIndexOf(" — ");
+  const sepIdx = Math.max(lastHyphen, lastEnDash, lastEmDash);
+  const final = sepIdx >= 0 ? stripped.slice(0, sepIdx).trim() : stripped;
   return final || trimmed;
 }

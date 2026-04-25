@@ -56,6 +56,14 @@ describe("cleanDeviceLabel: no-op cases", () => {
     expect(cleanDeviceLabel("Hem - Office (Building B)")).toBe("Hem - Office (Building B)");
   });
 
+  it("does not strip a single-number parenthesized suffix (not coordinate-shaped)", () => {
+    // Legitimate names with sequence numbers, year suffixes, etc.
+    expect(cleanDeviceLabel("Home (2)")).toBe("Home (2)");
+    expect(cleanDeviceLabel("Paris (2024)")).toBe("Paris (2024)");
+    expect(cleanDeviceLabel("Office (123)")).toBe("Office (123)");
+    expect(cleanDeviceLabel("Sensor (3.14)")).toBe("Sensor (3.14)");
+  });
+
   it("does not strip ' - <suffix>' when no coord-paren is present", () => {
     // Without the coord signal, we can't tell integration noise from a
     // legitimate dashed name like a venue suffix. Leave it alone.
@@ -85,6 +93,13 @@ describe("cleanDeviceLabel: coordinate-paren variants", () => {
   it("strips coord-paren even without ' - <suffix>' before it", () => {
     // Edge case: device named only "<location> (<coords>)" without separator.
     expect(cleanDeviceLabel("Hem (50.45,30.52)")).toBe("Hem");
+  });
+
+  it("strips suffix even when the suffix itself contains a hyphen", () => {
+    // The separator regex uses lastIndexOf on whitespace-padded separators,
+    // so dashes inside the suffix don't block matching.
+    expect(cleanDeviceLabel("Hem - Pollen-types (50.45,30.52)")).toBe("Hem");
+    expect(cleanDeviceLabel("Hem - co2-monitor data (50.45,30.52)")).toBe("Hem");
   });
 });
 
