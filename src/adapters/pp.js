@@ -1,6 +1,8 @@
 import { normalize } from "../utils/normalize.js";
+import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
+import { PP_POSSIBLE_CITIES } from "../constants.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
@@ -51,16 +53,19 @@ export const stubConfigPP = {
 
 /**
  * Extract a prettified city name from a PP entity ID.
- * "sensor.pollen_goteborg_bjork" -> "Goteborg"
+ * "sensor.pollen_goteborg_bjork" -> "Göteborg" when the slug matches a
+ * canonical city in PP_POSSIBLE_CITIES (preserving diacritics), otherwise
+ * falls back to "Goteborg" via simple capitalization.
  * Returns null if the entity ID does not match the expected pattern.
  *
  * @param {string} entityId
  * @returns {string|null}
  */
 function extractCityFromEntityId(entityId) {
-  const m = entityId.match(/^sensor\.pollen_(.+)_[^_]+$/);
-  if (!m) return null;
-  const slug = m[1];
+  const slug = extractCitySlugFromEntityId(entityId);
+  if (!slug) return null;
+  const canonical = PP_POSSIBLE_CITIES.find((c) => slugify(c) === slug);
+  if (canonical) return canonical;
   return slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
