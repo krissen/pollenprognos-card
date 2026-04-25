@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigKleenex } from "../../src/adapters/kleenex/index.js";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { fetchForecast, stubConfigKleenex, resolveEntityIds } from "../../src/adapters/kleenex/index.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
 function makeConfig(overrides = {}) {
@@ -925,5 +925,372 @@ describe("stubConfigKleenex", () => {
     expect(stubConfigKleenex.allergens).toContain("oak");
     expect(stubConfigKleenex.allergens).toContain("ragweed");
     expect(stubConfigKleenex.allergens).toContain("poaceae");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helper: build a DetailSensor-shaped entity.
+// DetailSensors have state = ppm string and attributes.forecast = [{date, value}].
+// ---------------------------------------------------------------------------
+function makeDetailSensorEntity(location, allergenSlug, ppmToday, forecastItems = []) {
+  return {
+    entity_id: `sensor.kleenex_pollen_radar_${location}_${allergenSlug}`,
+    state: String(ppmToday),
+    attributes: {
+      forecast: forecastItems.map((item, i) => ({
+        date: new Date(Date.now() + (i + 1) * 86400000).toISOString().split("T")[0],
+        value: item.value,
+      })),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build the NA-fingerprint category entity.
+// NA API returns non-empty forecast but every details[] and forecast[i].details[]
+// is an empty array (that is the fingerprint).
+// ---------------------------------------------------------------------------
+function makeNACategory(location, category, ppmToday, forecastDays = 4) {
+  return {
+    entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
+    state: String(ppmToday),
+    attributes: {
+      details: [],
+      forecast: Array.from({ length: forecastDays }, (_, i) => ({
+        datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
+        level: 2,
+        value: ppmToday,
+        details: [],
+      })),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 12. NA-zone console.warn
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: NA-zone warning", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("Test 1 - emits a warning containing 'North America' when NA fingerprint is detected and individual allergens were requested", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const treesEntity = makeNACategory("atlanta", "trees", 200);
+    const hass = makeHassFromEntities([treesEntity]);
+    const config = makeConfig({
+      location: "atlanta",
+      allergens: ["birch", "oak"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result).toEqual([]);
+    expect(warnSpy).toHaveBeenCalled();
+    const warnMessage = warnSpy.mock.calls[0][0];
+    expect(warnMessage).toContain("North America");
+  });
+
+  it("Test 2 - does NOT emit warning when user has trees_cat in allergens (already on correct path)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const treesEntity = makeNACategory("atlanta", "trees", 200);
+    const hass = makeHassFromEntities([treesEntity]);
+    // User already has a category allergen configured -- no warning expected.
+    const config = makeConfig({
+      location: "atlanta",
+      allergens: ["trees_cat", "birch", "oak"],
+      pollen_threshold: 0,
+    });
+
+    await fetchForecast(hass, config);
+
+    // The warn spy may be called for other reasons (e.g. adapter errors), but
+    // the NA warning message must NOT appear.
+    const naWarningCalled = warnSpy.mock.calls.some(
+      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+    );
+    expect(naWarningCalled).toBe(false);
+  });
+
+  it("Test 3 - does NOT emit warning for EU pattern (forecast with non-empty details[])", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // EU category sensor: details populated, forecast.details populated.
+    const treesEntity = makeKleenexEntity(
+      "amsterdam", "trees", 200,
+      [{ name: "Birch", value: 150 }, { name: "Oak", value: 50 }],
+      [{ level: 2, details: [{ name: "Birch", value: 120 }, { name: "Oak", value: 30 }] }],
+    );
+    const hass = makeHassFromEntities([treesEntity]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch", "oak"],
+      pollen_threshold: 0,
+    });
+
+    await fetchForecast(hass, config);
+
+    const naWarningCalled = warnSpy.mock.calls.some(
+      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+    );
+    expect(naWarningCalled).toBe(false);
+  });
+
+  it("Test 4 - does NOT emit warning when category sensor forecast is empty (not the NA fingerprint)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Sensor with empty forecast[] — this is NOT the NA fingerprint; NA always has
+    // non-empty forecast. The tightened heuristic requires forecast.length > 0.
+    const treesEntity = {
+      entity_id: "sensor.kleenex_pollen_radar_testlocation_trees",
+      state: "0",
+      attributes: {
+        details: [],
+        forecast: [], // Empty forecast — not the NA pattern
+      },
+    };
+    const hass = makeHassFromEntities([treesEntity]);
+    const config = makeConfig({
+      location: "testlocation",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    await fetchForecast(hass, config);
+
+    const naWarningCalled = warnSpy.mock.calls.some(
+      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+    );
+    expect(naWarningCalled).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 13. DetailSensor fallback (Pass 2)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: DetailSensor fallback", () => {
+  it("Test 5 - uses DetailSensor when category sensor has empty details (NA pattern)", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    const birchDetail = makeDetailSensorEntity("amsterdam", "birch", 150, [
+      { value: 100 },
+      { value: 50 },
+    ]);
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    // 150 ppm for birch (trees category) is in range 96-207 -> raw level 2
+    expect(result[0].day0.state).toBe(2);
+    // Forecast day 1: 100 ppm -> raw level 2; day 2: 50 ppm -> raw level 1
+    expect(result[0].day1.state).toBe(2);
+    expect(result[0].day2.state).toBe(1);
+  });
+
+  it("Test 5b - DetailSensor result passes sensor shape contract", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    const birchDetail = makeDetailSensorEntity("amsterdam", "birch", 150, [
+      { value: 100 },
+    ]);
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    assertSensorShape(result[0]);
+  });
+
+  it("Test 6 - localized Dutch DetailSensor slug 'berk' normalizes to canonical allergen 'birch'", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    // Dutch localization: sensor suffix is 'berk'
+    const berkDetail = makeDetailSensorEntity("amsterdam", "berk", 120, [{ value: 80 }]);
+    const hass = makeHassFromEntities([treesEntity, berkDetail]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_berk");
+  });
+
+  it("Test 6b - localized Italian DetailSensor slug 'betulla' normalizes to canonical allergen 'birch'", async () => {
+    const treesEntity = makeNACategory("rome", "trees", 200);
+    const betullaDetail = makeDetailSensorEntity("rome", "betulla", 100, []);
+    const hass = makeHassFromEntities([treesEntity, betullaDetail]);
+    const config = makeConfig({
+      location: "rome",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_rome_betulla");
+  });
+
+  it("Test 7 - category sensor details (EU full data) wins over DetailSensor", async () => {
+    // EU category sensor with full details — birch data comes from here.
+    const treesEntity = makeKleenexEntity(
+      "amsterdam", "trees", 300,
+      [{ name: "Birch", value: 250 }], // level 3 (208-703)
+      [],
+    );
+    // DetailSensor also present but should NOT be used.
+    const birchDetail = makeDetailSensorEntity("amsterdam", "birch", 50, []); // level 1
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("birch");
+    // Must use the category sensor value (250 ppm -> level 3), not DetailSensor (50 -> level 1).
+    expect(result[0].day0.state).toBe(3);
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+  });
+
+  it("Test 8 - entity with '_level' suffix is NOT treated as a DetailSensor", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    // This entity has a '_level' suffix and must be skipped by Pass 2.
+    const levelEntity = {
+      entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch_level",
+      state: "high",
+      attributes: { forecast: [] },
+    };
+    const hass = makeHassFromEntities([treesEntity, levelEntity]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // birch must NOT be populated from the _level entity.
+    expect(result.every((s) => s.allergenReplaced !== "birch")).toBe(true);
+  });
+
+  it("Test 9 - diagnostic suffix entities (_date, _last_updated, _region) are skipped", async () => {
+    const treesEntity = makeNACategory("amsterdam", "trees", 200);
+    const diagnosticEntities = [
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_date", state: "2026-04-25", attributes: {} },
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_last_updated", state: "2026-04-25T00:00:00Z", attributes: {} },
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_region", state: "NL", attributes: {} },
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_latitude", state: "52.37", attributes: {} },
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_longitude", state: "4.90", attributes: {} },
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_city", state: "Amsterdam", attributes: {} },
+      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_error", state: "none", attributes: {} },
+    ];
+    const hass = makeHassFromEntities([treesEntity, ...diagnosticEntities]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // None of the diagnostic entities should produce sensor output for birch.
+    expect(result.every((s) => s.allergenReplaced !== "birch")).toBe(true);
+    // Also verify no diagnostic keys appear as allergenReplaced values.
+    const ids = result.map((s) => s.allergenReplaced);
+    expect(ids).not.toContain("date");
+    expect(ids).not.toContain("last_updated");
+    expect(ids).not.toContain("region");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14. resolveEntityIds DetailSensor probe
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: resolveEntityIds DetailSensor probe", () => {
+  it("Test 10 - standard mode returns both category sensor and DetailSensor in the map", () => {
+    const treesEntity = makeKleenexEntity("amsterdam", "trees", 200, [], []);
+    const birchDetail = makeDetailSensorEntity("amsterdam", "birch", 150, []);
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const map = resolveEntityIds(config, hass);
+
+    // Category side: 'trees' should be present (birch -> trees category)
+    expect(map.has("trees")).toBe(true);
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+
+    // DetailSensor side: 'birch' should also be present
+    expect(map.has("birch")).toBe(true);
+    expect(map.get("birch")).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+  });
+
+  it("Test 11 - manual mode resolves DetailSensor via entity_prefix", () => {
+    const treesEntity = {
+      entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_trees",
+      state: "100",
+      attributes: { details: [], forecast: [] },
+    };
+    const birchDetail = {
+      entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_birch",
+      state: "80",
+      attributes: { forecast: [] },
+    };
+    const hass = makeHassFromEntities([treesEntity, birchDetail]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_radar_atlanta_georgia_",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const map = resolveEntityIds(config, hass);
+
+    expect(map.has("birch")).toBe(true);
+    expect(map.get("birch")).toBe("sensor.kleenex_pollen_radar_atlanta_georgia_birch");
+  });
+
+  it("Test 12 - DetailSensor not in hass.states is absent from the returned map", () => {
+    // Only the category sensor exists; no birch DetailSensor.
+    const treesEntity = makeKleenexEntity("amsterdam", "trees", 200, [], []);
+    const hass = makeHassFromEntities([treesEntity]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const map = resolveEntityIds(config, hass);
+
+    // Category is present, but birch DetailSensor is not.
+    expect(map.has("birch")).toBe(false);
+    // Category sensor is still found.
+    expect(map.has("trees")).toBe(true);
   });
 });
