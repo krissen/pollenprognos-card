@@ -7,6 +7,23 @@ import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors,
 import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
 import { ppmToLevel } from "./levels.js";
 
+// Static lookup: slugified alias key -> canonical allergen name. Built once
+// from KLEENEX_ALLERGEN_MAP since the map is module-level constant data.
+const SLUGIFIED_ALIAS_MAP = (() => {
+  const m = new Map();
+  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
+    const slug = slugify(alias);
+    if (!m.has(slug)) m.set(slug, canonical);
+  }
+  return m;
+})();
+
+// Diagnostic suffixes that are not allergen names — skip them in Pass 2.
+const DIAGNOSTIC_SUFFIXES = new Set([
+  "level", "date", "last_updated", "latitude", "longitude",
+  "city", "region", "error",
+]);
+
 export async function fetchForecast(hass, config) {
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
   const debug = config.debug;
@@ -378,20 +395,6 @@ export async function fetchForecast(hass, config) {
   // For zones where category sensor details[] is empty (e.g. NA/US endpoint hardcodes
   // empty details — see api.py:__decode_raw_data_na), try individually-enabled
   // DetailSensor entities (disabled by default in HA registry).
-  // Build a lookup: slugified alias key -> canonical allergen name.
-  const slugifiedAliasMap = new Map();
-  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
-    const slug = slugify(alias);
-    if (!slugifiedAliasMap.has(slug)) {
-      slugifiedAliasMap.set(slug, canonical);
-    }
-  }
-
-  // Diagnostic suffixes that are not allergen names — skip them.
-  const DIAGNOSTIC_SUFFIXES = new Set([
-    "level", "date", "last_updated", "latitude", "longitude",
-    "city", "region", "error",
-  ]);
 
   // Effective last token of an entity_id, accounting for manual-mode
   // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`).
@@ -452,7 +455,7 @@ export async function fetchForecast(hass, config) {
     if (allergenSuffix.endsWith("_level")) continue;
 
     // Check whether this suffix matches a known allergen alias (by slug).
-    const canonicalName = slugifiedAliasMap.get(allergenSuffix);
+    const canonicalName = SLUGIFIED_ALIAS_MAP.get(allergenSuffix);
     if (!canonicalName) continue;
 
     // Skip allergens not requested in config.
