@@ -4,7 +4,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { indexToLevel } from "./silam.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
 export const stubConfigPEU = {
@@ -239,7 +239,11 @@ export function discoverPeuSensors(hass, debug = false) {
 
 function detectLocation(cfg, hass) {
   if (cfg.location === "manual") return "";
-  let locationSlug = slugify(cfg.location || "");
+  // Treat a config_entry_id as autodetect: slugify() would otherwise produce
+  // a non-empty locationSlug from the ULID, blocking the entity-id scan below
+  // when tier 1/2 discovery has already failed (e.g. unknown platform slug).
+  const locCfg = isConfigEntryId(cfg.location) ? "" : cfg.location;
+  let locationSlug = slugify(locCfg || "");
   if (!locationSlug) {
     const peuStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.polleninformation_"),
