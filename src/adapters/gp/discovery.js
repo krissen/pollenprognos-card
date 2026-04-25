@@ -1,5 +1,5 @@
 // src/adapters/gp/discovery.js
-import { normalizeManualPrefix, discoverEntitiesByDevice, resolveLocationByKey } from "../../utils/adapter-helpers.js";
+import { normalizeManualPrefix, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
 import { GP_DOMAIN, GP_DISPLAY_NAME_MAP, GP_COLLISION_PLANTS, GP_BASE_ALLERGENS } from "./constants.js";
 
 // Regex to extract pollen code from unique_id.
@@ -204,7 +204,14 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
   let discoveredEntities = null;
   if (configEntryId !== "manual") {
-    const match = resolveLocationByKey(discovery, configEntryId);
+    let match = resolveLocationByKey(discovery, configEntryId);
+    // Stale-config recovery: a saved ULID that no longer matches any
+    // discovered location (e.g. integration reinstalled, tier 3 collapsed
+    // into a single "default" bucket) used to silently produce an empty map.
+    // Retry with autodetect semantics so legacy/changed configs still work.
+    if (!match && configEntryId && isConfigEntryId(configEntryId)) {
+      match = resolveLocationByKey(discovery, "");
+    }
     if (match) discoveredEntities = match[1].entities;
   }
 

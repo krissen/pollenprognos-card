@@ -1,6 +1,6 @@
 // src/adapters/gpl/discovery.js
 import { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
-import { discoverEntitiesByDevice, resolveLocationByKey } from "../../utils/adapter-helpers.js";
+import { discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
 
 /**
  * Classify a GPL sensor by its attributes.
@@ -187,7 +187,14 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
   let discoveredEntities = null;
   if (configEntryId !== "manual") {
-    const resolved = resolveLocationByKey(discovery, configEntryId);
+    let resolved = resolveLocationByKey(discovery, configEntryId);
+    // Stale-config recovery: a saved ULID that no longer matches any
+    // discovered location (e.g. integration reinstalled, tier 3 collapsed
+    // into a single "default" bucket) used to silently produce an empty map.
+    // Retry with autodetect semantics so legacy/changed configs still work.
+    if (!resolved && configEntryId && isConfigEntryId(configEntryId)) {
+      resolved = resolveLocationByKey(discovery, "");
+    }
     if (resolved) discoveredEntities = resolved[1].entities;
   }
 

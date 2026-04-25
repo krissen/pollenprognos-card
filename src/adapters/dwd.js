@@ -1,7 +1,7 @@
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 import { DWD_REGIONS } from "../constants.js";
 
 const DOMAIN = "dwd_pollenflug";
@@ -215,9 +215,17 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   const discovery = discoverDwdSensors(hass, debug);
 
   if (discovery.locations.size > 0) {
-    const match = resolveLocationByKey(discovery, cfg.region_id, {
+    let match = resolveLocationByKey(discovery, cfg.region_id, {
       slugExtractor: extractRegionIdFromEntityId,
     });
+
+    // Stale-config recovery: a saved ULID region_id from a removed/renamed
+    // integration won't be in the discovered locations. Retry with autodetect
+    // semantics so the card still finds sensors instead of silently going
+    // empty and then template-falling back to "sensor.pollenflug_*_{ULID}".
+    if (!match && isConfigEntryId(cfg.region_id)) {
+      match = resolveLocationByKey(discovery, "");
+    }
 
     if (match) {
       const [, location] = match;
