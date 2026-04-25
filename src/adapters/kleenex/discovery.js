@@ -4,6 +4,22 @@ import { slugify } from "../../utils/slugify.js";
 import { normalizeManualPrefix } from "../../utils/adapter-helpers.js";
 import { INDIVIDUAL_TO_CATEGORY, KLEENEX_ALLERGEN_MAP } from "./constants.js";
 
+// Static reverse index: canonical allergen name -> Set of slugified alias
+// entity-suffixes. Built once from KLEENEX_ALLERGEN_MAP since the map is
+// module-level constant data.
+const CANONICAL_TO_ALIAS_SLUGS = (() => {
+  const m = new Map();
+  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
+    let slugs = m.get(canonical);
+    if (!slugs) {
+      slugs = new Set();
+      m.set(canonical, slugs);
+    }
+    slugs.add(slugify(alias));
+  }
+  return m;
+})();
+
 /**
  * Resolve entity IDs for sensor detection.
  *
@@ -93,17 +109,6 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   // These are disabled by default in HA (entity_registry_enabled_default=False) but
   // users may enable them. For NA zones they don't exist at all; for EU/UK zones they
   // give per-allergen data when the category sensor's details[] is empty.
-  // Build a reverse index: canonical name -> Set of slugified alias entity-suffixes.
-  const canonicalToAliasSlugs = new Map();
-  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
-    let slugs = canonicalToAliasSlugs.get(canonical);
-    if (!slugs) {
-      slugs = new Set();
-      canonicalToAliasSlugs.set(canonical, slugs);
-    }
-    slugs.add(slugify(alias));
-  }
-
   const individualAllergens = (cfg.allergens || []).filter(
     (a) => !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(a),
   );
@@ -115,7 +120,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     let detailSensorId;
     // Cover both alias-keyed slugs and the canonical name itself (in case the
     // canonical isn't an alias key in KLEENEX_ALLERGEN_MAP).
-    const aliasesForCanonical = new Set(canonicalToAliasSlugs.get(allergen) || []);
+    const aliasesForCanonical = new Set(CANONICAL_TO_ALIAS_SLUGS.get(allergen) || []);
     aliasesForCanonical.add(slugify(allergen));
 
     if (cfg.location === "manual") {
