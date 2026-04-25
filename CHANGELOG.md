@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 - (kleenex) Add per-allergen DetailSensor fallback and a clearer warning for US zones where the API only returns category totals (issue #206).
 
+### Fixed
+- (gpl, gp) Strip integration-appended " - <category> (<lat>,<lng>)" suffix from location labels (issue #208). Previously the editor dropdown and card title leaked text like "Hem - Pollentyper (50.45, 30.52)". Now uses a locale-agnostic util that handles any HA language, applied at both discovery and the card's title resolver for defense-in-depth.
+
 ## [3.1.0] - 2026-04-19
 
 ### Added

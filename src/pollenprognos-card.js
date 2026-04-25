@@ -6,6 +6,7 @@ import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
+import { cleanDeviceLabel } from "./utils/device-label.js";
 import {
   filterSensorsPostFetch,
   resolveLocationByKey,
@@ -1650,18 +1651,11 @@ class PollenPrognosCard extends LitElement {
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
-        let title = gplMatch ? gplMatch[1].label : "";
-
-        // Clean up device name if it looks like a friendly_name with type suffix
-        if (title) {
-          title = title
-            .replace(/\s*(grass|tree|weed)\s*$/i, "")
-            .replace(/\s*type\s*$/i, "")
-            .trim();
-          if (title) {
-            title = title.charAt(0).toUpperCase() + title.slice(1);
-          }
-        }
+        // Defensive: discovery already calls cleanDeviceLabel, but apply again
+        // here so a future discovery refactor that drops the call doesn't leak
+        // the integration's "- <category> (<coords>)" suffix into the title.
+        let title = gplMatch ? cleanDeviceLabel(gplMatch[1].label) : "";
+        if (title) title = title.charAt(0).toUpperCase() + title.slice(1);
 
         loc = title || cfg.location || "";
       } else if (integration === "gp") {
@@ -1671,7 +1665,8 @@ class PollenPrognosCard extends LitElement {
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const gpMatch = resolveLocationByKey(gpDiscovery, wantedLocation);
-        const title = gpMatch ? gpMatch[1].label : "";
+        // Defensive: same rationale as the GPL branch above.
+        const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
         loc = title || cfg.location || "";
       } else if (integration === "plu") {
