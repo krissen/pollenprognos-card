@@ -87,13 +87,15 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   // These are disabled by default in HA (entity_registry_enabled_default=False) but
   // users may enable them. For NA zones they don't exist at all; for EU/UK zones they
   // give per-allergen data when the category sensor's details[] is empty.
-  // Build a map: slugified alias -> canonical name (same logic as forecast.js pass 2).
-  const slugifiedAliasMap = new Map();
+  // Build a reverse index: canonical name -> Set of slugified alias entity-suffixes.
+  const canonicalToAliasSlugs = new Map();
   for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
-    const slug = slugify(alias);
-    if (!slugifiedAliasMap.has(slug)) {
-      slugifiedAliasMap.set(slug, canonical);
+    let slugs = canonicalToAliasSlugs.get(canonical);
+    if (!slugs) {
+      slugs = new Set();
+      canonicalToAliasSlugs.set(canonical, slugs);
     }
+    slugs.add(slugify(alias));
   }
 
   const individualAllergens = (cfg.allergens || []).filter(
@@ -105,16 +107,10 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     if (map.has(allergen)) continue;
 
     let detailSensorId;
-    // The canonical allergen name may itself be an alias key; also check all aliases
-    // that map to this canonical name to find the slugified entity suffix.
-    const aliasesForCanonical = Object.entries(KLEENEX_ALLERGEN_MAP)
-      .filter(([, canonical]) => canonical === allergen)
-      .map(([alias]) => slugify(alias));
-
-    // Include the canonical name itself in case it happens to be an alias key.
-    if (!aliasesForCanonical.includes(slugify(allergen))) {
-      aliasesForCanonical.push(slugify(allergen));
-    }
+    // Cover both alias-keyed slugs and the canonical name itself (in case the
+    // canonical isn't an alias key in KLEENEX_ALLERGEN_MAP).
+    const aliasesForCanonical = new Set(canonicalToAliasSlugs.get(allergen) || []);
+    aliasesForCanonical.add(slugify(allergen));
 
     if (cfg.location === "manual") {
       const prefix = normalizeManualPrefix(cfg.entity_prefix);
