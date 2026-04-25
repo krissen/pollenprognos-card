@@ -633,11 +633,12 @@ export function findLocationBySlug(discovery, slug, opts = {}) {
  * Resolve a location from a discovery result using a priority chain.
  *
  * Priority:
- *   1. Empty cfgLocation -> first location in the map (or null if empty).
+ *   1. Empty cfgLocation -> first location (numeric or lex sort, see body).
  *   2. Exact key match.
- *   3. Substring or exact match against location label.
+ *   3. Exact case-insensitive match against location label.
  *   4. findLocationBySlug fallback.
- *   5. null if nothing matches.
+ *   5. Fuzzy substring (case-insensitive) match against location label.
+ *   6. null if nothing matches.
  *
  * @param {{ locations: Map }} discovery    - Result from discoverEntitiesByDevice.
  * @param {string}             cfgLocation - Location value from card config.
