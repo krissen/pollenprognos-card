@@ -555,7 +555,11 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
     let candidates = null;
 
     if (typeof fallbackSelector === "function") {
-      candidates = fallbackSelector(hass);
+      const raw = fallbackSelector(hass);
+      // Be permissive: a misbehaving selector returning null/undefined or a
+      // non-array shouldn't crash discovery. Treat anything non-array as no
+      // candidates.
+      candidates = Array.isArray(raw) ? raw : null;
     } else if (fallbackRegex instanceof RegExp) {
       candidates = Object.keys(hass.states).filter((eid) => fallbackRegex.test(eid));
     }
