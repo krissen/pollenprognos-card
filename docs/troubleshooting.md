@@ -187,9 +187,13 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - If location is not detected, set `location` explicitly in your config
 - Daily mode and hourly/twice_daily modes may show slightly different levels (this is expected; the integration reports different values per source)
 
+<a id="kleenex"></a>
+
 #### Kleenex Pollen Radar
 - Entity names may be localized (e.g., Dutch `bomen`/`kruiden`/`gras` instead of `trees`/`weeds`/`grasses`). Supported from card v2.6.0.
 - The integration reports "low" level even for 0 ppm; the card shows 0 ppm as "none". This is intentional.
+- **US zones**: the upstream API does not return per-allergen breakdowns for North America. If your config lists individual allergens (e.g. `birch`, `oak`, `chenopod`), the card will log a warning and render nothing for those allergens. Switch to `allergens: [trees_cat, grass_cat, weeds_cat]` to display the available category totals.
+- **EU/UK zones with missing allergens**: try enabling the per-allergen DetailSensor entities in Home Assistant's entity registry. They are disabled by default. Enable them under **Settings → Devices & Services → Kleenex Pollen Radar → entity list**. The card will detect and use them automatically as a fallback when category-sensor details are empty.
 
 #### Google Pollen Levels (GPL)
 - Entities can be renamed freely; the card detects them by platform attribute, not entity ID

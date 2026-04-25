@@ -3,9 +3,35 @@ import { t } from "../../i18n.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix } from "../../utils/adapter-helpers.js";
 import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
 import { ppmToLevel } from "./levels.js";
+
+// Static lookup: slugified alias key -> canonical allergen name. Built once
+// from KLEENEX_ALLERGEN_MAP since the map is module-level constant data.
+const SLUGIFIED_ALIAS_MAP = (() => {
+  const m = new Map();
+  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
+    const slug = slugify(alias);
+    if (!m.has(slug)) m.set(slug, canonical);
+  }
+  return m;
+})();
+
+// Diagnostic suffixes that are not allergen names — skip them in Pass 2.
+const DIAGNOSTIC_SUFFIXES = new Set([
+  "level", "date", "last_updated", "latitude", "longitude",
+  "city", "region", "error",
+]);
+
+// Track which (location, entity_prefix) combinations have already received the
+// NA-zone warning so it isn't re-emitted on every HA state update.
+const NA_WARNED_KEYS = new Set();
+
+// Test-only hook to clear the dedup state between cases.
+export function _resetNaWarningsForTest() {
+  NA_WARNED_KEYS.clear();
+}
 
 export async function fetchForecast(hass, config) {
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
@@ -370,6 +396,198 @@ export async function fetchForecast(hass, config) {
     } catch (error) {
       if (debug) {
         console.warn(`[Kleenex] Error processing forecast data for sensor ${sensor.entity_id}:`, error);
+      }
+    }
+  }
+
+  // --- Pass 2: DetailSensor fallback ---
+  // For zones where category sensor details[] is empty (e.g. NA/US endpoint hardcodes
+  // empty details — see api.py:__decode_raw_data_na), try individually-enabled
+  // DetailSensor entities (disabled by default in HA registry).
+
+  // Effective last token of an entity_id, accounting for manual-mode
+  // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`).
+  const effectiveLastToken = (entityId) => {
+    let id = entityId;
+    if (
+      config.location === "manual" &&
+      config.entity_suffix &&
+      id.endsWith(config.entity_suffix)
+    ) {
+      id = id.slice(0, -config.entity_suffix.length);
+    }
+    return id.split("_").pop();
+  };
+
+  for (const sensor of kleenexSensors) {
+    // Only consider sensors that were NOT identified as category sensors.
+    const lastToken = effectiveLastToken(sensor.entity_id);
+    let isCategorySensor = false;
+    for (const localizedPrefix of Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
+      if (lastToken.startsWith(localizedPrefix)) {
+        isCategorySensor = true;
+        break;
+      }
+    }
+    if (isCategorySensor) continue;
+
+    // Derive the allergen suffix from the entity_id.
+    let allergenSuffix;
+    if (config.location === "manual" && config.entity_prefix) {
+      // Manual mode: user-supplied entity_prefix already covers the whole prefix
+      // up to <allergen>; strip it from the full entity_id.
+      const fullPrefix = `sensor.${normalizeManualPrefix(config.entity_prefix)}`;
+      if (!sensor.entity_id.startsWith(fullPrefix)) continue;
+      allergenSuffix = sensor.entity_id.slice(fullPrefix.length);
+      // Discovery builds entity_ids as `${prefix}${aliasSlug}${entity_suffix}` —
+      // strip the same trailing suffix here so the alias lookup matches.
+      if (config.entity_suffix && allergenSuffix.endsWith(config.entity_suffix)) {
+        allergenSuffix = allergenSuffix.slice(0, -config.entity_suffix.length);
+      }
+    } else {
+      // Standard mode: strip domain prefix, then the configured location slug.
+      const domainPrefix = `sensor.${DOMAIN}_`;
+      allergenSuffix = sensor.entity_id.startsWith(domainPrefix)
+        ? sensor.entity_id.slice(domainPrefix.length)
+        : sensor.entity_id;
+      if (config.location && config.location !== "manual") {
+        const locationSlug = slugify(config.location);
+        if (allergenSuffix.startsWith(locationSlug + "_")) {
+          allergenSuffix = allergenSuffix.slice(locationSlug.length + 1);
+        }
+      }
+    }
+
+    // Skip diagnostic entities (single-token like `date`, `region`, multi-token
+    // like `last_updated`, and any `<allergen>_level` variant).
+    if (DIAGNOSTIC_SUFFIXES.has(allergenSuffix)) continue;
+    if (allergenSuffix.endsWith("_level")) continue;
+
+    // Check whether this suffix matches a known allergen alias (by slug). When
+    // config.location is unset, the location segment couldn't be stripped above,
+    // so fall back to progressively shorter trailing slug candidates.
+    let canonicalName = SLUGIFIED_ALIAS_MAP.get(allergenSuffix);
+    if (!canonicalName && allergenSuffix.includes("_")) {
+      const parts = allergenSuffix.split("_");
+      for (let i = 1; i < parts.length; i++) {
+        const candidate = parts.slice(i).join("_");
+        const match = SLUGIFIED_ALIAS_MAP.get(candidate);
+        if (match) {
+          canonicalName = match;
+          break;
+        }
+      }
+    }
+    if (!canonicalName) continue;
+
+    // Skip allergens not requested in config.
+    if (!config.allergens.includes(canonicalName)) continue;
+
+    // Only fill slots not already populated by category-sensor pass.
+    if (allergenData.has(canonicalName)) continue;
+
+    // Skip when the sensor reports a non-numeric state (`unknown`,
+    // `unavailable`, etc.) — treating those as 0 ppm would mask real
+    // outages and falsely suppress the NA warning.
+    const parsedState = Number(sensor.state);
+    if (!Number.isFinite(parsedState)) continue;
+
+    if (debug) {
+      console.debug(
+        `[Kleenex] DetailSensor fallback: ${sensor.entity_id} -> ${canonicalName}`,
+      );
+    }
+
+    allergenData.set(canonicalName, {
+      levels: [],
+      entity_id: sensor.entity_id,
+      source: "detail_sensor",
+    });
+
+    const allergenEntry = allergenData.get(canonicalName);
+    const rawLevel = ppmToLevel(parsedState, canonicalName);
+    const currentLevel = testVal(rawLevel);
+
+    allergenEntry.levels[0] = {
+      date: new Date(today),
+      level: currentLevel,
+      value: parsedState,
+    };
+
+    // DetailSensor forecast: [{date, value}] — no per-allergen level field.
+    // Non-numeric forecast values are treated as missing-day sentinels (-1).
+    const detailForecast = sensor.attributes?.forecast || [];
+    detailForecast.forEach((forecastItem, dayIndex) => {
+      const parsedForecast = Number(forecastItem.value);
+      const forecastValue = Number.isFinite(parsedForecast) ? parsedForecast : -1;
+      const fRawLevel = forecastValue < 0
+        ? -1
+        : ppmToLevel(forecastValue, canonicalName);
+      const forecastLevel = testVal(fRawLevel);
+      allergenEntry.levels[dayIndex + 1] = {
+        date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
+        level: forecastLevel,
+        value: forecastValue,
+      };
+    });
+  }
+
+  // --- NA-zone warning ---
+  // Warn when the user requested individual allergens but got no data AND the
+  // category sensors all had empty details (NA endpoint fingerprint — see
+  // api.py:__decode_raw_data_na which hardcodes pollen[f"{type}_details"] = []).
+  // Both `trees_cat` and bare `trees` are valid category-level configs in this
+  // adapter — exclude both shapes from the "individual" set so a config like
+  // ["trees", "birch"] doesn't treat raw `trees` as individual.
+  const categoryAllergenKeys = [
+    "trees_cat", "grass_cat", "weeds_cat",
+    "trees", "grass", "weeds",
+  ];
+  // The recommended set for the warning's suggested fix (NA users should
+  // switch to *_cat, not raw category names).
+  const recommendedCategoryKeys = ["trees_cat", "grass_cat", "weeds_cat"];
+  const requestedIndividual = (config.allergens || []).filter(
+    (a) => !categoryAllergenKeys.includes(a),
+  );
+  // Only evaluate when at least one category sensor was actually found (guards
+  // against vacuous-truth on empty kleenexSensors when location doesn't match).
+  const categorySensorsFound = kleenexSensors.filter((sensor) => {
+    const suffix = effectiveLastToken(sensor.entity_id);
+    return Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES).some((lp) =>
+      suffix.startsWith(lp),
+    );
+  });
+  if (requestedIndividual.length > 0 && categorySensorsFound.length > 0) {
+    const allIndividualEmpty = requestedIndividual.every(
+      (a) => !allergenData.has(a),
+    );
+    if (allIndividualEmpty) {
+      // NA fingerprint: a forecast is present (NA returns 4 days) but every
+      // category sensor has empty details[] AND every forecast[i].details[] is empty.
+      // Require non-empty forecast to avoid false positives on synthetic/empty fixtures.
+      const allDetailsEmpty = categorySensorsFound.every((sensor) => {
+        const attrs = sensor.attributes || {};
+        const forecast = attrs.forecast || [];
+        if (forecast.length === 0) return false;
+        const detailsEmpty = (attrs.details || []).length === 0;
+        const forecastDetailsEmpty = forecast.every(
+          (f) => (f.details || []).length === 0,
+        );
+        return detailsEmpty && forecastDetailsEmpty;
+      });
+      // Only emit the warning when the user hasn't already configured a recommended
+      // category allergen (if they have *_cat, they are already on the right path).
+      const hasAnyCategoryConfigured = recommendedCategoryKeys.some((k) =>
+        (config.allergens || []).includes(k),
+      );
+      if (allDetailsEmpty && !hasAnyCategoryConfigured) {
+        const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
+        if (!NA_WARNED_KEYS.has(warnKey)) {
+          NA_WARNED_KEYS.add(warnKey);
+          console.warn(
+            "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
+          );
+        }
       }
     }
   }
