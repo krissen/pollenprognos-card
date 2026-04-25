@@ -249,6 +249,49 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
     expect(loc.entities.size).toBe(1);
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
+
+  it("strips integration-appended ' - <category> (<coords>)' suffix from device label", () => {
+    // Locale-agnostic via cleanDeviceLabel — Swedish, French, Italian all
+    // covered by the same regex (no enumerated category list).
+    const cases = [
+      ["Hem - Pollentyper (50.45, 30.52)", "Hem"],
+      ["Paris - Niveaux de pollen (48.85, 2.35)", "Paris"],
+      ["Saint-Cloud - Pollentyper (48.84, 2.21)", "Saint-Cloud"],
+    ];
+    for (const [deviceName, expected] of cases) {
+      const statesMap = {
+        "sensor.google_pollen_grass": makeSensor("Grass", 3),
+      };
+      const entitiesMap = {
+        "sensor.google_pollen_grass": { device_id: "dev1" },
+      };
+      const devicesMap = {
+        dev1: { name: deviceName, config_entries: ["entry-gp-xyz"] },
+      };
+      const hass = makeHassPrimary(statesMap, entitiesMap, devicesMap);
+      const result = discoverGpSensors(hass);
+      expect(result.locations.get("entry-gp-xyz").label).toBe(expected);
+    }
+  });
+
+  it("name_by_user wins over device.name cleanup", () => {
+    const statesMap = {
+      "sensor.google_pollen_grass": makeSensor("Grass", 3),
+    };
+    const entitiesMap = {
+      "sensor.google_pollen_grass": { device_id: "dev1" },
+    };
+    const devicesMap = {
+      dev1: {
+        name: "Hem - Pollentyper (50.45, 30.52)",
+        name_by_user: "Min trädgård",
+        config_entries: ["entry-gp-user"],
+      },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, devicesMap);
+    const result = discoverGpSensors(hass);
+    expect(result.locations.get("entry-gp-user").label).toBe("Min trädgård");
+  });
 });
 
 // ---------------------------------------------------------------------------

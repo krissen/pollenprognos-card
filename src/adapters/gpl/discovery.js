@@ -1,6 +1,7 @@
 // src/adapters/gpl/discovery.js
 import { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
 import { discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
+import { cleanDeviceLabel } from "../../utils/device-label.js";
 
 /**
  * Classify a GPL sensor by its attributes.
@@ -66,29 +67,20 @@ export function discoverGplSensors(hass, debug = false) {
 
     /**
      * resolveLabel priority for GPL:
-     *   1. device.name_by_user -- explicit user override.
-     *   2. device.name with the "- Pollentyper (lat, lon)" suffix stripped,
-     *      since the HA integration names devices "{user-name} - Pollentyper
-     *      ({lat}, {lon})". Without stripping, the label becomes a useless
-     *      coordinate-laden title in both editor dropdown and card header.
-     *   3. device.name as-is (defensive).
-     *   4. friendly_name from state.attributes.
-     *   5. "Auto" fallback.
+     *   1. device.name_by_user -- explicit user override, kept verbatim.
+     *   2. device.name run through cleanDeviceLabel to strip the
+     *      "{location} - {category-localized} ({lat},{lng})" suffix that
+     *      the pollenlevels integration appends. cleanDeviceLabel uses a
+     *      locale-agnostic regex so new HA languages don't regress this.
+     *   3. friendly_name from state.attributes.
+     *   4. "Auto" fallback.
      */
     resolveLabel: (ctx) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
-      const raw = ctx.device?.name;
-      if (typeof raw === "string" && raw.trim()) {
-        // Strip " - Pollentyper (...)" / " - Pollen types (...)" /
-        // " - Pollentypen (...)" suffixes the upstream integration appends.
-        const cleaned = raw
-          .replace(/\s*[-–—]\s*pollen\s*(?:typer|typen|types)\s*\([^)]*\)\s*$/i, "")
-          .trim();
-        if (cleaned) return cleaned;
-        return raw.trim();
-      }
+      const cleaned = cleanDeviceLabel(ctx.device?.name);
+      if (typeof cleaned === "string" && cleaned.trim()) return cleaned;
       if (ctx.state?.attributes?.friendly_name) {
-        return ctx.state.attributes.friendly_name;
+        return cleanDeviceLabel(ctx.state.attributes.friendly_name);
       }
       return "Auto";
     },

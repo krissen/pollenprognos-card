@@ -1,5 +1,6 @@
 // src/adapters/gp/discovery.js
 import { normalizeManualPrefix, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
+import { cleanDeviceLabel } from "../../utils/device-label.js";
 import { GP_DOMAIN, GP_DISPLAY_NAME_MAP, GP_COLLISION_PLANTS, GP_BASE_ALLERGENS } from "./constants.js";
 
 // Regex to extract pollen code from unique_id.
@@ -119,6 +120,22 @@ export function discoverGpSensors(hass, debug = false) {
     fallbackSelector: (h) => Object.keys(h.states).filter((eid) =>
       eid.startsWith("sensor.google_pollen_")
     ),
+
+    /**
+     * resolveLabel for GP — same shape as GPL: user override wins,
+     * otherwise device.name is normalized via the locale-agnostic
+     * cleanDeviceLabel util to strip integration-appended " - <category>
+     * (<lat>,<lng>)" suffixes.
+     */
+    resolveLabel: (ctx) => {
+      if (ctx.device?.name_by_user) return ctx.device.name_by_user;
+      const cleaned = cleanDeviceLabel(ctx.device?.name);
+      if (typeof cleaned === "string" && cleaned.trim()) return cleaned;
+      if (ctx.state?.attributes?.friendly_name) {
+        return cleanDeviceLabel(ctx.state.attributes.friendly_name);
+      }
+      return "Auto";
+    },
 
     debug,
     logTag: "GP",
