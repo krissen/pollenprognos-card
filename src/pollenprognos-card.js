@@ -15,7 +15,7 @@ import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
-import { discoverPpSensors } from "./adapters/pp.js";
+import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors } from "./adapters/dwd.js";
 import { discoverPeuSensors } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -1690,10 +1690,7 @@ class PollenPrognosCard extends LitElement {
         const wantedLocation =
           cfg.city && cfg.city !== "manual" ? cfg.city : "";
         const ppMatch = resolveLocationByKey(ppDiscovery, wantedLocation, {
-          slugExtractor: (eid) => {
-            const m = eid.match(/^sensor\.pollen_(.+)_[^_]+$/);
-            return m ? m[1] : null;
-          },
+          slugExtractor: extractPpCitySlugFromEntityId,
         });
         if (ppMatch) {
           loc = ppMatch[1].label;
@@ -1704,16 +1701,15 @@ class PollenPrognosCard extends LitElement {
           loc = matchCity(wantedLocation);
         } else {
           // No city configured and no discovery: legacy state-scan fallback.
+          // Use the allergen-suffix whitelist so multi-word slugs like
+          // "salg_och_viden" don't truncate the city.
           const matchCity = (slug) =>
             PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
-          const ppStates = Object.keys(hass.states).filter((id) =>
-            /^sensor\.pollen_(.+)_[^_]+$/.test(id),
-          );
           const cities = Array.from(
             new Set(
-              ppStates.map((id) =>
-                id.replace("sensor.pollen_", "").replace(/_[^_]+$/, ""),
-              ),
+              Object.keys(hass.states)
+                .map((id) => extractPpCitySlugFromEntityId(id))
+                .filter(Boolean),
             ),
           );
           loc = cities.length === 1 ? matchCity(cities[0]) : "";

@@ -47,6 +47,16 @@ const PP_ALIASES = {
   salg_och_viden: "willow",
 };
 
+/**
+ * PP allergen slugs (entity-id suffixes), sorted longest first so callers
+ * can use longest-suffix matching to extract a city slug from
+ * `sensor.pollen_{city}_{allergen}` even when the allergen contains
+ * underscores (e.g. "salg_och_viden").
+ */
+export const PP_ALLERGEN_SLUGS = Object.keys(PP_ALIASES).sort(
+  (a, b) => b.length - a.length,
+);
+
 const DWD_ALIASES = {
   erle: "alder",
   ambrosia: "ragweed",

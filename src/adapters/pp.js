@@ -2,7 +2,7 @@ import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { PP_POSSIBLE_CITIES } from "../constants.js";
+import { PP_POSSIBLE_CITIES, PP_ALLERGEN_SLUGS } from "../constants.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 
 export const stubConfigPP = {
@@ -70,16 +70,54 @@ function extractCityFromEntityId(entityId) {
 }
 
 /**
- * Extract the city slug from a PP entity ID.
+ * Extract the city slug from a PP entity ID by stripping a recognized
+ * allergen suffix. PP allergen slugs may contain underscores (e.g.
+ * "salg_och_viden"), so a naive `_[^_]+$` split would misclassify the
+ * city. PP_ALLERGEN_SLUGS is sorted longest-first to ensure the longest
+ * matching suffix wins.
+ *
  * "sensor.pollen_goteborg_bjork" -> "goteborg"
- * Returns null if the entity ID does not match the expected pattern.
+ * "sensor.pollen_visby_salg_och_viden" -> "visby"
+ * Returns null if the entity ID does not match the expected pattern or
+ * its suffix isn't a known allergen.
  *
  * @param {string} entityId
  * @returns {string|null}
  */
-function extractCitySlugFromEntityId(entityId) {
-  const m = entityId.match(/^sensor\.pollen_(.+)_[^_]+$/);
-  return m ? m[1] : null;
+export function extractCitySlugFromEntityId(entityId) {
+  const prefix = "sensor.pollen_";
+  if (!entityId.startsWith(prefix)) return null;
+  const remainder = entityId.slice(prefix.length);
+  for (const allergenSlug of PP_ALLERGEN_SLUGS) {
+    const suffix = `_${allergenSlug}`;
+    if (remainder.endsWith(suffix)) {
+      const citySlug = remainder.slice(0, -suffix.length);
+      return citySlug || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract the allergen slug from a PP entity ID using the same suffix
+ * whitelist as extractCitySlugFromEntityId. Returns the canonical
+ * (master) key via normalize() so callers can look it up directly in
+ * cfg.allergens.
+ *
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function extractAllergenKeyFromEntityId(entityId) {
+  const prefix = "sensor.pollen_";
+  if (!entityId.startsWith(prefix)) return null;
+  const remainder = entityId.slice(prefix.length);
+  for (const allergenSlug of PP_ALLERGEN_SLUGS) {
+    const suffix = `_${allergenSlug}`;
+    if (remainder.endsWith(suffix)) {
+      return normalize(allergenSlug);
+    }
+  }
+  return null;
 }
 
 /**
@@ -107,14 +145,11 @@ export function discoverPpSensors(hass, debug = false) {
     platform: ["pollenprognos"],
     /**
      * Strict classifier: derive the canonical allergen key from the entity ID.
-     * PP entity IDs follow the pattern sensor.pollen_{city}_{allergen}.
-     * The allergen is the last underscore-separated segment.
+     * PP entity IDs follow the pattern sensor.pollen_{city}_{allergen}, but
+     * the allergen slug can contain underscores (e.g. "salg_och_viden"), so
+     * use a longest-suffix whitelist match rather than splitting on `_`.
      */
-    classify: (eid) => {
-      const m = eid.match(/^sensor\.pollen_(.+)_([^_]+)$/);
-      if (!m) return null;
-      return normalize(m[2]);
-    },
+    classify: (eid) => extractAllergenKeyFromEntityId(eid),
     /**
      * isRelevant: quick pre-filter before classify runs.
      */
@@ -156,9 +191,13 @@ export function discoverPpSensors(hass, debug = false) {
       return ctx.device?.config_entries?.[0] || "default";
     },
     /**
-     * fallbackRegex: matches the standard PP entity ID pattern used in tier 3.
+     * fallbackSelector: tier 3 uses the same allergen-suffix whitelist as
+     * the classifier so multi-word allergen slugs are matched correctly.
      */
-    fallbackRegex: /^sensor\.pollen_.+_[^_]+$/,
+    fallbackSelector: (h) =>
+      Object.keys(h.states).filter(
+        (id) => extractAllergenKeyFromEntityId(id) !== null,
+      ),
     debug,
     logTag: "PP",
   });
@@ -174,14 +213,13 @@ function detectCity(cfg, hass) {
   const cityCfg = isConfigEntryId(cfg.city) ? "" : cfg.city;
   let cityKey = normalize(cityCfg || "");
   if (!cityKey) {
+    // Use the allergen-suffix whitelist to handle multi-word slugs like
+    // "salg_och_viden" correctly when extracting the city.
     const ppStates = Object.keys(hass.states).filter(
-      (id) =>
-        id.startsWith("sensor.pollen_") &&
-        /^sensor\.pollen_(.+)_[^_]+$/.test(id),
+      (id) => extractCitySlugFromEntityId(id) !== null,
     );
     if (ppStates.length) {
-      const m = ppStates[0].match(/^sensor\.pollen_(.+)_[^_]+$/);
-      cityKey = m ? m[1] : "";
+      cityKey = extractCitySlugFromEntityId(ppStates[0]) || "";
     }
   }
   return cityKey;
@@ -212,10 +250,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
   if (discovery.locations.size > 0) {
     const match = resolveLocationByKey(discovery, cfg.city, {
-      slugExtractor: (eid) => {
-        const m = eid.match(/^sensor\.pollen_(.+)_[^_]+$/);
-        return m ? m[1] : null;
-      },
+      slugExtractor: extractCitySlugFromEntityId,
     });
 
     if (match) {

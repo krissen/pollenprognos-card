@@ -12,7 +12,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
-import { stubConfigPP, discoverPpSensors } from "./adapters/pp.js";
+import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { stubConfigDWD, discoverDwdSensors } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, discoverPeuSensors } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
@@ -612,17 +612,14 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedCities = this.installedPpLocations.map(([, label]) => label);
         } else {
           const all = Object.keys(this._hass.states);
+          // Use the allergen-suffix whitelist from pp.js so multi-word slugs
+          // like "salg_och_viden" don't truncate the city.
           const ppKeys = new Set(
             all
-              .filter(
-                (id) =>
-                  typeof id === "string" &&
-                  id.startsWith("sensor.pollen_") &&
-                  !id.startsWith("sensor.pollenflug_"),
-              )
               .map((id) =>
-                id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
-              ),
+                typeof id === "string" ? extractPpCitySlugFromEntityId(id) : null,
+              )
+              .filter(Boolean),
           );
           this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
             ppKeys.has(
@@ -991,12 +988,12 @@ class PollenPrognosCardEditor extends LitElement {
         // Keep installedCities in sync (used by setConfig legacy path)
         this.installedCities = this.installedPpLocations.map(([, label]) => label);
       } else {
-        // Fallback to PP_POSSIBLE_CITIES when discovery yields nothing
+        // Fallback to PP_POSSIBLE_CITIES when discovery yields nothing.
+        // Use the allergen-suffix whitelist so multi-word slugs like
+        // "salg_och_viden" don't truncate the city.
         const uniqKeys = Array.from(
           new Set(
-            ppStates.map((id) =>
-              id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
-            ),
+            ppStates.map((id) => extractPpCitySlugFromEntityId(id)).filter(Boolean),
           ),
         );
         this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
