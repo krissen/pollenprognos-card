@@ -6,9 +6,10 @@ import { normalize, normalizeDWD } from "./normalize.js";
 
 /**
  * Test if a value is a Home Assistant config_entry_id (ULID-format string,
- * 26 Crockford base32 characters). Crockford base32 excludes I, L, O, U to
- * avoid ambiguity with 1/0 and offensive substrings, so the regex rejects
- * those letters as well as the literal characters.
+ * 26 Crockford base32 characters). Crockford base32 excludes I, L, O, and U
+ * to avoid ambiguity with 1/0 and offensive substrings, so this regex does
+ * not allow those letters; because it uses the /i flag, that exclusion
+ * applies to both uppercase and lowercase input.
  *
  * Used by adapters to distinguish between new-style config_entry_id location
  * keys and legacy slug configs.
