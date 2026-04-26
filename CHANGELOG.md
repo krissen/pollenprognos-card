@@ -7,10 +7,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
-- (kleenex) Add per-allergen DetailSensor fallback and a clearer warning for US zones where the API only returns category totals (issue #206).
+- **Device-based entity discovery across all adapters** (issue #202). The card now resolves sensors via the Home Assistant device registry as the primary path, with platform scan and regex/selector fallbacks. Result: multi-instance setups (multiple cities/regions of the same integration) route correctly without manual configuration, and entity-ID renames no longer break detection. The `location` field of cards now accepts a `config_entry_id` (ULID) in addition to the legacy slug for **PP, DWD, PEU, SILAM, Atmo, Kleenex, GPL, GP** (previously only GPL/GP). Slug-based configs continue to work.
+- Stale-config recovery: if a saved `config_entry_id` no longer matches any discovered location (e.g. integration reinstalled), the card automatically falls back to slug matching instead of showing an empty card. Applies to PP, DWD, PEU, Atmo, GPL, GP.
+- (kleenex) Per-allergen DetailSensor fallback and a clearer warning for US/CA zones where the upstream API only returns category totals (issue #206). The NA-zone warning is de-duplicated per session and per location.
+
+### Changed
+- Discovery helper extracted to `src/utils/adapter-helpers.js` (`discoverEntitiesByDevice`, `resolveLocationByKey`, `findLocationBySlug`). All adapters now share the same three-tier cascade, eliminating bespoke regex-based discovery in PP, DWD, PEU, SILAM, Atmo, Kleenex.
+- (editor) PP and DWD location dropdowns now sorted consistently when populated via the secondary discovery path.
+- (card) Header location label now resolved through the shared discovery helper for PP, DWD, PEU, GPL, GP. Discovery results are cached per-render to avoid redundant entity scans.
+- (dwd) Region-ID prefix stripped from auto-derived region labels; ID suffix only appended when needed to disambiguate duplicate region names.
+- (pp) Tier-3 fallback city labels now restore diacritics (Malmö, Visby etc.) via `PP_POSSIBLE_CITIES` instead of showing the slugified form.
+- (peu) Allergen classification uses an explicit whitelist instead of a greedy regex, avoiding misclassification for entity IDs that happen to contain allergen-like substrings.
 
 ### Fixed
-- (gpl, gp) Strip integration-appended " - <category> (<lat>,<lng>)" suffix from location labels (issue #208). Previously the editor dropdown and card title leaked text like "Hem - Pollentyper (50.45, 30.52)". Now uses a locale-agnostic util that handles any HA language, applied at both discovery and the card's title resolver for defense-in-depth.
+- (gpl, gp) Strip integration-appended " - <category> (<lat>,<lng>)" suffix from location labels (issue #208). Previously the editor dropdown and card title leaked text like "Hem - Pollentyper (50.45, 30.52)". Now uses a locale-agnostic util (`cleanDeviceLabel`) that handles any HA language, applied at both discovery and the card's title resolver for defense-in-depth.
+- (kleenex) Manual mode `entity_prefix`/`entity_suffix` handling honored consistently across category-sensor heuristics and the DetailSensor fallback pass.
+- (helpers) `isConfigEntryId` tightened to the Crockford base32 alphabet to avoid false positives on entity-id-shaped strings.
+
+### Documentation
+- `docs/configuration.md`: clarified that the `location` field accepts a `config_entry_id` for all adapters with a location dimension, not just GPL/GP.
+- `docs/troubleshooting.md`: noted the stale-config recovery behavior (no user action needed if an integration is reinstalled with a new `entry_id`).
+- `docs/integrations.md` + `docs/troubleshooting.md`: documented the Kleenex NA-zone limitation and the DetailSensor fallback for EU/UK zones.
 
 ## [3.1.0] - 2026-04-19
 
