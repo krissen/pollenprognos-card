@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - (helpers) `isConfigEntryId` tightened to the Crockford base32 alphabet to avoid false positives on entity-id-shaped strings.
 
 ### Documentation
-- `docs/configuration.md`: clarified that the `location` field accepts a `config_entry_id` for all adapters with a location dimension, not just GPL/GP.
+- `docs/configuration.md`: clarified that the `location` field accepts a `config_entry_id` for PP, DWD, PEU, SILAM, Atmo, GPL and GP, not just GPL/GP.
 - `docs/troubleshooting.md`: noted the stale-config recovery behavior (no user action needed if an integration is reinstalled with a new `entry_id`).
 - `docs/integrations.md` + `docs/troubleshooting.md`: documented the Kleenex NA-zone limitation and the DetailSensor fallback for EU/UK zones.
 
