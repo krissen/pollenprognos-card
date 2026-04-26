@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - **Device-based entity discovery across most adapters** (issue #202). PP, DWD, PEU, SILAM, Atmo, GPL and GP now resolve sensors via the Home Assistant device registry as the primary path, with platform scan and regex/selector fallbacks. Result: multi-instance setups (multiple cities/regions of the same integration) route correctly without manual configuration, and for these adapters entity-ID renames no longer break detection. The `location` field (and `city` for PP, `region_id` for DWD) now accepts a `config_entry_id` (ULID) in addition to the legacy slug for these seven adapters (previously only GPL/GP). Slug-based configs continue to work. Kleenex is not part of this migration and continues to use entity-ID slug matching.
-- Stale-config recovery: if a saved `config_entry_id` no longer matches any discovered location (e.g. integration reinstalled), the card auto-recovers instead of rendering empty. Explicit retry-as-autodetect path implemented for DWD, GPL and GP; PP and PEU recover via their pre-existing template-fallback path. SILAM and Atmo do not auto-recover — for these, re-pick the location in the visual editor after a reinstall. (Kleenex is not in scope here because it does not accept a `config_entry_id`.)
+- Stale-config recovery: if a saved `config_entry_id` no longer matches any discovered location (e.g. integration removed/reinstalled), the card auto-recovers instead of rendering empty. Explicit retry-as-autodetect path implemented for DWD, GPL, GP, SILAM and Atmo; PP and PEU recover via their pre-existing template-fallback path. (Kleenex is not in scope here because it does not accept a `config_entry_id`.)
 - (kleenex) Per-allergen DetailSensor fallback and a clearer warning for US/CA zones where the upstream API only returns category totals (issue #206). The NA-zone warning is de-duplicated per session and per location.
 
 ### Changed
@@ -26,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Documentation
 - `docs/configuration.md`: clarified that the `location` field accepts a `config_entry_id` for PP, DWD, PEU, SILAM, Atmo, GPL and GP, not just GPL/GP.
-- `docs/troubleshooting.md`: clarified that stale-config recovery after an integration reinstall is adapter-specific: DWD/GPL/GP retry autodetect, PP/PEU recover via template fallback, and SILAM/Atmo require re-picking the location.
+- `docs/troubleshooting.md`: documented that all adapters with `config_entry_id` support (DWD, GPL, GP, SILAM, Atmo, PP, PEU) auto-recover from a stale `config_entry_id` after an integration reinstall — no user action required.
 - `docs/integrations.md` + `docs/troubleshooting.md`: documented the Kleenex NA-zone limitation and the DetailSensor fallback for EU/UK zones.
 
 ## [3.1.0] - 2026-04-19
