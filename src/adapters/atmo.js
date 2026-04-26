@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, findLocationBySlug } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, findLocationBySlug, isConfigEntryId } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -335,6 +335,20 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     discoveredEntities = discovery.locations.get(location).entities;
   } else if (!location && discovery.locations.size) {
     // Auto-detect: use first discovered location
+    discoveredEntities = discovery.locations.values().next().value.entities;
+  } else if (
+    location &&
+    isConfigEntryId(location) &&
+    discovery.locations.size
+  ) {
+    // Stale config_entry_id (integration removed/reinstalled): fall back to
+    // first discovered location instead of returning an empty card. Mirrors
+    // the DWD/GPL/GP recovery path.
+    if (debug) {
+      console.debug(
+        `[ATMO:resolveEntityIds] stale config_entry_id '${location}', falling back to first discovered location`,
+      );
+    }
     discoveredEntities = discovery.locations.values().next().value.entities;
   }
 
