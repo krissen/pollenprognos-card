@@ -106,7 +106,7 @@ The card could not find any sensors matching your integration and location.
 
 2. **Wrong integration selected.** Make sure the `integration` field in your card config matches your installed integration. Valid values: `pp`, `dwd`, `peu`, `silam`, `kleenex`, `plu`, `atmo`, `gpl`, `gp`.
 
-3. **Wrong location/city/region.** The location value must match what the integration created. Check your sensor entity IDs in Developer Tools > States to find the correct value.
+3. **Wrong location/city/region.** The configured value must match what the integration created. If you are using a location/city/region slug, check your sensor entity IDs in Developer Tools > States to find the correct value. If you selected the location in the visual editor and the stored value is a `config_entry_id` (a 26-character ULID), that ID usually will not appear in entity IDs; use the visual editor location dropdown again, or check the matching device/config entry in Home Assistant, to verify the correct location.
 
 4. **Sensors renamed in Home Assistant.** Since v3.2.0 the card uses device-registry-based discovery as its primary path for PP, DWD, PEU, SILAM, Atmo, GPL and GP, so renamed entity IDs no longer break detection for those adapters. **Kleenex** is not migrated and still relies on the entity-ID pattern `sensor.kleenex_pollen_radar_<location>_<category>`; renaming Kleenex entities can still break detection. For Kleenex (or if discovery still fails on another adapter for any reason), you have two fallbacks:
    - Rename entities back to their defaults, or
