@@ -163,13 +163,30 @@ export function discoverSilamSensors(hass, debug = false) {
 
 /**
  * Resolve a discovered location from pre-computed discovery data.
- * Only falls back to first location when configLocation is empty (autodetect).
+ *
+ * - Empty configLocation → autodetect (first location).
+ * - config_entry_id matching a discovered entry → that entry.
+ * - Stale config_entry_id (looks like a ULID but missing from discovery,
+ *   typically after the integration has been removed/reinstalled) →
+ *   autodetect (first location), so the card recovers instead of going
+ *   blank. Mirrors the DWD/GPL/GP recovery path.
+ * - Slug-style configLocation matching a label substring → that location.
+ * - Otherwise → null.
  */
 export function resolveDiscoveredLocation(discovery, configLocation, debug = false) {
   if (!discovery?.locations?.size) return null;
 
-  if (isConfigEntryId(configLocation) && discovery.locations.has(configLocation)) {
-    return discovery.locations.get(configLocation);
+  if (isConfigEntryId(configLocation)) {
+    if (discovery.locations.has(configLocation)) {
+      return discovery.locations.get(configLocation);
+    }
+    if (debug) {
+      console.debug(
+        "[SILAM] Stale config_entry_id, falling back to first location:",
+        configLocation,
+      );
+    }
+    return discovery.locations.values().next().value ?? null;
   }
   if (configLocation) {
     const locLower = configLocation.toLowerCase();
@@ -178,7 +195,6 @@ export function resolveDiscoveredLocation(discovery, configLocation, debug = fal
         return loc;
       }
     }
-    // Explicit location that doesn't match — don't silently pick another
     if (debug)
       console.debug(
         "[SILAM] Discovery: explicit location not matched:",
@@ -186,7 +202,6 @@ export function resolveDiscoveredLocation(discovery, configLocation, debug = fal
       );
     return null;
   }
-  // No location configured → autodetect first available
   return discovery.locations.values().next().value ?? null;
 }
 
