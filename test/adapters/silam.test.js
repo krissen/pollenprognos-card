@@ -967,6 +967,46 @@ describe("resolveEntityIds", () => {
 
     expect(result.get("birch")).toBe(sensorId);
   });
+
+  it("recovers when location is a stale config_entry_id", () => {
+    // 26-char Crockford-base32 ULIDs — isConfigEntryId() detects this format.
+    const realEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ01";
+    const staleEntryId = "01ZZZZZZZZZZZZZZZZZZZZZZZZ";
+    const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+    const sensorId = "sensor.silam_pollen_stockholm_birch";
+    const states = {
+      [weatherEntityId]: { state: "sunny", attributes: {} },
+      [sensorId]: { state: "30", attributes: {} },
+    };
+    const deviceId = "dev_sthlm";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "forecast",
+      },
+      [sensorId]: {
+        entity_id: sensorId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "birch",
+      },
+    };
+    const devices = {
+      [deviceId]: { name: "Stockholm", config_entries: [realEntryId] },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+
+    // Saved config_entry_id no longer matches (integration removed/reinstalled).
+    // Adapter should fall back to first discovered location instead of returning empty.
+    const cfg = makeConfig({ location: staleEntryId, allergens: ["birch"] });
+    const result = resolveEntityIds(cfg, hass);
+
+    expect(result.get("birch")).toBe(sensorId);
+  });
 });
 
 // ---------------------------------------------------------------------------
