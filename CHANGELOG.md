@@ -26,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Documentation
 - `docs/configuration.md`: clarified that the `location` field accepts a `config_entry_id` for PP, DWD, PEU, SILAM, Atmo, GPL and GP, not just GPL/GP.
-- `docs/troubleshooting.md`: noted the stale-config recovery behavior (no user action needed if an integration is reinstalled with a new `entry_id`).
+- `docs/troubleshooting.md`: clarified that stale-config recovery after an integration reinstall is adapter-specific: DWD/GPL/GP retry autodetect, PP/PEU recover via template fallback, and SILAM requires re-picking the location.
 - `docs/integrations.md` + `docs/troubleshooting.md`: documented the Kleenex NA-zone limitation and the DetailSensor fallback for EU/UK zones.
 
 ## [3.1.0] - 2026-04-19
