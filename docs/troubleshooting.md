@@ -108,13 +108,13 @@ The card could not find any sensors matching your integration and location.
 
 3. **Wrong location/city/region.** The location value must match what the integration created. Check your sensor entity IDs in Developer Tools > States to find the correct value.
 
-4. **Sensors renamed in Home Assistant.** Since v3.2.0 the card uses device-registry-based discovery as its primary path for PP, DWD, PEU, SILAM, Atmo, Kleenex, GPL and GP, so renamed entity IDs no longer break detection. If discovery still fails (older HA versions, custom integration forks, or unusual setups), you have two fallbacks:
+4. **Sensors renamed in Home Assistant.** Since v3.2.0 the card uses device-registry-based discovery as its primary path for PP, DWD, PEU, SILAM, Atmo, GPL and GP, so renamed entity IDs no longer break detection for those adapters. **Kleenex** is not migrated and still relies on the entity-ID pattern `sensor.kleenex_pollen_radar_<location>_<category>`; renaming Kleenex entities can still break detection. For Kleenex (or if discovery still fails on another adapter for any reason), you have two fallbacks:
    - Rename entities back to their defaults, or
    - Use `manual` mode with `entity_prefix`/`entity_suffix` (see [configuration.md](configuration.md))
 
 5. **Integration version incompatible with card version.** See [integrations.md](integrations.md) for the compatibility matrix.
 
-6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match. The card auto-recovers by falling back to slug matching, so the card should still render — but if it doesn't, open the card in the visual editor and re-pick the location to write the new `entry_id` into the config.
+6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match any discovered location. **DWD, GPL and GP** auto-recover by falling back to autodetect; **PP and PEU** recover via their legacy template-fallback path. **SILAM** and **Kleenex** do not auto-recover — open the card in the visual editor and re-pick the location to write the new value into the config.
 
 **Quick test:** Try adding the card with only the minimum config to see if auto-detection works:
 ```yaml
