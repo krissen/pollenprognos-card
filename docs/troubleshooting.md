@@ -114,7 +114,7 @@ The card could not find any sensors matching your integration and location.
 
 5. **Integration version incompatible with card version.** See [integrations.md](integrations.md) for the compatibility matrix.
 
-6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match any discovered location. **DWD, GPL and GP** auto-recover by falling back to autodetect; **PP and PEU** recover via their legacy template-fallback path. **SILAM** and **Kleenex** do not auto-recover — open the card in the visual editor and re-pick the location to write the new value into the config.
+6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match any discovered location. **DWD, GPL and GP** auto-recover by falling back to autodetect; **PP and PEU** recover via their legacy template-fallback path. **SILAM** and **Atmo** do not auto-recover — open the card in the visual editor and re-pick the location to write the new value into the config. (Kleenex does not use `config_entry_id` and is not affected by this scenario.)
 
 **Quick test:** Try adding the card with only the minimum config to see if auto-detection works:
 ```yaml
