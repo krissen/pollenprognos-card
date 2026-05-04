@@ -21,6 +21,7 @@ import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP, discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
+import { stubConfigMSW } from "./adapters/msw.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -156,7 +157,9 @@ class PollenPrognosCardEditor extends LitElement {
                   ? [...GPL_BASE_ALLERGENS, ...gplDiscoveredPlants]
                   : this._config.integration === "gp"
                     ? [...GP_BASE_ALLERGENS, ...gpDiscoveredPlants]
-                    : stubConfigPP.allergens;
+                    : this._config.integration === "msw"
+                      ? stubConfigMSW.allergens
+                      : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -1760,8 +1763,10 @@ class PollenPrognosCardEditor extends LitElement {
                   : c.integration === "gp"
                     ? [...GP_BASE_ALLERGENS, ...(this.installedGpPlants || [])]
                     : c.integration === "atmo"
-                      ? ATMO_ALLERGENS
-                      : stubConfigPP.allergens;
+                  ? ATMO_ALLERGENS
+                  : c.integration === "msw"
+                    ? stubConfigMSW.allergens
+                    : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd"
@@ -1832,6 +1837,7 @@ class PollenPrognosCardEditor extends LitElement {
                     { value: "atmo", label: this._t("integration.atmo") },
                     { value: "gpl", label: this._t("integration.gpl") },
                     { value: "gp", label: this._t("integration.gp") },
+                    { value: "msw", label: this._t("integration.msw") },
                   ],
                 },
               }}
@@ -2037,7 +2043,7 @@ class PollenPrognosCardEditor extends LitElement {
                           ></ha-selector>
                         </ha-formfield>
                       `
-                  : c.integration === "plu"
+                  : c.integration === "plu" || c.integration === "msw"
                     ? ""
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
