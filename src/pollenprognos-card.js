@@ -336,14 +336,18 @@ class PollenPrognosCard extends LitElement {
       );
     }
     let daysCount = 0;
+    // MSW only exposes same-day measurements upstream; never display
+    // synthetic empty future days for it even if the user set days_to_show > 1.
+    const effectiveDaysToShow =
+      cfg.integration === "msw" ? 1 : cfg.days_to_show;
     if (cfg.show_empty_days) {
-      daysCount = cfg.days_to_show;
+      daysCount = effectiveDaysToShow;
     } else {
       // Use max real days across all sensors (not just the first one)
       for (const s of filtered) {
         if (!s.days || !s.days.length) continue;
         const realDays = s.days.filter((d) => d.state >= 0).length;
-        const count = Math.min(realDays, cfg.days_to_show);
+        const count = Math.min(realDays, effectiveDaysToShow);
         if (count > daysCount) daysCount = count;
       }
     }
