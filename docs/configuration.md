@@ -38,7 +38,7 @@ In this file:
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `type` | `string` | **Required** | Must be `custom:pollenprognos-card`. |
-| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo`, `gpl` or `gp`. If omitted the card tries to detect the correct integration. |
+| `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo`, `gpl`, `gp` or `msw`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, a `config_entry_id` for multi-instance setups, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, a `config_entry_id` for multi-instance setups, or `manual` for custom entity prefix/suffix. |
 | `location` *(PEU, SILAM, Kleenex, Atmo, GPL, GP, MSW)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For **PEU, SILAM, Atmo, GPL, GP, MSW** (and PP `city` / DWD `region_id`) may also be set to a `config_entry_id` (Crockford-base32 ULID); the visual editor uses this form by default since v3.2.0 to support multi-instance setups reliably. **Kleenex** does not accept a `config_entry_id` and continues to require a slug (e.g. `atlanta_georgia`, `utrecht`). For **MSW** the value can also be a label match (e.g. `Bern`) or station code (e.g. `8000`). Leave empty for auto-detection when only one location is configured. |

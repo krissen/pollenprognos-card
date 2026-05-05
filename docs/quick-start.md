@@ -83,6 +83,11 @@ integration: gpl
 # Google Pollen — svenove (global)
 type: custom:pollenprognos-card
 integration: gp
+
+# MeteoSwiss / hass-swissweather (Switzerland)
+type: custom:pollenprognos-card
+integration: msw
+# location auto-detected; set config_entry_id, label or station code for multi-station setups
 ```
 
 ## Common Customizations
@@ -267,6 +272,21 @@ allergens:
   - birch
   - ragweed
 days_to_show: 4
+```
+
+### Switzerland (MeteoSwiss)
+
+```yaml
+type: custom:pollenprognos-card
+integration: msw
+allergens:
+  - birch
+  - grass
+  - alder
+  - hazel
+# days_to_show fixed at 1 (upstream provides today only); five-level scale.
+# For multi-station setups, pick the station via the visual editor or set
+# location: <config_entry_id> | <label> | <postal-code>.
 ```
 
 ## Next Steps

@@ -68,6 +68,7 @@ Located in `src/adapters/`. Each adapter exports:
 - `atmo.js` - Atmo France (French air quality/pollen)
 - `gpl/` - Google Pollen Levels (global, modularized into constants/discovery/forecast)
 - `gp/` - Google Pollen by svenove (global, modularized into constants/discovery/forecast)
+- `msw.js` - MeteoSwiss / hass-swissweather (Switzerland; native 5-level scale 0-4, current-day only)
 
 When adding support for a new integration, see "Adding a New Integration" below.
 

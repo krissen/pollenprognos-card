@@ -102,19 +102,19 @@ The card could not find any sensors matching your integration and location.
 
 **Common causes:**
 
-1. **Integration not installed or not configured.** Check Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K) and search for your pollen sensors (e.g., `sensor.pollen_`, `sensor.dwd_pollenflug_`, `sensor.silam_pollen_`). If no sensors appear, the issue is with the integration, not the card.
+1. **Integration not installed or not configured.** Check Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K) and search for your pollen sensors (e.g., `sensor.pollen_`, `sensor.dwd_pollenflug_`, `sensor.silam_pollen_`, `sensor..._pollen_..._level_at_...` for MSW). If no sensors appear, the issue is with the integration, not the card.
 
-2. **Wrong integration selected.** Make sure the `integration` field in your card config matches your installed integration. Valid values: `pp`, `dwd`, `peu`, `silam`, `kleenex`, `plu`, `atmo`, `gpl`, `gp`.
+2. **Wrong integration selected.** Make sure the `integration` field in your card config matches your installed integration. Valid values: `pp`, `dwd`, `peu`, `silam`, `kleenex`, `plu`, `atmo`, `gpl`, `gp`, `msw`.
 
 3. **Wrong location/city/region.** The configured value must match what the integration created. If you are using a location/city/region slug, check your sensor entity IDs in Developer Tools > States to find the correct value. If you selected the location in the visual editor and the stored value is a `config_entry_id` (a 26-character ULID), that ID usually will not appear in entity IDs; use the visual editor location dropdown again, or check the matching device/config entry in Home Assistant, to verify the correct location.
 
-4. **Sensors renamed in Home Assistant.** Since v3.2.0 the card uses device-registry-based discovery as its primary path for PP, DWD, PEU, SILAM, Atmo, GPL and GP, so renamed entity IDs no longer break detection for those adapters. **Kleenex** is not migrated and still relies on the entity-ID pattern `sensor.kleenex_pollen_radar_<location>_<category>`; renaming Kleenex entities can still break detection. For Kleenex (or if discovery still fails on another adapter for any reason), you have two fallbacks:
+4. **Sensors renamed in Home Assistant.** Since v3.2.0 the card uses device-registry-based discovery as its primary path for PP, DWD, PEU, SILAM, Atmo, GPL, GP and MSW, so renamed entity IDs no longer break detection for those adapters. **Kleenex** is not migrated and still relies on the entity-ID pattern `sensor.kleenex_pollen_radar_<location>_<category>`; renaming Kleenex entities can still break detection. For Kleenex (or if discovery still fails on another adapter for any reason), you have two fallbacks:
    - Rename entities back to their defaults, or
    - Use `manual` mode with `entity_prefix`/`entity_suffix` (see [configuration.md](configuration.md))
 
 5. **Integration version incompatible with card version.** See [integrations.md](integrations.md) for the compatibility matrix.
 
-6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match any discovered location. The card auto-recovers for all adapters that accept a `config_entry_id` — DWD, GPL, GP, SILAM and Atmo via an explicit retry-as-autodetect path, and PP and PEU via their legacy template-fallback path — by falling back to the first discovered location. No user action is required. To make the new `entry_id` permanent in your config, open the card in the visual editor and re-pick the location. (Kleenex does not use `config_entry_id` and is not affected by this scenario.)
+6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match any discovered location. The card auto-recovers for all adapters that accept a `config_entry_id` — DWD, GPL, GP, SILAM, Atmo and MSW via an explicit retry-as-autodetect path, and PP and PEU via their legacy template-fallback path — by falling back to the first discovered location. No user action is required. To make the new `entry_id` permanent in your config, open the card in the visual editor and re-pick the location. (Kleenex does not use `config_entry_id` and is not affected by this scenario.)
 
 **Quick test:** Try adding the card with only the minimum config to see if auto-detection works:
 ```yaml
@@ -207,6 +207,14 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - Allergens are classified via the `display_name` attribute, which is localized by the integration's language setting; English names are supported out of the box
 - The API provides up to 4 forecast days (today + 3)
 - If you have both `pollenlevels` and `google_pollen` installed, the card auto-detects GP first; set `integration: gpl` explicitly if you prefer the other adapter
+
+#### MeteoSwiss (MSW, hass-swissweather)
+- Detected by the `swissweather` platform; entity IDs follow the pattern `sensor.<device-slug>_pollen_<allergen>_level_at_<station>`
+- The `<device-slug>` prefix comes from the device name and changes if you rename the device via Home Assistant's "rename device" UI (`name_by_user`). Discovery is device-registry-based so renames do not break detection
+- MeteoSwiss publishes only current-day measurements; `days_to_show` is fixed at 1 by the card regardless of config (synthetic future days are never rendered)
+- Multi-station setups (multiple `hass-swissweather` config entries) are supported. Pick the station via the visual editor's location dropdown, or set `location` explicitly to a `config_entry_id` (Crockford-base32 ULID), the device label (e.g. `Bern`), or the postal code (e.g. `8000`)
+- Stale `config_entry_id` after integration reinstall: the card falls back to the first discovered station automatically
+- The seven supported allergens are birch, grass, alder, hazel, beech, ash, oak (matching what hass-swissweather exposes)
 
 ---
 
