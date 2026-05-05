@@ -189,8 +189,17 @@ class PollenPrognosCardEditor extends LitElement {
                 ? 7
                 : 7;
 
+    // Use scale-specific phrase defaults so 5-level integrations (MSW; PEU
+    // pending #215) surface semantically-correct severity labels in the
+    // editor instead of borrowing strings from the wider 7-level palette.
+    // Other scales fall back to the legacy editor.phrases_levels.0..6 keys
+    // until per-scale entries are added for them.
+    const levelKeyPrefix =
+      this._config.integration === "msw"
+        ? "editor.phrases_levels5"
+        : "editor.phrases_levels";
     const levels = Array.from({ length: numLevels }, (_, i) =>
-      t(`editor.phrases_levels.${i}`, lang),
+      t(`${levelKeyPrefix}.${i}`, lang),
     );
 
     const days = {

@@ -15,7 +15,7 @@
 //     mirroring DWD/GPL/GP/SILAM/Atmo recovery behavior.
 
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
-import { buildLevelNames } from "../utils/level-names.js";
+import { buildLevelNamesForScale } from "../utils/level-names.js";
 import {
   getLangAndLocale,
   mergePhrases,
@@ -234,7 +234,8 @@ export async function fetchForecast(hass, config) {
   );
   const { fullPhrases, shortPhrases, userLevels, userDays } =
     mergePhrases(config, lang);
-  const levelNames = buildLevelNames(userLevels, lang);
+  // Five-level scale: defaults from card.levels5.0..4, native-indexed.
+  const levelNames = buildLevelNamesForScale(5, userLevels, lang);
   const pollen_threshold = config.pollen_threshold ?? stubConfigMSW.pollen_threshold;
 
   if (debug) console.debug("MSW adapter: start fetchForecast", { config, lang });

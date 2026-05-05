@@ -213,6 +213,44 @@ describe("MSW adapter: fetchForecast", () => {
   it("integration key is msw", () => {
     expect(stubConfigMSW.integration).toBe("msw");
   });
+
+  it("state_text reads from the 5-level scale, not the 7-level defaults", async () => {
+    // card.levels5.* keys hold semantically-correct severity strings for the
+    // five-level scale. Looking up at native indices in the legacy
+    // card.levels.* (seven-level) defaults would surface
+    // "Moderate-high levels" for state=4 (Very Strong) which is wrong.
+    const cases = [
+      ["None", "No pollen"],
+      ["Low", "Low levels"],
+      ["Medium", "Moderate levels"],
+      ["Strong", "High levels"],
+      ["Very Strong", "Very high levels"],
+    ];
+    for (const [levelStr, expectedText] of cases) {
+      const hass = makeHass({ birch: ["birch", levelStr] });
+      const config = makeConfig({ allergens: ["birch"], pollen_threshold: 0 });
+      const result = await fetchForecast(hass, config);
+      expect(result.length).toBe(1);
+      expect(result[0].day0.state_text).toBe(expectedText);
+    }
+  });
+
+  it("user-supplied phrases.levels override at native indices", async () => {
+    const hass = makeHass({ birch: ["birch", "Very Strong"] });
+    const config = makeConfig({
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      phrases: {
+        full: {},
+        short: {},
+        levels: ["Inget", "Lite", "Måttligt", "Mycket", "Extremt"],
+        days: {},
+        no_information: "",
+      },
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result[0].day0.state_text).toBe("Extremt");
+  });
 });
 
 // ---------------------------------------------------------------------------
