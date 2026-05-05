@@ -16,6 +16,7 @@ import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
+import { discoverMswSensors } from "./adapters/msw.js";
 import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors } from "./adapters/dwd.js";
 import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
@@ -1116,6 +1117,7 @@ class PollenPrognosCard extends LitElement {
     let _dwdDiscovery = null;
     let _peuDiscovery = null;
     let _gplDiscovery = null;
+    let _mswDiscovery = null;
     const getPpDiscovery = () => {
       if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, this.debug);
       return _ppDiscovery;
@@ -1131,6 +1133,10 @@ class PollenPrognosCard extends LitElement {
     const getGplDiscovery = () => {
       if (_gplDiscovery === null) _gplDiscovery = discoverGplSensors(hass, this.debug);
       return _gplDiscovery;
+    };
+    const getMswDiscovery = () => {
+      if (_mswDiscovery === null) _mswDiscovery = discoverMswSensors(hass, this.debug);
+      return _mswDiscovery;
     };
 
     if (this.debug) {
@@ -1700,6 +1706,16 @@ class PollenPrognosCard extends LitElement {
         // Defensive: same rationale as the GPL branch above.
         const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
+        loc = title || cfg.location || "";
+      } else if (integration === "msw") {
+        // MeteoSwiss / hass-swissweather: resolve via shared device discovery
+        // so config_entry_id keys, friendly device names, and renamed devices
+        // (name_by_user) all surface the right station label in the header.
+        const mswDiscovery = getMswDiscovery();
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
+        const title = mswMatch ? mswMatch[1].label : "";
         loc = title || cfg.location || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location
