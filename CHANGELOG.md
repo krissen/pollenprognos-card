@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - (dwd) Region-ID prefix stripped from auto-derived region labels; ID suffix only appended when needed to disambiguate duplicate region names.
 - (pp) Tier-3 fallback city labels now restore diacritics (Malmö, Visby etc.) via `PP_POSSIBLE_CITIES` instead of showing the slugified form.
 - (peu) Allergen classification uses an explicit whitelist instead of a greedy regex, avoiding misclassification for entity IDs that happen to contain allergen-like substrings.
+- (editor) Integration dropdown now lists detected/installed integrations first, alphabetically, followed by the rest in alphabetical order. With ten supported integrations the legacy registry-order list was hard to scan; the new order surfaces the user's actual installs at the top.
 
 ### Fixed
 - (gpl, gp) Strip integration-appended " - <category> (<lat>,<lng>)" suffix from location labels (issue #208). Previously the editor dropdown and card title leaked text like "Hem - Pollentyper (50.45, 30.52)". Now uses a locale-agnostic util (`cleanDeviceLabel`) that handles any HA language, applied at both discovery and the card's title resolver for defense-in-depth.
