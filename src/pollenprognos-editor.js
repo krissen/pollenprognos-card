@@ -11,7 +11,7 @@ import {
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
-import { getStubConfig } from "./adapter-registry.js";
+import { getAllAdapterIds, getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { stubConfigDWD, discoverDwdSensors } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
@@ -235,6 +235,31 @@ class PollenPrognosCardEditor extends LitElement {
 
   _t(key) {
     return t(`editor.${key}`, this._lang);
+  }
+
+  /**
+   * Build the integration dropdown options as a single visible list with two
+   * alphabetically-sorted segments: detected/installed integrations first,
+   * non-detected after. With ten supported integrations the legacy fixed
+   * order is hard to scan; sorting plus prioritizing the user's actual
+   * installs cuts down on bouncing.
+   *
+   * Detection comes from this._detectedIntegrations, populated by
+   * `set hass()`. When hass has not been set yet the set is empty and the
+   * dropdown falls back to a single alphabetically-sorted list of all
+   * registered adapters.
+   */
+  _buildIntegrationOptions() {
+    const detected = this._detectedIntegrations || new Set();
+    const ids = getAllAdapterIds();
+    const labelOf = (id) => this._t(`integration.${id}`);
+    const byLabel = (a, b) => labelOf(a).localeCompare(labelOf(b), this._lang);
+    const installed = ids.filter((id) => detected.has(id)).sort(byLabel);
+    const rest = ids.filter((id) => !detected.has(id)).sort(byLabel);
+    return [...installed, ...rest].map((id) => ({
+      value: id,
+      label: labelOf(id),
+    }));
   }
 
   _getAllergenDisplayName(allergenKey) {
@@ -813,7 +838,13 @@ class PollenPrognosCardEditor extends LitElement {
       Object.values(PLU_ALIAS_MAP).flat()
     );
 
-    const ppStates = Object.keys(hass.states).filter(
+    // Snapshot the state-key list once and reuse it for every prefix/regex
+    // filter below. Each call into `Object.keys(hass.states)` allocates a
+    // fresh array proportional to the entity count, and set hass() runs
+    // ~9 such scans per cycle; on large HA installs that is wasted work.
+    const stateIds = Object.keys(hass.states);
+
+    const ppStates = stateIds.filter(
       (id) => {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
@@ -838,11 +869,11 @@ class PollenPrognosCardEditor extends LitElement {
       },
     );
 
-    const dwdStates = Object.keys(hass.states).filter(
+    const dwdStates = stateIds.filter(
       (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
     );
 
-    const peuStates = Object.keys(hass.states).filter(
+    const peuStates = stateIds.filter(
       (id) =>
         typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
@@ -858,11 +889,11 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     if (!silamStates.length) {
-      silamStates = Object.keys(hass.states).filter(
+      silamStates = stateIds.filter(
         (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
       );
     }
-    const pluStates = Object.keys(hass.states).filter(
+    const pluStates = stateIds.filter(
       (id) => {
         if (typeof id !== "string") return false;
         const match = /^sensor\.pollen_([^_]+)$/.exec(id);
@@ -883,7 +914,7 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!gplStates.length) {
-      gplStates = Object.keys(hass.states).filter((id) => {
+      gplStates = stateIds.filter((id) => {
         const s = hass.states[id];
         return s?.attributes?.attribution === GPL_ATTRIBUTION
           && s.attributes.device_class !== "date"
@@ -898,7 +929,7 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!gpStates.length) {
-      gpStates = Object.keys(hass.states).filter((id) =>
+      gpStates = stateIds.filter((id) =>
         typeof id === "string" && id.startsWith("sensor.google_pollen_")
       );
     }
@@ -919,12 +950,36 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!mswStates.length) {
-      mswStates = Object.keys(hass.states).filter(
+      mswStates = stateIds.filter(
         (id) =>
           typeof id === "string" &&
           /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
       );
     }
+
+    // Kleenex prefix scan, computed locally for the dropdown sort. The editor's
+    // set hass() autodetect chain intentionally does not pick Kleenex (see
+    // 'known divergence' in test/card/autodetect.test.js), but for the
+    // dropdown's two-segment order we still want to mark it as installed
+    // whenever its sensors are present.
+    const kleenexStatesLocal = stateIds.filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
+    );
+
+    // Set of integrations that have at least one sensor in this hass.
+    // Drives the integration dropdown's two-segment sort order in render().
+    const detectedIntegrations = new Set();
+    if (ppStates.length) detectedIntegrations.add("pp");
+    if (pluStates.length) detectedIntegrations.add("plu");
+    if (peuStates.length) detectedIntegrations.add("peu");
+    if (dwdStates.length) detectedIntegrations.add("dwd");
+    if (silamStates.length) detectedIntegrations.add("silam");
+    if (kleenexStatesLocal.length) detectedIntegrations.add("kleenex");
+    if (atmoDetected) detectedIntegrations.add("atmo");
+    if (gpStates.length) detectedIntegrations.add("gp");
+    if (gplStates.length) detectedIntegrations.add("gpl");
+    if (mswStates.length) detectedIntegrations.add("msw");
+    this._detectedIntegrations = detectedIntegrations;
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -1884,21 +1939,7 @@ class PollenPrognosCardEditor extends LitElement {
               .selector=${{
                 select: {
                   mode: "dropdown",
-                  options: [
-                    { value: "pp", label: this._t("integration.pp") },
-                    { value: "peu", label: this._t("integration.peu") },
-                    { value: "dwd", label: this._t("integration.dwd") },
-                    { value: "silam", label: this._t("integration.silam") },
-                    { value: "plu", label: this._t("integration.plu") },
-                    {
-                      value: "kleenex",
-                      label: this._t("integration.kleenex"),
-                    },
-                    { value: "atmo", label: this._t("integration.atmo") },
-                    { value: "gpl", label: this._t("integration.gpl") },
-                    { value: "gp", label: this._t("integration.gp") },
-                    { value: "msw", label: this._t("integration.msw") },
-                  ],
+                  options: this._buildIntegrationOptions(),
                 },
               }}
               .value=${c.integration}
