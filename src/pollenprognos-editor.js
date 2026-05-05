@@ -21,7 +21,7 @@ import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP, discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
-import { stubConfigMSW } from "./adapters/msw.js";
+import { stubConfigMSW, discoverMswSensors } from "./adapters/msw.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -265,6 +265,7 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedSilamLocations = [];
     this.installedKleenexLocations = [];
     this.installedAtmoLocations = [];
+    this.installedMswLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this.installedPpLocations = [];
@@ -775,6 +776,12 @@ class PollenPrognosCardEditor extends LitElement {
         const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId, false);
         this.installedGpPlants = allGpAllergens.filter((k) => !GP_BASE_ALLERGENS.includes(k));
       }
+      // MSW discovery (same rationale as GPL/GP).
+      if (this._config.integration === "msw" && this._hass) {
+        const md = discoverMswSensors(this._hass, false);
+        this.installedMswLocations = Array.from(md.locations.entries())
+          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+      }
 
       // SILAM discovery: run here too for same reason as GPL above
       if (this._config.integration === "silam" && this._hass) {
@@ -961,6 +968,12 @@ class PollenPrognosCardEditor extends LitElement {
     } else {
       this.installedGpPlants = [];
     }
+
+    // 1.3) MSW discovery (always run so the editor dropdown is populated even
+    // when MSW is not the active integration, mirroring GPL/GP).
+    const mswDiscovery = discoverMswSensors(hass, false);
+    this.installedMswLocations = Array.from(mswDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
     // 1.2) Set default mode for SILAM and PEU if not specified
     if (
@@ -1338,6 +1351,13 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedGpLocations?.length
         ) {
           this._config.location = this.installedGpLocations[0][0];
+        }
+        if (
+          integration === "msw" &&
+          !this._userConfig.location &&
+          this.installedMswLocations?.length
+        ) {
+          this._config.location = this.installedMswLocations[0][0];
         }
       }
 
@@ -2048,7 +2068,7 @@ class PollenPrognosCardEditor extends LitElement {
                           ></ha-selector>
                         </ha-formfield>
                       `
-                  : c.integration === "gpl" || c.integration === "gp"
+                  : c.integration === "gpl" || c.integration === "gp" || c.integration === "msw"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
                           <ha-selector
@@ -2063,7 +2083,9 @@ class PollenPrognosCardEditor extends LitElement {
                                   },
                                   ...(c.integration === "gp"
                                     ? (this.installedGpLocations || [])
-                                    : (this.installedGplLocations || [])
+                                    : c.integration === "msw"
+                                      ? (this.installedMswLocations || [])
+                                      : (this.installedGplLocations || [])
                                   ).map(([slug, title]) => ({
                                     value: slug,
                                     label: title,
@@ -2083,7 +2105,7 @@ class PollenPrognosCardEditor extends LitElement {
                           ></ha-selector>
                         </ha-formfield>
                       `
-                  : c.integration === "plu" || c.integration === "msw"
+                  : c.integration === "plu"
                     ? ""
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
