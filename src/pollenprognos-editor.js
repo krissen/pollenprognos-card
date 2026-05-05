@@ -442,7 +442,10 @@ class PollenPrognosCardEditor extends LitElement {
         const all = Object.keys(this._hass.states);
         if (
           all.some(
-            (id) => typeof id === "string" && id.startsWith("sensor.pollen_"),
+            (id) =>
+              typeof id === "string" &&
+              id.startsWith("sensor.pollen_") &&
+              !id.includes("_level_at_"),
           )
         ) {
           integration = "pp";
@@ -512,6 +515,14 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "gpl";
+        } else if (
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+          )
+        ) {
+          integration = "msw";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -797,6 +808,8 @@ class PollenPrognosCardEditor extends LitElement {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
         if (id.startsWith("sensor.pollenflug_")) return false;
+        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
+        if (id.includes("_level_at_")) return false;
 
         // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
         const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
@@ -879,6 +892,12 @@ class PollenPrognosCardEditor extends LitElement {
         typeof id === "string" && id.startsWith("sensor.google_pollen_")
       );
     }
+    // MSW (MeteoSwiss / hass-swissweather): sensor.pollen_<slug>_level_at_<station>
+    const mswStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+    );
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -891,9 +910,10 @@ class PollenPrognosCardEditor extends LitElement {
       else if (atmoDetected) integration = "atmo";
       else if (gpStates.length) integration = "gp";
       else if (gplStates.length) integration = "gpl";
+      else if (mswStates.length) integration = "msw";
       this._userConfig.integration = integration;
       if (this.debug)
-        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoDiscovery.locations.size, gp: gpStates.length, gpl: gplStates.length, chosen: integration });
+        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoDiscovery.locations.size, gp: gpStates.length, gpl: gplStates.length, msw: mswStates.length, chosen: integration });
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data

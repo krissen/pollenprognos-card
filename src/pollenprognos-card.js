@@ -967,6 +967,8 @@ class PollenPrognosCard extends LitElement {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
         if (id.startsWith("sensor.pollenflug_")) return false;
+        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
+        if (id.includes("_level_at_")) return false;
 
         // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
         const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
@@ -1080,6 +1082,13 @@ class PollenPrognosCard extends LitElement {
         );
       }
     }
+    // MSW (MeteoSwiss / hass-swissweather): sensor.pollen_<slug>_level_at_<station>
+    // Allergen slugs are stable upstream; see MSW_POLLEN_TYPES in src/adapters/msw.js.
+    const mswStates = Object.keys(hass.states).filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+    );
 
     // Discovery results for adapters whose header label resolution would
     // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached
@@ -1118,6 +1127,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("ATMO:", atmoStates);
       console.debug("GPL:", gplStates);
       console.debug("GP:", gpStates);
+      console.debug("MSW:", mswStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -1139,6 +1149,7 @@ class PollenPrognosCard extends LitElement {
       else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
       else if (gpStates.length && !skip.has("gp")) integration = "gp";
       else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
+      else if (mswStates.length && !skip.has("msw")) integration = "msw";
     }
 
     // Plocka rätt stub

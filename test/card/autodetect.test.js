@@ -50,6 +50,7 @@ function detectCardSetHass(hass) {
     if (typeof id !== "string") return false;
     if (!id.startsWith("sensor.pollen_")) return false;
     if (id.startsWith("sensor.pollenflug_")) return false;
+    if (id.includes("_level_at_")) return false;
     const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
     if (!match) return false;
     const allergenSlug = match[1];
@@ -126,6 +127,13 @@ function detectCardSetHass(hass) {
     });
   }
 
+  // MSW (MeteoSwiss / hass-swissweather): sensor.pollen_<slug>_level_at_<station>
+  const mswStates = all.filter(
+    (id) =>
+      typeof id === "string" &&
+      /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+  );
+
   if (ppStates.length) return "pp";
   if (pluStates.length) return "plu";
   if (peuStates.length) return "peu";
@@ -134,6 +142,7 @@ function detectCardSetHass(hass) {
   if (kleenexStates.length) return "kleenex";
   if (atmoStates.length) return "atmo";
   if (gplStates.length) return "gpl";
+  if (mswStates.length) return "msw";
   return undefined;
 }
 
@@ -146,8 +155,15 @@ function detectCardSetHass(hass) {
 function detectEditorSetConfig(hass) {
   const all = Object.keys(hass.states);
 
-  // Simple sensor.pollen_* startsWith check (no PLU filtering)
-  if (all.some((id) => typeof id === "string" && id.startsWith("sensor.pollen_"))) {
+  // Simple sensor.pollen_* startsWith check (no PLU filtering); MSW excluded.
+  if (
+    all.some(
+      (id) =>
+        typeof id === "string" &&
+        id.startsWith("sensor.pollen_") &&
+        !id.includes("_level_at_"),
+    )
+  ) {
     return "pp";
   }
 
@@ -202,6 +218,17 @@ function detectEditorSetConfig(hass) {
     return "gpl";
   }
 
+  // MSW (MeteoSwiss / hass-swissweather)
+  if (
+    all.some(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+    )
+  ) {
+    return "msw";
+  }
+
   return undefined;
 }
 
@@ -218,6 +245,7 @@ function detectEditorSetHass(hass) {
     if (typeof id !== "string") return false;
     if (!id.startsWith("sensor.pollen_")) return false;
     if (id.startsWith("sensor.pollenflug_")) return false;
+    if (id.includes("_level_at_")) return false;
     const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
     if (!match) return false;
     const allergenSlug = match[1];
@@ -292,6 +320,13 @@ function detectEditorSetHass(hass) {
     });
   }
 
+  // MSW (MeteoSwiss / hass-swissweather)
+  const mswStates = all.filter(
+    (id) =>
+      typeof id === "string" &&
+      /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+  );
+
   if (ppStates.length) return "pp";
   if (pluStates.length) return "plu";
   if (peuStates.length) return "peu";
@@ -299,6 +334,7 @@ function detectEditorSetHass(hass) {
   if (silamStates.length) return "silam";
   if (atmoStates.length) return "atmo";
   if (gplStates.length) return "gpl";
+  if (mswStates.length) return "msw";
   return undefined;
 }
 
@@ -319,6 +355,8 @@ const FIXTURES = {
   atmo: ["sensor.niveau_bouleau_montpellier"],
   // GPL uses entity registry platform check
   gpl: ["sensor.pollenlevels_grass"],
+  // MSW: sensor.pollen_<allergen>_level_at_<station>
+  msw: ["sensor.pollen_birch_level_at_8000"],
 };
 
 /** Entities entries for integrations that use hass.entities for detection. */
@@ -752,6 +790,37 @@ describe("PP / PLU disambiguation", () => {
       const hass = mkHass(["sensor.pollen_unknownallergen"]);
       expect(detectEditorSetHass(hass)).toBe("pp");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MSW (hass-swissweather) detection
+// ---------------------------------------------------------------------------
+
+describe("MSW detection", () => {
+  it("sensor.pollen_<slug>_level_at_<station> is detected as MSW (card set hass)", () => {
+    const hass = mkHass([
+      "sensor.pollen_birch_level_at_8000",
+      "sensor.pollen_grasses_level_at_8000",
+    ]);
+    expect(detectCardSetHass(hass)).toBe("msw");
+  });
+
+  it("MSW pattern is excluded from PP detection (no false PP hit)", () => {
+    // Without the exclusion, PP regex would match these as
+    // sensor.pollen_<allergen>_<city> and route the card to PP.
+    const hass = mkHass(["sensor.pollen_birch_level_at_8000"]);
+    expect(detectCardSetHass(hass)).not.toBe("pp");
+  });
+
+  it("PP wins when both PP and MSW sensors are present", () => {
+    // PP runs first in the autodetect chain; MSW only kicks in when no
+    // earlier integration matches.
+    const hass = mkHass([
+      "sensor.pollen_stockholm_bjork",
+      "sensor.pollen_birch_level_at_8000",
+    ]);
+    expect(detectCardSetHass(hass)).toBe("pp");
   });
 });
 
