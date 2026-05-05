@@ -838,7 +838,13 @@ class PollenPrognosCardEditor extends LitElement {
       Object.values(PLU_ALIAS_MAP).flat()
     );
 
-    const ppStates = Object.keys(hass.states).filter(
+    // Snapshot the state-key list once and reuse it for every prefix/regex
+    // filter below. Each call into `Object.keys(hass.states)` allocates a
+    // fresh array proportional to the entity count, and set hass() runs
+    // ~9 such scans per cycle; on large HA installs that is wasted work.
+    const stateIds = Object.keys(hass.states);
+
+    const ppStates = stateIds.filter(
       (id) => {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
@@ -863,11 +869,11 @@ class PollenPrognosCardEditor extends LitElement {
       },
     );
 
-    const dwdStates = Object.keys(hass.states).filter(
+    const dwdStates = stateIds.filter(
       (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
     );
 
-    const peuStates = Object.keys(hass.states).filter(
+    const peuStates = stateIds.filter(
       (id) =>
         typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
@@ -883,11 +889,11 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     if (!silamStates.length) {
-      silamStates = Object.keys(hass.states).filter(
+      silamStates = stateIds.filter(
         (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
       );
     }
-    const pluStates = Object.keys(hass.states).filter(
+    const pluStates = stateIds.filter(
       (id) => {
         if (typeof id !== "string") return false;
         const match = /^sensor\.pollen_([^_]+)$/.exec(id);
@@ -908,7 +914,7 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!gplStates.length) {
-      gplStates = Object.keys(hass.states).filter((id) => {
+      gplStates = stateIds.filter((id) => {
         const s = hass.states[id];
         return s?.attributes?.attribution === GPL_ATTRIBUTION
           && s.attributes.device_class !== "date"
@@ -923,7 +929,7 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!gpStates.length) {
-      gpStates = Object.keys(hass.states).filter((id) =>
+      gpStates = stateIds.filter((id) =>
         typeof id === "string" && id.startsWith("sensor.google_pollen_")
       );
     }
@@ -944,7 +950,7 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!mswStates.length) {
-      mswStates = Object.keys(hass.states).filter(
+      mswStates = stateIds.filter(
         (id) =>
           typeof id === "string" &&
           /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
@@ -956,7 +962,7 @@ class PollenPrognosCardEditor extends LitElement {
     // 'known divergence' in test/card/autodetect.test.js), but for the
     // dropdown's two-segment order we still want to mark it as installed
     // whenever its sensors are present.
-    const kleenexStatesLocal = Object.keys(hass.states).filter(
+    const kleenexStatesLocal = stateIds.filter(
       (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
     );
 
