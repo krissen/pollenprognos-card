@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
+  discoverMswSensors,
   fetchForecast,
   resolveEntityIds,
   stubConfigMSW,
 } from "../../src/adapters/msw.js";
-import { createHass, createMSWSensor, assertSensorShape } from "../helpers.js";
+import {
+  createHass,
+  createHassWithRegistry,
+  createMSWSensor,
+  assertSensorShape,
+} from "../helpers.js";
 
 function makeConfig(overrides = {}) {
   return { ...stubConfigMSW, ...overrides };
@@ -194,5 +200,173 @@ describe("MSW adapter: fetchForecast", () => {
 
   it("integration key is msw", () => {
     expect(stubConfigMSW.integration).toBe("msw");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Device-prefixed entity IDs and multi-station scenarios.
+// HA prefixes entity_ids with the device-name slug, so the bare shape used
+// above is the legacy / no-friendly-name case. The realistic shapes are:
+//   sensor.meteoswiss_at_8000_klo_pollen_<allergen>_level_at_8000_pzh
+//   sensor.bern_pollen_<allergen>_level_at_3000_pbe   (renamed device)
+// ---------------------------------------------------------------------------
+
+const ZURICH_ENTRY = "01KQVM6J4DC3BB3S3E9WC2DF5H";
+const BERN_ENTRY = "01KQVM8D770Q9DJZMJKWCND1YJ";
+
+function buildMultiStationEntries() {
+  const allergens = ["birch", "grasses", "alder", "hazel", "beech", "ash", "oak"];
+  const entries = [];
+  for (const slug of allergens) {
+    entries.push({
+      entityId: `sensor.meteoswiss_at_8000_klo_pollen_${slug}_level_at_8000_pzh`,
+      state: slug === "birch" ? "Low" : "None",
+      attributes: createMSWSensor("Low").attributes,
+      deviceId: "dev_zurich",
+      platform: "swissweather",
+      uniqueId: `pollen-level-8000.${slug}`,
+      deviceMeta: {
+        identifiers: [["swissweather", "swissweather-8000-KLO"]],
+        configEntries: [ZURICH_ENTRY],
+        name: "MeteoSwiss at 8000-KLO",
+      },
+    });
+    entries.push({
+      entityId: `sensor.bern_pollen_${slug}_level_at_3000_pbe`,
+      state: slug === "birch" ? "Strong" : "None",
+      attributes: createMSWSensor("Strong").attributes,
+      deviceId: "dev_bern",
+      platform: "swissweather",
+      uniqueId: `pollen-level-3000.${slug}`,
+      deviceMeta: {
+        identifiers: [["swissweather", "swissweather-3000-BER"]],
+        configEntries: [BERN_ENTRY],
+        name: "MeteoSwiss at 3000-BER",
+        nameByUser: "Bern",
+      },
+    });
+  }
+  return entries;
+}
+
+describe("MSW adapter: discoverMswSensors (device-based)", () => {
+  it("discovers two locations keyed by config_entry_id", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const discovery = discoverMswSensors(hass);
+    expect(discovery.locations.size).toBe(2);
+    expect(discovery.locations.has(ZURICH_ENTRY)).toBe(true);
+    expect(discovery.locations.has(BERN_ENTRY)).toBe(true);
+  });
+
+  it("uses name_by_user as label when present, falling back to device.name", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const discovery = discoverMswSensors(hass);
+    expect(discovery.locations.get(BERN_ENTRY).label).toBe("Bern");
+    // Zurich device was not renamed, so default device.name is used.
+    expect(discovery.locations.get(ZURICH_ENTRY).label).toBe("MeteoSwiss at 8000-KLO");
+  });
+
+  it("classifies prefixed entity_ids correctly (grasses -> grass)", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const discovery = discoverMswSensors(hass);
+    const zurich = discovery.locations.get(ZURICH_ENTRY);
+    expect(zurich.entities.get("grass")).toBe(
+      "sensor.meteoswiss_at_8000_klo_pollen_grasses_level_at_8000_pzh",
+    );
+    expect(zurich.entities.get("birch")).toBe(
+      "sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh",
+    );
+  });
+
+  it("returns empty map when hass has no swissweather entities", () => {
+    const hass = createHass({});
+    const discovery = discoverMswSensors(hass);
+    expect(discovery.locations.size).toBe(0);
+  });
+});
+
+describe("MSW adapter: resolveEntityIds (multi-station)", () => {
+  it("respects cfg.location to pick the Bern station", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["birch"], location: BERN_ENTRY },
+      hass,
+    );
+    expect(map.get("birch")).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
+  });
+
+  it("respects cfg.location to pick the Zurich station", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["birch"], location: ZURICH_ENTRY },
+      hass,
+    );
+    expect(map.get("birch")).toBe(
+      "sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh",
+    );
+  });
+
+  it("matches by case-insensitive label when location is a friendly name", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["birch"], location: "bern" },
+      hass,
+    );
+    expect(map.get("birch")).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
+  });
+
+  it("falls back to first discovered location for stale config_entry_id", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const map = resolveEntityIds(
+      // Valid Crockford-base32 ULID shape but does not match any discovered entry.
+      { allergens: ["birch"], location: "01XXXXXXXXXXXXXXXXXXXXXXXX" },
+      hass,
+    );
+    // resolveLocationByKey sorts keys lex when not all-numeric; the smaller
+    // ULID (Zurich, 01KQVM6...) sorts before Bern (01KQVM8...).
+    expect(map.has("birch")).toBe(true);
+    expect(map.get("birch")).toBe(
+      "sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh",
+    );
+  });
+
+  it("falls back to first discovered location when cfg.location is empty", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["birch"], location: "" },
+      hass,
+    );
+    expect(map.get("birch")).toBe(
+      "sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh",
+    );
+  });
+
+  it("does not mix allergens across stations (Copilot review fynd)", () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["birch", "oak"], location: BERN_ENTRY },
+      hass,
+    );
+    expect(map.get("birch")).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
+    expect(map.get("oak")).toBe("sensor.bern_pollen_oak_level_at_3000_pbe");
+    // Ensure no Zurich entity slipped in.
+    for (const eid of map.values()) {
+      expect(eid.includes("8000")).toBe(false);
+    }
+  });
+});
+
+describe("MSW adapter: fetchForecast (multi-station)", () => {
+  it("returns the configured station's data, not a mix", async () => {
+    const hass = createHassWithRegistry(buildMultiStationEntries());
+    // Force Bern; birch state in fixtures is "Strong" -> level 5.
+    const result = await fetchForecast(hass, {
+      ...stubConfigMSW,
+      allergens: ["birch"],
+      location: BERN_ENTRY,
+    });
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
+    expect(result[0].day0.state).toBe(5);
   });
 });
