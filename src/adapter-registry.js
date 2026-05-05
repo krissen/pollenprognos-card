@@ -11,6 +11,7 @@ import * as PLU from "./adapters/plu.js";
 import * as ATMO from "./adapters/atmo.js";
 import * as GPL from "./adapters/gpl/index.js";
 import * as GP from "./adapters/gp/index.js";
+import * as MSW from "./adapters/msw.js";
 
 const registry = {
   pp: { module: PP, stub: PP.stubConfigPP },
@@ -22,6 +23,7 @@ const registry = {
   atmo: { module: ATMO, stub: ATMO.stubConfigATMO },
   gpl: { module: GPL, stub: GPL.stubConfigGPL },
   gp: { module: GP, stub: GP.stubConfigGP },
+  msw: { module: MSW, stub: MSW.stubConfigMSW },
 };
 
 export function getAdapter(id) {

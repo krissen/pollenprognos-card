@@ -521,6 +521,12 @@ const GP_ALIASES = {
   trawy: "graminales",
 };
 
+// MSW (MeteoSwiss / hass-swissweather) aliases.
+// "grasses" is the entity slug used by hass-swissweather; canonical is "grass".
+const MSW_ALIASES = {
+  grasses: "grass",
+};
+
 // Merged map: computed from per-adapter aliases (order matches legacy map).
 export const ALLERGEN_TRANSLATION = {
   ...PP_ALIASES,
@@ -531,6 +537,7 @@ export const ALLERGEN_TRANSLATION = {
   ...ATMO_ALIASES,
   ...GPL_ALIASES,
   ...GP_ALIASES,
+  ...MSW_ALIASES,
 };
 
 /**

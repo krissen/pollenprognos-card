@@ -16,6 +16,7 @@ import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
+import { discoverMswSensors } from "./adapters/msw.js";
 import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors } from "./adapters/dwd.js";
 import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
@@ -336,14 +337,18 @@ class PollenPrognosCard extends LitElement {
       );
     }
     let daysCount = 0;
+    // MSW only exposes same-day measurements upstream; never display
+    // synthetic empty future days for it even if the user set days_to_show > 1.
+    const effectiveDaysToShow =
+      cfg.integration === "msw" ? 1 : cfg.days_to_show;
     if (cfg.show_empty_days) {
-      daysCount = cfg.days_to_show;
+      daysCount = effectiveDaysToShow;
     } else {
       // Use max real days across all sensors (not just the first one)
       for (const s of filtered) {
         if (!s.days || !s.days.length) continue;
         const realDays = s.days.filter((d) => d.state >= 0).length;
-        const count = Math.min(realDays, cfg.days_to_show);
+        const count = Math.min(realDays, effectiveDaysToShow);
         if (count > daysCount) daysCount = count;
       }
     }
@@ -963,6 +968,8 @@ class PollenPrognosCard extends LitElement {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
         if (id.startsWith("sensor.pollenflug_")) return false;
+        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
+        if (id.includes("_level_at_")) return false;
 
         // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
         const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
@@ -1076,6 +1083,30 @@ class PollenPrognosCard extends LitElement {
         );
       }
     }
+    // MSW (MeteoSwiss / hass-swissweather). Entity IDs follow
+    // sensor.<device-slug>_pollen_<allergen>_level_at_<station>; the
+    // <device-slug> prefix is added by HA from the device's friendly name and
+    // varies per install. Primary detection uses hass.entities platform check
+    // (same as SILAM/GP); fallback regex covers older HA registries.
+    const mswLevelRe =
+      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+    let mswStates = [];
+    if (hass.entities) {
+      mswStates = Object.entries(hass.entities)
+        .filter(([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!mswStates.length) {
+      mswStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+      );
+    }
 
     // Discovery results for adapters whose header label resolution would
     // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached
@@ -1086,6 +1117,7 @@ class PollenPrognosCard extends LitElement {
     let _dwdDiscovery = null;
     let _peuDiscovery = null;
     let _gplDiscovery = null;
+    let _mswDiscovery = null;
     const getPpDiscovery = () => {
       if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, this.debug);
       return _ppDiscovery;
@@ -1102,6 +1134,10 @@ class PollenPrognosCard extends LitElement {
       if (_gplDiscovery === null) _gplDiscovery = discoverGplSensors(hass, this.debug);
       return _gplDiscovery;
     };
+    const getMswDiscovery = () => {
+      if (_mswDiscovery === null) _mswDiscovery = discoverMswSensors(hass, this.debug);
+      return _mswDiscovery;
+    };
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -1114,6 +1150,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("ATMO:", atmoStates);
       console.debug("GPL:", gplStates);
       console.debug("GP:", gpStates);
+      console.debug("MSW:", mswStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -1135,6 +1172,7 @@ class PollenPrognosCard extends LitElement {
       else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
       else if (gpStates.length && !skip.has("gp")) integration = "gp";
       else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
+      else if (mswStates.length && !skip.has("msw")) integration = "msw";
     }
 
     // Plocka rätt stub
@@ -1668,6 +1706,16 @@ class PollenPrognosCard extends LitElement {
         // Defensive: same rationale as the GPL branch above.
         const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
+        loc = title || cfg.location || "";
+      } else if (integration === "msw") {
+        // MeteoSwiss / hass-swissweather: resolve via shared device discovery
+        // so config_entry_id keys, friendly device names, and renamed devices
+        // (name_by_user) all surface the right station label in the header.
+        const mswDiscovery = getMswDiscovery();
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
+        const title = mswMatch ? mswMatch[1].label : "";
         loc = title || cfg.location || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location

@@ -106,6 +106,22 @@ export function createPEUSensor(level, forecastLevels = [], opts = {}) {
 }
 
 /**
+ * Create a sensor state object for MSW (hass-swissweather SwissPollenLevelSensor).
+ * @param {string} levelStr - One of "None","Low","Medium","Strong","Very Strong"
+ * @param {Object} [attrOverrides] - Override attributes
+ * @returns {Object} sensor state
+ */
+export function createMSWSensor(levelStr, attrOverrides = {}) {
+  return {
+    state: levelStr,
+    attributes: {
+      attribution: "Source: MeteoSwiss",
+      ...attrOverrides,
+    },
+  };
+}
+
+/**
  * Create a minimal device registry entry.
  *
  * @param {object} opts

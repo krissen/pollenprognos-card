@@ -24,6 +24,7 @@ In this file:
   - [Atmo France](#atmo-france)
   - [Google Pollen Levels (GPL)](#google-pollen-levels-gpl)
   - [Google Pollen (GP)](#google-pollen-gp)
+  - [MeteoSwiss / hass-swissweather (MSW)](#meteoswiss--hass-swissweather-msw)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -40,7 +41,7 @@ In this file:
 | `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo`, `gpl` or `gp`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, a `config_entry_id` for multi-instance setups, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, a `config_entry_id` for multi-instance setups, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM, Kleenex, Atmo, GPL, GP)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For **PEU, SILAM, Atmo, GPL, GP** (and PP `city` / DWD `region_id`) may also be set to a `config_entry_id` (Crockford-base32 ULID); the visual editor uses this form by default since v3.2.0 to support multi-instance setups reliably. **Kleenex** does not accept a `config_entry_id` and continues to require a slug (e.g. `atlanta_georgia`, `utrecht`). Leave empty for auto-detection when only one location is configured. |
+| `location` *(PEU, SILAM, Kleenex, Atmo, GPL, GP, MSW)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For **PEU, SILAM, Atmo, GPL, GP, MSW** (and PP `city` / DWD `region_id`) may also be set to a `config_entry_id` (Crockford-base32 ULID); the visual editor uses this form by default since v3.2.0 to support multi-instance setups reliably. **Kleenex** does not accept a `config_entry_id` and continues to require a slug (e.g. `atlanta_georgia`, `utrecht`). For **MSW** the value can also be a label match (e.g. `Bern`) or station code (e.g. `8000`). Leave empty for auto-detection when only one location is configured. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -323,6 +324,22 @@ hazel, juniper, maple, mugwort, oak, olive, pine, ragweed
 Levels range from 0 to 5. Forecast data is read from flat sensor attributes (`index_value`, `tomorrow`, `day 3`, `day 4`), giving up to 4 days of data.
 
 Like GPL and Kleenex, GP supports `sort_category_allergens_first: true` (default).
+
+### MeteoSwiss / hass-swissweather (MSW)
+
+The MSW adapter supports the [hass-swissweather](https://github.com/izacus/hass-swissweather) integration by [@izacus](https://github.com/izacus); the card-side adapter was contributed by [@r3turnNull](https://github.com/r3turnNull) (#212). MeteoSwiss publishes only current-day measurements, so `days_to_show` is fixed at 1 by the card regardless of config (synthetic future days are never rendered for MSW).
+
+Sensors are detected by the `swissweather` platform and the entity-ID pattern `sensor.<device-slug>_pollen_<allergen>_level_at_<station>`. The `<device-slug>` prefix is added automatically by Home Assistant from the device's friendly name and changes if you rename the device via `name_by_user`. Discovery uses the shared device-registry helper, so multi-station setups are disambiguated by `config_entry_id` and entity-ID renames do not break detection.
+
+The available allergens:
+
+```
+birch, grass, alder, hazel, beech, ash, oak
+```
+
+Categorical levels reported by the integration map to the card's 0--6 scale as follows: `None` -> 0, `Low` -> 1, `Medium` -> 3, `Strong` -> 5, `Very Strong` -> 6 (gaps left at 2 and 4 so the visual mid-levels stay distinct).
+
+Multi-station configuration: set `location` to either the `config_entry_id` (Crockford-base32 ULID, the visual editor's default), the device label (`name_by_user` or `name`, e.g. `Bern`), or the station code (e.g. `8000`). Leaving `location` empty selects the first discovered station. Stale `config_entry_id` values (e.g. after an integration reinstall) auto-recover to the first discovered station, mirroring DWD/GPL/GP/SILAM/Atmo behavior.
 
 ## Color System Overview
 

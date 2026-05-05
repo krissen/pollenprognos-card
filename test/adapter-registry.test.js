@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { getAdapter, getStubConfig, getAllAdapterIds } from "../src/adapter-registry.js";
 
-const EXPECTED_IDS = ["pp", "dwd", "peu", "silam", "kleenex", "plu", "atmo", "gpl", "gp"];
+const EXPECTED_IDS = ["pp", "dwd", "peu", "silam", "kleenex", "plu", "atmo", "gpl", "gp", "msw"];
 
 describe("adapter-registry", () => {
-  it("getAllAdapterIds returns all 9 integrations", () => {
+  it("getAllAdapterIds returns all 10 integrations", () => {
     expect(getAllAdapterIds()).toEqual(EXPECTED_IDS);
   });
 
