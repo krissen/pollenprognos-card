@@ -1895,7 +1895,7 @@ class PollenPrognosCardEditor extends LitElement {
     const numLevels =
       c.integration === "dwd"
         ? 4
-        : c.integration === "peu"
+        : c.integration === "peu" || c.integration === "msw"
           ? 5
           : c.integration === "gpl" || c.integration === "gp"
             ? 6
@@ -1907,7 +1907,7 @@ class PollenPrognosCardEditor extends LitElement {
     const thresholdParams =
       c.integration === "dwd"
         ? { min: 0, max: 3, step: 0.5 }
-        : c.integration === "peu"
+        : c.integration === "peu" || c.integration === "msw"
           ? { min: 0, max: 4, step: 1 }
           : c.integration === "gpl" || c.integration === "gp"
             ? { min: 0, max: 5, step: 1 }
