@@ -15,7 +15,7 @@
 //     mirroring DWD/GPL/GP/SILAM/Atmo recovery behavior.
 
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
-import { buildLevelNames } from "../utils/level-names.js";
+import { buildLevelNamesForScale } from "../utils/level-names.js";
 import {
   getLangAndLocale,
   mergePhrases,
@@ -39,14 +39,17 @@ const MSW_POLLEN_TYPES = {
   oak: "oak",
 };
 
-// hass-swissweather categorical level -> pollenprognos 0-6 scale.
-// Gaps (2, 4) intentionally left so mid-levels stay visually distinct.
+// hass-swissweather categorical level -> the integration's native 5-level
+// scale (0-4). Card-wide convention: each integration keeps its own native
+// level count for editor phrases, level circles, and color mapping; we do
+// not stretch native counts onto a shared 0-6 gradient. Same shape as
+// DWD (0-3, four levels) and GPL/GP (0-5, six levels).
 const MSW_LEVEL_MAP = {
   none: 0,
   low: 1,
-  medium: 3,
-  strong: 5,
-  "very strong": 6,
+  medium: 2,
+  strong: 3,
+  "very strong": 4,
 };
 
 // Match pollen_<slug>_level_at_ inside an entity_id, allowing both the bare
@@ -77,8 +80,21 @@ export const stubConfigMSW = {
   show_value_text: true,
   show_value_numeric: false,
   show_value_numeric_in_circle: false,
+  // Day-label display defaults that match the conventions used by every
+  // other adapter. They are mostly cosmetic for MSW (only one day is ever
+  // rendered upstream), but keeping them in the stub means the editor's
+  // form generator surfaces the same toggles users see for other
+  // integrations and merged-config comparisons stay consistent.
+  days_relative: true,
+  days_abbreviated: false,
+  days_boldfaced: false,
+  days_uppercase: false,
+  show_empty_days: false,
   days_to_show: 1,
-  pollen_threshold: 0,
+  // Default threshold of 1 matches every other adapter's convention of
+  // hiding None-level allergens until a measurement crosses Low or higher.
+  // (DWD picks 0.5 instead because of its 0-3 native scale.)
+  pollen_threshold: 1,
   sort: "value_descending",
   allergens_abbreviated: false,
   link_to_sensors: true,
@@ -211,14 +227,12 @@ export async function fetchForecast(hass, config) {
   if (!hass?.states || !config.allergens?.length) return [];
   const debug = Boolean(config.debug);
 
-  const { lang, locale, dayAbbrev, daysUppercase } = getLangAndLocale(
-    hass,
-    config,
-    stubConfigMSW.date_locale,
-  );
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(hass, config, stubConfigMSW.date_locale);
   const { fullPhrases, shortPhrases, userLevels, userDays } =
     mergePhrases(config, lang);
-  const levelNames = buildLevelNames(userLevels, lang);
+  // Five-level scale: defaults from card.levels5.0..4, native-indexed.
+  const levelNames = buildLevelNamesForScale(5, userLevels, lang);
   const pollen_threshold = config.pollen_threshold ?? stubConfigMSW.pollen_threshold;
 
   if (debug) console.debug("MSW adapter: start fetchForecast", { config, lang });
@@ -229,7 +243,7 @@ export async function fetchForecast(hass, config) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dayLabel = buildDayLabel(today, 0, {
-    daysRelative: true,
+    daysRelative,
     dayAbbrev,
     daysUppercase,
     userDays,

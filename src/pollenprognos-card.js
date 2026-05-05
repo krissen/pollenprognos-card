@@ -2028,9 +2028,16 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
     
     // Number of segments in the level circle depends on the integration.
-    // PEU and Kleenex use four segments, GPL uses five, PLU uses three, others use six.
+    // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
+    // = empty); GPL/GP use five (native 0-5); PLU uses three; others use
+    // six. Match each integration's native level count so the maximum state
+    // fills the chart (no never-filled trailing segment).
     let segments = 6;
-    if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+    if (
+      this.config.integration === "peu" ||
+      this.config.integration === "kleenex" ||
+      this.config.integration === "msw"
+    ) {
       segments = 4;
     } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
       segments = 5;
@@ -2038,8 +2045,10 @@ class PollenPrognosCard extends LitElement {
       segments = 3;
     }
     
-    // Build colors array using the new inheritance system
-    // Chart segments represent pollen levels 1-6, not 0-5
+    // Build colors array using the new inheritance system.
+    // Chart segments represent pollen levels 1..segments (level 0 = empty),
+    // so segments matches the integration's native non-empty level count
+    // (4 for PEU/Kleenex/MSW, 5 for GPL/GP, 3 for PLU, 6 for the others).
     const rawColors = [];
     for (let i = 0; i < segments; i++) {
       rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.
