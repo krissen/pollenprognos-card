@@ -258,12 +258,27 @@ describe("MSW adapter: discoverMswSensors (device-based)", () => {
     expect(discovery.locations.has(BERN_ENTRY)).toBe(true);
   });
 
-  it("uses name_by_user as label when present, falling back to device.name", () => {
+  it("uses name_by_user as label when present, falling back to stripped device.name", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const discovery = discoverMswSensors(hass);
     expect(discovery.locations.get(BERN_ENTRY).label).toBe("Bern");
-    // Zurich device was not renamed, so default device.name is used.
-    expect(discovery.locations.get(ZURICH_ENTRY).label).toBe("MeteoSwiss at 8000-KLO");
+    // Zurich device was not renamed; the redundant "MeteoSwiss at " prefix
+    // is stripped (parallel to DWD region-ID-prefix and GPL/GP coord-suffix
+    // cleanups), so the dropdown shows "8000-KLO" rather than the verbose
+    // upstream default. Users can set a friendlier label via name_by_user.
+    expect(discovery.locations.get(ZURICH_ENTRY).label).toBe("8000-KLO");
+  });
+
+  it("preserves device.name when there is no MeteoSwiss prefix", () => {
+    // Custom device.name without the integration prefix is left intact.
+    const entries = buildMultiStationEntries().map((e) =>
+      e.deviceId === "dev_zurich"
+        ? { ...e, deviceMeta: { ...e.deviceMeta, name: "Zürich Kloten" } }
+        : e,
+    );
+    const hass = createHassWithRegistry(entries);
+    const discovery = discoverMswSensors(hass);
+    expect(discovery.locations.get(ZURICH_ENTRY).label).toBe("Zürich Kloten");
   });
 
   it("classifies prefixed entity_ids correctly (grasses -> grass)", () => {

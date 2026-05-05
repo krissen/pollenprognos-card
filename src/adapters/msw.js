@@ -96,6 +96,32 @@ export const stubConfigMSW = {
 };
 
 /**
+ * Strip the redundant "MeteoSwiss at " integration prefix from a device label
+ * when no user-friendly rename (`name_by_user`) has been applied. Mirrors the
+ * approach used for DWD (region-ID prefix) and GPL/GP (coordinate suffix):
+ * remove integration-specific noise from labels that will be rendered in an
+ * already MSW-scoped context (the location dropdown and the card header).
+ *
+ * Examples:
+ *   "MeteoSwiss at 8000-KLO" -> "8000-KLO"
+ *   "Bern"                   -> "Bern"   (user-renamed via name_by_user)
+ *   "Zürich"                 -> "Zürich" (custom device.name set elsewhere)
+ *
+ * @param {{ device?: { name?: string, name_by_user?: string }, state?: { attributes?: { friendly_name?: string } } }} ctx
+ * @returns {string}
+ */
+function resolveMswLabel(ctx) {
+  const device = ctx?.device;
+  if (device?.name_by_user) return device.name_by_user;
+  if (device?.name) {
+    const stripped = device.name.replace(/^MeteoSwiss at\s+/i, "");
+    return stripped || device.name;
+  }
+  if (ctx?.state?.attributes?.friendly_name) return ctx.state.attributes.friendly_name;
+  return "Auto";
+}
+
+/**
  * Discover hass-swissweather pollen-level sensors grouped by config entry.
  *
  * Three-tier cascade via shared helper:
@@ -117,6 +143,7 @@ export function discoverMswSensors(hass, debug = false) {
   const { locations } = discoverEntitiesByDevice(hass, {
     platform: "swissweather",
     classify: classifyMswEntity,
+    resolveLabel: resolveMswLabel,
     fallbackRegex: fallbackRe,
     debug,
     logTag: "MSW",
