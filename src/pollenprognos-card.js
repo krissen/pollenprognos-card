@@ -2045,8 +2045,10 @@ class PollenPrognosCard extends LitElement {
       segments = 3;
     }
     
-    // Build colors array using the new inheritance system
-    // Chart segments represent pollen levels 1-6, not 0-5
+    // Build colors array using the new inheritance system.
+    // Chart segments represent pollen levels 1..segments (level 0 = empty),
+    // so segments matches the integration's native non-empty level count
+    // (4 for PEU/Kleenex/MSW, 5 for GPL/GP, 3 for PLU, 6 for the others).
     const rawColors = [];
     for (let i = 0; i < segments; i++) {
       rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.

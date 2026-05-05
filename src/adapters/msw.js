@@ -91,9 +91,9 @@ export const stubConfigMSW = {
   days_uppercase: false,
   show_empty_days: false,
   days_to_show: 1,
-  // Default threshold of 1 matches the convention used by every other
-  // adapter on the 0-6 scale (PP, PEU, SILAM, PLU, Atmo, GPL, GP, Kleenex):
-  // hide allergens reporting None until a measurement crosses Low or higher.
+  // Default threshold of 1 matches every other adapter's convention of
+  // hiding None-level allergens until a measurement crosses Low or higher.
+  // (DWD picks 0.5 instead because of its 0-3 native scale.)
   pollen_threshold: 1,
   sort: "value_descending",
   allergens_abbreviated: false,
@@ -227,11 +227,8 @@ export async function fetchForecast(hass, config) {
   if (!hass?.states || !config.allergens?.length) return [];
   const debug = Boolean(config.debug);
 
-  const { lang, locale, dayAbbrev, daysUppercase } = getLangAndLocale(
-    hass,
-    config,
-    stubConfigMSW.date_locale,
-  );
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(hass, config, stubConfigMSW.date_locale);
   const { fullPhrases, shortPhrases, userLevels, userDays } =
     mergePhrases(config, lang);
   // Five-level scale: defaults from card.levels5.0..4, native-indexed.
@@ -246,7 +243,7 @@ export async function fetchForecast(hass, config) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dayLabel = buildDayLabel(today, 0, {
-    daysRelative: true,
+    daysRelative,
     dayAbbrev,
     daysUppercase,
     userDays,

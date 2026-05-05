@@ -204,9 +204,12 @@ describe("MSW adapter: fetchForecast", () => {
     expect(stubConfigMSW.days_to_show).toBe(1);
   });
 
-  it("stubConfigMSW has pollen_threshold set to 1 (matches other 0-6 adapters)", () => {
-    // Aligning with PP, PEU, SILAM, PLU, Atmo, GPL, GP, Kleenex defaults
-    // so newly created MSW cards behave the same way out of the box.
+  it("stubConfigMSW.pollen_threshold defaults to 1 (hides None-level allergens)", () => {
+    // Aligning with every other adapter's default of hiding None-level
+    // allergens until a measurement crosses Low or higher, so newly created
+    // MSW cards behave the same way out of the box. (DWD picks 0.5 instead
+    // because of its native 0-3 scale; MSW's native 0-4 scale does not need
+    // a non-integer threshold.)
     expect(stubConfigMSW.pollen_threshold).toBe(1);
   });
 
