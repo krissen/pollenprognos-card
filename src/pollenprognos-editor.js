@@ -516,10 +516,13 @@ class PollenPrognosCardEditor extends LitElement {
         ) {
           integration = "gpl";
         } else if (
+          (this._hass?.entities && Object.values(this._hass.entities).some(
+            (e) => e.platform === "swissweather" && !e.entity_category
+          )) ||
           all.some(
             (id) =>
               typeof id === "string" &&
-              /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+              /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
           )
         ) {
           integration = "msw";
@@ -892,12 +895,29 @@ class PollenPrognosCardEditor extends LitElement {
         typeof id === "string" && id.startsWith("sensor.google_pollen_")
       );
     }
-    // MSW (MeteoSwiss / hass-swissweather): sensor.pollen_<slug>_level_at_<station>
-    const mswStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-    );
+    // MSW (MeteoSwiss / hass-swissweather). HA prefixes entity IDs with the
+    // device's friendly name slug, so primary detection uses hass.entities
+    // platform check (same as SILAM/GP); fallback regex handles older HA
+    // registries without entity metadata.
+    const mswLevelRe =
+      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+    let mswStates = [];
+    if (hass.entities) {
+      mswStates = Object.entries(hass.entities)
+        .filter(([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!mswStates.length) {
+      mswStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+      );
+    }
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;

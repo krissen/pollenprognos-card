@@ -127,12 +127,28 @@ function detectCardSetHass(hass) {
     });
   }
 
-  // MSW (MeteoSwiss / hass-swissweather): sensor.pollen_<slug>_level_at_<station>
-  const mswStates = all.filter(
-    (id) =>
-      typeof id === "string" &&
-      /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-  );
+  // MSW (MeteoSwiss / hass-swissweather). HA prefixes entity IDs with
+  // device-name slug, so use platform check primary + lenient regex fallback.
+  const mswLevelRe =
+    /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+  let mswStates = [];
+  if (hass.entities) {
+    mswStates = Object.entries(hass.entities)
+      .filter(
+        ([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+      )
+      .map(([eid]) => eid);
+  }
+  if (!mswStates.length) {
+    mswStates = all.filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+    );
+  }
 
   if (ppStates.length) return "pp";
   if (pluStates.length) return "plu";
@@ -218,12 +234,16 @@ function detectEditorSetConfig(hass) {
     return "gpl";
   }
 
-  // MSW (MeteoSwiss / hass-swissweather)
+  // MSW (MeteoSwiss / hass-swissweather): platform check primary, regex fallback.
   if (
+    (hass.entities &&
+      Object.values(hass.entities).some(
+        (e) => e.platform === "swissweather" && !e.entity_category,
+      )) ||
     all.some(
       (id) =>
         typeof id === "string" &&
-        /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+        /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
     )
   ) {
     return "msw";
@@ -320,12 +340,27 @@ function detectEditorSetHass(hass) {
     });
   }
 
-  // MSW (MeteoSwiss / hass-swissweather)
-  const mswStates = all.filter(
-    (id) =>
-      typeof id === "string" &&
-      /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-  );
+  // MSW (MeteoSwiss / hass-swissweather): platform check primary, regex fallback.
+  const mswLevelRe =
+    /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+  let mswStates = [];
+  if (hass.entities) {
+    mswStates = Object.entries(hass.entities)
+      .filter(
+        ([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+      )
+      .map(([eid]) => eid);
+  }
+  if (!mswStates.length) {
+    mswStates = all.filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+    );
+  }
 
   if (ppStates.length) return "pp";
   if (pluStates.length) return "plu";
@@ -355,8 +390,11 @@ const FIXTURES = {
   atmo: ["sensor.niveau_bouleau_montpellier"],
   // GPL uses entity registry platform check
   gpl: ["sensor.pollenlevels_grass"],
-  // MSW: sensor.pollen_<allergen>_level_at_<station>
-  msw: ["sensor.pollen_birch_level_at_8000"],
+  // MSW: HA prefixes entity_id with the device name slug (e.g.
+  // "meteoswiss_at_8000_klo"). Use a realistic prefixed shape so the
+  // detection regex is exercised for the real-world case, not just the
+  // bare-prefix case in the PR's original tests.
+  msw: ["sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh"],
 };
 
 /** Entities entries for integrations that use hass.entities for detection. */
@@ -798,11 +836,23 @@ describe("PP / PLU disambiguation", () => {
 // ---------------------------------------------------------------------------
 
 describe("MSW detection", () => {
-  it("sensor.pollen_<slug>_level_at_<station> is detected as MSW (card set hass)", () => {
+  it("device-prefixed entity is detected as MSW (card set hass)", () => {
+    // hass-swissweather entity_ids are prefixed with the device-name slug
+    // ("meteoswiss_at_8000_klo_" for default name; "bern_" for renamed device).
     const hass = mkHass([
-      "sensor.pollen_birch_level_at_8000",
-      "sensor.pollen_grasses_level_at_8000",
+      "sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh",
+      "sensor.meteoswiss_at_8000_klo_pollen_grasses_level_at_8000_pzh",
     ]);
+    expect(detectCardSetHass(hass)).toBe("msw");
+  });
+
+  it("renamed device prefix is also detected as MSW", () => {
+    const hass = mkHass(["sensor.bern_pollen_birch_level_at_3000_pbe"]);
+    expect(detectCardSetHass(hass)).toBe("msw");
+  });
+
+  it("non-prefixed shape is also detected (legacy/no device-name path)", () => {
+    const hass = mkHass(["sensor.pollen_birch_level_at_8000"]);
     expect(detectCardSetHass(hass)).toBe("msw");
   });
 
@@ -813,12 +863,26 @@ describe("MSW detection", () => {
     expect(detectCardSetHass(hass)).not.toBe("pp");
   });
 
+  it("entity-registry platform check detects MSW even without state", () => {
+    const hass = mkHass(
+      ["sensor.bern_pollen_birch_level_at_3000_pbe"],
+      {
+        entities: {
+          "sensor.bern_pollen_birch_level_at_3000_pbe": {
+            platform: "swissweather",
+          },
+        },
+      },
+    );
+    expect(detectCardSetHass(hass)).toBe("msw");
+  });
+
   it("PP wins when both PP and MSW sensors are present", () => {
     // PP runs first in the autodetect chain; MSW only kicks in when no
     // earlier integration matches.
     const hass = mkHass([
       "sensor.pollen_stockholm_bjork",
-      "sensor.pollen_birch_level_at_8000",
+      "sensor.bern_pollen_birch_level_at_3000_pbe",
     ]);
     expect(detectCardSetHass(hass)).toBe("pp");
   });

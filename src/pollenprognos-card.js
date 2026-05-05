@@ -1082,13 +1082,30 @@ class PollenPrognosCard extends LitElement {
         );
       }
     }
-    // MSW (MeteoSwiss / hass-swissweather): sensor.pollen_<slug>_level_at_<station>
-    // Allergen slugs are stable upstream; see MSW_POLLEN_TYPES in src/adapters/msw.js.
-    const mswStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-    );
+    // MSW (MeteoSwiss / hass-swissweather). Entity IDs follow
+    // sensor.<device-slug>_pollen_<allergen>_level_at_<station>; the
+    // <device-slug> prefix is added by HA from the device's friendly name and
+    // varies per install. Primary detection uses hass.entities platform check
+    // (same as SILAM/GP); fallback regex covers older HA registries.
+    const mswLevelRe =
+      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+    let mswStates = [];
+    if (hass.entities) {
+      mswStates = Object.entries(hass.entities)
+        .filter(([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!mswStates.length) {
+      mswStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+      );
+    }
 
     // Discovery results for adapters whose header label resolution would
     // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached

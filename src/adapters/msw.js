@@ -5,6 +5,14 @@
 // the hass-swissweather integration (https://github.com/izacus/hass-swissweather).
 // Only current-day measurements are available; MeteoSwiss publishes no
 // machine-readable pollen forecast API.
+//
+// Discovery uses the shared device-registry helper so that:
+//   - Multi-station setups are disambiguated by config_entry_id rather than
+//     silently mixing entities across stations.
+//   - HA's automatic device-name prefix on entity_ids
+//     (sensor.<device-slug>_pollen_<allergen>_level_at_<station>) is handled.
+//   - Stale config_entry_id values fall back to the first discovered location,
+//     mirroring DWD/GPL/GP/SILAM/Atmo recovery behavior.
 
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
@@ -15,9 +23,11 @@ import {
   sortSensors,
   meetsThreshold,
   resolveAllergenNames,
+  discoverEntitiesByDevice,
+  resolveLocationByKey,
 } from "../utils/adapter-helpers.js";
 
-// hass-swissweather entity slug → canonical allergen key.
+// hass-swissweather entity slug -> canonical allergen key.
 // "grasses" is the slug used in entity IDs by hass-swissweather.
 const MSW_POLLEN_TYPES = {
   birch: "birch",
@@ -29,12 +39,7 @@ const MSW_POLLEN_TYPES = {
   oak: "oak",
 };
 
-// Reverse map: canonical allergen key → hass-swissweather entity slug.
-const CANONICAL_TO_MSW = Object.fromEntries(
-  Object.entries(MSW_POLLEN_TYPES).map(([slug, canonical]) => [canonical, slug]),
-);
-
-// hass-swissweather categorical level → pollenprognos 0-6 scale.
+// hass-swissweather categorical level -> pollenprognos 0-6 scale.
 // Gaps (2, 4) intentionally left so mid-levels stay visually distinct.
 const MSW_LEVEL_MAP = {
   none: 0,
@@ -44,8 +49,23 @@ const MSW_LEVEL_MAP = {
   "very strong": 6,
 };
 
+// Match pollen_<slug>_level_at_ inside an entity_id, allowing both the bare
+// shape (sensor.pollen_<slug>_level_at_<station>) and HA's auto-prefixed
+// shape (sensor.<device-slug>_pollen_<slug>_level_at_<station>) where
+// <device-slug> is derived from the device's friendly name.
+const MSW_LEVEL_RE =
+  /(?:^sensor\.|_)pollen_(birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+
+function classifyMswEntity(eid) {
+  if (typeof eid !== "string") return null;
+  const m = MSW_LEVEL_RE.exec(eid);
+  if (!m) return null;
+  return MSW_POLLEN_TYPES[m[1]] || null;
+}
+
 export const stubConfigMSW = {
   integration: "msw",
+  location: "",
   allergens: ["birch", "grass", "alder", "hazel", "beech", "ash", "oak"],
   minimal: false,
   minimal_gap: 35,
@@ -76,38 +96,79 @@ export const stubConfigMSW = {
 };
 
 /**
- * Map allergen keys from config to hass-swissweather SwissPollenLevelSensor entity IDs.
- * Discovery matches entity IDs with prefix sensor.pollen_{mswSlug}_level_.
- * If multiple stations are installed, the first alphabetically matching entity wins.
+ * Discover hass-swissweather pollen-level sensors grouped by config entry.
  *
- * @param {Object} cfg - Card config
- * @param {Object} hass - Home Assistant object
+ * Three-tier cascade via shared helper:
+ *   1. Device registry: hass.devices with identifiers ["swissweather", ...].
+ *   2. Entity registry: hass.entities filtered by platform === "swissweather".
+ *   3. Regex fallback: hass.states scanned for the level-entity pattern.
+ *
+ * @param {Object} hass
  * @param {boolean} [debug]
- * @returns {Map<string, string>} allergen → entity_id
+ * @returns {{ locations: Map<string, { label: string, entities: Map<string, string>, deviceId?: string }> }}
+ */
+export function discoverMswSensors(hass, debug = false) {
+  if (!hass) return { locations: new Map() };
+
+  // Tier 3 fallback: device-name prefix (\w+_)* covers slugified
+  // "meteoswiss_at_8000_klo_" and friendly renames like "bern_".
+  const fallbackRe = /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+
+  const { locations } = discoverEntitiesByDevice(hass, {
+    platform: "swissweather",
+    classify: classifyMswEntity,
+    fallbackRegex: fallbackRe,
+    debug,
+    logTag: "MSW",
+  });
+
+  return { locations };
+}
+
+/**
+ * Map allergen keys from config to hass-swissweather entity IDs for the
+ * resolved location. Falls back to the first discovered location when the
+ * configured location key does not match (auto-recovery from stale
+ * config_entry_id).
+ *
+ * @param {Object} cfg
+ * @param {Object} hass
+ * @param {boolean} [debug]
+ * @returns {Map<string, string>} allergen -> entity_id
  */
 export function resolveEntityIds(cfg, hass, debug = false) {
   if (!hass?.states) return new Map();
-  const map = new Map();
-  const stateKeys = Object.keys(hass.states);
 
-  for (const allergen of cfg.allergens || []) {
-    const mswSlug = CANONICAL_TO_MSW[allergen];
-    if (!mswSlug) {
-      if (debug) console.debug(`[MSW:resolveEntityIds] Unknown allergen '${allergen}', skipping`);
-      continue;
-    }
-
-    const prefix = `sensor.pollen_${mswSlug}_level_`;
-    const match = stateKeys.find((id) => id.startsWith(prefix));
-
-    if (match) {
-      if (debug) console.debug(`[MSW:resolveEntityIds] ${allergen} → ${match}`);
-      map.set(allergen, match);
-    } else if (debug) {
-      console.debug(`[MSW:resolveEntityIds] No entity found for '${allergen}' (prefix: ${prefix})`);
-    }
+  const discovery = discoverMswSensors(hass, debug);
+  if (discovery.locations.size === 0) {
+    if (debug) console.debug("[MSW:resolveEntityIds] No sensors discovered");
+    return new Map();
   }
 
+  let resolved = resolveLocationByKey(discovery, cfg?.location);
+  if (!resolved) {
+    // Stale or unknown location key: fall back to first discovered location
+    // (sorted lex/numeric inside resolveLocationByKey when cfgLocation empty).
+    resolved = resolveLocationByKey(discovery, "");
+    if (debug && cfg?.location) {
+      console.debug(
+        `[MSW:resolveEntityIds] Location '${cfg.location}' not found; falling back to first discovered location`,
+      );
+    }
+  }
+  if (!resolved) return new Map();
+
+  const [, location] = resolved;
+  const map = new Map();
+  for (const allergen of cfg?.allergens || []) {
+    const eid = location.entities.get(allergen);
+    if (eid) {
+      map.set(allergen, eid);
+      if (debug) console.debug(`[MSW:resolveEntityIds] ${allergen} -> ${eid}`);
+    } else if (debug) {
+      console.debug(`[MSW:resolveEntityIds] No entity for '${allergen}' in resolved location`);
+    }
+  }
   return map;
 }
 
@@ -115,8 +176,8 @@ export function resolveEntityIds(cfg, hass, debug = false) {
  * Fetch current pollen levels from hass-swissweather entities.
  * Returns one day (today) per allergen.
  *
- * @param {Object} hass - Home Assistant object
- * @param {Object} config - Card config
+ * @param {Object} hass
+ * @param {Object} config
  * @returns {Promise<Array>} Sensor dicts compatible with pollenprognos-card renderer
  */
 export async function fetchForecast(hass, config) {
@@ -128,7 +189,7 @@ export async function fetchForecast(hass, config) {
     config,
     stubConfigMSW.date_locale,
   );
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+  const { fullPhrases, shortPhrases, userLevels, userDays } =
     mergePhrases(config, lang);
   const levelNames = buildLevelNames(userLevels, lang);
   const pollen_threshold = config.pollen_threshold ?? stubConfigMSW.pollen_threshold;
