@@ -2028,9 +2028,16 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
     
     // Number of segments in the level circle depends on the integration.
-    // PEU and Kleenex use four segments, GPL uses five, PLU uses three, others use six.
+    // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
+    // = empty); GPL/GP use five (native 0-5); PLU uses three; others use
+    // six. Match each integration's native level count so the maximum state
+    // fills the chart (no never-filled trailing segment).
     let segments = 6;
-    if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+    if (
+      this.config.integration === "peu" ||
+      this.config.integration === "kleenex" ||
+      this.config.integration === "msw"
+    ) {
       segments = 4;
     } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
       segments = 5;

@@ -77,18 +77,24 @@ describe("MSW adapter: fetchForecast", () => {
     assertSensorShape(result[0]);
   });
 
-  it("maps all 5 hass-swissweather levels to correct 0-6 values", async () => {
+  it("maps all 5 hass-swissweather levels to native 0-4 (no stretch to 0-6)", async () => {
+    // Card-wide convention: keep the integration's native level count for
+    // editor phrases, circles and colors. Do not stretch 5 native levels
+    // onto the 0-6 visual scale (PEU does that today but pre-dates this
+    // convention).
     const levelCases = [
       ["None", 0],
       ["Low", 1],
-      ["Medium", 3],
-      ["Strong", 5],
-      ["Very Strong", 6],
+      ["Medium", 2],
+      ["Strong", 3],
+      ["Very Strong", 4],
     ];
 
     for (const [levelStr, expected] of levelCases) {
       const hass = makeHass({ birch: ["birch", levelStr] });
-      const config = makeConfig({ allergens: ["birch"] });
+      // pollen_threshold: 0 lets the None case (level 0) through; the stub
+      // default of 1 would filter it out.
+      const config = makeConfig({ allergens: ["birch"], pollen_threshold: 0 });
 
       const result = await fetchForecast(hass, config);
 
@@ -196,6 +202,12 @@ describe("MSW adapter: fetchForecast", () => {
 
   it("stubConfigMSW has days_to_show set to 1", () => {
     expect(stubConfigMSW.days_to_show).toBe(1);
+  });
+
+  it("stubConfigMSW has pollen_threshold set to 1 (matches other 0-6 adapters)", () => {
+    // Aligning with PP, PEU, SILAM, PLU, Atmo, GPL, GP, Kleenex defaults
+    // so newly created MSW cards behave the same way out of the box.
+    expect(stubConfigMSW.pollen_threshold).toBe(1);
   });
 
   it("integration key is msw", () => {
@@ -374,7 +386,8 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
 describe("MSW adapter: fetchForecast (multi-station)", () => {
   it("returns the configured station's data, not a mix", async () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
-    // Force Bern; birch state in fixtures is "Strong" -> level 5.
+    // Force Bern; birch state in fixtures is "Strong" -> level 3 on the
+    // native 5-level scale (None/Low/Medium/Strong/Very Strong = 0..4).
     const result = await fetchForecast(hass, {
       ...stubConfigMSW,
       allergens: ["birch"],
@@ -382,6 +395,6 @@ describe("MSW adapter: fetchForecast (multi-station)", () => {
     });
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
-    expect(result[0].day0.state).toBe(5);
+    expect(result[0].day0.state).toBe(3);
   });
 });

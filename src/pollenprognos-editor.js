@@ -179,7 +179,7 @@ class PollenPrognosCardEditor extends LitElement {
     const numLevels =
       this._config.integration === "dwd"
         ? 4
-        : this._config.integration === "peu"
+        : this._config.integration === "peu" || this._config.integration === "msw"
           ? 5
           : this._config.integration === "gpl" || this._config.integration === "gp"
             ? 6
