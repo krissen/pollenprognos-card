@@ -11,6 +11,7 @@
 - [Atmo France](https://github.com/sebcaps/atmofrance)
 - [Google Pollen Levels](https://github.com/eXPerience83/pollenlevels)
 - [Google Pollen](https://github.com/svenove/home-assistant-google-pollen)
+- [MeteoSwiss / hass-swissweather](https://github.com/izacus/hass-swissweather)
 
 The card tries to auto-detect which adapter to use based on your sensors. The table below lists version requirements and other notes for each integration.
 
@@ -25,6 +26,7 @@ The card tries to auto-detect which adapter to use based on your sensors. The ta
 | **Atmo France** | Keep the default sensor names. The integration provides pollen levels (0–6) for French cities with optional J+1 forecasts. Added in card **v2.9.0**. |
 | **Google Pollen Levels** | Entity names can be freely renamed or localized — the card detects sensors by their `platform` attribute or `attribution` string, not by entity ID patterns. Works with any Home Assistant language. Supports multi-location setups via separate config entries. Added in card **v2.9.0**. |
 | **Google Pollen** | For `home-assistant-google-pollen` by svenove. Uses the same Google Pollen API but a different HA integration. Sensors are detected by the `google_pollen` platform or entity prefix `sensor.google_pollen_*`. Allergens are classified primarily via `unique_id` (language-independent) with `display_name` lookup as fallback, covering all 35 languages the API supports via pre-generated name maps. The API returns up to 4 days of forecast. Supports multi-location setups via separate config entries. Added in card **v3.1.0**. |
+| **MeteoSwiss / hass-swissweather** | For [`hass-swissweather`](https://github.com/izacus/hass-swissweather) by [@izacus](https://github.com/izacus). Adapter contributed by [@r3turnNull](https://github.com/r3turnNull) (#212). Sensors are detected by the `swissweather` platform; entity IDs follow `sensor.<device-slug>_pollen_<allergen>_level_at_<station>` (the device-slug prefix is added by HA from the device name and changes if you rename the device via `name_by_user`). MeteoSwiss publishes only current-day measurements, so `days_to_show` is fixed at 1 by the card regardless of config. Categorical levels (`None` / `Low` / `Medium` / `Strong` / `Very Strong`) are mapped to the card's 0--6 scale (None=0, Low=1, Medium=3, Strong=5, Very Strong=6). Allergens supported: birch, grass, alder, hazel, beech, ash, oak. Multi-station setups: pick the station via the `location` field (accepts `config_entry_id` ULID, label, or station code). Added in card **v3.2.0**. |
 
 ## Google Pollen Levels — design decisions
 
