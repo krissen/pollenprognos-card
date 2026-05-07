@@ -1,5 +1,4 @@
 // src/adapters/peu.js
-import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
