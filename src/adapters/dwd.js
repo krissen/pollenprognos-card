@@ -72,6 +72,13 @@ export const stubConfigDWD = {
  * instead of the legacy bare shape
  *   sensor.pollenflug_<allergen>_<region_id>.
  *
+ * Anchored to `^sensor\.` so callers can run the regex against
+ * `Object.keys(hass.states)` (which spans every HA domain) without
+ * misclassifying unrelated entities whose object_id happens to end with
+ * `_pollenflug_<token>_<digits>` (Copilot review on #218). Allows zero or
+ * more `\w+_` segments between `sensor.` and the integration's own
+ * `pollenflug_` marker so the device-name slug can be of any length.
+ *
  * The integration's allergen segment is always a single lowercase token
  * (erle / ambrosia / esche / birke / buche / hasel / graser / graeser /
  * beifuss / roggen), so anchoring the inner pattern to `[a-z]+` lets the
@@ -80,7 +87,7 @@ export const stubConfigDWD = {
  * "pollenflug" earlier in the string. (#217)
  */
 export const DWD_ENTITY_ID_RE =
-  /(?:^sensor\.|_)pollenflug_([a-z]+)_(\d+)$/;
+  /^sensor\.(?:\w+_)*pollenflug_([a-z]+)_(\d+)$/;
 
 /**
  * Extract the numeric region ID from a DWD entity ID, accepting both bare

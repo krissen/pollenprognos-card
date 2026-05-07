@@ -563,4 +563,23 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
       "sensor.pollenflug_pollenflug_erle_121",
     );
   });
+
+  it("does not match entities outside the sensor.* domain (Copilot review on #218)", () => {
+    // Regression: an earlier draft of DWD_ENTITY_ID_RE used
+    // (?:^sensor\\.|_) and would falsely match e.g. an automation whose
+    // object_id ended in _pollenflug_<token>_<digits>. The anchor is now
+    // ^sensor\\. so non-sensor domains never enter discovery / autodetect.
+    const hass = createHass({
+      "automation.house_alarm_pollenflug_test_42": { state: "on", attributes: {} },
+      "input_select.thing_pollenflug_birke_50": { state: "Med", attributes: {} },
+      // A real DWD sensor in the same hass to confirm sensors still match.
+      "sensor.pollenflug_erle_50": createDWDSensor(1, 0, 0),
+    });
+    const result = discoverDwdSensors(hass);
+    expect(result.locations.size).toBe(1);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.get("erle")).toBe("sensor.pollenflug_erle_50");
+    // No other entities should have leaked into the location's entity map.
+    expect(loc.entities.size).toBe(1);
+  });
 });
