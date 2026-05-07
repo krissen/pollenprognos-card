@@ -176,26 +176,24 @@ describe("PEU adapter: fetchForecast", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Level scaling: PEU native 0-4, scaled to 0-6
+  // 2. Level handling: PEU native 0-4 (single-scale, post-#215)
   // -------------------------------------------------------------------------
-  describe("level scaling (0-4 to 0-6)", () => {
-    // Formula: level < 2 ? floor(level*6/4) : ceil(level*6/4)
-    // 0 -> floor(0)   = 0
-    // 1 -> floor(1.5) = 1
-    // 2 -> ceil(3)    = 3
-    // 3 -> ceil(4.5)  = 5
-    // 4 -> ceil(6)    = 6
+  describe("native level handling (0-4)", () => {
+    // Pre-3.2.0 PEU stretched native 0-4 onto a 7-bucket card.levels array
+    // via a [0, 1, 3, 5, 6] runtime spread. Now that card.levels5.0..4 lives
+    // in every locale (added for MSW), level names are looked up at native
+    // indices and `state` carries the integration's native value verbatim.
+    // The test loop below kept its old `expected` column (the 0-6 scaled
+    // value) only to assert that the call succeeded; the real assertion is
+    // that state stores the native value and state_text is non-empty.
 
-    const cases = [
-      [0, 0],
-      [1, 1],
-      [2, 3],
-      [3, 5],
-      [4, 6],
-    ];
+    // Just the input native levels; the legacy "expected scaled value"
+    // column was retired with the #215 cleanup. Specific user-visible
+    // strings are pinned in the dedicated test below.
+    const cases = [0, 1, 2, 3, 4];
 
-    for (const [input, expected] of cases) {
-      it(`maps native level ${input} to scaled level ${expected}`, async () => {
+    for (const input of cases) {
+      it(`renders state_text for native level ${input}`, async () => {
         const hass = makeHass("amsterdam", {
           birch: [input, input, input, input],
         });
@@ -207,13 +205,64 @@ describe("PEU adapter: fetchForecast", () => {
 
         const result = await fetchForecast(hass, config);
 
-        // state stores the raw (0-4) value; state_text reflects the scaled level
+        // state stores the native (0-4) value verbatim
         expect(result[0].day0.state).toBe(input >= 0 ? input : -1);
-        // state_text should correspond to the 0-6 scaled level, not the raw one
-        // We can infer scale by checking that level 4 state_text != level 0 state_text
+        // state_text comes from card.levels5.0..4 keyed at the native index
         expect(typeof result[0].day0.state_text).toBe("string");
+        expect(result[0].day0.state_text.length).toBeGreaterThan(0);
       });
     }
+
+    it("native level -> default English state_text mapping (#215)", async () => {
+      // Lock in the user-visible mapping after the #215 cleanup. Defaults
+      // come from card.levels5.0..4 which are sourced one-to-one from
+      // each locale's existing card.levels.{0,1,3,5,6} strings, so the
+      // English mapping is "No pollen / Low levels / Moderate levels /
+      // High levels / Very high levels".
+      const expectations = [
+        [0, "No pollen"],
+        [1, "Low levels"],
+        [2, "Moderate levels"],
+        [3, "High levels"],
+        [4, "Very high levels"],
+      ];
+      for (const [level, expected] of expectations) {
+        const hass = makeHass("amsterdam", { birch: [level, level, level, level] });
+        const config = makeConfig({
+          location: "amsterdam",
+          allergens: ["birch"],
+          pollen_threshold: 0,
+        });
+        const result = await fetchForecast(hass, config);
+        expect(result[0].day0.state_text).toBe(expected);
+      }
+    });
+
+    it("rounds fractional levels to the nearest severity bucket (#216 review)", async () => {
+      // Codex/Copilot review on PR #216 caught that lookupIndex was passing
+      // float inputs straight to levelNames[i], producing undefined and
+      // falling back to noInfoLabel. The legacy indexToLevel/Math.floor
+      // path always rounded, so a 2.7 input still rendered "High levels".
+      // Lock the rounding behavior in.
+      const cases = [
+        [0.4, "No pollen"],     // -> 0
+        [0.6, "Low levels"],    // -> 1
+        [1.5, "Moderate levels"], // -> 2 (banker's? no, round half-up)
+        [2.7, "High levels"],   // -> 3
+        [3.6, "Very high levels"], // -> 4
+        [4.4, "Very high levels"], // clamps at 4
+      ];
+      for (const [level, expected] of cases) {
+        const hass = makeHass("amsterdam", { birch: [level, 0, 0, 0] });
+        const config = makeConfig({
+          location: "amsterdam",
+          allergens: ["birch"],
+          pollen_threshold: 0,
+        });
+        const result = await fetchForecast(hass, config);
+        expect(result[0].day0.state_text).toBe(expected);
+      }
+    });
 
     it("state_text for native level 4 differs from native level 0", async () => {
       const hassHigh = makeHass("amsterdam", { birch: [4, 4, 4, 4] });
@@ -720,15 +769,21 @@ describe("PEU adapter: fetchForecast", () => {
   // 10. User level names (5 or 7 custom labels)
   // -------------------------------------------------------------------------
   describe("user level names", () => {
-    it("accepts 7 custom level labels mapping directly to indices 0-6", async () => {
+    it("accepts 7 legacy custom level labels (backwards compat post-#215)", async () => {
+      // Pre-3.2.0 configs could supply seven phrase strings indexed 0-6,
+      // because PEU stretched native 0-4 onto the seven-bucket palette.
+      // The cleanup in #215 keeps level names native (0-4); a length-7 user
+      // input is migrated by extracting entries [0, 1, 3, 5, 6] -- the same
+      // positions the spread historically populated -- so user-visible
+      // labels stay identical for legacy configs.
       const customLevels = [
-        "None",
-        "VeryLow",
-        "Low",
-        "Medium",
-        "High",
-        "VeryHigh",
-        "Extreme",
+        "None",     // index 0 -> native 0
+        "VeryLow",  // index 1 -> native 1
+        "Low",      // index 2 -> ignored under spread (no native maps here)
+        "Medium",   // index 3 -> native 2
+        "High",     // index 4 -> ignored under spread
+        "VeryHigh", // index 5 -> native 3
+        "Extreme",  // index 6 -> native 4
       ];
       const hass = makeHass("amsterdam", { birch: [2, 1, 0, 0] });
       const config = makeConfig({
@@ -739,12 +794,16 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      // Native level 2 -> scaled level 3 -> customLevels[3] = "Medium"
+      // Native level 2 -> "Medium" (was customLevels[3] under spread,
+      // now customLevels[3] picked into native index 2 via the [0,1,3,5,6]
+      // migration extraction; same user-visible outcome.)
       expect(result[0].day0.state_text).toBe("Medium");
     });
 
-    it("accepts 5 custom level labels mapped via [0,1,3,5,6]", async () => {
-      // 5 labels map to scaled levels: idx0->0, idx1->1, idx2->3, idx3->5, idx4->6
+    it("accepts 5 custom level labels at native indices", async () => {
+      // 5-length user phrases now apply directly at native indices 0..4 --
+      // no runtime spread, no migration. Visible outcome is identical to the
+      // pre-#215 [0,1,3,5,6] mapping for any state value.
       const customLevels = ["Zero", "Low", "Moderate", "High", "VeryHigh"];
       const hass = makeHass("amsterdam", { birch: [2, 1, 0, 0] });
       const config = makeConfig({
@@ -755,7 +814,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      // Native level 2 -> scaled level 3; map[2]=3 in 5-label array -> customLevels[2] = "Moderate"
+      // Native level 2 -> customLevels[2] = "Moderate"
       expect(result[0].day0.state_text).toBe("Moderate");
     });
 

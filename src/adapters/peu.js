@@ -1,8 +1,6 @@
 // src/adapters/peu.js
-import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
-import { buildLevelNames } from "../utils/level-names.js";
-import { indexToLevel } from "./silam.js";
+import { buildLevelNamesForScale } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
 
@@ -365,24 +363,34 @@ export async function fetchForecast(hass, config) {
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
 
   const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
-  // Levels from PEU are reported as 0-4 but scaled to 0-6 in the card.
-  // Accept either five or seven custom names and map them to the 0-6 scale.
-  const defaultNumLevels = 5; // original scale
-  const levelNamesDefault = Array.from({ length: 7 }, (_, i) =>
-    t(`card.levels.${i}`, lang),
-  );
-  let levelNames = levelNamesDefault.slice();
-  if (Array.isArray(userLevels)) {
-    if (userLevels.length === 7) {
-      levelNames = buildLevelNames(userLevels, lang);
-    } else if (userLevels.length === defaultNumLevels) {
-      const map = [0, 1, 3, 5, 6];
-      map.forEach((lvl, idx) => {
-        const val = userLevels[idx];
-        if (val != null && val !== "") levelNames[lvl] = val;
-      });
-    }
+  // PEU is natively a five-level integration (0-4: None/Low/Medium/High/Very High).
+  // Earlier versions stretched native states onto the seven-bucket card.levels
+  // palette via a [0, 1, 3, 5, 6] runtime spread to compensate for the lack of
+  // five-level locale strings. Now that card.levels5.0..4 exists in every
+  // locale (added in 3.2.0 for MSW), look names up at native indices instead.
+  // Backwards compat: legacy configs that supplied seven custom phrases
+  // (`phrases.levels` length 7) had their entries placed at indices 0,1,3,5,6
+  // of the seven-bucket array under the spread. Extracting those positions
+  // preserves the user-visible labels exactly: a length-7 input becomes a
+  // length-5 input with the same chosen strings at the same severity steps.
+  let normalizedUserLevels = userLevels;
+  if (Array.isArray(userLevels) && userLevels.length === 7) {
+    normalizedUserLevels = [0, 1, 3, 5, 6].map((i) => userLevels[i]);
   }
+  const levelNames = buildLevelNamesForScale(5, normalizedUserLevels, lang);
+
+  // Clamp a native-scale level value to an integer 0-4 lookup index.
+  // Rounds first so float inputs (e.g. raw.level = 2.7 in hourly forecast
+  // entries) still bucket into a valid severity label instead of returning
+  // a fractional index that would resolve to undefined and fall back to
+  // noInfoLabel. Returns -1 for non-finite inputs (NaN / null / undefined)
+  // so callers can show the no-info label. Negative finite values clamp to
+  // 0, matching the legacy behavior where indexToLevel(-1) resolved to
+  // scale[0] = 0.
+  const lookupIndex = (level) =>
+    Number.isFinite(level)
+      ? Math.max(0, Math.min(Math.round(level), 4))
+      : -1;
 
   const testVal = (v) => clampLevel(v, 4, -1);
 
@@ -481,7 +489,7 @@ export async function fetchForecast(hass, config) {
               entry.numeric_state_raw ?? entry.level_raw ?? displayState,
             );
           }
-          const scaledLevel = indexToLevel(state);
+          const levelIdx = lookupIndex(state);
           const dayObj = {
             name: dict.allergenCapitalized,
             day: label,
@@ -489,11 +497,7 @@ export async function fetchForecast(hass, config) {
             state,
             // Separate property used purely for numeric display.
             display_state: displayState,
-            state_text:
-              scaledLevel < 0
-                ? noInfoLabel
-                : levelNames[scaledLevel] ||
-                  t(`card.levels.${scaledLevel}`, lang),
+            state_text: levelIdx < 0 ? noInfoLabel : levelNames[levelIdx] || noInfoLabel,
           };
           dict[`day${i}`] = dayObj;
           dict.days.push(dayObj);
@@ -552,24 +556,14 @@ export async function fetchForecast(hass, config) {
             const diff = Math.round((d - today) / 86400000);
             const label = buildDayLabel(d, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
 
-            let scaledLevel;
-            if (level < 2) {
-              scaledLevel = Math.floor((level * 6) / 4);
-            } else {
-              scaledLevel = Math.ceil((level * 6) / 4);
-            }
-
+            const levelIdx = lookupIndex(level);
             const dayObj = {
               name: dict.allergenCapitalized,
               day: label,
               state: level,
               // Raw value used only for display when available.
               display_state: displayLevel,
-              state_text:
-                scaledLevel < 0
-                  ? noInfoLabel
-                  : levelNames[scaledLevel] ||
-                    t(`card.levels.${scaledLevel}`, lang),
+              state_text: levelIdx < 0 ? noInfoLabel : levelNames[levelIdx] || noInfoLabel,
             };
 
             dict[`day${idx}`] = dayObj;
