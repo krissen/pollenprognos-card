@@ -240,6 +240,32 @@ describe("PEU adapter: fetchForecast", () => {
       }
     });
 
+    it("rounds fractional levels to the nearest severity bucket (#216 review)", async () => {
+      // Codex/Copilot review on PR #216 caught that lookupIndex was passing
+      // float inputs straight to levelNames[i], producing undefined and
+      // falling back to noInfoLabel. The legacy indexToLevel/Math.floor
+      // path always rounded, so a 2.7 input still rendered "High levels".
+      // Lock the rounding behavior in.
+      const cases = [
+        [0.4, "No pollen"],     // -> 0
+        [0.6, "Low levels"],    // -> 1
+        [1.5, "Moderate levels"], // -> 2 (banker's? no, round half-up)
+        [2.7, "High levels"],   // -> 3
+        [3.6, "Very high levels"], // -> 4
+        [4.4, "Very high levels"], // clamps at 4
+      ];
+      for (const [level, expected] of cases) {
+        const hass = makeHass("amsterdam", { birch: [level, 0, 0, 0] });
+        const config = makeConfig({
+          location: "amsterdam",
+          allergens: ["birch"],
+          pollen_threshold: 0,
+        });
+        const result = await fetchForecast(hass, config);
+        expect(result[0].day0.state_text).toBe(expected);
+      }
+    });
+
     it("state_text for native level 4 differs from native level 0", async () => {
       const hassHigh = makeHass("amsterdam", { birch: [4, 4, 4, 4] });
       const hassLow = makeHass("amsterdam", { birch: [0, 0, 0, 0] });

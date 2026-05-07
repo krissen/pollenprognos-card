@@ -380,12 +380,18 @@ export async function fetchForecast(hass, config) {
   }
   const levelNames = buildLevelNamesForScale(5, normalizedUserLevels, lang);
 
-  // Clamp a native-scale level value to a 0-4 lookup index. Returns -1 for
-  // non-finite inputs (NaN / undefined / null) so callers can fall back to
-  // the no-info label. Negative finite values clamp to 0 (matches the legacy
-  // behavior where indexToLevel(-1) resolved to scale[0] = 0).
+  // Clamp a native-scale level value to an integer 0-4 lookup index.
+  // Rounds first so float inputs (e.g. raw.level = 2.7 in hourly forecast
+  // entries) still bucket into a valid severity label instead of returning
+  // a fractional index that would resolve to undefined and fall back to
+  // noInfoLabel. Returns -1 for non-finite inputs (NaN / null / undefined)
+  // so callers can show the no-info label. Negative finite values clamp to
+  // 0, matching the legacy behavior where indexToLevel(-1) resolved to
+  // scale[0] = 0.
   const lookupIndex = (level) =>
-    Number.isFinite(level) ? Math.max(0, Math.min(level, 4)) : -1;
+    Number.isFinite(level)
+      ? Math.max(0, Math.min(Math.round(level), 4))
+      : -1;
 
   const testVal = (v) => clampLevel(v, 4, -1);
 
