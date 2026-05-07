@@ -18,7 +18,7 @@ import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
 import { discoverMswSensors } from "./adapters/msw.js";
 import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
-import { discoverDwdSensors } from "./adapters/dwd.js";
+import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
@@ -987,8 +987,10 @@ class PollenPrognosCard extends LitElement {
         return true;
       },
     );
+    // DWD: match the integration's pollenflug_<allergen>_<region> segment
+    // whether or not HA has prepended a device-name slug (#217).
     const dwdStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
     );
     const peuStates = Object.keys(hass.states).filter(
       (id) =>

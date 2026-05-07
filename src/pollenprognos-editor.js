@@ -13,7 +13,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getAllAdapterIds, getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
-import { stubConfigDWD, discoverDwdSensors } from "./adapters/dwd.js";
+import { stubConfigDWD, discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex/index.js";
@@ -494,8 +494,7 @@ class PollenPrognosCardEditor extends LitElement {
           integration = "peu";
         } else if (
           all.some(
-            (id) =>
-              typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+            (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
           )
         ) {
           integration = "dwd";
@@ -701,14 +700,20 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedRegionIds = this.installedDwdLocations.map(([key]) => key);
         } else {
           const all = Object.keys(this._hass.states);
+          // Pull the trailing region ID from any DWD entity, accepting both
+          // bare and HA-device-prefixed shapes (#217). The regex's second
+          // capture group is always the numeric region ID, so use it
+          // directly instead of splitting on underscores (which would pick
+          // up a stray ID from a device-name slug like "_92" mid-string).
           this.installedRegionIds = Array.from(
             new Set(
               all
-                .filter(
-                  (id) =>
-                    typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+                .map((id) =>
+                  typeof id === "string"
+                    ? id.match(DWD_ENTITY_ID_RE)?.[2]
+                    : null,
                 )
-                .map((id) => id.split("_").pop()),
+                .filter(Boolean),
             ),
           ).sort((a, b) => Number(a) - Number(b));
           this.installedDwdLocations = this.installedRegionIds.map((id) => [
@@ -878,8 +883,9 @@ class PollenPrognosCardEditor extends LitElement {
       },
     );
 
+    // DWD: lenient regex catches device-prefixed entity_ids too (#217).
     const dwdStates = stateIds.filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
     );
 
     const peuStates = stateIds.filter(
