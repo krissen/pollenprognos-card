@@ -187,15 +187,12 @@ describe("PEU adapter: fetchForecast", () => {
     // value) only to assert that the call succeeded; the real assertion is
     // that state stores the native value and state_text is non-empty.
 
-    const cases = [
-      [0, 0],
-      [1, 1],
-      [2, 3],
-      [3, 5],
-      [4, 6],
-    ];
+    // Just the input native levels; the legacy "expected scaled value"
+    // column was retired with the #215 cleanup. Specific user-visible
+    // strings are pinned in the dedicated test below.
+    const cases = [0, 1, 2, 3, 4];
 
-    for (const [input, expected] of cases) {
+    for (const input of cases) {
       it(`renders state_text for native level ${input}`, async () => {
         const hass = makeHass("amsterdam", {
           birch: [input, input, input, input],
@@ -220,7 +217,8 @@ describe("PEU adapter: fetchForecast", () => {
       // Lock in the user-visible mapping after the #215 cleanup. Defaults
       // come from card.levels5.0..4 which are sourced one-to-one from
       // each locale's existing card.levels.{0,1,3,5,6} strings, so the
-      // English mapping is None / Low / Moderate / High / Very high.
+      // English mapping is "No pollen / Low levels / Moderate levels /
+      // High levels / Very high levels".
       const expectations = [
         [0, "No pollen"],
         [1, "Low levels"],
