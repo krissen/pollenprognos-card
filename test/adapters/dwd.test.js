@@ -429,3 +429,138 @@ describe("DWD adapter: discoverDwdSensors", () => {
     expect(loc.label).toBe("My custom region");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Device-prefixed entity IDs (#217)
+//
+// hacs_dwd_pollenflug v1.0.4 ships a device named "Pollenflug Gefahrenindex",
+// so HA prepends the device-name slug to every entity ID:
+//   sensor.pollenflug_gefahrenindex_pollenflug_<allergen>_<region_id>
+// instead of the legacy bare shape sensor.pollenflug_<allergen>_<region_id>.
+// User-renamed devices produce arbitrary prefixes
+// (sensor.<custom-slug>_pollenflug_<allergen>_<region_id>). Both shapes have
+// to classify and resolve to the configured allergen.
+// ---------------------------------------------------------------------------
+
+const PREFIXED_ZONE = "92"; // Hessen, the region in the bug report
+
+describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
+  function makePrefixedHass(prefix, regionId, allergenMap) {
+    const states = {};
+    for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap)) {
+      states[`sensor.${prefix}_pollenflug_${allergen}_${regionId}`] =
+        createDWDSensor(today, tomorrow, twoDays);
+    }
+    return createHass(states, { language: "de" });
+  }
+
+  it("regex fallback discovers default 'Pollenflug Gefahrenindex' prefix", () => {
+    const hass = makePrefixedHass(
+      "pollenflug_gefahrenindex",
+      PREFIXED_ZONE,
+      { ambrosia: [3, 2, 1], birke: [2, 1, 0] },
+    );
+    const result = discoverDwdSensors(hass);
+    expect(result.locations.size).toBe(1);
+    const [, loc] = [...result.locations.entries()][0];
+    // Entities are keyed by the normalizeDWD() output (German allergen
+    // segment from the entity ID), matching the existing bare-shape tests
+    // above.
+    expect(loc.entities.get("ambrosia")).toBe(
+      `sensor.pollenflug_gefahrenindex_pollenflug_ambrosia_${PREFIXED_ZONE}`,
+    );
+    expect(loc.entities.get("birke")).toBe(
+      `sensor.pollenflug_gefahrenindex_pollenflug_birke_${PREFIXED_ZONE}`,
+    );
+  });
+
+  it("regex fallback discovers user-renamed device prefix", () => {
+    const hass = makePrefixedHass(
+      "mystation",
+      "50",
+      { erle: [1, 2, 0], graeser: [4, 3, 2] },
+    );
+    const result = discoverDwdSensors(hass);
+    expect(result.locations.size).toBe(1);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.get("erle")).toBe("sensor.mystation_pollenflug_erle_50");
+    expect(loc.entities.get("graeser")).toBe(
+      "sensor.mystation_pollenflug_graeser_50",
+    );
+  });
+
+  it("resolveEntityIds maps configured allergens through device-prefixed shape", () => {
+    const hass = makePrefixedHass(
+      "pollenflug_gefahrenindex",
+      PREFIXED_ZONE,
+      { ambrosia: [3, 0, 0], graeser: [2, 1, 0], birke: [1, 0, 0] },
+    );
+    const config = makeConfig({
+      region_id: PREFIXED_ZONE,
+      allergens: ["ambrosia", "graeser", "birke"],
+    });
+    const map = resolveEntityIds(config, hass);
+    expect(map.get("ambrosia")).toBe(
+      `sensor.pollenflug_gefahrenindex_pollenflug_ambrosia_${PREFIXED_ZONE}`,
+    );
+    expect(map.get("graeser")).toBe(
+      `sensor.pollenflug_gefahrenindex_pollenflug_graeser_${PREFIXED_ZONE}`,
+    );
+    expect(map.get("birke")).toBe(
+      `sensor.pollenflug_gefahrenindex_pollenflug_birke_${PREFIXED_ZONE}`,
+    );
+  });
+
+  it("fetchForecast produces sensors when entities are device-prefixed", async () => {
+    const hass = makePrefixedHass(
+      "pollenflug_gefahrenindex",
+      PREFIXED_ZONE,
+      { ambrosia: [3, 2, 1] },
+    );
+    const config = makeConfig({
+      region_id: PREFIXED_ZONE,
+      allergens: ["ambrosia"],
+      pollen_threshold: 0,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe(
+      `sensor.pollenflug_gefahrenindex_pollenflug_ambrosia_${PREFIXED_ZONE}`,
+    );
+    assertSensorShape(result[0], { minDays: 1 });
+  });
+
+  it("template fallback handles device-prefixed shape when discovery yields nothing", () => {
+    // hass without devices/entities forces tier-3 (regex fallback) inside
+    // discovery, and if discovery somehow misses, resolveEntityIds falls
+    // through to its own template scan -- both must accept the prefix.
+    const hass = makePrefixedHass(
+      "foo_bar_baz",
+      "50",
+      { erle: [1, 0, 0] },
+    );
+    const config = makeConfig({
+      region_id: "50",
+      allergens: ["erle"],
+    });
+    const map = resolveEntityIds(config, hass);
+    expect(map.get("erle")).toBe("sensor.foo_bar_baz_pollenflug_erle_50");
+  });
+
+  it("regex anchors to the rightmost pollenflug_<allergen>_<id> segment", () => {
+    // Edge case: device name happens to be just "pollenflug" -- the
+    // entity_id then contains "pollenflug_pollenflug_" before the allergen.
+    // The regex should still anchor the allergen to the rightmost
+    // pollenflug_<allergen>_<region> match.
+    const hass = makePrefixedHass(
+      "pollenflug",
+      "121",
+      { erle: [2, 1, 0] },
+    );
+    const result = discoverDwdSensors(hass);
+    const [, loc] = [...result.locations.entries()][0];
+    expect(loc.entities.get("erle")).toBe(
+      "sensor.pollenflug_pollenflug_erle_121",
+    );
+  });
+});
