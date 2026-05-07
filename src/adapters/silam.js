@@ -92,6 +92,34 @@ export function grainsToLevel(allergen, grains) {
   return 6;
 }
 
+/**
+ * Map SILAM's `allergy_risk` categorical state (very_low / low / moderate /
+ * high / very_high, plus their numeric forms 0-4) onto the 0-6 visual scale
+ * the SILAM card renders against, using the [0, 1, 3, 5, 6] severity steps.
+ *
+ * This deliberately keeps the runtime spread that PEU dropped in #215.
+ * SILAM's case is structurally different from PEU's:
+ *
+ *  1. The SILAM chart renders `segments = 6` (default branch in the card's
+ *     segments switch), and a single SILAM card commonly mixes allergy_risk
+ *     with birch / grass / etc. on the *same* chart geometry. The spread
+ *     stretches allergy_risk's 5 categorical steps onto the same 6-segment
+ *     gradient the other allergens fill, so all rings on a SILAM card share
+ *     the same visual scale.
+ *  2. The output value is stored as `state`, which the card uses for both
+ *     chart fill *and* level-name lookup against the seven-level
+ *     `card.levels.0..6` defaults. The spread positions (0, 1, 3, 5, 6)
+ *     happen to align with the seven-level palette's "No pollen / Low /
+ *     Moderate / High / Very high" entries, so user-visible labels are
+ *     semantically correct without per-allergen scale-specific keys.
+ *
+ * Removing this spread (the pattern PEU used) would either leave allergy_risk
+ * never filling the rightmost two chart segments, or force per-allergen
+ * segments and scale-specific locale keys -- a much bigger refactor for a
+ * single categorical sensor that already works correctly. If SILAM later
+ * drops `allergy_risk` from cards that also display per-allergen sensors, or
+ * gains its own scale-specific chart geometry, this helper can be revisited.
+ */
 export function indexToLevel(val) {
   if (val == null) return -1;
   const scale = [0, 1, 3, 5, 6];
