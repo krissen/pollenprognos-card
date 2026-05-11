@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-## [3.2.0] - 2026-05-05
+## [3.2.0] - 2026-05-11
 
 ### Added
 - **New `msw` adapter for [hass-swissweather](https://github.com/izacus/hass-swissweather) by [@izacus](https://github.com/izacus)**, contributed by [@r3turnNull](https://github.com/r3turnNull) (#212, polished in #214). Reads current pollen levels from MeteoSwiss `SwissPollenLevelSensor` entities and maps the categorical scale (`None` / `Low` / `Medium` / `Strong` / `Very Strong`) onto the integration's native 5-level scale (0--4). Supports the seven allergens that hass-swissweather exposes: birch, grass, alder, hazel, beech, ash, oak. MeteoSwiss publishes only current-day measurements, so `days_to_show` is fixed at 1 by the card regardless of config (no synthetic future days). Discovery uses the same device-registry helper as the other seven migrated adapters: multi-station setups route correctly via `config_entry_id`, the visual editor exposes a station picker, and renaming a SwissWeather device (`name_by_user`) does not break detection. Entity-ID auto-detection in the card and editor recognizes both bare and HA's auto-prefixed shapes (`sensor.<device-slug>_pollen_<allergen>_level_at_<station>`). The "MeteoSwiss at " prefix is stripped from default device labels so the location dropdown and card header surface "8000-KLO" rather than "MeteoSwiss at 8000-KLO" -- user-renamed devices (e.g. "Bern") are passed through unchanged.
