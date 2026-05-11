@@ -40,7 +40,7 @@ The shared `card.levels.0..6` and `editor.phrases_levels.0..6` keys hold the sev
 
 For adapters with a different native level count, the card uses scale-specific keys so user-visible severity labels match the integration's own count instead of borrowing strings from a wider scale. Currently in use:
 
-- `card.levels5.0..4` and `editor.phrases_levels5.0..4` -- five-level scale (MSW today; PEU migration tracked in #215)
+- `card.levels5.0..4` and `editor.phrases_levels5.0..4` -- five-level scale, used by MSW and PEU
 
 When adding a new locale, translate these scale-specific keys too. For the five-level scale, the conventional mapping is to reuse each language's existing `card.levels.{0,1,3,5,6}` strings (so the scale-5 entries read "None / Low / Moderate / High / Very High" or the locale's equivalents).
 

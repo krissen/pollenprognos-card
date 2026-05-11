@@ -337,7 +337,7 @@ The available allergens:
 birch, grass, alder, hazel, beech, ash, oak
 ```
 
-Categorical levels reported by the integration map to the card's 0--6 scale as follows: `None` -> 0, `Low` -> 1, `Medium` -> 3, `Strong` -> 5, `Very Strong` -> 6 (gaps left at 2 and 4 so the visual mid-levels stay distinct).
+Categorical levels reported by the integration map to a native 5-level scale (0--4): `None` -> 0, `Low` -> 1, `Medium` -> 2, `Strong` -> 3, `Very Strong` -> 4. The card keeps each integration's native level count rather than stretching onto a shared 0--6 gradient; level circles render with five segments (None empty, Very Strong full) and severity strings come from the `card.levels5.0..4` i18n keys.
 
 Multi-station configuration: set `location` to either the `config_entry_id` (Crockford-base32 ULID, the visual editor's default), the device label (`name_by_user` or `name`, e.g. `Bern`), or the station code (e.g. `8000`). Leaving `location` empty selects the first discovered station. Stale `config_entry_id` values (e.g. after an integration reinstall) auto-recover to the first discovered station, mirroring DWD/GPL/GP/SILAM/Atmo behavior.
 
