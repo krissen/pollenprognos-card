@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - (kleenex) Per-allergen DetailSensor fallback and a clearer warning for US/CA zones where the upstream API only returns category totals (issue #206). The NA-zone warning is de-duplicated per session and per location.
 
 ### Changed
-- Discovery helper extracted to `src/utils/adapter-helpers.js` (`discoverEntitiesByDevice`, `resolveLocationByKey`, `findLocationBySlug`). PP, DWD, PEU, SILAM, Atmo, GPL, GP and MSW now share the same three-tier cascade, eliminating bespoke regex-based discovery in those adapters.
+- Discovery helper extracted to `src/utils/adapter-helpers.js` (`discoverEntitiesByDevice`, `resolveLocationByKey`, `findLocationBySlug`). PP, DWD, PEU, SILAM, Atmo, GPL, GP and MSW now share the same three-tier discovery. Tier 1 (device-identifier match) and tier 2 (entity-registry platform match) cooperate rather than strictly cascade: tier 2 tops up tier 1 with entities from integration devices that lack `identifiers` metadata, so mixed-registry scenarios do not silently drop entities. Tier 3 (regex/selector fallback) runs when neither registry produces a location. Replaces the bespoke regex-based discovery these adapters used previously.
 - (editor) PP and DWD location dropdowns now sorted consistently when populated via the secondary discovery path.
 - (card) Header location label now resolved through the shared discovery helper for PP, DWD, PEU, GPL, GP, MSW. Discovery results are cached per-render to avoid redundant entity scans.
 - (dwd) Region-ID prefix stripped from auto-derived region labels; ID suffix only appended when needed to disambiguate duplicate region names.
