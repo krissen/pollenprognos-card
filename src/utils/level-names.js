@@ -4,8 +4,7 @@
 //   card.levels.0..6   - 7-level scale (PP / SILAM / Atmo, also the legacy
 //                        default used by adapters that remap their native
 //                        scale onto these indices via runtime spreads)
-//   card.levels5.0..4  - 5-level scale (MSW; available for PEU/SILAM-risk
-//                        migration via #215)
+//   card.levels5.0..4  - 5-level scale (MSW, PEU)
 // Adapters with non-default scales should use buildLevelNamesForScale(scale)
 // to look up names at native indices, so user-visible severity labels match
 // the integration's own level count instead of borrowing semantically-wrong
@@ -17,7 +16,7 @@ import { t } from "../i18n.js";
  * with optional user overrides at the same indices.
  * Kept for adapters that have always used the 7-level scale (PP / SILAM /
  * Atmo) and for adapters whose level-name lookup still spreads native to
- * 0-6 (DWD; PEU pending #215).
+ * 0-6 (DWD).
  *
  * @param {Array<string|null|undefined>|undefined} userLevels - per-index overrides
  * @param {string} lang - active language code
