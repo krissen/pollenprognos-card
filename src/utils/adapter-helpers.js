@@ -479,13 +479,11 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
     }
   };
 
-  // --- Tier 1: Device-based discovery ---
+  // --- Tier 1 + Tier 2: Single-pass entity discovery ---
   // Find devices whose identifiers contain a matching platform as first element.
-  // Kept across both tier 1 and tier 2 so tier 2 can skip entities whose device
-  // was already considered by tier 1 (avoid double-classification with strict
-  // when relaxed already had a chance).
+  // Used to decide tier-1 precedence per entity below.
   const matchingDeviceIds = new Set();
-  if (hass !== null && hass !== undefined && hass.devices !== null && hass.devices !== undefined && hass.entities !== null && hass.entities !== undefined) {
+  if (hass !== null && hass !== undefined && hass.devices !== null && hass.devices !== undefined) {
     for (const [devId, dev] of Object.entries(hass.devices)) {
       if (dev === null || dev === undefined) continue;
       const identifiers = dev.identifiers;
@@ -497,53 +495,24 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
         }
       }
     }
-
-    if (matchingDeviceIds.size > 0) {
-      if (debug) console.debug(`[${logTag}] Discovery tier 1 (device-based): found`, matchingDeviceIds.size, "devices");
-
-      for (const [eid, entry] of Object.entries(hass.entities)) {
-        if (entry === null || entry === undefined) continue;
-        if (!matchingDeviceIds.has(entry.device_id)) continue;
-        if (shouldExclude(entry)) continue;
-
-        const state = hass.states !== null && hass.states !== undefined ? hass.states[eid] : undefined;
-        if (state === null || state === undefined) continue;
-
-        const deviceId = entry.device_id;
-        const device = hass.devices[deviceId];
-        const ctx = { state, entry, device, deviceId, entityId: eid, tier: 1 };
-
-        if (!checkRelevant(eid, ctx)) continue;
-
-        const allergenKey = classifyTier1(eid, ctx);
-        addEntity(eid, allergenKey, ctx);
-      }
-
-      if (debug && locations.size > 0) {
-        console.debug(`[${logTag}] Discovery tier 1 result:`, locations.size, "locations");
-        for (const [locId, loc] of locations) {
-          console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
-        }
-      }
-    }
+  }
+  if (debug && matchingDeviceIds.size > 0) {
+    console.debug(`[${logTag}] Discovery tier 1 (device-based): found`, matchingDeviceIds.size, "devices");
   }
 
-  // Snapshot whether tier 1 contributed anything; needed for tierUsed below.
-  // Locations created by tier 1 cannot disappear, so the post-tier-2 check is a
-  // monotone superset of this.
-  const tier1ContributedLocations = locations.size > 0;
-
-  // --- Tier 2: Entity-registry scan ---
-  // Always runs to top up entities from integration devices that lacked
-  // `identifiers` metadata (tier 1 invisible). Entities whose device was already
-  // walked by tier 1 are skipped so classifyStrict does not run on top of the
-  // relaxed tier-1 result.
+  // Single walk over hass.entities. Tier 1 path handles entities whose device
+  // has matching identifiers (with the relaxed classifier); tier 2 path handles
+  // remaining entities whose entry.platform matches (with the strict classifier).
+  // Entities considered by tier 1 are NOT also offered to tier 2, so the strict
+  // classifier never second-guesses the relaxed result on the same entity.
+  let tier1Contributed = false;
+  let tier2Contributed = false;
   if (hass !== null && hass !== undefined && hass.entities !== null && hass.entities !== undefined) {
-    let tier2Walked = false;
     for (const [eid, entry] of Object.entries(hass.entities)) {
       if (entry === null || entry === undefined) continue;
-      if (!platforms.includes(entry.platform)) continue;
-      if (matchingDeviceIds.has(entry.device_id)) continue;
+      const inTier1 = matchingDeviceIds.has(entry.device_id);
+      const platformMatch = platforms.includes(entry.platform);
+      if (!inTier1 && !platformMatch) continue;
       if (shouldExclude(entry)) continue;
 
       const state = hass.states !== null && hass.states !== undefined ? hass.states[eid] : undefined;
@@ -553,21 +522,27 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
       const device = (deviceId !== null && deviceId !== undefined && hass.devices !== null && hass.devices !== undefined)
         ? hass.devices[deviceId]
         : undefined;
-      const ctx = { state, entry, device, deviceId, entityId: eid, tier: 2 };
+      const tier = inTier1 ? 1 : 2;
+      const ctx = { state, entry, device, deviceId, entityId: eid, tier };
 
       if (!checkRelevant(eid, ctx)) continue;
 
-      const allergenKey = classifyStrict(eid, ctx);
+      const allergenKey = inTier1 ? classifyTier1(eid, ctx) : classifyStrict(eid, ctx);
+      if (allergenKey === null || allergenKey === undefined) continue;
+
       addEntity(eid, allergenKey, ctx);
-      tier2Walked = true;
+      if (inTier1) tier1Contributed = true;
+      else tier2Contributed = true;
     }
 
     if (locations.size > 0) {
-      const tierUsed = tier1ContributedLocations ? 1 : 2;
+      const tierUsed = tier1Contributed ? 1 : 2;
       if (debug) {
-        if (tier1ContributedLocations && tier2Walked) {
+        if (tier1Contributed && tier2Contributed) {
           console.debug(`[${logTag}] Discovery tier 1+2 result:`, locations.size, "locations (tier 1 + tier 2 top-up)");
-        } else if (!tier1ContributedLocations) {
+        } else if (tier1Contributed) {
+          console.debug(`[${logTag}] Discovery tier 1 result:`, locations.size, "locations");
+        } else {
           console.debug(`[${logTag}] Discovery tier 2 result:`, locations.size, "locations");
         }
         for (const [locId, loc] of locations) {
