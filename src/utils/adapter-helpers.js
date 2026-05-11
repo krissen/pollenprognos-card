@@ -315,10 +315,21 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
  * Tier 1 (device-based): Scan hass.devices for devices whose identifiers match
  *   the given platform. Then collect entities from hass.entities whose device_id
  *   belongs to one of those devices.
- * Tier 2 (entity-registry): Scan hass.entities filtered by entry.platform.
- *   Used when hass.devices is unavailable or tier 1 yields no results.
+ * Tier 2 (entity-registry): Scan hass.entities filtered by entry.platform. Runs
+ *   alongside tier 1 to top up entities whose device lacks identifiers metadata
+ *   (mixed-registry scenarios where one config entry's devices are tagged and
+ *   another's are not). Entities whose device was already considered by tier 1
+ *   are skipped so the strict classifier does not second-guess the relaxed
+ *   tier-1 result. Falls back to walking all platform-matching entities when
+ *   tier 1 found no devices at all (matchingDeviceIds empty), preserving the
+ *   pre-existing tier 2 behavior for adapters that never use device-based
+ *   discovery.
  * Tier 3 (fallback): Scan hass.states using fallbackSelector or fallbackRegex.
- *   Used when both tier 1 and tier 2 yield no results.
+ *   Used when neither tier 1 nor tier 2 produced any locations.
+ *
+ * `tierUsed` in the returned object reports the primary mechanism: 1 if tier 1
+ * contributed any entity, 2 if only tier 2 contributed, 3 if only tier 3
+ * contributed, 0 if no tier produced locations.
  *
  * @param {object} hass - Home Assistant state object.
  * @param {object} opts
@@ -469,9 +480,12 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
   };
 
   // --- Tier 1: Device-based discovery ---
+  // Find devices whose identifiers contain a matching platform as first element.
+  // Kept across both tier 1 and tier 2 so tier 2 can skip entities whose device
+  // was already considered by tier 1 (avoid double-classification with strict
+  // when relaxed already had a chance).
+  const matchingDeviceIds = new Set();
   if (hass !== null && hass !== undefined && hass.devices !== null && hass.devices !== undefined && hass.entities !== null && hass.entities !== undefined) {
-    // Find devices whose identifiers contain a matching platform as first element
-    const matchingDeviceIds = new Set();
     for (const [devId, dev] of Object.entries(hass.devices)) {
       if (dev === null || dev === undefined) continue;
       const identifiers = dev.identifiers;
@@ -505,23 +519,31 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
         addEntity(eid, allergenKey, ctx);
       }
 
-      if (locations.size > 0) {
-        if (debug) {
-          console.debug(`[${logTag}] Discovery tier 1 result:`, locations.size, "locations");
-          for (const [locId, loc] of locations) {
-            console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
-          }
+      if (debug && locations.size > 0) {
+        console.debug(`[${logTag}] Discovery tier 1 result:`, locations.size, "locations");
+        for (const [locId, loc] of locations) {
+          console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
         }
-        return { locations, tierUsed: 1 };
       }
     }
   }
 
+  // Snapshot whether tier 1 contributed anything; needed for tierUsed below.
+  // Locations created by tier 1 cannot disappear, so the post-tier-2 check is a
+  // monotone superset of this.
+  const tier1ContributedLocations = locations.size > 0;
+
   // --- Tier 2: Entity-registry scan ---
+  // Always runs to top up entities from integration devices that lacked
+  // `identifiers` metadata (tier 1 invisible). Entities whose device was already
+  // walked by tier 1 are skipped so classifyStrict does not run on top of the
+  // relaxed tier-1 result.
   if (hass !== null && hass !== undefined && hass.entities !== null && hass.entities !== undefined) {
+    let tier2Walked = false;
     for (const [eid, entry] of Object.entries(hass.entities)) {
       if (entry === null || entry === undefined) continue;
       if (!platforms.includes(entry.platform)) continue;
+      if (matchingDeviceIds.has(entry.device_id)) continue;
       if (shouldExclude(entry)) continue;
 
       const state = hass.states !== null && hass.states !== undefined ? hass.states[eid] : undefined;
@@ -537,16 +559,22 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
 
       const allergenKey = classifyStrict(eid, ctx);
       addEntity(eid, allergenKey, ctx);
+      tier2Walked = true;
     }
 
     if (locations.size > 0) {
+      const tierUsed = tier1ContributedLocations ? 1 : 2;
       if (debug) {
-        console.debug(`[${logTag}] Discovery tier 2 result:`, locations.size, "locations");
+        if (tier1ContributedLocations && tier2Walked) {
+          console.debug(`[${logTag}] Discovery tier 1+2 result:`, locations.size, "locations (tier 1 + tier 2 top-up)");
+        } else if (!tier1ContributedLocations) {
+          console.debug(`[${logTag}] Discovery tier 2 result:`, locations.size, "locations");
+        }
         for (const [locId, loc] of locations) {
           console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
         }
       }
-      return { locations, tierUsed: 2 };
+      return { locations, tierUsed };
     }
   }
 

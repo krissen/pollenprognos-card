@@ -696,6 +696,142 @@ describe("discoverEntitiesByDevice", () => {
     expect(discovery.locations.get("cfg_loc1").entities.get("birch")).toBe("sensor.testint_birch_loc1");
     expect(discovery.locations.get("cfg_loc2").entities.get("birch")).toBe("sensor.testint_birch_loc2");
   });
+
+  // --- Tier 1 + Tier 2 cooperation (mixed-registry top-up) ---
+
+  it("mixed registry: tier 2 tops up entities from devices without identifiers", () => {
+    // Two devices in the same integration. One has proper `identifiers`
+    // metadata (tier 1 sees it), the other has empty identifiers but its
+    // entities still carry `entry.platform` (tier 2 should catch it).
+    // The fix is that tier 1 must not short-circuit and hide the second
+    // device's entities.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.testint_birch_loc1",
+        state: "3",
+        deviceId: "dev_with_id",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [["testint", "loc1"]],
+          configEntries: ["cfg_loc1"],
+          name: "Location One",
+        },
+      },
+      {
+        entityId: "sensor.testint_birch_loc2",
+        state: "1",
+        deviceId: "dev_no_id",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [],
+          configEntries: ["cfg_loc2"],
+          name: "Location Two",
+        },
+      },
+    ]);
+
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "testint",
+      classify: makeClassifier({ birch: "birch" }),
+    });
+
+    // tierUsed reflects tier 1 since tier 1 contributed; tier 2 topped up.
+    expect(discovery.tierUsed).toBe(1);
+    expect(discovery.locations.size).toBe(2);
+    expect(discovery.locations.get("cfg_loc1").entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(discovery.locations.get("cfg_loc2").entities.get("birch")).toBe("sensor.testint_birch_loc2");
+  });
+
+  it("mixed registry: tier 2 top-up does not reclassify tier-1 entities", () => {
+    // classifyRelaxed and strict differ for the SAME entity-id pattern.
+    // Tier-1-handled entity (dev_with_id) must keep the relaxed classification
+    // even though strict would also match it; the skip prevents double work
+    // and silent overwrites.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.testint_birch_loc1",
+        state: "3",
+        deviceId: "dev_with_id",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [["testint", "loc1"]],
+          configEntries: ["cfg_loc1"],
+        },
+      },
+      {
+        entityId: "sensor.testint_grass_loc2",
+        state: "2",
+        deviceId: "dev_no_id",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [],
+          configEntries: ["cfg_loc2"],
+        },
+      },
+    ]);
+
+    let strictCallsForBirch = 0;
+    let relaxedCallsForBirch = 0;
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "testint",
+      classify: (eid) => {
+        if (eid.includes("birch")) strictCallsForBirch++;
+        return eid.includes("grass") ? "grass" : null;
+      },
+      classifyRelaxed: (eid) => {
+        if (eid.includes("birch")) relaxedCallsForBirch++;
+        return eid.includes("birch") ? "birch" : eid.includes("grass") ? "grass" : null;
+      },
+    });
+
+    expect(relaxedCallsForBirch).toBe(1);
+    expect(strictCallsForBirch).toBe(0); // tier 2 skipped the tier-1 device
+    expect(discovery.tierUsed).toBe(1);
+    expect(discovery.locations.size).toBe(2);
+    expect(discovery.locations.get("cfg_loc1").entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(discovery.locations.get("cfg_loc2").entities.get("grass")).toBe("sensor.testint_grass_loc2");
+  });
+
+  it("mixed registry: tier 2 top-up merges into same location when config_entry_id matches", () => {
+    // Same config_entry_id but split across two devices, only one tagged with
+    // identifiers. Discovery should merge both entities into one location.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.testint_birch_shared",
+        state: "3",
+        deviceId: "dev_with_id",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [["testint", "shared"]],
+          configEntries: ["cfg_shared"],
+          name: "Shared",
+        },
+      },
+      {
+        entityId: "sensor.testint_grass_shared",
+        state: "2",
+        deviceId: "dev_no_id",
+        platform: "testint",
+        deviceMeta: {
+          identifiers: [],
+          configEntries: ["cfg_shared"],
+          name: "Shared",
+        },
+      },
+    ]);
+
+    const discovery = discoverEntitiesByDevice(hass, {
+      platform: "testint",
+      classify: makeClassifier({ birch: "birch", grass: "grass" }),
+    });
+
+    expect(discovery.tierUsed).toBe(1);
+    expect(discovery.locations.size).toBe(1);
+    const loc = discovery.locations.get("cfg_shared");
+    expect(loc).toBeDefined();
+    expect(loc.entities.get("birch")).toBe("sensor.testint_birch_shared");
+    expect(loc.entities.get("grass")).toBe("sensor.testint_grass_shared");
+  });
 });
 
 // ---------------------------------------------------------------------------
