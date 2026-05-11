@@ -315,15 +315,18 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
  * Tier 1 (device-based): Scan hass.devices for devices whose identifiers match
  *   the given platform. Then collect entities from hass.entities whose device_id
  *   belongs to one of those devices.
- * Tier 2 (entity-registry): Scan hass.entities filtered by entry.platform. Runs
- *   alongside tier 1 to top up entities whose device lacks identifiers metadata
- *   (mixed-registry scenarios where one config entry's devices are tagged and
- *   another's are not). Entities whose device was already considered by tier 1
- *   are skipped so the strict classifier does not second-guess the relaxed
- *   tier-1 result. Falls back to walking all platform-matching entities when
- *   tier 1 found no devices at all (matchingDeviceIds empty), preserving the
- *   pre-existing tier 2 behavior for adapters that never use device-based
- *   discovery.
+ * Tier 2 (entity-registry): For entities filtered by entry.platform whose
+ *   device was NOT in the tier-1 set. Tops up tier 1 with entities whose
+ *   device lacks identifiers metadata (mixed-registry scenarios where one
+ *   config entry's devices are tagged and another's are not). Entities whose
+ *   device tier 1 already matched stay on the tier-1 path (relaxed classifier)
+ *   and are not also offered to the strict classifier, so the two classifiers
+ *   never run on the same entity. When tier 1 found no devices at all
+ *   (matchingDeviceIds empty), tier 2 covers all platform-matching entities,
+ *   preserving the pre-existing tier 2 behavior for adapters that do not use
+ *   device-based discovery. Implementation: a single pass over hass.entities
+ *   routes each entity to the tier-1 or tier-2 path based on its device's
+ *   identifier match.
  * Tier 3 (fallback): Scan hass.states using fallbackSelector or fallbackRegex.
  *   Used when neither tier 1 nor tier 2 produced any locations.
  *
