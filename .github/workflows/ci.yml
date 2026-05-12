@@ -9,6 +9,13 @@ on:
 
 jobs:
   validate-hacs:
+    # Skip on PRs opened from a fork: hacs/action resolves the repository
+    # from GITHUB_REPOSITORY at runtime, which for fork PRs points at the
+    # fork (e.g. contributor/pollenprognos-card). The fork is not in HACS's
+    # default repository list, so the check would always fail with
+    # "Repository ... not loaded properly in HACS." The job still runs on
+    # push to master/dev, on the daily schedule, and on PRs from this repo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

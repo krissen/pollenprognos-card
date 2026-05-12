@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigPLU, PLU_SUPPORTED_ALLERGENS } from "../../src/adapters/plu.js";
-import { createHass, createPLUSensor, assertSensorShape } from "../helpers.js";
+import { fetchForecast, stubConfigPLU, PLU_SUPPORTED_ALLERGENS, discoverPluSensors, resolveEntityIds } from "../../src/adapters/plu.js";
+import { createHass, createPLUSensor, assertSensorShape, assertDiscoveryShape, createHassWithRegistry } from "../helpers.js";
 
 function makeConfig(overrides = {}) {
   return { ...stubConfigPLU, ...overrides };
@@ -197,5 +197,124 @@ describe("PLU adapter: fetchForecast", () => {
   it("PLU_SUPPORTED_ALLERGENS is alphabetically sorted", () => {
     const sorted = [...PLU_SUPPORTED_ALLERGENS].sort();
     expect(PLU_SUPPORTED_ALLERGENS).toEqual(sorted);
+  });
+});
+
+describe("PLU adapter: discoverPluSensors (tier 2 via entity registry)", () => {
+  it("returns valid discovery shape with entities from platform pollen_lu", () => {
+    const deviceId = "device_plu_001";
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_birch",
+        state: "25",
+        attributes: { unit_of_measurement: "grains/m\u00B3" },
+        deviceId,
+        platform: "pollen_lu",
+        deviceMeta: {
+          name: "Pollen.lu",
+          identifiers: [["pollen_lu", "pollen_lu_luxembourg"]],
+          configEntries: ["cfg_plu_001"],
+        },
+      },
+      {
+        entityId: "sensor.pollen_betula",
+        state: "30",
+        attributes: { unit_of_measurement: "grains/m\u00B3" },
+        deviceId,
+        platform: "pollen_lu",
+      },
+      {
+        entityId: "sensor.pollen_alder",
+        state: "5",
+        attributes: { unit_of_measurement: "grains/m\u00B3" },
+        deviceId,
+        platform: "pollen_lu",
+      },
+    ]);
+
+    const discovery = discoverPluSensors(hass);
+
+    assertDiscoveryShape(discovery);
+    expect(discovery.tierUsed).toBeGreaterThanOrEqual(1);
+    expect(discovery.locations.size).toBe(1);
+
+    const [, location] = discovery.locations.entries().next().value;
+    // sensor.pollen_birch -> canonical "birch"
+    expect(location.entities.get("birch")).toBe("sensor.pollen_birch");
+    // sensor.pollen_betula -> also canonical "birch" (Latin alias)
+    // Note: collision: first entity wins, second is silently skipped
+    // The important guarantee is that at least one birch entity was classified
+    expect(["sensor.pollen_birch", "sensor.pollen_betula"]).toContain(location.entities.get("birch"));
+    // sensor.pollen_alder -> canonical "alder"
+    expect(location.entities.get("alder")).toBe("sensor.pollen_alder");
+  });
+
+  it("resolveEntityIds uses discovery when entity registry is available", () => {
+    const deviceId = "device_plu_002";
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_birch",
+        state: "25",
+        attributes: { unit_of_measurement: "grains/m\u00B3" },
+        deviceId,
+        platform: "pollen_lu",
+        deviceMeta: {
+          name: "Pollen Luxembourg",
+          identifiers: [["pollen_lu", "pollen_lu_main"]],
+          configEntries: ["cfg_plu_002"],
+        },
+      },
+      {
+        entityId: "sensor.pollen_alder",
+        state: "5",
+        attributes: { unit_of_measurement: "grains/m\u00B3" },
+        deviceId,
+        platform: "pollen_lu",
+      },
+    ]);
+
+    const cfg = { ...stubConfigPLU, allergens: ["birch", "alder", "hazel"] };
+    const result = resolveEntityIds(cfg, hass);
+
+    // birch and alder are in entity registry -> discovery path
+    expect(result.get("birch")).toBe("sensor.pollen_birch");
+    expect(result.get("alder")).toBe("sensor.pollen_alder");
+    // hazel has no entity in the registry -> not in result
+    expect(result.has("hazel")).toBe(false);
+  });
+});
+
+describe("PLU adapter: resolveEntityIds alias-probe fallback", () => {
+  it("falls back to alias-probe when no entity registry is present", () => {
+    // Plain hass mock without entities/devices -- simulates legacy HA setup
+    const states = {
+      "sensor.pollen_betula": createPLUSensor(30),
+      "sensor.pollen_alder": createPLUSensor(5),
+    };
+    const hass = createHass(states);
+    const cfg = { ...stubConfigPLU, allergens: ["birch", "alder"] };
+
+    const result = resolveEntityIds(cfg, hass);
+
+    // sensor.pollen_betula is a Latin alias for birch -> alias-probe finds it
+    expect(result.get("birch")).toBe("sensor.pollen_betula");
+    expect(result.get("alder")).toBe("sensor.pollen_alder");
+  });
+
+  it("alias-probe classifies both canonical English keys and Latin/French aliases", () => {
+    // Verify the reverse-alias map covers all alias forms
+    const states = {
+      "sensor.pollen_bouleau": createPLUSensor(20),  // French alias for birch
+      "sensor.pollen_corylus": createPLUSensor(8),   // Latin alias for hazel
+      "sensor.pollen_mugwort": createPLUSensor(3),   // English canonical
+    };
+    const hass = createHass(states);
+    const cfg = { ...stubConfigPLU, allergens: ["birch", "hazel", "mugwort"] };
+
+    const result = resolveEntityIds(cfg, hass);
+
+    expect(result.get("birch")).toBe("sensor.pollen_bouleau");
+    expect(result.get("hazel")).toBe("sensor.pollen_corylus");
+    expect(result.get("mugwort")).toBe("sensor.pollen_mugwort");
   });
 });

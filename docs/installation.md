@@ -118,6 +118,20 @@ Install via HACS:
 
 **Repository**: [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen)
 
+### Option J: MeteoSwiss / hass-swissweather (Switzerland)
+
+Install via HACS:
+1. Open HACS → Integrations
+2. Click the menu (⋮) → "Custom repositories"
+3. Add `https://github.com/izacus/hass-swissweather` as type "Integration"
+4. Search for "Swiss Weather" and install
+5. Restart Home Assistant
+6. Add the integration via Settings → Devices & Services. Pick a Swiss postal code, weather station and pollen station; the integration creates one device per config entry.
+
+**Repository**: [hass-swissweather](https://github.com/izacus/hass-swissweather) (by [@izacus](https://github.com/izacus))
+
+The card-side adapter was contributed by [@r3turnNull](https://github.com/r3turnNull) (#212). MeteoSwiss publishes only current-day measurements; `days_to_show` is fixed at 1 by the card. Supports multi-station setups via `config_entry_id`.
+
 ## Step 2: Install Pollenprognos Card
 
 ### Via HACS (Recommended)

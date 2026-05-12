@@ -6,12 +6,20 @@ import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
-import { filterSensorsPostFetch } from "./utils/adapter-helpers.js";
+import { cleanDeviceLabel } from "./utils/device-label.js";
+import {
+  filterSensorsPostFetch,
+  resolveLocationByKey,
+} from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
 import { discoverGpSensors } from "./adapters/gp/index.js";
+import { discoverMswSensors } from "./adapters/msw.js";
+import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
+import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
+import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -329,14 +337,18 @@ class PollenPrognosCard extends LitElement {
       );
     }
     let daysCount = 0;
+    // MSW only exposes same-day measurements upstream; never display
+    // synthetic empty future days for it even if the user set days_to_show > 1.
+    const effectiveDaysToShow =
+      cfg.integration === "msw" ? 1 : cfg.days_to_show;
     if (cfg.show_empty_days) {
-      daysCount = cfg.days_to_show;
+      daysCount = effectiveDaysToShow;
     } else {
       // Use max real days across all sensors (not just the first one)
       for (const s of filtered) {
         if (!s.days || !s.days.length) continue;
         const realDays = s.days.filter((d) => d.state >= 0).length;
-        const count = Math.min(realDays, cfg.days_to_show);
+        const count = Math.min(realDays, effectiveDaysToShow);
         if (count > daysCount) daysCount = count;
       }
     }
@@ -956,6 +968,8 @@ class PollenPrognosCard extends LitElement {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
         if (id.startsWith("sensor.pollenflug_")) return false;
+        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
+        if (id.includes("_level_at_")) return false;
 
         // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
         const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
@@ -973,8 +987,10 @@ class PollenPrognosCard extends LitElement {
         return true;
       },
     );
+    // DWD: match the integration's pollenflug_<allergen>_<region> segment
+    // whether or not HA has prepended a device-name slug (#217).
     const dwdStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
     );
     const peuStates = Object.keys(hass.states).filter(
       (id) =>
@@ -1069,6 +1085,61 @@ class PollenPrognosCard extends LitElement {
         );
       }
     }
+    // MSW (MeteoSwiss / hass-swissweather). Entity IDs follow
+    // sensor.<device-slug>_pollen_<allergen>_level_at_<station>; the
+    // <device-slug> prefix is added by HA from the device's friendly name and
+    // varies per install. Primary detection uses hass.entities platform check
+    // (same as SILAM/GP); fallback regex covers older HA registries.
+    const mswLevelRe =
+      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+    let mswStates = [];
+    if (hass.entities) {
+      mswStates = Object.entries(hass.entities)
+        .filter(([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!mswStates.length) {
+      mswStates = Object.keys(hass.states).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+      );
+    }
+
+    // Discovery results for adapters whose header label resolution would
+    // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached
+    // above; PP, DWD, PEU, and GPL go here so the header block can reuse the
+    // same result instead of calling discover*Sensors a second time per HA
+    // update.
+    let _ppDiscovery = null;
+    let _dwdDiscovery = null;
+    let _peuDiscovery = null;
+    let _gplDiscovery = null;
+    let _mswDiscovery = null;
+    const getPpDiscovery = () => {
+      if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, this.debug);
+      return _ppDiscovery;
+    };
+    const getDwdDiscovery = () => {
+      if (_dwdDiscovery === null) _dwdDiscovery = discoverDwdSensors(hass, this.debug);
+      return _dwdDiscovery;
+    };
+    const getPeuDiscovery = () => {
+      if (_peuDiscovery === null) _peuDiscovery = discoverPeuSensors(hass, this.debug);
+      return _peuDiscovery;
+    };
+    const getGplDiscovery = () => {
+      if (_gplDiscovery === null) _gplDiscovery = discoverGplSensors(hass, this.debug);
+      return _gplDiscovery;
+    };
+    const getMswDiscovery = () => {
+      if (_mswDiscovery === null) _mswDiscovery = discoverMswSensors(hass, this.debug);
+      return _mswDiscovery;
+    };
 
     if (this.debug) {
       console.debug("Sensor states detected:");
@@ -1081,6 +1152,7 @@ class PollenPrognosCard extends LitElement {
       console.debug("ATMO:", atmoStates);
       console.debug("GPL:", gplStates);
       console.debug("GP:", gpStates);
+      console.debug("MSW:", mswStates);
     }
 
     // Bestäm integration (PEU går före DWD)
@@ -1102,6 +1174,7 @@ class PollenPrognosCard extends LitElement {
       else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
       else if (gpStates.length && !skip.has("gp")) integration = "gp";
       else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
+      else if (mswStates.length && !skip.has("msw")) integration = "msw";
     }
 
     // Plocka rätt stub
@@ -1313,7 +1386,7 @@ class PollenPrognosCard extends LitElement {
       !cfg.location &&
       gplStates.length
     ) {
-      const gplDiscovery = discoverGplSensors(hass, this.debug);
+      const gplDiscovery = getGplDiscovery();
       const firstLocId = gplDiscovery.locations.keys().next().value;
       cfg.location = firstLocId || null;
       if (this.debug)
@@ -1359,52 +1432,53 @@ class PollenPrognosCard extends LitElement {
     } else {
       let loc = "";
       if (integration === "dwd") {
-        loc =
-          cfg.region_id && cfg.region_id !== "manual"
-            ? DWD_REGIONS[cfg.region_id] || cfg.region_id
-            : "";
+        // Resolve title via shared discovery so config_entry_id keys, legacy
+        // numeric region_id slugs and user-customized device names all render
+        // the friendly location name instead of the raw config value. Reuses
+        // the cached discovery from set hass() to avoid a second registry scan.
+        const dwdDiscovery = getDwdDiscovery();
+        const wantedLocation =
+          cfg.region_id && cfg.region_id !== "manual" ? cfg.region_id : "";
+        const match = resolveLocationByKey(dwdDiscovery, wantedLocation, {
+          slugExtractor: (eid) => {
+            const m = eid.match(/_(\d+)$/);
+            return m ? m[1] : null;
+          },
+        });
+        if (match) {
+          loc = match[1].label;
+        } else if (wantedLocation) {
+          loc = DWD_REGIONS[wantedLocation] || wantedLocation;
+        }
       } else if (integration === "peu") {
-        // Collect all PEU entities to determine location automatically.
-        const peuEntities = Object.values(hass.states).filter(
-          (s) =>
-            s &&
-            typeof s === "object" &&
-            typeof s.entity_id === "string" &&
-            s.entity_id.startsWith("sensor.polleninformation_"),
-        );
-        const wantedSlug =
-          cfg.location && cfg.location !== "manual"
-            ? slugify(cfg.location)
-            : "";
-        let title = "";
-        let match = null;
-        if (wantedSlug) {
-          // Find entity matching the configured location slug.
-          match = peuEntities.find((s) => {
-            const attr = s.attributes || {};
-            const slug =
-              attr.location_slug ||
-              s.entity_id
-                .replace("sensor.polleninformation_", "")
-                .replace(/_[^_]+$/, "");
-            return slugify(slug) === wantedSlug;
-          });
-        } else {
-          // No location configured – determine if all sensors belong to one place.
-          const locations = Array.from(
-            new Set(
-              peuEntities.map((s) => {
-                const attr = s.attributes || {};
-                const slug =
-                  attr.location_slug ||
-                  s.entity_id
-                    .replace("sensor.polleninformation_", "")
-                    .replace(/_[^_]+$/, "");
-                return slugify(slug);
-              }),
-            ),
+        // Primary: resolve via shared discovery so config_entry_id keys and
+        // legacy lowercase slugs both produce the friendly location name.
+        // Reuses cached discovery from set hass() to avoid a second scan.
+        const peuDiscovery = getPeuDiscovery();
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const peuMatch = resolveLocationByKey(peuDiscovery, wantedLocation, {
+          slugExtractor: extractPeuLocationSlugFromEntityId,
+        });
+        if (peuMatch) {
+          loc = peuMatch[1].label;
+        } else if (cfg.location !== "manual") {
+          // Fallback: entity-state slug scan (for very old PEU integrations
+          // without device/entity registry entries).
+          const peuEntities = Object.values(hass.states).filter(
+            (s) =>
+              s &&
+              typeof s === "object" &&
+              typeof s.entity_id === "string" &&
+              s.entity_id.startsWith("sensor.polleninformation_"),
           );
-          if (locations.length === 1) {
+          const wantedSlug =
+            cfg.location && cfg.location !== "manual"
+              ? slugify(cfg.location)
+              : "";
+          let title = "";
+          let match = null;
+          if (wantedSlug) {
             match = peuEntities.find((s) => {
               const attr = s.attributes || {};
               const slug =
@@ -1412,18 +1486,43 @@ class PollenPrognosCard extends LitElement {
                 s.entity_id
                   .replace("sensor.polleninformation_", "")
                   .replace(/_[^_]+$/, "");
-              return slugify(slug) === locations[0];
+              return slugify(slug) === wantedSlug;
             });
+          } else {
+            const locations = Array.from(
+              new Set(
+                peuEntities.map((s) => {
+                  const attr = s.attributes || {};
+                  const slug =
+                    attr.location_slug ||
+                    s.entity_id
+                      .replace("sensor.polleninformation_", "")
+                      .replace(/_[^_]+$/, "");
+                  return slugify(slug);
+                }),
+              ),
+            );
+            if (locations.length === 1) {
+              match = peuEntities.find((s) => {
+                const attr = s.attributes || {};
+                const slug =
+                  attr.location_slug ||
+                  s.entity_id
+                    .replace("sensor.polleninformation_", "")
+                    .replace(/_[^_]+$/, "");
+                return slugify(slug) === locations[0];
+              });
+            }
           }
+          if (match) {
+            const attr = match.attributes || {};
+            title =
+              attr.location_title ||
+              attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
+              "";
+          }
+          loc = wantedSlug ? title || cfg.location || "" : title;
         }
-        if (match) {
-          const attr = match.attributes || {};
-          title =
-            attr.location_title ||
-            attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
-            "";
-        }
-        loc = wantedSlug ? title || cfg.location || "" : title;
       } else if (integration === "silam") {
         // Primärt: discovery-baserad title
         let title = "";
@@ -1585,74 +1684,77 @@ class PollenPrognosCard extends LitElement {
 
         loc = title || cfg.location || "";
       } else if (integration === "gpl") {
-        // Google Pollen Levels: extract location from discovery
-        const gplDiscovery = discoverGplSensors(hass, false);
+        // Google Pollen Levels: resolve via shared discovery so config_entry_id
+        // keys and legacy label slugs both produce the friendly location name.
+        // Reuses cached discovery from set hass() to avoid a second scan.
+        const gplDiscovery = getGplDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? cfg.location
-            : "";
-
-        let title = "";
-        if (wantedLocation && gplDiscovery.locations.has(wantedLocation)) {
-          title = gplDiscovery.locations.get(wantedLocation).label;
-        } else if (gplDiscovery.locations.size) {
-          title = gplDiscovery.locations.values().next().value.label;
-        }
-
-        // Clean up device name if it looks like a friendly_name with type suffix
-        if (title) {
-          title = title
-            .replace(/\s*(grass|tree|weed)\s*$/i, "")
-            .replace(/\s*type\s*$/i, "")
-            .trim();
-          if (title) {
-            title = title.charAt(0).toUpperCase() + title.slice(1);
-          }
-        }
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        // Defensive: discovery already calls cleanDeviceLabel, but apply again
+        // here so a future discovery refactor that drops the call doesn't leak
+        // the integration's "- <category> (<coords>)" suffix into the title.
+        let title = gplMatch ? cleanDeviceLabel(gplMatch[1].label) : "";
+        if (title) title = title.charAt(0).toUpperCase() + title.slice(1);
 
         loc = title || cfg.location || "";
       } else if (integration === "gp") {
-        // Google Pollen (svenove): reuse the discovery computed earlier in
-        // set hass() so we don't run a second registry/state scan per update.
+        // Google Pollen (svenove): resolve via shared discovery so
+        // config_entry_id keys and legacy label slugs both produce the
+        // friendly location name. Reuses gpDiscovery computed in set hass().
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? cfg.location
-            : "";
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const gpMatch = resolveLocationByKey(gpDiscovery, wantedLocation);
+        // Defensive: same rationale as the GPL branch above.
+        const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
-        let title = "";
-        if (wantedLocation && gpDiscovery.locations.has(wantedLocation)) {
-          title = gpDiscovery.locations.get(wantedLocation).label;
-        } else if (gpDiscovery.locations.size) {
-          title = gpDiscovery.locations.values().next().value.label;
-        }
-
+        loc = title || cfg.location || "";
+      } else if (integration === "msw") {
+        // MeteoSwiss / hass-swissweather: resolve via shared device discovery
+        // so config_entry_id keys, friendly device names, and renamed devices
+        // (name_by_user) all surface the right station label in the header.
+        const mswDiscovery = getMswDiscovery();
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
+        const title = mswMatch ? mswMatch[1].label : "";
         loc = title || cfg.location || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location
         const translated = this._t("card.location.plu");
         loc = translated === "card.location.plu" ? "Luxembourg" : translated;
       } else {
-        // Pollenprognos integration (PP): resolve city automatically when unset.
-        const matchCity = (slug) =>
-          PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
-        if (cfg.city && cfg.city !== "manual") {
-          loc = matchCity(cfg.city);
+        // Pollenprognos integration (PP): resolve city via shared discovery so
+        // config_entry_id keys, legacy city slugs and user-customized device
+        // names all render the friendly location name. Reuses cached discovery
+        // from set hass() to avoid a second scan.
+        const ppDiscovery = getPpDiscovery();
+        const wantedLocation =
+          cfg.city && cfg.city !== "manual" ? cfg.city : "";
+        const ppMatch = resolveLocationByKey(ppDiscovery, wantedLocation, {
+          slugExtractor: extractPpCitySlugFromEntityId,
+        });
+        if (ppMatch) {
+          loc = ppMatch[1].label;
+        } else if (wantedLocation) {
+          // Fallback: legacy slug → canonical city name lookup.
+          const matchCity = (slug) =>
+            PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
+          loc = matchCity(wantedLocation);
         } else {
-          const ppStates = Object.keys(hass.states).filter((id) =>
-            /^sensor\.pollen_(.+)_[^_]+$/.test(id),
-          );
+          // No city configured and no discovery: legacy state-scan fallback.
+          // Use the allergen-suffix whitelist so multi-word slugs like
+          // "salg_och_viden" don't truncate the city.
+          const matchCity = (slug) =>
+            PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
           const cities = Array.from(
             new Set(
-              ppStates.map((id) =>
-                id.replace("sensor.pollen_", "").replace(/_[^_]+$/, ""),
-              ),
+              Object.keys(hass.states)
+                .map((id) => extractPpCitySlugFromEntityId(id))
+                .filter(Boolean),
             ),
           );
-          if (cities.length === 1) {
-            loc = matchCity(cities[0]);
-          } else {
-            loc = "";
-          }
+          loc = cities.length === 1 ? matchCity(cities[0]) : "";
         }
       }
       nextHeader = loc
@@ -1928,9 +2030,16 @@ class PollenPrognosCard extends LitElement {
     const cols = this.displayCols;
     
     // Number of segments in the level circle depends on the integration.
-    // PEU and Kleenex use four segments, GPL uses five, PLU uses three, others use six.
+    // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
+    // = empty); GPL/GP use five (native 0-5); PLU uses three; others use
+    // six. Match each integration's native level count so the maximum state
+    // fills the chart (no never-filled trailing segment).
     let segments = 6;
-    if (this.config.integration === "peu" || this.config.integration === "kleenex") {
+    if (
+      this.config.integration === "peu" ||
+      this.config.integration === "kleenex" ||
+      this.config.integration === "msw"
+    ) {
       segments = 4;
     } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
       segments = 5;
@@ -1938,8 +2047,10 @@ class PollenPrognosCard extends LitElement {
       segments = 3;
     }
     
-    // Build colors array using the new inheritance system
-    // Chart segments represent pollen levels 1-6, not 0-5
+    // Build colors array using the new inheritance system.
+    // Chart segments represent pollen levels 1..segments (level 0 = empty),
+    // so segments matches the integration's native non-empty level count
+    // (4 for PEU/Kleenex/MSW, 5 for GPL/GP, 3 for PLU, 6 for the others).
     const rawColors = [];
     for (let i = 0; i < segments; i++) {
       rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.

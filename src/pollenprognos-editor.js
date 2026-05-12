@@ -11,21 +11,23 @@ import {
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
-import { getStubConfig } from "./adapter-registry.js";
-import { stubConfigPP } from "./adapters/pp.js";
-import { stubConfigDWD } from "./adapters/dwd.js";
-import { PEU_ALLERGENS } from "./adapters/peu.js";
+import { getAllAdapterIds, getStubConfig } from "./adapter-registry.js";
+import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
+import { stubConfigDWD, discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
+import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { SILAM_ALLERGENS } from "./adapters/silam.js";
 import { stubConfigKleenex } from "./adapters/kleenex/index.js";
 import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { ATMO_ALLERGENS, ATMO_ALLERGEN_MAP, discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
+import { stubConfigMSW, discoverMswSensors } from "./adapters/msw.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
   isConfigEntryId,
 } from "./utils/silam.js";
+import { findLocationBySlug } from "./utils/adapter-helpers.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -155,7 +157,9 @@ class PollenPrognosCardEditor extends LitElement {
                   ? [...GPL_BASE_ALLERGENS, ...gplDiscoveredPlants]
                   : this._config.integration === "gp"
                     ? [...GP_BASE_ALLERGENS, ...gpDiscoveredPlants]
-                    : stubConfigPP.allergens;
+                    : this._config.integration === "msw"
+                      ? stubConfigMSW.allergens
+                      : stubConfigPP.allergens;
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -175,7 +179,7 @@ class PollenPrognosCardEditor extends LitElement {
     const numLevels =
       this._config.integration === "dwd"
         ? 4
-        : this._config.integration === "peu"
+        : this._config.integration === "peu" || this._config.integration === "msw"
           ? 5
           : this._config.integration === "gpl" || this._config.integration === "gp"
             ? 6
@@ -185,8 +189,17 @@ class PollenPrognosCardEditor extends LitElement {
                 ? 7
                 : 7;
 
+    // Use scale-specific phrase defaults so 5-level integrations (MSW, PEU)
+    // surface semantically-correct severity labels in the editor instead of
+    // borrowing strings from the wider 7-level palette. Other scales fall
+    // back to the legacy editor.phrases_levels.0..6 keys until per-scale
+    // entries are added for them.
+    const levelKeyPrefix =
+      this._config.integration === "msw" || this._config.integration === "peu"
+        ? "editor.phrases_levels5"
+        : "editor.phrases_levels";
     const levels = Array.from({ length: numLevels }, (_, i) =>
-      t(`editor.phrases_levels.${i}`, lang),
+      t(`${levelKeyPrefix}.${i}`, lang),
     );
 
     const days = {
@@ -212,6 +225,8 @@ class PollenPrognosCardEditor extends LitElement {
       hass: { type: Object },
       installedCities: { type: Array },
       installedRegionIds: { type: Array },
+      installedPpLocations: { type: Array },
+      installedDwdLocations: { type: Array },
       _initDone: { type: Boolean },
       _selectedPhraseLang: { state: true },
       _tapType: { type: String },
@@ -229,6 +244,31 @@ class PollenPrognosCardEditor extends LitElement {
 
   _t(key) {
     return t(`editor.${key}`, this._lang);
+  }
+
+  /**
+   * Build the integration dropdown options as a single visible list with two
+   * alphabetically-sorted segments: detected/installed integrations first,
+   * non-detected after. With ten supported integrations the legacy fixed
+   * order is hard to scan; sorting plus prioritizing the user's actual
+   * installs cuts down on bouncing.
+   *
+   * Detection comes from this._detectedIntegrations, populated by
+   * `set hass()`. When hass has not been set yet the set is empty and the
+   * dropdown falls back to a single alphabetically-sorted list of all
+   * registered adapters.
+   */
+  _buildIntegrationOptions() {
+    const detected = this._detectedIntegrations || new Set();
+    const ids = getAllAdapterIds();
+    const labelOf = (id) => this._t(`integration.${id}`);
+    const byLabel = (a, b) => labelOf(a).localeCompare(labelOf(b), this._lang);
+    const installed = ids.filter((id) => detected.has(id)).sort(byLabel);
+    const rest = ids.filter((id) => !detected.has(id)).sort(byLabel);
+    return [...installed, ...rest].map((id) => ({
+      value: id,
+      label: labelOf(id),
+    }));
   }
 
   _getAllergenDisplayName(allergenKey) {
@@ -259,8 +299,11 @@ class PollenPrognosCardEditor extends LitElement {
     this.installedSilamLocations = [];
     this.installedKleenexLocations = [];
     this.installedAtmoLocations = [];
+    this.installedMswLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
+    this.installedPpLocations = [];
+    this.installedDwdLocations = [];
     this._initDone = false;
     // Ensure phrase language defaults to a sensible locale
     this._selectedPhraseLang = detectLang();
@@ -434,7 +477,10 @@ class PollenPrognosCardEditor extends LitElement {
         const all = Object.keys(this._hass.states);
         if (
           all.some(
-            (id) => typeof id === "string" && id.startsWith("sensor.pollen_"),
+            (id) =>
+              typeof id === "string" &&
+              id.startsWith("sensor.pollen_") &&
+              !id.includes("_level_at_"),
           )
         ) {
           integration = "pp";
@@ -448,8 +494,7 @@ class PollenPrognosCardEditor extends LitElement {
           integration = "peu";
         } else if (
           all.some(
-            (id) =>
-              typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+            (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
           )
         ) {
           integration = "dwd";
@@ -504,6 +549,17 @@ class PollenPrognosCardEditor extends LitElement {
           )
         ) {
           integration = "gpl";
+        } else if (
+          (this._hass?.entities && Object.values(this._hass.entities).some(
+            (e) => e.platform === "swissweather" && !e.entity_category
+          )) ||
+          all.some(
+            (id) =>
+              typeof id === "string" &&
+              /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+          )
+        ) {
+          integration = "msw";
         }
         this._userConfig.integration = integration;
         if (this.debug)
@@ -594,57 +650,93 @@ class PollenPrognosCardEditor extends LitElement {
 
       // 16. Uppdatera listor för cities/regions om hass finns
       if (this._hass) {
-        const all = Object.keys(this._hass.states);
-
-        this.installedRegionIds = Array.from(
-          new Set(
+        // PP: use discovery helper, fall back to PP_POSSIBLE_CITIES filter.
+        // Sort by label alphabetically so the dropdown order is stable across
+        // HA restarts (Map iteration order tracks hass-registry insertion).
+        const ppDiscovery = discoverPpSensors(this._hass, false);
+        if (ppDiscovery.locations.size > 0) {
+          this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
+            .map(([key, loc]) => [key, loc.label])
+            .sort(([, a], [, b]) =>
+              String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+            );
+          this.installedCities = this.installedPpLocations.map(([, label]) => label);
+        } else {
+          const all = Object.keys(this._hass.states);
+          // Use the allergen-suffix whitelist from pp.js so multi-word slugs
+          // like "salg_och_viden" don't truncate the city.
+          const ppKeys = new Set(
             all
-              .filter(
-                (id) =>
-                  typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+              .map((id) =>
+                typeof id === "string" ? extractPpCitySlugFromEntityId(id) : null,
               )
-              .map((id) => id.split("_").pop()),
-          ),
-        ).sort((a, b) => Number(a) - Number(b));
-
-        const ppKeys = new Set(
-          all
-            .filter(
-              (id) =>
-                typeof id === "string" &&
-                id.startsWith("sensor.pollen_") &&
-                !id.startsWith("sensor.pollenflug_"),
-            )
-            .map((id) =>
-              id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+              .filter(Boolean),
+          );
+          this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
+            ppKeys.has(
+              c
+                .toLowerCase()
+                .replace(/[åä]/g, "a")
+                .replace(/ö/g, "o")
+                .replace(/[-\s]/g, "_"),
             ),
-        );
+          ).sort();
+          this.installedPpLocations = this.installedCities.map((city) => [city, city]);
+        }
 
-        this.installedCities = PP_POSSIBLE_CITIES.filter((c) =>
-          ppKeys.has(
-            c
-              .toLowerCase()
-              .replace(/[åä]/g, "a")
-              .replace(/ö/g, "o")
-              .replace(/[-\s]/g, "_"),
-          ),
-        ).sort();
+        // DWD: use discovery helper, fall back to regex-based region IDs.
+        // Sort numerically for region-ID keys (legacy tier 3) and by label
+        // for config_entry_id keys (tier 1/2), so the dropdown is stable.
+        const dwdDiscovery = discoverDwdSensors(this._hass, false);
+        if (dwdDiscovery.locations.size > 0) {
+          const entries = Array.from(dwdDiscovery.locations.entries())
+            .map(([key, loc]) => [key, loc.label]);
+          const allNumeric = entries.every(([k]) => /^\d+$/.test(String(k)));
+          this.installedDwdLocations = allNumeric
+            ? entries.sort(([a], [b]) => Number(a) - Number(b))
+            : entries.sort(([, a], [, b]) =>
+                String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+              );
+          this.installedRegionIds = this.installedDwdLocations.map(([key]) => key);
+        } else {
+          const all = Object.keys(this._hass.states);
+          // Pull the trailing region ID from any DWD entity, accepting both
+          // bare and HA-device-prefixed shapes (#217). The regex's second
+          // capture group is always the numeric region ID, so use it
+          // directly instead of splitting on underscores (which would pick
+          // up a stray ID from a device-name slug like "_92" mid-string).
+          this.installedRegionIds = Array.from(
+            new Set(
+              all
+                .map((id) =>
+                  typeof id === "string"
+                    ? id.match(DWD_ENTITY_ID_RE)?.[2]
+                    : null,
+                )
+                .filter(Boolean),
+            ),
+          ).sort((a, b) => Number(a) - Number(b));
+          this.installedDwdLocations = this.installedRegionIds.map((id) => [
+            id,
+            `${id} — ${DWD_REGIONS[id] || id}`,
+          ]);
+        }
       }
       // 17. Auto-välj city/region om inte explicit
       if (!this._integrationExplicit) {
         if (
           integration === "dwd" &&
           !this._userConfig.region_id &&
-          this.installedRegionIds.length
+          this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedRegionIds[0];
+          this._config.region_id = this.installedDwdLocations[0][0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
-          this.installedCities.length
+          this.installedPpLocations.length
         ) {
-          this._config.city = this.installedCities[0];
+          this._config.city = this.installedPpLocations[0][0];
         }
         if (
           integration === "silam" &&
@@ -723,6 +815,12 @@ class PollenPrognosCardEditor extends LitElement {
         const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId, false);
         this.installedGpPlants = allGpAllergens.filter((k) => !GP_BASE_ALLERGENS.includes(k));
       }
+      // MSW discovery (same rationale as GPL/GP).
+      if (this._config.integration === "msw" && this._hass) {
+        const md = discoverMswSensors(this._hass, false);
+        this.installedMswLocations = Array.from(md.locations.entries())
+          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+      }
 
       // SILAM discovery: run here too for same reason as GPL above
       if (this._config.integration === "silam" && this._hass) {
@@ -754,11 +852,19 @@ class PollenPrognosCardEditor extends LitElement {
       Object.values(PLU_ALIAS_MAP).flat()
     );
 
-    const ppStates = Object.keys(hass.states).filter(
+    // Snapshot the state-key list once and reuse it for every prefix/regex
+    // filter below. Each call into `Object.keys(hass.states)` allocates a
+    // fresh array proportional to the entity count, and set hass() runs
+    // ~9 such scans per cycle; on large HA installs that is wasted work.
+    const stateIds = Object.keys(hass.states);
+
+    const ppStates = stateIds.filter(
       (id) => {
         if (typeof id !== "string") return false;
         if (!id.startsWith("sensor.pollen_")) return false;
         if (id.startsWith("sensor.pollenflug_")) return false;
+        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
+        if (id.includes("_level_at_")) return false;
 
         // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
         const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
@@ -777,11 +883,12 @@ class PollenPrognosCardEditor extends LitElement {
       },
     );
 
-    const dwdStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
+    // DWD: lenient regex catches device-prefixed entity_ids too (#217).
+    const dwdStates = stateIds.filter(
+      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
     );
 
-    const peuStates = Object.keys(hass.states).filter(
+    const peuStates = stateIds.filter(
       (id) =>
         typeof id === "string" && id.startsWith("sensor.polleninformation_"),
     );
@@ -797,11 +904,11 @@ class PollenPrognosCardEditor extends LitElement {
       }
     }
     if (!silamStates.length) {
-      silamStates = Object.keys(hass.states).filter(
+      silamStates = stateIds.filter(
         (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
       );
     }
-    const pluStates = Object.keys(hass.states).filter(
+    const pluStates = stateIds.filter(
       (id) => {
         if (typeof id !== "string") return false;
         const match = /^sensor\.pollen_([^_]+)$/.exec(id);
@@ -822,7 +929,7 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!gplStates.length) {
-      gplStates = Object.keys(hass.states).filter((id) => {
+      gplStates = stateIds.filter((id) => {
         const s = hass.states[id];
         return s?.attributes?.attribution === GPL_ATTRIBUTION
           && s.attributes.device_class !== "date"
@@ -837,10 +944,57 @@ class PollenPrognosCardEditor extends LitElement {
         .map(([eid]) => eid);
     }
     if (!gpStates.length) {
-      gpStates = Object.keys(hass.states).filter((id) =>
+      gpStates = stateIds.filter((id) =>
         typeof id === "string" && id.startsWith("sensor.google_pollen_")
       );
     }
+    // MSW (MeteoSwiss / hass-swissweather). HA prefixes entity IDs with the
+    // device's friendly name slug, so primary detection uses hass.entities
+    // platform check (same as SILAM/GP); fallback regex handles older HA
+    // registries without entity metadata.
+    const mswLevelRe =
+      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+    let mswStates = [];
+    if (hass.entities) {
+      mswStates = Object.entries(hass.entities)
+        .filter(([eid, entry]) =>
+          entry.platform === "swissweather" &&
+          !entry.entity_category &&
+          mswLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!mswStates.length) {
+      mswStates = stateIds.filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
+      );
+    }
+
+    // Kleenex prefix scan, computed locally for the dropdown sort. The editor's
+    // set hass() autodetect chain intentionally does not pick Kleenex (see
+    // 'known divergence' in test/card/autodetect.test.js), but for the
+    // dropdown's two-segment order we still want to mark it as installed
+    // whenever its sensors are present.
+    const kleenexStatesLocal = stateIds.filter(
+      (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
+    );
+
+    // Set of integrations that have at least one sensor in this hass.
+    // Drives the integration dropdown's two-segment sort order in render().
+    const detectedIntegrations = new Set();
+    if (ppStates.length) detectedIntegrations.add("pp");
+    if (pluStates.length) detectedIntegrations.add("plu");
+    if (peuStates.length) detectedIntegrations.add("peu");
+    if (dwdStates.length) detectedIntegrations.add("dwd");
+    if (silamStates.length) detectedIntegrations.add("silam");
+    if (kleenexStatesLocal.length) detectedIntegrations.add("kleenex");
+    if (atmoDetected) detectedIntegrations.add("atmo");
+    if (gpStates.length) detectedIntegrations.add("gp");
+    if (gplStates.length) detectedIntegrations.add("gpl");
+    if (mswStates.length) detectedIntegrations.add("msw");
+    this._detectedIntegrations = detectedIntegrations;
 
     // 1) Autodetektera integration om användaren inte valt själv
     let integration = this._userConfig.integration;
@@ -853,9 +1007,10 @@ class PollenPrognosCardEditor extends LitElement {
       else if (atmoDetected) integration = "atmo";
       else if (gpStates.length) integration = "gp";
       else if (gplStates.length) integration = "gpl";
+      else if (mswStates.length) integration = "msw";
       this._userConfig.integration = integration;
       if (this.debug)
-        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoDiscovery.locations.size, gp: gpStates.length, gpl: gplStates.length, chosen: integration });
+        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoDiscovery.locations.size, gp: gpStates.length, gpl: gplStates.length, msw: mswStates.length, chosen: integration });
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data
@@ -883,6 +1038,12 @@ class PollenPrognosCardEditor extends LitElement {
     } else {
       this.installedGpPlants = [];
     }
+
+    // 1.3) MSW discovery (always run so the editor dropdown is populated even
+    // when MSW is not the active integration, mirroring GPL/GP).
+    const mswDiscovery = discoverMswSensors(hass, false);
+    this.installedMswLocations = Array.from(mswDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
     // 1.2) Set default mode for SILAM and PEU if not specified
     if (
@@ -923,54 +1084,149 @@ class PollenPrognosCardEditor extends LitElement {
     
     if (!deepEqual(this._config, merged)) {
       this._config = merged;
-      // 3) Fyll installerade regioner/städer
-      this.installedRegionIds = Array.from(
-        new Set(dwdStates.map((id) => id.split("_").pop())),
-      ).sort((a, b) => Number(a) - Number(b));
+      // 3) Fyll installerade regioner/städer via discovery helpers
 
-      const uniqKeys = Array.from(
-        new Set(
-          ppStates.map((id) =>
-            id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+      // PP: device-based discovery with legacy slug fallback
+      const ppDiscovery = discoverPpSensors(hass, false);
+      if (ppDiscovery.locations.size > 0) {
+        this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
+          .map(([key, loc]) => [key, loc.label]);
+        // Legacy compatibility: if config.city is a slug not present as a key,
+        // check if it matches via slug extractor and expose it as an extra entry.
+        const cfgCity = this._config?.city;
+        if (cfgCity && cfgCity !== "manual" && !ppDiscovery.locations.has(cfgCity)) {
+          const match = findLocationBySlug(ppDiscovery, cfgCity, {
+            slugExtractor: extractPpCitySlugFromEntityId,
+          });
+          if (match) {
+            const [, loc] = match;
+            this.installedPpLocations.push([cfgCity, loc.label]);
+          }
+        }
+        // Sort by label so dropdown order stays stable across HA restarts
+        // (Map iteration order tracks hass-registry insertion).
+        this.installedPpLocations.sort(([, a], [, b]) =>
+          String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+        );
+        // Keep installedCities in sync (used by setConfig legacy path)
+        this.installedCities = this.installedPpLocations.map(([, label]) => label);
+      } else {
+        // Fallback to PP_POSSIBLE_CITIES when discovery yields nothing.
+        // Use the allergen-suffix whitelist so multi-word slugs like
+        // "salg_och_viden" don't truncate the city.
+        const uniqKeys = Array.from(
+          new Set(
+            ppStates.map((id) => extractPpCitySlugFromEntityId(id)).filter(Boolean),
           ),
-        ),
-      );
-      this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
-        uniqKeys.includes(
-          city
-            .toLowerCase()
-            .replace(/[åä]/g, "a")
-            .replace(/ö/g, "o")
-            .replace(/[-\s]/g, "_"),
-        ),
-      ).sort((a, b) => a.localeCompare(b));
+        );
+        this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
+          uniqKeys.includes(
+            city
+              .toLowerCase()
+              .replace(/[åä]/g, "a")
+              .replace(/ö/g, "o")
+              .replace(/[-\s]/g, "_"),
+          ),
+        ).sort((a, b) => a.localeCompare(b));
+        this.installedPpLocations = this.installedCities.map((city) => [city, city]);
+      }
 
-      this.installedPeuLocations = Array.from(
-        new Map(
-          Object.values(hass.states)
-            .filter(
-              (s) =>
-                s &&
-                typeof s === "object" &&
-                typeof s.entity_id === "string" &&
-                s.entity_id.startsWith("sensor.polleninformation_"),
-            )
-            .map((s) => {
-              const locationSlug =
-                s.attributes?.location_slug ||
-                s.entity_id
-                  .replace("sensor.polleninformation_", "")
-                  .replace(/_[^_]+$/, "");
-              const title =
-                s.attributes?.location_title ||
-                (typeof s.attributes?.friendly_name === "string"
-                  ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
-                  : undefined) ||
-                locationSlug;
-              return [locationSlug, title];
-            }),
-        ),
-      );
+      // DWD: device-based discovery with legacy region_id fallback
+      const dwdDiscovery = discoverDwdSensors(hass, false);
+      if (dwdDiscovery.locations.size > 0) {
+        this.installedDwdLocations = Array.from(dwdDiscovery.locations.entries())
+          .map(([key, loc]) => [key, loc.label]);
+        // Legacy compatibility: if config.region_id is a numeric ID not present as a key,
+        // expose it as an extra entry so the saved config remains visible.
+        const cfgRegion = this._config?.region_id;
+        if (cfgRegion && cfgRegion !== "manual" && !dwdDiscovery.locations.has(cfgRegion)) {
+          const match = findLocationBySlug(dwdDiscovery, cfgRegion, {
+            slugExtractor: (eid) => eid.match(/_(\d+)$/)?.[1] || null,
+          });
+          if (match) {
+            const [, loc] = match;
+            this.installedDwdLocations.push([cfgRegion, loc.label]);
+          }
+        }
+        // Sort numerically when all keys are digit strings (legacy region IDs),
+        // otherwise by label, so dropdown order stays stable across HA restarts.
+        const allNumeric = this.installedDwdLocations.every(([k]) =>
+          /^\d+$/.test(String(k)),
+        );
+        this.installedDwdLocations.sort(
+          allNumeric
+            ? ([a], [b]) => Number(a) - Number(b)
+            : ([, a], [, b]) =>
+                String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+        );
+        // Keep installedRegionIds in sync (used by setConfig legacy path)
+        this.installedRegionIds = this.installedDwdLocations.map(([key]) => key);
+      } else {
+        // Fallback to regex-based region ID extraction
+        this.installedRegionIds = Array.from(
+          new Set(dwdStates.map((id) => id.split("_").pop())),
+        ).sort((a, b) => Number(a) - Number(b));
+        this.installedDwdLocations = this.installedRegionIds.map((id) => [
+          id,
+          `${id} — ${DWD_REGIONS[id] || id}`,
+        ]);
+      }
+
+      // PEU: device-based discovery with legacy location slug fallback.
+      // Sort by label so the dropdown stays stable across HA restarts.
+      const peuDiscovery = discoverPeuSensors(hass, false);
+      if (peuDiscovery.locations.size > 0) {
+        this.installedPeuLocations = Array.from(peuDiscovery.locations.entries())
+          .map(([key, loc]) => [key, loc.label])
+          .sort(([, a], [, b]) =>
+            String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+          );
+        // Legacy compatibility: if config.location is a slug not present as a key,
+        // expose it as an extra entry so the saved config remains visible.
+        const cfgPeuLoc = this._config?.location;
+        if (
+          cfgPeuLoc &&
+          cfgPeuLoc !== "manual" &&
+          !peuDiscovery.locations.has(cfgPeuLoc) &&
+          integration === "peu"
+        ) {
+          const match = findLocationBySlug(peuDiscovery, cfgPeuLoc, {
+            slugExtractor: extractPeuLocationSlugFromEntityId,
+          });
+          if (match) {
+            const [, loc] = match;
+            this.installedPeuLocations.push([cfgPeuLoc, loc.label]);
+          }
+        }
+      } else {
+        // Fallback to state-based location detection
+        this.installedPeuLocations = Array.from(
+          new Map(
+            Object.values(hass.states)
+              .filter(
+                (s) =>
+                  s &&
+                  typeof s === "object" &&
+                  typeof s.entity_id === "string" &&
+                  s.entity_id.startsWith("sensor.polleninformation_"),
+              )
+              .map((s) => {
+                const locationSlug =
+                  s.attributes?.location_slug ||
+                  s.entity_id
+                    .replace("sensor.polleninformation_", "")
+                    .replace(/_[^_]+$/, "");
+                const title =
+                  s.attributes?.location_title ||
+                  (typeof s.attributes?.friendly_name === "string"
+                    ? s.attributes.friendly_name.match(/\((.*?)\)/)?.[1]
+                    : undefined) ||
+                  locationSlug;
+                return [locationSlug, title];
+              }),
+          ),
+        );
+      }
       // Primärt: discovery-baserad SILAM location list
       if (silamDiscovery.locations.size > 0) {
         this.installedSilamLocations = Array.from(
@@ -1120,16 +1376,16 @@ class PollenPrognosCardEditor extends LitElement {
         if (
           integration === "dwd" &&
           !this._userConfig.region_id &&
-          this.installedRegionIds.length
+          this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedRegionIds[0];
+          this._config.region_id = this.installedDwdLocations[0][0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
-          this.installedCities.length
+          this.installedPpLocations.length
         ) {
-          this._config.city = this.installedCities[0];
+          this._config.city = this.installedPpLocations[0][0];
         }
         if (
           integration === "silam" &&
@@ -1165,6 +1421,13 @@ class PollenPrognosCardEditor extends LitElement {
           this.installedGpLocations?.length
         ) {
           this._config.location = this.installedGpLocations[0][0];
+        }
+        if (
+          integration === "msw" &&
+          !this._userConfig.location &&
+          this.installedMswLocations?.length
+        ) {
+          this._config.location = this.installedMswLocations[0][0];
         }
       }
 
@@ -1630,13 +1893,15 @@ class PollenPrognosCardEditor extends LitElement {
                   : c.integration === "gp"
                     ? [...GP_BASE_ALLERGENS, ...(this.installedGpPlants || [])]
                     : c.integration === "atmo"
-                      ? ATMO_ALLERGENS
-                      : stubConfigPP.allergens;
+                  ? ATMO_ALLERGENS
+                  : c.integration === "msw"
+                    ? stubConfigMSW.allergens
+                    : stubConfigPP.allergens;
 
     const numLevels =
       c.integration === "dwd"
         ? 4
-        : c.integration === "peu"
+        : c.integration === "peu" || c.integration === "msw"
           ? 5
           : c.integration === "gpl" || c.integration === "gp"
             ? 6
@@ -1648,7 +1913,7 @@ class PollenPrognosCardEditor extends LitElement {
     const thresholdParams =
       c.integration === "dwd"
         ? { min: 0, max: 3, step: 0.5 }
-        : c.integration === "peu"
+        : c.integration === "peu" || c.integration === "msw"
           ? { min: 0, max: 4, step: 1 }
           : c.integration === "gpl" || c.integration === "gp"
             ? { min: 0, max: 5, step: 1 }
@@ -1689,20 +1954,7 @@ class PollenPrognosCardEditor extends LitElement {
               .selector=${{
                 select: {
                   mode: "dropdown",
-                  options: [
-                    { value: "pp", label: this._t("integration.pp") },
-                    { value: "peu", label: this._t("integration.peu") },
-                    { value: "dwd", label: this._t("integration.dwd") },
-                    { value: "silam", label: this._t("integration.silam") },
-                    { value: "plu", label: this._t("integration.plu") },
-                    {
-                      value: "kleenex",
-                      label: this._t("integration.kleenex"),
-                    },
-                    { value: "atmo", label: this._t("integration.atmo") },
-                    { value: "gpl", label: this._t("integration.gpl") },
-                    { value: "gp", label: this._t("integration.gp") },
-                  ],
+                  options: this._buildIntegrationOptions(),
                 },
               }}
               .value=${c.integration}
@@ -1725,9 +1977,9 @@ class PollenPrognosCardEditor extends LitElement {
                             value: "",
                             label: this._t("location_autodetect"),
                           },
-                          ...this.installedCities.map((city) => ({
-                            value: city,
-                            label: city,
+                          ...this.installedPpLocations.map(([key, label]) => ({
+                            value: key,
+                            label,
                           })),
                           {
                             value: "manual",
@@ -1872,7 +2124,7 @@ class PollenPrognosCardEditor extends LitElement {
                           ></ha-selector>
                         </ha-formfield>
                       `
-                  : c.integration === "gpl" || c.integration === "gp"
+                  : c.integration === "gpl" || c.integration === "gp" || c.integration === "msw"
                     ? html`
                         <ha-formfield label="${this._t("location")}">
                           <ha-selector
@@ -1887,7 +2139,9 @@ class PollenPrognosCardEditor extends LitElement {
                                   },
                                   ...(c.integration === "gp"
                                     ? (this.installedGpLocations || [])
-                                    : (this.installedGplLocations || [])
+                                    : c.integration === "msw"
+                                      ? (this.installedMswLocations || [])
+                                      : (this.installedGplLocations || [])
                                   ).map(([slug, title]) => ({
                                     value: slug,
                                     label: title,
@@ -1921,9 +2175,9 @@ class PollenPrognosCardEditor extends LitElement {
                                   value: "",
                                   label: this._t("location_autodetect"),
                                 },
-                                ...this.installedRegionIds.map((id) => ({
-                                  value: id,
-                                  label: `${id} — ${DWD_REGIONS[id] || id}`,
+                                ...this.installedDwdLocations.map(([key, label]) => ({
+                                  value: key,
+                                  label,
                                 })),
                                 {
                                   value: "manual",

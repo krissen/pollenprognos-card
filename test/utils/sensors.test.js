@@ -143,7 +143,7 @@ describe("findAvailableSensors", () => {
       expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
 
-    it("returns empty when multiple candidates exist without explicit region_id", () => {
+    it("auto-selects first region when multiple candidates exist without explicit region_id", () => {
       const hass = createHass({
         "sensor.pollenflug_birke_50": s(),
         "sensor.pollenflug_birke_91": s(),
@@ -156,8 +156,10 @@ describe("findAvailableSensors", () => {
 
       const result = findAvailableSensors(cfg, hass);
 
-      // Two candidates -> no unique match -> empty
-      expect(result).toEqual([]);
+      // Discovery groups by region; when region_id is empty, location keys
+      // are sorted deterministically (numerically for all-digit DWD region IDs)
+      // and the first ("50") is selected.
+      expect(result).toEqual(["sensor.pollenflug_birke_50"]);
     });
   });
 
@@ -169,19 +171,19 @@ describe("findAvailableSensors", () => {
     it("returns sensors for a configured location and allergens", () => {
       const hass = createHass({
         "sensor.polleninformation_wien_birch": s(),
-        "sensor.polleninformation_wien_grass": s(),
+        "sensor.polleninformation_wien_grasses": s(),
       });
       const cfg = {
         integration: "peu",
         location: "Wien",
-        allergens: ["birch", "grass"],
+        allergens: ["birch", "grasses"],
       };
 
       const result = findAvailableSensors(cfg, hass);
 
       expect(result).toEqual([
         "sensor.polleninformation_wien_birch",
-        "sensor.polleninformation_wien_grass",
+        "sensor.polleninformation_wien_grasses",
       ]);
     });
 
@@ -238,7 +240,7 @@ describe("findAvailableSensors", () => {
     describe("discovery path (hass.entities available)", () => {
       it("returns sensors via entity registry discovery", () => {
         const deviceId = "device_1";
-        const configEntryId = "01ABCDEFGHIJKLMNOPQRSTUVWX";
+        const configEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ12";
         const hass = createHass(
           {
             "sensor.silam_pollen_london_birch_pollen": s(),
@@ -283,7 +285,7 @@ describe("findAvailableSensors", () => {
 
       it("maps translation_key through silam allergen map to master key", () => {
         const deviceId = "device_1";
-        const configEntryId = "01ABCDEFGHIJKLMNOPQRSTUVWX";
+        const configEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ12";
         // Dutch translation_key "berk" maps to master "birch"
         const hass = createHass(
           {

@@ -1143,6 +1143,28 @@ describe("resolveEntityIds with discovery (prefixed entities)", () => {
 
     expect(map.get("birch")).toBe("sensor.niveau_bouleau_nice");
   });
+
+  it("recovers when location is a stale config_entry_id", () => {
+    // 26-char Crockford-base32 ULIDs — isConfigEntryId() detects this format.
+    const realEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ01";
+    const staleEntryId = "01ZZZZZZZZZZZZZZZZZZZZZZZZ";
+    const hass = makePrefixedHass("toulouse", "toulouse", [
+      ["birch", 3, 2],
+      ["pm25", 4, 3],
+    ], realEntryId);
+
+    // Saved config_entry_id no longer matches (integration removed/reinstalled).
+    // Adapter should fall back to first discovered location instead of returning empty.
+    const config = makeConfig({
+      location: staleEntryId,
+      allergens: ["birch", "pm25"],
+    });
+
+    const map = resolveEntityIds(config, hass);
+
+    expect(map.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+    expect(map.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
+  });
 });
 
 describe("fetchForecast with prefixed entities", () => {

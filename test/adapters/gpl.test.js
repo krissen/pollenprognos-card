@@ -266,6 +266,92 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     expect(result.locations.get("entry-abc-123").label).toBe("My Location");
   });
 
+  it("strips ' - Pollentyper (lat, lon)' suffix from device name label", () => {
+    // The pollenlevels integration names devices
+    // "{user-name} - Pollentyper ({lat}, {lon})". Leaking the coordinate-
+    // laden suffix into the card header and editor dropdown is noise.
+    const statesMap = {
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 3),
+    };
+    const entitiesMap = {
+      "sensor.pollenlevels_grass": { device_id: "dev1" },
+    };
+    const devicesMap = {
+      dev1: {
+        name: "Hem - Pollentyper (50.450, 30.523)",
+        config_entries: ["entry-abc-123"],
+      },
+    };
+    const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
+    const result = discoverGplSensors(hass);
+
+    expect(result.locations.get("entry-abc-123").label).toBe("Hem");
+  });
+
+  it("strips device-name suffix in a locale-agnostic way (English/German/French/Italian/Japanese)", () => {
+    // The cleanDeviceLabel util uses a coordinate-shaped paren regex, not
+    // an enumerated list of category words. New HA languages should not
+    // regress this behavior.
+    const cases = [
+      ["Garden - Pollen types (51.5, -0.1)", "Garden"],
+      ["Berlin - Pollentypen (52.5, 13.4)", "Berlin"],
+      ["Paris - Niveaux de pollen (48.8566, 2.3522)", "Paris"],
+      ["Roma - Tipi di polline (41.9028, 12.4964)", "Roma"],
+      ["Tokyo - 花粉タイプ (35.6762, 139.6503)", "Tokyo"],
+    ];
+    for (const [deviceName, expected] of cases) {
+      const statesMap = {
+        "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 3),
+      };
+      const entitiesMap = {
+        "sensor.pollenlevels_grass": { device_id: "dev1" },
+      };
+      const devicesMap = {
+        dev1: { name: deviceName, config_entries: ["entry-xyz"] },
+      };
+      const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
+      const result = discoverGplSensors(hass);
+      expect(result.locations.get("entry-xyz").label).toBe(expected);
+    }
+  });
+
+  it("preserves hyphenated location names like 'Saint-Cloud'", () => {
+    const statesMap = {
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 3),
+    };
+    const entitiesMap = {
+      "sensor.pollenlevels_grass": { device_id: "dev1" },
+    };
+    const devicesMap = {
+      dev1: {
+        name: "Saint-Cloud - Pollentyper (48.84, 2.21)",
+        config_entries: ["entry-sc"],
+      },
+    };
+    const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
+    const result = discoverGplSensors(hass);
+    expect(result.locations.get("entry-sc").label).toBe("Saint-Cloud");
+  });
+
+  it("name_by_user wins over device.name stripping", () => {
+    const statesMap = {
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 3),
+    };
+    const entitiesMap = {
+      "sensor.pollenlevels_grass": { device_id: "dev1" },
+    };
+    const devicesMap = {
+      dev1: {
+        name: "Hem - Pollentyper (50.450, 30.523)",
+        name_by_user: "Min plats",
+        config_entries: ["entry-abc-123"],
+      },
+    };
+    const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
+    const result = discoverGplSensors(hass);
+    expect(result.locations.get("entry-abc-123").label).toBe("Min plats");
+  });
+
   it("excludes entities with entity_category set (diagnostic sensors)", () => {
     const statesMap = {
       "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 3),

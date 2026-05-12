@@ -34,6 +34,16 @@ This repository includes:
 
 Because the card uses dynamic imports there is no further code change required—the new file will be picked up automatically.
 
+### Per-scale level-name keys
+
+The shared `card.levels.0..6` and `editor.phrases_levels.0..6` keys hold the seven-level severity strings used by adapters that natively report on a 0-6 scale (PP, SILAM, Atmo).
+
+For adapters with a different native level count, the card uses scale-specific keys so user-visible severity labels match the integration's own count instead of borrowing strings from a wider scale. Currently in use:
+
+- `card.levels5.0..4` and `editor.phrases_levels5.0..4` -- five-level scale, used by MSW and PEU
+
+When adding a new locale, translate these scale-specific keys too. For the five-level scale, the conventional mapping is to reuse each language's existing `card.levels.{0,1,3,5,6}` strings (so the scale-5 entries read "None / Low / Moderate / High / Very High" or the locale's equivalents).
+
 ## Custom phrases
 
 In minimal mode some allergens may be shortened in a way you do not like. You can override text strings with the `phrases` options. Only include the keys you want to customise:

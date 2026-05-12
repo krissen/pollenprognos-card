@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -39,6 +39,68 @@ export const PLU_ALIAS_MAP = Object.entries(RAW_ALIAS_NAMES).reduce(
   },
   {},
 );
+
+// Reverse alias map: slug-alias (or canonical key) -> canonical allergen key.
+// Built once at module load from PLU_ALIAS_MAP.
+// Allows classifyPluEntity to identify both canonical ("birch") and alias
+// ("betula", "bouleau") entity ID suffixes.
+const PLU_REVERSE_ALIAS = (() => {
+  const map = {};
+  for (const [canonical, aliases] of Object.entries(PLU_ALIAS_MAP)) {
+    for (const alias of aliases) map[alias] = canonical;
+    // Ensure canonical itself is covered (already in aliases, but explicit is safer)
+    map[canonical] = canonical;
+  }
+  return map;
+})();
+
+/**
+ * Classify a PLU entity ID to a canonical allergen key.
+ *
+ * PLU sensors follow the pattern sensor.pollen_{alias}.
+ * The alias can be the canonical English key ("birch"), a slugified Latin name
+ * ("betula"), a slugified French name ("bouleau"), etc.
+ *
+ * @param {string} eid - Entity ID.
+ * @returns {string|null} - Canonical allergen key or null if unrecognized.
+ */
+function classifyPluEntity(eid) {
+  if (!eid.startsWith(SENSOR_PREFIX)) return null;
+  const rest = eid.substring(SENSOR_PREFIX.length);
+  return PLU_REVERSE_ALIAS[rest] || null;
+}
+
+/**
+ * Discover Pollen.lu sensors using two-tier device-based discovery.
+ *
+ * Tier 1: device registry (hass.devices) — entities linked to a pollen_lu device.
+ * Tier 2: entity registry (hass.entities) — entries with platform "pollen_lu" or "pollenlu".
+ * Tier 3: disabled (fallbackRegex: null) — alias-probe in resolveEntityIds is the fallback.
+ *
+ * NOTE: PLU has no location dimension; all entities map to a single "default"
+ * location key. The platform name is assumed to be "pollen_lu" based on the
+ * typical HA custom-integration naming convention. "pollenlu" is included as a
+ * defensive alternative.
+ *
+ * @param {object}  hass
+ * @param {boolean} [debug=false]
+ * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
+ */
+export function discoverPluSensors(hass, debug = false) {
+  if (!hass) return { locations: new Map(), tierUsed: 0 };
+
+  return discoverEntitiesByDevice(hass, {
+    platform: ["pollen_lu", "pollenlu"],
+    classify: classifyPluEntity,
+    classifyRelaxed: classifyPluEntity,
+    isRelevant: (eid) => eid.startsWith(SENSOR_PREFIX),
+    resolveLabel: (ctx) => ctx.device?.name_by_user || ctx.device?.name || "Pollen.lu",
+    resolveLocationKey: () => "default",
+    fallbackRegex: null,
+    debug,
+    logTag: "PLU",
+  });
+}
 
 // Default thresholds per allergen (fallback when sensor attributes are missing)
 const DEFAULT_THRESHOLDS = {
@@ -101,6 +163,28 @@ function resolveSensorId(hass, canonical, debug) {
 }
 
 export function resolveEntityIds(cfg, hass, debug = false) {
+  // --- Path 1: Device-based discovery (tier 1/2) ---
+  const discovery = discoverPluSensors(hass, debug);
+  if (discovery.locations.size > 0) {
+    const first = discovery.locations.entries().next();
+    if (!first.done) {
+      const [, location] = first.value;
+      const map = new Map();
+      for (const allergen of cfg.allergens || []) {
+        if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
+        const eid = location.entities.get(allergen);
+        if (eid) map.set(allergen, eid);
+      }
+      if (map.size > 0) {
+        if (debug) console.debug("[PLU] resolveEntityIds via discovery:", map.size, "entities");
+        return map;
+      }
+    }
+  }
+
+  // --- Path 2: Alias-probe fallback ---
+  // Iterates PLU_ALIAS_MAP to find sensor.pollen_{alias} in hass.states.
+  // Preserves multilingual alias support (Latin, French, German, English names).
   const map = new Map();
   for (const allergen of cfg.allergens || []) {
     if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
