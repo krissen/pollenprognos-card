@@ -162,8 +162,11 @@ export function buildNoiseCanvasPattern(ctx, color = "#888888", opts = {}) {
 export function hashStringSeed(s) {
   let h = 5381;
   if (typeof s !== "string") s = String(s);
+  // Math.imul keeps the multiplication in 32-bit integer space; plain
+  // `h * 33` would drift into IEEE-754 float at ~14 chars (33^14 > 2^53)
+  // and lose low-bit precision, increasing collisions on longer chart ids.
   for (let i = 0; i < s.length; i++) {
-    h = (h * 33) ^ s.charCodeAt(i);
+    h = Math.imul(h, 33) ^ s.charCodeAt(i);
   }
   return (h >>> 0) || 1;
 }
