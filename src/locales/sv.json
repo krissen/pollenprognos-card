@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Välj luftkvalitet",
   "editor.show_block_separator": "Visa separator mellan block",
   "editor.show_empty_days": "Visa tomma dagar",
+  "editor.show_no_data_distinct": "Visa \"inga data\" med distinkt (luddig) stil",
   "editor.show_text_allergen": "Visa text, allergen",
   "editor.show_value_numeric": "Visa värde, numeriskt",
   "editor.show_value_numeric_in_circle": "Visa numeriskt värde inuti cirklarna",

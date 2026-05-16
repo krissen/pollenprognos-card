@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Valitse ilmanlaatu",
   "editor.show_block_separator": "Näytä erotin lohkojen välillä",
   "editor.show_empty_days": "Näytä tyhjät päivät",
+  "editor.show_no_data_distinct": "Näytä \"ei dataa\" erottuvalla (sumea) tyylillä",
   "editor.show_text_allergen": "Näytä allergeenin nimi",
   "editor.show_value_numeric": "Näytä numeerinen arvo",
   "editor.show_value_numeric_in_circle": "Näytä numeerinen arvo ympyröissä",

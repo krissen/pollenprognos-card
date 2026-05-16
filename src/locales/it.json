@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Seleziona qualità dell'aria",
   "editor.show_block_separator": "Mostra separatore tra i blocchi",
   "editor.show_empty_days": "Mostra giorni vuoti",
+  "editor.show_no_data_distinct": "Mostra \"nessun dato\" con stile distinto (sfocato)",
   "editor.show_text_allergen": "Mostra testo, allergene",
   "editor.show_value_numeric": "Mostra valore numerico",
   "editor.show_value_numeric_in_circle": "Mostra valore numerico nei cerchi",

@@ -290,6 +290,7 @@
   "editor.select_all_pollution": "Select air quality",
   "editor.show_block_separator": "Show separator between blocks",
   "editor.show_empty_days": "Show empty days",
+  "editor.show_no_data_distinct": "Show \"no data\" with distinct (fuzzy) styling",
   "editor.show_text_allergen": "Show text, allergen",
   "editor.show_value_numeric": "Show value, numeric",
   "editor.show_value_numeric_in_circle": "Show numeric value in the circles",

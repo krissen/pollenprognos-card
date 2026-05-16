@@ -645,6 +645,7 @@ export const COSMETIC_FIELDS = [
   "text_size_ratio",
   "minimal_gap",
   "show_block_separator",
+  "show_no_data_distinct",
   "title",
   "card_mod",
 ];

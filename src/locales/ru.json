@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Выбрать качество воздуха",
   "editor.show_block_separator": "Показать разделитель между блоками",
   "editor.show_empty_days": "Показывать пустые дни",
+  "editor.show_no_data_distinct": "Показывать \"нет данных\" с выраженным (размытым) стилем",
   "editor.show_text_allergen": "Показывать название аллергена",
   "editor.show_value_numeric": "Показывать числовое значение",
   "editor.show_value_numeric_in_circle": "Показывать число в круге",

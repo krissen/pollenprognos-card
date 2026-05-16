@@ -40,6 +40,12 @@ export const LEVELS_DEFAULTS = {
   
   // Default color for no allergens icon
   no_allergens_color: "#a9cfe0",
+
+  // Render the "no data" state (adapter-emitted level=-1) with a distinct
+  // fuzzy texture so it doesn't visually collapse into a real level=0.
+  // Spread into every adapter's stub config so the editor / YAML can opt
+  // out per card.
+  show_no_data_distinct: true,
 };
 
 // Conversion factor for stroke width to gap conversion

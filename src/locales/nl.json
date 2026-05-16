@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Luchtkwaliteit selecteren",
   "editor.show_block_separator": "Scheidingslijn tussen blokken tonen",
   "editor.show_empty_days": "Toon lege dagen",
+  "editor.show_no_data_distinct": "Toon \"geen data\" met opvallende (wazige) stijl",
   "editor.show_text_allergen": "Toon tekst, allergeen",
   "editor.show_value_numeric": "Toon numerieke waarde",
   "editor.show_value_numeric_in_circle": "Toon numerieke waarde in de cirkels",

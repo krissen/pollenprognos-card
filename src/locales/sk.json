@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Vybrať kvalitu ovzdušia",
   "editor.show_block_separator": "Zobraziť oddeľovač medzi blokmi",
   "editor.show_empty_days": "Zobraziť prázdne dni",
+  "editor.show_no_data_distinct": "Zobraziť \"žiadne údaje\" s výrazným (rozmazaným) štýlom",
   "editor.show_text_allergen": "Zobraziť text, alergén",
   "editor.show_value_numeric": "Zobraziť číselnú hodnotu",
   "editor.show_value_numeric_in_circle": "Zobraziť číslo v kruhu",
