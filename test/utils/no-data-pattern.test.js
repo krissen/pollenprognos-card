@@ -32,6 +32,20 @@ describe("no-data-pattern", () => {
       expect(uri).toContain("%23aabbcc");
     });
 
+    it("escapes XML-significant characters in the color (defense vs SVG attribute injection)", () => {
+      // Custom CSS properties accept arbitrary strings. A crafted theme
+      // value containing `"` or `<` must not be able to break out of
+      // fill="..." and inject SVG markup into the data URI. Decode the
+      // URI back and assert the dangerous chars survived as entities.
+      const uri = buildNoiseSvgUri('red"><script>alert(1)</script>');
+      const decoded = decodeURIComponent(uri.replace(/^data:image\/svg\+xml;utf8,/, ""));
+      // Original payload's `"` and `<script>` must NOT appear verbatim.
+      expect(decoded).not.toContain('"><script>');
+      // Their entity-encoded forms must be present.
+      expect(decoded).toContain("&quot;");
+      expect(decoded).toContain("&lt;script&gt;");
+    });
+
     it("is deterministic for the same seed", () => {
       const a = buildNoiseSvgUri("#888", { seed: 7 });
       const b = buildNoiseSvgUri("#888", { seed: 7 });

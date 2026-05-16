@@ -23,6 +23,25 @@ const RING_MAX_PIX_SIZE = 2;
 const DEFAULT_SEED = 13;
 
 /**
+ * Escape a string for safe use inside an SVG/XML attribute value.
+ * The dot color is read from a CSS custom property and could in principle
+ * contain `"`, `<`, `>`, `&`, or `'` (custom properties accept arbitrary
+ * strings until they're used). Without escaping, a crafted property value
+ * could break out of the `fill="..."` attribute and inject SVG markup into
+ * the data URI -- including `<script>`, since SVG is script-capable.
+ * The order matters: `&` first, so we don't double-encode entity refs we
+ * introduce in later replacements.
+ */
+function escapeXmlAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
  * Seedable PRNG. Stable output for a given seed so headless screenshots and
  * unit tests don't flake across runs.
  */
@@ -49,11 +68,13 @@ export function buildNoiseSvgUri(color = "#888888", opts = {}) {
   const dotR = 1.4;
   const area = tile * tile;
   const count = Math.round((area * density) / (Math.PI * dotR * dotR));
+  // Escape once so we don't re-do it on every dot.
+  const safeColor = escapeXmlAttr(color);
   let body = "";
   for (let i = 0; i < count; i++) {
     body +=
       `<circle cx="${(rng() * tile).toFixed(1)}" cy="${(rng() * tile).toFixed(1)}" ` +
-      `r="${dotR}" fill="${color}" fill-opacity="${(0.55 + rng() * 0.45).toFixed(2)}"/>`;
+      `r="${dotR}" fill="${safeColor}" fill-opacity="${(0.55 + rng() * 0.45).toFixed(2)}"/>`;
   }
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${tile}" height="${tile}" ` +
