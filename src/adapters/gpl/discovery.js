@@ -4,18 +4,45 @@ import { discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from 
 import { cleanDeviceLabel } from "../../utils/device-label.js";
 
 /**
- * Classify a GPL sensor by its attributes.
- * Returns the allergen key (e.g. "birch", "grass_cat") or null.
+ * Classify a GPL sensor by its attributes / registry entry.
+ * Returns the allergen key (e.g. "birch", "grass_cat", "allergy_risk")
+ * or null.
+ *
+ * @param {object} state - hass.states entry (attributes carry the data).
+ * @param {object} [entry] - hass.entities registry entry (carries
+ *   unique_id and translation_key; needed for v2.1.0 summary sensors
+ *   which don't expose either via state.attributes).
  */
-export function classifySensor(state) {
+export function classifySensor(state, entry) {
   const attrs = state?.attributes || {};
-  // Plant sensors have a code attribute (always English, e.g. "birch")
+  // Plant sensors have a code attribute (always English, e.g. "birch").
   if (attrs.code) {
     return attrs.code.toLowerCase();
   }
-  // Type sensors identified by icon
+  // Type sensors identified by icon.
   const iconKey = GPL_TYPE_ICON_MAP[attrs.icon];
   if (iconKey) return iconKey;
+
+  // Pollen Levels v2.1.0 summary: `overall_pollen_risk_today` (0-5
+  // aggregated index). Registered with the same device as the
+  // per-allergen sensors, but without a `code` attribute or matching
+  // icon -- detection has to use unique_id / translation_key from the
+  // entity registry. Mapped to canonical `allergy_risk` so it reuses
+  // Atmo's / SILAM's pinning + rendering paths.
+  //
+  // The two sibling v2.1.0 summary sensors -- `top_pollen_types_today`
+  // (comma-joined string) and `plants_in_season_today` (count) -- are
+  // intentionally left unhandled here; they need new render shapes and
+  // are tracked in #222.
+  const uniqueId = entry?.unique_id;
+  const translationKey = entry?.translation_key;
+  if (
+    (typeof uniqueId === "string" && uniqueId.endsWith("_overall_pollen_risk_today")) ||
+    translationKey === "overall_pollen_risk_today"
+  ) {
+    return "allergy_risk";
+  }
+
   return null;
 }
 
@@ -43,16 +70,19 @@ export function discoverGplSensors(hass, debug = false) {
   const { locations } = discoverEntitiesByDevice(hass, {
     platform: "pollenlevels",
 
-    // classify is used in tier 2 and tier 3; reads state.attributes.code or icon
-    classify: (eid, { state }) => {
+    // classify is used in tier 2 and tier 3; reads state.attributes.code
+    // or icon, and falls through to the registry entry for v2.1.0 summary
+    // sensors which only expose their identity via unique_id /
+    // translation_key.
+    classify: (eid, { state, entry }) => {
       if (!isGplDataSensor(state)) return null;
-      return classifySensor(state);
+      return classifySensor(state, entry);
     },
 
-    // classifyRelaxed used in tier 1 -- same logic, no relaxation needed for GPL
-    classifyRelaxed: (eid, { state }) => {
+    // classifyRelaxed used in tier 1 -- same logic, no relaxation needed for GPL.
+    classifyRelaxed: (eid, { state, entry }) => {
       if (!isGplDataSensor(state)) return null;
-      return classifySensor(state);
+      return classifySensor(state, entry);
     },
 
     // isRelevant: additional pre-classification filter (device_class check handled in classify)
@@ -154,8 +184,11 @@ function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
       if (prefix && !idPart.startsWith(prefix)) continue;
       if (suffix && !idPart.endsWith(suffix)) continue;
 
-      // Classify and check if it matches the requested allergen
-      const key = classifySensor(state);
+      // Classify and check if it matches the requested allergen. Pass
+      // the registry entry so manual-mode lookups also catch the
+      // v2.1.0 summary sensor (detected via unique_id / translation_key).
+      const entry = hass.entities?.[eid];
+      const key = classifySensor(state, entry);
       if (key === allergen) return eid;
     }
 
