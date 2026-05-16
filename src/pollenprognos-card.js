@@ -933,10 +933,14 @@ class PollenPrognosCard extends LitElement {
     const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
 
     if (svgContent) {
-      // Render inline SVG with color styling
+      // Render inline SVG with color styling.
+      // data-state="ok" mirrors the attribute the no-data icon branch sets,
+      // and matches the same attribute on .level-circle, so theme / card-mod
+      // overrides can target both states symmetrically.
       return html`
-        <div 
-          class="pp-icon" 
+        <div
+          class="pp-icon"
+          data-state="ok"
           style="${style}"
           aria-hidden="true"
           @click=${clickHandler}
