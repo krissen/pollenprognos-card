@@ -289,6 +289,7 @@
   "editor.select_all_pollution": "Επιλογή ποιότητας αέρα",
   "editor.show_block_separator": "Εμφάνιση διαχωριστικού μεταξύ μπλοκ",
   "editor.show_empty_days": "Εμφάνιση κενών ημερών",
+  "editor.show_no_data_distinct": "Εμφάνιση \"χωρίς δεδομένα\" με ξεχωριστό (θολό) στυλ",
   "editor.show_text_allergen": "Εμφάνιση κειμένου, αλλεργιογόνο",
   "editor.show_value_numeric": "Εμφάνιση τιμής, αριθμητικά",
   "editor.show_value_numeric_in_circle": "Εμφάνιση αριθμητικής τιμής στους κύκλους",

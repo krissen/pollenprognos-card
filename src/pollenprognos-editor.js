@@ -3183,6 +3183,13 @@ class PollenPrognosCardEditor extends LitElement {
                   this._updateConfig("show_empty_days", e.target.checked)}
               ></ha-switch>
             </ha-formfield>
+            <ha-formfield label="${this._t("show_no_data_distinct")}">
+              <ha-switch
+                .checked=${c.show_no_data_distinct !== false}
+                @change=${(e) =>
+                  this._updateConfig("show_no_data_distinct", e.target.checked)}
+              ></ha-switch>
+            </ha-formfield>
           </details>
 
           <!-- Day Settings -->
