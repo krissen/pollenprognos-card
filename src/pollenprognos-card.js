@@ -102,7 +102,10 @@ class PollenPrognosCard extends LitElement {
 
     // Use attributes instead of properties so values persist if DOM is cloned
     const noDataDistinct = this.config?.show_no_data_distinct !== false;
-    const stateAttr = noDataDistinct && level === -1 ? "no_data" : "ok";
+    // `level < 0` rather than `=== -1` so per-integration scaling doesn't
+    // hide the no-data sentinel. E.g. DWD scales raw state by 2 in the
+    // daily-row path, so an adapter-emitted -1 reaches here as -2.
+    const stateAttr = noDataDistinct && level < 0 ? "no_data" : "ok";
     return html`
       <div
         id="${chartId}"
@@ -888,8 +891,10 @@ class PollenPrognosCard extends LitElement {
     // pattern instead of inline SVG. The shape is preserved (you still see
     // the allergen silhouette) but the fill is fuzzy, signalling "we have
     // no data for this entry" without screaming red.
+    // `level < 0` rather than `=== -1`: DWD scales the level by 2 in the
+    // chart path, so adapter-emitted -1 can arrive here as -2.
     const noDataDistinct = this.config?.show_no_data_distinct !== false;
-    if (!stale && noDataDistinct && level === -1 && svgContent) {
+    if (!stale && noDataDistinct && level < 0 && svgContent) {
       const clickHandler = clickable && onClick ? onClick : null;
       const iconUri = `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
       const noiseUri = buildNoiseSvgUri(this._noDataDotColor());
