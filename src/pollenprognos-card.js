@@ -22,6 +22,11 @@ import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
+  buildNoiseSvgUri,
+  buildNoiseCanvasPattern,
+  hashStringSeed,
+} from "./utils/no-data-pattern.js";
+import {
   findSilamWeatherEntity,
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -55,6 +60,27 @@ class PollenPrognosCard extends LitElement {
   _skipIntegrations = new Set(); // Integrations that failed during autodetect
 
 
+  /**
+   * Dot color for the "no data" noise pattern. Reads the card's resolved
+   * `--primary-text-color` so the texture follows the active HA theme, with
+   * a neutral grey fallback when the variable is not available (offscreen
+   * canvases, headless test runs, etc.).
+   */
+  _noDataDotColor() {
+    if (typeof window !== "undefined" && window.getComputedStyle) {
+      try {
+        const v = window
+          .getComputedStyle(this)
+          .getPropertyValue("--primary-text-color")
+          .trim();
+        if (v) return v;
+      } catch (_) {
+        // ignore and fall through
+      }
+    }
+    return "#888888";
+  }
+
   _renderLevelCircle(
     level,
     {
@@ -75,6 +101,8 @@ class PollenPrognosCard extends LitElement {
     const chartId = `chart-${allergen}-${dayIndex}-${level}`;
 
     // Use attributes instead of properties so values persist if DOM is cloned
+    const noDataDistinct = this.config?.show_no_data_distinct !== false;
+    const stateAttr = noDataDistinct && level === -1 ? "no_data" : "ok";
     return html`
       <div
         id="${chartId}"
@@ -85,6 +113,7 @@ class PollenPrognosCard extends LitElement {
           : ""}"
         data-level="${level}"
         data-display-level="${displayLevel}"
+        data-state="${stateAttr}"
         data-colors="${JSON.stringify(colors)}"
         data-empty-color="${emptyColor}"
         data-gap-color="${gapColor}"
@@ -140,6 +169,7 @@ class PollenPrognosCard extends LitElement {
       const gap = Number(container.dataset.gap);
       const size = Number(container.dataset.size);
       const showValue = container.dataset.showValue === "true";
+      const isNoData = container.dataset.state === "no_data";
 
       // Get custom styling from data attributes
       const fontWeight = container.dataset.fontWeight || "normal";
@@ -159,13 +189,29 @@ class PollenPrognosCard extends LitElement {
         canvas.height = size;
         container.appendChild(canvas);
 
+        const canvasCtx = canvas.getContext("2d");
+        // No-data: fill every segment with the noise tile pattern so the
+        // ring looks visibly distinct from a real "level 0" (which is just
+        // the empty color repeated). Each chart gets its own seed derived
+        // from the container id (allergen+dayIndex+level) so adjacent
+        // no-data circles don't display identical clumps. Falls back to
+        // emptyColor if pattern creation fails (e.g. headless ctx with no
+        // createPattern).
+        const noisePattern = isNoData
+          ? buildNoiseCanvasPattern(canvasCtx, this._noDataDotColor(), {
+              seed: hashStringSeed(container.id),
+            })
+          : null;
+        const fill = noisePattern ?? emptyColor;
         const data = Array(numSegments).fill(1);
-        const bg = Array(numSegments)
-          .fill(emptyColor)
-          .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
+        const bg = isNoData
+          ? Array(numSegments).fill(fill)
+          : Array(numSegments)
+              .fill(emptyColor)
+              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
         const bc = Array(numSegments).fill(gapColor);
 
-        chart = new Chart(canvas.getContext("2d"), {
+        chart = new Chart(canvasCtx, {
           type: "doughnut",
           data: {
             labels: Array(numSegments).fill(""),
@@ -223,11 +269,31 @@ class PollenPrognosCard extends LitElement {
         // Update existing chart only if colors actually changed
         const datasets = chart.data.datasets;
         if (datasets && datasets[0]) {
-          const bg = Array(datasets[0].backgroundColor.length)
-            .fill(emptyColor)
-            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-
           const oldBg = datasets[0].backgroundColor;
+          let bg;
+          if (isNoData) {
+            // Reuse the cached pattern if the chart already has one in oldBg
+            // (CanvasPattern objects compare identity-safely here), otherwise
+            // build a fresh one for this canvas context — same per-container
+            // seed as the initial create branch.
+            const existingPattern = oldBg.find(
+              (c) => typeof c === "object" && c !== null,
+            );
+            const pattern =
+              existingPattern ??
+              buildNoiseCanvasPattern(
+                chart.canvas.getContext("2d"),
+                this._noDataDotColor(),
+                { seed: hashStringSeed(container.id) },
+              ) ??
+              emptyColor;
+            bg = Array(oldBg.length).fill(pattern);
+          } else {
+            bg = Array(oldBg.length)
+              .fill(emptyColor)
+              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
+          }
+
           const colorsChanged =
             bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
           if (colorsChanged) {
@@ -802,6 +868,31 @@ class PollenPrognosCard extends LitElement {
       effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
     }
     const svgContent = getSvgContent(effectiveKey);
+
+    // No-data branch: render the icon as a CSS mask filled with the noise
+    // pattern instead of inline SVG. The shape is preserved (you still see
+    // the allergen silhouette) but the fill is fuzzy, signalling "we have
+    // no data for this entry" without screaming red.
+    const noDataDistinct = this.config?.show_no_data_distinct !== false;
+    if (!stale && noDataDistinct && level === -1 && svgContent) {
+      const clickHandler = clickable && onClick ? onClick : null;
+      const iconUri = `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
+      const noiseUri = buildNoiseSvgUri(this._noDataDotColor());
+      const style =
+        `--pp-icon-no-data-mask: url("${iconUri}"); ` +
+        `--pp-icon-no-data-noise: url("${noiseUri}"); ` +
+        `--pp-icon-stroke-width: ${strokeWidth};` +
+        (clickable ? " cursor: pointer;" : "");
+      return html`
+        <div
+          class="pp-icon pp-icon-no-data"
+          data-state="no_data"
+          style="${style}"
+          aria-hidden="true"
+          @click=${clickHandler}
+        ></div>
+      `;
+    }
 
     // Determine stroke color based on sync setting
     let actualStrokeColor;
@@ -2490,6 +2581,33 @@ class PollenPrognosCard extends LitElement {
       .pp-icon svg g {
         stroke: var(--pp-icon-stroke, none);
         stroke-width: var(--pp-icon-stroke-width, 1);
+      }
+
+      /* No-data icon: silhouette filled with a faint solid color (anchors
+         the shape so it stays readable against a heavily textured ring)
+         plus a noise pattern on top (carries the "no data" cue). The icon
+         SVG acts as the mask; mask-mode: alpha is set explicitly so SVG
+         paths filled with black act as the opaque part of the mask in
+         Chrome (its default for SVG-via-url is luminance, which would
+         invert the result). */
+      .pp-icon-no-data {
+        -webkit-mask-image: var(--pp-icon-no-data-mask);
+        mask-image: var(--pp-icon-no-data-mask);
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-mode: alpha;
+        mask-mode: alpha;
+        background-image: var(--pp-icon-no-data-noise);
+        background-repeat: repeat;
+        background-color: color-mix(
+          in srgb,
+          var(--primary-text-color, #888888) 15%,
+          transparent
+        );
       }
 
       .pp-icon-placeholder {
