@@ -158,6 +158,17 @@ export async function fetchForecast(hass, config) {
     }
   }
 
+  // Pin the `allergy_risk` summary row to the top when configured. Done
+  // after sorting so the user's chosen sort order (and the
+  // sort_category_allergens_first grouping above) is preserved for
+  // everything else. Mirrors Atmo's allergy_risk_top pattern.
+  if (config.allergy_risk_top) {
+    const arIdx = sensors.findIndex(
+      (s) => s.allergenReplaced === "allergy_risk",
+    );
+    if (arIdx > 0) sensors.unshift(...sensors.splice(arIdx, 1));
+  }
+
   if (debug) console.debug("[GPL] Adapter complete sensors:", sensors);
   return sensors;
 }
