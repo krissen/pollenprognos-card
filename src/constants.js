@@ -161,6 +161,11 @@ const GPL_ALIASES = {
   // (the category). Icon presentation is still handled via
   // ALLERGEN_ICON_FALLBACK.graminales = "grass".
   cypress_pine: "cypress",
+  // Identity alias for the v2.1.0 summary sensor key. Discovery in
+  // src/adapters/gpl/discovery.js maps overall_pollen_risk_today ->
+  // allergy_risk; this line lets the canonical key resolve through
+  // the shared allergen normalization without losing its identity.
+  allergy_risk: "allergy_risk",
 };
 
 // GP (svenove/home-assistant-google-pollen) slugified display_name aliases.

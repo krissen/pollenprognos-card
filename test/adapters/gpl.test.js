@@ -5,6 +5,7 @@ import {
   GPL_BASE_ALLERGENS,
   GPL_ATTRIBUTION,
   discoverGplSensors,
+  classifySensor,
 } from "../../src/adapters/gpl/index.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
@@ -1017,5 +1018,224 @@ describe("fetchForecast: user phrase overrides", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].allergenCapitalized).toBe("My Custom Grass");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pollen Levels v2.1.0: overall_pollen_risk_today summary sensor (#221)
+// ---------------------------------------------------------------------------
+
+describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
+  it("returns 'allergy_risk' when entry.unique_id ends with _overall_pollen_risk_today", () => {
+    // Pollen Levels v2.1.0 doesn't put translation_key in state.attributes
+    // so we have to detect via the registry entry. unique_id is the
+    // language-independent signal -- always English even when the friendly
+    // name is translated by HA.
+    const state = { state: "3", attributes: {} };
+    const entry = { unique_id: "abc123_overall_pollen_risk_today" };
+    expect(classifySensor(state, entry)).toBe("allergy_risk");
+  });
+
+  it("returns 'allergy_risk' via translation_key fallback when unique_id is missing", () => {
+    const state = { state: "3", attributes: {} };
+    const entry = { translation_key: "overall_pollen_risk_today" };
+    expect(classifySensor(state, entry)).toBe("allergy_risk");
+  });
+
+  it("returns null for the other v2.1.0 summary sensors (out of scope for #221, tracked in #222)", () => {
+    const state = { state: "Tree", attributes: {} };
+    expect(
+      classifySensor(state, { unique_id: "abc_top_pollen_types_today" }),
+    ).toBeNull();
+    expect(
+      classifySensor(state, { unique_id: "abc_plants_in_season_today" }),
+    ).toBeNull();
+  });
+
+  it("still returns the plant code when both code and unique_id are present", () => {
+    // Per-allergen sensors keep their attributes.code path; the summary
+    // branch is only hit when no code and no icon match.
+    const state = { state: "2", attributes: { code: "birch" } };
+    const entry = { unique_id: "abc_birch" };
+    expect(classifySensor(state, entry)).toBe("birch");
+  });
+
+  it("is safe when entry is missing AND no summary attributes are present", () => {
+    const state = { state: "3", attributes: {} };
+    expect(classifySensor(state)).toBeNull();
+    expect(classifySensor(state, null)).toBeNull();
+  });
+
+  it("falls back to state.attributes.top_pollen_codes when entry is unavailable", () => {
+    // Tier-3 attribution scan and manual-mode fallback don't pass the
+    // entity registry entry, so registry-based detection silently fails
+    // there. The summary entity ships a `top_pollen_codes` array (only
+    // it does -- per-allergen sensors don't), which is a reliable
+    // state-only signal.
+    const state = {
+      state: "3",
+      attributes: { top_pollen_codes: ["TREE"] },
+    };
+    expect(classifySensor(state)).toBe("allergy_risk");
+    expect(classifySensor(state, null)).toBe("allergy_risk");
+  });
+
+  it("attribute fallback still recognizes summary when top_pollen_codes is empty (Sydney/no-data case)", () => {
+    // For locations the upstream Google API has no data on, the summary
+    // entity still exists with state="unknown" but top_pollen_codes is
+    // an empty array. It's still the summary; detect it.
+    const state = {
+      state: "unknown",
+      attributes: { top_pollen_codes: [] },
+    };
+    expect(classifySensor(state)).toBe("allergy_risk");
+  });
+});
+
+describe("discoverGplSensors: summary sensor flows through to allergy_risk key", () => {
+  it("registers the overall_pollen_risk_today entity under the 'allergy_risk' allergen key", () => {
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: "3",
+        attributes: { attribution: GPL_ATTRIBUTION },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 2),
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        device_id: "dev1",
+        unique_id: "cfg_entry_id_overall_pollen_risk_today",
+      },
+      "sensor.home_grass": { device_id: "dev1" },
+    };
+    // makeHassPrimary builds entries without unique_id; merge it in here.
+    const hass = (() => {
+      const base = makeHassPrimary(statesMap, entitiesMap, {
+        dev1: { name: "Home", config_entries: ["entry-summary-1"] },
+      });
+      base.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+        "cfg_entry_id_overall_pollen_risk_today";
+      return base;
+    })();
+
+    const result = discoverGplSensors(hass);
+    const loc = result.locations.get("entry-summary-1");
+    expect(loc).toBeDefined();
+    expect(loc.entities.has("allergy_risk")).toBe(true);
+    expect(loc.entities.get("allergy_risk")).toBe(
+      "sensor.home_overall_pollen_risk_today",
+    );
+    // grass_cat is still discovered too -- summary detection doesn't shadow
+    // the existing per-allergen flow.
+    expect(loc.entities.has("grass_cat")).toBe(true);
+  });
+});
+
+describe("fetchForecast: allergy_risk summary row (#221)", () => {
+  function makeSummaryHass({
+    summaryState = "3",
+    grassState = 2,
+    pinTopUnique = "entry_a_overall_pollen_risk_today",
+  } = {}) {
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: String(summaryState),
+        attributes: { attribution: GPL_ATTRIBUTION },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", grassState),
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev1" },
+      "sensor.home_grass": { device_id: "dev1" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev1: { name: "Home", config_entries: ["entry_a"] },
+    });
+    hass.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+      pinTopUnique;
+    return hass;
+  }
+
+  it("includes an allergy_risk row when the summary sensor is present", async () => {
+    const hass = makeSummaryHass({ summaryState: "3" });
+    const config = makeConfig({
+      allergens: ["allergy_risk", "grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 3,
+      allergy_risk_top: false, // test ordering separately
+    });
+
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar).toBeDefined();
+    expect(ar.day0.state).toBe(3);
+  });
+
+  it("renders day1..N as no-data sentinels (-1) since the summary has no forecast", async () => {
+    const hass = makeSummaryHass({ summaryState: "2" });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 4,
+      allergy_risk_top: false,
+    });
+
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.day0.state).toBe(2);
+    // The card treats level=-1 as the fuzzy no-data variant (#228); padding
+    // future days as -1 is what keeps the row from inventing fake values.
+    expect(ar.day1.state).toBe(-1);
+    expect(ar.day2.state).toBe(-1);
+    expect(ar.day3.state).toBe(-1);
+  });
+
+  it("pins allergy_risk to position 0 when allergy_risk_top: true", async () => {
+    const hass = makeSummaryHass();
+    const config = makeConfig({
+      allergens: ["allergy_risk", "grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+      allergy_risk_top: true,
+    });
+
+    const result = await fetchForecast(hass, config);
+    expect(result[0].allergenReplaced).toBe("allergy_risk");
+  });
+
+  it("leaves allergy_risk in its natural sort position when allergy_risk_top: false", async () => {
+    // With value_descending sort and summary=1 < grass=3, allergy_risk
+    // should sort after grass_cat.
+    const hass = makeSummaryHass({ summaryState: "1", grassState: 3 });
+    const config = makeConfig({
+      allergens: ["allergy_risk", "grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+      allergy_risk_top: false,
+      sort: "value_descending",
+      sort_category_allergens_first: false,
+    });
+
+    const result = await fetchForecast(hass, config);
+    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[1].allergenReplaced).toBe("allergy_risk");
+  });
+
+  it("pre-v2.1.0 installs (no summary sensor) keep working", async () => {
+    // Regression check: the new classifier branch must not change behavior
+    // when the summary entity is absent.
+    const hass = makeHassAttribution({
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 2),
+    });
+    const config = makeConfig({
+      allergens: ["grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+      allergy_risk_top: true, // even with the flag on, no summary present
+    });
+
+    const result = await fetchForecast(hass, config);
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("grass_cat");
   });
 });

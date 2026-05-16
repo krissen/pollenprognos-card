@@ -1508,7 +1508,12 @@ class PollenPrognosCardEditor extends LitElement {
         newConfig.sort_category_allergens_first = false;
         delete this._userConfig.sort_category_allergens_first;
       }
-      if ((this._config.integration === "peu" || this._config.integration === "atmo") && this._config.allergy_risk_top) {
+      if (
+        (this._config.integration === "peu" ||
+          this._config.integration === "atmo" ||
+          this._config.integration === "gpl") &&
+        this._config.allergy_risk_top
+      ) {
         newConfig.allergy_risk_top = false;
         delete this._userConfig.allergy_risk_top;
       }
@@ -3508,7 +3513,7 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-formfield>
               `
             : ""}
-          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo"
+          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo" || c.integration === "gpl"
             ? html`
                 <ha-formfield
                   label="${c.integration === "silam"
