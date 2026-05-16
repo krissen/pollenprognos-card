@@ -154,6 +154,13 @@ class PollenPrognosCard extends LitElement {
     const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
     const activeIds = new Set();
 
+    // Resolve the no-data dot color once per rebuild. _noDataDotColor() reads
+    // getComputedStyle which is non-trivial; caching here both saves work
+    // when many circles are no-data AND lets the update branch detect a
+    // theme-color change (chart._noDataColor !== noDataColor) so stale
+    // patterns get rebuilt instead of reused indefinitely.
+    const noDataColor = this._noDataDotColor();
+
     containers.forEach((container) => {
       activeIds.add(container.id);
 
@@ -198,7 +205,7 @@ class PollenPrognosCard extends LitElement {
         // emptyColor if pattern creation fails (e.g. headless ctx with no
         // createPattern).
         const noisePattern = isNoData
-          ? buildNoiseCanvasPattern(canvasCtx, this._noDataDotColor(), {
+          ? buildNoiseCanvasPattern(canvasCtx, noDataColor, {
               seed: hashStringSeed(container.id),
             })
           : null;
@@ -264,6 +271,10 @@ class PollenPrognosCard extends LitElement {
           },
         });
 
+        // Tag the chart with the dot color used to build this pattern so
+        // a later theme-color change can invalidate the cached pattern.
+        if (isNoData) chart._noDataColor = noDataColor;
+
         this._chartCache.set(container.id, chart);
       } else {
         // Update existing chart only if colors actually changed
@@ -273,20 +284,24 @@ class PollenPrognosCard extends LitElement {
           let bg;
           if (isNoData) {
             // Reuse the cached pattern if the chart already has one in oldBg
-            // (CanvasPattern objects compare identity-safely here), otherwise
-            // build a fresh one for this canvas context — same per-container
-            // seed as the initial create branch.
+            // AND the theme dot color hasn't changed since it was built.
+            // Otherwise rebuild so a theme switch propagates through.
             const existingPattern = oldBg.find(
               (c) => typeof c === "object" && c !== null,
             );
-            const pattern =
-              existingPattern ??
-              buildNoiseCanvasPattern(
-                chart.canvas.getContext("2d"),
-                this._noDataDotColor(),
-                { seed: hashStringSeed(container.id) },
-              ) ??
-              emptyColor;
+            const colorChanged = chart._noDataColor !== noDataColor;
+            let pattern;
+            if (existingPattern && !colorChanged) {
+              pattern = existingPattern;
+            } else {
+              pattern =
+                buildNoiseCanvasPattern(
+                  chart.canvas.getContext("2d"),
+                  noDataColor,
+                  { seed: hashStringSeed(container.id) },
+                ) ?? emptyColor;
+              chart._noDataColor = noDataColor;
+            }
             bg = Array(oldBg.length).fill(pattern);
           } else {
             bg = Array(oldBg.length)
