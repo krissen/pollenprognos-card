@@ -898,10 +898,12 @@ class PollenPrognosCard extends LitElement {
       const clickHandler = clickable && onClick ? onClick : null;
       const iconUri = `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
       const noiseUri = buildNoiseSvgUri(this._noDataDotColor());
+      // No --pp-icon-stroke-width here: the no-data branch renders a masked
+      // div with no inline SVG, so the stroke-width var (read by
+      // `.pp-icon svg g`) has no effect in this branch.
       const style =
         `--pp-icon-no-data-mask: url("${iconUri}"); ` +
-        `--pp-icon-no-data-noise: url("${noiseUri}"); ` +
-        `--pp-icon-stroke-width: ${strokeWidth};` +
+        `--pp-icon-no-data-noise: url("${noiseUri}");` +
         (clickable ? " cursor: pointer;" : "");
       return html`
         <div
