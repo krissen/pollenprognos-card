@@ -416,7 +416,7 @@ export async function fetchForecast(hass, config) {
       // Threshold filtering
       if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
-      console.warn(`[PP] Fel vid allergen ${allergen}:`, e);
+      console.warn(`[PP] Error for allergen ${allergen}:`, e);
     }
   }
 

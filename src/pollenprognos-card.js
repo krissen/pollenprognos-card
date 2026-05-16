@@ -1528,8 +1528,8 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.debug) {
-      console.debug("[Card][Debug] Aktiv integration:", integration);
-      console.debug("[Card][Debug] Allergens i config:", cfg.allergens);
+      console.debug("[Card][Debug] Active integration:", integration);
+      console.debug("[Card][Debug] Allergens in config:", cfg.allergens);
     }
 
     // Compute header into a local variable, only assign if changed.
@@ -1898,7 +1898,7 @@ class PollenPrognosCard extends LitElement {
       return fetchPromise
         .then((sensors) => {
           if (this.debug) {
-            console.debug("[Card][Debug] Sensors före filtrering:", sensors);
+            console.debug("[Card][Debug] Sensors before filtering:", sensors);
             console.debug(
               `[Card][Debug] Adapter returned ${sensors.length} sensors:`,
               sensors.map((s) => ({
@@ -1918,15 +1918,15 @@ class PollenPrognosCard extends LitElement {
 
           if (this.debug) {
             // console.debug(
-            //   "[Card][Debug] Alla tillgängliga hass.states:",
+            //   "[Card][Debug] All available hass.states:",
             //   Object.keys(hass.states),
             // );
-            console.debug("[Card] Användaren har valt city:", cfg.city);
+            console.debug("[Card] User selected city:", cfg.city);
             console.debug(
-              "[Card] Användaren har valt allergener:",
+              "[Card] User selected allergens:",
               cfg.allergens,
             );
-            console.debug("[Card] Användaren har valt plats:", cfg.location);
+            console.debug("[Card] User selected location:", cfg.location);
           }
 
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
@@ -1961,7 +1961,7 @@ class PollenPrognosCard extends LitElement {
             this._updateSensorsAndColumns([], [], cfg);
             if (this.debug) {
               console.warn(
-                `[Card] Ingen sensor hittad för explicit vald plats: '${cfg.location}'`,
+                `[Card] No sensor found for explicitly selected location: '${cfg.location}'`,
               );
             }
             return;

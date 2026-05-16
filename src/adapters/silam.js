@@ -261,7 +261,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   if (!weatherEntity || !hass.states[weatherEntity]) {
     if (debug)
-      console.warn("[SILAM] Ingen weather-entity hittad:", weatherEntity);
+      console.warn("[SILAM] No weather entity found:", weatherEntity);
     return [];
   }
 
@@ -455,7 +455,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       const skipThreshold = autoAddedAllergyRisk && allergen === "allergy_risk";
       if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
-      if (debug) console.warn(`[SILAM] Fel vid allergen ${allergen}:`, e);
+      if (debug) console.warn(`[SILAM] Error for allergen ${allergen}:`, e);
     }
   }
 

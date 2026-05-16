@@ -748,7 +748,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
 
       if (this.debug)
-        console.debug("[Editor] färdig _config innan dispatch:", this._config);
+        console.debug("[Editor] Final _config before dispatch:", this._config);
 
       // 18. Hantera tap_action för editorn
       if (this._config.tap_action) {
@@ -1934,7 +1934,7 @@ class PollenPrognosCardEditor extends LitElement {
       label: this._t(`sort_${opt}`),
     }));
     if (this.debug) {
-      console.debug("Aktuellt språk (lang):", this._lang);
+      console.debug("[Editor] Current language (lang):", this._lang);
       console.debug("Sort label test:", this._t("sort_value_ascending"));
     }
 
