@@ -2623,6 +2623,12 @@ class PollenPrognosCard extends LitElement {
         mask-mode: alpha;
         background-image: var(--pp-icon-no-data-noise);
         background-repeat: repeat;
+        /* Plain rgba fallback first so the icon still gets a translucent
+           anchor on browsers without color-mix() support (older WebKit /
+           legacy Chromium builds shipped via plugin-legacy). The
+           color-mix() declaration overrides it on modern browsers and
+           tracks --primary-text-color through theme switches. */
+        background-color: rgba(136, 136, 136, 0.15);
         background-color: color-mix(
           in srgb,
           var(--primary-text-color, #888888) 15%,
