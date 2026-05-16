@@ -81,6 +81,7 @@ In this file:
 | `link_to_sensors` | `boolean` | `true` | Link allergen icons and circles to their sensor entities. |
 | `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). |
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
+| `show_no_data_distinct` | `boolean` | `true` | Render entries where the sensor exists but has no current value (e.g. `state: unknown`, upstream API returned `null`) with a distinct fuzzy texture instead of a plain empty circle. Disable to fall back to the old appearance, where no-data and a real `0` look identical. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. Available options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`, `none`. |
 | `sort_category_allergens_first` *(Kleenex, GPL)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
