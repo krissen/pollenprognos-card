@@ -26,9 +26,13 @@ export function classifySensor(state, entry) {
   // Pollen Levels v2.1.0 summary: `overall_pollen_risk_today` (0-5
   // aggregated index). Registered with the same device as the
   // per-allergen sensors, but without a `code` attribute or matching
-  // icon -- detection has to use unique_id / translation_key from the
-  // entity registry. Mapped to canonical `allergy_risk` so it reuses
-  // Atmo's / SILAM's pinning + rendering paths.
+  // icon. Mapped to canonical `allergy_risk` so it reuses Atmo's /
+  // SILAM's pinning + rendering paths.
+  //
+  // Detection order: registry entry first (most authoritative,
+  // language-independent), then a state-attribute fallback for paths
+  // where `entry` is absent (tier-3 attribution scan, manual-mode
+  // fallback).
   //
   // The two sibling v2.1.0 summary sensors -- `top_pollen_types_today`
   // (comma-joined string) and `plants_in_season_today` (count) -- are
@@ -40,6 +44,13 @@ export function classifySensor(state, entry) {
     (typeof uniqueId === "string" && uniqueId.endsWith("_overall_pollen_risk_today")) ||
     translationKey === "overall_pollen_risk_today"
   ) {
+    return "allergy_risk";
+  }
+  // State-attribute fallback: pollenlevels exposes `top_pollen_codes`
+  // (and siblings) only on the summary entity. Per-allergen sensors
+  // have `code`, `forecast`, `tomorrow_has_index` etc. but not this
+  // array. Discovered by inspecting actual entity state in hass-test.
+  if (Array.isArray(attrs.top_pollen_codes)) {
     return "allergy_risk";
   }
 

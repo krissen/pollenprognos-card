@@ -1060,10 +1060,35 @@ describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
     expect(classifySensor(state, entry)).toBe("birch");
   });
 
-  it("is safe when entry is missing (legacy callers, manual mode lookups)", () => {
+  it("is safe when entry is missing AND no summary attributes are present", () => {
     const state = { state: "3", attributes: {} };
     expect(classifySensor(state)).toBeNull();
     expect(classifySensor(state, null)).toBeNull();
+  });
+
+  it("falls back to state.attributes.top_pollen_codes when entry is unavailable", () => {
+    // Tier-3 attribution scan and manual-mode fallback don't pass the
+    // entity registry entry, so registry-based detection silently fails
+    // there. The summary entity ships a `top_pollen_codes` array (only
+    // it does -- per-allergen sensors don't), which is a reliable
+    // state-only signal.
+    const state = {
+      state: "3",
+      attributes: { top_pollen_codes: ["TREE"] },
+    };
+    expect(classifySensor(state)).toBe("allergy_risk");
+    expect(classifySensor(state, null)).toBe("allergy_risk");
+  });
+
+  it("attribute fallback still recognizes summary when top_pollen_codes is empty (Sydney/no-data case)", () => {
+    // For locations the upstream Google API has no data on, the summary
+    // entity still exists with state="unknown" but top_pollen_codes is
+    // an empty array. It's still the summary; detect it.
+    const state = {
+      state: "unknown",
+      attributes: { top_pollen_codes: [] },
+    };
+    expect(classifySensor(state)).toBe("allergy_risk");
   });
 });
 
