@@ -257,12 +257,21 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     configLocation = config.location || "";
   }
 
+  // Normalize entity_weather once: must be a non-empty string. YAML can
+  // surface this as a number/array/object on misconfiguration, and we use
+  // the value as a truthy flag (skipDiscovery) AND as a string
+  // (.startsWith). Coerce to null when invalid so both checks treat it as
+  // "no override" instead of crashing.
+  const rawEW = config.entity_weather;
+  const entityWeather =
+    typeof rawEW === "string" && rawEW.length > 0 ? rawEW : null;
+
   // Discovery for weather entity (allergen sensors delegated to resolveEntityIds).
   // Skip entirely when the manual override path is taken: both the weather
-  // entity (config.entity_weather) and the allergen sensors (resolveEntityIds
+  // entity (entity_weather) and the allergen sensors (resolveEntityIds
   // manual branch via prefix/suffix) resolve without discovery, so the scan
   // would be pure overhead on every refresh.
-  const skipDiscovery = config.location === "manual" && config.entity_weather;
+  const skipDiscovery = config.location === "manual" && entityWeather !== null;
   let discovery;
   let discoveredLoc = null;
   if (skipDiscovery) {
@@ -274,29 +283,29 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
   }
 
-  // Manual mode honors an optional config.entity_weather override -- if set,
-  // it bypasses discovery for the weather entity. Useful when the prefix-
+  // Manual mode honors an optional entity_weather override -- if set, it
+  // bypasses discovery for the weather entity. Useful when the prefix-
   // based discovery hint doesn't find the right one (custom-renamed
   // entities, multiple SILAM instances, etc.).
   let weatherEntity;
-  if (config.location === "manual" && config.entity_weather) {
-    if (!config.entity_weather.startsWith("weather.")) {
+  if (config.location === "manual" && entityWeather !== null) {
+    if (!entityWeather.startsWith("weather.")) {
       console.warn(
-        `[SILAM] Manual mode: entity_weather '${config.entity_weather}' ` +
+        `[SILAM] Manual mode: entity_weather '${entityWeather}' ` +
           "is not a weather.* entity. The forecast subscription only works " +
           "against the weather domain. Set entity_weather to the weather.* " +
           "entity that emits SILAM forecast events.",
       );
       return [];
     }
-    if (!hass.states[config.entity_weather]) {
+    if (!hass.states[entityWeather]) {
       console.warn(
-        `[SILAM] Manual mode: entity_weather '${config.entity_weather}' ` +
+        `[SILAM] Manual mode: entity_weather '${entityWeather}' ` +
           "not found in hass.states. Verify the entity ID is correct.",
       );
       return [];
     }
-    weatherEntity = config.entity_weather;
+    weatherEntity = entityWeather;
   } else {
     weatherEntity = discoveredLoc?.weatherEntity
       || findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);

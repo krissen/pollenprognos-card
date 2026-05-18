@@ -1053,6 +1053,36 @@ describe("fetchForecast: manual mode", () => {
       }
     });
 
+    it("treats non-string entity_weather as unset (no crash, falls back to discovery)", async () => {
+      // YAML can surface entity_weather as a number/array/object on
+      // misconfiguration. The code uses it both as a truthy flag (for the
+      // skipDiscovery branch) AND as a string (.startsWith), so an unguarded
+      // non-string value would crash SILAM rendering. Verify graceful
+      // fallback to discovery instead.
+      const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.silam_pollen_stockholm_birch": { state: "30", attributes: {} },
+      };
+      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "silam_pollen_stockholm_",
+        // Pathological YAML value; previously would crash on .startsWith
+        entity_weather: 123,
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      // Must not throw
+      const result = await fetchForecast(hass, config);
+      expect(Array.isArray(result)).toBe(true);
+    });
+
     it("returns [] with a clear warning when entity_weather is not a weather.* entity", async () => {
       // entity_weather must point at the weather.* domain because the
       // forecast subscription only works against weather entities. A
