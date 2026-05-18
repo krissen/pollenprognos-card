@@ -575,33 +575,37 @@ class PollenPrognosCard extends LitElement {
       }
       // Manual mode with entity_weather override (#231): subscribe directly
       // to the user-supplied weather entity instead of trying to discover one
-      // from configLocation. Without the override, fall back to discovery
-      // using the prefix-derived configLocation above so the subscription
-      // and the adapter agree on which weather entity to use. The override
-      // must (a) be a string, (b) point at the weather.* domain (the HA
-      // weather/subscribe_forecast service only accepts weather entities),
-      // and (c) exist in hass.states. When set-but-invalid, leave entityId
-      // null so no subscription is created -- the adapter's fetchForecast
-      // independently warns and returns [], so the card lands on the empty
-      // state instead of silently re-subscribing to a discovered entity
-      // that contradicts the configured override.
+      // from configLocation. Mirror the adapter's fetchForecast normalization
+      // exactly so the card and adapter never disagree about which path
+      // they're on:
+      //   1. Coerce non-string entity_weather to null (YAML can surface this
+      //      as a number/object on misconfiguration). The adapter treats
+      //      this case as "no override" and falls back to discovery; the
+      //      card must do the same or hourly/twice_daily modes get stale
+      //      because the card never subscribes for forecast events.
+      //   2. With a real string override, require weather.* domain (the HA
+      //      weather/subscribe_forecast service only accepts weather
+      //      entities) AND presence in hass.states. When set-but-invalid,
+      //      leave entityId null so no subscription is created -- the
+      //      adapter independently warns and returns [], so the card lands
+      //      on the empty state instead of subscribing to a discovered
+      //      entity that contradicts the configured override.
       const rawEW = isManual ? this.config.entity_weather : null;
-      const validEW =
-        typeof rawEW === "string" &&
-        rawEW.startsWith("weather.") &&
-        this._hass.states[rawEW]
-          ? rawEW
-          : null;
+      const entityWeather =
+        typeof rawEW === "string" && rawEW.length > 0 ? rawEW : null;
       let entityId;
-      if (isManual && rawEW) {
-        if (validEW) {
-          entityId = validEW;
+      if (entityWeather !== null) {
+        if (
+          entityWeather.startsWith("weather.") &&
+          this._hass.states[entityWeather]
+        ) {
+          entityId = entityWeather;
         } else {
           if (this.debug) {
             console.warn(
               "[Card][subscribeForecast] entity_weather is set but invalid " +
-                "(must be a string, weather.* domain, present in hass.states):",
-              rawEW,
+                "(must be weather.* domain and present in hass.states):",
+              entityWeather,
             );
           }
           entityId = null;
