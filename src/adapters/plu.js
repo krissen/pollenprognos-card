@@ -219,9 +219,19 @@ export function resolveEntityIds(cfg, hass, debug = false) {
         const sensorId = resolveSensorIdManual(hass, allergen, prefix, suffix, debug);
         if (sensorId) map.set(allergen, sensorId);
       }
-      return map;
-    }
-    if (debug) {
+      if (map.size > 0) return map;
+      // Prefix matched nothing -- likely a stale entity_prefix carried over
+      // from another integration (PP/DWD/etc.). Before this PR, PLU ignored
+      // cfg.location entirely and auto-discovered, so falling through keeps
+      // those configs rendering instead of going silent. The debug log
+      // surfaces the situation so intentional typos are still diagnosable.
+      if (debug) {
+        console.debug(
+          `[PLU] Manual probe with prefix '${prefix}' resolved zero ` +
+            "sensors; falling through to auto-discovery.",
+        );
+      }
+    } else if (debug) {
       console.debug(
         "[PLU] location === 'manual' but entity_prefix is empty; falling " +
           "through to auto-discovery for backwards compatibility.",

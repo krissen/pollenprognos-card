@@ -293,6 +293,26 @@ describe("PLU adapter: fetchForecast", () => {
       );
       expect(result.has("birch")).toBe(false);
     });
+
+    it("falls through to discovery when prefix is set but resolves zero matches (backwards-compat)", () => {
+      // Stale entity_prefix carried over from another integration (PP, DWD,
+      // etc.) where the value is meaningful, but for PLU's sensor.pollen_*
+      // layout it matches nothing. Before this PR, PLU ignored cfg.location
+      // and would still auto-discover sensor.pollen_*. The card must keep
+      // doing so instead of silently rendering an empty allergen list.
+      const hass = {
+        states: { "sensor.pollen_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "weather_station_irrelevant",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.pollen_betula");
+    });
   });
 
   it("filters allergens below pollen_threshold", async () => {
