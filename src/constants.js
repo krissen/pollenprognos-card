@@ -651,6 +651,11 @@ export const COSMETIC_FIELDS = [
   "minimal_gap",
   "show_block_separator",
   "show_no_data_distinct",
+  "icon_in_ring",
+  "show_allergen_column",
+  "icon_in_ring_color_mode",
+  "icon_in_ring_static_color",
+  "icon_in_ring_size_ratio",
   "title",
   "card_mod",
 ];
