@@ -1014,9 +1014,15 @@ describe("fetchForecast: manual mode", () => {
     it("skips weather-entity discovery when entity_weather is set (perf)", async () => {
       // When manual mode is fully self-sufficient (entity_weather + sensors
       // resolvable via entity_prefix), discoverSilamSensors() is wasted work
-      // on every refresh. The implementation's debug log "Discovery took"
-      // only fires in the discovery branch, so its absence is the
-      // observable signal that the skip path was taken.
+      // on every refresh. The optimization has no behavioral side effect --
+      // the output is identical whether discovery ran or was skipped -- so a
+      // behavioral assertion can't distinguish the two paths. Mocking the
+      // imported util via vi.mock requires module hoisting that would
+      // affect every other test in this file. The "Discovery took" debug
+      // log is the only visible signal; if its wording ever changes, this
+      // assertion and the paired "still runs discovery" assertion below
+      // both fail in lockstep, which makes the brittleness explicit and
+      // contained rather than silent.
       const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
       try {
         const states = {
@@ -1044,6 +1050,41 @@ describe("fetchForecast: manual mode", () => {
         expect(msgs).not.toContain("Discovery took");
       } finally {
         debugSpy.mockRestore();
+      }
+    });
+
+    it("returns [] with a clear warning when entity_weather is not a weather.* entity", async () => {
+      // entity_weather must point at the weather.* domain because the
+      // forecast subscription only works against weather entities. A
+      // sensor.* id would silently succeed past hass.states existence check
+      // and fail later in the subscription, producing a misleading
+      // "location not found" error. Validate up-front instead.
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const hass = createHass(
+          {
+            "sensor.custom_alt_name": { state: "30", attributes: {} },
+            "sensor.custom_birch": { state: "30", attributes: {} },
+          },
+          { entities: {}, devices: {} },
+        );
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          entity_weather: "sensor.custom_alt_name",
+          pollen_threshold: 0,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+        const msgs = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).toContain("sensor.custom_alt_name");
+        expect(msgs).toContain("weather.*");
+      } finally {
+        warnSpy.mockRestore();
       }
     });
 

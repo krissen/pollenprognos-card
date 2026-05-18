@@ -280,6 +280,15 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   // entities, multiple SILAM instances, etc.).
   let weatherEntity;
   if (config.location === "manual" && config.entity_weather) {
+    if (!config.entity_weather.startsWith("weather.")) {
+      console.warn(
+        `[SILAM] Manual mode: entity_weather '${config.entity_weather}' ` +
+          "is not a weather.* entity. The forecast subscription only works " +
+          "against the weather domain. Set entity_weather to the weather.* " +
+          "entity that emits SILAM forecast events.",
+      );
+      return [];
+    }
     if (!hass.states[config.entity_weather]) {
       console.warn(
         `[SILAM] Manual mode: entity_weather '${config.entity_weather}' ` +
