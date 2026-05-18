@@ -577,10 +577,24 @@ class PollenPrognosCard extends LitElement {
       // to the user-supplied weather entity instead of trying to discover one
       // from configLocation. Without the override, fall back to discovery
       // using the prefix-derived configLocation above so the subscription
-      // and the adapter agree on which weather entity to use.
+      // and the adapter agree on which weather entity to use. The override
+      // must point at the weather.* domain: weather/subscribe_forecast only
+      // works for weather entities. A non-weather entity ID is treated as a
+      // config error and falls back to discovery so the card stays usable.
       let entityId;
       if (isManual && this.config.entity_weather) {
-        entityId = this.config.entity_weather;
+        if (this.config.entity_weather.startsWith("weather.")) {
+          entityId = this.config.entity_weather;
+        } else {
+          if (this.debug) {
+            console.warn(
+              "[Card][subscribeForecast] entity_weather is not a weather.* " +
+                "entity:",
+              this.config.entity_weather,
+            );
+          }
+          entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+        }
       } else {
         entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
       }
