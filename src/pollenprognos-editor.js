@@ -1782,6 +1782,11 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.location;
         delete newUser.entity_prefix;
         delete newUser.entity_suffix;
+        // entity_weather is SILAM-only; carrying it across an integration
+        // switch (or back to SILAM via a different prefix) can silently
+        // override the new prefix with a stale weather entity from the
+        // previous setup. Reset it alongside the other location fields.
+        delete newUser.entity_weather;
         delete newUser.mode;
         delete newUser.allergens;
         delete newUser.days_to_show;
