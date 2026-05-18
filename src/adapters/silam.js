@@ -19,10 +19,12 @@ export const stubConfigSILAM = {
   integration: "silam",
   location: "",
   // Optional entity naming used when location is "manual".
-  // entity_weather points at the weather.* entity that emits forecast
-  // events (SILAM derives per-allergen levels from its forecast attribute).
-  // Required for manual mode since auto-discovery is bypassed there;
-  // ignored otherwise.
+  // entity_weather is an optional override that points at the weather.*
+  // entity emitting forecast events (SILAM derives per-allergen levels
+  // from its forecast attribute). When omitted, manual mode falls back
+  // to weather-entity discovery using entity_prefix as a hint; set
+  // entity_weather explicitly only when that discovery picks the wrong
+  // entity. Ignored outside manual mode.
   entity_prefix: "",
   entity_suffix: "",
   entity_weather: "",
