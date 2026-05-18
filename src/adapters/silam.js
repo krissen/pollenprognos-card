@@ -258,11 +258,21 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   }
 
   // Discovery for weather entity (allergen sensors delegated to resolveEntityIds).
-  // Always run so resolveEntityIds can use it later.
-  const tDisc = debug ? performance.now() : 0;
-  const discovery = discoverSilamSensors(hass, debug);
-  const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
-  if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
+  // Skip entirely when the manual override path is taken: both the weather
+  // entity (config.entity_weather) and the allergen sensors (resolveEntityIds
+  // manual branch via prefix/suffix) resolve without discovery, so the scan
+  // would be pure overhead on every refresh.
+  const skipDiscovery = config.location === "manual" && config.entity_weather;
+  let discovery;
+  let discoveredLoc = null;
+  if (skipDiscovery) {
+    discovery = { locations: new Map() };
+  } else {
+    const tDisc = debug ? performance.now() : 0;
+    discovery = discoverSilamSensors(hass, debug);
+    discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+    if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
+  }
 
   // Manual mode honors an optional config.entity_weather override -- if set,
   // it bypasses discovery for the weather entity. Useful when the prefix-

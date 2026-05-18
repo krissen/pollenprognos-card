@@ -1010,6 +1010,74 @@ describe("fetchForecast: manual mode", () => {
       const allergens = result.map((s) => s.allergenReplaced);
       expect(allergens).toContain("birch");
     });
+
+    it("skips weather-entity discovery when entity_weather is set (perf)", async () => {
+      // When manual mode is fully self-sufficient (entity_weather + sensors
+      // resolvable via entity_prefix), discoverSilamSensors() is wasted work
+      // on every refresh. The implementation's debug log "Discovery took"
+      // only fires in the discovery branch, so its absence is the
+      // observable signal that the skip path was taken.
+      const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+      try {
+        const states = {
+          "weather.custom_alt_name": {
+            state: "sunny",
+            attributes: { pollen_birch: 30, forecast: [] },
+          },
+          "sensor.custom_birch": { state: "30", attributes: {} },
+        };
+        const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          entity_weather: "weather.custom_alt_name",
+          pollen_threshold: 0,
+          days_to_show: 1,
+          debug: true,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result.length).toBe(1);
+        const msgs = debugSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).not.toContain("Discovery took");
+      } finally {
+        debugSpy.mockRestore();
+      }
+    });
+
+    it("still runs discovery when manual mode lacks entity_weather", async () => {
+      // Without entity_weather, weather-entity discovery is the only way to
+      // find the forecast source, so the skip path must NOT trigger.
+      const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+      try {
+        const states = {
+          "weather.silam_pollen_custom_forecast": {
+            state: "sunny",
+            attributes: { pollen_birch: 30, forecast: [] },
+          },
+          "sensor.custom_birch": { state: "30", attributes: {} },
+        };
+        const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          // entity_weather intentionally unset
+          pollen_threshold: 0,
+          days_to_show: 1,
+          debug: true,
+        });
+
+        await fetchForecast(hass, config);
+
+        const msgs = debugSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).toContain("Discovery took");
+      } finally {
+        debugSpy.mockRestore();
+      }
+    });
   });
 });
 
