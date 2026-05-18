@@ -119,6 +119,8 @@
   "editor.entity_prefix_placeholder": "bijv. pollen_",
   "editor.entity_suffix": "Entiteit achtervoegsel",
   "editor.entity_suffix_placeholder": "bijv. _home",
+  "editor.entity_weather": "Weerentiteit (alleen SILAM)",
+  "editor.entity_weather_placeholder": "bijv. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Aangepaste kleur",
   "editor.icon_color_inherit": "Overnemen van diagram",
   "editor.icon_color_mode": "Pictogramkleurmodus",

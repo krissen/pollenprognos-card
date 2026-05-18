@@ -63,13 +63,30 @@ class PollenPrognosCardEditor extends LitElement {
     return Boolean(this._config?.debug);
   }
 
-  _hasSilamWeatherEntity(location) {
+  _hasSilamWeatherEntity(location, entityWeather = null) {
     if (
       !this._hass ||
       !this._hass.states ||
       typeof this._hass.states !== "object"
     )
       return false;
+
+    // Manual override short-circuit: when the user supplied an explicit
+    // entity_weather, it exists in hass.states, AND it's in the weather.*
+    // domain, treat it as the weather entity even though discovery wouldn't
+    // find one for location="manual". Unblocks the mode selector
+    // (daily/twice_daily/hourly) for manual mode. Without the weather.*
+    // guard, a stray sensor.* entity could silently enable a mode selector
+    // that fails at runtime when the forecast subscription is attempted.
+    if (
+      location === "manual" &&
+      entityWeather &&
+      typeof entityWeather === "string" &&
+      entityWeather.startsWith("weather.") &&
+      this._hass.states[entityWeather]
+    ) {
+      return true;
+    }
 
     // Primärt: discovery-baserad check
     const discovery = discoverSilamSensors(this._hass, this.debug);
@@ -1765,6 +1782,11 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.location;
         delete newUser.entity_prefix;
         delete newUser.entity_suffix;
+        // entity_weather is SILAM-only; carrying it across an integration
+        // switch (or back to SILAM via a different prefix) can silently
+        // override the new prefix with a stale weather entity from the
+        // previous setup. Reset it alongside the other location fields.
+        delete newUser.entity_weather;
         delete newUser.mode;
         delete newUser.allergens;
         delete newUser.days_to_show;
@@ -1842,9 +1864,23 @@ class PollenPrognosCardEditor extends LitElement {
           }
         }
       }
+      // Clear stale entity_weather when leaving SILAM manual mode. The field
+      // is only meaningful in manual mode; left dangling, it can silently
+      // re-apply when the user re-enters manual mode (possibly with a
+      // different entity_prefix), pulling forecast data from the wrong
+      // location. User can re-enter the value next time they need it.
+      if (
+        this._config.integration === "silam" &&
+        prop === "location" &&
+        this._config.location === "manual" &&
+        value !== "manual" &&
+        cfg.entity_weather
+      ) {
+        cfg.entity_weather = "";
+      }
       // Tvinga mode till daily om location saknar weather-entity
       if (this._config.integration === "silam" && prop === "location") {
-        if (!this._hasSilamWeatherEntity(value)) {
+        if (!this._hasSilamWeatherEntity(value, cfg.entity_weather)) {
           cfg.mode = "daily";
           cfg.days_to_show = 2;
         }
@@ -2167,7 +2203,33 @@ class PollenPrognosCardEditor extends LitElement {
                         </ha-formfield>
                       `
                   : c.integration === "plu"
-                    ? ""
+                    ? html`
+                        <ha-formfield label="${this._t("location")}">
+                          <ha-selector
+                            .hass=${this._hass}
+                            .selector=${{
+                              select: {
+                                mode: "dropdown",
+                                options: [
+                                  {
+                                    value: "",
+                                    label: this._t("location_autodetect"),
+                                  },
+                                  {
+                                    value: "manual",
+                                    label: this._t("location_manual"),
+                                  },
+                                ],
+                              },
+                            }}
+                            .value=${c.location === "manual" ? "manual" : ""}
+                            @value-changed=${(e) => {
+                              const v = e.detail?.value;
+                              if (v !== undefined) this._updateConfig("location", v);
+                            }}
+                          ></ha-selector>
+                        </ha-formfield>
+                      `
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
                         <ha-selector
@@ -2199,7 +2261,7 @@ class PollenPrognosCardEditor extends LitElement {
                         ></ha-selector>
                       </ha-formfield>
                     `}
-          ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
+          ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location, c.entity_weather)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
                   <ha-selector
@@ -2254,7 +2316,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl" || c.integration === "gp") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl" || c.integration === "gp" || c.integration === "plu") &&
             c.location === "manual")
             ? html`
                 <details>
@@ -2275,6 +2337,18 @@ class PollenPrognosCardEditor extends LitElement {
                         this._updateConfig("entity_suffix", e.target.value)}
                     ></ha-textfield>
                   </ha-formfield>
+                  ${c.integration === "silam"
+                    ? html`
+                        <ha-formfield label="${this._t("entity_weather")}">
+                          <ha-textfield
+                            .value=${c.entity_weather || ""}
+                            placeholder="${this._t("entity_weather_placeholder")}"
+                            @input=${(e) =>
+                              this._updateConfig("entity_weather", e.target.value)}
+                          ></ha-textfield>
+                        </ha-formfield>
+                      `
+                    : ""}
                 </details>
               `
             : ""}

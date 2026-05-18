@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -119,6 +119,12 @@ const DEFAULT_THRESHOLDS = {
 
 export const stubConfigPLU = {
   integration: "plu",
+  // location: "" -> autodetect; "manual" -> use entity_prefix/_suffix.
+  // PLU historically had no location field (single-instance integration),
+  // but manual mode needs the toggle to route through resolveEntityIds.
+  location: "",
+  entity_prefix: "",
+  entity_suffix: "",
   allergens: [...PLU_SUPPORTED_ALLERGENS],
   minimal: false,
   minimal_gap: 35,
@@ -162,7 +168,78 @@ function resolveSensorId(hass, canonical, debug) {
   return null;
 }
 
+/**
+ * Manual-mode resolution: probe the same alias list as resolveSensorId,
+ * but anchored on the user-supplied entity_prefix (and optional
+ * entity_suffix) instead of the integration's default `sensor.pollen_`
+ * constant. Lets users with non-standard entity naming (multiple
+ * pollen.lu instances, renamed entities, etc.) point the card at the
+ * right sensor set. Iterates aliases because the same canonical
+ * allergen can be exposed under English, Latin, French, or German names.
+ *
+ * @param {object}  hass
+ * @param {string}  canonical    - Canonical allergen key (e.g. "birch").
+ * @param {string}  prefix       - Already normalized via normalizeManualPrefix.
+ * @param {string}  suffix       - Raw entity_suffix from config (may be "").
+ * @param {boolean} debug
+ * @returns {string|null}
+ */
+function resolveSensorIdManual(hass, canonical, prefix, suffix, debug) {
+  const aliases = PLU_ALIAS_MAP[canonical] || [canonical];
+  for (const alias of aliases) {
+    const sensorId = resolveManualEntity(hass, prefix, alias, suffix);
+    if (sensorId) {
+      if (debug) {
+        console.debug(`[PLU] Manual mode: using sensor '${sensorId}' for allergen '${canonical}'`);
+      }
+      return sensorId;
+    }
+  }
+  return null;
+}
+
 export function resolveEntityIds(cfg, hass, debug = false) {
+  // --- Path 0: Manual mode -- prefix-driven alias probe ---
+  // Mirrors the manual-mode pattern used by PP/DWD/PEU/SILAM/Atmo/GPL: when
+  // location === "manual" AND entity_prefix is set, use cfg.entity_prefix
+  // to anchor sensor lookup instead of the integration's hard-coded
+  // SENSOR_PREFIX. Skips discovery entirely (manual mode means "trust my
+  // prefix"). When entity_prefix is missing -- e.g. a stale config carried
+  // over from another integration where "manual" was selected -- fall
+  // through to discovery so the card keeps rendering instead of going
+  // silent. Before this PR, the card unconditionally cleared cfg.location
+  // for PLU, so empty-prefix manual configs always auto-discovered.
+  if (cfg.location === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    const suffix = cfg.entity_suffix || "";
+    if (prefix) {
+      const map = new Map();
+      for (const allergen of cfg.allergens || []) {
+        if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
+        const sensorId = resolveSensorIdManual(hass, allergen, prefix, suffix, debug);
+        if (sensorId) map.set(allergen, sensorId);
+      }
+      if (map.size > 0) return map;
+      // Prefix matched nothing -- likely a stale entity_prefix carried over
+      // from another integration (PP/DWD/etc.). Before this PR, PLU ignored
+      // cfg.location entirely and auto-discovered, so falling through keeps
+      // those configs rendering instead of going silent. The debug log
+      // surfaces the situation so intentional typos are still diagnosable.
+      if (debug) {
+        console.debug(
+          `[PLU] Manual probe with prefix '${prefix}' resolved zero ` +
+            "sensors; falling through to auto-discovery.",
+        );
+      }
+    } else if (debug) {
+      console.debug(
+        "[PLU] location === 'manual' but entity_prefix is empty; falling " +
+          "through to auto-discovery for backwards compatibility.",
+      );
+    }
+    // Fall through to discovery / alias-probe paths below.
+  }
+
   // --- Path 1: Device-based discovery (tier 1/2) ---
   const discovery = discoverPluSensors(hass, debug);
   if (discovery.locations.size > 0) {

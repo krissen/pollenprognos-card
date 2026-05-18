@@ -119,6 +119,8 @@
   "editor.entity_prefix_placeholder": "napr. pollen_",
   "editor.entity_suffix": "Suffix entity",
   "editor.entity_suffix_placeholder": "napr. _home",
+  "editor.entity_weather": "Entita počasia (iba SILAM)",
+  "editor.entity_weather_placeholder": "napr. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Vlastná farba",
   "editor.icon_color_inherit": "Dediť z grafu",
   "editor.icon_color_mode": "Režim farby ikony",

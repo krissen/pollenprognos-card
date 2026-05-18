@@ -119,6 +119,8 @@
   "editor.entity_prefix_placeholder": "esim. pollen_",
   "editor.entity_suffix": "Entiteetin jälkiliite",
   "editor.entity_suffix_placeholder": "esim. _home",
+  "editor.entity_weather": "Säätila-entiteetti (vain SILAM)",
+  "editor.entity_weather_placeholder": "esim. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Mukautettu väri",
   "editor.icon_color_inherit": "Peri kaaviosta",
   "editor.icon_color_mode": "Kuvakkeen väritila",

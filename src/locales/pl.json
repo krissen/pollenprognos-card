@@ -119,6 +119,8 @@
   "editor.entity_prefix_placeholder": "np. pollen_",
   "editor.entity_suffix": "Sufiks encji",
   "editor.entity_suffix_placeholder": "np. _home",
+  "editor.entity_weather": "Encja pogody (tylko SILAM)",
+  "editor.entity_weather_placeholder": "np. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Kolor własny",
   "editor.icon_color_inherit": "Dziedzicz z wykresu",
   "editor.icon_color_mode": "Tryb koloru ikon",

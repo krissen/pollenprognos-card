@@ -151,12 +151,168 @@ describe("PLU adapter: fetchForecast", () => {
     expect(result[0].allergenReplaced).toBe("birch");
   });
 
-  it("has no manual mode (no location field)", () => {
+  it("stub config exposes manual-mode fields (location + prefix + suffix), no city/region_id", () => {
+    // PLU now supports manual mode like the other adapters. The location
+    // field defaults to "" (autodetect) and can be set to "manual" to
+    // route entity resolution through entity_prefix instead of discovery.
     expect(stubConfigPLU).not.toHaveProperty("city");
-    expect(stubConfigPLU).not.toHaveProperty("location");
     expect(stubConfigPLU).not.toHaveProperty("region_id");
-    expect(stubConfigPLU).not.toHaveProperty("entity_prefix");
-    expect(stubConfigPLU).not.toHaveProperty("entity_suffix");
+    expect(stubConfigPLU).toHaveProperty("location", "");
+    expect(stubConfigPLU).toHaveProperty("entity_prefix", "");
+    expect(stubConfigPLU).toHaveProperty("entity_suffix", "");
+  });
+
+  describe("manual mode (location = 'manual')", () => {
+    it("resolves sensors via entity_prefix + alias map", () => {
+      const hass = {
+        states: {
+          "sensor.custom_betula": { state: "12" },
+          "sensor.custom_alnus": { state: "0" },
+        },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          allergens: ["birch", "alder"],
+        }),
+        hass,
+      );
+      // betula is one of birch's PLU aliases; alnus is alder's.
+      expect(result.get("birch")).toBe("sensor.custom_betula");
+      expect(result.get("alder")).toBe("sensor.custom_alnus");
+    });
+
+    it("strips a leading 'sensor.' from entity_prefix and adds the trailing underscore", () => {
+      const hass = {
+        states: { "sensor.pollen_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "sensor.pollen",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.pollen_betula");
+    });
+
+    it("falls through to auto-discovery when entity_prefix is empty (backwards-compat)", () => {
+      // Stale configs from before PLU manual mode existed (or from another
+      // integration where manual was selected) may carry location:"manual"
+      // without entity_prefix. Returning an empty map would silently break
+      // previously-working cards; instead, fall through to discovery so the
+      // standard sensor.pollen_* layout still resolves.
+      const hass = {
+        states: { "sensor.pollen_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.pollen_betula");
+    });
+
+    it("skips discovery in manual mode (entities outside the prefix don't leak in)", () => {
+      // Discovery would normally find sensor.pollen_betula via SENSOR_PREFIX,
+      // but manual mode is supposed to trust the user's prefix and ignore
+      // everything else. With prefix=custom, sensor.pollen_betula must NOT
+      // resolve birch.
+      const hass = {
+        states: {
+          "sensor.pollen_betula": { state: "5" },   // discovery would catch this
+          "sensor.custom_betula": { state: "12" },  // manual prefix targets this
+        },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.custom_betula");
+    });
+
+    it("ignores unsupported allergens in manual mode (same filter as discovery path)", () => {
+      const hass = {
+        states: { "sensor.custom_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          allergens: ["birch", "this_is_not_a_plu_allergen"],
+        }),
+        hass,
+      );
+      expect(result.has("birch")).toBe(true);
+      expect(result.has("this_is_not_a_plu_allergen")).toBe(false);
+    });
+
+    it("honors cfg.entity_suffix and combines it with prefix + alias", () => {
+      const hass = {
+        states: {
+          "sensor.custom_betula_amount": { state: "12" },
+          "sensor.custom_alnus_amount": { state: "0" },
+          // Same prefix without the suffix exists; must NOT match when suffix is set.
+          "sensor.custom_betula": { state: "999" },
+        },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          entity_suffix: "_amount",
+          allergens: ["birch", "alder"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.custom_betula_amount");
+      expect(result.get("alder")).toBe("sensor.custom_alnus_amount");
+    });
+
+    it("returns no match when entity_suffix is set but the suffixed sensor is missing", () => {
+      const hass = {
+        states: { "sensor.custom_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          entity_suffix: "_amount",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.has("birch")).toBe(false);
+    });
+
+    it("falls through to discovery when prefix is set but resolves zero matches (backwards-compat)", () => {
+      // Stale entity_prefix carried over from another integration (PP, DWD,
+      // etc.) where the value is meaningful, but for PLU's sensor.pollen_*
+      // layout it matches nothing. Before this PR, PLU ignored cfg.location
+      // and would still auto-discover sensor.pollen_*. The card must keep
+      // doing so instead of silently rendering an empty allergen list.
+      const hass = {
+        states: { "sensor.pollen_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "weather_station_irrelevant",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.pollen_betula");
+    });
   });
 
   it("filters allergens below pollen_threshold", async () => {

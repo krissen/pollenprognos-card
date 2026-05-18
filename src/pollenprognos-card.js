@@ -10,6 +10,7 @@ import { cleanDeviceLabel } from "./utils/device-label.js";
 import {
   filterSensorsPostFetch,
   resolveLocationByKey,
+  normalizeManualPrefix,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -554,12 +555,71 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.config.integration === "silam") {
-      const configLocation = this.config.location === "manual" ? "" : (this.config.location || "");
+      const isManual = this.config.location === "manual";
+      // Mirror silam.js fetchForecast: in manual mode use entity_prefix as a
+      // discovery hint so the subscription targets the same weather entity
+      // the adapter renders from. Without this, an empty configLocation lets
+      // discovery pick the first available weather entity, which can differ
+      // from the prefix-matched one used for sensor resolution.
+      // Strip a leading "silam_pollen_" if present: users with default
+      // naming enter entity_prefix="silam_pollen_<loc>_", which would
+      // otherwise double up against findSilamWeatherEntity's own
+      // weather.silam_pollen_${loc}_${suffix} template.
+      let configLocation;
+      if (isManual && this.config.entity_prefix) {
+        configLocation = normalizeManualPrefix(this.config.entity_prefix)
+          .replace(/_$/, "")
+          .replace(/^silam_pollen_/, "");
+      } else if (isManual) {
+        configLocation = "";
+      } else {
+        configLocation = this.config.location || "";
+      }
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+      // Manual mode with entity_weather override (#231): subscribe directly
+      // to the user-supplied weather entity instead of trying to discover one
+      // from configLocation. Mirror the adapter's fetchForecast normalization
+      // exactly so the card and adapter never disagree about which path
+      // they're on:
+      //   1. Coerce non-string entity_weather to null (YAML can surface this
+      //      as a number/object on misconfiguration). The adapter treats
+      //      this case as "no override" and falls back to discovery; the
+      //      card must do the same or hourly/twice_daily modes get stale
+      //      because the card never subscribes for forecast events.
+      //   2. With a real string override, require weather.* domain (the HA
+      //      weather/subscribe_forecast service only accepts weather
+      //      entities) AND presence in hass.states. When set-but-invalid,
+      //      leave entityId null so no subscription is created. The
+      //      downstream null-entityId branch surfaces this as the standard
+      //      "location not found" error box, while the adapter
+      //      independently warns + returns []. Both agree there's no usable
+      //      weather entity, which is what the user needs to fix.
+      const rawEW = isManual ? this.config.entity_weather : null;
+      const entityWeather =
+        typeof rawEW === "string" && rawEW.length > 0 ? rawEW : null;
+      let entityId;
+      if (entityWeather !== null) {
+        if (
+          entityWeather.startsWith("weather.") &&
+          this._hass.states[entityWeather]
+        ) {
+          entityId = entityWeather;
+        } else {
+          if (this.debug) {
+            console.warn(
+              "[Card][subscribeForecast] entity_weather is set but invalid " +
+                "(must be weather.* domain and present in hass.states):",
+              entityWeather,
+            );
+          }
+          entityId = null;
+        }
+      } else {
+        entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+      }
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -1317,7 +1377,9 @@ class PollenPrognosCard extends LitElement {
     if (integration === "plu") {
       delete cfg.city;
       delete cfg.region_id;
-      delete cfg.location;
+      // Preserve cfg.location: "manual" is a meaningful value that signals
+      // the adapter's manual-mode branch (entity_prefix-based lookup).
+      // Dropping it silently disabled PLU manual mode entirely.
     }
 
     if (
@@ -1805,9 +1867,39 @@ class PollenPrognosCard extends LitElement {
         // keys and legacy label slugs both produce the friendly location name.
         // Reuses cached discovery from set hass() to avoid a second scan.
         const gplDiscovery = getGplDiscovery();
-        const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        let gplMatch = null;
+        if (cfg.location === "manual" && cfg.entity_prefix) {
+          // Manual mode: entity resolution filters by prefix AND suffix
+          // (gpl/discovery.js:resolveEntityId). Title resolution has to
+          // follow the same filters or it picks a location that the
+          // adapter would discard, mislabeling the rendered data.
+          const rawPrefix = String(cfg.entity_prefix).replace(/^sensor\./, "");
+          const wantedPrefix = `sensor.${rawPrefix}`;
+          const wantedSuffix = cfg.entity_suffix || "";
+          for (const [key, loc2] of gplDiscovery?.locations || []) {
+            const entities = loc2?.entities;
+            if (!entities) continue;
+            let hit = false;
+            for (const entityId of entities.values()) {
+              if (typeof entityId !== "string") continue;
+              if (!entityId.startsWith(wantedPrefix)) continue;
+              if (wantedSuffix && !entityId.endsWith(wantedSuffix)) continue;
+              hit = true;
+              break;
+            }
+            if (hit) {
+              gplMatch = [key, loc2];
+              break;
+            }
+          }
+        }
+        if (!gplMatch) {
+          // Non-manual (or manual with no prefix / no match): fall back to
+          // key-based lookup. Empty key picks first deterministically.
+          const wantedLocation =
+            cfg.location && cfg.location !== "manual" ? cfg.location : "";
+          gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        }
         // Defensive: discovery already calls cleanDeviceLabel, but apply again
         // here so a future discovery refactor that drops the call doesn't leak
         // the integration's "- <category> (<coords>)" suffix into the title.
