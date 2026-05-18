@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice, normalizeManualPrefix } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -170,22 +170,25 @@ function resolveSensorId(hass, canonical, debug) {
 
 /**
  * Manual-mode resolution: probe the same alias list as resolveSensorId,
- * but anchored on the user-supplied entity_prefix instead of the
- * integration's default `sensor.pollen_` constant. Lets users with
- * non-standard entity naming (multiple pollen.lu instances, renamed
- * entities, etc.) point the card at the right sensor set.
+ * but anchored on the user-supplied entity_prefix (and optional
+ * entity_suffix) instead of the integration's default `sensor.pollen_`
+ * constant. Lets users with non-standard entity naming (multiple
+ * pollen.lu instances, renamed entities, etc.) point the card at the
+ * right sensor set. Iterates aliases because the same canonical
+ * allergen can be exposed under English, Latin, French, or German names.
  *
- * @param {object} hass
- * @param {string} canonical    - Canonical allergen key (e.g. "birch").
- * @param {string} prefix       - Already normalized via normalizeManualPrefix.
+ * @param {object}  hass
+ * @param {string}  canonical    - Canonical allergen key (e.g. "birch").
+ * @param {string}  prefix       - Already normalized via normalizeManualPrefix.
+ * @param {string}  suffix       - Raw entity_suffix from config (may be "").
  * @param {boolean} debug
  * @returns {string|null}
  */
-function resolveSensorIdManual(hass, canonical, prefix, debug) {
+function resolveSensorIdManual(hass, canonical, prefix, suffix, debug) {
   const aliases = PLU_ALIAS_MAP[canonical] || [canonical];
   for (const alias of aliases) {
-    const sensorId = `sensor.${prefix}${alias}`;
-    if (hass.states[sensorId]) {
+    const sensorId = resolveManualEntity(hass, prefix, alias, suffix);
+    if (sensorId) {
       if (debug) {
         console.debug(`[PLU] Manual mode: using sensor '${sensorId}' for allergen '${canonical}'`);
       }
@@ -203,11 +206,12 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   // entirely (manual mode means "trust my prefix").
   if (cfg.location === "manual") {
     const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    const suffix = cfg.entity_suffix || "";
     const map = new Map();
     if (prefix) {
       for (const allergen of cfg.allergens || []) {
         if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
-        const sensorId = resolveSensorIdManual(hass, allergen, prefix, debug);
+        const sensorId = resolveSensorIdManual(hass, allergen, prefix, suffix, debug);
         if (sensorId) map.set(allergen, sensorId);
       }
     } else if (debug) {

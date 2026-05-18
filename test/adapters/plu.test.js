@@ -250,6 +250,44 @@ describe("PLU adapter: fetchForecast", () => {
       expect(result.has("birch")).toBe(true);
       expect(result.has("this_is_not_a_plu_allergen")).toBe(false);
     });
+
+    it("honors cfg.entity_suffix and combines it with prefix + alias", () => {
+      const hass = {
+        states: {
+          "sensor.custom_betula_amount": { state: "12" },
+          "sensor.custom_alnus_amount": { state: "0" },
+          // Same prefix without the suffix exists; must NOT match when suffix is set.
+          "sensor.custom_betula": { state: "999" },
+        },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          entity_suffix: "_amount",
+          allergens: ["birch", "alder"],
+        }),
+        hass,
+      );
+      expect(result.get("birch")).toBe("sensor.custom_betula_amount");
+      expect(result.get("alder")).toBe("sensor.custom_alnus_amount");
+    });
+
+    it("returns no match when entity_suffix is set but the suffixed sensor is missing", () => {
+      const hass = {
+        states: { "sensor.custom_betula": { state: "5" } },
+      };
+      const result = resolveEntityIds(
+        makeConfig({
+          location: "manual",
+          entity_prefix: "custom",
+          entity_suffix: "_amount",
+          allergens: ["birch"],
+        }),
+        hass,
+      );
+      expect(result.has("birch")).toBe(false);
+    });
   });
 
   it("filters allergens below pollen_threshold", async () => {
