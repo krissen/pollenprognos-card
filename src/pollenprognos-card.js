@@ -561,9 +561,15 @@ class PollenPrognosCard extends LitElement {
       // the adapter renders from. Without this, an empty configLocation lets
       // discovery pick the first available weather entity, which can differ
       // from the prefix-matched one used for sensor resolution.
+      // Strip a leading "silam_pollen_" if present: users with default
+      // naming enter entity_prefix="silam_pollen_<loc>_", which would
+      // otherwise double up against findSilamWeatherEntity's own
+      // weather.silam_pollen_${loc}_${suffix} template.
       let configLocation;
       if (isManual && this.config.entity_prefix) {
-        configLocation = normalizeManualPrefix(this.config.entity_prefix).replace(/_$/, "");
+        configLocation = normalizeManualPrefix(this.config.entity_prefix)
+          .replace(/_$/, "")
+          .replace(/^silam_pollen_/, "");
       } else if (isManual) {
         configLocation = "";
       } else {
