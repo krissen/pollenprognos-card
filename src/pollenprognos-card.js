@@ -554,12 +554,22 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.config.integration === "silam") {
-      const configLocation = this.config.location === "manual" ? "" : (this.config.location || "");
+      const isManual = this.config.location === "manual";
+      const configLocation = isManual ? "" : (this.config.location || "");
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+      // Manual mode with entity_weather override (#231): subscribe directly
+      // to the user-supplied weather entity instead of trying to discover one
+      // from configLocation (which is empty for manual mode and produces
+      // null otherwise).
+      let entityId;
+      if (isManual && this.config.entity_weather) {
+        entityId = this.config.entity_weather;
+      } else {
+        entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+      }
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -1317,7 +1327,9 @@ class PollenPrognosCard extends LitElement {
     if (integration === "plu") {
       delete cfg.city;
       delete cfg.region_id;
-      delete cfg.location;
+      // Preserve cfg.location: "manual" is a meaningful value that signals
+      // the adapter's manual-mode branch (entity_prefix-based lookup).
+      // Dropping it silently disabled PLU manual mode entirely.
     }
 
     if (
@@ -1805,9 +1817,36 @@ class PollenPrognosCard extends LitElement {
         // keys and legacy label slugs both produce the friendly location name.
         // Reuses cached discovery from set hass() to avoid a second scan.
         const gplDiscovery = getGplDiscovery();
-        const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        let gplMatch = null;
+        if (cfg.location === "manual" && cfg.entity_prefix) {
+          // Manual mode: entity resolution filters by prefix (forecast.js).
+          // Title resolution has to follow the same prefix or it picks the
+          // first alphabetic location and mislabels the rendered data.
+          const rawPrefix = String(cfg.entity_prefix).replace(/^sensor\./, "");
+          const wantedPrefix = `sensor.${rawPrefix}`;
+          for (const [key, loc2] of gplDiscovery?.locations || []) {
+            const entities = loc2?.entities;
+            if (!entities) continue;
+            let hit = false;
+            for (const entityId of entities.values()) {
+              if (typeof entityId === "string" && entityId.startsWith(wantedPrefix)) {
+                hit = true;
+                break;
+              }
+            }
+            if (hit) {
+              gplMatch = [key, loc2];
+              break;
+            }
+          }
+        }
+        if (!gplMatch) {
+          // Non-manual (or manual with no prefix / no match): fall back to
+          // key-based lookup. Empty key picks first deterministically.
+          const wantedLocation =
+            cfg.location && cfg.location !== "manual" ? cfg.location : "";
+          gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        }
         // Defensive: discovery already calls cleanDeviceLabel, but apply again
         // here so a future discovery refactor that drops the call doesn't leak
         // the integration's "- <category> (<coords>)" suffix into the title.
