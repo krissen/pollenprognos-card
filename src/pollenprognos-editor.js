@@ -63,13 +63,25 @@ class PollenPrognosCardEditor extends LitElement {
     return Boolean(this._config?.debug);
   }
 
-  _hasSilamWeatherEntity(location) {
+  _hasSilamWeatherEntity(location, entityWeather = null) {
     if (
       !this._hass ||
       !this._hass.states ||
       typeof this._hass.states !== "object"
     )
       return false;
+
+    // Manual override short-circuit: when the user supplied an explicit
+    // entity_weather and it exists in hass.states, treat it as the weather
+    // entity even though discovery wouldn't find one for location="manual".
+    // Unblocks the mode selector (daily/twice_daily/hourly) for manual mode.
+    if (
+      location === "manual" &&
+      entityWeather &&
+      this._hass.states[entityWeather]
+    ) {
+      return true;
+    }
 
     // Primärt: discovery-baserad check
     const discovery = discoverSilamSensors(this._hass, this.debug);
@@ -1844,7 +1856,7 @@ class PollenPrognosCardEditor extends LitElement {
       }
       // Tvinga mode till daily om location saknar weather-entity
       if (this._config.integration === "silam" && prop === "location") {
-        if (!this._hasSilamWeatherEntity(value)) {
+        if (!this._hasSilamWeatherEntity(value, cfg.entity_weather)) {
           cfg.mode = "daily";
           cfg.days_to_show = 2;
         }
@@ -2225,7 +2237,7 @@ class PollenPrognosCardEditor extends LitElement {
                         ></ha-selector>
                       </ha-formfield>
                     `}
-          ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location)
+          ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location, c.entity_weather)
             ? html`
                 <ha-formfield label="${this._t("mode")}">
                   <ha-selector
