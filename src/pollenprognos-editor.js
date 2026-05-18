@@ -1859,6 +1859,20 @@ class PollenPrognosCardEditor extends LitElement {
           }
         }
       }
+      // Clear stale entity_weather when leaving SILAM manual mode. The field
+      // is only meaningful in manual mode; left dangling, it can silently
+      // re-apply when the user re-enters manual mode (possibly with a
+      // different entity_prefix), pulling forecast data from the wrong
+      // location. User can re-enter the value next time they need it.
+      if (
+        this._config.integration === "silam" &&
+        prop === "location" &&
+        this._config.location === "manual" &&
+        value !== "manual" &&
+        cfg.entity_weather
+      ) {
+        cfg.entity_weather = "";
+      }
       // Tvinga mode till daily om location saknar weather-entity
       if (this._config.integration === "silam" && prop === "location") {
         if (!this._hasSilamWeatherEntity(value, cfg.entity_weather)) {
