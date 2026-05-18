@@ -2167,7 +2167,33 @@ class PollenPrognosCardEditor extends LitElement {
                         </ha-formfield>
                       `
                   : c.integration === "plu"
-                    ? ""
+                    ? html`
+                        <ha-formfield label="${this._t("location")}">
+                          <ha-selector
+                            .hass=${this._hass}
+                            .selector=${{
+                              select: {
+                                mode: "dropdown",
+                                options: [
+                                  {
+                                    value: "",
+                                    label: this._t("location_autodetect"),
+                                  },
+                                  {
+                                    value: "manual",
+                                    label: this._t("location_manual"),
+                                  },
+                                ],
+                              },
+                            }}
+                            .value=${c.location || ""}
+                            @value-changed=${(e) => {
+                              const v = e.detail?.value;
+                              if (v !== undefined) this._updateConfig("location", v);
+                            }}
+                          ></ha-selector>
+                        </ha-formfield>
+                      `
                   : html`
                       <ha-formfield label="${this._t("region_id")}">
                         <ha-selector
