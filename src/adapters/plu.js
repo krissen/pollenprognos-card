@@ -201,23 +201,33 @@ function resolveSensorIdManual(hass, canonical, prefix, suffix, debug) {
 export function resolveEntityIds(cfg, hass, debug = false) {
   // --- Path 0: Manual mode -- prefix-driven alias probe ---
   // Mirrors the manual-mode pattern used by PP/DWD/PEU/SILAM/Atmo/GPL: when
-  // location === "manual", use cfg.entity_prefix to anchor sensor lookup
-  // instead of the integration's hard-coded SENSOR_PREFIX. Skips discovery
-  // entirely (manual mode means "trust my prefix").
+  // location === "manual" AND entity_prefix is set, use cfg.entity_prefix
+  // to anchor sensor lookup instead of the integration's hard-coded
+  // SENSOR_PREFIX. Skips discovery entirely (manual mode means "trust my
+  // prefix"). When entity_prefix is missing -- e.g. a stale config carried
+  // over from another integration where "manual" was selected -- fall
+  // through to discovery so the card keeps rendering instead of going
+  // silent. Before this PR, the card unconditionally cleared cfg.location
+  // for PLU, so empty-prefix manual configs always auto-discovered.
   if (cfg.location === "manual") {
     const prefix = normalizeManualPrefix(cfg.entity_prefix);
     const suffix = cfg.entity_suffix || "";
-    const map = new Map();
     if (prefix) {
+      const map = new Map();
       for (const allergen of cfg.allergens || []) {
         if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
         const sensorId = resolveSensorIdManual(hass, allergen, prefix, suffix, debug);
         if (sensorId) map.set(allergen, sensorId);
       }
-    } else if (debug) {
-      console.debug("[PLU] Manual mode requires entity_prefix; none provided");
+      return map;
     }
-    return map;
+    if (debug) {
+      console.debug(
+        "[PLU] location === 'manual' but entity_prefix is empty; falling " +
+          "through to auto-discovery for backwards compatibility.",
+      );
+    }
+    // Fall through to discovery / alias-probe paths below.
   }
 
   // --- Path 1: Device-based discovery (tier 1/2) ---

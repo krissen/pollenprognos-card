@@ -198,7 +198,12 @@ describe("PLU adapter: fetchForecast", () => {
       expect(result.get("birch")).toBe("sensor.pollen_betula");
     });
 
-    it("returns an empty map when entity_prefix is not provided", () => {
+    it("falls through to auto-discovery when entity_prefix is empty (backwards-compat)", () => {
+      // Stale configs from before PLU manual mode existed (or from another
+      // integration where manual was selected) may carry location:"manual"
+      // without entity_prefix. Returning an empty map would silently break
+      // previously-working cards; instead, fall through to discovery so the
+      // standard sensor.pollen_* layout still resolves.
       const hass = {
         states: { "sensor.pollen_betula": { state: "5" } },
       };
@@ -210,7 +215,7 @@ describe("PLU adapter: fetchForecast", () => {
         }),
         hass,
       );
-      expect(result.size).toBe(0);
+      expect(result.get("birch")).toBe("sensor.pollen_betula");
     });
 
     it("skips discovery in manual mode (entities outside the prefix don't leak in)", () => {
