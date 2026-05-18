@@ -7,6 +7,8 @@ import { deepEqual } from "./utils/confcompare.js";
 import {
   LEVELS_DEFAULTS,
   convertStrokeWidthToGap,
+  NORMAL_DEFAULT_THICKNESS,
+  ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
@@ -1554,6 +1556,40 @@ class PollenPrognosCardEditor extends LitElement {
         }),
       );
       return;
+    }
+
+    // Icon-in-ring auto-toggle for levels_thickness (#227).
+    // When the user enables icon_in_ring with the normal-mode default
+    // thickness still in place, snap to the icon-in-ring default so the
+    // icon has room. Reverse on disable. Any manual customization is
+    // preserved (the swap only fires when the current value still equals
+    // the opposite mode's default).
+    if (prop === "icon_in_ring") {
+      const prev = this._config?.icon_in_ring === true;
+      const next = value === true;
+      if (prev !== next) {
+        const currentThickness =
+          this._config?.levels_thickness ??
+          LEVELS_DEFAULTS.levels_thickness;
+        const newConfig = { ...this._config, icon_in_ring: next };
+        if (next && currentThickness === NORMAL_DEFAULT_THICKNESS) {
+          newConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
+          this._userConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
+        } else if (!next && currentThickness === ICON_IN_RING_DEFAULT_THICKNESS) {
+          newConfig.levels_thickness = NORMAL_DEFAULT_THICKNESS;
+          this._userConfig.levels_thickness = NORMAL_DEFAULT_THICKNESS;
+        }
+        this._config = newConfig;
+        this._userConfig.icon_in_ring = next;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: newConfig },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      }
     }
 
     // Handle levels_inherit_mode changes - reset gap and sync when needed
@@ -3162,6 +3198,141 @@ class PollenPrognosCardEditor extends LitElement {
                     @input=${(e) =>
                       this._updateConfig("levels_text_color", e.target.value)}
                     style="width: 100px;"
+                  ></ha-textfield>
+                </div>
+              </ha-formfield>
+            </details>
+
+            <!-- Icon in ring (#227) -->
+            <details>
+              <summary>${this._t("icon_in_ring_header") || "Icon in ring"}</summary>
+              <ha-formfield
+                label="${this._t("icon_in_ring") ||
+                "Show allergen icon inside the ring"}"
+              >
+                <ha-checkbox
+                  .checked=${c.icon_in_ring === true}
+                  @change=${(e) =>
+                    this._updateConfig("icon_in_ring", e.target.checked)}
+                ></ha-checkbox>
+              </ha-formfield>
+
+              <ha-formfield
+                label="${this._t("show_allergen_column") ||
+                "Show allergen column"}"
+              >
+                <ha-checkbox
+                  .checked=${c.show_allergen_column !== false}
+                  @change=${(e) =>
+                    this._updateConfig(
+                      "show_allergen_column",
+                      e.target.checked,
+                    )}
+                ></ha-checkbox>
+              </ha-formfield>
+
+              <ha-formfield
+                label="${this._t("icon_in_ring_color_mode") ||
+                "Center icon color mode"}"
+              >
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        {
+                          value: "static",
+                          label:
+                            this._t("icon_in_ring_color_static") ||
+                            "Static color",
+                        },
+                        {
+                          value: "follow_level",
+                          label:
+                            this._t("icon_in_ring_color_follow") ||
+                            "Follow level color",
+                        },
+                      ],
+                    },
+                  }}
+                  .value=${c.icon_in_ring_color_mode || "static"}
+                  @value-changed=${(e) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined)
+                      this._updateConfig("icon_in_ring_color_mode", v);
+                  }}
+                ></ha-selector>
+              </ha-formfield>
+
+              ${(c.icon_in_ring_color_mode || "static") === "static"
+                ? html`
+                    <ha-formfield
+                      label="${this._t("icon_in_ring_static_color") ||
+                      "Static color"}"
+                    >
+                      <div
+                        style="display: flex; align-items: center; gap: 8px;"
+                      >
+                        <input
+                          type="color"
+                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                            c.icon_in_ring_static_color || "",
+                          )
+                            ? c.icon_in_ring_static_color
+                            : "#000000"}
+                          @input=${(e) =>
+                            this._updateConfig(
+                              "icon_in_ring_static_color",
+                              e.target.value,
+                            )}
+                          style="width: 28px; height: 28px; border: none; background: none;"
+                        />
+                        <ha-textfield
+                          .value=${c.icon_in_ring_static_color || "#000000"}
+                          placeholder="#000000"
+                          @input=${(e) =>
+                            this._updateConfig(
+                              "icon_in_ring_static_color",
+                              e.target.value,
+                            )}
+                          style="width: 100px;"
+                        ></ha-textfield>
+                      </div>
+                    </ha-formfield>
+                  `
+                : ""}
+
+              <ha-formfield
+                label="${this._t("icon_in_ring_size_ratio") ||
+                "Icon size (fraction of ring hole)"}"
+              >
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <ha-slider
+                    min="0.2"
+                    max="0.9"
+                    step="0.05"
+                    .value=${c.icon_in_ring_size_ratio ??
+                    LEVELS_DEFAULTS.icon_in_ring_size_ratio}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "icon_in_ring_size_ratio",
+                        Number(e.target.value),
+                      )}
+                  ></ha-slider>
+                  <ha-textfield
+                    type="number"
+                    min="0.2"
+                    max="0.9"
+                    step="0.05"
+                    .value=${c.icon_in_ring_size_ratio ??
+                    LEVELS_DEFAULTS.icon_in_ring_size_ratio}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "icon_in_ring_size_ratio",
+                        Number(e.target.value),
+                      )}
+                    style="width: 80px;"
                   ></ha-textfield>
                 </div>
               </ha-formfield>
