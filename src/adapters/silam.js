@@ -248,9 +248,16 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   // Hitta weather-entity och discovery-data.
   // Pick the location hint that drives discovery. In manual mode without an
   // explicit weather override, fall back to using entity_prefix as a hint.
+  // Also strip a leading "silam_pollen_" if the user typed the full prefix
+  // (sensor.silam_pollen_<loc>_<allergen> is the default naming, so users
+  // naturally enter entity_prefix="silam_pollen_<loc>_"). Without this
+  // strip, findSilamWeatherEntity would build
+  // weather.silam_pollen_silam_pollen_<loc>_<suffix> and discovery fails.
   let configLocation;
   if (config.location === "manual" && config.entity_prefix) {
-    configLocation = normalizeManualPrefix(config.entity_prefix).replace(/_$/, "");
+    configLocation = normalizeManualPrefix(config.entity_prefix)
+      .replace(/_$/, "")
+      .replace(/^silam_pollen_/, "");
   } else if (config.location === "manual") {
     configLocation = "";
   } else {

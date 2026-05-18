@@ -1118,6 +1118,39 @@ describe("fetchForecast: manual mode", () => {
       }
     });
 
+    it("strips leading 'silam_pollen_' from entity_prefix when deriving the weather-discovery hint", async () => {
+      // Users with default SILAM naming (sensor.silam_pollen_<loc>_<allergen>)
+      // naturally type entity_prefix="silam_pollen_<loc>_". Without stripping
+      // the doubled prefix, findSilamWeatherEntity builds
+      // weather.silam_pollen_silam_pollen_<loc>_<suffix> and finds nothing,
+      // even though weather.silam_pollen_<loc>_forecast exists. Verify the
+      // strip happens by ensuring data is rendered with full default-naming.
+      const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.silam_pollen_stockholm_birch": {
+          state: "30",
+          attributes: {},
+        },
+      };
+      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "silam_pollen_stockholm_",
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0].day0.state).toBe(2);
+    });
+
     it("still runs discovery when manual mode lacks entity_weather", async () => {
       // Without entity_weather, weather-entity discovery is the only way to
       // find the forecast source, so the skip path must NOT trigger.
