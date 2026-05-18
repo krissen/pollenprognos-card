@@ -578,22 +578,33 @@ class PollenPrognosCard extends LitElement {
       // from configLocation. Without the override, fall back to discovery
       // using the prefix-derived configLocation above so the subscription
       // and the adapter agree on which weather entity to use. The override
-      // must point at the weather.* domain: weather/subscribe_forecast only
-      // works for weather entities. A non-weather entity ID is treated as a
-      // config error and falls back to discovery so the card stays usable.
+      // must (a) be a string, (b) point at the weather.* domain (the HA
+      // weather/subscribe_forecast service only accepts weather entities),
+      // and (c) exist in hass.states. When set-but-invalid, leave entityId
+      // null so no subscription is created -- the adapter's fetchForecast
+      // independently warns and returns [], so the card lands on the empty
+      // state instead of silently re-subscribing to a discovered entity
+      // that contradicts the configured override.
+      const rawEW = isManual ? this.config.entity_weather : null;
+      const validEW =
+        typeof rawEW === "string" &&
+        rawEW.startsWith("weather.") &&
+        this._hass.states[rawEW]
+          ? rawEW
+          : null;
       let entityId;
-      if (isManual && this.config.entity_weather) {
-        if (this.config.entity_weather.startsWith("weather.")) {
-          entityId = this.config.entity_weather;
+      if (isManual && rawEW) {
+        if (validEW) {
+          entityId = validEW;
         } else {
           if (this.debug) {
             console.warn(
-              "[Card][subscribeForecast] entity_weather is not a weather.* " +
-                "entity:",
-              this.config.entity_weather,
+              "[Card][subscribeForecast] entity_weather is set but invalid " +
+                "(must be a string, weather.* domain, present in hass.states):",
+              rawEW,
             );
           }
-          entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+          entityId = null;
         }
       } else {
         entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
