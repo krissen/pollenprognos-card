@@ -2186,7 +2186,7 @@ class PollenPrognosCardEditor extends LitElement {
                                 ],
                               },
                             }}
-                            .value=${c.location || ""}
+                            .value=${c.location === "manual" ? "manual" : ""}
                             @value-changed=${(e) => {
                               const v = e.detail?.value;
                               if (v !== undefined) this._updateConfig("location", v);
