@@ -10,6 +10,7 @@ import { cleanDeviceLabel } from "./utils/device-label.js";
 import {
   filterSensorsPostFetch,
   resolveLocationByKey,
+  normalizeManualPrefix,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -555,15 +556,28 @@ class PollenPrognosCard extends LitElement {
 
     if (this.config.integration === "silam") {
       const isManual = this.config.location === "manual";
-      const configLocation = isManual ? "" : (this.config.location || "");
+      // Mirror silam.js fetchForecast: in manual mode use entity_prefix as a
+      // discovery hint so the subscription targets the same weather entity
+      // the adapter renders from. Without this, an empty configLocation lets
+      // discovery pick the first available weather entity, which can differ
+      // from the prefix-matched one used for sensor resolution.
+      let configLocation;
+      if (isManual && this.config.entity_prefix) {
+        configLocation = normalizeManualPrefix(this.config.entity_prefix).replace(/_$/, "");
+      } else if (isManual) {
+        configLocation = "";
+      } else {
+        configLocation = this.config.location || "";
+      }
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
       }
       // Manual mode with entity_weather override (#231): subscribe directly
       // to the user-supplied weather entity instead of trying to discover one
-      // from configLocation (which is empty for manual mode and produces
-      // null otherwise).
+      // from configLocation. Without the override, fall back to discovery
+      // using the prefix-derived configLocation above so the subscription
+      // and the adapter agree on which weather entity to use.
       let entityId;
       if (isManual && this.config.entity_weather) {
         entityId = this.config.entity_weather;
