@@ -164,12 +164,14 @@ export function getLangAndLocale(hass, config, defaultLocale = null) {
 /**
  * Normalize a manual-mode entity prefix.
  * Strips leading "sensor." and ensures a trailing "_" (unless empty).
+ * Non-string input (e.g. a number/object from YAML misconfiguration)
+ * is coerced to "" so downstream consumers don't crash on .startsWith.
  *
- * @param {string} raw - The raw entity_prefix from config.
+ * @param {*} raw - The raw entity_prefix from config.
  * @returns {string}
  */
 export function normalizeManualPrefix(raw) {
-  let p = raw || "";
+  let p = typeof raw === "string" ? raw : "";
   if (p.startsWith("sensor.")) p = p.substring(7);
   if (p && !p.endsWith("_")) p = p + "_";
   return p;

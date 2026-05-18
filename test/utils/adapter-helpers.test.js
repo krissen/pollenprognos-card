@@ -3,6 +3,7 @@ import {
   discoverEntitiesByDevice,
   findLocationBySlug,
   resolveLocationByKey,
+  normalizeManualPrefix,
 } from "../../src/utils/adapter-helpers.js";
 import {
   createHassWithRegistry,
@@ -1051,5 +1052,37 @@ describe("findLocationBySlug", () => {
     const result = findLocationBySlug(discovery, "nice", { slugExtractor });
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeManualPrefix
+// ---------------------------------------------------------------------------
+
+describe("normalizeManualPrefix", () => {
+  it("returns empty string for falsy input", () => {
+    expect(normalizeManualPrefix("")).toBe("");
+    expect(normalizeManualPrefix(null)).toBe("");
+    expect(normalizeManualPrefix(undefined)).toBe("");
+  });
+
+  it("appends trailing underscore when missing", () => {
+    expect(normalizeManualPrefix("pollen")).toBe("pollen_");
+    expect(normalizeManualPrefix("pollen_")).toBe("pollen_");
+  });
+
+  it("strips leading 'sensor.'", () => {
+    expect(normalizeManualPrefix("sensor.pollen")).toBe("pollen_");
+    expect(normalizeManualPrefix("sensor.pollen_")).toBe("pollen_");
+  });
+
+  it("coerces non-string input to empty (does not throw)", () => {
+    // YAML misconfiguration can surface entity_prefix as a number, array,
+    // or object. Callers use the result as a string everywhere, so the
+    // helper must return a string rather than crash on .startsWith.
+    expect(normalizeManualPrefix(123)).toBe("");
+    expect(normalizeManualPrefix(true)).toBe("");
+    expect(normalizeManualPrefix(["pollen"])).toBe("");
+    expect(normalizeManualPrefix({ prefix: "pollen" })).toBe("");
   });
 });
