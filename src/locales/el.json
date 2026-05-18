@@ -119,6 +119,8 @@
   "editor.entity_prefix_placeholder": "π.χ. pollen_",
   "editor.entity_suffix": "Κατάληξη οντότητας",
   "editor.entity_suffix_placeholder": "π.χ. _home",
+  "editor.entity_weather": "Οντότητα καιρού (μόνο SILAM)",
+  "editor.entity_weather_placeholder": "π.χ. weather.silam_pollen_stockholm",
   "editor.icon_color_custom": "Προσαρμοσμένο χρώμα",
   "editor.icon_color_inherit": "Κληρονόμηση από το γράφημα",
   "editor.icon_color_mode": "Λειτουργία χρώματος εικονιδίου",

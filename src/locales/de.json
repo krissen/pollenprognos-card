@@ -119,6 +119,8 @@
   "editor.entity_prefix_placeholder": "z.B. pollen_",
   "editor.entity_suffix": "Entity-Suffix",
   "editor.entity_suffix_placeholder": "z.B. _home",
+  "editor.entity_weather": "Wetterentität (nur SILAM)",
+  "editor.entity_weather_placeholder": "z.B. weather.silam_pollen_stockholm",
   "editor.icon_color_custom": "Benutzerdefinierte Farbe",
   "editor.icon_color_inherit": "Vom Diagramm erben",
   "editor.icon_color_mode": "Symbolfarbmodus",

@@ -2254,7 +2254,7 @@ class PollenPrognosCardEditor extends LitElement {
               : ""}
           ${(c.integration === "pp" && c.city === "manual") ||
           (c.integration === "dwd" && c.region_id === "manual") ||
-          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl" || c.integration === "gp") &&
+          ((c.integration === "peu" || c.integration === "silam" || c.integration === "kleenex" || c.integration === "atmo" || c.integration === "gpl" || c.integration === "gp" || c.integration === "plu") &&
             c.location === "manual")
             ? html`
                 <details>
@@ -2275,6 +2275,18 @@ class PollenPrognosCardEditor extends LitElement {
                         this._updateConfig("entity_suffix", e.target.value)}
                     ></ha-textfield>
                   </ha-formfield>
+                  ${c.integration === "silam"
+                    ? html`
+                        <ha-formfield label="${this._t("entity_weather")}">
+                          <ha-textfield
+                            .value=${c.entity_weather || ""}
+                            placeholder="${this._t("entity_weather_placeholder")}"
+                            @input=${(e) =>
+                              this._updateConfig("entity_weather", e.target.value)}
+                          ></ha-textfield>
+                        </ha-formfield>
+                      `
+                    : ""}
                 </details>
               `
             : ""}

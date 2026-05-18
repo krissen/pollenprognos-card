@@ -120,6 +120,8 @@
   "editor.entity_prefix_placeholder": "e.g. pollen_",
   "editor.entity_suffix": "Entity suffix",
   "editor.entity_suffix_placeholder": "e.g. _home",
+  "editor.entity_weather": "Weather entity (SILAM only)",
+  "editor.entity_weather_placeholder": "e.g. weather.silam_pollen_stockholm",
   "editor.icon_color_custom": "Custom color",
   "editor.icon_color_inherit": "Inherit from chart",
   "editor.icon_color_mode": "Icon color mode",
