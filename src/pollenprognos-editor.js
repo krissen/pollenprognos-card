@@ -72,12 +72,17 @@ class PollenPrognosCardEditor extends LitElement {
       return false;
 
     // Manual override short-circuit: when the user supplied an explicit
-    // entity_weather and it exists in hass.states, treat it as the weather
-    // entity even though discovery wouldn't find one for location="manual".
-    // Unblocks the mode selector (daily/twice_daily/hourly) for manual mode.
+    // entity_weather, it exists in hass.states, AND it's in the weather.*
+    // domain, treat it as the weather entity even though discovery wouldn't
+    // find one for location="manual". Unblocks the mode selector
+    // (daily/twice_daily/hourly) for manual mode. Without the weather.*
+    // guard, a stray sensor.* entity could silently enable a mode selector
+    // that fails at runtime when the forecast subscription is attempted.
     if (
       location === "manual" &&
       entityWeather &&
+      typeof entityWeather === "string" &&
+      entityWeather.startsWith("weather.") &&
       this._hass.states[entityWeather]
     ) {
       return true;
