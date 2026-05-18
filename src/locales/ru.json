@@ -120,7 +120,7 @@
   "editor.entity_suffix": "Суффикс сущности",
   "editor.entity_suffix_placeholder": "напр. _home",
   "editor.entity_weather": "Объект погоды (только SILAM)",
-  "editor.entity_weather_placeholder": "напр. weather.silam_pollen_stockholm",
+  "editor.entity_weather_placeholder": "напр. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Пользовательский цвет",
   "editor.icon_color_inherit": "Наследовать из диаграммы",
   "editor.icon_color_mode": "Режим цвета иконки",

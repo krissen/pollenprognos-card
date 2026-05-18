@@ -120,7 +120,7 @@
   "editor.entity_suffix": "Entity-suffiks",
   "editor.entity_suffix_placeholder": "fx. _home",
   "editor.entity_weather": "Vejrentitet (kun SILAM)",
-  "editor.entity_weather_placeholder": "fx. weather.silam_pollen_stockholm",
+  "editor.entity_weather_placeholder": "fx. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Brugerdefineret farve",
   "editor.icon_color_inherit": "Arv fra diagram",
   "editor.icon_color_mode": "Ikonfarvetilstand",

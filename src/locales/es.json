@@ -120,7 +120,7 @@
   "editor.entity_suffix": "Sufijo de entidad",
   "editor.entity_suffix_placeholder": "ej. _home",
   "editor.entity_weather": "Entidad meteorológica (solo SILAM)",
-  "editor.entity_weather_placeholder": "ej. weather.silam_pollen_stockholm",
+  "editor.entity_weather_placeholder": "ej. weather.silam_pollen_stockholm_forecast",
   "editor.icon_color_custom": "Color personalizado",
   "editor.icon_color_inherit": "Heredar del gráfico",
   "editor.icon_color_mode": "Modo de color del icono",
