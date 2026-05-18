@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice, normalizeManualPrefix } from "../utils/adapter-helpers.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
@@ -119,6 +119,12 @@ const DEFAULT_THRESHOLDS = {
 
 export const stubConfigPLU = {
   integration: "plu",
+  // location: "" -> autodetect; "manual" -> use entity_prefix/_suffix.
+  // PLU historically had no location field (single-instance integration),
+  // but manual mode needs the toggle to route through resolveEntityIds.
+  location: "",
+  entity_prefix: "",
+  entity_suffix: "",
   allergens: [...PLU_SUPPORTED_ALLERGENS],
   minimal: false,
   minimal_gap: 35,
@@ -162,7 +168,54 @@ function resolveSensorId(hass, canonical, debug) {
   return null;
 }
 
+/**
+ * Manual-mode resolution: probe the same alias list as resolveSensorId,
+ * but anchored on the user-supplied entity_prefix instead of the
+ * integration's default `sensor.pollen_` constant. Lets users with
+ * non-standard entity naming (multiple pollen.lu instances, renamed
+ * entities, etc.) point the card at the right sensor set.
+ *
+ * @param {object} hass
+ * @param {string} canonical    - Canonical allergen key (e.g. "birch").
+ * @param {string} prefix       - Already normalized via normalizeManualPrefix.
+ * @param {boolean} debug
+ * @returns {string|null}
+ */
+function resolveSensorIdManual(hass, canonical, prefix, debug) {
+  const aliases = PLU_ALIAS_MAP[canonical] || [canonical];
+  for (const alias of aliases) {
+    const sensorId = `sensor.${prefix}${alias}`;
+    if (hass.states[sensorId]) {
+      if (debug) {
+        console.debug(`[PLU] Manual mode: using sensor '${sensorId}' for allergen '${canonical}'`);
+      }
+      return sensorId;
+    }
+  }
+  return null;
+}
+
 export function resolveEntityIds(cfg, hass, debug = false) {
+  // --- Path 0: Manual mode -- prefix-driven alias probe ---
+  // Mirrors the manual-mode pattern used by PP/DWD/PEU/SILAM/Atmo/GPL: when
+  // location === "manual", use cfg.entity_prefix to anchor sensor lookup
+  // instead of the integration's hard-coded SENSOR_PREFIX. Skips discovery
+  // entirely (manual mode means "trust my prefix").
+  if (cfg.location === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    const map = new Map();
+    if (prefix) {
+      for (const allergen of cfg.allergens || []) {
+        if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
+        const sensorId = resolveSensorIdManual(hass, allergen, prefix, debug);
+        if (sensorId) map.set(allergen, sensorId);
+      }
+    } else if (debug) {
+      console.debug("[PLU] Manual mode requires entity_prefix; none provided");
+    }
+    return map;
+  }
+
   // --- Path 1: Device-based discovery (tier 1/2) ---
   const discovery = discoverPluSensors(hass, debug);
   if (discovery.locations.size > 0) {
