@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   fetchForecast,
   resolveEntityIds,
@@ -843,6 +843,173 @@ describe("fetchForecast: manual mode", () => {
 
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.custom_berk_end");
+  });
+
+  describe("entity_weather override (#231)", () => {
+    /**
+     * Manual mode users who can't get the prefix-based discovery hint to
+     * find the right weather entity (multiple SILAM instances, renamed
+     * entities, etc.) can name the weather entity explicitly via
+     * config.entity_weather. It bypasses discovery for the weather entity
+     * but keeps per-allergen prefix resolution.
+     */
+    it("uses entity_weather as the weather entity when set", async () => {
+      const states = {
+        "weather.custom_alt_name": {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.custom_birch": { state: "30", attributes: {} },
+      };
+      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "custom_",
+        entity_weather: "weather.custom_alt_name",
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0].day0.state).toBe(2); // birch=30 -> level 2
+    });
+
+    it("returns [] with a clear warning when entity_weather points at a missing entity", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const hass = createHass(
+          { "sensor.custom_birch": { state: "30", attributes: {} } },
+          { entities: {}, devices: {} },
+        );
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          entity_weather: "weather.nonexistent",
+          pollen_threshold: 0,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result).toEqual([]);
+        // The warning is the visible signal to the user (in console), so
+        // verify it explicitly references the missing entity ID.
+        expect(warnSpy).toHaveBeenCalled();
+        const msgs = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).toContain("weather.nonexistent");
+        expect(msgs).toContain("not found");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("falls back to prefix-based discovery when entity_weather is unset (existing behavior)", async () => {
+      // Same setup as the canonical-slug test above: no entity_weather, so
+      // discovery via entity_prefix should still find weather.custom_forecast.
+      const weatherEntityId = "weather.custom_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.custom_birch": { state: "30", attributes: {} },
+      };
+      const deviceId = "dev_custom";
+      const entities = {
+        [weatherEntityId]: {
+          entity_id: weatherEntityId,
+          platform: "silam_pollen",
+          device_id: deviceId,
+          entity_category: null,
+        },
+      };
+      const devices = {
+        [deviceId]: { name: "Custom Location", config_entries: ["entry_custom"] },
+      };
+      const hass = createHass(states, { entities, devices, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "custom_",
+        // entity_weather intentionally unset
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0].entity_id).toBe("sensor.custom_birch");
+    });
+
+    it("warns when manual mode has neither entity_weather nor a discoverable weather entity", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const hass = createHass(
+          { "sensor.custom_birch": { state: "30", attributes: {} } },
+          { entities: {}, devices: {} },
+        );
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          pollen_threshold: 0,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result).toEqual([]);
+        const msgs = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        // The improved message should mention the entity_weather option.
+        expect(msgs).toContain("entity_weather");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("ignores entity_weather in non-manual mode (discovery wins)", async () => {
+      const weatherEntityId = "weather.custom_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.silam_pollen_custom_birch": { state: "30", attributes: {} },
+      };
+      const deviceId = "dev_custom";
+      const entities = {
+        [weatherEntityId]: {
+          entity_id: weatherEntityId,
+          platform: "silam_pollen",
+          device_id: deviceId,
+          entity_category: null,
+        },
+      };
+      const devices = {
+        [deviceId]: { name: "custom", config_entries: ["entry_custom"] },
+      };
+      const hass = createHass(states, { entities, devices, language: "en" });
+      const config = makeConfig({
+        location: "custom",
+        allergens: ["birch"],
+        // entity_weather is set but should be ignored since location != manual
+        entity_weather: "weather.this_should_be_ignored",
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      // Discovery finds weather.custom_forecast; entity_weather override
+      // doesn't apply outside manual mode. Result may include an auto-
+      // added allergy_risk row (SILAM's empty-discovery fallback), so
+      // verify birch is present rather than asserting an exact count.
+      const allergens = result.map((s) => s.allergenReplaced);
+      expect(allergens).toContain("birch");
+    });
   });
 });
 
