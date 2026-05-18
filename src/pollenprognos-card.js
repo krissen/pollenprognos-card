@@ -586,10 +586,11 @@ class PollenPrognosCard extends LitElement {
       //   2. With a real string override, require weather.* domain (the HA
       //      weather/subscribe_forecast service only accepts weather
       //      entities) AND presence in hass.states. When set-but-invalid,
-      //      leave entityId null so no subscription is created -- the
-      //      adapter independently warns and returns [], so the card lands
-      //      on the empty state instead of subscribing to a discovered
-      //      entity that contradicts the configured override.
+      //      leave entityId null so no subscription is created. The
+      //      downstream null-entityId branch surfaces this as the standard
+      //      "location not found" error box, while the adapter
+      //      independently warns + returns []. Both agree there's no usable
+      //      weather entity, which is what the user needs to fix.
       const rawEW = isManual ? this.config.entity_weather : null;
       const entityWeather =
         typeof rawEW === "string" && rawEW.length > 0 ? rawEW : null;
