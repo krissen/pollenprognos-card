@@ -1833,20 +1833,23 @@ class PollenPrognosCard extends LitElement {
         const gplDiscovery = getGplDiscovery();
         let gplMatch = null;
         if (cfg.location === "manual" && cfg.entity_prefix) {
-          // Manual mode: entity resolution filters by prefix (forecast.js).
-          // Title resolution has to follow the same prefix or it picks the
-          // first alphabetic location and mislabels the rendered data.
+          // Manual mode: entity resolution filters by prefix AND suffix
+          // (gpl/discovery.js:resolveEntityId). Title resolution has to
+          // follow the same filters or it picks a location that the
+          // adapter would discard, mislabeling the rendered data.
           const rawPrefix = String(cfg.entity_prefix).replace(/^sensor\./, "");
           const wantedPrefix = `sensor.${rawPrefix}`;
+          const wantedSuffix = cfg.entity_suffix || "";
           for (const [key, loc2] of gplDiscovery?.locations || []) {
             const entities = loc2?.entities;
             if (!entities) continue;
             let hit = false;
             for (const entityId of entities.values()) {
-              if (typeof entityId === "string" && entityId.startsWith(wantedPrefix)) {
-                hit = true;
-                break;
-              }
+              if (typeof entityId !== "string") continue;
+              if (!entityId.startsWith(wantedPrefix)) continue;
+              if (wantedSuffix && !entityId.endsWith(wantedSuffix)) continue;
+              hit = true;
+              break;
             }
             if (hit) {
               gplMatch = [key, loc2];
