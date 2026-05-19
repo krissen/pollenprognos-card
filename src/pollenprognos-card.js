@@ -147,9 +147,13 @@ class PollenPrognosCard extends LitElement {
   }
 
   /**
-   * Shared ring geometry/colors used by both minimal and normal render
-   * paths. Returns the opts blob passed to _renderLevelCircle (minus per-
-   * cell values like size/iconKey/iconColor which the caller fills in).
+   * Ring geometry/colors for the minimal-mode icon-in-ring render path.
+   * Returns the opts blob passed to _renderLevelCircle (minus per-cell
+   * values like size/iconKey/iconColor which the caller fills in).
+   *
+   * Note: _renderNormalHtml currently re-implements the same segment /
+   * color / thickness / gap derivation inline. A follow-up could refactor
+   * both call sites to share this helper.
    */
   _buildLevelRingConfig() {
     let segments = 6;
@@ -427,7 +431,19 @@ class PollenPrognosCard extends LitElement {
         parseFloat(container.dataset.iconSizeRatio) ||
         LEVELS_DEFAULTS.icon_in_ring_size_ratio;
       let ringIcon = container.querySelector(".ring-icon");
-      if (iconKey) {
+      // Resolve the SVG once; if missing, fall back to the no-icon
+      // path so the numeric overlay below can render instead of an
+      // empty .ring-icon shell.
+      const svgForIcon =
+        iconKey && ringIcon?.dataset.iconKey === iconKey
+          ? null // already mounted with this key; skip refetch
+          : iconKey
+            ? getSvgContent(iconKey)
+            : null;
+      const hasRenderableIcon =
+        iconKey &&
+        (ringIcon?.dataset.iconKey === iconKey || svgForIcon !== null);
+      if (hasRenderableIcon) {
         const innerHole = size * (1 - thickness / 100);
         const iconDiameter = Math.max(1, Math.round(innerHole * iconSizeRatio));
         if (!ringIcon) {
@@ -442,21 +458,23 @@ class PollenPrognosCard extends LitElement {
         ringIcon.style.width = `${iconDiameter}px`;
         ringIcon.style.height = `${iconDiameter}px`;
         ringIcon.style.color = iconColor;
-        if (ringIcon.dataset.iconKey !== iconKey) {
-          const svg = getSvgContent(iconKey);
-          ringIcon.innerHTML = svg || "";
+        if (svgForIcon !== null && ringIcon.dataset.iconKey !== iconKey) {
+          ringIcon.innerHTML = svgForIcon;
           ringIcon.dataset.iconKey = iconKey;
         }
       } else if (ringIcon) {
         ringIcon.remove();
+        ringIcon = null;
       }
 
       // Add or update numeric text overlay (suppress negative values).
       // Only mutate DOM when the displayed value actually changed.
-      // Suppressed when icon_in_ring is active to avoid the icon and the
-      // number colliding in the same hole.
+      // Suppressed when a renderable ring-icon occupies the donut hole,
+      // to avoid the icon and the number colliding. When iconKey is
+      // set but the SVG is missing, hasRenderableIcon is false above
+      // and we fall back to the numeric overlay.
       const existingText = container.querySelector(".level-value-text");
-      if (showValue && displayLevel >= 0 && !iconKey) {
+      if (showValue && displayLevel >= 0 && !hasRenderableIcon) {
         if (existingText && existingText.textContent === String(displayLevel)) {
           // Value unchanged — skip DOM mutation.
         } else {
@@ -2296,6 +2314,15 @@ class PollenPrognosCard extends LitElement {
               this.config.integration === "plu"
                 ? sensor.day0?.state ?? 0
                 : sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
+            // For ring rendering, use the *normalized* state (not
+            // display_state), so PEU's numeric_state_raw_risk doesn't
+            // saturate the ring at high raw-risk values. Mirrors what
+            // _renderNormalHtml does per-cell.
+            const normalizedLevel = Number(sensor.day0?.state) || 0;
+            const ringLevel =
+              this.config.integration === "dwd"
+                ? normalizedLevel * 2
+                : normalizedLevel;
             const clickable =
               this.config.link_to_sensors !== false && !!sensor.entity_id;
             const onClickEntity = (e) => {
@@ -2307,16 +2334,16 @@ class PollenPrognosCard extends LitElement {
             const allergenSvgKey = this._getSvgKey(sensor.allergenReplaced);
             const visual = iconInRing
               ? this._renderLevelCircle(
-                  levelForColor,
+                  ringLevel,
                   {
                     ...ringConfig,
                     size: iconSize,
                     iconKey: this._getEffectiveSvgKey(
                       allergenSvgKey,
-                      levelForColor,
+                      ringLevel,
                     ),
                     iconColor: this._iconInRingColor(
-                      levelForColor,
+                      ringLevel,
                       sensor.allergenReplaced,
                     ),
                     iconSizeRatio: ringIconRatio,

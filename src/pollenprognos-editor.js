@@ -312,6 +312,11 @@ class PollenPrognosCardEditor extends LitElement {
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
+    // Tracks whether this editor session auto-shifted levels_thickness
+    // due to icon_in_ring toggle. Lets the reverse toggle restore the
+    // user's pre-shift value safely, without snapping a value the user
+    // happened to set manually to match a default.
+    this._thicknessAutoShifted = false;
     this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];
@@ -1561,9 +1566,11 @@ class PollenPrognosCardEditor extends LitElement {
     // Icon-in-ring auto-toggle for levels_thickness (#227).
     // When the user enables icon_in_ring with the normal-mode default
     // thickness still in place, snap to the icon-in-ring default so the
-    // icon has room. Reverse on disable. Any manual customization is
-    // preserved (the swap only fires when the current value still equals
-    // the opposite mode's default).
+    // icon has room. Reverse on disable — but only if this editor
+    // session actually performed the enable-time auto-shift. This
+    // protects a user who manually set levels_thickness to 35 (or 60)
+    // before the toggle: the swap won't overwrite their value just
+    // because it happens to equal the other mode's default.
     if (prop === "icon_in_ring") {
       const prev = this._config?.icon_in_ring === true;
       const next = value === true;
@@ -1575,9 +1582,15 @@ class PollenPrognosCardEditor extends LitElement {
         if (next && currentThickness === NORMAL_DEFAULT_THICKNESS) {
           newConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
           this._userConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
-        } else if (!next && currentThickness === ICON_IN_RING_DEFAULT_THICKNESS) {
+          this._thicknessAutoShifted = true;
+        } else if (
+          !next &&
+          this._thicknessAutoShifted &&
+          currentThickness === ICON_IN_RING_DEFAULT_THICKNESS
+        ) {
           newConfig.levels_thickness = NORMAL_DEFAULT_THICKNESS;
           this._userConfig.levels_thickness = NORMAL_DEFAULT_THICKNESS;
+          this._thicknessAutoShifted = false;
         }
         this._config = newConfig;
         this._userConfig.icon_in_ring = next;
@@ -1590,6 +1603,13 @@ class PollenPrognosCardEditor extends LitElement {
         );
         return;
       }
+    }
+
+    // If the user manually edits levels_thickness after an auto-shift,
+    // clear the flag so a future icon_in_ring toggle doesn't try to
+    // restore a value the user has since overridden.
+    if (prop === "levels_thickness" && this._thicknessAutoShifted) {
+      this._thicknessAutoShifted = false;
     }
 
     // Handle levels_inherit_mode changes - reset gap and sync when needed
