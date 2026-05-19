@@ -343,8 +343,23 @@ class PollenPrognosCardEditor extends LitElement {
 
   setConfig(config) {
     try {
-      
+
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
+      // Bootstrap the icon-in-ring auto-shift flag from the incoming
+      // config so the disable-time restore works across editor
+      // sessions. Heuristic: a config landing with icon_in_ring=true
+      // and levels_thickness at (or unset and defaulting to) the
+      // icon-in-ring default looks like the result of a prior
+      // auto-shift, so the next disable should swap back to the
+      // normal default. The opposite (user explicitly chose the
+      // icon-in-ring default value) is rare enough that this is a
+      // sensible default. Manual edits to thickness later in the
+      // session still clear the flag via _updateConfig.
+      const incomingThickness =
+        config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
+      this._thicknessAutoShifted =
+        config.icon_in_ring === true &&
+        incomingThickness === ICON_IN_RING_DEFAULT_THICKNESS;
       if (config.phrases) this._userConfig.phrases = config.phrases;
       // Default language for phrases uses locale or falls back to Home Assistant
       this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
