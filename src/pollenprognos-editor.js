@@ -7,6 +7,8 @@ import { deepEqual } from "./utils/confcompare.js";
 import {
   LEVELS_DEFAULTS,
   convertStrokeWidthToGap,
+  NORMAL_DEFAULT_THICKNESS,
+  ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 
@@ -310,6 +312,11 @@ class PollenPrognosCardEditor extends LitElement {
     this._userConfig = {};
     this._integrationExplicit = false;
     this._thresholdExplicit = false;
+    // Tracks whether this editor session auto-shifted levels_thickness
+    // due to icon_in_ring toggle. Lets the reverse toggle restore the
+    // user's pre-shift value safely, without snapping a value the user
+    // happened to set manually to match a default.
+    this._thicknessAutoShifted = false;
     this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];
@@ -336,8 +343,23 @@ class PollenPrognosCardEditor extends LitElement {
 
   setConfig(config) {
     try {
-      
+
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
+      // Bootstrap the icon-in-ring auto-shift flag from the incoming
+      // config so the disable-time restore works across editor
+      // sessions. Heuristic: a config landing with icon_in_ring=true
+      // and levels_thickness at (or unset and defaulting to) the
+      // icon-in-ring default looks like the result of a prior
+      // auto-shift, so the next disable should swap back to the
+      // normal default. The opposite (user explicitly chose the
+      // icon-in-ring default value) is rare enough that this is a
+      // sensible default. Manual edits to thickness later in the
+      // session still clear the flag via _updateConfig.
+      const incomingThickness =
+        config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
+      this._thicknessAutoShifted =
+        config.icon_in_ring === true &&
+        incomingThickness === ICON_IN_RING_DEFAULT_THICKNESS;
       if (config.phrases) this._userConfig.phrases = config.phrases;
       // Default language for phrases uses locale or falls back to Home Assistant
       this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
@@ -1554,6 +1576,55 @@ class PollenPrognosCardEditor extends LitElement {
         }),
       );
       return;
+    }
+
+    // Icon-in-ring auto-toggle for levels_thickness (#227).
+    // When the user enables icon_in_ring with the normal-mode default
+    // thickness still in place, snap to the icon-in-ring default so the
+    // icon has room. Reverse on disable — but only if this editor
+    // session actually performed the enable-time auto-shift. This
+    // protects a user who manually set levels_thickness to 35 (or 60)
+    // before the toggle: the swap won't overwrite their value just
+    // because it happens to equal the other mode's default.
+    if (prop === "icon_in_ring") {
+      const prev = this._config?.icon_in_ring === true;
+      const next = value === true;
+      if (prev !== next) {
+        const currentThickness =
+          this._config?.levels_thickness ??
+          LEVELS_DEFAULTS.levels_thickness;
+        const newConfig = { ...this._config, icon_in_ring: next };
+        if (next && currentThickness === NORMAL_DEFAULT_THICKNESS) {
+          newConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
+          this._userConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
+          this._thicknessAutoShifted = true;
+        } else if (
+          !next &&
+          this._thicknessAutoShifted &&
+          currentThickness === ICON_IN_RING_DEFAULT_THICKNESS
+        ) {
+          newConfig.levels_thickness = NORMAL_DEFAULT_THICKNESS;
+          this._userConfig.levels_thickness = NORMAL_DEFAULT_THICKNESS;
+          this._thicknessAutoShifted = false;
+        }
+        this._config = newConfig;
+        this._userConfig.icon_in_ring = next;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: newConfig },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      }
+    }
+
+    // If the user manually edits levels_thickness after an auto-shift,
+    // clear the flag so a future icon_in_ring toggle doesn't try to
+    // restore a value the user has since overridden.
+    if (prop === "levels_thickness" && this._thicknessAutoShifted) {
+      this._thicknessAutoShifted = false;
     }
 
     // Handle levels_inherit_mode changes - reset gap and sync when needed
@@ -3162,6 +3233,156 @@ class PollenPrognosCardEditor extends LitElement {
                     @input=${(e) =>
                       this._updateConfig("levels_text_color", e.target.value)}
                     style="width: 100px;"
+                  ></ha-textfield>
+                </div>
+              </ha-formfield>
+            </details>
+
+            <!-- Icon in ring (#227) -->
+            <details>
+              <summary>${this._t("icon_in_ring_header") || "Icon in ring"}</summary>
+              <ha-formfield
+                label="${this._t("icon_in_ring") ||
+                "Show allergen icon inside the ring"}"
+              >
+                <ha-checkbox
+                  .checked=${c.icon_in_ring === true}
+                  @change=${(e) =>
+                    this._updateConfig("icon_in_ring", e.target.checked)}
+                ></ha-checkbox>
+              </ha-formfield>
+
+              <ha-formfield
+                label="${this._t("show_allergen_column") ||
+                "Show allergen column"}"
+              >
+                <ha-checkbox
+                  .checked=${c.show_allergen_column !== false}
+                  @change=${(e) =>
+                    this._updateConfig(
+                      "show_allergen_column",
+                      e.target.checked,
+                    )}
+                ></ha-checkbox>
+              </ha-formfield>
+
+              <ha-formfield
+                label="${this._t("icon_in_ring_color_mode") ||
+                "Center icon color mode"}"
+              >
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        {
+                          value: "static",
+                          label:
+                            this._t("icon_in_ring_color_static") ||
+                            "Static color",
+                        },
+                        {
+                          value: "follow_level",
+                          label:
+                            this._t("icon_in_ring_color_follow") ||
+                            "Follow level color",
+                        },
+                      ],
+                    },
+                  }}
+                  .value=${c.icon_in_ring_color_mode || "static"}
+                  @value-changed=${(e) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined)
+                      this._updateConfig("icon_in_ring_color_mode", v);
+                  }}
+                ></ha-selector>
+              </ha-formfield>
+
+              ${(c.icon_in_ring_color_mode || "static") === "static"
+                ? (() => {
+                    const currentColor =
+                      typeof c.icon_in_ring_static_color === "string"
+                        ? c.icon_in_ring_static_color
+                        : LEVELS_DEFAULTS.icon_in_ring_static_color;
+                    const isHex = /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                      currentColor,
+                    );
+                    return html`
+                      <ha-formfield
+                        label="${this._t("icon_in_ring_static_color") ||
+                        "Static color"}"
+                      >
+                        <div
+                          style="display: flex; align-items: center; gap: 8px;"
+                        >
+                          ${isHex
+                            ? html`<input
+                                type="color"
+                                .value=${currentColor}
+                                @input=${(e) =>
+                                  this._updateConfig(
+                                    "icon_in_ring_static_color",
+                                    e.target.value,
+                                  )}
+                                style="width: 28px; height: 28px; border: none; background: none;"
+                              />`
+                            : html`<div
+                                title="${this._t(
+                                  "icon_in_ring_static_color_var_hint",
+                                ) ||
+                                "Non-hex value (e.g. CSS variable); use the text field to edit"}"
+                                style="width: 28px; height: 28px; border: 1px dashed var(--divider-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--secondary-text-color);"
+                              >
+                                var
+                              </div>`}
+                          <ha-textfield
+                            .value=${currentColor}
+                            placeholder="${LEVELS_DEFAULTS.icon_in_ring_static_color}"
+                            @input=${(e) =>
+                              this._updateConfig(
+                                "icon_in_ring_static_color",
+                                e.target.value,
+                              )}
+                            style="width: 220px;"
+                          ></ha-textfield>
+                        </div>
+                      </ha-formfield>
+                    `;
+                  })()
+                : ""}
+
+              <ha-formfield
+                label="${this._t("icon_in_ring_size_ratio") ||
+                "Icon size (fraction of ring hole)"}"
+              >
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <ha-slider
+                    min="0.2"
+                    max="0.9"
+                    step="0.05"
+                    .value=${c.icon_in_ring_size_ratio ??
+                    LEVELS_DEFAULTS.icon_in_ring_size_ratio}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "icon_in_ring_size_ratio",
+                        Number(e.target.value),
+                      )}
+                  ></ha-slider>
+                  <ha-textfield
+                    type="number"
+                    min="0.2"
+                    max="0.9"
+                    step="0.05"
+                    .value=${c.icon_in_ring_size_ratio ??
+                    LEVELS_DEFAULTS.icon_in_ring_size_ratio}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "icon_in_ring_size_ratio",
+                        Number(e.target.value),
+                      )}
+                    style="width: 80px;"
                   ></ha-textfield>
                 </div>
               </ha-formfield>

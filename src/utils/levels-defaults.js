@@ -46,7 +46,26 @@ export const LEVELS_DEFAULTS = {
   // Spread into every adapter's stub config so the editor / YAML can opt
   // out per card.
   show_no_data_distinct: true,
+
+  // Icon-in-ring (#227): place the allergen icon inside the level-ring
+  // donut hole instead of (or in addition to) the side icon column.
+  // Two independent toggles plus the centered-icon color/size knobs.
+  icon_in_ring: false,
+  show_allergen_column: true,
+  icon_in_ring_color_mode: "static",
+  icon_in_ring_static_color: "var(--primary-text-color)",
+  icon_in_ring_size_ratio: 0.75,
 };
+
+// When icon_in_ring is toggled on by the editor, levels_thickness auto-
+// shifts from its normal default to a thinner default so the centered
+// icon has room. Toggling back restores. The swap only fires when the
+// current value still equals the previous mode's default, so manual
+// customizations survive (see editor toggle handler). NORMAL_DEFAULT_-
+// THICKNESS is derived from LEVELS_DEFAULTS.levels_thickness so a future
+// change to the global default automatically stays in sync.
+export const NORMAL_DEFAULT_THICKNESS = LEVELS_DEFAULTS.levels_thickness;
+export const ICON_IN_RING_DEFAULT_THICKNESS = 35;
 
 // Conversion factor for stroke width to gap conversion
 // This converts allergen stroke width (in pixels) to level gap units

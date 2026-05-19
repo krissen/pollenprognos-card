@@ -91,6 +91,9 @@ class PollenPrognosCard extends LitElement {
       thickness = LEVELS_DEFAULTS.levels_thickness,
       gap = LEVELS_DEFAULTS.levels_gap,
       size = 100,
+      iconKey = "",
+      iconColor = "",
+      iconSizeRatio = LEVELS_DEFAULTS.icon_in_ring_size_ratio,
     },
     allergen = "default",
     dayIndex = 0,
@@ -130,6 +133,9 @@ class PollenPrognosCard extends LitElement {
         data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
         data-text-color="${this.config?.levels_text_color ||
         "var(--primary-text-color)"}"
+        data-icon-key="${iconKey}"
+        data-icon-color="${iconColor}"
+        data-icon-size-ratio="${iconSizeRatio}"
         @click=${(e) => {
           if (clickable && entityId) {
             e.stopPropagation();
@@ -138,6 +144,81 @@ class PollenPrognosCard extends LitElement {
         }}
       ></div>
     `;
+  }
+
+  /**
+   * Ring geometry/colors for the minimal-mode icon-in-ring render path.
+   * Returns the opts blob passed to _renderLevelCircle (minus per-cell
+   * values like size/iconKey/iconColor which the caller fills in).
+   *
+   * Note: _renderNormalHtml currently re-implements the same segment /
+   * color / thickness / gap derivation inline. A follow-up could refactor
+   * both call sites to share this helper.
+   */
+  _buildLevelRingConfig() {
+    let segments = 6;
+    if (
+      this.config?.integration === "peu" ||
+      this.config?.integration === "kleenex" ||
+      this.config?.integration === "msw"
+    ) {
+      segments = 4;
+    } else if (
+      this.config?.integration === "gpl" ||
+      this.config?.integration === "gp"
+    ) {
+      segments = 5;
+    } else if (this.config?.integration === "plu") {
+      segments = 3;
+    }
+    const colors = [];
+    for (let i = 0; i < segments; i++) {
+      colors.push(this._levelColorForLevel(i + 1));
+    }
+    return {
+      colors,
+      emptyColor: this.config?.levels_empty_color ?? "var(--divider-color)",
+      gapColor: this._getGapColor(),
+      thickness: this.config?.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness,
+      gap: this.config?.levels_gap ?? LEVELS_DEFAULTS.levels_gap,
+    };
+  }
+
+  /**
+   * Resolve the level-reactive SVG key for an allergen. `allergy_risk`
+   * has six level-specific variants (`allergy_risk_1`..`allergy_risk_6`,
+   * the smiley); other allergens use the base key as-is. Shared between
+   * the side icon (_renderAllergenSvg) and the ring-centered icon
+   * (_renderMinimalHtml / _renderNormalHtml) so both render paths
+   * respect the variant when icon_in_ring is on.
+   */
+  _getEffectiveSvgKey(allergenKey, level) {
+    if (allergenKey === "allergy_risk" && level > 0) {
+      return `allergy_risk_${Math.min(level, 6)}`;
+    }
+    return allergenKey;
+  }
+
+  /**
+   * Resolve the color for the icon centered inside the level ring (#227).
+   * Mode "static": user-configured static color (default
+   * `var(--primary-text-color)` so the icon follows the theme).
+   * Mode "follow_level": same level-mapped color as the side-icon would have.
+   * Stale entities always render orange (#e6a800), mirroring the
+   * _renderAllergenSvg convention.
+   */
+  _iconInRingColor(level, allergenKey, { stale = false } = {}) {
+    if (stale) return "#e6a800";
+    const mode =
+      this.config?.icon_in_ring_color_mode ||
+      LEVELS_DEFAULTS.icon_in_ring_color_mode;
+    if (mode === "follow_level") {
+      return this._colorForLevel(level, allergenKey);
+    }
+    return (
+      this.config?.icon_in_ring_static_color ||
+      LEVELS_DEFAULTS.icon_in_ring_static_color
+    );
   }
 
   _openEntity(entityId) {
@@ -278,12 +359,31 @@ class PollenPrognosCard extends LitElement {
         // Tag the chart with the dot color used to build this pattern so
         // a later theme-color change can invalidate the cached pattern.
         if (isNoData) chart._noDataColor = noDataColor;
+        // Cache the geometry that the chart was actually built with so
+        // the update branch can detect when thickness/gap change (e.g.
+        // the icon_in_ring auto-toggle swaps thickness 60 ↔ 35).
+        chart._thicknessApplied = thickness;
+        chart._gapApplied = gap;
 
         this._chartCache.set(container.id, chart);
       } else {
         // Update existing chart only if colors actually changed
         const datasets = chart.data.datasets;
         if (datasets && datasets[0]) {
+          // Geometry change (thickness/gap) doesn't show up under the
+          // colors-only update path. The chartId is keyed by allergen +
+          // dayIndex + level, so a thickness flip on toggle keeps the
+          // same id and the cached Chart instance survives. Detect and
+          // propagate before computing colors so cutout matches.
+          const geometryChanged =
+            chart._thicknessApplied !== thickness ||
+            chart._gapApplied !== gap;
+          if (geometryChanged) {
+            chart.options.cutout = `${100 - thickness}%`;
+            datasets[0].borderWidth = gap;
+            chart._thicknessApplied = thickness;
+            chart._gapApplied = gap;
+          }
           const oldBg = datasets[0].backgroundColor;
           let bg;
           if (isNoData) {
@@ -315,17 +415,66 @@ class PollenPrognosCard extends LitElement {
 
           const colorsChanged =
             bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
-          if (colorsChanged) {
+          if (colorsChanged || geometryChanged) {
             datasets[0].backgroundColor = bg;
             chart.update("none");
           }
         }
       }
 
+      // Add or update the centered allergen icon (#227 icon-in-ring).
+      // Data attributes drive everything; the chart canvas was just
+      // (re)created above so we always re-append at the end if needed.
+      const iconKey = container.dataset.iconKey || "";
+      const iconColor = container.dataset.iconColor || "";
+      const iconSizeRatio =
+        parseFloat(container.dataset.iconSizeRatio) ||
+        LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+      let ringIcon = container.querySelector(".ring-icon");
+      // Resolve the SVG once; if missing, fall back to the no-icon
+      // path so the numeric overlay below can render instead of an
+      // empty .ring-icon shell.
+      const svgForIcon =
+        iconKey && ringIcon?.dataset.iconKey === iconKey
+          ? null // already mounted with this key; skip refetch
+          : iconKey
+            ? getSvgContent(iconKey)
+            : null;
+      const hasRenderableIcon =
+        iconKey &&
+        (ringIcon?.dataset.iconKey === iconKey || svgForIcon !== null);
+      if (hasRenderableIcon) {
+        const innerHole = size * (1 - thickness / 100);
+        const iconDiameter = Math.max(1, Math.round(innerHole * iconSizeRatio));
+        if (!ringIcon) {
+          ringIcon = document.createElement("div");
+          ringIcon.className = "ring-icon";
+          // Mark as decorative — the level value (data-display-level on
+          // the parent .level-circle) is the screen-reader signal; the
+          // centered SVG is duplicate visual information.
+          ringIcon.setAttribute("aria-hidden", "true");
+          container.appendChild(ringIcon);
+        }
+        ringIcon.style.width = `${iconDiameter}px`;
+        ringIcon.style.height = `${iconDiameter}px`;
+        ringIcon.style.color = iconColor;
+        if (svgForIcon !== null && ringIcon.dataset.iconKey !== iconKey) {
+          ringIcon.innerHTML = svgForIcon;
+          ringIcon.dataset.iconKey = iconKey;
+        }
+      } else if (ringIcon) {
+        ringIcon.remove();
+        ringIcon = null;
+      }
+
       // Add or update numeric text overlay (suppress negative values).
       // Only mutate DOM when the displayed value actually changed.
+      // Suppressed when a renderable ring-icon occupies the donut hole,
+      // to avoid the icon and the number colliding. When iconKey is
+      // set but the SVG is missing, hasRenderableIcon is false above
+      // and we fall back to the numeric overlay.
       const existingText = container.querySelector(".level-value-text");
-      if (showValue && displayLevel >= 0) {
+      if (showValue && displayLevel >= 0 && !hasRenderableIcon) {
         if (existingText && existingText.textContent === String(displayLevel)) {
           // Value unchanged — skip DOM mutation.
         } else {
@@ -941,10 +1090,7 @@ class PollenPrognosCard extends LitElement {
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
     // Select level-reactive icon variant for allergy_risk smiley
-    let effectiveKey = allergenKey;
-    if (allergenKey === "allergy_risk" && level > 0) {
-      effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
-    }
+    const effectiveKey = this._getEffectiveSvgKey(allergenKey, level);
     const svgContent = getSvgContent(effectiveKey);
 
     // No-data branch: render the icon as a CSS mask filled with the noise
@@ -2106,6 +2252,12 @@ class PollenPrognosCard extends LitElement {
 
   _renderMinimalHtml() {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
+    const iconInRing = this.config?.icon_in_ring === true;
+    const ringConfig = iconInRing ? this._buildLevelRingConfig() : null;
+    const ringIconRatio =
+      Number(this.config?.icon_in_ring_size_ratio) ||
+      LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+    const iconSize = Number(this.config?.icon_size) || 48;
 
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
@@ -2162,21 +2314,53 @@ class PollenPrognosCard extends LitElement {
               this.config.integration === "plu"
                 ? sensor.day0?.state ?? 0
                 : sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
+            // For ring rendering, use the *normalized* state (not
+            // display_state), so PEU's numeric_state_raw_risk doesn't
+            // saturate the ring at high raw-risk values. Mirrors what
+            // _renderNormalHtml does per-cell.
+            const normalizedLevel = Number(sensor.day0?.state) || 0;
+            const ringLevel =
+              this.config.integration === "dwd"
+                ? normalizedLevel * 2
+                : normalizedLevel;
+            const clickable =
+              this.config.link_to_sensors !== false && !!sensor.entity_id;
+            const onClickEntity = (e) => {
+              if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                e.stopPropagation();
+                this._openEntity(sensor.entity_id);
+              }
+            };
+            const allergenSvgKey = this._getSvgKey(sensor.allergenReplaced);
+            const visual = iconInRing
+              ? this._renderLevelCircle(
+                  ringLevel,
+                  {
+                    ...ringConfig,
+                    size: iconSize,
+                    iconKey: this._getEffectiveSvgKey(
+                      allergenSvgKey,
+                      ringLevel,
+                    ),
+                    iconColor: this._iconInRingColor(
+                      ringLevel,
+                      sensor.allergenReplaced,
+                    ),
+                    iconSizeRatio: ringIconRatio,
+                  },
+                  sensor.allergenReplaced,
+                  0,
+                  rawNum !== "" ? rawNum : levelForColor,
+                  sensor.entity_id,
+                  clickable,
+                )
+              : this._renderAllergenSvg(allergenSvgKey, levelForColor, {
+                  clickable,
+                  onClick: onClickEntity,
+                });
             return html`
               <div class="sensor minimal">
-                ${this._renderAllergenSvg(
-                  this._getSvgKey(sensor.allergenReplaced),
-                  levelForColor,
-                  {
-                    clickable: this.config.link_to_sensors !== false && sensor.entity_id,
-                    onClick: (e) => {
-                      if (this.config.link_to_sensors !== false && sensor.entity_id) {
-                        e.stopPropagation();
-                        this._openEntity(sensor.entity_id);
-                      }
-                    }
-                  }
-                )}
+                ${visual}
                 ${label
                   ? html`<span
                       class="short-text"
@@ -2269,11 +2453,58 @@ class PollenPrognosCard extends LitElement {
     
     const gapColor = this._getGapColor();
       
-    const thickness = this.config.levels_thickness ?? 60;
-    const gap = this.config.levels_gap ?? 5;
+    const thickness =
+      this.config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
+    const gap = this.config.levels_gap ?? LEVELS_DEFAULTS.levels_gap;
     const iconSize = Number(this.config.icon_size) || 48;
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
+
+    // Icon-in-ring (#227) state for the daily cells.
+    const iconInRing = this.config?.icon_in_ring === true;
+    const showAllergenColumn = this.config?.show_allergen_column !== false;
+    const ringIconRatio =
+      Number(this.config?.icon_in_ring_size_ratio) ||
+      LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+    // Degenerate config: no day columns at all (e.g. every sensor
+    // stale plus show_empty_days=false). The forecast table can't
+    // anchor stale rows without producing a colgroup/colspan
+    // mismatch, so fall back to a flat list of stale sensors —
+    // each row is just the allergen icon next to its stale text.
+    if (cols.length === 0) {
+      const staleOnly = this.sensors.filter((s) => s.stale === true);
+      if (staleOnly.length === 0) return html``;
+      return html`
+        ${this.header
+          ? html`<div class="card-header">${this.header}</div>`
+          : ""}
+        <div class="card-content">
+          <div class="stale-only-list">
+            ${staleOnly.map(
+              (sensor) => html`
+                <div class="sensor minimal stale">
+                  ${this._renderAllergenSvg(
+                    this._getSvgKey(sensor.allergenReplaced),
+                    0,
+                    { stale: true },
+                  )}
+                  <span
+                    class="short-text stale-allergen-text"
+                    style="font-size: ${1.0 * textSizeRatio}em;"
+                  >
+                    ${this.config.allergens_abbreviated
+                      ? sensor.allergenShort
+                      : sensor.allergenCapitalized}:
+                    ${this._t("card.stale_allergen")}
+                  </span>
+                </div>
+              `,
+            )}
+          </div>
+        </div>
+      `;
+    }
+    const totalCols = cols.length + (showAllergenColumn ? 1 : 0);
 
     if (this.debug) {
       console.debug("Display columns:", cols);
@@ -2283,15 +2514,15 @@ class PollenPrognosCard extends LitElement {
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
         <div class="forecast-content">
-          <table class="forecast"">
+          <table class="forecast">
             <colgroup>
-              ${[0, ...cols].map(
-                () => html`<col style="width: ${100 / (cols.length + 1)}%;" />`,
+              ${(showAllergenColumn ? [0, ...cols] : cols).map(
+                () => html`<col style="width: ${100 / totalCols}%;" />`,
               )}
             </colgroup>
             <thead>
               <tr>
-                <th></th>
+                ${showAllergenColumn ? html`<th></th>` : ""}
                 ${cols.map(
                   (i) => html`
                     <th
@@ -2329,32 +2560,44 @@ class PollenPrognosCard extends LitElement {
                   sensor.group &&
                   this.sensors[sIdx - 1].group &&
                   sensor.group !== this.sensors[sIdx - 1].group
-                    ? html`<tr class="block-separator-row"><td colspan="${cols.length + 1}"><hr class="block-separator" /></td></tr>`
+                    ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
                     : "";
                 const row = sensor.stale
                 ? html`
                   <tr class="allergen-icon-row allergen-stale-row" valign="top">
-                    <td>
-                      ${this._renderAllergenSvg(
-                        this._getSvgKey(sensor.allergenReplaced),
-                        0,
-                        { stale: true }
-                      )}
-                    </td>
+                    ${showAllergenColumn
+                      ? html`<td>
+                          ${this._renderAllergenSvg(
+                            this._getSvgKey(sensor.allergenReplaced),
+                            0,
+                            { stale: true }
+                          )}
+                        </td>`
+                      : ""}
                     <td colspan="${cols.length}" class="stale-cell">
-                      <span class="stale-allergen-text">${this._t("card.stale_allergen")}</span>
+                      <span class="stale-allergen-text">
+                        ${showAllergenColumn
+                          ? this._t("card.stale_allergen")
+                          : `${
+                              this.config.allergens_abbreviated
+                                ? sensor.allergenShort
+                                : sensor.allergenCapitalized
+                            }: ${this._t("card.stale_allergen")}`}
+                      </span>
                     </td>
                   </tr>
                   ${this.config.show_text_allergen
                     ? html`
                         <tr class="allergen-text-row allergen-stale-row">
-                          <td>
-                            <span class="stale-allergen-name" style="font-size: ${1.0 * textSizeRatio}em;">
-                              ${this.config.allergens_abbreviated
-                                ? sensor.allergenShort
-                                : sensor.allergenCapitalized}
-                            </span>
-                          </td>
+                          ${showAllergenColumn
+                            ? html`<td>
+                                <span class="stale-allergen-name" style="font-size: ${1.0 * textSizeRatio}em;">
+                                  ${this.config.allergens_abbreviated
+                                    ? sensor.allergenShort
+                                    : sensor.allergenCapitalized}
+                                </span>
+                              </td>`
+                            : ""}
                           <td colspan="${cols.length}"></td>
                         </tr>
                       `
@@ -2362,23 +2605,25 @@ class PollenPrognosCard extends LitElement {
                 `
                 : html`
                 <tr class="allergen-icon-row" valign="top">
-                  <td>
-                    ${this._renderAllergenSvg(
-                      this._getSvgKey(sensor.allergenReplaced),
-                      this.config.integration === "plu"
-                        ? sensor.days[0]?.state ?? 0
-                        : sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
-                      {
-                        clickable: this.config.link_to_sensors !== false && sensor.entity_id,
-                        onClick: (e) => {
-                          if (this.config.link_to_sensors !== false && sensor.entity_id) {
-                            e.stopPropagation();
-                            this._openEntity(sensor.entity_id);
+                  ${showAllergenColumn
+                    ? html`<td>
+                        ${this._renderAllergenSvg(
+                          this._getSvgKey(sensor.allergenReplaced),
+                          this.config.integration === "plu"
+                            ? sensor.days[0]?.state ?? 0
+                            : sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
+                          {
+                            clickable: this.config.link_to_sensors !== false && sensor.entity_id,
+                            onClick: (e) => {
+                              if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                                e.stopPropagation();
+                                this._openEntity(sensor.entity_id);
+                              }
+                            }
                           }
-                        }
-                      }
-                    )}
-                  </td>
+                        )}
+                      </td>`
+                    : ""}
                   ${cols.map(
                     (i) => html`
                       <td>
@@ -2397,16 +2642,28 @@ class PollenPrognosCard extends LitElement {
                           ) {
                             levelVal = normalized;
                           }
+                          const ringOpts = {
+                            colors,
+                            emptyColor,
+                            gapColor,
+                            thickness,
+                            gap,
+                            size,
+                          };
+                          if (iconInRing) {
+                            ringOpts.iconKey = this._getEffectiveSvgKey(
+                              this._getSvgKey(sensor.allergenReplaced),
+                              levelVal,
+                            );
+                            ringOpts.iconColor = this._iconInRingColor(
+                              levelVal,
+                              sensor.allergenReplaced,
+                            );
+                            ringOpts.iconSizeRatio = ringIconRatio;
+                          }
                           return this._renderLevelCircle(
                             levelVal,
-                            {
-                              colors,
-                              emptyColor,
-                              gapColor,
-                              thickness,
-                              gap,
-                              size,
-                            },
+                            ringOpts,
                             sensor.allergenReplaced,
                             i,
                             displayVal,
@@ -2423,15 +2680,17 @@ class PollenPrognosCard extends LitElement {
                 this.config.show_value_numeric
                   ? html`
                       <tr class="allergen-text-row">
-                        <td>
-                          <span style="font-size: ${1.0 * textSizeRatio}em;">
-                            ${this.config.show_text_allergen
-                              ? this.config.allergens_abbreviated
-                                ? sensor.allergenShort
-                                : sensor.allergenCapitalized
-                              : ""}
-                          </span>
-                        </td>
+                        ${showAllergenColumn
+                          ? html`<td>
+                              <span style="font-size: ${1.0 * textSizeRatio}em;">
+                                ${this.config.show_text_allergen
+                                  ? this.config.allergens_abbreviated
+                                    ? sensor.allergenShort
+                                    : sensor.allergenCapitalized
+                                  : ""}
+                              </span>
+                            </td>`
+                          : ""}
                         ${cols.map((i) => {
                           const txt = sensor.days[i]?.state_text || "";
                           const rawNum =
@@ -2776,6 +3035,31 @@ class PollenPrognosCard extends LitElement {
         margin: 0 auto 6px auto;
       }
 
+      /* Icon centered inside the level ring (#227). Sized inline by
+         _rebuildCharts based on ring thickness and icon_in_ring_size_ratio.
+         color is inherited so SVG fill="currentColor" follows. */
+      .ring-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ring-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        fill: currentColor;
+      }
+      /* No <g fill=...> override here: SVGs that intentionally set
+         fill="none" (e.g. no_allergens uses fill="none" with
+         stroke="currentColor") must keep that. The svg-level
+         fill: currentColor handles every allergen icon whose <g> has
+         fill="currentColor" or no fill attr. */
+
       .forecast-content {
         width: 100%;
         overflow-x: auto;
@@ -2849,6 +3133,22 @@ class PollenPrognosCard extends LitElement {
         justify-content: center;
         width: 100%;
         /* No font-size set here */
+      }
+      /* Stale-only fallback layout — used when normal-mode render has
+         no day columns to anchor a table (e.g. every sensor stale and
+         show_empty_days=false). Lays sensors out vertically like the
+         minimal-mode stale rows. */
+      .stale-only-list {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+      }
+      .stale-only-list .sensor.minimal.stale {
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
       }
       .sensor.minimal {
         display: flex;
