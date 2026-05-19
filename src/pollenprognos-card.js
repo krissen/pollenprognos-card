@@ -181,14 +181,6 @@ class PollenPrognosCard extends LitElement {
   }
 
   /**
-   * Resolve the color for the icon centered inside the level ring (#227).
-   * Mode "static": user-configured static color (default
-   * `var(--primary-text-color)` so the icon follows the theme).
-   * Mode "follow_level": same level-mapped color as the side-icon would have.
-   * Stale entities always render orange (#e6a800), mirroring the
-   * _renderAllergenSvg convention.
-   */
-  /**
    * Resolve the level-reactive SVG key for an allergen. `allergy_risk`
    * has six level-specific variants (`allergy_risk_1`..`allergy_risk_6`,
    * the smiley); other allergens use the base key as-is. Shared between
@@ -203,6 +195,14 @@ class PollenPrognosCard extends LitElement {
     return allergenKey;
   }
 
+  /**
+   * Resolve the color for the icon centered inside the level ring (#227).
+   * Mode "static": user-configured static color (default
+   * `var(--primary-text-color)` so the icon follows the theme).
+   * Mode "follow_level": same level-mapped color as the side-icon would have.
+   * Stale entities always render orange (#e6a800), mirroring the
+   * _renderAllergenSvg convention.
+   */
   _iconInRingColor(level, allergenKey, { stale = false } = {}) {
     if (stale) return "#e6a800";
     const mode =
@@ -355,12 +355,31 @@ class PollenPrognosCard extends LitElement {
         // Tag the chart with the dot color used to build this pattern so
         // a later theme-color change can invalidate the cached pattern.
         if (isNoData) chart._noDataColor = noDataColor;
+        // Cache the geometry that the chart was actually built with so
+        // the update branch can detect when thickness/gap change (e.g.
+        // the icon_in_ring auto-toggle swaps thickness 60 ↔ 35).
+        chart._thicknessApplied = thickness;
+        chart._gapApplied = gap;
 
         this._chartCache.set(container.id, chart);
       } else {
         // Update existing chart only if colors actually changed
         const datasets = chart.data.datasets;
         if (datasets && datasets[0]) {
+          // Geometry change (thickness/gap) doesn't show up under the
+          // colors-only update path. The chartId is keyed by allergen +
+          // dayIndex + level, so a thickness flip on toggle keeps the
+          // same id and the cached Chart instance survives. Detect and
+          // propagate before computing colors so cutout matches.
+          const geometryChanged =
+            chart._thicknessApplied !== thickness ||
+            chart._gapApplied !== gap;
+          if (geometryChanged) {
+            chart.options.cutout = `${100 - thickness}%`;
+            datasets[0].borderWidth = gap;
+            chart._thicknessApplied = thickness;
+            chart._gapApplied = gap;
+          }
           const oldBg = datasets[0].backgroundColor;
           let bg;
           if (isNoData) {
@@ -392,7 +411,7 @@ class PollenPrognosCard extends LitElement {
 
           const colorsChanged =
             bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
-          if (colorsChanged) {
+          if (colorsChanged || geometryChanged) {
             datasets[0].backgroundColor = bg;
             chart.update("none");
           }

@@ -3294,7 +3294,10 @@ class PollenPrognosCardEditor extends LitElement {
                                 style="width: 28px; height: 28px; border: none; background: none;"
                               />`
                             : html`<div
-                                title="Non-hex value (e.g. CSS variable); use the text field to edit"
+                                title="${this._t(
+                                  "icon_in_ring_static_color_var_hint",
+                                ) ||
+                                "Non-hex value (e.g. CSS variable); use the text field to edit"}"
                                 style="width: 28px; height: 28px; border: 1px dashed var(--divider-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--secondary-text-color);"
                               >
                                 var

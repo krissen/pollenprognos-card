@@ -132,6 +132,7 @@
   "editor.icon_in_ring_header": "Ikon i ring",
   "editor.icon_in_ring_size_ratio": "Ikonstorlek (andel av ringhål)",
   "editor.icon_in_ring_static_color": "Statisk färg",
+  "editor.icon_in_ring_static_color_var_hint": "Icke-hex-värde (t.ex. CSS-variabel); använd textfältet för att redigera",
   "editor.icon_size": "Ikonstorlek (px)",
   "editor.index_top": "Index överst i listan",
   "editor.integration": "Integration",
