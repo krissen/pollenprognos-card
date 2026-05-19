@@ -2467,13 +2467,42 @@ class PollenPrognosCard extends LitElement {
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
     // Degenerate config: no day columns at all (e.g. every sensor
-    // stale plus show_empty_days=false). Whether or not the allergen
-    // column is on, the resulting table can't anchor any stale row
-    // without producing a colgroup/colspan mismatch. Skip render
-    // rather than emit invalid HTML; the regular icon column would
-    // also be useless without anything to stand next to.
+    // stale plus show_empty_days=false). The forecast table can't
+    // anchor stale rows without producing a colgroup/colspan
+    // mismatch, so fall back to a flat list of stale sensors —
+    // each row is just the allergen icon next to its stale text.
     if (cols.length === 0) {
-      return html``;
+      const staleOnly = this.sensors.filter((s) => s.stale === true);
+      if (staleOnly.length === 0) return html``;
+      return html`
+        ${this.header
+          ? html`<div class="card-header">${this.header}</div>`
+          : ""}
+        <div class="card-content">
+          <div class="stale-only-list">
+            ${staleOnly.map(
+              (sensor) => html`
+                <div class="sensor minimal stale">
+                  ${this._renderAllergenSvg(
+                    this._getSvgKey(sensor.allergenReplaced),
+                    0,
+                    { stale: true },
+                  )}
+                  <span
+                    class="short-text stale-allergen-text"
+                    style="font-size: ${1.0 * textSizeRatio}em;"
+                  >
+                    ${this.config.allergens_abbreviated
+                      ? sensor.allergenShort
+                      : sensor.allergenCapitalized}:
+                    ${this._t("card.stale_allergen")}
+                  </span>
+                </div>
+              `,
+            )}
+          </div>
+        </div>
+      `;
     }
     const totalCols = cols.length + (showAllergenColumn ? 1 : 0);
 
@@ -3025,9 +3054,11 @@ class PollenPrognosCard extends LitElement {
         display: block;
         fill: currentColor;
       }
-      .ring-icon svg g[fill] {
-        fill: currentColor;
-      }
+      /* No <g fill=...> override here: SVGs that intentionally set
+         fill="none" (e.g. no_allergens uses fill="none" with
+         stroke="currentColor") must keep that. The svg-level
+         fill: currentColor handles every allergen icon whose <g> has
+         fill="currentColor" or no fill attr. */
 
       .forecast-content {
         width: 100%;
@@ -3102,6 +3133,22 @@ class PollenPrognosCard extends LitElement {
         justify-content: center;
         width: 100%;
         /* No font-size set here */
+      }
+      /* Stale-only fallback layout — used when normal-mode render has
+         no day columns to anchor a table (e.g. every sensor stale and
+         show_empty_days=false). Lays sensors out vertically like the
+         minimal-mode stale rows. */
+      .stale-only-list {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+      }
+      .stale-only-list .sensor.minimal.stale {
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
       }
       .sensor.minimal {
         display: flex;

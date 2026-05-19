@@ -61,8 +61,10 @@ export const LEVELS_DEFAULTS = {
 // shifts from its normal default to a thinner default so the centered
 // icon has room. Toggling back restores. The swap only fires when the
 // current value still equals the previous mode's default, so manual
-// customizations survive (see editor toggle handler).
-export const NORMAL_DEFAULT_THICKNESS = 60;
+// customizations survive (see editor toggle handler). NORMAL_DEFAULT_-
+// THICKNESS is derived from LEVELS_DEFAULTS.levels_thickness so a future
+// change to the global default automatically stays in sync.
+export const NORMAL_DEFAULT_THICKNESS = LEVELS_DEFAULTS.levels_thickness;
 export const ICON_IN_RING_DEFAULT_THICKNESS = 35;
 
 // Conversion factor for stroke width to gap conversion
