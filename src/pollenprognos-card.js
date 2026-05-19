@@ -2466,7 +2466,13 @@ class PollenPrognosCard extends LitElement {
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-    const totalCols = cols.length + (showAllergenColumn ? 1 : 0);
+    // Clamp to >=1 so the col-width division and any colspan stay valid
+    // when both show_allergen_column=false and cols is empty (e.g.
+    // stale-only data with show_empty_days=false).
+    const totalCols = Math.max(
+      1,
+      cols.length + (showAllergenColumn ? 1 : 0),
+    );
 
     if (this.debug) {
       console.debug("Display columns:", cols);
