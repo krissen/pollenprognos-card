@@ -2462,17 +2462,21 @@ class PollenPrognosCard extends LitElement {
 
     // Icon-in-ring (#227) state for the daily cells.
     const iconInRing = this.config?.icon_in_ring === true;
-    const showAllergenColumn = this.config?.show_allergen_column !== false;
+    const configShowAllergenColumn =
+      this.config?.show_allergen_column !== false;
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-    // Clamp to >=1 so the col-width division and any colspan stay valid
-    // when both show_allergen_column=false and cols is empty (e.g.
-    // stale-only data with show_empty_days=false).
-    const totalCols = Math.max(
-      1,
-      cols.length + (showAllergenColumn ? 1 : 0),
-    );
+    // When the day-cols array is empty (e.g. stale-only data with
+    // show_empty_days=false) AND the user disabled the allergen column,
+    // we'd render an empty <colgroup>/<thead> and colspan=0 on stale
+    // rows. Force the allergen column on in that degenerate case so the
+    // table always has at least one valid column to anchor any stale
+    // rows. Doesn't mutate config — only the local render flag.
+    const showAllergenColumn =
+      configShowAllergenColumn || cols.length === 0;
+    const dayColspan = Math.max(1, cols.length);
+    const totalCols = cols.length + (showAllergenColumn ? 1 : 0);
 
     if (this.debug) {
       console.debug("Display columns:", cols);
@@ -2542,9 +2546,9 @@ class PollenPrognosCard extends LitElement {
                           )}
                         </td>`
                       : ""}
-                    <td colspan="${cols.length}" class="stale-cell">
+                    <td colspan="${dayColspan}" class="stale-cell">
                       <span class="stale-allergen-text">
-                        ${showAllergenColumn
+                        ${configShowAllergenColumn
                           ? this._t("card.stale_allergen")
                           : `${
                               this.config.allergens_abbreviated
@@ -2566,7 +2570,7 @@ class PollenPrognosCard extends LitElement {
                                 </span>
                               </td>`
                             : ""}
-                          <td colspan="${cols.length}"></td>
+                          <td colspan="${dayColspan}"></td>
                         </tr>
                       `
                     : ""}
