@@ -433,6 +433,10 @@ class PollenPrognosCard extends LitElement {
         if (!ringIcon) {
           ringIcon = document.createElement("div");
           ringIcon.className = "ring-icon";
+          // Mark as decorative — the level value (data-display-level on
+          // the parent .level-circle) is the screen-reader signal; the
+          // centered SVG is duplicate visual information.
+          ringIcon.setAttribute("aria-hidden", "true");
           container.appendChild(ringIcon);
         }
         ringIcon.style.width = `${iconDiameter}px`;
@@ -2506,7 +2510,15 @@ class PollenPrognosCard extends LitElement {
                         </td>`
                       : ""}
                     <td colspan="${cols.length}" class="stale-cell">
-                      <span class="stale-allergen-text">${this._t("card.stale_allergen")}</span>
+                      <span class="stale-allergen-text">
+                        ${showAllergenColumn
+                          ? this._t("card.stale_allergen")
+                          : `${
+                              this.config.allergens_abbreviated
+                                ? sensor.allergenShort
+                                : sensor.allergenCapitalized
+                            }: ${this._t("card.stale_allergen")}`}
+                      </span>
                     </td>
                   </tr>
                   ${this.config.show_text_allergen
