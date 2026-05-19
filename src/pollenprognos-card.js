@@ -182,11 +182,27 @@ class PollenPrognosCard extends LitElement {
 
   /**
    * Resolve the color for the icon centered inside the level ring (#227).
-   * Mode "static": user-configured static color (default black).
+   * Mode "static": user-configured static color (default
+   * `var(--primary-text-color)` so the icon follows the theme).
    * Mode "follow_level": same level-mapped color as the side-icon would have.
    * Stale entities always render orange (#e6a800), mirroring the
    * _renderAllergenSvg convention.
    */
+  /**
+   * Resolve the level-reactive SVG key for an allergen. `allergy_risk`
+   * has six level-specific variants (`allergy_risk_1`..`allergy_risk_6`,
+   * the smiley); other allergens use the base key as-is. Shared between
+   * the side icon (_renderAllergenSvg) and the ring-centered icon
+   * (_renderMinimalHtml / _renderNormalHtml) so both render paths
+   * respect the variant when icon_in_ring is on.
+   */
+  _getEffectiveSvgKey(allergenKey, level) {
+    if (allergenKey === "allergy_risk" && level > 0) {
+      return `allergy_risk_${Math.min(level, 6)}`;
+    }
+    return allergenKey;
+  }
+
   _iconInRingColor(level, allergenKey, { stale = false } = {}) {
     if (stale) return "#e6a800";
     const mode =
@@ -1033,10 +1049,7 @@ class PollenPrognosCard extends LitElement {
     const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
     const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
     // Select level-reactive icon variant for allergy_risk smiley
-    let effectiveKey = allergenKey;
-    if (allergenKey === "allergy_risk" && level > 0) {
-      effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
-    }
+    const effectiveKey = this._getEffectiveSvgKey(allergenKey, level);
     const svgContent = getSvgContent(effectiveKey);
 
     // No-data branch: render the icon as a CSS mask filled with the noise
@@ -2275,7 +2288,10 @@ class PollenPrognosCard extends LitElement {
                   {
                     ...ringConfig,
                     size: iconSize,
-                    iconKey: allergenSvgKey,
+                    iconKey: this._getEffectiveSvgKey(
+                      allergenSvgKey,
+                      levelForColor,
+                    ),
                     iconColor: this._iconInRingColor(
                       levelForColor,
                       sensor.allergenReplaced,
@@ -2387,8 +2403,9 @@ class PollenPrognosCard extends LitElement {
     
     const gapColor = this._getGapColor();
       
-    const thickness = this.config.levels_thickness ?? 60;
-    const gap = this.config.levels_gap ?? 5;
+    const thickness =
+      this.config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
+    const gap = this.config.levels_gap ?? LEVELS_DEFAULTS.levels_gap;
     const iconSize = Number(this.config.icon_size) || 48;
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
@@ -2409,7 +2426,7 @@ class PollenPrognosCard extends LitElement {
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
         <div class="forecast-content">
-          <table class="forecast"">
+          <table class="forecast">
             <colgroup>
               ${(showAllergenColumn ? [0, ...cols] : cols).map(
                 () => html`<col style="width: ${100 / totalCols}%;" />`,
@@ -2538,8 +2555,9 @@ class PollenPrognosCard extends LitElement {
                             size,
                           };
                           if (iconInRing) {
-                            ringOpts.iconKey = this._getSvgKey(
-                              sensor.allergenReplaced,
+                            ringOpts.iconKey = this._getEffectiveSvgKey(
+                              this._getSvgKey(sensor.allergenReplaced),
+                              levelVal,
                             );
                             ringOpts.iconColor = this._iconInRingColor(
                               levelVal,

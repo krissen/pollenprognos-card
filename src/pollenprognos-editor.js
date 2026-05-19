@@ -3266,41 +3266,53 @@ class PollenPrognosCardEditor extends LitElement {
               </ha-formfield>
 
               ${(c.icon_in_ring_color_mode || "static") === "static"
-                ? html`
-                    <ha-formfield
-                      label="${this._t("icon_in_ring_static_color") ||
-                      "Static color"}"
-                    >
-                      <div
-                        style="display: flex; align-items: center; gap: 8px;"
+                ? (() => {
+                    const currentColor =
+                      typeof c.icon_in_ring_static_color === "string"
+                        ? c.icon_in_ring_static_color
+                        : LEVELS_DEFAULTS.icon_in_ring_static_color;
+                    const isHex = /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                      currentColor,
+                    );
+                    return html`
+                      <ha-formfield
+                        label="${this._t("icon_in_ring_static_color") ||
+                        "Static color"}"
                       >
-                        <input
-                          type="color"
-                          .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                            c.icon_in_ring_static_color || "",
-                          )
-                            ? c.icon_in_ring_static_color
-                            : "#000000"}
-                          @input=${(e) =>
-                            this._updateConfig(
-                              "icon_in_ring_static_color",
-                              e.target.value,
-                            )}
-                          style="width: 28px; height: 28px; border: none; background: none;"
-                        />
-                        <ha-textfield
-                          .value=${c.icon_in_ring_static_color || "#000000"}
-                          placeholder="#000000"
-                          @input=${(e) =>
-                            this._updateConfig(
-                              "icon_in_ring_static_color",
-                              e.target.value,
-                            )}
-                          style="width: 100px;"
-                        ></ha-textfield>
-                      </div>
-                    </ha-formfield>
-                  `
+                        <div
+                          style="display: flex; align-items: center; gap: 8px;"
+                        >
+                          ${isHex
+                            ? html`<input
+                                type="color"
+                                .value=${currentColor}
+                                @input=${(e) =>
+                                  this._updateConfig(
+                                    "icon_in_ring_static_color",
+                                    e.target.value,
+                                  )}
+                                style="width: 28px; height: 28px; border: none; background: none;"
+                              />`
+                            : html`<div
+                                title="Non-hex value (e.g. CSS variable); use the text field to edit"
+                                style="width: 28px; height: 28px; border: 1px dashed var(--divider-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--secondary-text-color);"
+                              >
+                                var
+                              </div>`}
+                          <ha-textfield
+                            .value=${currentColor}
+                            placeholder="${LEVELS_DEFAULTS.icon_in_ring_static_color}"
+                            @input=${(e) =>
+                              this._updateConfig(
+                                "icon_in_ring_static_color",
+                                e.target.value,
+                              )}
+                            style="width: 220px;"
+                          ></ha-textfield>
+                        </div>
+                      </ha-formfield>
+                    `;
+                  })()
                 : ""}
 
               <ha-formfield
