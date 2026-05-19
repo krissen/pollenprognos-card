@@ -2462,20 +2462,19 @@ class PollenPrognosCard extends LitElement {
 
     // Icon-in-ring (#227) state for the daily cells.
     const iconInRing = this.config?.icon_in_ring === true;
-    const configShowAllergenColumn =
-      this.config?.show_allergen_column !== false;
+    const showAllergenColumn = this.config?.show_allergen_column !== false;
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-    // When the day-cols array is empty (e.g. stale-only data with
-    // show_empty_days=false) AND the user disabled the allergen column,
-    // we'd render an empty <colgroup>/<thead> and colspan=0 on stale
-    // rows. Force the allergen column on in that degenerate case so the
-    // table always has at least one valid column to anchor any stale
-    // rows. Doesn't mutate config — only the local render flag.
-    const showAllergenColumn =
-      configShowAllergenColumn || cols.length === 0;
-    const dayColspan = Math.max(1, cols.length);
+    // Degenerate config: no day columns at all (e.g. every sensor
+    // stale plus show_empty_days=false). Whether or not the allergen
+    // column is on, the resulting table can't anchor any stale row
+    // without producing a colgroup/colspan mismatch. Skip render
+    // rather than emit invalid HTML; the regular icon column would
+    // also be useless without anything to stand next to.
+    if (cols.length === 0) {
+      return html``;
+    }
     const totalCols = cols.length + (showAllergenColumn ? 1 : 0);
 
     if (this.debug) {
@@ -2546,9 +2545,9 @@ class PollenPrognosCard extends LitElement {
                           )}
                         </td>`
                       : ""}
-                    <td colspan="${dayColspan}" class="stale-cell">
+                    <td colspan="${cols.length}" class="stale-cell">
                       <span class="stale-allergen-text">
-                        ${configShowAllergenColumn
+                        ${showAllergenColumn
                           ? this._t("card.stale_allergen")
                           : `${
                               this.config.allergens_abbreviated
@@ -2570,7 +2569,7 @@ class PollenPrognosCard extends LitElement {
                                 </span>
                               </td>`
                             : ""}
-                          <td colspan="${dayColspan}"></td>
+                          <td colspan="${cols.length}"></td>
                         </tr>
                       `
                     : ""}
