@@ -3187,62 +3187,6 @@ class PollenPrognosCardEditor extends LitElement {
                     </ha-formfield>
 
                     <ha-formfield
-                      label="${this._t("allergen_outline_color") ||
-                      "Outline Color"}"
-                    >
-                      <div
-                        style="display: flex; align-items: center; gap: 8px;"
-                      >
-                        <input
-                          type="color"
-                          .value=${(() => {
-                            const color =
-                              c.allergen_outline_color ||
-                              LEVELS_DEFAULTS.levels_gap_color;
-                            // For rgba colors, show closest hex equivalent
-                            if (color.includes("rgba")) {
-                              return "#c8c8c8"; // Gray equivalent
-                            }
-                            return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
-                              ? color
-                              : "#c8c8c8";
-                          })()}
-                          @input=${(e) =>
-                            this._updateConfig(
-                              "allergen_outline_color",
-                              e.target.value,
-                            )}
-                          style="width: 28px; height: 28px; border: none; background: none;"
-                        />
-                        <ha-textfield
-                          .value=${c.allergen_outline_color ||
-                          LEVELS_DEFAULTS.levels_gap_color}
-                          placeholder="${this._t(
-                            "allergen_outline_placeholder",
-                          ) || "rgba(200,200,200,1)"}"
-                          @input=${(e) =>
-                            this._updateConfig(
-                              "allergen_outline_color",
-                              e.target.value,
-                            )}
-                          style="width: 100px;"
-                        ></ha-textfield>
-                        <ha-button
-                          outlined
-                          title="${this._t("allergen_outline_reset") ||
-                          "Reset"}"
-                          @click=${() =>
-                            this._updateConfig(
-                              "allergen_outline_color",
-                              LEVELS_DEFAULTS.levels_gap_color,
-                            )}
-                          style="margin-left: 8px;"
-                          >↺</ha-button
-                        >
-                      </div>
-                    </ha-formfield>
-
-                    <ha-formfield
                       label="${this._t("no_allergens_color") ||
                       "No Allergens Color"}"
                     >
