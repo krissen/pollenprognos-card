@@ -1239,3 +1239,141 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     expect(result[0].allergenReplaced).toBe("grass_cat");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Summary block: isSummary tag + v2.1.0 extras enrichment (#222)
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: summary block tagging and extras (#222)", () => {
+  function makeSummaryHass({
+    summaryState = "3",
+    grassState = 2,
+    summaryAttrs = {},
+  } = {}) {
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: String(summaryState),
+        attributes: { attribution: GPL_ATTRIBUTION, ...summaryAttrs },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", grassState),
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev1" },
+      "sensor.home_grass": { device_id: "dev1" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev1: { name: "Home", config_entries: ["entry_a"] },
+    });
+    hass.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+      "entry_a_overall_pollen_risk_today";
+    return hass;
+  }
+
+  it("tags the allergy_risk aggregate with isSummary: true", async () => {
+    const hass = makeSummaryHass();
+    const config = makeConfig({
+      allergens: ["allergy_risk", "grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.isSummary).toBe(true);
+    // Per-allergen rows are never tagged as summary.
+    const grass = result.find((s) => s.allergenReplaced === "grass_cat");
+    expect(grass.isSummary).toBeUndefined();
+  });
+
+  it("localizes top_pollen_codes into topPollen labels", async () => {
+    const hass = makeSummaryHass({
+      summaryAttrs: { top_pollen_codes: ["birch", "GRASS"] },
+    });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(Array.isArray(ar.topPollen)).toBe(true);
+    expect(ar.topPollen.length).toBe(2);
+    // Localized via the same name path; English fallback capitalizes.
+    expect(ar.topPollen).toContain("Birch");
+  });
+
+  it("omits topPollen entirely when top_pollen_codes is empty", async () => {
+    const hass = makeSummaryHass({ summaryAttrs: { top_pollen_codes: [] } });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.topPollen).toBeUndefined();
+  });
+
+  it("omits topPollen when the attribute is absent (older installs)", async () => {
+    const hass = makeSummaryHass();
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.topPollen).toBeUndefined();
+  });
+
+  it("sets plantsInSeason even when zero (zero is informative)", async () => {
+    const hass = makeSummaryHass({
+      summaryAttrs: { plants_in_season_today: 0 },
+    });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeason).toBe(0);
+  });
+
+  it("omits plantsInSeason when the attribute is absent", async () => {
+    const hass = makeSummaryHass();
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeason).toBeUndefined();
+  });
+
+  it("retains the aggregate below threshold when show_summary_block is on", async () => {
+    // summary level 0 (none) is below threshold 1; with the block on it must
+    // still be returned so the card has data to render the block.
+    const hass = makeSummaryHass({ summaryState: "0" });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 1,
+      days_to_show: 1,
+      show_summary_block: true,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+  });
+
+  it("still drops a below-threshold aggregate when the block is off (no behaviour change)", async () => {
+    const hass = makeSummaryHass({ summaryState: "0" });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 1,
+      days_to_show: 1,
+      show_summary_block: false,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+  });
+});

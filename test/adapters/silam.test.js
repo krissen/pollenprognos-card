@@ -1369,3 +1369,51 @@ describe("silam_allergen_map.json integrity", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Summary block: isSummary tag + threshold bypass (#222)
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: summary block (#222)", () => {
+  it("tags the index/allergy_risk aggregate with isSummary: true", async () => {
+    const hass = makeHass("stockholm", { index: 2, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index", "birch"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar).toBeDefined();
+    expect(ar.isSummary).toBe(true);
+    const birch = result.find((s) => s.allergenReplaced === "birch");
+    expect(birch.isSummary).toBeUndefined();
+  });
+
+  it("retains the aggregate below threshold when show_summary_block is on", async () => {
+    const hass = makeHass("stockholm", { index: 1, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index"],
+      pollen_threshold: 3, // level 1 < 3
+      days_to_show: 1,
+      show_summary_block: true,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+  });
+
+  it("still drops the below-threshold aggregate when the block is off", async () => {
+    const hass = makeHass("stockholm", { index: 1, forecast: [], pollen_birch: 500 });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index", "birch"], // birch keeps the result non-empty
+      pollen_threshold: 3,
+      days_to_show: 1,
+      show_summary_block: false,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+  });
+});
