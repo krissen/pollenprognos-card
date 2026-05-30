@@ -2050,16 +2050,24 @@ class PollenPrognosCardEditor extends LitElement {
       console.debug("Sort label test:", this._t("sort_value_ascending"));
     }
 
+    const inheritMode = c.levels_inherit_mode || "inherit_allergen";
+    const gapSynced = c.allergen_levels_gap_synced ?? true;
+    const gapDisabled = inheritMode === "inherit_allergen" && gapSynced;
+
     return html`
       <div class="card-config">
-        <!-- Återställ-knapp -->
+        <!-- Reset button -->
         <ha-button outlined @click=${() => this._resetAll()}>
           ${this._t("preset_reset_all")}
         </ha-button>
 
-        <!-- Integration & Location -->
+        <!-- §1 Integration & Location -->
         <details open>
           <summary>${this._t("summary_integration_and_place")}</summary>
+          <div class="section-helper">${this._t("helper_integration_and_place")}</div>
+
+          <div class="subgroup-header">${this._t("subgroup_source")}</div>
+
           <ha-formfield label="${this._t("integration")}">
             <ha-selector
               .hass=${this._hass}
@@ -2423,62 +2431,571 @@ class PollenPrognosCardEditor extends LitElement {
                 </details>
               `
             : ""}
-        </details>
 
-        <details open>
-          <summary>${this._t("summary_appearance_and_layout")}</summary>
-          <!-- Title -->
-          <details open>
-            <summary>${this._t("summary_title_and_header")}</summary>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <ha-formfield label="${this._t("title_hide")}">
-                <ha-checkbox
-                  .checked=${c.title === false}
-                  @change=${(e) => {
-                    if (e.target.checked) {
-                      this._updateConfig("title", false);
-                    } else {
-                      this._updateConfig("title", true);
-                    }
-                  }}
-                ></ha-checkbox>
-              </ha-formfield>
-              <ha-formfield label="${this._t("title_automatic")}">
-                <ha-checkbox
-                  .checked=${c.title === true || c.title === undefined}
-                  @change=${(e) => {
-                    if (e.target.checked) {
-                      this._updateConfig("title", true);
-                    } else {
-                      this._updateConfig("title", "");
-                    }
-                  }}
-                ></ha-checkbox>
-              </ha-formfield>
-            </div>
-            <ha-formfield label="${this._t("title")}">
-              <ha-textfield
-                .value=${typeof c.title === "string"
-                  ? c.title
-                  : c.title === false
-                    ? "(false)"
-                    : ""}
-                placeholder="${this._t("title_placeholder")}"
-                .disabled=${c.title === false}
-                @input=${(e) => {
-                  const val = e.target.value;
-                  if (val.trim() === "") {
-                    this._updateConfig("title", true);
+          <!-- Title subgroup inside §1 -->
+          <div class="subgroup-header">${this._t("subgroup_title")}</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <ha-formfield label="${this._t("title_hide")}">
+              <ha-checkbox
+                .checked=${c.title === false}
+                @change=${(e) => {
+                  if (e.target.checked) {
+                    this._updateConfig("title", false);
                   } else {
-                    this._updateConfig("title", val);
+                    this._updateConfig("title", true);
                   }
                 }}
-              ></ha-textfield>
+              ></ha-checkbox>
             </ha-formfield>
-          </details>
-          <details open>
-            <summary>${this._t("summary_card_layout_and_colors")}</summary>
-            <ha-formfield label="${this._t("background_color")}">
+            <ha-formfield label="${this._t("title_automatic")}">
+              <ha-checkbox
+                .checked=${c.title === true || c.title === undefined}
+                @change=${(e) => {
+                  if (e.target.checked) {
+                    this._updateConfig("title", true);
+                  } else {
+                    this._updateConfig("title", "");
+                  }
+                }}
+              ></ha-checkbox>
+            </ha-formfield>
+          </div>
+          <ha-formfield label="${this._t("title")}">
+            <ha-textfield
+              .value=${typeof c.title === "string"
+                ? c.title
+                : c.title === false
+                  ? "(false)"
+                  : ""}
+              placeholder="${this._t("title_placeholder")}"
+              .disabled=${c.title === false}
+              @input=${(e) => {
+                const val = e.target.value;
+                if (val.trim() === "") {
+                  this._updateConfig("title", true);
+                } else {
+                  this._updateConfig("title", val);
+                }
+              }}
+            ></ha-textfield>
+          </ha-formfield>
+        </details>
+
+        <!-- §2 Allergens (promoted to §2, moved from old §3) -->
+        <details>
+          <summary>${this._t("summary_allergens")}</summary>
+          <div class="section-helper">${this._t("helper_allergens")}</div>
+          ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
+            ? html`
+                <!-- Category allergens (controlled by checkbox) -->
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${this._t("allergens_header_category")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
+                      const displayName = this._getAllergenDisplayName(key);
+                      return html`
+                        <ha-formfield .label=${displayName}>
+                          <ha-checkbox
+                            .checked=${c.allergens.includes(key)}
+                            @change=${(e) =>
+                              this._onAllergenToggle(key, e.target.checked)}
+                          ></ha-checkbox>
+                        </ha-formfield>
+                      `;
+                    })}
+                  </div>
+                </div>
+
+                <!-- Individual allergens -->
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${this._t("allergens_header_specific")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${allergens
+                      .filter(
+                        (key) =>
+                          !["trees_cat", "grass_cat", "weeds_cat"].includes(
+                            key,
+                          ),
+                      )
+                      .sort((a, b) => {
+                        const displayA = this._getAllergenDisplayName(a);
+                        const displayB = this._getAllergenDisplayName(b);
+                        return displayA.localeCompare(displayB);
+                      })
+                      .map((key) => {
+                        const displayName = this._getAllergenDisplayName(key);
+                        return html`
+                          <ha-formfield .label=${displayName}>
+                            <ha-checkbox
+                              .checked=${c.allergens.includes(key)}
+                              @change=${(e) =>
+                                this._onAllergenToggle(key, e.target.checked)}
+                            ></ha-checkbox>
+                          </ha-formfield>
+                        `;
+                      })}
+                  </div>
+                </div>
+              `
+            : c.integration === "atmo"
+              ? html`
+                  <!-- Atmo France: Summary / Pollen / Pollution blocks -->
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_summary")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${["allergy_risk", "qualite_globale"]
+                        .filter((key) => allergens.includes(key))
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_pollen")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${allergens
+                        .filter(
+                          (key) =>
+                            !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(key),
+                        )
+                        .sort((a, b) => {
+                          const displayA = this._getAllergenDisplayName(a);
+                          const displayB = this._getAllergenDisplayName(b);
+                          return displayA.localeCompare(displayB);
+                        })
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                  <div class="allergen-section">
+                    <h4
+                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                    >
+                      ${this._t("allergens_header_pollution")}
+                    </h4>
+                    <div class="allergens-group">
+                      ${["pm25", "pm10", "ozone", "no2", "so2"]
+                        .filter((key) => allergens.includes(key))
+                        .map((key) => {
+                          const displayName =
+                            this._getAllergenDisplayName(key);
+                          return html`
+                            <ha-formfield .label=${displayName}>
+                              <ha-checkbox
+                                .checked=${c.allergens.includes(key)}
+                                @change=${(e) =>
+                                  this._onAllergenToggle(
+                                    key,
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `;
+                        })}
+                    </div>
+                  </div>
+                `
+              : html`
+                  <!-- Standard allergen display -->
+                  <div class="allergens-group">
+                    ${allergens.map((key) => {
+                      const displayName = this._getAllergenDisplayName(key);
+                      return html`
+                        <ha-formfield .label=${displayName}>
+                          <ha-checkbox
+                            .checked=${c.allergens.includes(key)}
+                            @change=${(e) =>
+                              this._onAllergenToggle(key, e.target.checked)}
+                          ></ha-checkbox>
+                        </ha-formfield>
+                      `;
+                    })}
+                  </div>
+                `}
+          <div class="preset-buttons">
+            <ha-button
+              @click=${() => {
+                const allAllergens =
+                  c.integration === "kleenex"
+                    ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
+                    : allergens;
+                this._toggleSelectAllAllergens(allAllergens);
+              }}
+            >
+              ${this._t("select_all_allergens")}
+            </ha-button>
+            ${c.integration === "atmo"
+              ? html`
+                  <ha-button
+                    @click=${() => {
+                      const pollenKeys = allergens.filter(
+                        (k) =>
+                          !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(k),
+                      );
+                      this._toggleAllergenSubset(pollenKeys);
+                    }}
+                  >
+                    ${this._t("select_all_pollen")}
+                  </ha-button>
+                  <ha-button
+                    @click=${() => {
+                      const pollutionKeys = ["pm25", "pm10", "ozone", "no2", "so2"].filter(
+                        (k) => allergens.includes(k),
+                      );
+                      this._toggleAllergenSubset(pollutionKeys);
+                    }}
+                  >
+                    ${this._t("select_all_pollution")}
+                  </ha-button>
+                `
+              : ""}
+          </div>
+          <div class="slider-row">
+            <div class="slider-text">${this._t("pollen_threshold")}</div>
+            <div class="slider-value">${c.pollen_threshold}</div>
+            <ha-slider
+              min="${thresholdParams.min}"
+              max="${thresholdParams.max}"
+              step="${thresholdParams.step}"
+              .value=${c.pollen_threshold}
+              @input=${(e) =>
+                this._updateConfig("pollen_threshold", Number(e.target.value))}
+            ></ha-slider>
+          </div>
+          <ha-formfield label="${this._t("sort")}">
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: sortOptions,
+                },
+              }}
+              .value=${c.sort}
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._updateConfig("sort", v);
+              }}
+            ></ha-selector>
+          </ha-formfield>
+          ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
+            ? html`
+                <ha-formfield
+                  label="${this._t("sort_category_allergens_first")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.sort_category_allergens_first}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "sort_category_allergens_first",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `
+            : ""}
+          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo" || c.integration === "gpl"
+            ? html`
+                <ha-formfield
+                  label="${c.integration === "silam"
+                    ? this._t("index_top")
+                    : this._t("allergy_risk_top")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.integration === "silam"
+                      ? c.index_top
+                      : c.allergy_risk_top}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        c.integration === "silam"
+                          ? "index_top"
+                          : "allergy_risk_top",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+              `
+            : ""}
+          ${c.integration === "atmo"
+            ? html`
+                <ha-formfield
+                  label="${this._t("sort_pollution_block")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.sort_pollution_block}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "sort_pollution_block",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+                ${c.sort_pollution_block
+                  ? html`
+                      <ha-formfield
+                        label="${this._t("pollution_block_position")}"
+                      >
+                        <ha-selector
+                          .hass=${this._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "bottom",
+                                  label: this._t("pollution_block_bottom"),
+                                },
+                                {
+                                  value: "top",
+                                  label: this._t("pollution_block_top"),
+                                },
+                              ],
+                            },
+                          }}
+                          .value=${c.pollution_block_position || "bottom"}
+                          @value-changed=${(e) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined)
+                              this._updateConfig("pollution_block_position", v);
+                          }}
+                        ></ha-selector>
+                      </ha-formfield>
+                      <ha-formfield
+                        label="${this._t("show_block_separator")}"
+                      >
+                        <ha-checkbox
+                          .checked=${c.show_block_separator}
+                          @change=${(e) =>
+                            this._updateConfig(
+                              "show_block_separator",
+                              e.target.checked,
+                            )}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                    `
+                  : ""}
+              `
+            : ""}
+        </details>
+
+        <!-- §3 Card layout (open by default) -->
+        <details open>
+          <summary>${this._t("summary_card_layout")}</summary>
+          <div class="section-helper">${this._t("helper_card_layout")}</div>
+          <ha-formfield label="${this._t("minimal")}">
+            <ha-switch
+              .checked=${c.minimal}
+              @change=${(e) =>
+                this._updateConfig("minimal", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <div class="field-helper">${this._t("helper_minimal")}</div>
+          ${c.minimal === true
+            ? html`
+                <ha-formfield label="${this._t("minimal_gap")}">
+                  <ha-slider
+                    min="0"
+                    max="100"
+                    step="1"
+                    .value=${c.minimal_gap ?? 35}
+                    @input=${(e) =>
+                      this._updateConfig("minimal_gap", Number(e.target.value))}
+                    style="width: 120px;"
+                  ></ha-slider>
+                  <ha-textfield
+                    type="number"
+                    .value=${c.minimal_gap ?? 35}
+                    min="0"
+                    max="100"
+                    step="1"
+                    @input=${(e) =>
+                      this._updateConfig("minimal_gap", Number(e.target.value))}
+                    style="width: 80px;"
+                  ></ha-textfield>
+                </ha-formfield>
+                <div class="field-helper">${this._t("helper_minimal_gap")}</div>
+              `
+            : ""}
+          <ha-formfield
+            label="${this._t("show_allergen_column")}"
+          >
+            <ha-checkbox
+              .checked=${c.show_allergen_column !== false}
+              @change=${(e) =>
+                this._updateConfig(
+                  "show_allergen_column",
+                  e.target.checked,
+                )}
+            ></ha-checkbox>
+          </ha-formfield>
+          <div class="field-helper">${this._t("helper_show_allergen_column")}</div>
+          <ha-formfield label="${this._t("show_text_allergen")}">
+            <ha-switch
+              .checked=${c.show_text_allergen}
+              @change=${(e) =>
+                this._updateConfig("show_text_allergen", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("allergens_abbreviated")}">
+            <ha-switch
+              .checked=${c.allergens_abbreviated}
+              @change=${(e) =>
+                this._updateConfig("allergens_abbreviated", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+        </details>
+
+        <!-- §4 Day display -->
+        <details>
+          <summary>${this._t("summary_day_display")}</summary>
+          <div class="section-helper">${this._t("helper_day_display")}</div>
+
+          <div class="subgroup-header">${this._t("subgroup_values")}</div>
+          <ha-formfield label="${this._t("show_value_text")}">
+            <ha-switch
+              .checked=${c.show_value_text}
+              @change=${(e) =>
+                this._updateConfig("show_value_text", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("show_value_numeric")}">
+            <ha-switch
+              .checked=${c.show_value_numeric}
+              @change=${(e) =>
+                this._updateConfig("show_value_numeric", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("show_empty_days")}">
+            <ha-switch
+              .checked=${c.show_empty_days}
+              @change=${(e) =>
+                this._updateConfig("show_empty_days", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("show_no_data_distinct")}">
+            <ha-switch
+              .checked=${c.show_no_data_distinct !== false}
+              @change=${(e) =>
+                this._updateConfig("show_no_data_distinct", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          ${c.integration === "peu"
+            ? html`
+                <ha-formfield label="${this._t("numeric_state_raw_risk")}">
+                  <ha-switch
+                    .checked=${c.numeric_state_raw_risk}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "numeric_state_raw_risk",
+                        e.target.checked,
+                      )}
+                  ></ha-switch>
+                </ha-formfield>
+              `
+            : ""}
+
+          <div class="subgroup-header">${this._t("subgroup_day_labels")}</div>
+          <ha-formfield label="${this._t("days_relative")}">
+            <ha-switch
+              .checked=${c.days_relative}
+              @change=${(e) =>
+                this._updateConfig("days_relative", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("days_abbreviated")}">
+            <ha-switch
+              .checked=${c.days_abbreviated}
+              @change=${(e) =>
+                this._updateConfig("days_abbreviated", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("days_uppercase")}">
+            <ha-switch
+              .checked=${c.days_uppercase}
+              @change=${(e) =>
+                this._updateConfig("days_uppercase", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <ha-formfield label="${this._t("days_boldfaced")}">
+            <ha-switch
+              .checked=${c.days_boldfaced}
+              @change=${(e) =>
+                this._updateConfig("days_boldfaced", e.target.checked)}
+            ></ha-switch>
+          </ha-formfield>
+          <div class="slider-row">
+            <div class="slider-text">
+              ${(c.integration === "silam" || c.integration === "peu") &&
+              c.mode === "twice_daily"
+                ? this._t("to_show_columns")
+                : (c.integration === "silam" || c.integration === "peu") &&
+                    c.mode !== "daily"
+                  ? this._t("to_show_hours")
+                  : this._t("to_show_days")}
+            </div>
+            <div class="slider-value">${c.days_to_show}</div>
+            <ha-slider
+              min="0"
+              max="${(c.integration === "silam" || c.integration === "peu") &&
+              c.mode !== "daily"
+                ? 8
+                : 6}"
+              step="1"
+              .value=${c.days_to_show}
+              @input=${(e) =>
+                this._updateConfig("days_to_show", Number(e.target.value))}
+            ></ha-slider>
+          </div>
+        </details>
+
+        <!-- §5 Card appearance -->
+        <details>
+          <summary>${this._t("summary_card_appearance")}</summary>
+          <div class="section-helper">${this._t("helper_card_appearance")}</div>
+          <ha-formfield label="${this._t("background_color")}">
               <div style="display:flex; gap:8px; align-items:center;">
                 <ha-textfield
                   .value=${c.background_color || ""}
@@ -2543,46 +3060,44 @@ class PollenPrognosCardEditor extends LitElement {
                 style="width: 80px;"
               ></ha-textfield>
             </ha-formfield>
+        </details>
 
-            <!-- Allergen Colors Configuration -->
-            <details>
-              <summary>
-                ${this._t("allergen_colors_header") || "Allergen Colors"}
-              </summary>
-              <ha-formfield
-                label="${this._t("allergen_color_mode") ||
-                "Allergen Color Mode"}"
-              >
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-selector
-                    .hass=${this._hass}
-                    .selector=${{
-                      select: {
-                        mode: "dropdown",
-                        options: [
-                          {
-                            value: "default_colors",
-                            label:
-                              this._t("allergen_color_default_colors") ||
-                              "Default Colors",
-                          },
-                          {
-                            value: "custom",
-                            label:
-                              this._t("allergen_color_custom") || "Custom Colors",
-                          },
-                        ],
-                      },
-                    }}
-                    .value=${c.allergen_color_mode || "default_colors"}
-                    @value-changed=${(e) => {
-                      const v = e.detail?.value;
-                      if (v !== undefined)
-                        this._updateConfig("allergen_color_mode", v);
-                    }}
-                  ></ha-selector>
-                </div>
-              </ha-formfield>
+        <!-- §6 Allergen icons -->
+        <details>
+          <summary>${this._t("summary_allergen_icons")}</summary>
+          <div class="section-helper">${this._t("helper_allergen_icons")}</div>
+          <ha-formfield
+            label="${this._t("allergen_color_mode") ||
+            "Allergen Color Mode"}"
+          >
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: [
+                    {
+                      value: "default_colors",
+                      label:
+                        this._t("allergen_color_default_colors") ||
+                        "Default Colors",
+                    },
+                    {
+                      value: "custom",
+                      label:
+                        this._t("allergen_color_custom") || "Custom Colors",
+                    },
+                  ],
+                },
+              }}
+              .value=${c.allergen_color_mode || "default_colors"}
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined)
+                  this._updateConfig("allergen_color_mode", v);
+              }}
+            ></ha-selector>
+          </ha-formfield>
 
               ${c.allergen_color_mode === "custom"
                 ? html`
@@ -2779,147 +3294,185 @@ class PollenPrognosCardEditor extends LitElement {
                     </ha-formfield>
                   `
                 : ""}
-            </details>
-            <!-- Stroke Width -->
-            <ha-formfield
-              label="${this._t("allergen_stroke_width") || "Stroke Width"}"
-            >
-              <ha-slider
-                min="0"
-                max="150"
-                step="5"
-                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
-                @input=${(e) => {
-                  const value = Number(e.target.value);
-                  this._updateConfig("allergen_stroke_width", value);
-                  // Sync with level circle gap only if levels inherit from allergen AND gap sync is enabled
-                  if (
-                    (c.levels_inherit_mode || "inherit_allergen") ===
-                      "inherit_allergen" &&
-                    (c.allergen_levels_gap_synced ?? true)
-                  ) {
-                    const levelGap = convertStrokeWidthToGap(value);
-                    this._updateConfig("levels_gap", levelGap);
+          <ha-formfield
+            label="${this._t("allergen_outline_color")}"
+          >
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                type="color"
+                .value=${(() => {
+                  const color =
+                    c.allergen_outline_color ||
+                    LEVELS_DEFAULTS.levels_gap_color;
+                  if (color.includes("rgba")) {
+                    return "#c8c8c8";
                   }
-                }}
-                style="width: 120px;"
-              ></ha-slider>
+                  return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
+                    ? color
+                    : "#c8c8c8";
+                })()}
+                @input=${(e) =>
+                  this._updateConfig(
+                    "allergen_outline_color",
+                    e.target.value,
+                  )}
+                style="width: 28px; height: 28px; border: none; background: none;"
+              />
               <ha-textfield
-                type="number"
-                min="0"
-                max="150"
-                step="5"
-                .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
-                @input=${(e) => {
-                  const value = e.target.value === '' ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
-                  this._updateConfig("allergen_stroke_width", value);
-                  // Sync with level circle gap only if levels inherit from allergen AND gap sync is enabled
-                  if (
-                    (c.levels_inherit_mode || "inherit_allergen") ===
-                      "inherit_allergen" &&
-                    (c.allergen_levels_gap_synced ?? true)
-                  ) {
-                    const levelGap = convertStrokeWidthToGap(value);
-                    this._updateConfig("levels_gap", levelGap);
-                  }
-                }}
-                style="width: 80px;"
+                .value=${c.allergen_outline_color ||
+                LEVELS_DEFAULTS.levels_gap_color}
+                placeholder="${this._t(
+                  "allergen_outline_placeholder",
+                ) || "rgba(200,200,200,1)"}"
+                @input=${(e) =>
+                  this._updateConfig(
+                    "allergen_outline_color",
+                    e.target.value,
+                  )}
+                style="width: 100px;"
               ></ha-textfield>
               <ha-button
                 outlined
-                title="${this._t("allergen_stroke_width_reset") || "Reset"}"
+                title="${this._t("allergen_outline_reset") || "Reset"}"
                 @click=${() =>
                   this._updateConfig(
-                    "allergen_stroke_width",
-                    LEVELS_DEFAULTS.allergen_stroke_width,
+                    "allergen_outline_color",
+                    LEVELS_DEFAULTS.levels_gap_color,
                   )}
                 style="margin-left: 8px;"
                 >↺</ha-button
               >
-            </ha-formfield>
-
-            <!-- Sync Stroke Color with Level -->
-            <ha-formfield
-              label="${this._t("allergen_stroke_color_synced") || "Sync stroke color with level"}"
+            </div>
+          </ha-formfield>
+          <ha-formfield
+            label="${this._t("allergen_stroke_color_synced")}"
+          >
+            <ha-checkbox
+              .checked=${c.allergen_stroke_color_synced ?? true}
+              @change=${(e) =>
+                this._updateConfig(
+                  "allergen_stroke_color_synced",
+                  e.target.checked,
+                )}
+            ></ha-checkbox>
+          </ha-formfield>
+          <ha-formfield
+            label="${this._t("allergen_stroke_width")}"
+          >
+            <ha-slider
+              min="0"
+              max="150"
+              step="5"
+              .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
+              @input=${(e) => {
+                const value = Number(e.target.value);
+                this._updateConfig("allergen_stroke_width", value);
+                if (
+                  (c.levels_inherit_mode || "inherit_allergen") ===
+                    "inherit_allergen" &&
+                  (c.allergen_levels_gap_synced ?? true)
+                ) {
+                  const levelGap = convertStrokeWidthToGap(value);
+                  this._updateConfig("levels_gap", levelGap);
+                }
+              }}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              min="0"
+              max="150"
+              step="5"
+              .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
+              @input=${(e) => {
+                const value = e.target.value === "" ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
+                this._updateConfig("allergen_stroke_width", value);
+                if (
+                  (c.levels_inherit_mode || "inherit_allergen") ===
+                    "inherit_allergen" &&
+                  (c.allergen_levels_gap_synced ?? true)
+                ) {
+                  const levelGap = convertStrokeWidthToGap(value);
+                  this._updateConfig("levels_gap", levelGap);
+                }
+              }}
+              style="width: 80px;"
+            ></ha-textfield>
+            <ha-button
+              outlined
+              title="${this._t("allergen_stroke_width_reset") || "Reset"}"
+              @click=${() =>
+                this._updateConfig(
+                  "allergen_stroke_width",
+                  LEVELS_DEFAULTS.allergen_stroke_width,
+                )}
+              style="margin-left: 8px;"
+              >↺</ha-button
             >
-              <ha-checkbox
-                .checked=${c.allergen_stroke_color_synced ?? true}
-                @change=${(e) =>
-                  this._updateConfig(
-                    "allergen_stroke_color_synced",
-                    e.target.checked,
-                  )}
-              ></ha-checkbox>
-            </ha-formfield>
+          </ha-formfield>
+          <div class="field-helper">${this._t("helper_allergen_stroke_width")}</div>
+        </details>
 
-            <!-- Levels Configuration (moved above minimal) -->
-            <details>
-              <summary>${this._t("levels_header")}</summary>
-              <ha-formfield
-                label="${this._t("levels_inherit_mode") ||
-                "Level Circle Color Mode"}"
-              >
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-selector
-                    .hass=${this._hass}
-                    .selector=${{
-                      select: {
-                        mode: "dropdown",
-                        options: [
-                          {
-                            value: "inherit_allergen",
-                            label:
-                              this._t("levels_inherit_allergen") ||
-                              "Inherit from Allergen Colors",
-                          },
-                          {
-                            value: "custom",
-                            label:
-                              this._t("levels_custom") || "Use Custom Level Colors",
-                          },
-                        ],
-                      },
-                    }}
-                    .value=${c.levels_inherit_mode || "inherit_allergen"}
-                    @value-changed=${(e) => {
-                      const v = e.detail?.value;
-                      if (v !== undefined) this._updateConfig("levels_inherit_mode", v);
-                    }}
-                  ></ha-selector>
-                </div>
-              </ha-formfield>
+        <!-- §7 Level circles -->
+        <details>
+          <summary>${this._t("summary_level_circles")}</summary>
+          <div class="section-helper">${this._t("helper_level_circles")}</div>
+          <ha-formfield
+            label="${this._t("levels_inherit_mode")}"
+          >
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: [
+                    {
+                      value: "inherit_allergen",
+                      label:
+                        this._t("levels_inherit_allergen") ||
+                        "Inherit from Allergen Colors",
+                    },
+                    {
+                      value: "custom",
+                      label:
+                        this._t("levels_custom") || "Use Custom Level Colors",
+                    },
+                  ],
+                },
+              }}
+              .value=${c.levels_inherit_mode || "inherit_allergen"}
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._updateConfig("levels_inherit_mode", v);
+              }}
+            ></ha-selector>
+          </ha-formfield>
 
-              <!-- Sync Gap with Allergen Stroke Width - only shown when inheriting -->
-              ${(c.levels_inherit_mode || "inherit_allergen") === "inherit_allergen"
-                ? html`
-                    <ha-formfield
-                      label="${this._t("allergen_levels_gap_synced") || "Sync gap with allergen stroke width"}"
-                    >
-                      <ha-checkbox
-                        .checked=${c.allergen_levels_gap_synced ?? true}
-                        @change=${(e) =>
-                          this._updateConfig(
-                            "allergen_levels_gap_synced",
-                            e.target.checked,
-                          )}
-                      ></ha-checkbox>
-                    </ha-formfield>
-                  `
-                : ""}
+          ${inheritMode === "inherit_allergen"
+            ? html`
+                <ha-formfield
+                  label="${this._t("allergen_levels_gap_synced")}"
+                >
+                  <ha-checkbox
+                    .checked=${c.allergen_levels_gap_synced ?? true}
+                    @change=${(e) =>
+                      this._updateConfig(
+                        "allergen_levels_gap_synced",
+                        e.target.checked,
+                      )}
+                  ></ha-checkbox>
+                </ha-formfield>
+                <div class="field-helper">${this._t("helper_allergen_levels_gap_synced")}</div>
+              `
+            : ""}
 
-              <!-- Colors Section - hidden when inheriting -->
-              <div
-                style="${c.levels_inherit_mode === "custom"
-                  ? ""
-                  : "display: none;"}"
-              >
+          ${inheritMode === "custom"
+            ? html`
                 <ha-formfield label="${this._t("levels_colors")}">
                   <div style="display: flex; flex-direction: column; gap: 8px;">
                     ${c.levels_colors.map(
                       (col, i) => html`
-                        <div
-                          style="display: flex; align-items: center; gap: 8px;"
-                        >
+                        <div style="display: flex; align-items: center; gap: 8px;">
                           <input
                             type="color"
                             .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
@@ -2934,9 +3487,7 @@ class PollenPrognosCardEditor extends LitElement {
                           />
                           <ha-textfield
                             .value=${col}
-                            placeholder="${this._t(
-                              "levels_colors_placeholder",
-                            )}"
+                            placeholder="${this._t("levels_colors_placeholder")}"
                             @input=${(e) => {
                               const newColors = [...c.levels_colors];
                               newColors[i] = e.target.value;
@@ -2969,29 +3520,22 @@ class PollenPrognosCardEditor extends LitElement {
                         const color =
                           c.levels_empty_color ||
                           LEVELS_DEFAULTS.levels_empty_color;
-                        // For rgba colors, show closest hex equivalent
                         if (color.includes("rgba")) {
-                          return "#c8c8c8"; // Gray equivalent of rgba(200,200,200,0.15)
+                          return "#c8c8c8";
                         }
                         return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
                           ? color
                           : "#c8c8c8";
                       })()}
                       @input=${(e) =>
-                        this._updateConfig(
-                          "levels_empty_color",
-                          e.target.value,
-                        )}
+                        this._updateConfig("levels_empty_color", e.target.value)}
                       style="width: 28px; height: 28px; border: none; background: none;"
                     />
                     <ha-textfield
                       .value=${c.levels_empty_color}
                       placeholder="${this._t("levels_colors_placeholder")}"
                       @input=${(e) =>
-                        this._updateConfig(
-                          "levels_empty_color",
-                          e.target.value,
-                        )}
+                        this._updateConfig("levels_empty_color", e.target.value)}
                       style="width: 100px;"
                     ></ha-textfield>
                     <ha-button
@@ -3007,18 +3551,85 @@ class PollenPrognosCardEditor extends LitElement {
                     >
                   </div>
                 </ha-formfield>
+              `
+            : ""}
 
+          <ha-formfield label="${this._t("levels_thickness")}">
+            <ha-slider
+              min="10"
+              max="90"
+              step="1"
+              .value=${c.levels_thickness}
+              @input=${(e) =>
+                this._updateConfig("levels_thickness", Number(e.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${c.levels_thickness}
+              @input=${(e) =>
+                this._updateConfig("levels_thickness", Number(e.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+            <ha-button
+              outlined
+              title="${this._t("levels_reset")}"
+              @click=${() =>
+                this._updateConfig("levels_thickness", LEVELS_DEFAULTS.levels_thickness)}
+              style="margin-left: 8px;"
+              >↺</ha-button
+            >
+          </ha-formfield>
+
+          <ha-formfield
+            label="${this._t("levels_gap")}"
+            .disabled=${gapDisabled}
+          >
+            <ha-slider
+              min="0"
+              max="20"
+              step="1"
+              .value=${c.levels_gap}
+              .disabled=${gapDisabled}
+              @input=${(e) =>
+                this._updateConfig("levels_gap", Number(e.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${c.levels_gap}
+              .disabled=${gapDisabled}
+              @input=${(e) =>
+                this._updateConfig("levels_gap", Number(e.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+            <ha-button
+              outlined
+              title="${this._t("levels_reset")}"
+              .disabled=${gapDisabled}
+              @click=${() =>
+                this._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap)}
+              style="margin-left: 8px;"
+              >↺</ha-button
+            >
+          </ha-formfield>
+          <div class="field-helper">
+            ${gapDisabled
+              ? this._t("helper_levels_gap_synced")
+              : this._t("helper_levels_gap_unsynced")}
+          </div>
+
+          ${inheritMode === "custom" || !gapSynced
+            ? html`
                 <ha-formfield label="${this._t("levels_gap_color")}">
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <input
                       type="color"
                       .value=${(() => {
                         const color =
-                          c.levels_gap_color ||
-                          LEVELS_DEFAULTS.levels_gap_color;
-                        // For rgba colors, show closest hex equivalent
+                          c.levels_gap_color || LEVELS_DEFAULTS.levels_gap_color;
                         if (color.includes("rgba")) {
-                          return "#c8c8c8"; // Gray equivalent
+                          return "#c8c8c8";
                         }
                         return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
                           ? color
@@ -3048,853 +3659,238 @@ class PollenPrognosCardEditor extends LitElement {
                     >
                   </div>
                 </ha-formfield>
-
-                <ha-formfield label="${this._t("levels_thickness")}">
-                  <ha-slider
-                    min="10"
-                    max="90"
-                    step="1"
-                    .value=${c.levels_thickness}
-                    @input=${(e) =>
-                      this._updateConfig(
-                        "levels_thickness",
-                        Number(e.target.value),
-                      )}
-                    style="width: 120px;"
-                  ></ha-slider>
-                  <ha-textfield
-                    type="number"
-                    .value=${c.levels_thickness}
-                    @input=${(e) =>
-                      this._updateConfig(
-                        "levels_thickness",
-                        Number(e.target.value),
-                      )}
-                    style="width: 80px;"
-                  ></ha-textfield>
-                  <ha-button
-                    outlined
-                    title="${this._t("levels_reset")}"
-                    @click=${() =>
-                      this._updateConfig(
-                        "levels_thickness",
-                        LEVELS_DEFAULTS.levels_thickness,
-                      )}
-                    style="margin-left: 8px;"
-                    >↺</ha-button
-                  >
-                </ha-formfield>
-              </div>
-
-              <!-- Gap control - conditional on inheritance mode and sync setting -->
-              ${(c.levels_inherit_mode || "inherit_allergen") === "custom" ||
-              !(c.allergen_levels_gap_synced ?? true)
-                ? html`
-                    <ha-formfield label="${this._t("levels_gap")}">
-                      <ha-slider
-                        min="0"
-                        max="20"
-                        step="1"
-                        .value=${c.levels_gap}
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "levels_gap",
-                            Number(e.target.value),
-                          )}
-                        style="width: 120px;"
-                      ></ha-slider>
-                      <ha-textfield
-                        type="number"
-                        .value=${c.levels_gap}
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "levels_gap",
-                            Number(e.target.value),
-                          )}
-                        style="width: 80px;"
-                      ></ha-textfield>
-                      <ha-button
-                        outlined
-                        title="${this._t("levels_reset")}"
-                        @click=${() =>
-                          this._updateConfig(
-                            "levels_gap",
-                            LEVELS_DEFAULTS.levels_gap,
-                          )}
-                        style="margin-left: 8px;"
-                        >↺</ha-button
-                      >
-                    </ha-formfield>
-                  `
-                : html`
-                    <ha-formfield label="${this._t("levels_gap_inherited")}">
-                      <div
-                        style="display: flex; align-items: center; gap: 8px; width: 120px; height: 30px;"
-                      >
-                        <span
-                          style="color: var(--secondary-text-color); font-size: 14px; min-width: 30px"
-                        >
-                          ${convertStrokeWidthToGap(
-                            c.allergen_stroke_width ||
-                              LEVELS_DEFAULTS.allergen_stroke_width,
-                          )}px
-                        </span>
-                      </div>
-                    </ha-formfield>
-                  `}
-
-              <ha-formfield label="${this._t("levels_text_weight")}">
-                <ha-selector
-                  .hass=${this._hass}
-                  .selector=${{
-                    select: {
-                      mode: "dropdown",
-                      options: [
-                        { value: "normal", label: "Normal" },
-                        { value: "500", label: "Medium" },
-                        { value: "bold", label: "Bold" },
-                      ],
-                    },
-                  }}
-                  .value=${c.levels_text_weight || "normal"}
-                  @value-changed=${(e) => {
-                    const v = e.detail?.value;
-                    if (v !== undefined) this._updateConfig("levels_text_weight", v);
-                  }}
-                ></ha-selector>
-              </ha-formfield>
-
-              <ha-formfield label="${this._t("levels_text_size")}">
-                <ha-slider
-                  min="0.1"
-                  max="0.5"
-                  step="0.05"
-                  .value=${c.levels_text_size || 0.3}
-                  @input=${(e) =>
-                    this._updateConfig(
-                      "levels_text_size",
-                      Number(e.target.value),
-                    )}
-                  style="width: 120px;"
-                ></ha-slider>
-                <ha-textfield
-                  type="number"
-                  .value=${c.levels_text_size || 0.3}
-                  @input=${(e) =>
-                    this._updateConfig(
-                      "levels_text_size",
-                      Number(e.target.value),
-                    )}
-                  style="width: 80px;"
-                ></ha-textfield>
-              </ha-formfield>
-
-              <ha-formfield label="${this._t("levels_icon_ratio")}">
-                <ha-slider
-                  min="0.1"
-                  max="2"
-                  step="0.05"
-                  .value=${c.levels_icon_ratio || 1}
-                  @input=${(e) =>
-                    this._updateConfig(
-                      "levels_icon_ratio",
-                      Number(e.target.value),
-                    )}
-                  style="width: 120px;"
-                ></ha-slider>
-                <ha-textfield
-                  type="number"
-                  .value=${c.levels_icon_ratio || 1}
-                  @input=${(e) =>
-                    this._updateConfig(
-                      "levels_icon_ratio",
-                      Number(e.target.value),
-                    )}
-                  style="width: 80px;"
-                ></ha-textfield>
-              </ha-formfield>
-
-              <ha-formfield label="${this._t("levels_text_color")}">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <input
-                    type="color"
-                    .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                      c.levels_text_color || "",
-                    )
-                      ? c.levels_text_color
-                      : "#000000"}
-                    @input=${(e) =>
-                      this._updateConfig("levels_text_color", e.target.value)}
-                    style="width: 28px; height: 28px; border: none; background: none;"
-                  />
-                  <ha-textfield
-                    .value=${c.levels_text_color || ""}
-                    placeholder="var(--primary-text-color)"
-                    @input=${(e) =>
-                      this._updateConfig("levels_text_color", e.target.value)}
-                    style="width: 100px;"
-                  ></ha-textfield>
-                </div>
-              </ha-formfield>
-            </details>
-
-            <!-- Icon in ring (#227) -->
-            <details>
-              <summary>${this._t("icon_in_ring_header") || "Icon in ring"}</summary>
-              <ha-formfield
-                label="${this._t("icon_in_ring") ||
-                "Show allergen icon inside the ring"}"
-              >
-                <ha-checkbox
-                  .checked=${c.icon_in_ring === true}
-                  @change=${(e) =>
-                    this._updateConfig("icon_in_ring", e.target.checked)}
-                ></ha-checkbox>
-              </ha-formfield>
-
-              <ha-formfield
-                label="${this._t("show_allergen_column") ||
-                "Show allergen column"}"
-              >
-                <ha-checkbox
-                  .checked=${c.show_allergen_column !== false}
-                  @change=${(e) =>
-                    this._updateConfig(
-                      "show_allergen_column",
-                      e.target.checked,
-                    )}
-                ></ha-checkbox>
-              </ha-formfield>
-
-              <ha-formfield
-                label="${this._t("icon_in_ring_color_mode") ||
-                "Center icon color mode"}"
-              >
-                <ha-selector
-                  .hass=${this._hass}
-                  .selector=${{
-                    select: {
-                      mode: "dropdown",
-                      options: [
-                        {
-                          value: "static",
-                          label:
-                            this._t("icon_in_ring_color_static") ||
-                            "Static color",
-                        },
-                        {
-                          value: "follow_level",
-                          label:
-                            this._t("icon_in_ring_color_follow") ||
-                            "Follow level color",
-                        },
-                      ],
-                    },
-                  }}
-                  .value=${c.icon_in_ring_color_mode || "static"}
-                  @value-changed=${(e) => {
-                    const v = e.detail?.value;
-                    if (v !== undefined)
-                      this._updateConfig("icon_in_ring_color_mode", v);
-                  }}
-                ></ha-selector>
-              </ha-formfield>
-
-              ${(c.icon_in_ring_color_mode || "static") === "static"
-                ? (() => {
-                    const currentColor =
-                      typeof c.icon_in_ring_static_color === "string"
-                        ? c.icon_in_ring_static_color
-                        : LEVELS_DEFAULTS.icon_in_ring_static_color;
-                    const isHex = /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                      currentColor,
-                    );
-                    return html`
-                      <ha-formfield
-                        label="${this._t("icon_in_ring_static_color") ||
-                        "Static color"}"
-                      >
-                        <div
-                          style="display: flex; align-items: center; gap: 8px;"
-                        >
-                          ${isHex
-                            ? html`<input
-                                type="color"
-                                .value=${currentColor}
-                                @input=${(e) =>
-                                  this._updateConfig(
-                                    "icon_in_ring_static_color",
-                                    e.target.value,
-                                  )}
-                                style="width: 28px; height: 28px; border: none; background: none;"
-                              />`
-                            : html`<div
-                                title="${this._t(
-                                  "icon_in_ring_static_color_var_hint",
-                                ) ||
-                                "Non-hex value (e.g. CSS variable); use the text field to edit"}"
-                                style="width: 28px; height: 28px; border: 1px dashed var(--divider-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--secondary-text-color);"
-                              >
-                                var
-                              </div>`}
-                          <ha-textfield
-                            .value=${currentColor}
-                            placeholder="${LEVELS_DEFAULTS.icon_in_ring_static_color}"
-                            @input=${(e) =>
-                              this._updateConfig(
-                                "icon_in_ring_static_color",
-                                e.target.value,
-                              )}
-                            style="width: 220px;"
-                          ></ha-textfield>
-                        </div>
-                      </ha-formfield>
-                    `;
-                  })()
-                : ""}
-
-              <ha-formfield
-                label="${this._t("icon_in_ring_size_ratio") ||
-                "Icon size (fraction of ring hole)"}"
-              >
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <ha-slider
-                    min="0.2"
-                    max="0.9"
-                    step="0.05"
-                    .value=${c.icon_in_ring_size_ratio ??
-                    LEVELS_DEFAULTS.icon_in_ring_size_ratio}
-                    @change=${(e) =>
-                      this._updateConfig(
-                        "icon_in_ring_size_ratio",
-                        Number(e.target.value),
-                      )}
-                  ></ha-slider>
-                  <ha-textfield
-                    type="number"
-                    min="0.2"
-                    max="0.9"
-                    step="0.05"
-                    .value=${c.icon_in_ring_size_ratio ??
-                    LEVELS_DEFAULTS.icon_in_ring_size_ratio}
-                    @change=${(e) =>
-                      this._updateConfig(
-                        "icon_in_ring_size_ratio",
-                        Number(e.target.value),
-                      )}
-                    style="width: 80px;"
-                  ></ha-textfield>
-                </div>
-              </ha-formfield>
-            </details>
-
-            <details open>
-              <summary>${this._t("summary_minimal")}</summary>
-              <ha-formfield label="${this._t("minimal")}">
-                <ha-switch
-                  .checked=${c.minimal}
-                  @change=${(e) =>
-                    this._updateConfig("minimal", e.target.checked)}
-                ></ha-switch>
-              </ha-formfield>
-              <ha-formfield label="${this._t("minimal_gap")}">
-                <ha-slider
-                  min="0"
-                  max="100"
-                  step="1"
-                  .value=${c.minimal_gap ?? 35}
-                  @input=${(e) =>
-                    this._updateConfig("minimal_gap", Number(e.target.value))}
-                  style="width: 120px;"
-                ></ha-slider>
-                <ha-textfield
-                  type="number"
-                  .value=${c.minimal_gap ?? 35}
-                  min="0"
-                  max="100"
-                  step="1"
-                  @input=${(e) =>
-                    this._updateConfig("minimal_gap", Number(e.target.value))}
-                  style="width: 80px;"
-                ></ha-textfield>
-              </ha-formfield>
-            </details>
-          </details>
-
-          <!-- Display Switches -->
-          <details open>
-            <summary>${this._t("summary_data_view_settings")}</summary>
-            <ha-formfield label="${this._t("allergens_abbreviated")}">
-              <ha-switch
-                .checked=${c.allergens_abbreviated}
-                @change=${(e) =>
-                  this._updateConfig("allergens_abbreviated", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("show_text_allergen")}">
-              <ha-switch
-                .checked=${c.show_text_allergen}
-                @change=${(e) =>
-                  this._updateConfig("show_text_allergen", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("show_value_text")}">
-              <ha-switch
-                .checked=${c.show_value_text}
-                @change=${(e) =>
-                  this._updateConfig("show_value_text", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("show_value_numeric")}">
-              <ha-switch
-                .checked=${c.show_value_numeric}
-                @change=${(e) =>
-                  this._updateConfig("show_value_numeric", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
-              <ha-switch
-                .checked=${c.show_value_numeric_in_circle}
-                @change=${(e) =>
-                  this._updateConfig(
-                    "show_value_numeric_in_circle",
-                    e.target.checked,
-                  )}
-              ></ha-switch>
-            </ha-formfield>
-            ${c.integration === "peu"
-              ? html`
-                  <ha-formfield label="${this._t("numeric_state_raw_risk")}">
-                    <ha-switch
-                      .checked=${c.numeric_state_raw_risk}
-                      @change=${(e) =>
-                        this._updateConfig(
-                          "numeric_state_raw_risk",
-                          e.target.checked,
-                        )}
-                    ></ha-switch>
-                  </ha-formfield>
-                `
-              : ""}
-            <ha-formfield label="${this._t("show_empty_days")}">
-              <ha-switch
-                .checked=${c.show_empty_days}
-                @change=${(e) =>
-                  this._updateConfig("show_empty_days", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("show_no_data_distinct")}">
-              <ha-switch
-                .checked=${c.show_no_data_distinct !== false}
-                @change=${(e) =>
-                  this._updateConfig("show_no_data_distinct", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-          </details>
-
-          <!-- Day Settings -->
-          <details open>
-            <summary>${this._t("summary_day_view_settings")}</summary>
-            <ha-formfield label="${this._t("days_relative")}">
-              <ha-switch
-                .checked=${c.days_relative}
-                @change=${(e) =>
-                  this._updateConfig("days_relative", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("days_abbreviated")}">
-              <ha-switch
-                .checked=${c.days_abbreviated}
-                @change=${(e) =>
-                  this._updateConfig("days_abbreviated", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("days_uppercase")}">
-              <ha-switch
-                .checked=${c.days_uppercase}
-                @change=${(e) =>
-                  this._updateConfig("days_uppercase", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-            <ha-formfield label="${this._t("days_boldfaced")}">
-              <ha-switch
-                .checked=${c.days_boldfaced}
-                @change=${(e) =>
-                  this._updateConfig("days_boldfaced", e.target.checked)}
-              ></ha-switch>
-            </ha-formfield>
-
-            <!-- Columns/Days/Threshold/Sort -->
-            <div class="slider-row">
-              <div class="slider-text">
-                ${(c.integration === "silam" || c.integration === "peu") &&
-                c.mode === "twice_daily"
-                  ? this._t("to_show_columns")
-                  : (c.integration === "silam" || c.integration === "peu") &&
-                      c.mode !== "daily"
-                    ? this._t("to_show_hours")
-                    : this._t("to_show_days")}
-              </div>
-              <div class="slider-value">${c.days_to_show}</div>
-              <ha-slider
-                min="0"
-                max="${(c.integration === "silam" || c.integration === "peu") &&
-                c.mode !== "daily"
-                  ? 8
-                  : 6}"
-                step="1"
-                .value=${c.days_to_show}
-                @input=${(e) =>
-                  this._updateConfig("days_to_show", Number(e.target.value))}
-              ></ha-slider>
-            </div>
-          </details>
-        </details>
-
-        <!-- Allergens -->
-        <details>
-          <summary>${this._t("summary_allergens")}</summary>
-          ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
-            ? html`
-                <!-- Category allergens (controlled by checkbox) -->
-                <div class="allergen-section">
-                  <h4
-                    style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                  >
-                    ${this._t("allergens_header_category")}
-                  </h4>
-                  <div class="allergens-group">
-                    ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
-                      const displayName = this._getAllergenDisplayName(key);
-                      return html`
-                        <ha-formfield .label=${displayName}>
-                          <ha-checkbox
-                            .checked=${c.allergens.includes(key)}
-                            @change=${(e) =>
-                              this._onAllergenToggle(key, e.target.checked)}
-                          ></ha-checkbox>
-                        </ha-formfield>
-                      `;
-                    })}
-                  </div>
-                </div>
-
-                <!-- Individual allergens -->
-                <div class="allergen-section">
-                  <h4
-                    style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                  >
-                    ${this._t("allergens_header_specific")}
-                  </h4>
-                  <div class="allergens-group">
-                    ${allergens
-                      .filter(
-                        (key) =>
-                          !["trees_cat", "grass_cat", "weeds_cat"].includes(
-                            key,
-                          ),
-                      )
-                      .sort((a, b) => {
-                        // Sort alphabetically by display name
-                        const displayA = this._getAllergenDisplayName(a);
-                        const displayB = this._getAllergenDisplayName(b);
-                        return displayA.localeCompare(displayB);
-                      })
-                      .map((key) => {
-                        const displayName = this._getAllergenDisplayName(key);
-                        return html`
-                          <ha-formfield .label=${displayName}>
-                            <ha-checkbox
-                              .checked=${c.allergens.includes(key)}
-                              @change=${(e) =>
-                                this._onAllergenToggle(key, e.target.checked)}
-                            ></ha-checkbox>
-                          </ha-formfield>
-                        `;
-                      })}
-                  </div>
-                </div>
               `
-            : c.integration === "atmo"
-              ? html`
-                  <!-- Atmo France: Summary / Pollen / Pollution blocks -->
-                  <div class="allergen-section">
-                    <h4
-                      style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                    >
-                      ${this._t("allergens_header_summary")}
-                    </h4>
-                    <div class="allergens-group">
-                      ${["allergy_risk", "qualite_globale"]
-                        .filter((key) => allergens.includes(key))
-                        .map((key) => {
-                          const displayName =
-                            this._getAllergenDisplayName(key);
-                          return html`
-                            <ha-formfield .label=${displayName}>
-                              <ha-checkbox
-                                .checked=${c.allergens.includes(key)}
-                                @change=${(e) =>
-                                  this._onAllergenToggle(
-                                    key,
-                                    e.target.checked,
-                                  )}
-                              ></ha-checkbox>
-                            </ha-formfield>
-                          `;
-                        })}
-                    </div>
-                  </div>
-                  <div class="allergen-section">
-                    <h4
-                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                    >
-                      ${this._t("allergens_header_pollen")}
-                    </h4>
-                    <div class="allergens-group">
-                      ${allergens
-                        .filter(
-                          (key) =>
-                            !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(key),
-                        )
-                        .sort((a, b) => {
-                          const displayA = this._getAllergenDisplayName(a);
-                          const displayB = this._getAllergenDisplayName(b);
-                          return displayA.localeCompare(displayB);
-                        })
-                        .map((key) => {
-                          const displayName =
-                            this._getAllergenDisplayName(key);
-                          return html`
-                            <ha-formfield .label=${displayName}>
-                              <ha-checkbox
-                                .checked=${c.allergens.includes(key)}
-                                @change=${(e) =>
-                                  this._onAllergenToggle(
-                                    key,
-                                    e.target.checked,
-                                  )}
-                              ></ha-checkbox>
-                            </ha-formfield>
-                          `;
-                        })}
-                    </div>
-                  </div>
-                  <div class="allergen-section">
-                    <h4
-                      style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                    >
-                      ${this._t("allergens_header_pollution")}
-                    </h4>
-                    <div class="allergens-group">
-                      ${["pm25", "pm10", "ozone", "no2", "so2"]
-                        .filter((key) => allergens.includes(key))
-                        .map((key) => {
-                          const displayName =
-                            this._getAllergenDisplayName(key);
-                          return html`
-                            <ha-formfield .label=${displayName}>
-                              <ha-checkbox
-                                .checked=${c.allergens.includes(key)}
-                                @change=${(e) =>
-                                  this._onAllergenToggle(
-                                    key,
-                                    e.target.checked,
-                                  )}
-                              ></ha-checkbox>
-                            </ha-formfield>
-                          `;
-                        })}
-                    </div>
-                  </div>
-                `
-              : html`
-                  <!-- Standard allergen display -->
-                  <div class="allergens-group">
-                    ${allergens.map((key) => {
-                      const displayName = this._getAllergenDisplayName(key);
-                      return html`
-                        <ha-formfield .label=${displayName}>
-                          <ha-checkbox
-                            .checked=${c.allergens.includes(key)}
-                            @change=${(e) =>
-                              this._onAllergenToggle(key, e.target.checked)}
-                          ></ha-checkbox>
-                        </ha-formfield>
-                      `;
-                    })}
-                  </div>
-                `}
-          <div class="preset-buttons">
-            <ha-button
-              @click=${() => {
-                // For kleenex, include both individual allergens and category allergens
-                const allAllergens =
-                  c.integration === "kleenex"
-                    ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
-                    : allergens;
-                this._toggleSelectAllAllergens(allAllergens);
-              }}
-            >
-              ${this._t("select_all_allergens")}
-            </ha-button>
-            ${c.integration === "atmo"
-              ? html`
-                  <ha-button
-                    @click=${() => {
-                      const pollenKeys = allergens.filter(
-                        (k) =>
-                          !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(k),
-                      );
-                      this._toggleAllergenSubset(pollenKeys);
-                    }}
-                  >
-                    ${this._t("select_all_pollen")}
-                  </ha-button>
-                  <ha-button
-                    @click=${() => {
-                      const pollutionKeys = ["pm25", "pm10", "ozone", "no2", "so2"].filter(
-                        (k) => allergens.includes(k),
-                      );
-                      this._toggleAllergenSubset(pollutionKeys);
-                    }}
-                  >
-                    ${this._t("select_all_pollution")}
-                  </ha-button>
-                `
-              : ""}
-          </div>
-          <div class="slider-row">
-            <div class="slider-text">${this._t("pollen_threshold")}</div>
-            <div class="slider-value">${c.pollen_threshold}</div>
-            <ha-slider
-              min="${thresholdParams.min}"
-              max="${thresholdParams.max}"
-              step="${thresholdParams.step}"
-              .value=${c.pollen_threshold}
-              @input=${(e) =>
-                this._updateConfig("pollen_threshold", Number(e.target.value))}
-            ></ha-slider>
-          </div>
-          <ha-formfield label="${this._t("sort")}">
+            : ""}
+
+          <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
+            <ha-switch
+              .checked=${c.show_value_numeric_in_circle}
+              @change=${(e) =>
+                this._updateConfig(
+                  "show_value_numeric_in_circle",
+                  e.target.checked,
+                )}
+            ></ha-switch>
+          </ha-formfield>
+          <div class="field-helper">${this._t("helper_show_value_numeric_in_circle")}</div>
+
+          <ha-formfield label="${this._t("levels_text_weight")}">
             <ha-selector
               .hass=${this._hass}
               .selector=${{
                 select: {
                   mode: "dropdown",
-                  options: sortOptions,
+                  options: [
+                    { value: "normal", label: "Normal" },
+                    { value: "500", label: "Medium" },
+                    { value: "bold", label: "Bold" },
+                  ],
                 },
               }}
-              .value=${c.sort}
+              .value=${c.levels_text_weight || "normal"}
               @value-changed=${(e) => {
                 const v = e.detail?.value;
-                if (v !== undefined) this._updateConfig("sort", v);
+                if (v !== undefined) this._updateConfig("levels_text_weight", v);
               }}
             ></ha-selector>
           </ha-formfield>
-          ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
-            ? html`
-                <ha-formfield
-                  label="${this._t("sort_category_allergens_first")}"
-                >
-                  <ha-checkbox
-                    .checked=${c.sort_category_allergens_first}
-                    @change=${(e) =>
-                      this._updateConfig(
-                        "sort_category_allergens_first",
-                        e.target.checked,
-                      )}
-                  ></ha-checkbox>
-                </ha-formfield>
-              `
-            : ""}
-          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo" || c.integration === "gpl"
-            ? html`
-                <ha-formfield
-                  label="${c.integration === "silam"
-                    ? this._t("index_top")
-                    : this._t("allergy_risk_top")}"
-                >
-                  <ha-checkbox
-                    .checked=${c.integration === "silam"
-                      ? c.index_top
-                      : c.allergy_risk_top}
-                    @change=${(e) =>
-                      this._updateConfig(
-                        c.integration === "silam"
-                          ? "index_top"
-                          : "allergy_risk_top",
-                        e.target.checked,
-                      )}
-                  ></ha-checkbox>
-                </ha-formfield>
-              `
-            : ""}
-          ${c.integration === "atmo"
-            ? html`
-                <ha-formfield
-                  label="${this._t("sort_pollution_block")}"
-                >
-                  <ha-checkbox
-                    .checked=${c.sort_pollution_block}
-                    @change=${(e) =>
-                      this._updateConfig(
-                        "sort_pollution_block",
-                        e.target.checked,
-                      )}
-                  ></ha-checkbox>
-                </ha-formfield>
-                ${c.sort_pollution_block
-                  ? html`
-                      <ha-formfield
-                        label="${this._t("pollution_block_position")}"
-                      >
-                        <ha-selector
-                          .hass=${this._hass}
-                          .selector=${{
-                            select: {
-                              mode: "dropdown",
-                              options: [
-                                {
-                                  value: "bottom",
-                                  label: this._t("pollution_block_bottom"),
-                                },
-                                {
-                                  value: "top",
-                                  label: this._t("pollution_block_top"),
-                                },
-                              ],
-                            },
-                          }}
-                          .value=${c.pollution_block_position || "bottom"}
-                          @value-changed=${(e) => {
-                            const v = e.detail?.value;
-                            if (v !== undefined)
-                              this._updateConfig("pollution_block_position", v);
-                          }}
-                        ></ha-selector>
-                      </ha-formfield>
-                      <ha-formfield
-                        label="${this._t("show_block_separator")}"
-                      >
-                        <ha-checkbox
-                          .checked=${c.show_block_separator}
-                          @change=${(e) =>
-                            this._updateConfig(
-                              "show_block_separator",
-                              e.target.checked,
-                            )}
-                        ></ha-checkbox>
-                      </ha-formfield>
-                    `
-                  : ""}
-              `
+
+          <ha-formfield label="${this._t("levels_text_size")}">
+            <ha-slider
+              min="0.1"
+              max="0.5"
+              step="0.05"
+              .value=${c.levels_text_size || 0.3}
+              @input=${(e) =>
+                this._updateConfig("levels_text_size", Number(e.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${c.levels_text_size || 0.3}
+              @input=${(e) =>
+                this._updateConfig("levels_text_size", Number(e.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+          </ha-formfield>
+
+          <ha-formfield label="${this._t("levels_icon_ratio")}">
+            <ha-slider
+              min="0.1"
+              max="2"
+              step="0.05"
+              .value=${c.levels_icon_ratio || 1}
+              @input=${(e) =>
+                this._updateConfig("levels_icon_ratio", Number(e.target.value))}
+              style="width: 120px;"
+            ></ha-slider>
+            <ha-textfield
+              type="number"
+              .value=${c.levels_icon_ratio || 1}
+              @input=${(e) =>
+                this._updateConfig("levels_icon_ratio", Number(e.target.value))}
+              style="width: 80px;"
+            ></ha-textfield>
+          </ha-formfield>
+
+          <ha-formfield label="${this._t("levels_text_color")}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input
+                type="color"
+                .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                  c.levels_text_color || "",
+                )
+                  ? c.levels_text_color
+                  : "#000000"}
+                @input=${(e) =>
+                  this._updateConfig("levels_text_color", e.target.value)}
+                style="width: 28px; height: 28px; border: none; background: none;"
+              />
+              <ha-textfield
+                .value=${c.levels_text_color || ""}
+                placeholder="var(--primary-text-color)"
+                @input=${(e) =>
+                  this._updateConfig("levels_text_color", e.target.value)}
+                style="width: 100px;"
+              ></ha-textfield>
+            </div>
+          </ha-formfield>
+        </details>
+
+        <!-- §8 Icon in ring -->
+        <details>
+          <summary>${this._t("summary_icon_in_ring")}</summary>
+          <div class="section-helper">${this._t("helper_icon_in_ring")}</div>
+          <ha-formfield
+            label="${this._t("icon_in_ring")}"
+          >
+            <ha-checkbox
+              .checked=${c.icon_in_ring === true}
+              @change=${(e) =>
+                this._updateConfig("icon_in_ring", e.target.checked)}
+            ></ha-checkbox>
+          </ha-formfield>
+          <ha-formfield
+            label="${this._t("icon_in_ring_size_ratio")}"
+          >
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <ha-slider
+                min="0.2"
+                max="0.9"
+                step="0.05"
+                .value=${c.icon_in_ring_size_ratio ??
+                LEVELS_DEFAULTS.icon_in_ring_size_ratio}
+                @change=${(e) =>
+                  this._updateConfig(
+                    "icon_in_ring_size_ratio",
+                    Number(e.target.value),
+                  )}
+              ></ha-slider>
+              <ha-textfield
+                type="number"
+                min="0.2"
+                max="0.9"
+                step="0.05"
+                .value=${c.icon_in_ring_size_ratio ??
+                LEVELS_DEFAULTS.icon_in_ring_size_ratio}
+                @change=${(e) =>
+                  this._updateConfig(
+                    "icon_in_ring_size_ratio",
+                    Number(e.target.value),
+                  )}
+                style="width: 80px;"
+              ></ha-textfield>
+            </div>
+          </ha-formfield>
+          <ha-formfield
+            label="${this._t("icon_in_ring_color_mode")}"
+          >
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: [
+                    {
+                      value: "static",
+                      label:
+                        this._t("icon_in_ring_color_static") ||
+                        "Static color",
+                    },
+                    {
+                      value: "follow_level",
+                      label:
+                        this._t("icon_in_ring_color_follow") ||
+                        "Follow level color",
+                    },
+                  ],
+                },
+              }}
+              .value=${c.icon_in_ring_color_mode || "static"}
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined)
+                  this._updateConfig("icon_in_ring_color_mode", v);
+              }}
+            ></ha-selector>
+          </ha-formfield>
+          ${(c.icon_in_ring_color_mode || "static") === "static"
+            ? (() => {
+                const currentColor =
+                  typeof c.icon_in_ring_static_color === "string"
+                    ? c.icon_in_ring_static_color
+                    : LEVELS_DEFAULTS.icon_in_ring_static_color;
+                const isHex = /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
+                  currentColor,
+                );
+                return html`
+                  <ha-formfield
+                    label="${this._t("icon_in_ring_static_color")}"
+                  >
+                    <div
+                      style="display: flex; align-items: center; gap: 8px;"
+                    >
+                      ${isHex
+                        ? html`<input
+                            type="color"
+                            .value=${currentColor}
+                            @input=${(e) =>
+                              this._updateConfig(
+                                "icon_in_ring_static_color",
+                                e.target.value,
+                              )}
+                            style="width: 28px; height: 28px; border: none; background: none;"
+                          />`
+                        : html`<div
+                            title="${this._t(
+                              "icon_in_ring_static_color_var_hint",
+                            ) ||
+                            "Non-hex value (e.g. CSS variable); use the text field to edit"}"
+                            style="width: 28px; height: 28px; border: 1px dashed var(--divider-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--secondary-text-color);"
+                          >
+                            var
+                          </div>`}
+                      <ha-textfield
+                        .value=${currentColor}
+                        placeholder="${LEVELS_DEFAULTS.icon_in_ring_static_color}"
+                        @input=${(e) =>
+                          this._updateConfig(
+                            "icon_in_ring_static_color",
+                            e.target.value,
+                          )}
+                        style="width: 220px;"
+                      ></ha-textfield>
+                    </div>
+                  </ha-formfield>
+                `;
+              })()
             : ""}
         </details>
 
-        <!-- Översättningar och textsträngar -->
+        <!-- §9 Translations & strings -->
         <details>
           <summary>${this._t("summary_translation_and_strings")}</summary>
+          <div class="section-helper">${this._t("helper_translation_and_strings")}</div>
           <ha-formfield label="${this._t("locale")}">
             <ha-textfield
               .value=${c.date_locale}
@@ -4017,9 +4013,10 @@ class PollenPrognosCardEditor extends LitElement {
           </ha-formfield>
         </details>
 
-        <!-- Tap Action -->
+        <!-- §10 Card interactivity -->
         <details>
           <summary>${this._t("summary_card_interactivity")}</summary>
+          <div class="section-helper">${this._t("helper_card_interactivity")}</div>
           <h3>${this._t("tap_action")}</h3>
           <ha-formfield label="${this._t("link_to_sensors")}">
             <ha-switch
@@ -4164,9 +4161,10 @@ class PollenPrognosCardEditor extends LitElement {
             : ""}
         </details>
 
-        <!-- Debug -->
+        <!-- §11 Advanced -->
         <details>
           <summary>${this._t("summary_advanced")}</summary>
+          <div class="section-helper">${this._t("helper_advanced")}</div>
           <ha-formfield label="${this._t("debug")}">
             <ha-switch
               .checked=${c.debug}
@@ -4360,6 +4358,38 @@ class PollenPrognosCardEditor extends LitElement {
       /* Reduce spacing between toggles in settings group */
       details .ha-formfield {
         margin-bottom: 2px;
+      }
+
+      /* Section helper text below summary */
+      .section-helper {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        padding: 0 0 8px;
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
+      /* Subgroup header (uppercase divider inside a section) */
+      .subgroup-header {
+        text-transform: uppercase;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        padding-top: 10px;
+        border-top: 1px dashed var(--divider-color, #ccc);
+        margin-top: 8px;
+        margin-bottom: 4px;
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
+      /* Inline helper text below a specific field */
+      .field-helper {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        padding: 2px 0 6px;
+        margin-left: 24px;
+        margin-right: 24px;
       }
 
       /* Display the current card version */
