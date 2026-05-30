@@ -2810,6 +2810,7 @@ class PollenPrognosCard extends LitElement {
 
     if (
       this.config.show_summary_top_types !== false &&
+      this.config.show_summary_top_types !== "false" &&
       Array.isArray(sensor.topPollen) &&
       sensor.topPollen.length > 0
     ) {
@@ -2820,6 +2821,7 @@ class PollenPrognosCard extends LitElement {
 
     if (
       this.config.show_summary_plants_in_season !== false &&
+      this.config.show_summary_plants_in_season !== "false" &&
       Array.isArray(sensor.plantsInSeasonList) &&
       sensor.plantsInSeasonList.length > 0
     ) {
