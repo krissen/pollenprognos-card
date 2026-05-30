@@ -46,6 +46,32 @@ export async function fetchForecast(hass, config) {
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
 
+      // Summary block (issue #222): tag the aggregate and enrich it with the
+      // v2.1.0 extras (top pollen types, plants in season). The card renders
+      // these in the block; SILAM/Atmo have no equivalent and stay level-only.
+      if (allergen === "allergy_risk") {
+        dict.isSummary = true;
+        const attrs = sensor.attributes ?? {};
+        // top_pollen_codes are canonical allergen slugs (birch, oak, grass...).
+        // Localize HERE via the same name-resolution path as allergenCapitalized
+        // so the card stays integration-agnostic. Ignore the comma-joined string
+        // variant; use the array only. Omit the field entirely when empty.
+        const codes = Array.isArray(attrs.top_pollen_codes) ? attrs.top_pollen_codes : [];
+        if (codes.length) {
+          dict.topPollen = codes.map(
+            (c) =>
+              resolveAllergenNames(String(c).toLowerCase(), {
+                fullPhrases, shortPhrases, abbreviated: false, lang,
+                capitalize: (s) => capitalize(s.replace(/_/g, " ")),
+              }).allergenCapitalized,
+          );
+        }
+        // plants_in_season_today: set even when 0 (zero is informative), omit
+        // when the attribute is absent (older pollenlevels versions).
+        const plants = attrs.plants_in_season_today;
+        if (typeof plants === "number") dict.plantsInSeason = plants;
+      }
+
       if (debug) {
         console.debug(`[GPL] Processing sensor ${sensorId}:`, {
           state: sensor.state,
@@ -129,8 +155,12 @@ export async function fetchForecast(hass, config) {
         dict.days.push(dayObj);
       }
 
-      // Threshold filter
-      if (meetsThreshold(dict.days, pollen_threshold)) {
+      // Threshold filter. The summary block (issue #222) needs the aggregate
+      // retained regardless of threshold, but only when the block is enabled,
+      // so existing row behaviour is unchanged when it is off.
+      const skipThreshold =
+        allergen === "allergy_risk" && config.show_summary_block === true;
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) {
         sensors.push(dict);
       }
     } catch (e) {
