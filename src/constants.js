@@ -650,6 +650,12 @@ export const COSMETIC_FIELDS = [
   "text_size_ratio",
   "minimal_gap",
   "show_block_separator",
+  // Summary-block render toggles (#222). show_summary_block itself is NOT
+  // cosmetic: it changes adapter output (threshold bypass), so it must trigger
+  // a data reload. These three only affect card rendering.
+  "show_summary_row",
+  "show_summary_top_types",
+  "show_summary_plants_in_season",
   "show_no_data_distinct",
   "icon_in_ring",
   "show_allergen_column",

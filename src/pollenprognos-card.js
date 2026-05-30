@@ -947,8 +947,8 @@ class PollenPrognosCard extends LitElement {
     return detectLang(this._hass, this.config?.date_locale);
   }
 
-  _t(key) {
-    return t(key, this._lang);
+  _t(key, vars = {}) {
+    return t(key, this._lang, vars);
   }
 
   _hasTapAction() {
@@ -2390,12 +2390,30 @@ class PollenPrognosCard extends LitElement {
       return html``;
     }
 
-    const sensorsWithDays = this.sensors.filter(
+    // Summary block (issue #222): the aggregate stays in this.sensors; the
+    // card renders it as a block above the table and filters it out of the
+    // table rows unless the user opted into duplication via show_summary_row.
+    // Card-side filtering (not adapter-side dropping) avoids the empty-card
+    // crash when the aggregate is the only sensor.
+    const summarySensor = this.sensors.find((s) => s.isSummary) || null;
+    const showSummaryBlock =
+      this.config.show_summary_block === true && summarySensor != null;
+    const showSummaryRow =
+      !showSummaryBlock || this.config.show_summary_row === true;
+    const rowSensors = showSummaryRow
+      ? this.sensors
+      : this.sensors.filter((s) => !s.isSummary);
+
+    const sensorsWithDays = rowSensors.filter(
       (s) => s.days && s.days.length > 0,
     );
-    const staleSensors = this.sensors.filter((s) => s.stale === true);
-    
-    if (sensorsWithDays.length === 0 && staleSensors.length === 0) {
+    const staleSensors = rowSensors.filter((s) => s.stale === true);
+
+    if (
+      sensorsWithDays.length === 0 &&
+      staleSensors.length === 0 &&
+      !showSummaryBlock
+    ) {
       if (this.debug) {
         console.debug(
           "[Card] _renderNormalHtml: no sensors have days arrays, returning empty",
@@ -2466,19 +2484,53 @@ class PollenPrognosCard extends LitElement {
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+
+    // Summary block (issue #222) ring geometry: a larger ring than the daily
+    // cells. Reuses the same colors/thickness/gap, and the icon-in-ring (#227)
+    // treatment when enabled. Built once and used by both the degenerate
+    // (cols.length === 0) path and the normal table path below.
+    const summaryRingOpts = showSummaryBlock
+      ? (() => {
+          const opts = {
+            colors,
+            emptyColor,
+            gapColor,
+            thickness,
+            gap,
+            size: Math.min(110, Math.max(56, size * 1.5)),
+          };
+          if (iconInRing && summarySensor) {
+            const lvl = Number(summarySensor.day0?.state) || 0;
+            opts.iconKey = this._getEffectiveSvgKey(
+              this._getSvgKey(summarySensor.allergenReplaced),
+              lvl,
+            );
+            opts.iconColor = this._iconInRingColor(
+              lvl,
+              summarySensor.allergenReplaced,
+            );
+            opts.iconSizeRatio = ringIconRatio;
+          }
+          return opts;
+        })()
+      : null;
+
     // Degenerate config: no day columns at all (e.g. every sensor
     // stale plus show_empty_days=false). The forecast table can't
     // anchor stale rows without producing a colgroup/colspan
     // mismatch, so fall back to a flat list of stale sensors —
     // each row is just the allergen icon next to its stale text.
     if (cols.length === 0) {
-      const staleOnly = this.sensors.filter((s) => s.stale === true);
-      if (staleOnly.length === 0) return html``;
+      const staleOnly = rowSensors.filter((s) => s.stale === true);
+      if (staleOnly.length === 0 && !showSummaryBlock) return html``;
       return html`
         ${this.header
           ? html`<div class="card-header">${this.header}</div>`
           : ""}
         <div class="card-content">
+          ${showSummaryBlock
+            ? this._renderSummaryBlock(summarySensor, summaryRingOpts)
+            : ""}
           <div class="stale-only-list">
             ${staleOnly.map(
               (sensor) => html`
@@ -2513,6 +2565,11 @@ class PollenPrognosCard extends LitElement {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
+        ${showSummaryBlock
+          ? this._renderSummaryBlock(summarySensor, summaryRingOpts)
+          : ""}
+        ${rowSensors.length > 0
+          ? html`
         <div class="forecast-content">
           <table class="forecast">
             <colgroup>
@@ -2537,12 +2594,12 @@ class PollenPrognosCard extends LitElement {
                           class="day-header"
                           style="font-size: ${1.0 * textSizeRatio}em;"
                         >
-                          ${this.sensors?.[0]?.days?.[i]?.day || ""}
+                          ${rowSensors?.[0]?.days?.[i]?.day || ""}
                         </span>
                         ${this.config.mode === "twice_daily" &&
-                        this.sensors?.[0]?.days?.[i]?.icon
+                        rowSensors?.[0]?.days?.[i]?.icon
                           ? html`<ha-icon
-                              icon="${this.sensors[0].days[i].icon}"
+                              icon="${rowSensors[0].days[i].icon}"
                               style="margin-top: 2px;"
                             ></ha-icon>`
                           : ""}
@@ -2552,14 +2609,14 @@ class PollenPrognosCard extends LitElement {
                 )}
               </tr>
             </thead>
-            ${this.sensors.flatMap(
+            ${rowSensors.flatMap(
               (sensor, sIdx) => {
                 const separator =
                   this.config.show_block_separator &&
                   sIdx > 0 &&
                   sensor.group &&
-                  this.sensors[sIdx - 1].group &&
-                  sensor.group !== this.sensors[sIdx - 1].group
+                  rowSensors[sIdx - 1].group &&
+                  sensor.group !== rowSensors[sIdx - 1].group
                     ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
                     : "";
                 const row = sensor.stale
@@ -2721,6 +2778,94 @@ class PollenPrognosCard extends LitElement {
                 return [separator, row];
               })}
           </table>
+        </div>
+          `
+          : ""}
+      </div>
+    `;
+  }
+
+  /**
+   * Summary block (issue #222): a standalone, prominent overall-risk indicator
+   * rendered above the allergen table. Driven by the adapter-tagged
+   * `isSummary` sensor. Shows the big level ring + name + level text for all
+   * three supporting integrations; GPL additionally gets the top-pollen-types
+   * caption and plants-in-season count, each behind its own toggle and
+   * null-safe so SILAM/Atmo (which lack those fields) degrade to level-only.
+   */
+  _renderSummaryBlock(sensor, ringOpts) {
+    if (!sensor) return "";
+    const textSizeRatio = this.config?.text_size_ratio ?? 1;
+    const day0 = sensor.day0 || sensor.days?.[0] || {};
+    const levelVal = Number(day0.state) || 0;
+    const displayVal = Number(day0.display_state ?? day0.state ?? 0);
+    const stateText = day0.state_text || "";
+    const name = this.config.allergens_abbreviated
+      ? sensor.allergenShort
+      : sensor.allergenCapitalized;
+
+    // GPL extras: absent on SILAM/Atmo, so the checks degrade to false there.
+    const showTopTypes =
+      this.config.show_summary_top_types !== false &&
+      Array.isArray(sensor.topPollen) &&
+      sensor.topPollen.length > 0;
+    const showPlants =
+      this.config.show_summary_plants_in_season !== false &&
+      typeof sensor.plantsInSeason === "number";
+
+    const clickable =
+      this.config.link_to_sensors !== false && Boolean(sensor.entity_id);
+
+    return html`
+      <div class="summary-block">
+        <div class="summary-block-ring">
+          ${this._renderLevelCircle(
+            levelVal,
+            ringOpts || {},
+            sensor.allergenReplaced,
+            "summary",
+            displayVal,
+            sensor.entity_id,
+            clickable,
+          )}
+        </div>
+        <div class="summary-block-text">
+          ${name
+            ? html`<div
+                class="summary-block-name"
+                style="font-size: ${1.15 * textSizeRatio}em;"
+              >
+                ${name}
+              </div>`
+            : ""}
+          ${stateText
+            ? html`<div
+                class="summary-block-level"
+                style="font-size: ${1.0 * textSizeRatio}em;"
+              >
+                ${stateText}
+              </div>`
+            : ""}
+          ${showTopTypes
+            ? html`<div
+                class="summary-block-top"
+                style="font-size: ${0.9 * textSizeRatio}em;"
+              >
+                ${this._t("card.summary.top_types", {
+                  list: sensor.topPollen.join(", "),
+                })}
+              </div>`
+            : ""}
+          ${showPlants
+            ? html`<div
+                class="summary-block-plants"
+                style="font-size: ${0.9 * textSizeRatio}em;"
+              >
+                ${this._t("card.summary.plants_in_season", {
+                  count: sensor.plantsInSeason,
+                })}
+              </div>`
+            : ""}
         </div>
       </div>
     `;
@@ -3033,6 +3178,43 @@ class PollenPrognosCard extends LitElement {
         min-width: 0;
         height: auto;
         margin: 0 auto 6px auto;
+      }
+
+      /* Summary block (issue #222): a prominent overall-risk indicator above
+         the forecast table. Content-driven height — no reserved space for the
+         GPL-only extras, so SILAM/Atmo render a clean ring + text. */
+      .summary-block {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 6px 4px 12px 4px;
+      }
+
+      /* The block ring is larger than the daily cells, so it must escape the
+         48px max-width cap the daily .level-circle carries. */
+      .summary-block .level-circle {
+        max-width: none;
+        margin: 0;
+      }
+
+      .summary-block-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .summary-block-name {
+        font-weight: bold;
+      }
+
+      .summary-block-level {
+        color: var(--primary-text-color);
+      }
+
+      .summary-block-top,
+      .summary-block-plants {
+        color: var(--secondary-text-color);
       }
 
       /* Icon centered inside the level ring (#227). Sized inline by
