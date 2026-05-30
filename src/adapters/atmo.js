@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, findLocationBySlug, isConfigEntryId } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, findLocationBySlug, isConfigEntryId, coerceBool } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -64,6 +64,7 @@ export const stubConfigATMO = {
   // Summary block (issue #222): opt-in, additive, never duplicates by default.
   show_summary_block: false,
   show_summary_row: false,
+  show_summary_separator: true,
   sort_pollution_block: true,
   pollution_block_position: "bottom",
   show_block_separator: false,
@@ -555,7 +556,7 @@ export async function fetchForecast(hass, config) {
       // retained regardless of threshold, but only when the block is enabled,
       // so existing row behaviour is unchanged when it is off.
       const skipThreshold =
-        allergen === "allergy_risk" && config.show_summary_block === true;
+        allergen === "allergy_risk" && coerceBool(config.show_summary_block);
       if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       console.warn(`ATMO adapter error for allergen ${allergen}:`, e);

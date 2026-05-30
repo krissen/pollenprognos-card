@@ -654,6 +654,7 @@ export const COSMETIC_FIELDS = [
   // cosmetic: it changes adapter output (threshold bypass), so it must trigger
   // a data reload. These three only affect card rendering.
   "show_summary_row",
+  "show_summary_separator",
   "show_summary_top_types",
   "show_summary_plants_in_season",
   "show_no_data_distinct",

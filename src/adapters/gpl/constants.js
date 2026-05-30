@@ -47,6 +47,7 @@ export const stubConfigGPL = {
   // turned on, so opting into the block gives the full rich GPL block at once.
   show_summary_block: false,
   show_summary_row: false,
+  show_summary_separator: true,
   show_summary_top_types: true,
   show_summary_plants_in_season: true,
   allergens_abbreviated: false,

@@ -9,7 +9,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { t } from "../i18n.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -62,6 +62,7 @@ export const stubConfigSILAM = {
   // Summary block (issue #222): opt-in, additive, never duplicates by default.
   show_summary_block: false,
   show_summary_row: false,
+  show_summary_separator: true,
   allergens_abbreviated: false,
   link_to_sensors: true,
   date_locale: undefined,
@@ -529,7 +530,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // existing row behaviour for 4000 configs is unchanged when it is off.
       const skipThreshold =
         (autoAddedAllergyRisk && allergen === "allergy_risk") ||
-        (allergen === "allergy_risk" && config.show_summary_block === true);
+        (allergen === "allergy_risk" && coerceBool(config.show_summary_block));
       if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`[SILAM] Error for allergen ${allergen}:`, e);

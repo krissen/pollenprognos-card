@@ -25,6 +25,45 @@ export function isConfigEntryId(value) {
 }
 
 /**
+ * Coerce a YAML-or-boolean config flag to a real boolean. YAML lets a value
+ * arrive as the string "true"/"false", so a strict === true check would
+ * silently ignore a quoted value. Mirrors the defensive-typeguard policy used
+ * for other config flags.
+ *
+ * @param {*} value
+ * @returns {boolean}
+ */
+export function coerceBool(value) {
+  return value === true || value === "true";
+}
+
+/**
+ * Summary block (issue #222): pick which sensors the card renders, and in
+ * what order, given the summary-block config. Pure so both the normal-mode and
+ * minimal-mode render paths share one tested rule.
+ *
+ * - block off (default): return the sensors unchanged (today's behaviour; the
+ *   aggregate keeps whatever position the adapter's *_top pinning gave it).
+ * - block on: the aggregate (isSummary) is pinned first. By default only the
+ *   aggregate is shown (the standalone overall-risk overview); when
+ *   show_summary_row is on, the per-allergen detail sensors follow it.
+ *
+ * The aggregate renders through the ordinary row / minimal-icon path, so it is
+ * visually identical to a normal entry, just first.
+ *
+ * @param {object[]} sensors - normalized sensor array from the adapter.
+ * @param {object}   config  - card config.
+ * @returns {object[]}
+ */
+export function selectDisplaySensors(sensors, config) {
+  if (!Array.isArray(sensors)) return [];
+  const summary = sensors.find((s) => s && s.isSummary) || null;
+  if (!coerceBool(config?.show_summary_block) || !summary) return sensors;
+  if (!coerceBool(config?.show_summary_row)) return [summary];
+  return [summary, ...sensors.filter((s) => s !== summary)];
+}
+
+/**
  * Clamp a sensor value to a valid level range.
  *
  * @param {*}      v         - Raw sensor value (will be coerced via Number()).

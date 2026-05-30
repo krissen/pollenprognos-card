@@ -11,6 +11,7 @@ import {
   filterSensorsPostFetch,
   resolveLocationByKey,
   normalizeManualPrefix,
+  selectDisplaySensors,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -2266,7 +2267,7 @@ class PollenPrognosCard extends LitElement {
           class="flex-container"
           style="gap: ${this.config?.minimal_gap ?? 35}px;"
         >
-          ${(this.sensors || []).map((sensor) => {
+          ${selectDisplaySensors(this.sensors, this.config).map((sensor) => {
             if (sensor.stale) {
               const staleLabel = this.config?.show_text_allergen
                 ? (this.config?.allergens_abbreviated
@@ -2390,30 +2391,19 @@ class PollenPrognosCard extends LitElement {
       return html``;
     }
 
-    // Summary block (issue #222): the aggregate stays in this.sensors; the
-    // card renders it as a block above the table and filters it out of the
-    // table rows unless the user opted into duplication via show_summary_row.
-    // Card-side filtering (not adapter-side dropping) avoids the empty-card
-    // crash when the aggregate is the only sensor.
-    const summarySensor = this.sensors.find((s) => s.isSummary) || null;
-    const showSummaryBlock =
-      this.config.show_summary_block === true && summarySensor != null;
-    const showSummaryRow =
-      !showSummaryBlock || this.config.show_summary_row === true;
-    const rowSensors = showSummaryRow
-      ? this.sensors
-      : this.sensors.filter((s) => !s.isSummary);
+    // Summary block (issue #222): the aggregate renders as an ordinary row,
+    // pinned first, via selectDisplaySensors. When the standalone summary is
+    // requested (show_summary_block on, show_summary_row off) the list is just
+    // the aggregate; otherwise it is the aggregate followed by the detail rows.
+    // Block off returns the sensors unchanged.
+    const rowSensors = selectDisplaySensors(this.sensors, this.config);
 
     const sensorsWithDays = rowSensors.filter(
       (s) => s.days && s.days.length > 0,
     );
     const staleSensors = rowSensors.filter((s) => s.stale === true);
 
-    if (
-      sensorsWithDays.length === 0 &&
-      staleSensors.length === 0 &&
-      !showSummaryBlock
-    ) {
+    if (sensorsWithDays.length === 0 && staleSensors.length === 0) {
       if (this.debug) {
         console.debug(
           "[Card] _renderNormalHtml: no sensors have days arrays, returning empty",
@@ -2485,36 +2475,6 @@ class PollenPrognosCard extends LitElement {
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
 
-    // Summary block (issue #222) ring geometry: a larger ring than the daily
-    // cells. Reuses the same colors/thickness/gap, and the icon-in-ring (#227)
-    // treatment when enabled. Built once and used by both the degenerate
-    // (cols.length === 0) path and the normal table path below.
-    const summaryRingOpts = showSummaryBlock
-      ? (() => {
-          const opts = {
-            colors,
-            emptyColor,
-            gapColor,
-            thickness,
-            gap,
-            size: Math.min(110, Math.max(56, size * 1.5)),
-          };
-          if (iconInRing && summarySensor) {
-            const lvl = Number(summarySensor.day0?.state) || 0;
-            opts.iconKey = this._getEffectiveSvgKey(
-              this._getSvgKey(summarySensor.allergenReplaced),
-              lvl,
-            );
-            opts.iconColor = this._iconInRingColor(
-              lvl,
-              summarySensor.allergenReplaced,
-            );
-            opts.iconSizeRatio = ringIconRatio;
-          }
-          return opts;
-        })()
-      : null;
-
     // Degenerate config: no day columns at all (e.g. every sensor
     // stale plus show_empty_days=false). The forecast table can't
     // anchor stale rows without producing a colgroup/colspan
@@ -2522,15 +2482,12 @@ class PollenPrognosCard extends LitElement {
     // each row is just the allergen icon next to its stale text.
     if (cols.length === 0) {
       const staleOnly = rowSensors.filter((s) => s.stale === true);
-      if (staleOnly.length === 0 && !showSummaryBlock) return html``;
+      if (staleOnly.length === 0) return html``;
       return html`
         ${this.header
           ? html`<div class="card-header">${this.header}</div>`
           : ""}
         <div class="card-content">
-          ${showSummaryBlock
-            ? this._renderSummaryBlock(summarySensor, summaryRingOpts)
-            : ""}
           <div class="stale-only-list">
             ${staleOnly.map(
               (sensor) => html`
@@ -2565,11 +2522,6 @@ class PollenPrognosCard extends LitElement {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
-        ${showSummaryBlock
-          ? this._renderSummaryBlock(summarySensor, summaryRingOpts)
-          : ""}
-        ${rowSensors.length > 0
-          ? html`
         <div class="forecast-content">
           <table class="forecast">
             <colgroup>
@@ -2681,8 +2633,16 @@ class PollenPrognosCard extends LitElement {
                         )}
                       </td>`
                     : ""}
-                  ${cols.map(
-                    (i) => html`
+                  ${cols.map((i) => {
+                    // Summary aggregate is today-only (its sensor carries no
+                    // forecast), so suppress the no-data future cells rather
+                    // than showing no-data circles next to the multi-day detail
+                    // rows (issue #222). Render an empty cell instead.
+                    if (sensor.isSummary) {
+                      const st = sensor.days[i]?.state;
+                      if (st == null || Number(st) < 0) return html`<td></td>`;
+                    }
+                    return html`
                       <td>
                         ${(() => {
                           const normalized = Number(sensor.days[i]?.state) || 0;
@@ -2729,8 +2689,8 @@ class PollenPrognosCard extends LitElement {
                           );
                         })()}
                       </td>
-                    `,
-                  )}
+                    `;
+                  })}
                 </tr>
                 ${this.config.show_text_allergen ||
                 this.config.show_value_text ||
@@ -2749,6 +2709,13 @@ class PollenPrognosCard extends LitElement {
                             </td>`
                           : ""}
                         ${cols.map((i) => {
+                          // Suppress the summary aggregate's no-data future
+                          // cells (today-only), matching the icon row above.
+                          if (sensor.isSummary) {
+                            const st = sensor.days[i]?.state;
+                            if (st == null || Number(st) < 0)
+                              return html`<td></td>`;
+                          }
                           const txt = sensor.days[i]?.state_text || "";
                           const rawNum =
                             sensor.days[i]?.display_state ??
@@ -2775,100 +2742,96 @@ class PollenPrognosCard extends LitElement {
                     `
                   : ""}
               `;
-                return [separator, row];
+                // Divider between the summary group (aggregate + its extras)
+                // and the detail rows below, shown only when both are present
+                // (issue #222) and not disabled via show_summary_separator
+                // (default on). Reuses the block-separator style.
+                const summarySeparator =
+                  sIdx > 0 &&
+                  rowSensors[sIdx - 1]?.isSummary &&
+                  !sensor.isSummary &&
+                  this.config.show_summary_separator !== false &&
+                  this.config.show_summary_separator !== "false"
+                    ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
+                    : "";
+                const extras = sensor.isSummary
+                  ? this._renderSummaryExtrasRows(
+                      sensor,
+                      totalCols,
+                      textSizeRatio,
+                      showAllergenColumn,
+                    )
+                  : [];
+                return [separator, summarySeparator, row, ...extras];
               })}
           </table>
         </div>
-          `
-          : ""}
       </div>
     `;
   }
 
   /**
-   * Summary block (issue #222): a standalone, prominent overall-risk indicator
-   * rendered above the allergen table. Driven by the adapter-tagged
-   * `isSummary` sensor. Shows the big level ring + name + level text for all
-   * three supporting integrations; GPL additionally gets the top-pollen-types
-   * caption and plants-in-season count, each behind its own toggle and
-   * null-safe so SILAM/Atmo (which lack those fields) degrade to level-only.
+   * GPL summary qualifiers (issue #222): two text rows directly beneath the
+   * aggregate — the day's top pollen types ("Top") and the plants in season
+   * ("In season") — each a localized label in the allergen column and the
+   * localized name list as plain text to the right. The aggregate row above
+   * carries the colour/level; these rows only qualify it, so no icons, no
+   * colours, no count. Each row is behind its own toggle and null-safe, so
+   * SILAM/Atmo (which never set these fields) render nothing. Returns an array
+   * of <tr> so the caller can spread into flatMap.
    */
-  _renderSummaryBlock(sensor, ringOpts) {
-    if (!sensor) return "";
-    const textSizeRatio = this.config?.text_size_ratio ?? 1;
-    const day0 = sensor.day0 || sensor.days?.[0] || {};
-    const levelVal = Number(day0.state) || 0;
-    const displayVal = Number(day0.display_state ?? day0.state ?? 0);
-    const stateText = day0.state_text || "";
-    const name = this.config.allergens_abbreviated
-      ? sensor.allergenShort
-      : sensor.allergenCapitalized;
+  _renderSummaryExtrasRows(sensor, totalCols, textSizeRatio, showAllergenColumn) {
+    const rows = [];
+    const valueColspan = showAllergenColumn ? totalCols - 1 : totalCols;
+    // Match the regular allergen text rows (same size/colour), not a dimmed
+    // footnote — the product owner wants these to look like the other rows.
+    const fs = `font-size: ${1.0 * textSizeRatio}em;`;
 
-    // GPL extras: absent on SILAM/Atmo, so the checks degrade to false there.
-    const showTopTypes =
+    const makeRow = (label, list) =>
+      showAllergenColumn
+        ? html`
+            <tr class="allergen-text-row summary-qualifier-row">
+              <td>
+                <span class="summary-q-label" style="${fs}">${label}</span>
+              </td>
+              <td colspan="${valueColspan}" style="text-align: left;">
+                <span class="summary-q-list" style="${fs}">${list}</span>
+              </td>
+            </tr>
+          `
+        : html`
+            <tr class="allergen-text-row summary-qualifier-row">
+              <td colspan="${totalCols}" style="text-align: left;">
+                <span class="summary-q-label" style="${fs}">${label}:</span>
+                <span class="summary-q-list" style="${fs}">${list}</span>
+              </td>
+            </tr>
+          `;
+
+    if (
       this.config.show_summary_top_types !== false &&
       Array.isArray(sensor.topPollen) &&
-      sensor.topPollen.length > 0;
-    const showPlants =
+      sensor.topPollen.length > 0
+    ) {
+      rows.push(
+        makeRow(this._t("card.summary.top_label"), sensor.topPollen.join(", ")),
+      );
+    }
+
+    if (
       this.config.show_summary_plants_in_season !== false &&
-      typeof sensor.plantsInSeason === "number";
+      Array.isArray(sensor.plantsInSeasonList) &&
+      sensor.plantsInSeasonList.length > 0
+    ) {
+      rows.push(
+        makeRow(
+          this._t("card.summary.in_season_label"),
+          sensor.plantsInSeasonList.join(", "),
+        ),
+      );
+    }
 
-    const clickable =
-      this.config.link_to_sensors !== false && Boolean(sensor.entity_id);
-
-    return html`
-      <div class="summary-block">
-        <div class="summary-block-ring">
-          ${this._renderLevelCircle(
-            levelVal,
-            ringOpts || {},
-            sensor.allergenReplaced,
-            "summary",
-            displayVal,
-            sensor.entity_id,
-            clickable,
-          )}
-        </div>
-        <div class="summary-block-text">
-          ${name
-            ? html`<div
-                class="summary-block-name"
-                style="font-size: ${1.15 * textSizeRatio}em;"
-              >
-                ${name}
-              </div>`
-            : ""}
-          ${stateText
-            ? html`<div
-                class="summary-block-level"
-                style="font-size: ${1.0 * textSizeRatio}em;"
-              >
-                ${stateText}
-              </div>`
-            : ""}
-          ${showTopTypes
-            ? html`<div
-                class="summary-block-top"
-                style="font-size: ${0.9 * textSizeRatio}em;"
-              >
-                ${this._t("card.summary.top_types", {
-                  list: sensor.topPollen.join(", "),
-                })}
-              </div>`
-            : ""}
-          ${showPlants
-            ? html`<div
-                class="summary-block-plants"
-                style="font-size: ${0.9 * textSizeRatio}em;"
-              >
-                ${this._t("card.summary.plants_in_season", {
-                  count: sensor.plantsInSeason,
-                })}
-              </div>`
-            : ""}
-        </div>
-      </div>
-    `;
+    return rows;
   }
 
   render() {
@@ -3180,41 +3143,18 @@ class PollenPrognosCard extends LitElement {
         margin: 0 auto 6px auto;
       }
 
-      /* Summary block (issue #222): a prominent overall-risk indicator above
-         the forecast table. Content-driven height — no reserved space for the
-         GPL-only extras, so SILAM/Atmo render a clean ring + text. */
-      .summary-block {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 6px 4px 12px 4px;
+      /* Summary qualifiers (issue #222): GPL's top types and plants-in-season,
+         two text rows under the aggregate. The aggregate carries the colour;
+         these only qualify it — a secondary-colour label in the allergen column
+         and the name list as primary-colour text to the right. */
+      .summary-qualifier-row td {
+        vertical-align: middle;
+        padding-top: 0;
       }
 
-      /* The block ring is larger than the daily cells, so it must escape the
-         48px max-width cap the daily .level-circle carries. */
-      .summary-block .level-circle {
-        max-width: none;
-        margin: 0;
-      }
-
-      .summary-block-text {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-      }
-
-      .summary-block-name {
-        font-weight: bold;
-      }
-
-      .summary-block-level {
+      .summary-q-label,
+      .summary-q-list {
         color: var(--primary-text-color);
-      }
-
-      .summary-block-top,
-      .summary-block-plants {
-        color: var(--secondary-text-color);
       }
 
       /* Icon centered inside the level ring (#227). Sized inline by
