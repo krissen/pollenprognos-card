@@ -1392,7 +1392,6 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       const result = await fetchForecast(hass, config);
       const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
       expect(ar.plantsInSeasonList, `lang=${language}`).toEqual(expected);
-      expect(ar.plantsInSeason).toBe(3);
     }
   });
 
@@ -1450,10 +1449,9 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
-    expect(ar.plantsInSeason).toBe(2);
   });
 
-  it("sets plantsInSeason from the sibling state even when zero", async () => {
+  it("omits plantsInSeasonList when the sibling has no plant codes/names", async () => {
     const hass = makeSummaryHass({ plants: { state: "0" } });
     const config = makeConfig({
       allergens: ["allergy_risk"],
@@ -1462,12 +1460,10 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     });
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
-    expect(ar.plantsInSeason).toBe(0);
-    // no plant_names attribute -> no list
     expect(ar.plantsInSeasonList).toBeUndefined();
   });
 
-  it("omits plants fields when the sibling entity is absent", async () => {
+  it("omits plantsInSeasonList when the sibling entity is absent", async () => {
     const hass = makeSummaryHass();
     const config = makeConfig({
       allergens: ["allergy_risk"],
@@ -1476,7 +1472,6 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     });
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
-    expect(ar.plantsInSeason).toBeUndefined();
     expect(ar.plantsInSeasonList).toBeUndefined();
   });
 

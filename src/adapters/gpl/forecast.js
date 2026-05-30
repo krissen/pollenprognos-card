@@ -155,8 +155,6 @@ export async function fetchForecast(hass, config) {
           plantList = plantNames.filter((n) => typeof n === "string" && n.trim());
         }
         if (plantList.length) dict.plantsInSeasonList = plantList;
-        const cnt = Number(plantsState?.state);
-        if (Number.isFinite(cnt)) dict.plantsInSeason = cnt;
       }
 
       if (debug) {
