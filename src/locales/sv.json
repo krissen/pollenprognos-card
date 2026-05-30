@@ -130,6 +130,7 @@
   "editor.helper_day_display": "Vad som visas i varje dagkolumn: värden och etiketter.",
   "editor.helper_icon_in_ring": "Rendera allergenikonen centrerad inuti nivåcirkeln.",
   "editor.helper_integration_and_place": "Källintegration, plats och kortets rubrik.",
+  "editor.helper_level_circles": "Ringdiagram runt varje allergen som visar dagens pollenniva.",
   "editor.helper_levels_gap_synced": "Styrs av allergenets linjetjocklek medan synkronisering är på. Stäng av synk för att redigera.",
   "editor.helper_levels_gap_unsynced": "Mellanrum mellan nivåringsegmenten.",
   "editor.helper_minimal": "Kompakt layout: endast ikoner, inga allergennamn eller värden.",

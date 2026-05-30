@@ -130,6 +130,7 @@
   "editor.helper_day_display": "Was in jeder Tagesspalte erscheint: Werte und Beschriftungen.",
   "editor.helper_icon_in_ring": "Allergensymbol zentriert im Niveauring darstellen.",
   "editor.helper_integration_and_place": "Quellintegration, Standort und Kartentitel.",
+  "editor.helper_level_circles": "Ringdiagramm um jedes Allergen, das das heutige Pollenniveau anzeigt.",
   "editor.helper_levels_gap_synced": "Wird von der Strichstärke des Allergens gesteuert, solange Synchronisation aktiv ist. Synchronisation deaktivieren zum Bearbeiten.",
   "editor.helper_levels_gap_unsynced": "Lücke zwischen den Segmenten des Niveaurings.",
   "editor.helper_minimal": "Kompaktes Layout: nur Symbole, keine Allergennamen oder Werte.",

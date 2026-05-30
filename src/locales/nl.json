@@ -130,6 +130,7 @@
   "editor.helper_day_display": "Wat er in elke dagkolom verschijnt: waarden en labels.",
   "editor.helper_icon_in_ring": "Allergeenicoon gecentreerd in de niveauring weergeven.",
   "editor.helper_integration_and_place": "Bronintegratie, locatie en kaarttitel.",
+  "editor.helper_level_circles": "Ringdiagram rondom elk allergeen met het pollenniveau van vandaag.",
   "editor.helper_levels_gap_synced": "Wordt aangestuurd door de lijndikte van het allergeen zolang synchronisatie actief is. Schakel synchronisatie uit om te bewerken.",
   "editor.helper_levels_gap_unsynced": "Tussenruimte tussen segmenten van de niveauring.",
   "editor.helper_minimal": "Compacte weergave: alleen iconen, geen allergennamen of waarden.",

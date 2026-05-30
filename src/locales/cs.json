@@ -130,6 +130,7 @@
   "editor.helper_day_display": "What appears in each day column: values and labels.",
   "editor.helper_icon_in_ring": "Render the allergen icon centered inside the level circle.",
   "editor.helper_integration_and_place": "Source integration, location, and card title.",
+  "editor.helper_level_circles": "Ring chart around each allergen showing today's pollen level.",
   "editor.helper_levels_gap_synced": "Driven by allergen stroke width while sync is on. Turn off sync to edit.",
   "editor.helper_levels_gap_unsynced": "Gap between level ring segments.",
   "editor.helper_minimal": "Compact layout: icons only, no allergen names or values.",

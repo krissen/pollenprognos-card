@@ -130,6 +130,7 @@
   "editor.helper_day_display": "Ce qui apparait dans chaque colonne journalière: valeurs et étiquettes.",
   "editor.helper_icon_in_ring": "Afficher l'icône d'allergène centré à l'intérieur du cercle de niveau.",
   "editor.helper_integration_and_place": "Intégration source, emplacement et titre de la carte.",
+  "editor.helper_level_circles": "Diagramme annulaire autour de chaque allergène indiquant le niveau de pollen du jour.",
   "editor.helper_levels_gap_synced": "Piloté par l'épaisseur du trait de l'allergène tant que la synchronisation est active. Désactiver la synchronisation pour modifier.",
   "editor.helper_levels_gap_unsynced": "Écart entre les segments de l'anneau de niveau.",
   "editor.helper_minimal": "Mise en page compacte: icônes uniquement, sans noms d'allergènes ni valeurs.",
