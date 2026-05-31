@@ -305,7 +305,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const ring = Math.round(height * 0.78);
     // --ppb-size drives the proportional pill CSS (padding/gap/radius/label);
     // --pollen-icon-size sizes the bare icon used by the icon_only mode.
-    const hostStyle = `--ppb-size: ${height}px; --pollen-icon-size: ${ring}px;`;
+    // A configured background_color sets --ppb-bg (consumed by the .ppb rule,
+    // which otherwise falls back to the themed background). Same ?.trim?.()
+    // guard the card uses, so non-string YAML values can't throw.
+    const bg = this.config?.background_color?.trim?.();
+    const hostStyle =
+      `--ppb-size: ${height}px; --pollen-icon-size: ${ring}px;` +
+      (bg ? ` --ppb-bg: ${bg};` : "");
 
     // Not yet loaded: render an empty pill placeholder so the badge slot
     // doesn't jump when data arrives. It carries the same size base.
