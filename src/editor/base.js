@@ -112,6 +112,24 @@ export const deepMerge = (target, source) => {
  */
 export class PollenEditorBase extends LitElement {
   // ------------------------------------------------------------------
+  // Presentation hooks (overridable by subclasses)
+  // ------------------------------------------------------------------
+
+  // Whether the Integration/Location section shows the Title sub-group.
+  // Cards render a title inside their ha-card; the badge editor overrides
+  // this to false (a chrome-less badge has no title).
+  _showTitleSection() {
+    return true;
+  }
+
+  // Whether the Integration/Location section shows the forecast-mode selector
+  // (SILAM/PEU daily / twice_daily / hourly...). The badge renders today's
+  // value only, so the badge editor overrides this to false.
+  _showModeSelector() {
+    return true;
+  }
+
+  // ------------------------------------------------------------------
   // Simple accessors (shared)
   // ------------------------------------------------------------------
 
