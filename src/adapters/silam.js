@@ -9,7 +9,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { t } from "../i18n.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -59,6 +59,10 @@ export const stubConfigSILAM = {
   pollen_threshold: 1,
   sort: "value_descending",
   index_top: true,
+  // Summary block (issue #222): opt-in, additive, never duplicates by default.
+  show_summary_block: false,
+  show_summary_row: false,
+  show_summary_separator: true,
   allergens_abbreviated: false,
   link_to_sensors: true,
   date_locale: undefined,
@@ -403,6 +407,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         const name = silamAllergenMap.names?.allergy_risk?.[lang] || "Index";
         dict.allergenCapitalized = name;
         dict.allergenShort = name;
+        // Tag the aggregate so the card can render it as a summary block
+        // (issue #222). Card-side filtering, not adapter-side dropping.
+        dict.isSummary = true;
       }
 
       // Sensor lookup (delegated to resolveEntityIds)
@@ -518,7 +525,12 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
       // Auto-added allergy_risk bypasses the threshold: even "very_low" (level 0)
       // is worth showing when it is the only data available for this location.
-      const skipThreshold = autoAddedAllergyRisk && allergen === "allergy_risk";
+      // The summary block (issue #222) also needs the aggregate retained
+      // regardless of threshold, but only when the block is enabled, so the
+      // existing row behaviour for 4000 configs is unchanged when it is off.
+      const skipThreshold =
+        (autoAddedAllergyRisk && allergen === "allergy_risk") ||
+        (allergen === "allergy_risk" && coerceBool(config.show_summary_block));
       if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`[SILAM] Error for allergen ${allergen}:`, e);

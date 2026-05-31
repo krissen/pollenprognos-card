@@ -1239,3 +1239,265 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     expect(result[0].allergenReplaced).toBe("grass_cat");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Summary block: isSummary tag + v2.1.0 extras enrichment (#222)
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: summary block tagging and extras (#222)", () => {
+  function makeSummaryHass({
+    summaryState = "3",
+    grassState = 2,
+    summaryAttrs = {},
+    plants = null, // { state, plant_codes, plant_names } -> sibling entity
+    language = "en",
+  } = {}) {
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: String(summaryState),
+        attributes: { attribution: GPL_ATTRIBUTION, ...summaryAttrs },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", grassState),
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev1" },
+      "sensor.home_grass": { device_id: "dev1" },
+    };
+    if (plants) {
+      statesMap["sensor.home_plants_in_season_today"] = {
+        state: String(plants.state ?? ""),
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          ...(plants.plant_codes ? { plant_codes: plants.plant_codes } : {}),
+          ...(plants.plant_names ? { plant_names: plants.plant_names } : {}),
+        },
+      };
+      entitiesMap["sensor.home_plants_in_season_today"] = { device_id: "dev1" };
+    }
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev1: { name: "Home", config_entries: ["entry_a"] },
+    });
+    hass.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+      "entry_a_overall_pollen_risk_today";
+    if (plants) {
+      hass.entities["sensor.home_plants_in_season_today"].unique_id =
+        "entry_a_plants_in_season_today";
+      hass.entities["sensor.home_plants_in_season_today"].translation_key =
+        "plants_in_season_today";
+    }
+    // Force the card language (detectLang reads hass.locale.language).
+    hass.language = language;
+    hass.locale = { language };
+    return hass;
+  }
+
+  it("tags the allergy_risk aggregate with isSummary: true", async () => {
+    const hass = makeSummaryHass();
+    const config = makeConfig({
+      allergens: ["allergy_risk", "grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.isSummary).toBe(true);
+    // Per-allergen rows are never tagged as summary.
+    const grass = result.find((s) => s.allergenReplaced === "grass_cat");
+    expect(grass.isSummary).toBeUndefined();
+  });
+
+  it("localizes top_pollen_codes (TREE/GRASS) in the card language", async () => {
+    const hass = makeSummaryHass({
+      summaryAttrs: { top_pollen_codes: ["TREE", "GRASS"] },
+      language: "sv",
+    });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.topPollen).toEqual(["Träd", "Gräsarter"]);
+  });
+
+  // The integration may fetch its *_names in another language than the card
+  // (the bug that showed "Дерево" on a Swedish card). We localize from the
+  // code, so the card language wins over the integration's name.
+  it("localizes from the code even when top_pollen_names is another language", async () => {
+    const hass = makeSummaryHass({
+      summaryAttrs: { top_pollen_codes: ["TREE"], top_pollen_names: ["Дерево"] },
+      language: "sv",
+    });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.topPollen).toEqual(["Träd"]);
+  });
+
+  it("localizes the same codes per the card language (sv/fi/en)", async () => {
+    const cases = [
+      ["sv", ["Träd", "Gräsarter"]],
+      ["fi", ["Puut", "Heinät"]],
+      ["en", ["Trees", "Grasses"]],
+    ];
+    for (const [language, expected] of cases) {
+      const hass = makeSummaryHass({
+        summaryAttrs: { top_pollen_codes: ["TREE", "GRASS"] },
+        language,
+      });
+      const config = makeConfig({
+        allergens: ["allergy_risk"],
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+      const result = await fetchForecast(hass, config);
+      const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+      expect(ar.topPollen, `lang=${language}`).toEqual(expected);
+    }
+  });
+
+  it("omits topPollen when top_pollen_codes is empty/absent", async () => {
+    for (const attrs of [{ top_pollen_codes: [] }, {}]) {
+      const hass = makeSummaryHass({ summaryAttrs: attrs });
+      const config = makeConfig({
+        allergens: ["allergy_risk"],
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+      const result = await fetchForecast(hass, config);
+      const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+      expect(ar.topPollen).toBeUndefined();
+    }
+  });
+
+  it("localizes plant_codes from the sibling entity per card language (sv/fi)", async () => {
+    for (const [language, expected] of [
+      ["sv", ["Tall", "Björk", "Oliv"]],
+      ["fi", ["Mänty", "Koivu", "Oliivipuu"]],
+    ]) {
+      const hass = makeSummaryHass({
+        plants: { state: "3", plant_codes: ["PINE", "BIRCH", "OLIVE"] },
+        language,
+      });
+      const config = makeConfig({
+        allergens: ["allergy_risk"],
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+      const result = await fetchForecast(hass, config);
+      const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+      expect(ar.plantsInSeasonList, `lang=${language}`).toEqual(expected);
+    }
+  });
+
+  it("resolves the sibling via translation_key when unique_id is absent", async () => {
+    // The frontend's reduced hass.entities often omits unique_id; resolution
+    // must still work via translation_key + device scoping.
+    const hass = makeSummaryHass({
+      plants: { state: "2", plant_codes: ["BIRCH", "PINE"] },
+      language: "sv",
+    });
+    delete hass.entities["sensor.home_plants_in_season_today"].unique_id;
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
+  });
+
+  it("resolves the sibling across devices within the same config entry", async () => {
+    // pollenlevels splits a location: the summary sits on the "pollen types"
+    // device while plants_in_season sits on a separate "plants" device, same
+    // config entry. Resolution must scope by config entry, not device.
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: "3",
+        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 2),
+      "sensor.home_plants_in_season_today": {
+        state: "2",
+        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+      },
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev_types" },
+      "sensor.home_grass": { device_id: "dev_types" },
+      "sensor.home_plants_in_season_today": { device_id: "dev_plants" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev_types: { name: "Home types", config_entries: ["entry_a"] },
+      dev_plants: { name: "Home plants", config_entries: ["entry_a"] },
+    });
+    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+      "plants_in_season_today";
+    hass.language = "sv";
+    hass.locale = { language: "sv" };
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
+  });
+
+  it("omits plantsInSeasonList when the sibling has no plant codes/names", async () => {
+    const hass = makeSummaryHass({ plants: { state: "0" } });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toBeUndefined();
+  });
+
+  it("omits plantsInSeasonList when the sibling entity is absent", async () => {
+    const hass = makeSummaryHass();
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toBeUndefined();
+  });
+
+  it("retains the aggregate below threshold when show_summary_block is on", async () => {
+    // summary level 0 (none) is below threshold 1; with the block on it must
+    // still be returned so the card has data to render the block.
+    const hass = makeSummaryHass({ summaryState: "0" });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 1,
+      days_to_show: 1,
+      show_summary_block: true,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+  });
+
+  it("still drops a below-threshold aggregate when the block is off (no behaviour change)", async () => {
+    const hass = makeSummaryHass({ summaryState: "0" });
+    const config = makeConfig({
+      allergens: ["allergy_risk"],
+      pollen_threshold: 1,
+      days_to_show: 1,
+      show_summary_block: false,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+  });
+});

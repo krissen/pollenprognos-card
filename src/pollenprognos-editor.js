@@ -1864,6 +1864,13 @@ class PollenPrognosCardEditor extends LitElement {
         delete newUser.pollen_threshold;
         delete newUser.allergy_risk_top;
         delete newUser.index_top;
+        // Summary block keys (issue #222) are integration-specific; drop them
+        // so a switch to a non-supporting integration starts from its stub.
+        delete newUser.show_summary_block;
+        delete newUser.show_summary_row;
+        delete newUser.show_summary_separator;
+        delete newUser.show_summary_top_types;
+        delete newUser.show_summary_plants_in_season;
         this._allergensExplicit = false;
       }
       const base = getStubConfig(newInt) || getStubConfig("pp");
@@ -2737,8 +2744,16 @@ class PollenPrognosCardEditor extends LitElement {
                 </ha-formfield>
               `
             : ""}
-          ${c.integration === "peu" || c.integration === "silam" || c.integration === "atmo" || c.integration === "gpl"
-            ? html`
+          ${
+            // Pin-to-top toggle. Hidden for the summary-block integrations
+            // when the block is on, since pinning a row that has been promoted
+            // to the block is a no-op (issue #222). PEU keeps it unconditionally.
+            (c.integration === "peu" ||
+              ((c.integration === "silam" ||
+                c.integration === "atmo" ||
+                c.integration === "gpl") &&
+                !c.show_summary_block))
+              ? html`
                 <ha-formfield
                   label="${c.integration === "silam"
                     ? this._t("index_top")
@@ -2757,6 +2772,83 @@ class PollenPrognosCardEditor extends LitElement {
                       )}
                   ></ha-checkbox>
                 </ha-formfield>
+              `
+            : ""}
+          ${
+            // Summary block (issue #222): opt-in overall-risk indicator above
+            // the rows. Available for the three aggregate-risk integrations.
+            c.integration === "silam" ||
+            c.integration === "atmo" ||
+            c.integration === "gpl"
+              ? html`
+                <ha-formfield label="${this._t("show_summary_block")}">
+                  <ha-checkbox
+                    .checked=${c.show_summary_block === true}
+                    @change=${(e) =>
+                      this._updateConfig("show_summary_block", e.target.checked)}
+                  ></ha-checkbox>
+                </ha-formfield>
+                ${c.show_summary_block
+                  ? html`
+                      <ha-formfield label="${this._t("show_summary_row")}">
+                        <ha-checkbox
+                          .checked=${c.show_summary_row === true}
+                          @change=${(e) =>
+                            this._updateConfig(
+                              "show_summary_row",
+                              e.target.checked,
+                            )}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                      ${c.show_summary_row
+                        ? html`
+                            <ha-formfield
+                              label="${this._t("show_summary_separator")}"
+                            >
+                              <ha-checkbox
+                                .checked=${c.show_summary_separator !== false}
+                                @change=${(e) =>
+                                  this._updateConfig(
+                                    "show_summary_separator",
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `
+                        : ""}
+                      ${c.integration === "gpl"
+                        ? html`
+                            <ha-formfield
+                              label="${this._t("show_summary_top_types")}"
+                            >
+                              <ha-checkbox
+                                .checked=${c.show_summary_top_types !== false}
+                                @change=${(e) =>
+                                  this._updateConfig(
+                                    "show_summary_top_types",
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                            <ha-formfield
+                              label="${this._t(
+                                "show_summary_plants_in_season",
+                              )}"
+                            >
+                              <ha-checkbox
+                                .checked=${c.show_summary_plants_in_season !==
+                                false}
+                                @change=${(e) =>
+                                  this._updateConfig(
+                                    "show_summary_plants_in_season",
+                                    e.target.checked,
+                                  )}
+                              ></ha-checkbox>
+                            </ha-formfield>
+                          `
+                        : ""}
+                    `
+                  : ""}
               `
             : ""}
           ${c.integration === "atmo"

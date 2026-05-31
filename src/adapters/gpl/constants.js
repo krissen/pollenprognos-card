@@ -42,6 +42,14 @@ export const stubConfigGPL = {
   sort: "value_descending",
   sort_category_allergens_first: true,
   allergy_risk_top: true,
+  // Summary block (issue #222): opt-in, additive, never duplicates by default.
+  // The two extras default true but stay invisible until show_summary_block is
+  // turned on, so opting into the block gives the full rich GPL block at once.
+  show_summary_block: false,
+  show_summary_row: false,
+  show_summary_separator: true,
+  show_summary_top_types: true,
+  show_summary_plants_in_season: true,
   allergens_abbreviated: false,
   link_to_sensors: true,
   date_locale: undefined,
