@@ -2347,18 +2347,23 @@ export class PollenEditorBase extends LitElement {
       "type",
     ];
     const integration = this._config?.integration ?? "pp";
-    const stub = getStubConfig(integration) || {};
     const preserved = {};
     for (const k of KEEP) {
       if (this._config?.[k] !== undefined) preserved[k] = this._config[k];
     }
-    const fresh = { ...stub, ...preserved, integration };
-    // Let setConfig (defined by the subclass) normalise and commit the reset.
+    // Reset = keep only the identity/location keys plus integration; drop every
+    // other key so defaults take over. Build the persisted config from the
+    // preserved keys ONLY (no stub spread) — baking stub defaults back in would
+    // re-bloat the saved YAML and, for the badge, defeat the user-set-only
+    // persistence that lets a present value count as deliberate.
+    const fresh = { ...preserved, integration };
+    // setConfig (subclass) normalises and re-seeds its own state for rendering.
     this.setConfig(fresh);
-    // Notify HA that config changed.
+    // Dispatch the clean reset config (identity keys only), not the stub-merged
+    // _config used for rendering.
     this.dispatchEvent(
       new CustomEvent("config-changed", {
-        detail: { config: this._config },
+        detail: { config: fresh },
         bubbles: true,
         composed: true,
       }),
