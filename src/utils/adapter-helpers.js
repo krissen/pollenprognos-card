@@ -64,6 +64,77 @@ export function selectDisplaySensors(sensors, config) {
 }
 
 /**
+ * Badge support (issue #235): pick which sensor(s) a compact badge renders,
+ * given the badge content mode. A badge is tiny and typically shows ONE thing,
+ * so this returns a short list (usually length 1) that the badge render path
+ * maps to icon-in-ring visuals. Pure, so it can be unit-tested in isolation and
+ * shared by the badge element and any future caller.
+ *
+ * Modes (config.badge_content), defaulting to "worst":
+ * - "worst"     — the single per-allergen sensor with the highest current
+ *                 (day0) level. The universal default: works for every adapter,
+ *                 since no integration-specific aggregate is required.
+ * - "aggregate" — the adapter's overall-risk sensor (isSummary, e.g. GPL/Atmo
+ *                 allergy_risk). Falls back to "worst" for adapters that expose
+ *                 no aggregate (PP/DWD/SILAM/PEU/MSW).
+ * - "single"    — the one allergen named in config.badge_single_allergen.
+ *                 Falls back to "worst" if the named allergen is not present.
+ * - "row"       — all sensors, in their existing order, for a compact multi-ring
+ *                 badge.
+ *
+ * No-data sensors (day0.state < 0) rank below a real level 0 in the "worst"
+ * comparison, so a badge prefers a sensor that actually has data.
+ *
+ * @param {object[]} sensors - normalized sensor array from the adapter.
+ * @param {object}   config  - card/badge config.
+ * @returns {object[]} sensors to render (length 0 when nothing is available).
+ */
+export function selectBadgeSensor(sensors, config) {
+  if (!Array.isArray(sensors) || sensors.length === 0) return [];
+
+  const mode =
+    typeof config?.badge_content === "string" ? config.badge_content : "worst";
+
+  const perAllergen = sensors.filter((s) => s && !s.isSummary);
+  const summary = sensors.find((s) => s && s.isSummary) || null;
+
+  // Highest-level per-allergen sensor. Falls back to the full list when every
+  // sensor is a summary (so the aggregate can still surface as "worst").
+  const worst = () => {
+    const pool = perAllergen.length ? perAllergen : sensors;
+    const best = pool.reduce((acc, s) => {
+      if (!acc) return s;
+      const lvl = Number(s?.day0?.state);
+      const accLvl = Number(acc?.day0?.state);
+      const safeLvl = Number.isNaN(lvl) ? -Infinity : lvl;
+      const safeAcc = Number.isNaN(accLvl) ? -Infinity : accLvl;
+      return safeLvl > safeAcc ? s : acc;
+    }, null);
+    return best ? [best] : [];
+  };
+
+  switch (mode) {
+    case "aggregate":
+      return summary ? [summary] : worst();
+    case "single": {
+      const key =
+        typeof config?.badge_single_allergen === "string"
+          ? config.badge_single_allergen
+          : null;
+      const found = key
+        ? sensors.find((s) => s && s.allergenReplaced === key)
+        : null;
+      return found ? [found] : worst();
+    }
+    case "row":
+      return sensors;
+    case "worst":
+    default:
+      return worst();
+  }
+}
+
+/**
  * Compute the number of day columns to render for a given sensor list and
  * config. Extracted from _updateSensorsAndColumns so that _renderNormalHtml
  * can recompute columns from the *displayed* row set rather than the full

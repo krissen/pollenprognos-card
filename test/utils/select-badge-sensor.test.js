@@ -1,0 +1,109 @@
+import { describe, it, expect } from "vitest";
+import { selectBadgeSensor } from "../../src/utils/adapter-helpers.js";
+
+// selectBadgeSensor (issue #235) picks which sensor(s) a compact badge renders,
+// given the badge content mode. It returns a short list (usually length 1) that
+// the badge maps to icon-in-ring visuals.
+
+const summary = {
+  allergenReplaced: "allergy_risk",
+  isSummary: true,
+  day0: { state: 2 },
+};
+const birch = { allergenReplaced: "birch", day0: { state: 1 } };
+const grass = { allergenReplaced: "grass", day0: { state: 4 } };
+const mugwort = { allergenReplaced: "mugwort", day0: { state: 0 } };
+const noData = { allergenReplaced: "alder", day0: { state: -1 } };
+
+describe("selectBadgeSensor", () => {
+  it("defaults to the worst (highest-level) per-allergen sensor", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(selectBadgeSensor(sensors, {})).toEqual([grass]);
+    expect(selectBadgeSensor(sensors, { badge_content: "worst" })).toEqual([
+      grass,
+    ]);
+  });
+
+  it("excludes the aggregate from the worst comparison", () => {
+    // grass (4) still beats the summary (2); summary is not a per-allergen pick.
+    const sensors = [summary, birch, grass, mugwort];
+    expect(selectBadgeSensor(sensors, { badge_content: "worst" })).toEqual([
+      grass,
+    ]);
+  });
+
+  it("ranks no-data (state < 0) below a real level 0", () => {
+    const sensors = [noData, mugwort];
+    expect(selectBadgeSensor(sensors, { badge_content: "worst" })).toEqual([
+      mugwort,
+    ]);
+  });
+
+  it("returns the aggregate when mode is 'aggregate' and one exists", () => {
+    const sensors = [birch, summary, grass];
+    expect(selectBadgeSensor(sensors, { badge_content: "aggregate" })).toEqual([
+      summary,
+    ]);
+  });
+
+  it("falls back to worst when 'aggregate' but no aggregate is present", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(selectBadgeSensor(sensors, { badge_content: "aggregate" })).toEqual([
+      grass,
+    ]);
+  });
+
+  it("returns the named allergen when mode is 'single'", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(
+      selectBadgeSensor(sensors, {
+        badge_content: "single",
+        badge_single_allergen: "birch",
+      }),
+    ).toEqual([birch]);
+  });
+
+  it("falls back to worst when 'single' names a missing allergen", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(
+      selectBadgeSensor(sensors, {
+        badge_content: "single",
+        badge_single_allergen: "oak",
+      }),
+    ).toEqual([grass]);
+  });
+
+  it("falls back to worst when 'single' has no allergen configured", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(selectBadgeSensor(sensors, { badge_content: "single" })).toEqual([
+      grass,
+    ]);
+  });
+
+  it("returns all sensors unchanged when mode is 'row'", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(selectBadgeSensor(sensors, { badge_content: "row" })).toBe(sensors);
+  });
+
+  it("honors a string badge_content from YAML", () => {
+    const sensors = [birch, summary, grass];
+    expect(selectBadgeSensor(sensors, { badge_content: "aggregate" })).toEqual([
+      summary,
+    ]);
+  });
+
+  it("treats a non-string badge_content as the default (worst)", () => {
+    const sensors = [birch, grass, mugwort];
+    expect(selectBadgeSensor(sensors, { badge_content: 5 })).toEqual([grass]);
+  });
+
+  it("is empty-safe on missing / empty input", () => {
+    expect(selectBadgeSensor(null, {})).toEqual([]);
+    expect(selectBadgeSensor(undefined, { badge_content: "worst" })).toEqual([]);
+    expect(selectBadgeSensor([], {})).toEqual([]);
+  });
+
+  it("returns the only per-allergen sensor when just one is present", () => {
+    expect(selectBadgeSensor([birch], {})).toEqual([birch]);
+  });
+});
