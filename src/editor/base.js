@@ -96,6 +96,20 @@ export const deepMerge = (target, source) => {
 // Base class                                                           //
 // ------------------------------------------------------------------ //
 
+/**
+ * Shared base for the card editor and the badge editor.
+ *
+ * Subclass contract — every subclass MUST provide:
+ *   - reactive `_config` and `_hass` (plus a `hass` setter)
+ *   - `_updateConfig(prop, value)` that merges into `_config` and dispatches
+ *     the `config-changed` event
+ *   - the allergen-list mutators the Allergens section calls:
+ *     `_onAllergenToggle(allergen, checked)`,
+ *     `_toggleSelectAllAllergens(allergens)`, `_toggleAllergenSubset(subset)`
+ *
+ * Subclasses MAY override `_showTitleSection()` / `_showModeSelector()` to drop
+ * card-only controls (the badge editor returns false for both).
+ */
 export class PollenEditorBase extends LitElement {
   // ------------------------------------------------------------------
   // Simple accessors (shared)
@@ -606,7 +620,9 @@ export class PollenEditorBase extends LitElement {
                       ></ha-selector>
                     </ha-formfield>
                   `}
-        ${c.integration === "silam" && this._hasSilamWeatherEntity(c.location, c.entity_weather)
+        ${!this._showModeSelector()
+          ? ""
+          : c.integration === "silam" && this._hasSilamWeatherEntity(c.location, c.entity_weather)
           ? html`
               <ha-formfield label="${this._t("mode")}">
                 <ha-selector
@@ -698,53 +714,57 @@ export class PollenEditorBase extends LitElement {
             `
           : ""}
 
-        <!-- Title subgroup inside §1 -->
-        <div class="subgroup-header">${this._t("subgroup_title")}</div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <ha-formfield label="${this._t("title_hide")}">
-            <ha-checkbox
-              .checked=${c.title === false}
-              @change=${(e) => {
-                if (e.target.checked) {
-                  this._updateConfig("title", false);
-                } else {
-                  this._updateConfig("title", true);
-                }
-              }}
-            ></ha-checkbox>
-          </ha-formfield>
-          <ha-formfield label="${this._t("title_automatic")}">
-            <ha-checkbox
-              .checked=${c.title === true || c.title === undefined}
-              @change=${(e) => {
-                if (e.target.checked) {
-                  this._updateConfig("title", true);
-                } else {
-                  this._updateConfig("title", "");
-                }
-              }}
-            ></ha-checkbox>
-          </ha-formfield>
-        </div>
-        <ha-formfield label="${this._t("title")}">
-          <ha-textfield
-            .value=${typeof c.title === "string"
-              ? c.title
-              : c.title === false
-                ? "(false)"
-                : ""}
-            placeholder="${this._t("title_placeholder")}"
-            .disabled=${c.title === false}
-            @input=${(e) => {
-              const val = e.target.value;
-              if (val.trim() === "") {
-                this._updateConfig("title", true);
-              } else {
-                this._updateConfig("title", val);
-              }
-            }}
-          ></ha-textfield>
-        </ha-formfield>
+        <!-- Title subgroup inside §1 (suppressed for elements with no card chrome) -->
+        ${this._showTitleSection()
+          ? html`
+              <div class="subgroup-header">${this._t("subgroup_title")}</div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <ha-formfield label="${this._t("title_hide")}">
+                  <ha-checkbox
+                    .checked=${c.title === false}
+                    @change=${(e) => {
+                      if (e.target.checked) {
+                        this._updateConfig("title", false);
+                      } else {
+                        this._updateConfig("title", true);
+                      }
+                    }}
+                  ></ha-checkbox>
+                </ha-formfield>
+                <ha-formfield label="${this._t("title_automatic")}">
+                  <ha-checkbox
+                    .checked=${c.title === true || c.title === undefined}
+                    @change=${(e) => {
+                      if (e.target.checked) {
+                        this._updateConfig("title", true);
+                      } else {
+                        this._updateConfig("title", "");
+                      }
+                    }}
+                  ></ha-checkbox>
+                </ha-formfield>
+              </div>
+              <ha-formfield label="${this._t("title")}">
+                <ha-textfield
+                  .value=${typeof c.title === "string"
+                    ? c.title
+                    : c.title === false
+                      ? "(false)"
+                      : ""}
+                  placeholder="${this._t("title_placeholder")}"
+                  .disabled=${c.title === false}
+                  @input=${(e) => {
+                    const val = e.target.value;
+                    if (val.trim() === "") {
+                      this._updateConfig("title", true);
+                    } else {
+                      this._updateConfig("title", val);
+                    }
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `
+          : ""}
       </details>
     `;
   }

@@ -117,6 +117,17 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     );
   }
 
+  // A badge has no ha-card chrome and shows today's value only, so the shared
+  // Integration/Location section must not offer the card-only Title controls or
+  // the forecast-mode selector (the badge element forces mode to "daily").
+  _showTitleSection() {
+    return false;
+  }
+
+  _showModeSelector() {
+    return false;
+  }
+
   // ------------------------------------------------------------------ //
   // Allergen toggle helpers (required by _renderAllergensSection)        //
   // ------------------------------------------------------------------ //
