@@ -2,7 +2,7 @@
 import { LitElement, html, css } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { slugify } from "./utils/slugify.js";
-import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
+import { getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
@@ -25,11 +25,7 @@ import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFrom
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
-import {
-  buildNoiseSvgUri,
-  buildNoiseCanvasPattern,
-  hashStringSeed,
-} from "./utils/no-data-pattern.js";
+import { buildNoiseSvgUri } from "./utils/no-data-pattern.js";
 import {
   findSilamWeatherEntity,
   discoverSilamSensors,
@@ -38,479 +34,18 @@ import {
 import { deepEqual } from "./utils/confcompare.js";
 import {
   DWD_REGIONS,
-  ALLERGEN_ICON_FALLBACK,
   PP_POSSIBLE_CITIES,
-  toCanonicalAllergenKey,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
-import {
-  Chart,
-  ArcElement,
-  DoughnutController,
-  Tooltip,
-  Legend,
-} from "chart.js/auto";
+import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
 
-// Chart.js registreren
-Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
-
-class PollenPrognosCard extends LitElement {
+class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   _forecastUnsub = null; // Unsubscribe-funktion
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
-  _chartCache = new Map();
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
   _skipIntegrations = new Set(); // Integrations that failed during autodetect
-
-
-  /**
-   * Dot color for the "no data" noise pattern. Reads the card's resolved
-   * `--primary-text-color` so the texture follows the active HA theme, with
-   * a neutral grey fallback when the variable is not available (offscreen
-   * canvases, headless test runs, etc.).
-   */
-  _noDataDotColor() {
-    if (typeof window !== "undefined" && window.getComputedStyle) {
-      try {
-        const v = window
-          .getComputedStyle(this)
-          .getPropertyValue("--primary-text-color")
-          .trim();
-        if (v) return v;
-      } catch (_) {
-        // ignore and fall through
-      }
-    }
-    return "#888888";
-  }
-
-  _renderLevelCircle(
-    level,
-    {
-      colors = LEVELS_DEFAULTS.levels_colors,
-      emptyColor = LEVELS_DEFAULTS.levels_empty_color,
-      gapColor = LEVELS_DEFAULTS.levels_gap_color,
-      thickness = LEVELS_DEFAULTS.levels_thickness,
-      gap = LEVELS_DEFAULTS.levels_gap,
-      size = 100,
-      iconKey = "",
-      iconColor = "",
-      iconSizeRatio = LEVELS_DEFAULTS.icon_in_ring_size_ratio,
-    },
-    allergen = "default",
-    dayIndex = 0,
-    displayLevel = level,
-    entityId = null,
-    clickable = true,
-  ) {
-    // Create a unique key for this chart configuration
-    const chartId = `chart-${allergen}-${dayIndex}-${level}`;
-
-    // Use attributes instead of properties so values persist if DOM is cloned
-    const noDataDistinct = this.config?.show_no_data_distinct !== false;
-    // `level < 0` rather than `=== -1` so per-integration scaling doesn't
-    // hide the no-data sentinel. E.g. DWD scales raw state by 2 in the
-    // daily-row path, so an adapter-emitted -1 reaches here as -2.
-    const stateAttr = noDataDistinct && level < 0 ? "no_data" : "ok";
-    return html`
-      <div
-        id="${chartId}"
-        class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
-        entityId
-          ? " cursor: pointer;"
-          : ""}"
-        data-level="${level}"
-        data-display-level="${displayLevel}"
-        data-state="${stateAttr}"
-        data-colors="${JSON.stringify(colors)}"
-        data-empty-color="${emptyColor}"
-        data-gap-color="${gapColor}"
-        data-thickness="${thickness}"
-        data-gap="${gap}"
-        data-size="${size}"
-        data-show-value="${this.config &&
-        this.config.show_value_numeric_in_circle}"
-        data-font-weight="${this.config?.levels_text_weight || "normal"}"
-        data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
-        data-text-color="${this.config?.levels_text_color ||
-        "var(--primary-text-color)"}"
-        data-icon-key="${iconKey}"
-        data-icon-color="${iconColor}"
-        data-icon-size-ratio="${iconSizeRatio}"
-        @click=${(e) => {
-          if (clickable && entityId) {
-            e.stopPropagation();
-            this._openEntity(entityId);
-          }
-        }}
-      ></div>
-    `;
-  }
-
-  /**
-   * Ring geometry/colors for the minimal-mode icon-in-ring render path.
-   * Returns the opts blob passed to _renderLevelCircle (minus per-cell
-   * values like size/iconKey/iconColor which the caller fills in).
-   *
-   * Note: _renderNormalHtml currently re-implements the same segment /
-   * color / thickness / gap derivation inline. A follow-up could refactor
-   * both call sites to share this helper.
-   */
-  _buildLevelRingConfig() {
-    let segments = 6;
-    if (
-      this.config?.integration === "peu" ||
-      this.config?.integration === "kleenex" ||
-      this.config?.integration === "msw"
-    ) {
-      segments = 4;
-    } else if (
-      this.config?.integration === "gpl" ||
-      this.config?.integration === "gp"
-    ) {
-      segments = 5;
-    } else if (this.config?.integration === "plu") {
-      segments = 3;
-    }
-    const colors = [];
-    for (let i = 0; i < segments; i++) {
-      colors.push(this._levelColorForLevel(i + 1));
-    }
-    return {
-      colors,
-      emptyColor: this.config?.levels_empty_color ?? "var(--divider-color)",
-      gapColor: this._getGapColor(),
-      thickness: this.config?.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness,
-      gap: this.config?.levels_gap ?? LEVELS_DEFAULTS.levels_gap,
-    };
-  }
-
-  /**
-   * Resolve the level-reactive SVG key for an allergen. `allergy_risk`
-   * has six level-specific variants (`allergy_risk_1`..`allergy_risk_6`,
-   * the smiley); other allergens use the base key as-is. Shared between
-   * the side icon (_renderAllergenSvg) and the ring-centered icon
-   * (_renderMinimalHtml / _renderNormalHtml) so both render paths
-   * respect the variant when icon_in_ring is on.
-   */
-  _getEffectiveSvgKey(allergenKey, level) {
-    if (allergenKey === "allergy_risk" && level > 0) {
-      return `allergy_risk_${Math.min(level, 6)}`;
-    }
-    return allergenKey;
-  }
-
-  /**
-   * Resolve the color for the icon centered inside the level ring (#227).
-   * Mode "static": user-configured static color (default
-   * `var(--primary-text-color)` so the icon follows the theme).
-   * Mode "follow_level": same level-mapped color as the side-icon would have.
-   * Stale entities always render orange (#e6a800), mirroring the
-   * _renderAllergenSvg convention.
-   */
-  _iconInRingColor(level, allergenKey, { stale = false } = {}) {
-    if (stale) return "#e6a800";
-    const mode =
-      this.config?.icon_in_ring_color_mode ||
-      LEVELS_DEFAULTS.icon_in_ring_color_mode;
-    if (mode === "follow_level") {
-      return this._colorForLevel(level, allergenKey);
-    }
-    return (
-      this.config?.icon_in_ring_static_color ||
-      LEVELS_DEFAULTS.icon_in_ring_static_color
-    );
-  }
-
-  _openEntity(entityId) {
-    const ev = new CustomEvent("hass-more-info", {
-      bubbles: true,
-      composed: true,
-      detail: { entityId },
-    });
-    this.dispatchEvent(ev);
-  }
-
-  /**
-   * Build or refresh all level-circle charts in the current DOM.
-   * Chart options are stored as data attributes so charts can be
-   * reconstructed after the DOM is cloned or replaced.
-   */
-  _rebuildCharts() {
-    const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
-    const activeIds = new Set();
-
-    // Resolve the no-data dot color once per rebuild. _noDataDotColor() reads
-    // getComputedStyle which is non-trivial; caching here both saves work
-    // when many circles are no-data AND lets the update branch detect a
-    // theme-color change (chart._noDataColor !== noDataColor) so stale
-    // patterns get rebuilt instead of reused indefinitely.
-    const noDataColor = this._noDataDotColor();
-
-    containers.forEach((container) => {
-      activeIds.add(container.id);
-
-      // Extract values from data attributes
-      const level = Number(container.dataset.level || 0);
-      const displayLevel = Number(container.dataset.displayLevel ?? level);
-      const colors = JSON.parse(container.dataset.colors || "[]");
-      const numSegments = colors.length;
-      const safeLevel = Math.min(level, numSegments);
-      const emptyColor = container.dataset.emptyColor;
-      const gapColor = container.dataset.gapColor;
-      const thickness = Number(container.dataset.thickness);
-      const gap = Number(container.dataset.gap);
-      const size = Number(container.dataset.size);
-      const showValue = container.dataset.showValue === "true";
-      const isNoData = container.dataset.state === "no_data";
-
-      // Get custom styling from data attributes
-      const fontWeight = container.dataset.fontWeight || "normal";
-      const fontSizeRatio = parseFloat(container.dataset.fontSizeRatio) || 0.2;
-      const textColor =
-        container.dataset.textColor || "var(--primary-text-color)";
-
-      // Retrieve existing chart if it exists
-      let chart = this._chartCache.get(container.id);
-
-      // Recreate chart if missing or detached
-      if (!chart || !container.contains(chart.canvas)) {
-        if (chart) chart.destroy();
-        container.innerHTML = "";
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        container.appendChild(canvas);
-
-        const canvasCtx = canvas.getContext("2d");
-        // No-data: fill every segment with the noise tile pattern so the
-        // ring looks visibly distinct from a real "level 0" (which is just
-        // the empty color repeated). Each chart gets its own seed derived
-        // from the container id (allergen+dayIndex+level) so adjacent
-        // no-data circles don't display identical clumps. Falls back to
-        // emptyColor if pattern creation fails (e.g. headless ctx with no
-        // createPattern).
-        const noisePattern = isNoData
-          ? buildNoiseCanvasPattern(canvasCtx, noDataColor, {
-              seed: hashStringSeed(container.id),
-            })
-          : null;
-        const fill = noisePattern ?? emptyColor;
-        const data = Array(numSegments).fill(1);
-        const bg = isNoData
-          ? Array(numSegments).fill(fill)
-          : Array(numSegments)
-              .fill(emptyColor)
-              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-        const bc = Array(numSegments).fill(gapColor);
-
-        chart = new Chart(canvasCtx, {
-          type: "doughnut",
-          data: {
-            labels: Array(numSegments).fill(""),
-            datasets: [
-              {
-                data,
-                backgroundColor: bg,
-                borderColor: bc,
-                borderWidth: gap,
-              },
-            ],
-          },
-          options: {
-            rotation: -Math.PI / 2,
-            cutout: `${100 - thickness}%`,
-            responsive: false,
-            maintainAspectRatio: false,
-            animation: {
-              duration: 0,
-              animateRotate: false,
-              animateScale: false,
-              easing: "linear",
-            },
-            transitions: {
-              active: {
-                animation: {
-                  duration: 0,
-                  animateRotate: false,
-                  animateScale: false,
-                  easing: "linear",
-                },
-              },
-              show: {
-                animations: {
-                  numbers: { duration: 0, easing: "linear" },
-                  colors: { duration: 0, easing: "linear" },
-                },
-              },
-              hide: {
-                animations: {
-                  numbers: { duration: 0, easing: "linear" },
-                  colors: { duration: 0, easing: "linear" },
-                },
-              },
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: { enabled: false },
-            },
-          },
-        });
-
-        // Tag the chart with the dot color used to build this pattern so
-        // a later theme-color change can invalidate the cached pattern.
-        if (isNoData) chart._noDataColor = noDataColor;
-        // Cache the geometry that the chart was actually built with so
-        // the update branch can detect when thickness/gap change (e.g.
-        // the icon_in_ring auto-toggle swaps thickness 60 ↔ 35).
-        chart._thicknessApplied = thickness;
-        chart._gapApplied = gap;
-
-        this._chartCache.set(container.id, chart);
-      } else {
-        // Update existing chart only if colors actually changed
-        const datasets = chart.data.datasets;
-        if (datasets && datasets[0]) {
-          // Geometry change (thickness/gap) doesn't show up under the
-          // colors-only update path. The chartId is keyed by allergen +
-          // dayIndex + level, so a thickness flip on toggle keeps the
-          // same id and the cached Chart instance survives. Detect and
-          // propagate before computing colors so cutout matches.
-          const geometryChanged =
-            chart._thicknessApplied !== thickness ||
-            chart._gapApplied !== gap;
-          if (geometryChanged) {
-            chart.options.cutout = `${100 - thickness}%`;
-            datasets[0].borderWidth = gap;
-            chart._thicknessApplied = thickness;
-            chart._gapApplied = gap;
-          }
-          const oldBg = datasets[0].backgroundColor;
-          let bg;
-          if (isNoData) {
-            // Reuse the cached pattern if the chart already has one in oldBg
-            // AND the theme dot color hasn't changed since it was built.
-            // Otherwise rebuild so a theme switch propagates through.
-            const existingPattern = oldBg.find(
-              (c) => typeof c === "object" && c !== null,
-            );
-            const colorChanged = chart._noDataColor !== noDataColor;
-            let pattern;
-            if (existingPattern && !colorChanged) {
-              pattern = existingPattern;
-            } else {
-              pattern =
-                buildNoiseCanvasPattern(
-                  chart.canvas.getContext("2d"),
-                  noDataColor,
-                  { seed: hashStringSeed(container.id) },
-                ) ?? emptyColor;
-              chart._noDataColor = noDataColor;
-            }
-            bg = Array(oldBg.length).fill(pattern);
-          } else {
-            bg = Array(oldBg.length)
-              .fill(emptyColor)
-              .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-          }
-
-          const colorsChanged =
-            bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
-          if (colorsChanged || geometryChanged) {
-            datasets[0].backgroundColor = bg;
-            chart.update("none");
-          }
-        }
-      }
-
-      // Add or update the centered allergen icon (#227 icon-in-ring).
-      // Data attributes drive everything; the chart canvas was just
-      // (re)created above so we always re-append at the end if needed.
-      const iconKey = container.dataset.iconKey || "";
-      const iconColor = container.dataset.iconColor || "";
-      const iconSizeRatio =
-        parseFloat(container.dataset.iconSizeRatio) ||
-        LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-      let ringIcon = container.querySelector(".ring-icon");
-      // Resolve the SVG once; if missing, fall back to the no-icon
-      // path so the numeric overlay below can render instead of an
-      // empty .ring-icon shell.
-      const svgForIcon =
-        iconKey && ringIcon?.dataset.iconKey === iconKey
-          ? null // already mounted with this key; skip refetch
-          : iconKey
-            ? getSvgContent(iconKey)
-            : null;
-      const hasRenderableIcon =
-        iconKey &&
-        (ringIcon?.dataset.iconKey === iconKey || svgForIcon !== null);
-      if (hasRenderableIcon) {
-        const innerHole = size * (1 - thickness / 100);
-        const iconDiameter = Math.max(1, Math.round(innerHole * iconSizeRatio));
-        if (!ringIcon) {
-          ringIcon = document.createElement("div");
-          ringIcon.className = "ring-icon";
-          // Mark as decorative — the level value (data-display-level on
-          // the parent .level-circle) is the screen-reader signal; the
-          // centered SVG is duplicate visual information.
-          ringIcon.setAttribute("aria-hidden", "true");
-          container.appendChild(ringIcon);
-        }
-        ringIcon.style.width = `${iconDiameter}px`;
-        ringIcon.style.height = `${iconDiameter}px`;
-        ringIcon.style.color = iconColor;
-        if (svgForIcon !== null && ringIcon.dataset.iconKey !== iconKey) {
-          ringIcon.innerHTML = svgForIcon;
-          ringIcon.dataset.iconKey = iconKey;
-        }
-      } else if (ringIcon) {
-        ringIcon.remove();
-        ringIcon = null;
-      }
-
-      // Add or update numeric text overlay (suppress negative values).
-      // Only mutate DOM when the displayed value actually changed.
-      // Suppressed when a renderable ring-icon occupies the donut hole,
-      // to avoid the icon and the number colliding. When iconKey is
-      // set but the SVG is missing, hasRenderableIcon is false above
-      // and we fall back to the numeric overlay.
-      const existingText = container.querySelector(".level-value-text");
-      if (showValue && displayLevel >= 0 && !hasRenderableIcon) {
-        if (existingText && existingText.textContent === String(displayLevel)) {
-          // Value unchanged — skip DOM mutation.
-        } else {
-          if (existingText) existingText.remove();
-          const valueText = document.createElement("div");
-          valueText.className = "level-value-text";
-          valueText.textContent = displayLevel;
-          valueText.style.position = "absolute";
-          valueText.style.top = "50%";
-          valueText.style.left = "50%";
-          valueText.style.transform = "translate(-50%, -50%)";
-          valueText.style.fontSize = `${size * fontSizeRatio}px`;
-          valueText.style.fontWeight = fontWeight;
-          valueText.style.color = textColor;
-          if (size < 42) {
-            valueText.style.lineHeight = "1";
-            valueText.style.height = "1em";
-          }
-          container.appendChild(valueText);
-        }
-      } else if (existingText) {
-        existingText.remove();
-      }
-    });
-
-    // Remove charts whose containers disappeared
-    this._chartCache.forEach((cachedChart, id) => {
-      if (!activeIds.has(id)) {
-        cachedChart.destroy();
-        this._chartCache.delete(id);
-      }
-    });
-  }
 
   updated(changedProps) {
     // Handle forecast subscription.
@@ -530,22 +65,18 @@ class PollenPrognosCard extends LitElement {
       this._subscribeForecastIfNeeded();
     }
 
-    // After rendering, ensure all charts exist
-    this.updateComplete.then(() => this._rebuildCharts());
-
-    // Call parent's updated if it exists
-    if (super.updated) super.updated(changedProps);
+    // Chart lifecycle delegated to LevelCircleMixin via super.updated().
+    super.updated(changedProps);
   }
-  // Recreate charts when element is connected, useful after DOM cloning
+
+  // Recreate charts when element is connected, useful after DOM cloning.
   connectedCallback() {
+    // Chart rebuild delegated to LevelCircleMixin via super.connectedCallback().
     super.connectedCallback();
-    Promise.resolve().then(() => this._rebuildCharts());
   }
 
-  // Clean up charts when component is disconnected
+  // Clean up forecast subscription and charts when component is disconnected.
   disconnectedCallback() {
-    super.disconnectedCallback();
-
     // Clean up forecast subscription
     if (this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub).then((fn) => {
@@ -556,11 +87,8 @@ class PollenPrognosCard extends LitElement {
       this._forecastSubType = null;
     }
 
-    // Destroy cached charts
-    this._chartCache.forEach((chart) => {
-      chart.destroy();
-    });
-    this._chartCache.clear();
+    // Chart cache destruction delegated to LevelCircleMixin via super.disconnectedCallback().
+    super.disconnectedCallback();
   }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
@@ -956,99 +484,6 @@ class PollenPrognosCard extends LitElement {
       _isLoaded: { type: Boolean, state: true },
       _error: { type: String, state: true },
     };
-  }
-
-  /**
-   * Gets the SVG key for an allergen
-   * @param {string} allergenReplaced - The allergen identifier
-   * @returns {string|null} The key to use for SVG loading, or null if invalid
-   */
-  _getSvgKey(allergenReplaced) {
-    // Guard against undefined/null allergenReplaced
-    if (!allergenReplaced || typeof allergenReplaced !== 'string') {
-      if (this.debug) {
-        console.warn('[SVG] Invalid allergenReplaced:', allergenReplaced);
-      }
-      return null;
-    }
-
-    const key = toCanonicalAllergenKey(allergenReplaced);
-    
-    // Check if we have the primary key SVG available
-    if (getSvgContent(key)) {
-      return key;
-    }
-    
-    // Try icon fallback for category allergens
-    if (ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
-      const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
-      if (getSvgContent(fallbackKey)) {
-        return fallbackKey;
-      }
-    }
-    
-    return key; // Return original key even if SVG not found
-  }
-
-  /**
-   * Gets color for a specific level for allergen icons
-   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
-   * @param {string} allergenKey - Optional allergen key for special handling
-   * @returns {string} Color hex string
-   */
-  _colorForLevel(level, allergenKey = null) {
-    // Special handling for no_allergens icon
-    if (allergenKey === "no_allergens") {
-      return this.config?.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color;
-    }
-    
-    // Use custom allergen colors if set
-    if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
-      const allergenColors = this.config.allergen_colors;
-      const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
-      return allergenColors[clampedLevel] || allergenColors[0];
-    }
-    
-    // Default: use default allergen colors (which includes empty color at index 0)
-    const defaultColors = LEVELS_DEFAULTS.allergen_colors;
-    const clampedLevel = Math.max(0, Math.min(level, defaultColors.length - 1));
-    return defaultColors[clampedLevel] || defaultColors[0];
-  }
-
-  /**
-   * Gets color for level circles (charts) - may inherit from allergen colors
-   * Note: Level circles don't use specific allergen keys, so we pass null
-   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
-   * @returns {string} Color hex string
-   */
-  _levelColorForLevel(level) {
-    // If level circles inherit from allergen colors (default)
-    if (this.config?.levels_inherit_mode !== "custom") {
-      // Use allergen color directly - same level mapping (but no special allergen key)
-      return this._colorForLevel(level, null);
-    }
-    
-    // Use custom level colors with traditional mapping
-    // Level 0 uses empty color, Level 1+ uses pollen colors
-    if (level === 0) {
-      return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
-    }
-    
-    const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
-    const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
-    const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
-    return colors[clampedIndex] || colors[0];
-  }
-
-  /**
-   * Determines the appropriate gap color based on inheritance mode
-   * @returns {string} The gap color to use
-   */
-  _getGapColor() {
-    // Use allergen outline color as gap color when inheriting, otherwise use custom gap color
-    return this.config?.levels_inherit_mode !== "custom" 
-      ? (this.config.allergen_outline_color ?? LEVELS_DEFAULTS.levels_gap_color)
-      : (this.config.levels_gap_color ?? "var(--card-background-color)");
   }
 
   /**
