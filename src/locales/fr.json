@@ -113,7 +113,7 @@
   "editor.badge_content_aggregate": "Overall risk",
   "editor.badge_content_row": "Several (row)",
   "editor.badge_content_single": "Single allergen",
-  "editor.badge_content_worst": "Worst allergen",
+  "editor.badge_content_worst": "Highest pollen level",
   "editor.badge_show_label": "Show label",
   "editor.badge_single_allergen": "Allergen",
   "editor.card_version": "Version de la carte Pollenprognos",

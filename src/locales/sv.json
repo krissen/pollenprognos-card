@@ -113,7 +113,7 @@
   "editor.badge_content_aggregate": "Samlad risk",
   "editor.badge_content_row": "Flera (rad)",
   "editor.badge_content_single": "En allergen",
-  "editor.badge_content_worst": "Sämsta allergen",
+  "editor.badge_content_worst": "Högst pollenhalt",
   "editor.badge_show_label": "Visa etikett",
   "editor.badge_single_allergen": "Allergen",
   "editor.card_version": "Version av pollenprognoskortet",
