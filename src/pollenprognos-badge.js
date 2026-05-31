@@ -65,24 +65,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     return t(key, this._lang, vars);
   }
 
-  /**
-   * Resolve the no-data dot color from the computed theme. Falls back to
-   * neutral grey when getComputedStyle is not available (headless, offscreen).
-   */
-  _noDataDotColor() {
-    if (typeof window !== "undefined" && window.getComputedStyle) {
-      try {
-        const v = window
-          .getComputedStyle(this)
-          .getPropertyValue("--primary-text-color")
-          .trim();
-        if (v) return v;
-      } catch (_) {
-        // ignore
-      }
-    }
-    return "#888888";
-  }
+  // _noDataDotColor() is inherited from LevelCircleMixin; no override needed.
 
   // ---------------------------------------------------------------------- //
   // HA card protocol                                                         //
@@ -147,6 +130,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
+      // A badge shows today's value only and has no forecast-event
+      // subscription, so non-daily SILAM/PEU modes would fetch an empty
+      // forecast and render an empty pill. Force daily regardless of any
+      // mode the user may have hand-written in YAML.
+      mode: "daily",
     };
 
     this._userConfig = { ...config };
