@@ -45,7 +45,7 @@ import {
   NORMAL_DEFAULT_THICKNESS,
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "../utils/levels-defaults.js";
-import { getAllAdapterIds, getStubConfig } from "../adapter-registry.js";
+import { getAllAdapterIds } from "../adapter-registry.js";
 import {
   stubConfigDWD,
   discoverDwdSensors,
