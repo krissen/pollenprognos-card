@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Summary block for aggregate pollen risk** (opt-in, for GPL, SILAM and Atmo; issue #222). The aggregate (`allergy_risk` / `index`) can be rendered as a summary row pinned at the top of the card — standalone by default (a compact overall-risk overview that replaces the per-allergen rows), or with the detailed rows shown below it. The summary renders through the ordinary row path (same size, icon and multi-day layout) and appears as the first icon in minimal mode. Five new options:
+  - `show_summary_block` (bool, default `false`) — render the aggregate as a pinned summary row; standalone by default.
+  - `show_summary_row` (bool, default `false`) — also show the detailed allergen rows below the summary.
+  - `show_summary_separator` (bool, default `true`) — divider between the summary and the detailed rows.
+  - `show_summary_top_types` (bool, default `true`, GPL only) — a "Top types" row listing the day's dominant pollen categories.
+  - `show_summary_plants_in_season` (bool, default `true`, GPL only) — an "In season" row listing the plants currently in pollen season.
+  The two GPL qualifier rows read Pollen Levels v2.1.0 data: top types from the summary sensor's category codes, and the in-season plant list from the sibling `plants_in_season_today` entity (resolved by config entry, since pollenlevels splits a location across devices). Both lists are localized to the card's own language, independent of the language the integration fetched in. All existing config keys are unchanged; with the block off the card looks exactly as before.
+
+### Documentation
+- `docs/configuration.md`: documented the five summary-block options in the options table, added a GPL summary-block paragraph and YAML examples, and noted the level-only block support in the SILAM and Atmo sections.
+- `docs/integrations.md`: documented the GPL summary-block design decisions — card-language localization of the top types and config-entry-scoped resolution of the sibling in-season entity.
+
 ## [3.2.0] - 2026-05-11
 
 ### Added

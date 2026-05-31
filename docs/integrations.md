@@ -71,6 +71,13 @@ If only the fallback path is available, all sensors are grouped into a single de
 
 Google Pollen API uses a 0–5 scale. The card keeps this scale as-is and displays 5 segments in the doughnut chart (one per active level, excluding level 0 "None"). Level names are mapped to the card's standard terminology the same way as for Kleenex and PEU — the raw level is preserved for sorting and thresholds while the display text is looked up from the card's localized level name table.
 
+### Summary block (Pollen Levels v2.1.0)
+
+Pollen Levels v2.1.0 adds an `overall_pollen_risk_today` sensor (mapped to the canonical `allergy_risk` key) and two sibling summary sensors. The card's summary block (`show_summary_block`) renders `allergy_risk` as a pinned row and, for GPL, two optional qualifier rows below it. Two design choices are worth noting:
+
+- **Top types are localized in the card's language, not the integration's.** The dominant pollen categories come from the summary sensor's `top_pollen_codes` (`TREE` / `GRASS` / `WEED`). Each code is mapped to the canonical category key (`trees_cat` / `grass_cat` / `weeds_cat`) and translated via the card's own locale files. The integration also ships pre-localized `top_pollen_names`, but those reflect whatever language that config entry fetched in (which may differ from the card), so they are used only as a per-item fallback for codes the card has no translation for.
+- **The in-season list comes from a sibling entity, resolved by config entry.** The plant list lives on the separate `plants_in_season_today` entity (`plant_codes` / `plant_names`), not on the summary entity. pollenlevels splits one location across several devices (pollen types vs plants), so the adapter resolves the sibling by **config entry** — not by device — matching on `translation_key` (the frontend's reduced `hass.entities` does not always expose `unique_id`). Plant names are localized the same way as the top types.
+
 ## Google Pollen (svenove) — design decisions
 
 The Google Pollen (GP) adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. Both GP and GPL use the same underlying Google Pollen API, but the two HA integrations expose data in different formats.

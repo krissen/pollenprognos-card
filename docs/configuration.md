@@ -90,6 +90,11 @@ In this file:
 | `pollution_block_position` *(Atmo only)* | `string` | `bottom` | Where to place the pollution group relative to pollen: `top` or `bottom`. Requires `sort_pollution_block: true`. |
 | `show_block_separator` *(Atmo only)* | `boolean` | `false` | Show a visual separator line between pollen and pollution groups. Requires `sort_pollution_block: true`. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
+| `show_summary_block` *(GPL, SILAM, Atmo)* | `boolean` | `false` | Render the aggregate risk (`allergy_risk` / `index`) as a summary row pinned at the top. Standalone by default: only the summary is shown unless `show_summary_row` is enabled. |
+| `show_summary_row` *(GPL, SILAM, Atmo)* | `boolean` | `false` | Also show the detailed allergen rows below the summary. Requires `show_summary_block: true`. |
+| `show_summary_separator` *(GPL, SILAM, Atmo)* | `boolean` | `true` | Show a divider line between the summary and the detailed rows. Requires `show_summary_block: true` and `show_summary_row: true`. |
+| `show_summary_top_types` *(GPL only)* | `boolean` | `true` | Show a "Top types" row listing the day's dominant pollen categories (trees, grass, weeds). Requires `show_summary_block: true`. |
+| `show_summary_plants_in_season` *(GPL only)* | `boolean` | `true` | Show an "In season" row listing the plants currently in pollen season. Requires `show_summary_block: true`. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
 | `tap_action` | `object` | *(empty)* | Lovelace tap action configuration. |
@@ -186,6 +191,8 @@ ragweed
 index
 ```
 
+The `index` allergen is SILAM's aggregate allergy-risk value. It can be pinned to the top with `index_top: true`, or shown as a level-only summary block via `show_summary_block` / `show_summary_row` / `show_summary_separator` (the GPL-only `show_summary_top_types` / `show_summary_plants_in_season` qualifier rows do not apply to SILAM).
+
 #### Sensor detection
 
 The card tries to discover SILAM entities via the Home Assistant entity registry when available. If registry data is unavailable, it falls back to entity-id pattern matching; in that case renamed entities may not be detected. If the card does not find your sensors, set `location` explicitly in your config or use `location: manual` with `entity_prefix`/`entity_suffix`.
@@ -273,7 +280,7 @@ grass
 olive
 ```
 
-Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for individual allergens and `sensor.qualite_globale_pollen_{city_slug}` for the global allergy risk. The `allergy_risk` allergen shows the overall pollen quality index and can be pinned to the top of the list with `allergy_risk_top: true`.
+Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for individual allergens and `sensor.qualite_globale_pollen_{city_slug}` for the global allergy risk. The `allergy_risk` allergen shows the overall pollen quality index and can be pinned to the top of the list with `allergy_risk_top: true`. It can also be shown as a level-only summary block via `show_summary_block` / `show_summary_row` / `show_summary_separator` (the GPL-only `show_summary_top_types` / `show_summary_plants_in_season` qualifier rows do not apply to Atmo).
 
 ### Google Pollen Levels (GPL)
 
@@ -305,6 +312,8 @@ ragweed
 Levels range from 0 to 5 and are displayed with 5 doughnut segments. Level names are mapped to the card's standard terms (see [integrations.md](integrations.md#level-scale)). Forecast data is read from the sensor's `attributes.forecast[]` array.
 
 Like Kleenex, GPL distinguishes between category sensors and individual plant sensors. Category allergens can be sorted to the top of the list with `sort_category_allergens_first: true` (enabled by default).
+
+**Summary block.** GPL exposes an aggregate `allergy_risk` (the v2.1.0 *overall pollen risk today* sensor). With `show_summary_block: true` it renders as a summary row pinned at the top, showing only the overall risk by default; add `show_summary_row: true` to also show the detailed allergen rows below it (with a divider you can turn off via `show_summary_separator: false`). GPL additionally supports two qualifier rows directly under the summary: `show_summary_top_types` (the day's dominant pollen categories) and `show_summary_plants_in_season` (the plants currently in season). Both are on by default and only render when the block is enabled. Their names are localized to the card's language, independent of the language the integration fetched its data in.
 
 ### Google Pollen (GP)
 
@@ -474,6 +483,26 @@ allergens:
   - weeds_cat
   - birch
   - oak
+```
+
+**Google Pollen Levels — summary block**
+
+```yaml
+# Compact, standalone overall-risk overview (only the summary)
+type: custom:pollenprognos-card
+integration: gpl
+show_summary_block: true
+```
+
+```yaml
+# Overall risk pinned on top, with the detailed rows below
+type: custom:pollenprognos-card
+integration: gpl
+show_summary_block: true
+show_summary_row: true            # also show the per-allergen rows
+show_summary_separator: true      # divider between summary and rows (default)
+show_summary_top_types: true      # "Top types" qualifier row (default)
+show_summary_plants_in_season: true  # "In season" qualifier row (default)
 ```
 
 **Google Pollen (svenove)**
