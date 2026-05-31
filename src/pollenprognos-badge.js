@@ -137,15 +137,27 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const iconInRing = badgeVisual === "icon_in_ring";
     const showValueInCircle = badgeVisual === "ring_value";
 
-    // Auto-thin the ring when the icon sits inside it (matches the card, which
-    // drops levels_thickness to 35 so the icon has room). Only when the user
-    // has NOT explicitly set levels_thickness — an explicit value always wins.
+    // Badges are tiny, so whenever the ring holds something in its centre — an
+    // icon (icon_in_ring) OR a number (ring_value) — thin the ring and enlarge
+    // the centre content to keep it legible, matching the card's icon-in-ring
+    // treatment. An explicit user value always wins.
+    const ringHasCentre = iconInRing || showValueInCircle;
     const userSetThickness = config.levels_thickness != null;
     const effectiveThickness = userSetThickness
       ? config.levels_thickness
-      : iconInRing
+      : ringHasCentre
         ? ICON_IN_RING_DEFAULT_THICKNESS
         : NORMAL_DEFAULT_THICKNESS;
+
+    // ring_value: bump the numeric size a touch (mirrors the larger icon in
+    // icon_in_ring) unless the user set levels_text_size explicitly. The card
+    // default is 0.2; 0.3 fills the thinner ring's wider hole nicely.
+    const userSetTextSize = config.levels_text_size != null;
+    const effectiveTextSize = userSetTextSize
+      ? config.levels_text_size
+      : showValueInCircle
+        ? 0.3
+        : LEVELS_DEFAULTS.levels_text_size;
 
     // Merge order: stub → badge-oriented defaults → user config, so user
     // always wins for plain keys. The badge-derived engine flags are applied
@@ -165,6 +177,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       icon_in_ring: iconInRing,
       show_value_numeric_in_circle: showValueInCircle,
       levels_thickness: effectiveThickness,
+      levels_text_size: effectiveTextSize,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
