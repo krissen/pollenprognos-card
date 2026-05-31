@@ -9,6 +9,7 @@ import { getStubConfig } from "./adapter-registry.js";
 import { PollenEditorBase, deepMerge } from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
+import { deepEqual } from "./utils/confcompare.js";
 
 class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //
@@ -78,6 +79,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ? { badge_label_position: badgeLabelPosition }
         : {}),
     };
+
+    // Persist only what the user actually set. _config above is the stub-merged
+    // view used for rendering the editor; _userConfig is the raw incoming
+    // config (user-origin keys) that we dispatch back, so stub defaults are
+    // never baked into the saved YAML. Mirrors the card editor.
+    this._userConfig = { ...config };
   }
 
   // ------------------------------------------------------------------ //
@@ -122,31 +129,36 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   _updateConfig(prop, value) {
     if (!this._config) return;
 
-    // Apply shared visual side-effects.
-    const result = this._applyVisualConfigSideEffects(
-      prop, value, { ...this._config }
-    );
+    const before = this._config;
+
+    // Apply shared visual side-effects (may set several related keys at once,
+    // e.g. levels_inherit_mode resetting the level colours/gap).
+    const result = this._applyVisualConfigSideEffects(prop, value, {
+      ...before,
+    });
     if (result.thicknessAutoShifted !== null) {
       this._thicknessAutoShifted = result.thicknessAutoShifted;
     }
-    if (result.handled) {
-      this._config = result.config;
-      this.dispatchEvent(
-        new CustomEvent("config-changed", {
-          detail: { config: this._config },
-          bubbles: true,
-          composed: true,
-        }),
-      );
-      return;
-    }
+    const after = result.handled
+      ? result.config
+      : deepMerge(before, { [prop]: value });
 
-    // Normal path: deep-merge.
-    const newConfig = deepMerge(this._config, { [prop]: value });
-    this._config = newConfig;
+    // Persist only user-origin keys: the edited prop plus any key the
+    // side-effects actually changed (diffed against the pre-edit config). This
+    // keeps stub defaults out of the saved YAML so the badge element can treat
+    // a present value as a deliberate choice. Mirrors the card editor.
+    this._userConfig = this._userConfig || {};
+    for (const k of Object.keys(after)) {
+      if (!deepEqual(after[k], before[k])) {
+        this._userConfig[k] = after[k];
+      }
+    }
+    this._userConfig[prop] = value;
+
+    this._config = after;
     this.dispatchEvent(
       new CustomEvent("config-changed", {
-        detail: { config: this._config },
+        detail: { config: this._userConfig },
         bubbles: true,
         composed: true,
       }),

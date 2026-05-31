@@ -140,45 +140,23 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // Badges are tiny, so whenever the ring holds something in its centre — an
     // icon (icon_in_ring) OR a number (ring_value) — thin the ring so the
     // centre content stays legible, matching the card's icon-in-ring treatment.
-    //
-    // We can't treat any present levels_thickness as "user set": the editor
-    // bakes the stub default (60) into the saved config, so a 60 on an
-    // icon-in-ring badge is almost always that baked default, not a deliberate
-    // choice. Apply the card's auto-shift safety rule symmetrically — use the
-    // mode's preferred default when the saved thickness is missing OR equals the
-    // OTHER mode's default; any other value is a genuine override and is kept.
-    // Tradeoff: thickness exactly 60 is unreachable in a ring-centre mode (it
-    // coerces to 35); 35 is unreachable in the no-centre modes (coerces to 60).
+    // The badge editor persists ONLY user-set keys, so a present levels_thickness
+    // is a deliberate choice and is honoured; the auto-thin default applies only
+    // when the key is absent. Same rule for the numeric text size in ring_value.
     const ringHasCentre = iconInRing || showValueInCircle;
-    const preferredThickness = ringHasCentre
-      ? ICON_IN_RING_DEFAULT_THICKNESS
-      : NORMAL_DEFAULT_THICKNESS;
-    const otherThicknessDefault = ringHasCentre
-      ? NORMAL_DEFAULT_THICKNESS
-      : ICON_IN_RING_DEFAULT_THICKNESS;
-    const savedThickness = config.levels_thickness;
     const effectiveThickness =
-      savedThickness == null || savedThickness === otherThicknessDefault
-        ? preferredThickness
-        : savedThickness;
+      config.levels_thickness != null
+        ? config.levels_thickness
+        : ringHasCentre
+          ? ICON_IN_RING_DEFAULT_THICKNESS
+          : NORMAL_DEFAULT_THICKNESS;
 
-    // ring_value: bump the numeric size a touch (mirrors the larger icon in
-    // icon_in_ring) so it fills the thinner ring's wider hole. Same baked-
-    // default caveat as thickness above: the editor persists the stub default
-    // (0.2), so treat a saved 0.2 in ring_value mode as "use the bumped 0.3"
-    // rather than a deliberate choice; any other saved value is kept.
-    const BADGE_VALUE_TEXT_SIZE = 0.3;
-    const baseTextSize = LEVELS_DEFAULTS.levels_text_size;
-    const savedTextSize = config.levels_text_size;
-    let effectiveTextSize;
-    if (showValueInCircle) {
-      effectiveTextSize =
-        savedTextSize == null || savedTextSize === baseTextSize
-          ? BADGE_VALUE_TEXT_SIZE
-          : savedTextSize;
-    } else {
-      effectiveTextSize = savedTextSize == null ? baseTextSize : savedTextSize;
-    }
+    const effectiveTextSize =
+      config.levels_text_size != null
+        ? config.levels_text_size
+        : showValueInCircle
+          ? 0.3
+          : LEVELS_DEFAULTS.levels_text_size;
 
     // Merge order: stub → badge-oriented defaults → user config, so user
     // always wins for plain keys. The badge-derived engine flags are applied
