@@ -168,7 +168,6 @@
   "editor.icon_in_ring_header": "Icon in ring",
   "editor.icon_in_ring_size_ratio": "Icon size (fraction of ring hole)",
   "editor.icon_in_ring_static_color": "Static color",
-  "editor.icon_in_ring_static_color_var_hint": "Non-hex value (e.g. CSS variable); use the text field to edit",
   "editor.icon_size": "Ikonstørrelse (px)",
   "editor.index_top": "Indeks øverst i listen",
   "editor.integration": "Integrasjon",
