@@ -113,13 +113,31 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         ? config.badge_single_allergen
         : undefined;
     const badgeShowLabel = coerceBool(config.badge_show_label);
+    // Visual mode: icon_in_ring (default) | ring_value | ring_empty | icon_only.
+    const VISUALS = ["icon_in_ring", "ring_value", "ring_empty", "icon_only"];
+    const badgeVisual = VISUALS.includes(config.badge_visual)
+      ? config.badge_visual
+      : "icon_in_ring";
+    // Scale: whole-badge multiplier; default 1 = standard HA badge size.
+    const badgeScaleRaw = Number(config.badge_scale);
+    const badgeScale =
+      Number.isFinite(badgeScaleRaw) && badgeScaleRaw > 0 ? badgeScaleRaw : 1;
+    // Label position: right (community convention, default) | below.
+    const badgeLabelPosition =
+      config.badge_label_position === "below" ? "below" : "right";
+
+    // badge_visual drives two engine flags so the shared LevelCircleMixin
+    // renders the right centre content: icon_in_ring shows the allergen icon;
+    // ring_value shows the numeric overlay; ring_empty/icon_only show neither
+    // (icon_only renders a bare icon outside the ring path entirely).
+    const iconInRing = badgeVisual === "icon_in_ring";
+    const showValueInCircle = badgeVisual === "ring_value";
 
     // Merge order: stub → badge-oriented defaults → user config, so user
-    // always wins. icon_in_ring and badge_content are overridden to sensible
-    // badge defaults, but the user can still override them.
+    // always wins for plain keys. The badge-derived engine flags are applied
+    // AFTER the spread so badge_visual stays the single source of truth.
     this.config = {
       ...stub,
-      icon_in_ring: true,
       badge_content: "worst",
       badge_show_label: false,
       ...config,
@@ -127,6 +145,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       // Re-apply coerced fields after spread so they override raw values.
       badge_content: badgeContent,
       badge_show_label: badgeShowLabel,
+      badge_visual: badgeVisual,
+      badge_scale: badgeScale,
+      badge_label_position: badgeLabelPosition,
+      icon_in_ring: iconInRing,
+      show_value_numeric_in_circle: showValueInCircle,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
@@ -209,28 +232,56 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // Render                                                                   //
   // ---------------------------------------------------------------------- //
 
+  /**
+   * Resolve the badge's base size in px. One value drives the ring AND (via the
+   * --ppb-size custom property) the pill padding, gap, label and bare icon, so
+   * the whole badge scales together. badge_scale multiplies the HA-conventional
+   * base; legacy icon_size is honoured only when no badge_scale was given.
+   *
+   * @returns {number}
+   */
+  _badgeBaseSize() {
+    // Base ring diameter (px) at badge_scale = 1, tuned so the whole pill is
+    // roughly as tall as a native HA badge (~36px). Kept local so the value is
+    // never subject to module-scope hoisting/minification quirks.
+    const baseRing = 28;
+    const scale = Number(this.config?.badge_scale) || 1;
+    const legacyIconSize = Number(this.config?.icon_size);
+    return this.config?.badge_scale == null && legacyIconSize > 0
+      ? legacyIconSize
+      : Math.round(baseRing * scale);
+  }
+
   render() {
+    const base = this._badgeBaseSize();
+    // --ppb-size drives the proportional pill CSS; --pollen-icon-size sizes the
+    // bare icon used by the icon_only visual mode.
+    const hostStyle = `--ppb-size: ${base}px; --pollen-icon-size: ${base}px;`;
+
     // Not yet loaded: render an empty pill placeholder so the badge slot
-    // doesn't jump when data arrives.
+    // doesn't jump when data arrives. It carries the same size base.
     if (!this._isLoaded) {
-      return html`<div class="ppb"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     // Error or no sensors: render a tiny empty pill; do NOT render a big
     // error card — the badge slot is not the right place for verbose errors.
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) {
-      return html`<div class="ppb"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     const ringConfig = this._buildLevelRingConfig();
-    const iconSize = Number(this.config?.icon_size) || 36;
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
 
+    const visualMode = this.config?.badge_visual || "icon_in_ring";
+    const labelBelow = this.config?.badge_label_position === "below";
+    const showLabel = this.config.badge_show_label === true;
+
     return html`
-      <div class="ppb">
+      <div class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}" style="${hostStyle}">
         ${picks.map((sensor) => {
           const normalizedLevel = Number(sensor.day0?.state) || 0;
           const ringLevel =
@@ -241,28 +292,14 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           const rawNum =
             sensor.day0?.display_state ?? sensor.day0?.state ?? ringLevel;
           const displayLevel = rawNum != null && rawNum >= 0 ? rawNum : ringLevel;
+          const clickable =
+            this.config.link_to_sensors !== false && !!sensor.entity_id;
 
-          const visual = this._renderLevelCircle(
-            ringLevel,
-            {
-              ...ringConfig,
-              size: iconSize,
-              iconKey: this._getEffectiveSvgKey(svgKey, ringLevel),
-              iconColor: this._iconInRingColor(
-                ringLevel,
-                sensor.allergenReplaced,
-                { stale: sensor.stale },
-              ),
-              iconSizeRatio: ringIconRatio,
-            },
-            sensor.allergenReplaced,
-            0,
-            displayLevel,
-            sensor.entity_id,
-            this.config.link_to_sensors !== false && !!sensor.entity_id,
+          const visual = this._renderBadgeVisual(
+            visualMode,
+            sensor,
+            { ringConfig, base, ringIconRatio, ringLevel, svgKey, displayLevel, clickable },
           );
-
-          const showLabel = this.config.badge_show_label === true;
 
           return html`
             <div class="ppb-item">
@@ -281,6 +318,64 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     `;
   }
 
+  /**
+   * Build the centre visual for one sensor according to badge_visual:
+   *   icon_in_ring — level ring with the allergen icon centred (default)
+   *   ring_value   — level ring with the numeric value centred
+   *   ring_empty   — level ring with nothing centred
+   *   icon_only    — bare allergen symbol, no ring
+   *
+   * All four reuse the shared LevelCircleMixin (no duplicated rendering). The
+   * mixin renders the numeric overlay only when show_value_numeric_in_circle is
+   * on AND no icon occupies the hole — setConfig already set those engine flags
+   * from badge_visual, so here we only choose iconKey and which call to make.
+   *
+   * @param {string} mode
+   * @param {object} sensor
+   * @param {object} ctx
+   * @returns {import("lit").TemplateResult}
+   */
+  _renderBadgeVisual(mode, sensor, ctx) {
+    const { ringConfig, base, ringIconRatio, ringLevel, svgKey, displayLevel, clickable } = ctx;
+
+    if (mode === "icon_only") {
+      const onClick = (e) => {
+        if (clickable) {
+          e.stopPropagation();
+          this._openEntity(sensor.entity_id);
+        }
+      };
+      return this._renderAllergenSvg(
+        this._getEffectiveSvgKey(svgKey, ringLevel),
+        ringLevel,
+        { clickable, onClick, stale: sensor.stale },
+      );
+    }
+
+    const iconKey =
+      mode === "icon_in_ring" ? this._getEffectiveSvgKey(svgKey, ringLevel) : "";
+
+    return this._renderLevelCircle(
+      ringLevel,
+      {
+        ...ringConfig,
+        size: base,
+        iconKey,
+        iconColor: iconKey
+          ? this._iconInRingColor(ringLevel, sensor.allergenReplaced, {
+              stale: sensor.stale,
+            })
+          : "",
+        iconSizeRatio: ringIconRatio,
+      },
+      sensor.allergenReplaced,
+      0,
+      displayLevel,
+      sensor.entity_id,
+      clickable,
+    );
+  }
+
   // ---------------------------------------------------------------------- //
   // Styles                                                                   //
   // ---------------------------------------------------------------------- //
@@ -292,12 +387,18 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         align-items: center;
       }
 
+      /* The whole badge scales from one base, --ppb-size, set inline on .ppb
+         from badge_scale. Padding, gap, label font and the empty-state dot are
+         all proportional to it, so the entire pill grows/shrinks together
+         rather than only the ring. --ppb-size falls back to the native HA badge
+         size when not set inline. */
       .ppb {
+        --ppb-size: var(--ha-badge-size, 36px);
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
-        border-radius: var(--ha-badge-border-radius, 18px);
+        gap: calc(var(--ppb-size) * 0.22);
+        padding: calc(var(--ppb-size) * 0.14) calc(var(--ppb-size) * 0.3);
+        border-radius: var(--ha-badge-border-radius, 999px);
         background: var(
           --ha-card-background,
           var(--card-background-color, #fff)
@@ -307,22 +408,37 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         box-shadow: var(--ha-card-box-shadow, none);
       }
 
+      /* Each item lays its visual and label out per badge_label_position:
+         "right" (community convention, default) = icon left, label right;
+         "below" = label stacked under the visual. */
       .ppb-item {
         display: flex;
-        flex-direction: column;
         align-items: center;
-        gap: 2px;
+        gap: calc(var(--ppb-size) * 0.18);
+      }
+      .ppb--right .ppb-item {
+        flex-direction: row;
+      }
+      .ppb--below .ppb-item {
+        flex-direction: column;
+        gap: calc(var(--ppb-size) * 0.06);
+      }
+      /* Several items (row content mode) sit side by side with a clear gap. */
+      .ppb--right .ppb-item + .ppb-item,
+      .ppb--below .ppb-item + .ppb-item {
+        margin-left: calc(var(--ppb-size) * 0.18);
       }
 
       .ppb-label {
-        font-size: var(--ha-badge-font-size, var(--ha-font-size-s, 12px));
+        font-size: calc(var(--ppb-size) * 0.34);
+        line-height: 1.1;
         color: var(--primary-text-color);
         white-space: nowrap;
       }
 
       .ppb-empty {
-        width: 24px;
-        height: 24px;
+        width: calc(var(--ppb-size) * 0.8);
+        height: calc(var(--ppb-size) * 0.8);
         border-radius: 50%;
         background: var(--divider-color, rgba(0, 0, 0, 0.12));
         opacity: 0.4;
@@ -369,6 +485,72 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         overflow: hidden;
         text-align: center;
         white-space: nowrap;
+      }
+
+      /*
+       * Rules below are required by _renderAllergenSvg (inherited from
+       * LevelCircleMixin) for the icon_only badge_visual mode.
+       * Copied verbatim from the card's shadow-DOM CSS with one intentional
+       * deviation: margin is 0 (not "0 auto 6px auto") because the badge
+       * controls spacing via its .ppb-item flex gap, not bottom-margin.
+       * Same deviation applies to .pp-icon-error.
+       */
+
+      .pp-icon {
+        display: block;
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
+        color: var(--pp-icon-color, var(--primary-text-color));
+      }
+
+      .pp-icon svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .pp-icon svg g {
+        stroke: var(--pp-icon-stroke, none);
+        stroke-width: var(--pp-icon-stroke-width, 1);
+      }
+
+      .pp-icon-no-data {
+        -webkit-mask-image: var(--pp-icon-no-data-mask);
+        mask-image: var(--pp-icon-no-data-mask);
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-mode: alpha;
+        mask-mode: alpha;
+        background-image: var(--pp-icon-no-data-noise);
+        background-repeat: repeat;
+        background-color: rgba(136, 136, 136, 0.15);
+        background-color: color-mix(
+          in srgb,
+          var(--primary-text-color, #888888) 15%,
+          transparent
+        );
+      }
+
+      .pp-icon-error {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--pollen-icon-size, 48px);
+        height: var(--pollen-icon-size, 48px);
+        max-width: var(--pollen-icon-size, 48px);
+        max-height: var(--pollen-icon-size, 48px);
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
       }
     `;
   }
