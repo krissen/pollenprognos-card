@@ -1312,50 +1312,75 @@ export class PollenEditorBase extends LitElement {
               />
             </div>
           </ha-formfield>
-          <ha-formfield label="${this._t("icon_size")}">
-            <ha-slider
-              min="16"
-              max="128"
-              step="1"
-              .value=${c.icon_size ?? 48}
-              @input=${(e) =>
-                this._updateConfig("icon_size", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              .value=${c.icon_size ?? 48}
-              type="number"
-              min="16"
-              max="128"
-              step="1"
-              @input=${(e) =>
-                this._updateConfig("icon_size", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-          </ha-formfield>
-          <ha-formfield label="${this._t("text_size_ratio")}">
-            <ha-slider
-              min="0.5"
-              max="2"
-              step="0.05"
-              .value=${c.text_size_ratio ?? 1}
-              @input=${(e) =>
-                this._updateConfig("text_size_ratio", Number(e.target.value))}
-              style="width: 120px;"
-            ></ha-slider>
-            <ha-textfield
-              type="number"
-              .value=${c.text_size_ratio ?? 1}
-              min="0.5"
-              max="2"
-              step="0.05"
-              @input=${(e) =>
-                this._updateConfig("text_size_ratio", Number(e.target.value))}
-              style="width: 80px;"
-            ></ha-textfield>
-          </ha-formfield>
+          ${this._showCardSizeControls()
+            ? html`
+                <ha-formfield label="${this._t("icon_size")}">
+                  <ha-slider
+                    min="16"
+                    max="128"
+                    step="1"
+                    .value=${c.icon_size ?? 48}
+                    @input=${(e) =>
+                      this._updateConfig("icon_size", Number(e.target.value))}
+                    style="width: 120px;"
+                  ></ha-slider>
+                  <ha-textfield
+                    .value=${c.icon_size ?? 48}
+                    type="number"
+                    min="16"
+                    max="128"
+                    step="1"
+                    @input=${(e) =>
+                      this._updateConfig("icon_size", Number(e.target.value))}
+                    style="width: 80px;"
+                  ></ha-textfield>
+                </ha-formfield>
+                <ha-formfield label="${this._t("text_size_ratio")}">
+                  <ha-slider
+                    min="0.5"
+                    max="2"
+                    step="0.05"
+                    .value=${c.text_size_ratio ?? 1}
+                    @input=${(e) =>
+                      this._updateConfig(
+                        "text_size_ratio",
+                        Number(e.target.value),
+                      )}
+                    style="width: 120px;"
+                  ></ha-slider>
+                  <ha-textfield
+                    type="number"
+                    .value=${c.text_size_ratio ?? 1}
+                    min="0.5"
+                    max="2"
+                    step="0.05"
+                    @input=${(e) =>
+                      this._updateConfig(
+                        "text_size_ratio",
+                        Number(e.target.value),
+                      )}
+                    style="width: 80px;"
+                  ></ha-textfield>
+                </ha-formfield>
+              `
+            : ""}
+          ${this._renderAppearanceExtras()}
       </details>
     `;
+  }
+
+  // Whether the Card appearance section shows the card-only size controls
+  // (icon_size, text_size_ratio). The badge editor overrides this to false
+  // because badge_scale governs the whole badge size instead.
+  _showCardSizeControls() {
+    return true;
+  }
+
+  // Extra controls appended inside the Card appearance section. Empty on the
+  // base; the badge editor overrides it to add badge_scale and the label
+  // controls, so badge size lives in "Card appearance" like the card's size.
+  _renderAppearanceExtras() {
+    return html``;
   }
 
   // ------------------------------------------------------------------

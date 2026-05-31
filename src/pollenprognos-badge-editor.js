@@ -275,63 +275,77 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               </ha-formfield>
             `
           : ""}
-
-        <!-- badge_scale: overall badge size multiplier -->
-        <ha-formfield label="${this._t("badge_scale")}">
-          <ha-slider
-            min="0.5"
-            max="3"
-            step="0.1"
-            .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
-            @input=${(e) =>
-              this._updateConfig("badge_scale", Number(e.target.value))}
-            style="width: 120px;"
-          ></ha-slider>
-          <ha-textfield
-            type="number"
-            min="0.5"
-            max="3"
-            step="0.1"
-            .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
-            @input=${(e) =>
-              this._updateConfig("badge_scale", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-        </ha-formfield>
-
-        <!-- badge_show_label / badge_label_position -->
-        <ha-formfield label="${this._t("badge_show_label")}">
-          <ha-switch
-            .checked=${c.badge_show_label === true}
-            @change=${(e) =>
-              this._updateConfig("badge_show_label", e.target.checked)}
-          ></ha-switch>
-        </ha-formfield>
-
-        ${c.badge_show_label
-          ? html`
-              <ha-formfield label="${this._t("badge_label_position")}">
-                <ha-selector
-                  .hass=${this._hass}
-                  .selector=${{
-                    select: {
-                      mode: "dropdown",
-                      options: [
-                        { value: "right", label: this._t("badge_label_position_right") },
-                        { value: "below", label: this._t("badge_label_position_below") },
-                      ],
-                    },
-                  }}
-                  .value=${typeof c.badge_label_position === "string" ? c.badge_label_position : "right"}
-                  @value-changed=${(e) => {
-                    const v = e.detail?.value;
-                    if (v !== undefined) this._updateConfig("badge_label_position", v);
-                  }}
-                ></ha-selector>
-              </ha-formfield>
-            `
-          : ""}
       </details>
+    `;
+  }
+
+  // Hide the card-only size controls (icon_size / text_size_ratio) in the
+  // shared Card appearance section; the badge uses badge_scale instead.
+  _showCardSizeControls() {
+    return false;
+  }
+
+  // Badge size + label controls, rendered inside the shared Card appearance
+  // section so badge size lives where card size lives (recognisable to users
+  // of the card editor).
+  _renderAppearanceExtras() {
+    const c = this._editorConfig();
+    return html`
+      <!-- badge_scale: overall badge size multiplier -->
+      <ha-formfield label="${this._t("badge_scale")}">
+        <ha-slider
+          min="0.5"
+          max="3"
+          step="0.1"
+          .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
+          @input=${(e) =>
+            this._updateConfig("badge_scale", Number(e.target.value))}
+          style="width: 120px;"
+        ></ha-slider>
+        <ha-textfield
+          type="number"
+          min="0.5"
+          max="3"
+          step="0.1"
+          .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
+          @input=${(e) =>
+            this._updateConfig("badge_scale", Number(e.target.value))}
+          style="width: 80px;"
+        ></ha-textfield>
+      </ha-formfield>
+
+      <!-- badge_show_label / badge_label_position -->
+      <ha-formfield label="${this._t("badge_show_label")}">
+        <ha-switch
+          .checked=${c.badge_show_label === true}
+          @change=${(e) =>
+            this._updateConfig("badge_show_label", e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+
+      ${c.badge_show_label
+        ? html`
+            <ha-formfield label="${this._t("badge_label_position")}">
+              <ha-selector
+                .hass=${this._hass}
+                .selector=${{
+                  select: {
+                    mode: "dropdown",
+                    options: [
+                      { value: "right", label: this._t("badge_label_position_right") },
+                      { value: "below", label: this._t("badge_label_position_below") },
+                    ],
+                  },
+                }}
+                .value=${typeof c.badge_label_position === "string" ? c.badge_label_position : "right"}
+                @value-changed=${(e) => {
+                  const v = e.detail?.value;
+                  if (v !== undefined) this._updateConfig("badge_label_position", v);
+                }}
+              ></ha-selector>
+            </ha-formfield>
+          `
+        : ""}
     `;
   }
 
