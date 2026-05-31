@@ -138,6 +138,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         "city", "region_id", "location",
         "entity_prefix", "entity_suffix", "entity_weather",
         "mode", "allergens", "badge_single_allergen",
+        // Threshold ranges are integration-specific (DWD 0-3, PP 0-6, ...), so
+        // a stale high threshold can suppress every allergen on the new
+        // integration and render an empty badge. Pin-to-top flags are likewise
+        // integration-specific. Clear them too, matching the card editor.
+        "pollen_threshold", "allergy_risk_top", "index_top",
       ];
       this._userConfig = this._userConfig || {};
       for (const k of INTEGRATION_SCOPED) delete this._userConfig[k];
