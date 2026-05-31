@@ -1683,6 +1683,14 @@ export class PollenEditorBase extends LitElement {
   // §7 Level circles section
   // ------------------------------------------------------------------
 
+  // Whether the Level circles section shows the numeric-value-in-circle toggle.
+  // The card editor uses it; the badge editor hides it because badge_visual
+  // (ring_value) is the single source of truth there — the switch would be a
+  // false affordance (the element re-derives show_value_numeric_in_circle).
+  _showNumericInCircleToggle() {
+    return true;
+  }
+
   _renderLevelCirclesSection() {
     const c = this._editorConfig();
     const { inheritMode, gapSynced, gapDisabled } = this._inheritState();
@@ -1936,17 +1944,25 @@ export class PollenEditorBase extends LitElement {
             `
           : ""}
 
-        <ha-formfield label="${this._t("show_value_numeric_in_circle")}">
-          <ha-switch
-            .checked=${c.show_value_numeric_in_circle}
-            @change=${(e) =>
-              this._updateConfig(
-                "show_value_numeric_in_circle",
-                e.target.checked,
-              )}
-          ></ha-switch>
-        </ha-formfield>
-        <div class="field-helper">${this._t("helper_show_value_numeric_in_circle")}</div>
+        ${this._showNumericInCircleToggle()
+          ? html`
+              <ha-formfield
+                label="${this._t("show_value_numeric_in_circle")}"
+              >
+                <ha-switch
+                  .checked=${c.show_value_numeric_in_circle}
+                  @change=${(e) =>
+                    this._updateConfig(
+                      "show_value_numeric_in_circle",
+                      e.target.checked,
+                    )}
+                ></ha-switch>
+              </ha-formfield>
+              <div class="field-helper">
+                ${this._t("helper_show_value_numeric_in_circle")}
+              </div>
+            `
+          : ""}
 
         <ha-formfield label="${this._t("levels_text_weight")}">
           <ha-selector

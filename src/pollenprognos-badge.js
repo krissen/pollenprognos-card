@@ -138,16 +138,29 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const showValueInCircle = badgeVisual === "ring_value";
 
     // Badges are tiny, so whenever the ring holds something in its centre — an
-    // icon (icon_in_ring) OR a number (ring_value) — thin the ring and enlarge
-    // the centre content to keep it legible, matching the card's icon-in-ring
-    // treatment. An explicit user value always wins.
+    // icon (icon_in_ring) OR a number (ring_value) — thin the ring so the
+    // centre content stays legible, matching the card's icon-in-ring treatment.
+    //
+    // We can't treat any present levels_thickness as "user set": the editor
+    // bakes the stub default (60) into the saved config, so a 60 on an
+    // icon-in-ring badge is almost always that baked default, not a deliberate
+    // choice. Apply the card's auto-shift safety rule symmetrically — use the
+    // mode's preferred default when the saved thickness is missing OR equals the
+    // OTHER mode's default; any other value is a genuine override and is kept.
+    // Tradeoff: thickness exactly 60 is unreachable in a ring-centre mode (it
+    // coerces to 35); 35 is unreachable in the no-centre modes (coerces to 60).
     const ringHasCentre = iconInRing || showValueInCircle;
-    const userSetThickness = config.levels_thickness != null;
-    const effectiveThickness = userSetThickness
-      ? config.levels_thickness
-      : ringHasCentre
-        ? ICON_IN_RING_DEFAULT_THICKNESS
-        : NORMAL_DEFAULT_THICKNESS;
+    const preferredThickness = ringHasCentre
+      ? ICON_IN_RING_DEFAULT_THICKNESS
+      : NORMAL_DEFAULT_THICKNESS;
+    const otherThicknessDefault = ringHasCentre
+      ? NORMAL_DEFAULT_THICKNESS
+      : ICON_IN_RING_DEFAULT_THICKNESS;
+    const savedThickness = config.levels_thickness;
+    const effectiveThickness =
+      savedThickness == null || savedThickness === otherThicknessDefault
+        ? preferredThickness
+        : savedThickness;
 
     // ring_value: bump the numeric size a touch (mirrors the larger icon in
     // icon_in_ring) so it fills the thinner ring's wider hole. Same baked-
@@ -442,9 +455,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         /* 8/36 ≈ 0.222 inner gap, matching native --ha-space-2 (8px). */
         gap: calc(var(--ppb-size) * 0.222);
         border-radius: var(--ha-badge-border-radius, calc(var(--ppb-size) / 2));
+        /* --ppb-bg is set inline only when the user configures
+           background_color; otherwise fall back to the themed badge/card
+           background so a default badge matches native ones. */
         background: var(
-          --ha-card-background,
-          var(--card-background-color, #fff)
+          --ppb-bg,
+          var(--ha-card-background, var(--card-background-color, #fff))
         );
         border: var(--ha-card-border-width, 1px) solid
           var(--ha-card-border-color, var(--divider-color));

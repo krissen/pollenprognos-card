@@ -164,6 +164,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
+  // The numeric-value-in-circle switch is driven by badge_visual (ring_value)
+  // on the badge, so the §7 toggle would be a false affordance — hide it.
+  _showNumericInCircleToggle() {
+    return false;
+  }
+
   // badge_visual (in the Badge content section) is the single source of truth
   // for whether the icon sits in the ring, so the §8 on/off checkbox would be
   // a false affordance here — hide it. The ring sub-fields (size ratio, colour)
