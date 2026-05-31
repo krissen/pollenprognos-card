@@ -150,14 +150,22 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         : NORMAL_DEFAULT_THICKNESS;
 
     // ring_value: bump the numeric size a touch (mirrors the larger icon in
-    // icon_in_ring) unless the user set levels_text_size explicitly. The card
-    // default is 0.2; 0.3 fills the thinner ring's wider hole nicely.
-    const userSetTextSize = config.levels_text_size != null;
-    const effectiveTextSize = userSetTextSize
-      ? config.levels_text_size
-      : showValueInCircle
-        ? 0.3
-        : LEVELS_DEFAULTS.levels_text_size;
+    // icon_in_ring) so it fills the thinner ring's wider hole. Same baked-
+    // default caveat as thickness above: the editor persists the stub default
+    // (0.2), so treat a saved 0.2 in ring_value mode as "use the bumped 0.3"
+    // rather than a deliberate choice; any other saved value is kept.
+    const BADGE_VALUE_TEXT_SIZE = 0.3;
+    const baseTextSize = LEVELS_DEFAULTS.levels_text_size;
+    const savedTextSize = config.levels_text_size;
+    let effectiveTextSize;
+    if (showValueInCircle) {
+      effectiveTextSize =
+        savedTextSize == null || savedTextSize === baseTextSize
+          ? BADGE_VALUE_TEXT_SIZE
+          : savedTextSize;
+    } else {
+      effectiveTextSize = savedTextSize == null ? baseTextSize : savedTextSize;
+    }
 
     // Merge order: stub → badge-oriented defaults → user config, so user
     // always wins for plain keys. The badge-derived engine flags are applied
