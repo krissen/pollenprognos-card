@@ -263,10 +263,10 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   /**
    * Resolve the badge's pill HEIGHT in px, following the native HA badge size
    * convention (--ha-badge-size, 36px) multiplied by badge_scale. The ring and
-   * bare icon are derived from this height (see RING_RATIO in render), so the
+   * bare icon are derived from this height (see ring math in render), so the
    * whole pill scales as a unit and a default badge matches a stock HA badge.
-   * Legacy icon_size (when no badge_scale was given) is interpreted as the ring
-   * diameter and converted back to a pill height for backward compatibility.
+   * setConfig always normalises badge_scale to a positive number, so this is a
+   * single deterministic path.
    *
    * @returns {number}
    */
@@ -275,11 +275,6 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // quirks. badge_scale multiplies it.
     const HA_BADGE_SIZE = 36;
     const scale = Number(this.config?.badge_scale) || 1;
-    const legacyIconSize = Number(this.config?.icon_size);
-    if (this.config?.badge_scale == null && legacyIconSize > 0) {
-      // Legacy: icon_size meant the ring diameter; back-convert to pill height.
-      return Math.round(legacyIconSize / 0.78);
-    }
     return Math.round(HA_BADGE_SIZE * scale);
   }
 

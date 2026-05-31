@@ -209,8 +209,11 @@ export const LevelCircleMixin = (Base) =>
       entityId = null,
       clickable = true,
     ) {
-      // Create a unique key for this chart configuration
-      const chartId = `chart-${allergen}-${dayIndex}-${level}`;
+      // Create a unique key for this chart configuration. `size` is part of the
+      // key so a size change (e.g. the badge's badge_scale live-preview) forces
+      // a fresh canvas at the new dimensions instead of reusing a cached Chart
+      // whose canvas width/height was fixed at the old size.
+      const chartId = `chart-${allergen}-${dayIndex}-${level}-${size}`;
 
       // Use attributes instead of properties so values persist if DOM is cloned
       const noDataDistinct = this.config?.show_no_data_distinct !== false;

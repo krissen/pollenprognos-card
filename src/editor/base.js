@@ -2037,6 +2037,15 @@ export class PollenEditorBase extends LitElement {
   // §8 Icon in ring section
   // ------------------------------------------------------------------
 
+  // Whether the icon-in-ring on/off checkbox is shown. The card editor uses it
+  // to toggle icon_in_ring; the badge editor hides it because badge_visual is
+  // the single source of truth there — a checkbox would be a false affordance
+  // (the element re-derives icon_in_ring) and its side effect could silently
+  // clobber a user-set levels_thickness.
+  _showIconInRingToggle() {
+    return true;
+  }
+
   _renderIconInRingSection() {
     const c = this._editorConfig();
     return html`
@@ -2044,15 +2053,17 @@ export class PollenEditorBase extends LitElement {
       <details>
         <summary>${this._t("summary_icon_in_ring")}</summary>
         <div class="section-helper">${this._t("helper_icon_in_ring")}</div>
-        <ha-formfield
-          label="${this._t("icon_in_ring")}"
-        >
-          <ha-checkbox
-            .checked=${c.icon_in_ring === true}
-            @change=${(e) =>
-              this._updateConfig("icon_in_ring", e.target.checked)}
-          ></ha-checkbox>
-        </ha-formfield>
+        ${this._showIconInRingToggle()
+          ? html`
+              <ha-formfield label="${this._t("icon_in_ring")}">
+                <ha-checkbox
+                  .checked=${c.icon_in_ring === true}
+                  @change=${(e) =>
+                    this._updateConfig("icon_in_ring", e.target.checked)}
+                ></ha-checkbox>
+              </ha-formfield>
+            `
+          : ""}
         <ha-formfield
           label="${this._t("icon_in_ring_size_ratio")}"
         >

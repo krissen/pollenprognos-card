@@ -164,6 +164,14 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
+  // badge_visual (in the Badge content section) is the single source of truth
+  // for whether the icon sits in the ring, so the §8 on/off checkbox would be
+  // a false affordance here — hide it. The ring sub-fields (size ratio, colour)
+  // remain available for tuning the icon_in_ring visual mode.
+  _showIconInRingToggle() {
+    return false;
+  }
+
   // ------------------------------------------------------------------ //
   // Allergen toggle helpers (required by _renderAllergensSection)        //
   // ------------------------------------------------------------------ //
