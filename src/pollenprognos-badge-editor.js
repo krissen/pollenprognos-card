@@ -129,6 +129,31 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   _updateConfig(prop, value) {
     if (!this._config) return;
 
+    // Integration change: drop the previous integration's location and
+    // allergen keys so the new adapter's stub defaults take over. Without this
+    // the stale user keys (e.g. PP allergen names) would override the new
+    // integration and the badge would render empty. Mirrors the card editor.
+    if (prop === "integration" && value !== this._config.integration) {
+      const INTEGRATION_SCOPED = [
+        "city", "region_id", "location",
+        "entity_prefix", "entity_suffix", "entity_weather",
+        "mode", "allergens", "badge_single_allergen",
+      ];
+      this._userConfig = this._userConfig || {};
+      for (const k of INTEGRATION_SCOPED) delete this._userConfig[k];
+      this._userConfig.integration = value;
+      const stub = getStubConfig(value) || getStubConfig("pp");
+      this._config = deepMerge(stub, this._userConfig);
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._userConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     const before = this._config;
 
     // Apply shared visual side-effects (may set several related keys at once,
