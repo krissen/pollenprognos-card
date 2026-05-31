@@ -12,6 +12,8 @@ import {
   resolveLocationByKey,
   normalizeManualPrefix,
   selectDisplaySensors,
+  coerceBool,
+  computeDisplayDays,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -571,22 +573,7 @@ class PollenPrognosCard extends LitElement {
         "available sensors",
       );
     }
-    let daysCount = 0;
-    // MSW only exposes same-day measurements upstream; never display
-    // synthetic empty future days for it even if the user set days_to_show > 1.
-    const effectiveDaysToShow =
-      cfg.integration === "msw" ? 1 : cfg.days_to_show;
-    if (cfg.show_empty_days) {
-      daysCount = effectiveDaysToShow;
-    } else {
-      // Use max real days across all sensors (not just the first one)
-      for (const s of filtered) {
-        if (!s.days || !s.days.length) continue;
-        const realDays = s.days.filter((d) => d.state >= 0).length;
-        const count = Math.min(realDays, effectiveDaysToShow);
-        if (count > daysCount) daysCount = count;
-      }
-    }
+    const daysCount = computeDisplayDays(filtered, cfg);
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
 
     // Determine if an update is required. Always update when data has not been loaded yet.
@@ -2428,7 +2415,16 @@ class PollenPrognosCard extends LitElement {
 
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
-    const cols = this.displayCols;
+    // Compute column count from the displayed row set, not the full sensor list.
+    // When standalone summary mode is active (show_summary_block on,
+    // show_summary_row off), rowSensors contains only the aggregate which has
+    // no future days; using this.displayCols (derived from the full list) would
+    // add empty future columns. When the block is off rowSensors === this.sensors
+    // so the result is identical to the old this.displayCols path.
+    const cols = Array.from(
+      { length: computeDisplayDays(rowSensors, this.config) },
+      (_, i) => i,
+    );
     
     // Number of segments in the level circle depends on the integration.
     // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
@@ -2747,6 +2743,7 @@ class PollenPrognosCard extends LitElement {
                 // (issue #222) and not disabled via show_summary_separator
                 // (default on). Reuses the block-separator style.
                 const summarySeparator =
+                  coerceBool(this.config.show_summary_block) &&
                   sIdx > 0 &&
                   rowSensors[sIdx - 1]?.isSummary &&
                   !sensor.isSummary &&
@@ -2781,6 +2778,7 @@ class PollenPrognosCard extends LitElement {
    * of <tr> so the caller can spread into flatMap.
    */
   _renderSummaryExtrasRows(sensor, totalCols, textSizeRatio, showAllergenColumn) {
+    if (!coerceBool(this.config.show_summary_block)) return [];
     const rows = [];
     const valueColspan = showAllergenColumn ? totalCols - 1 : totalCols;
     // Match the regular allergen text rows (same size/colour), not a dimmed

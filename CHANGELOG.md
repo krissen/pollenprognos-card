@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   - `show_summary_plants_in_season` (bool, default `true`, GPL only) — an "In season" row listing the plants currently in pollen season.
   The two GPL qualifier rows read Pollen Levels v2.1.0 data: top types from the summary sensor's category codes, and the in-season plant list from the sibling `plants_in_season_today` entity (resolved by config entry, since pollenlevels splits a location across devices). Both lists are localized to the card's own language, independent of the language the integration fetched in. All existing config keys are unchanged; with the block off the card looks exactly as before.
 
+### Fixed
+- The summary block's "Top types" / "In season" qualifier rows and the separator no longer render unless `show_summary_block` is explicitly enabled. Previously, GPL's default config could show these rows unintentionally because the adapter always attaches `topPollen` / `plantsInSeasonList` to the allergy_risk sensor and `allergy_risk_top` defaults to true. Follow-up to #222 / #237.
+- Standalone summary mode (`show_summary_block` on, `show_summary_row` off) no longer renders empty future day columns inherited from the hidden detail rows. Column count is now derived from the displayed row set instead of the full unfiltered sensor list.
+
 ### Documentation
 - `docs/configuration.md`: documented the five summary-block options in the options table, added a GPL summary-block paragraph and YAML examples, and noted the level-only block support in the SILAM and Atmo sections.
 - `docs/integrations.md`: documented the GPL summary-block design decisions — card-language localization of the top types and config-entry-scoped resolution of the sibling in-season entity.

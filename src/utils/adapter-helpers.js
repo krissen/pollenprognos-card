@@ -64,6 +64,38 @@ export function selectDisplaySensors(sensors, config) {
 }
 
 /**
+ * Compute the number of day columns to render for a given sensor list and
+ * config. Extracted from _updateSensorsAndColumns so that _renderNormalHtml
+ * can recompute columns from the *displayed* row set rather than the full
+ * unfiltered sensor list -- needed for standalone summary mode where
+ * selectDisplaySensors returns only the aggregate (which has no future days)
+ * while the detail sensors it hides may have several.
+ *
+ * Reproduces the logic in _updateSensorsAndColumns exactly:
+ *   - MSW is always clamped to 1 day regardless of days_to_show.
+ *   - show_empty_days skips the sensor scan and returns the configured count.
+ *   - Otherwise: max over sensors of min(realDays, effectiveDaysToShow),
+ *     where realDays = days with state >= 0; sensors without a days array are
+ *     skipped.
+ *
+ * @param {object[]} sensors - Sensor array to derive column count from.
+ * @param {object}   cfg     - Card config object.
+ * @returns {number}
+ */
+export function computeDisplayDays(sensors, cfg) {
+  const effectiveDaysToShow = cfg.integration === "msw" ? 1 : cfg.days_to_show;
+  if (cfg.show_empty_days) return effectiveDaysToShow;
+  let daysCount = 0;
+  for (const s of sensors) {
+    if (!s.days || !s.days.length) continue;
+    const realDays = s.days.filter((d) => d.state >= 0).length;
+    const count = Math.min(realDays, effectiveDaysToShow);
+    if (count > daysCount) daysCount = count;
+  }
+  return daysCount;
+}
+
+/**
  * Clamp a sensor value to a valid level range.
  *
  * @param {*}      v         - Raw sensor value (will be coerced via Number()).
