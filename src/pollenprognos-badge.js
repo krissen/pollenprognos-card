@@ -22,7 +22,11 @@ import {
   selectBadgeSensor,
   coerceBool,
 } from "./utils/adapter-helpers.js";
-import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
+import {
+  LEVELS_DEFAULTS,
+  NORMAL_DEFAULT_THICKNESS,
+  ICON_IN_RING_DEFAULT_THICKNESS,
+} from "./utils/levels-defaults.js";
 import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 
@@ -133,6 +137,16 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const iconInRing = badgeVisual === "icon_in_ring";
     const showValueInCircle = badgeVisual === "ring_value";
 
+    // Auto-thin the ring when the icon sits inside it (matches the card, which
+    // drops levels_thickness to 35 so the icon has room). Only when the user
+    // has NOT explicitly set levels_thickness — an explicit value always wins.
+    const userSetThickness = config.levels_thickness != null;
+    const effectiveThickness = userSetThickness
+      ? config.levels_thickness
+      : iconInRing
+        ? ICON_IN_RING_DEFAULT_THICKNESS
+        : NORMAL_DEFAULT_THICKNESS;
+
     // Merge order: stub → badge-oriented defaults → user config, so user
     // always wins for plain keys. The badge-derived engine flags are applied
     // AFTER the spread so badge_visual stays the single source of truth.
@@ -150,6 +164,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       badge_label_position: badgeLabelPosition,
       icon_in_ring: iconInRing,
       show_value_numeric_in_circle: showValueInCircle,
+      levels_thickness: effectiveThickness,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
@@ -233,42 +248,47 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // ---------------------------------------------------------------------- //
 
   /**
-   * Resolve the badge's base size in px. One value drives the ring AND (via the
-   * --ppb-size custom property) the pill padding, gap, label and bare icon, so
-   * the whole badge scales together. badge_scale multiplies the HA-conventional
-   * base; legacy icon_size is honoured only when no badge_scale was given.
+   * Resolve the badge's pill HEIGHT in px, following the native HA badge size
+   * convention (--ha-badge-size, 36px) multiplied by badge_scale. The ring and
+   * bare icon are derived from this height (see RING_RATIO in render), so the
+   * whole pill scales as a unit and a default badge matches a stock HA badge.
+   * Legacy icon_size (when no badge_scale was given) is interpreted as the ring
+   * diameter and converted back to a pill height for backward compatibility.
    *
    * @returns {number}
    */
   _badgeBaseSize() {
-    // Base ring diameter (px) at badge_scale = 1, tuned so the whole pill is
-    // roughly as tall as a native HA badge (~36px). Kept local so the value is
-    // never subject to module-scope hoisting/minification quirks.
-    const baseRing = 28;
+    // Native HA badge height; kept local to avoid module-scope minification
+    // quirks. badge_scale multiplies it.
+    const HA_BADGE_SIZE = 36;
     const scale = Number(this.config?.badge_scale) || 1;
     const legacyIconSize = Number(this.config?.icon_size);
-    return this.config?.badge_scale == null && legacyIconSize > 0
-      ? legacyIconSize
-      : Math.round(baseRing * scale);
+    if (this.config?.badge_scale == null && legacyIconSize > 0) {
+      // Legacy: icon_size meant the ring diameter; back-convert to pill height.
+      return Math.round(legacyIconSize / 0.78);
+    }
+    return Math.round(HA_BADGE_SIZE * scale);
   }
 
   render() {
-    const base = this._badgeBaseSize();
-    // --ppb-size drives the proportional pill CSS; --pollen-icon-size sizes the
-    // bare icon used by the icon_only visual mode.
-    const hostStyle = `--ppb-size: ${base}px; --pollen-icon-size: ${base}px;`;
+    // Pill height follows the HA badge convention; the ring sits inside it.
+    const height = this._badgeBaseSize();
+    const ring = Math.round(height * 0.78);
+    // --ppb-size drives the proportional pill CSS (padding/gap/radius/label);
+    // --pollen-icon-size sizes the bare icon used by the icon_only mode.
+    const hostStyle = `--ppb-size: ${height}px; --pollen-icon-size: ${ring}px;`;
 
     // Not yet loaded: render an empty pill placeholder so the badge slot
     // doesn't jump when data arrives. It carries the same size base.
     if (!this._isLoaded) {
-      return html`<div class="ppb" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     // Error or no sensors: render a tiny empty pill; do NOT render a big
     // error card — the badge slot is not the right place for verbose errors.
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) {
-      return html`<div class="ppb" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     const ringConfig = this._buildLevelRingConfig();
@@ -298,7 +318,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           const visual = this._renderBadgeVisual(
             visualMode,
             sensor,
-            { ringConfig, base, ringIconRatio, ringLevel, svgKey, displayLevel, clickable },
+            { ringConfig, base: ring, ringIconRatio, ringLevel, svgKey, displayLevel, clickable },
           );
 
           return html`
@@ -387,18 +407,25 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         align-items: center;
       }
 
-      /* The whole badge scales from one base, --ppb-size, set inline on .ppb
-         from badge_scale. Padding, gap, label font and the empty-state dot are
-         all proportional to it, so the entire pill grows/shrinks together
-         rather than only the ring. --ppb-size falls back to the native HA badge
-         size when not set inline. */
+      /* The pill follows the native Home Assistant badge box so badges drop in
+         alongside stock ones: fixed height + min-width = --ppb-size (the HA
+         badge height, 36px at scale 1), horizontal padding 12px and inner gap
+         8px at that size, radius = half the height (pill). Everything is
+         proportional to --ppb-size so badge_scale grows the whole box, padding
+         and gap included, exactly like resizing a native badge. */
       .ppb {
         --ppb-size: var(--ha-badge-size, 36px);
+        box-sizing: border-box;
         display: inline-flex;
         align-items: center;
-        gap: calc(var(--ppb-size) * 0.22);
-        padding: calc(var(--ppb-size) * 0.14) calc(var(--ppb-size) * 0.3);
-        border-radius: var(--ha-badge-border-radius, 999px);
+        justify-content: center;
+        height: var(--ppb-size);
+        min-width: var(--ppb-size);
+        /* 12/36 ≈ 0.333 horizontal padding, matching native "0 12px". */
+        padding: 0 calc(var(--ppb-size) * 0.333);
+        /* 8/36 ≈ 0.222 inner gap, matching native --ha-space-2 (8px). */
+        gap: calc(var(--ppb-size) * 0.222);
+        border-radius: var(--ha-badge-border-radius, calc(var(--ppb-size) / 2));
         background: var(
           --ha-card-background,
           var(--card-background-color, #fff)
@@ -406,6 +433,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         border: var(--ha-card-border-width, 1px) solid
           var(--ha-card-border-color, var(--divider-color));
         box-shadow: var(--ha-card-box-shadow, none);
+      }
+
+      /* "below" stacks the label under the visual, so the pill can't keep the
+         native fixed height — let it grow and add a little vertical padding. */
+      .ppb--below {
+        height: auto;
+        padding: calc(var(--ppb-size) * 0.12) calc(var(--ppb-size) * 0.222);
       }
 
       /* Each item lays its visual and label out per badge_label_position:
@@ -437,8 +471,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       }
 
       .ppb-empty {
-        width: calc(var(--ppb-size) * 0.8);
-        height: calc(var(--ppb-size) * 0.8);
+        width: calc(var(--ppb-size) * 0.78);
+        height: calc(var(--ppb-size) * 0.78);
         border-radius: 50%;
         background: var(--divider-color, rgba(0, 0, 0, 0.12));
         opacity: 0.4;

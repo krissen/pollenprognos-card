@@ -204,8 +204,32 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         <summary>${this._t("summary_badge_content")}</summary>
         <div class="section-helper">${this._t("helper_badge_content")}</div>
 
-        <!-- badge_content: which allergen data to show -->
-        <ha-formfield label="${this._t("badge_content_worst") ? "" : ""}">
+        <!-- badge_visual: what kind of badge (the section header + helper say
+             "Badge content / What the badge shows", so no extra field label). -->
+        <ha-formfield>
+          <ha-selector
+            .hass=${this._hass}
+            .selector=${{
+              select: {
+                mode: "dropdown",
+                options: [
+                  { value: "icon_in_ring", label: this._t("badge_visual_icon_in_ring") },
+                  { value: "ring_value", label: this._t("badge_visual_ring_value") },
+                  { value: "ring_empty", label: this._t("badge_visual_ring_empty") },
+                  { value: "icon_only", label: this._t("badge_visual_icon_only") },
+                ],
+              },
+            }}
+            .value=${typeof c.badge_visual === "string" ? c.badge_visual : "icon_in_ring"}
+            @value-changed=${(e) => {
+              const v = e.detail?.value;
+              if (v !== undefined) this._updateConfig("badge_visual", v);
+            }}
+          ></ha-selector>
+        </ha-formfield>
+
+        <!-- badge_content: which allergen(s) the badge concerns -->
+        <ha-formfield>
           <ha-selector
             .hass=${this._hass}
             .selector=${{
@@ -251,29 +275,6 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               </ha-formfield>
             `
           : ""}
-
-        <!-- badge_visual: what to render in the center of the badge -->
-        <ha-formfield label="${this._t("badge_visual")}">
-          <ha-selector
-            .hass=${this._hass}
-            .selector=${{
-              select: {
-                mode: "dropdown",
-                options: [
-                  { value: "icon_in_ring", label: this._t("badge_visual_icon_in_ring") },
-                  { value: "ring_value", label: this._t("badge_visual_ring_value") },
-                  { value: "ring_empty", label: this._t("badge_visual_ring_empty") },
-                  { value: "icon_only", label: this._t("badge_visual_icon_only") },
-                ],
-              },
-            }}
-            .value=${typeof c.badge_visual === "string" ? c.badge_visual : "icon_in_ring"}
-            @value-changed=${(e) => {
-              const v = e.detail?.value;
-              if (v !== undefined) this._updateConfig("badge_visual", v);
-            }}
-          ></ha-selector>
-        </ha-formfield>
 
         <!-- badge_scale: overall badge size multiplier -->
         <ha-formfield label="${this._t("badge_scale")}">
