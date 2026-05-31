@@ -51,6 +51,14 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ? config.badge_single_allergen
         : undefined;
     const badgeShowLabel = coerceBool(config.badge_show_label);
+    const badgeVisual =
+      typeof config.badge_visual === "string" ? config.badge_visual : undefined;
+    const badgeScale =
+      typeof config.badge_scale === "number" ? config.badge_scale : undefined;
+    const badgeLabelPosition =
+      typeof config.badge_label_position === "string"
+        ? config.badge_label_position
+        : undefined;
 
     this._config = {
       ...stub,
@@ -63,6 +71,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       badge_show_label: badgeShowLabel,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
+        : {}),
+      ...(badgeVisual !== undefined ? { badge_visual: badgeVisual } : {}),
+      ...(badgeScale !== undefined ? { badge_scale: badgeScale } : {}),
+      ...(badgeLabelPosition !== undefined
+        ? { badge_label_position: badgeLabelPosition }
         : {}),
     };
   }
@@ -97,15 +110,38 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //
 
   /**
-   * Thin config update: deep-merge the new prop/value into _config and
-   * fire the config-changed event that HA's editor framework listens to.
-   * Shape mirrors the card editor's dispatch exactly.
+   * Config update: applies shared visual side-effects (via the base helper)
+   * then deep-merges the new prop/value into _config and fires config-changed.
+   * For visual properties (icon_in_ring, levels_inherit_mode, allergen_colors,
+   * allergen_stroke_width, levels_*, allergen_color_mode) the shared helper
+   * may produce a fully-mutated config; handled=true means dispatch and return.
    *
    * @param {string} prop
    * @param {*} value
    */
   _updateConfig(prop, value) {
     if (!this._config) return;
+
+    // Apply shared visual side-effects.
+    const result = this._applyVisualConfigSideEffects(
+      prop, value, { ...this._config }
+    );
+    if (result.thicknessAutoShifted !== null) {
+      this._thicknessAutoShifted = result.thicknessAutoShifted;
+    }
+    if (result.handled) {
+      this._config = result.config;
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
+    // Normal path: deep-merge.
     const newConfig = deepMerge(this._config, { [prop]: value });
     this._config = newConfig;
     this.dispatchEvent(
@@ -168,7 +204,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         <summary>${this._t("summary_badge_content")}</summary>
         <div class="section-helper">${this._t("helper_badge_content")}</div>
 
-        <ha-formfield>
+        <!-- badge_content: which allergen data to show -->
+        <ha-formfield label="${this._t("badge_content_worst") ? "" : ""}">
           <ha-selector
             .hass=${this._hass}
             .selector=${{
@@ -215,6 +252,53 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
             `
           : ""}
 
+        <!-- badge_visual: what to render in the center of the badge -->
+        <ha-formfield label="${this._t("badge_visual")}">
+          <ha-selector
+            .hass=${this._hass}
+            .selector=${{
+              select: {
+                mode: "dropdown",
+                options: [
+                  { value: "icon_in_ring", label: this._t("badge_visual_icon_in_ring") },
+                  { value: "ring_value", label: this._t("badge_visual_ring_value") },
+                  { value: "ring_empty", label: this._t("badge_visual_ring_empty") },
+                  { value: "icon_only", label: this._t("badge_visual_icon_only") },
+                ],
+              },
+            }}
+            .value=${typeof c.badge_visual === "string" ? c.badge_visual : "icon_in_ring"}
+            @value-changed=${(e) => {
+              const v = e.detail?.value;
+              if (v !== undefined) this._updateConfig("badge_visual", v);
+            }}
+          ></ha-selector>
+        </ha-formfield>
+
+        <!-- badge_scale: overall badge size multiplier -->
+        <ha-formfield label="${this._t("badge_scale")}">
+          <ha-slider
+            min="0.5"
+            max="3"
+            step="0.1"
+            .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
+            @input=${(e) =>
+              this._updateConfig("badge_scale", Number(e.target.value))}
+            style="width: 120px;"
+          ></ha-slider>
+          <ha-textfield
+            type="number"
+            min="0.5"
+            max="3"
+            step="0.1"
+            .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
+            @input=${(e) =>
+              this._updateConfig("badge_scale", Number(e.target.value))}
+            style="width: 80px;"
+          ></ha-textfield>
+        </ha-formfield>
+
+        <!-- badge_show_label / badge_label_position -->
         <ha-formfield label="${this._t("badge_show_label")}">
           <ha-switch
             .checked=${c.badge_show_label === true}
@@ -222,6 +306,30 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               this._updateConfig("badge_show_label", e.target.checked)}
           ></ha-switch>
         </ha-formfield>
+
+        ${c.badge_show_label
+          ? html`
+              <ha-formfield label="${this._t("badge_label_position")}">
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        { value: "right", label: this._t("badge_label_position_right") },
+                        { value: "below", label: this._t("badge_label_position_below") },
+                      ],
+                    },
+                  }}
+                  .value=${typeof c.badge_label_position === "string" ? c.badge_label_position : "right"}
+                  @value-changed=${(e) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined) this._updateConfig("badge_label_position", v);
+                  }}
+                ></ha-selector>
+              </ha-formfield>
+            `
+          : ""}
       </details>
     `;
   }
@@ -235,10 +343,18 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
     return html`
       <div class="card-config">
+        <!-- Reset button (inherited from PollenEditorBase) -->
+        <ha-button outlined @click=${() => this._resetAll()}>
+          ${this._t("preset_reset_all")}
+        </ha-button>
+
         ${this._renderIntegrationSection()}
         ${this._renderBadgeContentSection()}
         ${this._renderAllergensSection()}
         ${this._renderAppearanceSection()}
+        ${this._renderAllergenIconsSection()}
+        ${this._renderLevelCirclesSection()}
+        ${this._renderIconInRingSection()}
       </div>
     `;
   }
