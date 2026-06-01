@@ -5,7 +5,7 @@
 
 import { html, css } from "lit";
 import { getStubConfig } from "./adapter-registry.js";
-import { PollenEditorBase, deepMerge } from "./editor/base.js";
+import { PollenEditorBase, deepMerge, sectionResetStyles } from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -768,45 +768,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         margin-bottom: 4px;
       }
 
-      /* Anchor for the per-section reset button so it can centre itself, and
-         reserve room on the right so a long section title can't run under the
-         absolutely-positioned button. Applied to every summary (avoids :has(),
-         which older Firefox ESR lacks); the extra right padding on the few
-         reset-less nested summaries is just whitespace. */
-      details > summary {
-        position: relative;
-        padding-right: 48px;
-      }
-      /* Compact ↺ reset button in the section header: small circle, vertically
-         centred, ghost style until hovered/focused. */
-      .section-reset {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 26px;
-        height: 26px;
-        padding: 0;
-        border-radius: 50%;
-        border: 1px solid var(--divider-color, #ccc);
-        background: transparent;
-        color: var(--secondary-text-color);
-        font-size: 15px;
-        line-height: 1;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .section-reset:hover,
-      .section-reset:focus-visible {
-        background: var(--secondary-background-color);
-        color: var(--primary-text-color);
-      }
-      .section-reset:focus-visible {
-        outline: 2px solid var(--primary-color);
-        outline-offset: 1px;
-      }
+      /* Per-section ↺ reset button styles (shared with the card editor). */
+      ${sectionResetStyles}
 
       details details {
         margin-left: 24px;

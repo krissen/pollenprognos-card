@@ -35,7 +35,7 @@
 //   - The icon_in_ring branch needs the session flag this._thicknessAutoShifted;
 //     the caller must maintain that flag based on the returned state.
 
-import { LitElement, html } from "lit";
+import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
@@ -127,6 +127,48 @@ export const deepMerge = (target, source) => {
  * Subclasses MAY override `_showTitleSection()` / `_showModeSelector()` to drop
  * card-only controls (the badge editor returns false for both).
  */
+/**
+ * Shared CSS for the per-section ↺ reset button and its summary anchoring.
+ * Spliced into both editors' styles (PollenPrognosCardEditor and
+ * PollenPrognosBadgeEditor) so the two never drift. `details > summary` reserves
+ * right padding for the absolutely-positioned, vertically-centred button;
+ * :focus-visible gives keyboard users a ring. Avoids :has() (older Firefox ESR).
+ */
+export const sectionResetStyles = css`
+  details > summary {
+    position: relative;
+    padding-right: 48px;
+  }
+  .section-reset {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--divider-color, #ccc);
+    background: transparent;
+    color: var(--secondary-text-color);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .section-reset:hover,
+  .section-reset:focus-visible {
+    background: var(--secondary-background-color);
+    color: var(--primary-text-color);
+  }
+  .section-reset:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+`;
+
 export class PollenEditorBase extends LitElement {
   // ------------------------------------------------------------------
   // Presentation hooks (overridable by subclasses)
@@ -2804,12 +2846,16 @@ export class PollenEditorBase extends LitElement {
   }
 
   // Keys reset by the Integration & Location (§1) section button. Resets the
-  // place/title (and the SILAM/PEU forecast `mode` selector, which is rendered
-  // in this section) WITHIN the chosen integration but keeps `integration`
-  // itself — switching integration is the global "Reset all"'s job, not a
-  // section reset. After the reset the location re-autodetects.
+  // place/title WITHIN the chosen integration but keeps `integration` itself —
+  // switching integration is the global "Reset all"'s job, not a section reset.
+  // After the reset the location re-autodetects. For SILAM/PEU the forecast
+  // `mode` selector is rendered in this section; clear it AND its hard-coupled
+  // day-display side effects (changing mode auto-writes days_to_show /
+  // show_empty_days), so the reset returns the whole mode-related config to
+  // defaults. Other integrations have no mode control here, so those keys are
+  // left to the Day display (§4) reset.
   _integrationResetKeys() {
-    return [
+    const keys = [
       "city",
       "region_id",
       "location",
@@ -2817,8 +2863,12 @@ export class PollenEditorBase extends LitElement {
       "entity_suffix",
       "entity_weather",
       "title",
-      "mode",
     ];
+    const integration = this._config?.integration;
+    if (integration === "silam" || integration === "peu") {
+      keys.push("mode", "days_to_show", "show_empty_days");
+    }
+    return keys;
   }
 
   // Keys reset by the Allergens (§2) section button: selection, threshold,

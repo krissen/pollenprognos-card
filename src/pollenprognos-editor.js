@@ -9,7 +9,7 @@ import {
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
-import { PollenEditorBase, deepMerge } from "./editor/base.js";
+import { PollenEditorBase, deepMerge, sectionResetStyles } from "./editor/base.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
@@ -1258,12 +1258,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     } else {
       cfg = { ...this._config, [prop]: value };
 
-      // Keep _userConfig in sync with the edited key. Generic fields (debug,
-      // minimal, days_to_show, ...) previously updated only _config, leaving
-      // _userConfig stale until HA's setConfig round-trip; that let a later
-      // per-section reset (which derives its payload from _userConfig) lose the
-      // unsaved edit. Syncing here keeps _userConfig the current user-origin view.
-      this._userConfig = { ...this._userConfig, [prop]: value };
+      // _userConfig is synced to the full set of changed keys below (after all
+      // side-effects are applied), so it stays a faithful user-origin view even
+      // for generic fields and side-effect keys (entity_prefix/suffix on leaving
+      // manual mode, mode->days_to_show, ...). That keeps per-section resets,
+      // which derive their payload from _userConfig, from losing or resurrecting
+      // stale values before HA's setConfig round-trip.
 
       // Track explicit allergen changes
       if (prop === "allergens") {
@@ -1345,6 +1345,14 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
     }
     cfg.type = this._config.type;
+
+    // Sync _userConfig with every key this edit changed (the edited prop plus
+    // any side-effect keys written above), diffed against the pre-edit config.
+    // Mirrors the visual-side-effects branch; keeps _userConfig a faithful
+    // user-origin view so per-section resets derive correct payloads.
+    for (const k of Object.keys(cfg)) {
+      if (!deepEqual(cfg[k], this._config[k])) this._userConfig[k] = cfg[k];
+    }
 
     if (!deepEqual(this._config, cfg)) {
       this._config = cfg;
@@ -1876,45 +1884,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         margin-bottom: 4px; /* Space below summary */
       }
 
-      /* Anchor for the per-section reset button so it can centre itself, and
-         reserve room on the right so a long section title can't run under the
-         absolutely-positioned button. Applied to every summary (avoids :has(),
-         which older Firefox ESR lacks); the extra right padding on the few
-         reset-less nested summaries is just whitespace. */
-      details > summary {
-        position: relative;
-        padding-right: 48px;
-      }
-      /* Compact ↺ reset button in the section header: small circle, vertically
-         centred, ghost style until hovered/focused. */
-      .section-reset {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 26px;
-        height: 26px;
-        padding: 0;
-        border-radius: 50%;
-        border: 1px solid var(--divider-color, #ccc);
-        background: transparent;
-        color: var(--secondary-text-color);
-        font-size: 15px;
-        line-height: 1;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .section-reset:hover,
-      .section-reset:focus-visible {
-        background: var(--secondary-background-color);
-        color: var(--primary-text-color);
-      }
-      .section-reset:focus-visible {
-        outline: 2px solid var(--primary-color);
-        outline-offset: 1px;
-      }
+      /* Per-section ↺ reset button styles (shared with the badge editor). */
+      ${sectionResetStyles}
 
       /* Nested details styling */
       details details {
