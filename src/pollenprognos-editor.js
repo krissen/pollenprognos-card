@@ -19,7 +19,7 @@ import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
-import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { PLU_ALIAS_MAP } from "./adapters/plu.js";
 import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
