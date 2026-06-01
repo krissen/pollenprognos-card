@@ -15,10 +15,9 @@ import { PollenEditorBase, deepMerge } from "./editor/base.js";
 import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
-import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
-import { PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
-import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
+import { PEU_ALLERGENS, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
+import { findAtmoLocationBySlug } from "./adapters/atmo.js";
+import { GPL_BASE_ALLERGENS, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import { discoverMswSensors } from "./adapters/msw.js";
 import {
@@ -26,6 +25,11 @@ import {
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { findLocationBySlug } from "./utils/adapter-helpers.js";
+import {
+  detectIntegrationStates,
+  pickIntegration,
+  detectedIntegrationIds,
+} from "./utils/autodetect.js";
 
 import {
   PP_POSSIBLE_CITIES,
@@ -261,100 +265,21 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
       this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
 
-      // 9. Bestäm integration (userConfig > tidigare config > autodetect)
+      // 9. Bestäm integration (userConfig > tidigare config > autodetect).
+      // Autodetect uses the shared module (src/utils/autodetect.js), so this
+      // path now matches the card and detects PLU + Kleenex too (it previously
+      // missed PLU).
       let integration =
         this._userConfig.integration !== undefined
           ? this._userConfig.integration
           : this._config.integration;
 
       if (!this._integrationExplicit && this._hass) {
-        const all = Object.keys(this._hass.states);
-        if (
-          all.some(
-            (id) =>
-              typeof id === "string" &&
-              id.startsWith("sensor.pollen_") &&
-              !id.includes("_level_at_"),
-          )
-        ) {
-          integration = "pp";
-        } else if (
-          all.some(
-            (id) =>
-              typeof id === "string" &&
-              id.startsWith("sensor.polleninformation_"),
-          )
-        ) {
-          integration = "peu";
-        } else if (
-          all.some(
-            (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
-          )
-        ) {
-          integration = "dwd";
-        } else if (
-          // Primary: hass.entities platform check
-          (this._hass?.entities && Object.values(this._hass.entities).some(
-            (e) => e.platform === "silam_pollen" && !e.entity_category
-          )) ||
-          // Fallback: regex
-          all.some(
-            (id) =>
-              typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-          )
-        ) {
-          integration = "silam";
-        } else if (
-          all.some(
-            (id) =>
-              typeof id === "string" &&
-              id.startsWith("sensor.kleenex_pollen_radar_"),
-          )
-        ) {
-          integration = "kleenex";
-        } else if (
-          // Discovery-based detection so prefixed multi-instance entity IDs
-          // (e.g. sensor.toulouse_niveau_bouleau_toulouse) are recognized.
-          discoverAtmoSensors(this._hass, false).locations.size > 0
-        ) {
-          integration = "atmo";
-        } else if (
-          this._hass && (
-            (this._hass.entities && Object.values(this._hass.entities).some(
-              (e) => e.platform === "google_pollen" && !e.entity_category
-            )) ||
-            all.some((id) => typeof id === "string" && id.startsWith("sensor.google_pollen_"))
-          )
-        ) {
-          integration = "gp";
-        } else if (
-          this._hass && (
-            // Primary: check hass.entities for pollenlevels platform
-            (this._hass.entities && Object.values(this._hass.entities).some(
-              (e) => e.platform === "pollenlevels" && !e.entity_category
-            )) ||
-            // Fallback: check attribution
-            all.some((id) => {
-              const s = this._hass.states[id];
-              return s?.attributes?.attribution === GPL_ATTRIBUTION
-                && s.attributes?.device_class !== "date"
-                && s.attributes?.device_class !== "timestamp";
-            })
-          )
-        ) {
-          integration = "gpl";
-        } else if (
-          (this._hass?.entities && Object.values(this._hass.entities).some(
-            (e) => e.platform === "swissweather" && !e.entity_category
-          )) ||
-          all.some(
-            (id) =>
-              typeof id === "string" &&
-              /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-          )
-        ) {
-          integration = "msw";
-        }
+        const detection = detectIntegrationStates(this._hass, {
+          debug: this.debug,
+        });
+        const picked = pickIntegration(detection, { explicit: false });
+        if (picked) integration = picked;
         this._userConfig.integration = integration;
         if (this.debug)
           console.debug("[Editor] auto-detected integration:", integration);
@@ -636,175 +561,49 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this._hass = hass;
     const explicit = this._integrationExplicit;
 
-    // Hitta alla sensor-ID för PP, DWD, PEU, SILAM, PLU
-    // Build set of PLU allergen slugs for more specific detection
-    const pluAllergenSlugs = new Set(
-      Object.values(PLU_ALIAS_MAP).flat()
-    );
-
-    // Snapshot the state-key list once and reuse it for every prefix/regex
-    // filter below. Each call into `Object.keys(hass.states)` allocates a
-    // fresh array proportional to the entity count, and set hass() runs
-    // ~9 such scans per cycle; on large HA installs that is wasted work.
-    const stateIds = Object.keys(hass.states);
-
-    const ppStates = stateIds.filter(
-      (id) => {
-        if (typeof id !== "string") return false;
-        if (!id.startsWith("sensor.pollen_")) return false;
-        if (id.startsWith("sensor.pollenflug_")) return false;
-        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
-        if (id.includes("_level_at_")) return false;
-
-        // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
-        const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
-        if (!match) return false;
-
-        const allergenSlug = match[1];
-        // Exclude known PLU allergens to avoid misclassification
-        // PLU uses sensor.pollen_<allergen> pattern with specific allergen list
-        // PP manual mode also uses sensor.pollen_<allergen> but with different allergens
-        if (!match[2] && pluAllergenSlugs.has(allergenSlug)) {
-          // Single underscore AND known PLU allergen → likely PLU, not PP
-          return false;
-        }
-
-        return true;
+    // Shared autodetect (see src/utils/autodetect.js) — the same module the
+    // card element and badge use. Destructure local aliases the rest of
+    // set hass() already references; the lazy getters feed the installed-
+    // location lists below without re-scanning the registry.
+    const detection = detectIntegrationStates(hass, { debug: this.debug });
+    // ppStates/dwdStates feed the regex fallbacks for the PP/DWD location
+    // lists; the discovery objects/getters feed the installed-location lists.
+    // Other per-integration state lists are only needed for the pick, which is
+    // handled inside the shared module.
+    const {
+      states: { pp: ppStates, dwd: dwdStates },
+      discovery: {
+        silam: silamDiscovery,
+        atmo: atmoDiscovery,
+        gp: gpDiscovery,
       },
-    );
+      getPpDiscovery,
+      getDwdDiscovery,
+      getPeuDiscovery,
+      getGplDiscovery,
+      getMswDiscovery,
+    } = detection;
 
-    // DWD: lenient regex catches device-prefixed entity_ids too (#217).
-    const dwdStates = stateIds.filter(
-      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
-    );
-
-    const peuStates = stateIds.filter(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
-    );
-
-    // SILAM: primary via hass.entities, fallback via regex
-    const silamDiscovery = discoverSilamSensors(hass, false);
-    let silamStates = [];
-    if (silamDiscovery.locations.size > 0) {
-      for (const [, loc] of silamDiscovery.locations) {
-        for (const eid of loc.sensors.values()) {
-          silamStates.push(eid);
-        }
-      }
-    }
-    if (!silamStates.length) {
-      silamStates = stateIds.filter(
-        (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-      );
-    }
-    const pluStates = stateIds.filter(
-      (id) => {
-        if (typeof id !== "string") return false;
-        const match = /^sensor\.pollen_([^_]+)$/.exec(id);
-        if (!match) return false;
-        const allergenSlug = match[1];
-        // Only match if it's a known PLU allergen
-        return pluAllergenSlugs.has(allergenSlug);
-      },
-    );
-    // Atmo France: discovery-based detection (same function used for location list)
-    const atmoDiscovery = discoverAtmoSensors(hass, false);
-    const atmoDetected = atmoDiscovery.locations.size > 0;
-    // GPL: use hass.entities (primary) or attribution (fallback)
-    let gplStates = [];
-    if (hass.entities) {
-      gplStates = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
-        .map(([eid]) => eid);
-    }
-    if (!gplStates.length) {
-      gplStates = stateIds.filter((id) => {
-        const s = hass.states[id];
-        return s?.attributes?.attribution === GPL_ATTRIBUTION
-          && s.attributes.device_class !== "date"
-          && s.attributes.device_class !== "timestamp";
-      });
-    }
-    // GP (svenove/google_pollen): hass.entities (primary) or entity prefix (fallback)
-    let gpStates = [];
-    if (hass.entities) {
-      gpStates = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
-        .map(([eid]) => eid);
-    }
-    if (!gpStates.length) {
-      gpStates = stateIds.filter((id) =>
-        typeof id === "string" && id.startsWith("sensor.google_pollen_")
-      );
-    }
-    // MSW (MeteoSwiss / hass-swissweather). HA prefixes entity IDs with the
-    // device's friendly name slug, so primary detection uses hass.entities
-    // platform check (same as SILAM/GP); fallback regex handles older HA
-    // registries without entity metadata.
-    const mswLevelRe =
-      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
-    let mswStates = [];
-    if (hass.entities) {
-      mswStates = Object.entries(hass.entities)
-        .filter(([eid, entry]) =>
-          entry.platform === "swissweather" &&
-          !entry.entity_category &&
-          mswLevelRe.test(eid),
-        )
-        .map(([eid]) => eid);
-    }
-    if (!mswStates.length) {
-      mswStates = stateIds.filter(
-        (id) =>
-          typeof id === "string" &&
-          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-      );
-    }
-
-    // Kleenex prefix scan, computed locally for the dropdown sort. The editor's
-    // set hass() autodetect chain intentionally does not pick Kleenex (see
-    // 'known divergence' in test/card/autodetect.test.js), but for the
-    // dropdown's two-segment order we still want to mark it as installed
-    // whenever its sensors are present.
-    const kleenexStatesLocal = stateIds.filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
-    );
-
-    // Set of integrations that have at least one sensor in this hass.
-    // Drives the integration dropdown's two-segment sort order in render().
-    const detectedIntegrations = new Set();
-    if (ppStates.length) detectedIntegrations.add("pp");
-    if (pluStates.length) detectedIntegrations.add("plu");
-    if (peuStates.length) detectedIntegrations.add("peu");
-    if (dwdStates.length) detectedIntegrations.add("dwd");
-    if (silamStates.length) detectedIntegrations.add("silam");
-    if (kleenexStatesLocal.length) detectedIntegrations.add("kleenex");
-    if (atmoDetected) detectedIntegrations.add("atmo");
-    if (gpStates.length) detectedIntegrations.add("gp");
-    if (gplStates.length) detectedIntegrations.add("gpl");
-    if (mswStates.length) detectedIntegrations.add("msw");
-    this._detectedIntegrations = detectedIntegrations;
+    // Set of integrations that have at least one sensor in this hass. Drives
+    // the integration dropdown's two-segment sort order in render(). Now
+    // includes PLU and Kleenex — the editor previously diverged from the card
+    // and missed them; the shared module unifies every path.
+    this._detectedIntegrations = detectedIntegrationIds(detection);
 
     // 1) Autodetektera integration om användaren inte valt själv
-    let integration = this._userConfig.integration;
+    let integration = pickIntegration(detection, {
+      explicit,
+      userIntegration: this._userConfig.integration,
+    });
     if (!explicit) {
-      if (ppStates.length) integration = "pp";
-      else if (pluStates.length) integration = "plu";
-      else if (peuStates.length) integration = "peu";
-      else if (dwdStates.length) integration = "dwd";
-      else if (silamStates.length) integration = "silam";
-      else if (atmoDetected) integration = "atmo";
-      else if (gpStates.length) integration = "gp";
-      else if (gplStates.length) integration = "gpl";
-      else if (mswStates.length) integration = "msw";
       this._userConfig.integration = integration;
       if (this.debug)
-        console.debug("[Editor] autodetect:", { pp: ppStates.length, plu: pluStates.length, peu: peuStates.length, dwd: dwdStates.length, silam: silamStates.length, atmo: atmoDiscovery.locations.size, gp: gpStates.length, gpl: gplStates.length, msw: mswStates.length, chosen: integration });
+        console.debug("[Editor] autodetect chosen:", integration);
     }
 
     // 1.1) GPL discovery — always run so render() and auto-select have data
-    const gplDiscovery = discoverGplSensors(hass, false);
+    // (memoized via the shared detection result; no extra registry scan).
+    const gplDiscovery = getGplDiscovery();
     this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
       .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
@@ -816,8 +615,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this.installedGplPlants = [];
     }
 
-    // 1.2) GP discovery
-    const gpDiscovery = discoverGpSensors(hass, false);
+    // 1.2) GP discovery (gpDiscovery already resolved eagerly by the shared
+    // detection above and destructured into scope).
     this.installedGpLocations = Array.from(gpDiscovery.locations.entries())
       .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
@@ -831,7 +630,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
     // 1.3) MSW discovery (always run so the editor dropdown is populated even
     // when MSW is not the active integration, mirroring GPL/GP).
-    const mswDiscovery = discoverMswSensors(hass, false);
+    const mswDiscovery = getMswDiscovery();
     this.installedMswLocations = Array.from(mswDiscovery.locations.entries())
       .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
@@ -876,8 +675,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this._config = merged;
       // 3) Fyll installerade regioner/städer via discovery helpers
 
-      // PP: device-based discovery with legacy slug fallback
-      const ppDiscovery = discoverPpSensors(hass, false);
+      // PP: device-based discovery with legacy slug fallback (memoized).
+      const ppDiscovery = getPpDiscovery();
       if (ppDiscovery.locations.size > 0) {
         this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
           .map(([key, loc]) => [key, loc.label]);
@@ -921,8 +720,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         this.installedPpLocations = this.installedCities.map((city) => [city, city]);
       }
 
-      // DWD: device-based discovery with legacy region_id fallback
-      const dwdDiscovery = discoverDwdSensors(hass, false);
+      // DWD: device-based discovery with legacy region_id fallback (memoized).
+      const dwdDiscovery = getDwdDiscovery();
       if (dwdDiscovery.locations.size > 0) {
         this.installedDwdLocations = Array.from(dwdDiscovery.locations.entries())
           .map(([key, loc]) => [key, loc.label]);
@@ -963,8 +762,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       // PEU: device-based discovery with legacy location slug fallback.
-      // Sort by label so the dropdown stays stable across HA restarts.
-      const peuDiscovery = discoverPeuSensors(hass, false);
+      // Sort by label so the dropdown stays stable across HA restarts (memoized).
+      const peuDiscovery = getPeuDiscovery();
       if (peuDiscovery.locations.size > 0) {
         this.installedPeuLocations = Array.from(peuDiscovery.locations.entries())
           .map(([key, loc]) => [key, loc.label])
