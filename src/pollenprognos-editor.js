@@ -1,18 +1,15 @@
 // src/pollenprognos-editor.js
 import { html, css } from "lit";
-import { t, detectLang, SUPPORTED_LOCALES } from "./i18n.js";
+import { detectLang } from "./i18n.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   LEVELS_DEFAULTS,
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
-import { normalize } from "./utils/normalize.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
 import { PollenEditorBase, deepMerge } from "./editor/base.js";
-import { allergenListForIntegration } from "./editor/integration-allergens.js";
-import { numLevelsForIntegration } from "./utils/level-counts.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
@@ -33,7 +30,6 @@ import { findLocationBySlug } from "./utils/adapter-helpers.js";
 import {
   PP_POSSIBLE_CITIES,
   DWD_REGIONS,
-  toCanonicalAllergenKey,
 } from "./constants.js";
 
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
@@ -47,79 +43,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     super._resetAll();
   }
 
-  _resetPhrases(lang) {
-    if (this.debug) console.debug("[Editor] resetPhrases – lang:", lang);
-
-    // Sätt alltid date_locale precis efter valt språk
-    this._updateConfig("date_locale", lang);
-
-    // Välj rätt lista med raw-allergener
-    // Discover GPL/GP allergens if applicable
-    let gplDiscoveredPlants = [];
-    if (this._config.integration === "gpl" && this._hass) {
-      gplDiscoveredPlants = discoverGplAllergens(this._hass, this._config.location, false);
-      gplDiscoveredPlants = gplDiscoveredPlants.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
-    }
-    let gpDiscoveredPlants = [];
-    if (this._config.integration === "gp" && this._hass) {
-      gpDiscoveredPlants = discoverGpAllergens(this._hass, this._config.location, false);
-      gpDiscoveredPlants = gpDiscoveredPlants.filter((k) => !GP_BASE_ALLERGENS.includes(k));
-    }
-
-    const rawKeys = allergenListForIntegration(this._config.integration, {
-      installedGplPlants: gplDiscoveredPlants,
-      installedGpPlants: gpDiscoveredPlants,
-    });
-
-    // Börja bygga nytt phrases-objekt
-    const full = {};
-    const short = {};
-
-    // Använd canonical nyckel för lookup i locale-filerna
-    rawKeys.forEach((raw) => {
-      const normKey = normalize(raw); // ex 'alm' eller 'erle'
-      const canonKey = toCanonicalAllergenKey(normKey); // t.ex. 'alder'
-      // Use the SILAM-specific name 'index' instead of 'allergy_risk'
-      const transKey = normKey === "index" ? "index" : canonKey;
-      full[raw] = t(`editor.phrases_full.${transKey}`, lang);
-      short[raw] = t(`editor.phrases_short.${transKey}`, lang);
-    });
-
-    // Native level count (incl. level 0). Shared with the rendering mixin and
-    // the editor base via numLevelsForIntegration so the count cannot drift.
-    const numLevels = numLevelsForIntegration(this._config.integration);
-
-    // Use scale-specific phrase defaults so 5-level integrations (MSW, PEU,
-    // Kleenex) surface semantically-correct severity labels in the editor
-    // instead of borrowing the first five strings from the wider 7-level
-    // palette. Other scales fall back to the legacy editor.phrases_levels.0..6
-    // keys until per-scale entries are added for them.
-    const levelKeyPrefix =
-      this._config.integration === "msw" ||
-      this._config.integration === "peu" ||
-      this._config.integration === "kleenex"
-        ? "editor.phrases_levels5"
-        : "editor.phrases_levels";
-    const levels = Array.from({ length: numLevels }, (_, i) =>
-      t(`${levelKeyPrefix}.${i}`, lang),
-    );
-
-    const days = {
-      0: t(`editor.phrases_days.0`, lang),
-      1: t(`editor.phrases_days.1`, lang),
-      2: t(`editor.phrases_days.2`, lang),
-    };
-    const noInformation = t("editor.no_information", lang);
-
-    // Tillämpa allt på config
-    this._updateConfig("phrases", {
-      full,
-      short,
-      levels,
-      days,
-      no_information: noInformation,
-    });
-  }
 
   static get properties() {
     return {
@@ -1827,131 +1750,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         <!-- §8 Icon in ring -->
         ${this._renderIconInRingSection()}
 
-        <!-- §9 Translations & strings -->
-        <details>
-          <summary>${this._t("summary_translation_and_strings")}</summary>
-          <div class="section-helper">${this._t("helper_translation_and_strings")}</div>
-          <ha-formfield label="${this._t("locale")}">
-            <ha-textfield
-              .value=${c.date_locale}
-              @input=${(e) => this._updateConfig("date_locale", e.target.value)}
-            ></ha-textfield>
-          </ha-formfield>
-          <h3>${this._t("phrases")}</h3>
-          <div class="preset-buttons">
-            <ha-formfield label="${this._t("phrases_translate_all")}">
-              <ha-selector
-                .hass=${this._hass}
-                .selector=${{
-                  select: {
-                    mode: "dropdown",
-                    options: SUPPORTED_LOCALES.map((code) => ({
-                      value: code,
-                      label:
-                        new Intl.DisplayNames([this._lang], {
-                          type: "language",
-                        }).of(code) || code,
-                    })),
-                  },
-                }}
-                .value=${this._selectedPhraseLang}
-                @value-changed=${(e) => {
-                  const v = e.detail?.value;
-                  if (v !== undefined) this._selectedPhraseLang = v;
-                }}
-              ></ha-selector>
-            </ha-formfield>
-            <!-- Use Home Assistant's button with outlined style for clarity -->
-            <ha-button
-              outlined
-              @click=${() => this._resetPhrases(this._selectedPhraseLang)}
-            >
-              ${this._t("phrases_apply")}
-            </ha-button>
-          </div>
-          <details>
-            <summary>${this._t("phrases_full")}</summary>
-            ${allergens.map(
-              (a) => html`
-                <ha-formfield .label=${a}>
-                  <ha-textfield
-                    .value=${c.phrases.full[a] || ""}
-                    @input=${(e) => {
-                      const p = {
-                        ...c.phrases,
-                        full: { ...c.phrases.full, [a]: e.target.value },
-                      };
-                      this._updateConfig("phrases", p);
-                    }}
-                  ></ha-textfield>
-                </ha-formfield>
-              `,
-            )}
-          </details>
-          <details>
-            <summary>${this._t("phrases_short")}</summary>
-            ${allergens.map(
-              (a) => html`
-                <ha-formfield .label=${a}>
-                  <ha-textfield
-                    .value=${c.phrases.short[a] || ""}
-                    @input=${(e) => {
-                      const p = {
-                        ...c.phrases,
-                        short: { ...c.phrases.short, [a]: e.target.value },
-                      };
-                      this._updateConfig("phrases", p);
-                    }}
-                  ></ha-textfield>
-                </ha-formfield>
-              `,
-            )}
-          </details>
-          <details>
-            <summary>${this._t("phrases_levels")}</summary>
-            ${Array.from({ length: numLevels }, (_, i) => i).map(
-              (i) => html`
-                <ha-formfield .label=${i}>
-                  <ha-textfield
-                    .value=${c.phrases.levels[i] || ""}
-                    @input=${(e) => {
-                      const lv = [...c.phrases.levels];
-                      lv[i] = e.target.value;
-                      const p = { ...c.phrases, levels: lv };
-                      this._updateConfig("phrases", p);
-                    }}
-                  ></ha-textfield>
-                </ha-formfield>
-              `,
-            )}
-          </details>
-          <details>
-            <summary>${this._t("phrases_days")}</summary>
-            ${[0, 1, 2].map(
-              (i) => html`
-                <ha-formfield .label=${i}>
-                  <ha-textfield
-                    .value=${c.phrases.days[i] || ""}
-                    @input=${(e) => {
-                      const dd = { ...c.phrases.days, [i]: e.target.value };
-                      this._updateConfig("phrases", { ...c.phrases, days: dd });
-                    }}
-                  ></ha-textfield>
-                </ha-formfield>
-              `,
-            )}
-          </details>
-          <ha-formfield label="${this._t("no_information")}">
-            <ha-textfield
-              .value=${c.phrases.no_information || ""}
-              @input=${(e) =>
-                this._updateConfig("phrases", {
-                  ...c.phrases,
-                  no_information: e.target.value,
-                })}
-            ></ha-textfield>
-          </ha-formfield>
-        </details>
+        ${this._renderPhrasesSection()}
 
         <!-- §10 Card interactivity -->
         <details>

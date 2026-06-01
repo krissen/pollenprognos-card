@@ -36,7 +36,7 @@
 //     the caller must maintain that flag based on the returned state.
 
 import { LitElement, html } from "lit";
-import { t, detectLang } from "../i18n.js";
+import { t, detectLang, SUPPORTED_LOCALES } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import {
@@ -2183,6 +2183,227 @@ export class PollenEditorBase extends LitElement {
               </ha-formfield>
             `
           : ""}
+      </details>
+    `;
+  }
+
+  // Presentation hooks for the phrases section: subclasses that do not display
+  // level names or day labels (e.g. the badge) override these to false.
+  _showPhraseLevels() {
+    return true;
+  }
+
+  _showPhraseDays() {
+    return true;
+  }
+
+  /**
+   * Seed config.phrases with the localized default names for the chosen
+   * language (the "Apply translations" action), and set date_locale to it.
+   * Shared by the card and badge editors. Uses _currentAllergens() so the
+   * GPL/GP installed plants are included via the editor's discovered list.
+   */
+  _resetPhrases(lang) {
+    if (this.debug) console.debug("[Editor] resetPhrases - lang:", lang);
+    this._updateConfig("date_locale", lang);
+
+    const integration = this._config?.integration;
+    const rawKeys = this._currentAllergens();
+
+    const full = {};
+    const short = {};
+    rawKeys.forEach((raw) => {
+      const normKey = normalize(raw);
+      const canonKey = toCanonicalAllergenKey(normKey);
+      // SILAM's aggregate uses the user-facing 'index' name, not 'allergy_risk'.
+      const transKey = normKey === "index" ? "index" : canonKey;
+      full[raw] = t(`editor.phrases_full.${transKey}`, lang);
+      short[raw] = t(`editor.phrases_short.${transKey}`, lang);
+    });
+
+    const numLevels = this._currentNumLevels();
+    // 5-level integrations (MSW, PEU, Kleenex) use the scale-specific severity
+    // labels rather than the first five of the 7-level palette.
+    const levelKeyPrefix =
+      integration === "msw" ||
+      integration === "peu" ||
+      integration === "kleenex"
+        ? "editor.phrases_levels5"
+        : "editor.phrases_levels";
+    const levels = Array.from({ length: numLevels }, (_, i) =>
+      t(`${levelKeyPrefix}.${i}`, lang),
+    );
+
+    const days = {
+      0: t(`editor.phrases_days.0`, lang),
+      1: t(`editor.phrases_days.1`, lang),
+      2: t(`editor.phrases_days.2`, lang),
+    };
+
+    this._updateConfig("phrases", {
+      full,
+      short,
+      levels,
+      days,
+      no_information: t("editor.no_information", lang),
+    });
+  }
+
+  /**
+   * The "Translations & strings" section (locale override + custom phrases),
+   * shared by the card and badge editors. Level-name and day-label subsections
+   * are gated by _showPhraseLevels() / _showPhraseDays() so the badge (which
+   * renders neither) can hide them. Null-safe on config.phrases.
+   */
+  _renderPhrasesSection() {
+    const c = this._editorConfig();
+    const allergens = this._currentAllergens();
+    const numLevels = this._currentNumLevels();
+    const phrases = c.phrases || {};
+    const full = phrases.full || {};
+    const short = phrases.short || {};
+    const levels = phrases.levels || [];
+    const days = phrases.days || {};
+    return html`
+      <!-- Translations & strings -->
+      <details>
+        <summary>${this._t("summary_translation_and_strings")}</summary>
+        <div class="section-helper">
+          ${this._t("helper_translation_and_strings")}
+        </div>
+        <ha-formfield label="${this._t("locale")}">
+          <ha-textfield
+            .value=${c.date_locale || ""}
+            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
+          ></ha-textfield>
+        </ha-formfield>
+        <h3>${this._t("phrases")}</h3>
+        <div class="preset-buttons">
+          <ha-formfield label="${this._t("phrases_translate_all")}">
+            <ha-selector
+              .hass=${this._hass}
+              .selector=${{
+                select: {
+                  mode: "dropdown",
+                  options: SUPPORTED_LOCALES.map((code) => ({
+                    value: code,
+                    label:
+                      new Intl.DisplayNames([this._lang], {
+                        type: "language",
+                      }).of(code) || code,
+                  })),
+                },
+              }}
+              .value=${this._selectedPhraseLang || this._lang}
+              @value-changed=${(e) => {
+                const v = e.detail?.value;
+                if (v !== undefined) this._selectedPhraseLang = v;
+              }}
+            ></ha-selector>
+          </ha-formfield>
+          <ha-button
+            outlined
+            @click=${() =>
+              this._resetPhrases(this._selectedPhraseLang || this._lang)}
+          >
+            ${this._t("phrases_apply")}
+          </ha-button>
+        </div>
+        <details>
+          <summary>${this._t("phrases_full")}</summary>
+          ${allergens.map(
+            (a) => html`
+              <ha-formfield .label=${a}>
+                <ha-textfield
+                  .value=${full[a] || ""}
+                  @input=${(e) => {
+                    const p = {
+                      ...(c.phrases || {}),
+                      full: { ...full, [a]: e.target.value },
+                    };
+                    this._updateConfig("phrases", p);
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `,
+          )}
+        </details>
+        <details>
+          <summary>${this._t("phrases_short")}</summary>
+          ${allergens.map(
+            (a) => html`
+              <ha-formfield .label=${a}>
+                <ha-textfield
+                  .value=${short[a] || ""}
+                  @input=${(e) => {
+                    const p = {
+                      ...(c.phrases || {}),
+                      short: { ...short, [a]: e.target.value },
+                    };
+                    this._updateConfig("phrases", p);
+                  }}
+                ></ha-textfield>
+              </ha-formfield>
+            `,
+          )}
+        </details>
+        ${this._showPhraseLevels()
+          ? html`
+              <details>
+                <summary>${this._t("phrases_levels")}</summary>
+                ${Array.from({ length: numLevels }, (_, i) => i).map(
+                  (i) => html`
+                    <ha-formfield .label=${i}>
+                      <ha-textfield
+                        .value=${levels[i] || ""}
+                        @input=${(e) => {
+                          const lv = [...levels];
+                          lv[i] = e.target.value;
+                          this._updateConfig("phrases", {
+                            ...(c.phrases || {}),
+                            levels: lv,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `,
+                )}
+              </details>
+            `
+          : ""}
+        ${this._showPhraseDays()
+          ? html`
+              <details>
+                <summary>${this._t("phrases_days")}</summary>
+                ${[0, 1, 2].map(
+                  (i) => html`
+                    <ha-formfield .label=${i}>
+                      <ha-textfield
+                        .value=${days[i] || ""}
+                        @input=${(e) => {
+                          const dd = { ...days, [i]: e.target.value };
+                          this._updateConfig("phrases", {
+                            ...(c.phrases || {}),
+                            days: dd,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `,
+                )}
+              </details>
+            `
+          : ""}
+        <ha-formfield label="${this._t("no_information")}">
+          <ha-textfield
+            .value=${phrases.no_information || ""}
+            @input=${(e) =>
+              this._updateConfig("phrases", {
+                ...(c.phrases || {}),
+                no_information: e.target.value,
+              })}
+          ></ha-textfield>
+        </ha-formfield>
       </details>
     `;
   }

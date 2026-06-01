@@ -20,6 +20,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return {
       _config: { type: Object },
       hass: { type: Object },
+      _selectedPhraseLang: { state: true },
     };
   }
 
@@ -217,6 +218,17 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // a false affordance here — hide it. The ring sub-fields (size ratio, colour)
   // remain available for tuning the icon_in_ring visual mode.
   _showIconInRingToggle() {
+    return false;
+  }
+
+  // The badge shows the allergen name only (no level text, no day columns), so
+  // hide the level-name and day-label customization in the phrases section. The
+  // language selector and full/short allergen names remain.
+  _showPhraseLevels() {
+    return false;
+  }
+
+  _showPhraseDays() {
     return false;
   }
 
@@ -426,6 +438,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ${this._renderAllergenIconsSection()}
         ${this._renderLevelCirclesSection()}
         ${this._renderIconInRingSection()}
+        ${this._renderPhrasesSection()}
       </div>
     `;
   }
