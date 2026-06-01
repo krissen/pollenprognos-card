@@ -2259,11 +2259,19 @@ export class PollenEditorBase extends LitElement {
     const c = this._editorConfig();
     const allergens = this._currentAllergens();
     const numLevels = this._currentNumLevels();
-    const phrases = c.phrases || {};
-    const full = phrases.full || {};
-    const short = phrases.short || {};
-    const levels = phrases.levels || [];
-    const days = phrases.days || {};
+    // Type-guard every phrases subfield: YAML can supply a wrong type (e.g.
+    // phrases.levels as an object), which would otherwise break rendering.
+    const isObj = (v) => v != null && typeof v === "object" && !Array.isArray(v);
+    const phrases = isObj(c.phrases) ? c.phrases : {};
+    const full = isObj(phrases.full) ? phrases.full : {};
+    const short = isObj(phrases.short) ? phrases.short : {};
+    const levels = Array.isArray(phrases.levels) ? phrases.levels : [];
+    const days = isObj(phrases.days) ? phrases.days : {};
+    // Default the language selector from the config's date_locale (not just the
+    // HA language) so an existing per-locale override is reflected before the
+    // user touches the dropdown.
+    const selectedLang =
+      this._selectedPhraseLang || detectLang(this._hass, c.date_locale);
     return html`
       <!-- Translations & strings -->
       <details>
@@ -2294,7 +2302,7 @@ export class PollenEditorBase extends LitElement {
                   })),
                 },
               }}
-              .value=${this._selectedPhraseLang || this._lang}
+              .value=${selectedLang}
               @value-changed=${(e) => {
                 const v = e.detail?.value;
                 if (v !== undefined) this._selectedPhraseLang = v;
@@ -2303,8 +2311,7 @@ export class PollenEditorBase extends LitElement {
           </ha-formfield>
           <ha-button
             outlined
-            @click=${() =>
-              this._resetPhrases(this._selectedPhraseLang || this._lang)}
+            @click=${() => this._resetPhrases(selectedLang)}
           >
             ${this._t("phrases_apply")}
           </ha-button>
