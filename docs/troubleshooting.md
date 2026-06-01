@@ -295,7 +295,7 @@ If the badge appears but shows nothing (no icon, no ring content):
 
 2. **Check `badge_content: single`.** When using single-allergen mode, `badge_single_allergen` must be set to a valid key for your integration. Check [configuration.md](configuration.md#valid-allergen-keys) for the correct keys.
 
-3. **Check `badge_content: aggregate`.** This mode uses the integration's overall-risk sensor, which is only available for GPL, SILAM, and Atmo. For all other integrations it falls back to `worst` automatically, so an empty badge here usually means no allergen data was found at all (see step 1).
+3. **Check `badge_content: aggregate`.** This mode uses the integration's overall-risk sensor, available out of the box for GPL and Atmo. SILAM also has one (the index, key `allergy_risk`), but it is not in SILAM's default allergens, so add `index` to the badge's `allergens` for `aggregate` to work there. For every other case it falls back to `worst` automatically, so an empty badge here usually means no allergen data was found at all (see step 1).
 
 4. **Enable debug mode** on a card with the same config and check the browser console for detection messages (see [Debug console output](#6-debug-console-output-helpful-for-detection-issues)).
 
