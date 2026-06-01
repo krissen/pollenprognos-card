@@ -2729,7 +2729,13 @@ export class PollenEditorBase extends LitElement {
       "allergen_stroke_width",
       "no_allergens_color",
     ];
-    if (this._inheritState().gapDisabled) keys.push("levels_gap");
+    const { inheritMode, gapDisabled } = this._inheritState();
+    // In inherit_allergen mode the allergen settings DERIVE level keys via
+    // _applyVisualConfigSideEffects: allergen_stroke_width -> levels_gap (when
+    // synced) and allergen_colors[0] -> levels_empty_color. Clear those derived
+    // keys too, else the reset leaves the ring's gap/empty-color customized.
+    if (gapDisabled) keys.push("levels_gap");
+    if (inheritMode === "inherit_allergen") keys.push("levels_empty_color");
     return keys;
   }
 
@@ -2753,13 +2759,19 @@ export class PollenEditorBase extends LitElement {
     ];
   }
 
-  // Keys reset by the Icon in ring (§8) section button.
+  // Keys reset by the Icon in ring (§8) section button. levels_thickness is
+  // included only when it was auto-thinned by enabling icon_in_ring (tracked by
+  // _thicknessAutoShifted) and never user-customized; otherwise turning the
+  // feature off via reset would leave the rings unexpectedly thin. A
+  // user-customized thickness is owned by §7 and left untouched.
   _iconInRingResetKeys() {
-    return [
+    const keys = [
       "icon_in_ring",
       "icon_in_ring_color_mode",
       "icon_in_ring_size_ratio",
       "icon_in_ring_static_color",
     ];
+    if (this._thicknessAutoShifted) keys.push("levels_thickness");
+    return keys;
   }
 }
