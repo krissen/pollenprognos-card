@@ -128,6 +128,18 @@ describe("selectBadgeSensor", () => {
     ).toEqual([dwdGraeser]);
   });
 
+  it("falls back to worst when 'single' allergen is not a string (YAML quirk)", () => {
+    const sensors = [birch, grass, mugwort];
+    for (const bad of [3, null, {}, ["birch"]]) {
+      expect(
+        selectBadgeSensor(sensors, {
+          badge_content: "single",
+          badge_single_allergen: bad,
+        }),
+      ).toEqual([grass]);
+    }
+  });
+
   it("returns all sensors unchanged when mode is 'row'", () => {
     const sensors = [birch, grass, mugwort];
     expect(selectBadgeSensor(sensors, { badge_content: "row" })).toBe(sensors);

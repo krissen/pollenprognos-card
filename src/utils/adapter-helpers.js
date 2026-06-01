@@ -64,6 +64,48 @@ export function selectDisplaySensors(sensors, config) {
 }
 
 /**
+ * Resolve a user-facing allergen config key to its sensor.
+ *
+ * Sensors carry the adapter-normalized slug in `allergenReplaced` (PP
+ * "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
+ * "allergy_risk"), while config keys (config.allergens, badge_single_allergen)
+ * hold whatever the user/editor wrote. Both sides reduce to the same canonical
+ * allergen key via toCanonicalAllergenKey(normalize(x)), so a key resolves
+ * regardless of the integration's key style. A literal match on the raw
+ * `allergenReplaced` is tried first, so an exact key always wins over a merely
+ * canonical-equal one.
+ *
+ * This is the single shared "config allergen key -> sensor" resolver. The badge
+ * uses it for single mode today; the card can reuse it if it ever gains a
+ * single-allergen display. Typeguarded so a non-string key (YAML can deliver a
+ * number/null) or a sensor without a string allergenReplaced is skipped, never
+ * thrown on.
+ *
+ * @param {object[]} sensors   - normalized sensor dicts.
+ * @param {string}   configKey - the user-facing allergen key to resolve.
+ * @returns {object|null} the matching sensor, or null.
+ */
+export function matchSensorByAllergenKey(sensors, configKey) {
+  if (!Array.isArray(sensors) || typeof configKey !== "string" || !configKey) {
+    return null;
+  }
+  // Literal match first: an exact allergenReplaced wins over a normalized one.
+  const literal = sensors.find(
+    (s) => s && typeof s.allergenReplaced === "string" && s.allergenReplaced === configKey,
+  );
+  if (literal) return literal;
+  const wanted = toCanonicalAllergenKey(normalize(configKey));
+  return (
+    sensors.find(
+      (s) =>
+        s &&
+        typeof s.allergenReplaced === "string" &&
+        toCanonicalAllergenKey(normalize(s.allergenReplaced)) === wanted,
+    ) || null
+  );
+}
+
+/**
  * Badge support (issue #235): pick which sensor(s) a compact badge renders,
  * given the badge content mode. A badge is tiny and typically shows ONE thing,
  * so this returns a short list (usually length 1) that the badge render path
@@ -117,30 +159,10 @@ export function selectBadgeSensor(sensors, config) {
     case "aggregate":
       return summary ? [summary] : worst();
     case "single": {
-      const key =
-        typeof config?.badge_single_allergen === "string"
-          ? config.badge_single_allergen
-          : null;
-      if (!key) return worst();
-      // Sensors carry the adapter-normalized slug in allergenReplaced
-      // (PP "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
-      // "allergy_risk"), but badge_single_allergen holds the user-facing config
-      // key. Match it against each sensor by trying the raw value first, then
-      // the known normalization schemes, so the configured allergen resolves
-      // regardless of the integration's key style. Ordered candidates give a
-      // literal match priority over a normalized one.
-      const candidates = [
-        key,
-        toCanonicalAllergenKey(key),
-        normalize(key),
-        normalizeDWD(key),
-      ];
-      let found = null;
-      for (const cand of candidates) {
-        if (!cand) continue;
-        found = sensors.find((s) => s && s.allergenReplaced === cand);
-        if (found) break;
-      }
+      const found = matchSensorByAllergenKey(
+        sensors,
+        config?.badge_single_allergen,
+      );
       return found ? [found] : worst();
     }
     case "row":
