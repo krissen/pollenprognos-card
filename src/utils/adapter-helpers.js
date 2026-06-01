@@ -121,8 +121,17 @@ export function selectBadgeSensor(sensors, config) {
         typeof config?.badge_single_allergen === "string"
           ? config.badge_single_allergen
           : null;
+      // Sensors carry the canonical allergenReplaced (e.g. SILAM's index is
+      // canonicalized to "allergy_risk"), but badge_single_allergen holds the
+      // user-facing config key ("index"). Match on the raw key first, then on
+      // its canonical form, so a user can name the allergen with either.
+      const canonKey = key ? toCanonicalAllergenKey(key) : null;
       const found = key
-        ? sensors.find((s) => s && s.allergenReplaced === key)
+        ? sensors.find(
+            (s) =>
+              s &&
+              (s.allergenReplaced === key || s.allergenReplaced === canonKey),
+          )
         : null;
       return found ? [found] : worst();
     }

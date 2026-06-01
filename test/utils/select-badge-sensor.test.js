@@ -80,6 +80,29 @@ describe("selectBadgeSensor", () => {
     ]);
   });
 
+  it("matches 'single' on the user-facing key when it canonicalizes (SILAM index)", () => {
+    // SILAM's index sensor carries the canonical allergenReplaced "allergy_risk",
+    // but a user names it with the config key "index". toCanonicalAllergenKey
+    // maps index -> allergy_risk, so the badge must still find it.
+    const sensors = [birch, grass, summary];
+    expect(
+      selectBadgeSensor(sensors, {
+        badge_content: "single",
+        badge_single_allergen: "index",
+      }),
+    ).toEqual([summary]);
+  });
+
+  it("still matches 'single' on the canonical key directly", () => {
+    const sensors = [birch, grass, summary];
+    expect(
+      selectBadgeSensor(sensors, {
+        badge_content: "single",
+        badge_single_allergen: "allergy_risk",
+      }),
+    ).toEqual([summary]);
+  });
+
   it("returns all sensors unchanged when mode is 'row'", () => {
     const sensors = [birch, grass, mugwort];
     expect(selectBadgeSensor(sensors, { badge_content: "row" })).toBe(sensors);
