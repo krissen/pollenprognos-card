@@ -546,7 +546,6 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return [
       ...super._appearanceResetKeys(),
       "badge_scale",
-      "badge_icon_scale",
       "badge_show_label",
       "badge_label_position",
     ];
