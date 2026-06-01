@@ -31,6 +31,13 @@ import {
 } from "./utils/levels-defaults.js";
 import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import { deepEqual } from "./utils/confcompare.js";
+import {
+  detectIntegrationStates,
+  pickIntegration,
+  autoSelectLocation,
+  normalizeIntegration,
+} from "./utils/autodetect.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 
 class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
@@ -86,10 +93,20 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   /**
    * Default stub config surfaced in the HA badge picker.
    * No `type` key — HA badge convention differs from card convention.
+   *
+   * Autodetects the integration from hass (when HA provides it) so a freshly
+   * added badge shows real data instead of always defaulting to PollenPrognos.
+   * HA may call getStubConfig with no hass, so fall back to "pp" then.
    */
-  static getStubConfig(_hass, _entities, _entitiesFallback) {
+  static getStubConfig(hass, _entities, _entitiesFallback) {
+    let integration = "pp";
+    if (hass) {
+      integration =
+        pickIntegration(detectIntegrationStates(hass), { explicit: false }) ||
+        "pp";
+    }
     return {
-      integration: "pp",
+      integration,
       badge_content: "worst",
       icon_in_ring: true,
     };
@@ -100,10 +117,42 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // ---------------------------------------------------------------------- //
 
   setConfig(config) {
-    // Normalize integration: trim + lowercase if string.
-    let integration = config.integration;
-    if (integration && typeof integration === "string") {
-      integration = integration.trim().toLowerCase();
+    this._userConfig = { ...config };
+    // Whether the user pinned an integration. When they didn't, set hass()
+    // re-resolves integration + location from hass so a no-config badge shows
+    // real data (mirrors the card element).
+    this._integrationExplicit = Object.prototype.hasOwnProperty.call(
+      config,
+      "integration",
+    );
+    this.config = this._buildConfig(config, this._hass);
+
+    // Trigger a data fetch if hass is already available.
+    if (this._hass) {
+      this._fetchSensors(this._hass);
+    }
+  }
+
+  /**
+   * Build the badge's effective config from a raw user config and (optionally)
+   * hass. When the integration is not explicit and hass is available, the
+   * integration and its first location are autodetected (shared with the card
+   * via src/utils/autodetect.js). Stub defaults fill in the rest; badge_visual
+   * drives the engine flags. Pure aside from reading hass.
+   *
+   * @param {object} config  raw user config
+   * @param {object|null} hass
+   * @returns {object}
+   */
+  _buildConfig(config, hass) {
+    const explicit = Object.prototype.hasOwnProperty.call(config, "integration");
+    let integration = normalizeIntegration(config.integration);
+
+    // Autodetect integration when the user didn't pin one.
+    let detection = null;
+    if (!explicit && hass) {
+      detection = detectIntegrationStates(hass);
+      integration = pickIntegration(detection, { explicit: false }) || integration;
     }
 
     const stub = getStubConfig(integration) || getStubConfig("pp");
@@ -164,7 +213,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // Merge order: stub → badge-oriented defaults → user config, so user
     // always wins for plain keys. The badge-derived engine flags are applied
     // AFTER the spread so badge_visual stays the single source of truth.
-    this.config = {
+    const built = {
       ...stub,
       badge_content: "worst",
       badge_show_label: false,
@@ -190,12 +239,17 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       mode: "daily",
     };
 
-    this._userConfig = { ...config };
-
-    // Trigger a data fetch if hass is already available.
-    if (this._hass) {
-      this._fetchSensors(this._hass);
+    // Auto-select the first location for the detected integration when the
+    // user didn't set one (and isn't in manual mode). Reuses the detection
+    // computed above; the guard keeps an explicit "manual" / user value.
+    if (!explicit && hass && detection) {
+      const sel = autoSelectLocation(integration, built, hass, detection);
+      if (sel && built[sel.key] !== "manual" && !built[sel.key]) {
+        built[sel.key] = sel.value;
+      }
     }
+
+    return built;
   }
 
   // ---------------------------------------------------------------------- //
@@ -205,6 +259,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   set hass(hass) {
     if (this._hass === hass) return;
     this._hass = hass;
+    // When the integration is not explicit, re-resolve integration + location
+    // from the new hass so a no-config badge (picker default) renders real
+    // data. Only reassign when something changed to avoid render churn.
+    if (this._userConfig && !this._integrationExplicit) {
+      const next = this._buildConfig(this._userConfig, hass);
+      if (!deepEqual(this.config, next)) this.config = next;
+    }
     this._fetchSensors(hass);
   }
 
