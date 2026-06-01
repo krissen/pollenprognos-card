@@ -4,7 +4,6 @@
 // Extends PollenEditorBase to share integration/location and allergen sections.
 
 import { html, css } from "lit";
-import { detectLang } from "./i18n.js";
 import { getStubConfig } from "./adapter-registry.js";
 import { PollenEditorBase, deepMerge } from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -107,10 +106,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    */
   set hass(hass) {
     this._hass = hass;
-    // Update selected phrase language on first hass arrival
-    if (!this._selectedPhraseLang) {
-      this._selectedPhraseLang = detectLang(hass, this._config?.date_locale);
-    }
+    // _selectedPhraseLang holds only the user's explicit dropdown pick; the
+    // shared phrases section derives the shown language from it or from
+    // detectLang(hass, date_locale) at render time, so nothing is seeded here.
     this.requestUpdate();
   }
 
@@ -227,12 +225,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   }
 
   // The badge shows the allergen name only (no level text, no day columns), so
-  // hide the level-name and day-label customization. It also can't enable
-  // allergens_abbreviated (that toggle is card-only), so allergenShort always
-  // equals the full name -- the short-name fields would never affect the badge,
-  // so hide them too. Only the language selector + full allergen names remain.
+  // hide the level-name and day-label customization. The badge label uses
+  // allergenShort, which equals the full name UNLESS allergens_abbreviated is
+  // set; the badge editor has no abbreviated toggle, but a YAML config can set
+  // it, in which case the short names DO show -- so expose the short-name fields
+  // only when allergens_abbreviated is enabled.
   _showPhraseShort() {
-    return false;
+    return this._editorConfig()?.allergens_abbreviated === true;
   }
 
   _showPhraseLevels() {

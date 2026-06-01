@@ -85,8 +85,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this.installedPpLocations = [];
     this.installedDwdLocations = [];
     this._initDone = false;
-    // Ensure phrase language defaults to a sensible locale
-    this._selectedPhraseLang = detectLang();
+    // _selectedPhraseLang holds only the user's explicit dropdown choice; the
+    // displayed/applied language is derived at render time from it or from
+    // detectLang(hass, date_locale), so it is never auto-seeded here.
     this._allergensExplicit = false;
     this._origAllergensSet = false;
     this._userAllergens = null;
@@ -117,8 +118,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         config.icon_in_ring === true &&
         incomingThickness === ICON_IN_RING_DEFAULT_THICKNESS;
       if (config.phrases) this._userConfig.phrases = config.phrases;
-      // Default language for phrases uses locale or falls back to Home Assistant
-      this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
 
       // 1. Identify stub values and clone incoming config
       // Normalize integration to lowercase (user may type "SILAM" in YAML)
@@ -636,10 +635,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     if (this._hass === hass) return; // Avoid unnecessary work
     this._hass = hass;
     const explicit = this._integrationExplicit;
-    if (!this._initDone) {
-      // Default dropdown language mirrors locale or Home Assistant setting
-      this._selectedPhraseLang = detectLang(hass, this._config.date_locale);
-    }
 
     // Hitta alla sensor-ID för PP, DWD, PEU, SILAM, PLU
     // Build set of PLU allergen slugs for more specific detection
