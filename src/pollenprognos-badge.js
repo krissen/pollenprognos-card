@@ -367,7 +367,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // both the ring `base` passed to _renderBadgeVisual below and the bare
     // icon's --pollen-icon-size. badge_scale still governs the overall badge.
     const iconScale = Number(this.config?.badge_icon_scale) || 1;
-    const visualSize = Math.round(ring * iconScale);
+    // Cap the scaled visual at the pill height so scaling UP can grow the image
+    // to fill the badge but never overflow it (the ring base is already
+    // 0.78*height, so scales above ~1.28 would otherwise spill out of the pill).
+    // Scaling DOWN is unbounded within the slider range.
+    const visualSize = Math.min(Math.round(ring * iconScale), height);
     // A configured background_color sets --ppb-bg (consumed by the .ppb rule,
     // which otherwise falls back to the themed background). Same ?.trim?.()
     // guard the card uses, so non-string YAML values can't throw.
