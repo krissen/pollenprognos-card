@@ -561,38 +561,35 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ></ha-textfield>
       </ha-formfield>
 
-      <!-- badge_icon_scale: shrink/grow ONLY the bare icon in icon_only mode.
-           Hidden in the other visual modes where the icon sits in the ring
-           (use icon_in_ring size ratio there instead). -->
-      ${c.badge_visual === "icon_only"
-        ? html`
-            <ha-formfield label="${this._t("badge_icon_scale")}">
-              <ha-slider
-                min="0.3"
-                max="3"
-                step="0.05"
-                .value=${typeof c.badge_icon_scale === "number"
-                  ? c.badge_icon_scale
-                  : 1}
-                @input=${(e) =>
-                  this._updateConfig("badge_icon_scale", Number(e.target.value))}
-                style="width: 120px;"
-              ></ha-slider>
-              <ha-textfield
-                type="number"
-                min="0.3"
-                max="3"
-                step="0.05"
-                .value=${typeof c.badge_icon_scale === "number"
-                  ? c.badge_icon_scale
-                  : 1}
-                @input=${(e) =>
-                  this._updateConfig("badge_icon_scale", Number(e.target.value))}
-                style="width: 80px;"
-              ></ha-textfield>
-            </ha-formfield>
-          `
-        : ""}
+      <!-- badge_icon_scale: scale the allergen visual as a whole — the ring
+           (and whatever it centres) in the ring modes, the bare icon in
+           icon_only — without touching the label text or the pill box. Shown
+           in every visual mode. -->
+      <ha-formfield label="${this._t("badge_icon_scale")}">
+        <ha-slider
+          min="0.3"
+          max="3"
+          step="0.05"
+          .value=${typeof c.badge_icon_scale === "number"
+            ? c.badge_icon_scale
+            : 1}
+          @input=${(e) =>
+            this._updateConfig("badge_icon_scale", Number(e.target.value))}
+          style="width: 120px;"
+        ></ha-slider>
+        <ha-textfield
+          type="number"
+          min="0.3"
+          max="3"
+          step="0.05"
+          .value=${typeof c.badge_icon_scale === "number"
+            ? c.badge_icon_scale
+            : 1}
+          @input=${(e) =>
+            this._updateConfig("badge_icon_scale", Number(e.target.value))}
+          style="width: 80px;"
+        ></ha-textfield>
+      </ha-formfield>
 
       <!-- badge_show_label / badge_label_position -->
       <ha-formfield label="${this._t("badge_show_label")}">

@@ -360,20 +360,20 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // Pill height follows the HA badge convention; the ring sits inside it.
     const height = this._badgeBaseSize();
     const ring = Math.round(height * 0.78);
-    // --ppb-size drives the proportional pill CSS (padding/gap/radius/label);
-    // --pollen-icon-size sizes the bare icon used by the icon_only mode.
-    // badge_icon_scale multiplies ONLY that bare icon, so users can shrink the
-    // glyph without shrinking the whole badge (#235). It is consumed only by the
-    // .pp-icon rule (icon_only path); the in-ring icon uses iconSizeRatio, so
-    // applying it here has no effect on the other visual modes.
+    // --ppb-size drives the proportional pill CSS (padding/gap/radius/label).
+    // badge_icon_scale scales the allergen VISUAL as a whole — the ring (with
+    // whatever it centres: icon or value) in the ring modes, and the bare icon
+    // in icon_only — but NOT the label text or the pill box (#235). So it sizes
+    // both the ring `base` passed to _renderBadgeVisual below and the bare
+    // icon's --pollen-icon-size. badge_scale still governs the overall badge.
     const iconScale = Number(this.config?.badge_icon_scale) || 1;
-    const bareIcon = Math.round(ring * iconScale);
+    const visualSize = Math.round(ring * iconScale);
     // A configured background_color sets --ppb-bg (consumed by the .ppb rule,
     // which otherwise falls back to the themed background). Same ?.trim?.()
     // guard the card uses, so non-string YAML values can't throw.
     const bg = this.config?.background_color?.trim?.();
     const hostStyle =
-      `--ppb-size: ${height}px; --pollen-icon-size: ${bareIcon}px;` +
+      `--ppb-size: ${height}px; --pollen-icon-size: ${visualSize}px;` +
       (bg ? ` --ppb-bg: ${bg};` : "");
 
     // Not yet loaded: render an empty pill placeholder so the badge slot
@@ -415,7 +415,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           const visual = this._renderBadgeVisual(
             visualMode,
             sensor,
-            { ringConfig, base: ring, ringIconRatio, ringLevel, svgKey, displayLevel, clickable },
+            { ringConfig, base: visualSize, ringIconRatio, ringLevel, svgKey, displayLevel, clickable },
           );
 
           return html`
