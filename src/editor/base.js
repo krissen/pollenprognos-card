@@ -2659,7 +2659,9 @@ export class PollenEditorBase extends LitElement {
    * Reset one section's options to their defaults: drop the listed keys from
    * the user-origin config so the stub / element defaults take over, then
    * re-seed via setConfig and dispatch. Scoped sibling of _resetAll; works for
-   * both editors because _userConfig is the user-origin view they each persist.
+   * both editors because _userConfig is the user-origin view both editors
+   * maintain and which serves as the reset base (it is not necessarily what
+   * gets dispatched in config-changed).
    *
    * @param {string[]} keys
    */
