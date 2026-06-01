@@ -7,6 +7,7 @@ import {
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
+import { normalize } from "./utils/normalize.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
 import { PollenEditorBase, deepMerge } from "./editor/base.js";
