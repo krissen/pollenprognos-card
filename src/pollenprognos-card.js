@@ -1756,40 +1756,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       (_, i) => i,
     );
     
-    // Number of segments in the level circle depends on the integration.
-    // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
-    // = empty); GPL/GP use five (native 0-5); PLU uses three; others use
-    // six. Match each integration's native level count so the maximum state
-    // fills the chart (no never-filled trailing segment).
-    let segments = 6;
-    if (
-      this.config.integration === "peu" ||
-      this.config.integration === "kleenex" ||
-      this.config.integration === "msw"
-    ) {
-      segments = 4;
-    } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
-      segments = 5;
-    } else if (this.config.integration === "plu") {
-      segments = 3;
-    }
-    
-    // Build colors array using the new inheritance system.
-    // Chart segments represent pollen levels 1..segments (level 0 = empty),
-    // so segments matches the integration's native non-empty level count
-    // (4 for PEU/Kleenex/MSW, 5 for GPL/GP, 3 for PLU, 6 for the others).
-    const rawColors = [];
-    for (let i = 0; i < segments; i++) {
-      rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.
-    }
-    const colors = rawColors;
-    const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
-    
-    const gapColor = this._getGapColor();
-      
-    const thickness =
-      this.config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
-    const gap = this.config.levels_gap ?? LEVELS_DEFAULTS.levels_gap;
+    // Ring geometry/colors come from the shared mixin helper
+    // (_buildLevelRingConfig): segment count per integration (PEU/Kleenex/MSW
+    // 4, GPL/GP 5, PLU 3, others 6), the level-color array, empty/gap colors,
+    // thickness and gap. Same derivation minimal mode and the badge use.
+    const { colors, emptyColor, gapColor, thickness, gap } =
+      this._buildLevelRingConfig();
     const iconSize = Number(this.config.icon_size) || 48;
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
