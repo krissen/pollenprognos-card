@@ -98,7 +98,7 @@ The card bundle also ships a companion badge element. Badges appear in the top s
 
 1. Edit your dashboard and click **Add Badge**
 2. Search for "Pollenprognos Badge" and select it
-3. Configure integration, location, and allergen in the visual editor
+3. Configure integration, location, and content mode in the visual editor (a specific allergen is only selected in the `single` content mode)
 4. Click **Save**
 
 **Via YAML** (add to the `badges:` list of a view, not `cards:`):

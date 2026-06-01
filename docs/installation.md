@@ -163,7 +163,7 @@ The card bundle also includes `pollenprognos-badge`, a compact badge element tha
 1. Open your dashboard and click **Edit Dashboard**
 2. Click **Add Badge** (or the badge area at the top of a view)
 3. Search for "Pollenprognos Badge" and select it
-4. Configure the badge in the visual editor (integration, location, allergen, visual style, scale, etc.)
+4. Configure the badge in the visual editor (integration, location, content mode, visual style, scale, etc.; an allergen selector only appears for the `single` content mode)
 5. Click **Save**
 
 **Add via YAML:**
