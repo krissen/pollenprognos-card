@@ -665,7 +665,10 @@ export const COSMETIC_FIELDS = [
   "icon_in_ring_size_ratio",
   // Display-only: chooses level vs raw_value for the numeric value; the
   // raw_value is already on the fetched sensor dict, so no reload needed.
+  // numeric_state_raw_risk is the legacy PEU alias, now also display-only
+  // (resolveNumericValue reads it; adapters no longer change output for it).
   "numeric_value_raw",
+  "numeric_state_raw_risk",
   "title",
   "card_mod",
 ];
