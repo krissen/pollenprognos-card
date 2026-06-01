@@ -1258,6 +1258,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     } else {
       cfg = { ...this._config, [prop]: value };
 
+      // Keep _userConfig in sync with the edited key. Generic fields (debug,
+      // minimal, days_to_show, ...) previously updated only _config, leaving
+      // _userConfig stale until HA's setConfig round-trip; that let a later
+      // per-section reset (which derives its payload from _userConfig) lose the
+      // unsaved edit. Syncing here keeps _userConfig the current user-origin view.
+      this._userConfig = { ...this._userConfig, [prop]: value };
+
       // Track explicit allergen changes
       if (prop === "allergens") {
         
@@ -1870,11 +1877,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       /* Anchor for the per-section reset button so it can centre itself, and
-         reserve room on the right so a long section title can't run under it. */
+         reserve room on the right so a long section title can't run under the
+         absolutely-positioned button. Applied to every summary (avoids :has(),
+         which older Firefox ESR lacks); the extra right padding on the few
+         reset-less nested summaries is just whitespace. */
       details > summary {
         position: relative;
-      }
-      details > summary:has(.section-reset) {
         padding-right: 48px;
       }
       /* Compact ↺ reset button in the section header: small circle, vertically

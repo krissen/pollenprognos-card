@@ -769,11 +769,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       }
 
       /* Anchor for the per-section reset button so it can centre itself, and
-         reserve room on the right so a long section title can't run under it. */
+         reserve room on the right so a long section title can't run under the
+         absolutely-positioned button. Applied to every summary (avoids :has(),
+         which older Firefox ESR lacks); the extra right padding on the few
+         reset-less nested summaries is just whitespace. */
       details > summary {
         position: relative;
-      }
-      details > summary:has(.section-reset) {
         padding-right: 48px;
       }
       /* Compact ↺ reset button in the section header: small circle, vertically
