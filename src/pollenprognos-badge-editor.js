@@ -569,7 +569,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
             <ha-formfield label="${this._t("badge_icon_scale")}">
               <ha-slider
                 min="0.3"
-                max="2"
+                max="3"
                 step="0.05"
                 .value=${typeof c.badge_icon_scale === "number"
                   ? c.badge_icon_scale
