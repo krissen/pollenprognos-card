@@ -60,6 +60,8 @@ const FIXTURES = {
   kleenex: ["sensor.kleenex_pollen_radar_trees"],
   // ATMO needs to match the regex (pollen allergen, not a forecast day)
   atmo: ["sensor.niveau_bouleau_montpellier"],
+  // GP (svenove/google_pollen): prefix fallback when no registry entry
+  gp: ["sensor.google_pollen_grass"],
   // GPL uses entity registry platform check
   gpl: ["sensor.pollenlevels_grass"],
   // MSW: HA prefixes entity_id with the device name slug (e.g.
@@ -130,7 +132,9 @@ describe("shared autodetect", () => {
       ["silam", "silam"],
       ["kleenex", "kleenex"],
       ["atmo", "atmo"],
+      ["gp", "gp"],
       ["gpl", "gpl"],
+      ["msw", "msw"],
     ])("detects %s alone as %s", (fixture, expected) => {
       expect(detect(hassWithIntegrations(fixture))).toBe(expected);
     });
@@ -196,8 +200,18 @@ describe("shared autodetect", () => {
       );
     });
 
-    it("selects ATMO when only ATMO and GPL are present", () => {
-      expect(detect(hassWithIntegrations("atmo", "gpl"))).toBe("atmo");
+    it("selects ATMO when ATMO, GP, GPL, MSW are present", () => {
+      expect(detect(hassWithIntegrations("atmo", "gp", "gpl", "msw"))).toBe(
+        "atmo",
+      );
+    });
+
+    it("selects GP over GPL and MSW", () => {
+      expect(detect(hassWithIntegrations("gp", "gpl", "msw"))).toBe("gp");
+    });
+
+    it("selects GPL over MSW", () => {
+      expect(detect(hassWithIntegrations("gpl", "msw"))).toBe("gpl");
     });
 
     it("detects ATMO via discovery for prefixed entity IDs", () => {
@@ -229,7 +243,7 @@ describe("shared autodetect", () => {
     expect(detect(mkHass([]))).toBeUndefined();
   });
 
-  describe("full precedence order PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GPL", () => {
+  describe("full precedence order PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GP > GPL > MSW", () => {
     const order = [
       "pp",
       "plu",
@@ -238,7 +252,9 @@ describe("shared autodetect", () => {
       "silam",
       "kleenex",
       "atmo",
+      "gp",
       "gpl",
+      "msw",
     ];
 
     it("each integration wins over all that follow it", () => {
