@@ -2273,9 +2273,12 @@ export class PollenEditorBase extends LitElement {
     const days = isObj(phrases.days) ? phrases.days : {};
     // Default the language selector from the config's date_locale (not just the
     // HA language) so an existing per-locale override is reflected before the
-    // user touches the dropdown.
+    // user touches the dropdown. Guard date_locale to a string: detectLang
+    // calls .slice() on it, so a non-string YAML value would throw here.
+    const dateLocale =
+      typeof c.date_locale === "string" ? c.date_locale : undefined;
     const selectedLang =
-      this._selectedPhraseLang || detectLang(this._hass, c.date_locale);
+      this._selectedPhraseLang || detectLang(this._hass, dateLocale);
     return html`
       <!-- Translations & strings -->
       <details>
