@@ -478,16 +478,13 @@ export async function fetchForecast(hass, config) {
           }
           // Use the normalized value for state so icons and circles are correct.
           let state = Number(entry.numeric_state ?? entry.level ?? -1);
-          // By default the value shown to the user is the normalized state.
-          let displayState = state;
-          // For allergy risk we may optionally show the raw value instead.
-          if (
-            allergenSlug === "allergy_risk" &&
-            config.numeric_state_raw_risk
-          ) {
-            displayState = Number(
-              entry.numeric_state_raw ?? entry.level_raw ?? displayState,
-            );
+          // display_state shows the normalized level. The raw risk value is kept
+          // in raw_value (allergy_risk only) so the user can opt into showing it
+          // via numeric_value_raw; resolveNumericValue picks level or raw.
+          let rawValue = null;
+          if (allergenSlug === "allergy_risk") {
+            const r = Number(entry.numeric_state_raw ?? entry.level_raw);
+            if (Number.isFinite(r)) rawValue = r;
           }
           const levelIdx = lookupIndex(state);
           const dayObj = {
@@ -495,8 +492,8 @@ export async function fetchForecast(hass, config) {
             day: label,
             icon,
             state,
-            // Separate property used purely for numeric display.
-            display_state: displayState,
+            display_state: state,
+            raw_value: rawValue,
             state_text: levelIdx < 0 ? noInfoLabel : levelNames[levelIdx] || noInfoLabel,
           };
           dict[`day${i}`] = dayObj;
@@ -537,19 +534,13 @@ export async function fetchForecast(hass, config) {
           const raw = forecastMap[dateStr] || {};
           // Normalized level is always used for rendering and sorting.
           let level = testVal(raw.level);
-          // Value presented to the user, defaults to the normalized level.
-          let displayLevel = level;
-          // When requested we expose the raw value, which may exceed the
-          // normalized 0–4 scale, purely for user display.
-          if (
-            allergenSlug === "allergy_risk" &&
-            config.numeric_state_raw_risk
-          ) {
-            if (raw.numeric_state_raw != null) {
-              displayLevel = Number(raw.numeric_state_raw);
-            } else if (raw.level_raw != null) {
-              displayLevel = Number(raw.level_raw);
-            }
+          // raw_value holds the raw risk value (allergy_risk only), which may
+          // exceed the normalized 0-4 scale; the user opts into displaying it
+          // via numeric_value_raw. display_state stays the normalized level.
+          let rawValue = null;
+          if (allergenSlug === "allergy_risk") {
+            const r = Number(raw.numeric_state_raw ?? raw.level_raw);
+            if (Number.isFinite(r)) rawValue = r;
           }
           if (level !== null && level >= 0) {
             const d = new Date(dateStr);
@@ -561,8 +552,8 @@ export async function fetchForecast(hass, config) {
               name: dict.allergenCapitalized,
               day: label,
               state: level,
-              // Raw value used only for display when available.
-              display_state: displayLevel,
+              display_state: level,
+              raw_value: rawValue,
               state_text: levelIdx < 0 ? noInfoLabel : levelNames[levelIdx] || noInfoLabel,
             };
 

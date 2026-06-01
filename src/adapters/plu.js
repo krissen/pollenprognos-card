@@ -371,7 +371,11 @@ export async function fetchForecast(hass, config) {
       name: dict.allergenCapitalized,
       day: label,
       state: level,
-      display_state: Number.isFinite(rawValue) ? rawValue : level,
+      // display_state is the level shown by default; the raw concentration
+      // (p/m3) lives in raw_value and is surfaced only when the user opts into
+      // numeric_value_raw (resolveNumericValue picks one or the other).
+      display_state: level,
+      raw_value: Number.isFinite(rawValue) ? rawValue : null,
       state_text: stateText,
       thresholds: { moderate, high },
       level_string: dict.attributes?.level || null,

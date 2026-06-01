@@ -749,6 +749,12 @@ export async function fetchForecast(hass, config) {
               : levelNames[scaledLevel] ||
                 t(`card.levels.${scaledLevel}`, lang),
           value: dayData.value,
+          // Raw ppm measurement, surfaced only when the user opts into
+          // numeric_value_raw (resolveNumericValue). state stays the level.
+          raw_value:
+            dayData.value != null && Number.isFinite(Number(dayData.value))
+              ? Number(dayData.value)
+              : null,
           description:
             scaledLevel < 0
               ? noInfoLabel
