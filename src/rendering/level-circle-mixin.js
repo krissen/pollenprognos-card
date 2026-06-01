@@ -372,13 +372,11 @@ export const LevelCircleMixin = (Base) =>
     }
 
     /**
-     * Ring geometry/colors for the minimal-mode icon-in-ring render path.
-     * Returns the opts blob passed to _renderLevelCircle (minus per-cell
-     * values like size/iconKey/iconColor which the caller fills in).
-     *
-     * Note: _renderNormalHtml currently re-implements the same segment /
-     * color / thickness / gap derivation inline. A follow-up could refactor
-     * both call sites to share this helper.
+     * Ring geometry/colors for the level-circle render path. Returns the opts
+     * blob passed to _renderLevelCircle (minus per-cell values like
+     * size/iconKey/iconColor which the caller fills in). Shared by the card
+     * (normal and minimal modes) and the badge, so the segment count, color
+     * array, thickness and gap are derived in one place.
      */
     _buildLevelRingConfig() {
       const segments = ringSegmentsForIntegration(this.config?.integration);
