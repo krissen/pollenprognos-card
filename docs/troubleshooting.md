@@ -277,6 +277,32 @@ Check Settings > System > Logs for errors from your pollen integration. Search f
 
 ---
 
+## Badge troubleshooting
+
+### Badge not appearing in the badge picker
+
+The badge picker lists `pollenprognos-badge` only after the browser has loaded the current JS bundle. If it is missing after installation, the most likely cause is a stale browser cache (the same root cause as the card not loading).
+
+**How to fix:**
+
+1. Force-reload the page (Ctrl+Shift+R / Cmd+Shift+R); this is enough in most cases
+2. If the badge still does not appear, follow the full cache-clearing steps in [Cache and version problems](#cache-and-version-problems)
+3. Restarting Home Assistant (Settings > System > Restart) after a new HACS install ensures the resource is registered before the browser tries to use it
+
+### Badge renders empty
+
+If the badge appears but shows nothing (no icon, no ring content):
+
+1. **Verify integration and location.** The badge uses the same sensor detection as the card. If a card with the same `integration` and location fields (`city`, `region_id`, or `location`, depending on the integration) finds sensors, the badge will too. Test with the matching card config first.
+
+2. **Check `badge_content: single`.** When using single-allergen mode, `badge_single_allergen` must be set to a valid key for your integration. Check [configuration.md](configuration.md#valid-allergen-keys) for the correct keys.
+
+3. **Check `badge_content: aggregate`.** This mode uses the integration's overall-risk sensor, available out of the box for GPL and Atmo. SILAM also has one (the index), but it is not in SILAM's default allergens, so add `index` to the badge's `allergens`. On a low-pollen day the index sits at level 0, which the default `pollen_threshold: 1` filters out, so also set `pollen_threshold: 0` on the badge to keep the index visible when it is low. For every other case it falls back to `worst` automatically, so an empty badge here usually means no allergen data was found at all (see step 1).
+
+4. **Enable debug mode** on a card with the same config and check the browser console for detection messages (see [Debug console output](#6-debug-console-output-helpful-for-detection-issues)).
+
+---
+
 ## Is it a card issue or an integration issue?
 
 Many reported issues turn out to be problems with the underlying integration, not the card itself. Here is how to tell:

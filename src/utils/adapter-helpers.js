@@ -121,9 +121,26 @@ export function selectBadgeSensor(sensors, config) {
         typeof config?.badge_single_allergen === "string"
           ? config.badge_single_allergen
           : null;
-      const found = key
-        ? sensors.find((s) => s && s.allergenReplaced === key)
-        : null;
+      if (!key) return worst();
+      // Sensors carry the adapter-normalized slug in allergenReplaced
+      // (PP "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
+      // "allergy_risk"), but badge_single_allergen holds the user-facing config
+      // key. Match it against each sensor by trying the raw value first, then
+      // the known normalization schemes, so the configured allergen resolves
+      // regardless of the integration's key style. Ordered candidates give a
+      // literal match priority over a normalized one.
+      const candidates = [
+        key,
+        toCanonicalAllergenKey(key),
+        normalize(key),
+        normalizeDWD(key),
+      ];
+      let found = null;
+      for (const cand of candidates) {
+        if (!cand) continue;
+        found = sensors.find((s) => s && s.allergenReplaced === cand);
+        if (found) break;
+      }
       return found ? [found] : worst();
     }
     case "row":

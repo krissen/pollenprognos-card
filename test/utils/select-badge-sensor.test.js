@@ -80,6 +80,54 @@ describe("selectBadgeSensor", () => {
     ]);
   });
 
+  it("matches 'single' on the user-facing key when it canonicalizes (SILAM index)", () => {
+    // SILAM's index sensor carries the canonical allergenReplaced "allergy_risk",
+    // but a user names it with the config key "index". toCanonicalAllergenKey
+    // maps index -> allergy_risk, so the badge must still find it.
+    const sensors = [birch, grass, summary];
+    expect(
+      selectBadgeSensor(sensors, {
+        badge_content: "single",
+        badge_single_allergen: "index",
+      }),
+    ).toEqual([summary]);
+  });
+
+  it("still matches 'single' on the canonical key directly", () => {
+    const sensors = [birch, grass, summary];
+    expect(
+      selectBadgeSensor(sensors, {
+        badge_content: "single",
+        badge_single_allergen: "allergy_risk",
+      }),
+    ).toEqual([summary]);
+  });
+
+  it("matches 'single' on a PP localized config key (Björk -> bjork)", () => {
+    // PP sensors store normalize(configKey): "Björk" -> "bjork". The badge
+    // config holds the localized key "Björk", so single must still resolve.
+    const ppBjork = { allergenReplaced: "bjork", day0: { state: 2 } };
+    const ppGras = { allergenReplaced: "gras", day0: { state: 1 } };
+    expect(
+      selectBadgeSensor([ppBjork, ppGras], {
+        badge_content: "single",
+        badge_single_allergen: "Björk",
+      }),
+    ).toEqual([ppBjork]);
+  });
+
+  it("matches 'single' on a DWD localized config key (gräser -> graeser)", () => {
+    // DWD sensors store normalizeDWD(configKey): "gräser" -> "graeser".
+    const dwdGraeser = { allergenReplaced: "graeser", day0: { state: 3 } };
+    const dwdBirke = { allergenReplaced: "birke", day0: { state: 1 } };
+    expect(
+      selectBadgeSensor([dwdGraeser, dwdBirke], {
+        badge_content: "single",
+        badge_single_allergen: "gräser",
+      }),
+    ).toEqual([dwdGraeser]);
+  });
+
   it("returns all sensors unchanged when mode is 'row'", () => {
     const sensors = [birch, grass, mugwort];
     expect(selectBadgeSensor(sensors, { badge_content: "row" })).toBe(sensors);

@@ -154,6 +154,35 @@ The card-side adapter was contributed by [@r3turnNull](https://github.com/r3turn
    - Resource type: JavaScript Module
 4. Reload your browser cache
 
+## Using the badge
+
+The card bundle also includes `pollenprognos-badge`, a compact badge element that shows the current pollen level directly in your dashboard's badge area. Because it ships in the same JS file as the card, no extra installation step is needed.
+
+**Add via the badge picker (recommended):**
+
+1. Open your dashboard and click **Edit Dashboard**
+2. Click **Add Badge** (or the badge area at the top of a view)
+3. Search for "Pollenprognos Badge" and select it
+4. Configure the badge in the visual editor (integration, location, content mode, visual style, scale, etc.; an allergen selector only appears for the `single` content mode)
+5. Click **Save**
+
+**Add via YAML:**
+
+Badges live in the `badges:` list of a view, not under `cards:`:
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    badge_content: worst
+    badge_visual: icon_in_ring
+```
+
+See [configuration.md](configuration.md#badge) for all badge options.
+
+> **Badge not appearing in the picker?** This is usually a stale browser cache. See [troubleshooting.md](troubleshooting.md#badge-not-appearing-in-the-badge-picker) for steps.
+
 ## Step 3: Verify Installation
 
 1. Check that your pollen integration is creating sensors:

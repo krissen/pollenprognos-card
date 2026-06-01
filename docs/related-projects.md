@@ -59,7 +59,8 @@ A custom card for the DWD Pollenflug integration.
 - **Dynamic localization** in 15 languages that automatically follows Home Assistant's language setting
 - **Auto-detection** of available integrations and sensors
 - **HACS official repository** status with automatic updates
-- **Multiple display modes** including minimal, daily, hourly, and twice-daily forecast layouts
+- **Multiple display modes** including minimal, daily, hourly, and twice-daily forecast layouts; icon-in-ring places the allergen symbol inside the level ring
+- **Companion badge element** (`pollenprognos-badge`) that shows the current pollen level as a compact HA dashboard badge, included in the same bundle
 
 These features make it a comprehensive solution for pollen forecast display that works seamlessly across different data sources and regions.
 
