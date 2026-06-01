@@ -279,7 +279,7 @@ Check Settings > System > Logs for errors from your pollen integration. Search f
 
 ### Badge not appearing in the badge picker
 
-The badge picker lists `pollenprognos-badge` only after the browser has loaded the current JS bundle. If it is missing after installation, the most likely cause is a stale browser cache (the same root cause as the card not loading). root cause as the card not loading.
+The badge picker lists `pollenprognos-badge` only after the browser has loaded the current JS bundle. If it is missing after installation, the most likely cause is a stale browser cache (the same root cause as the card not loading).
 
 **How to fix:**
 
