@@ -4,7 +4,6 @@
 // Extends PollenEditorBase to share integration/location and allergen sections.
 
 import { html, css } from "lit";
-import { detectLang } from "./i18n.js";
 import { getStubConfig } from "./adapter-registry.js";
 import { PollenEditorBase, deepMerge } from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
@@ -20,6 +19,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return {
       _config: { type: Object },
       hass: { type: Object },
+      _selectedPhraseLang: { state: true },
     };
   }
 
@@ -85,6 +85,14 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // config (user-origin keys) that we dispatch back, so stub defaults are
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
+
+    // Prefill the locale field from the current HA locale (display-only),
+    // matching the card. HA sets `hass` before `setConfig` for the badge
+    // editor, so the set-hass call alone runs while _config is still unset;
+    // call it here too (the helper no-ops without hass), so whichever arrives
+    // last triggers the prefill. _selectedPhraseLang is intentionally NOT
+    // seeded; the shared phrases section derives the shown language at render.
+    this._autofillDateLocale();
   }
 
   // ------------------------------------------------------------------ //
@@ -101,10 +109,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    */
   set hass(hass) {
     this._hass = hass;
-    // Update selected phrase language on first hass arrival
-    if (!this._selectedPhraseLang) {
-      this._selectedPhraseLang = detectLang(hass, this._config?.date_locale);
-    }
+    // Prefill the locale field from the current HA locale (display-only),
+    // matching the card editor, so it isn't left blank. _selectedPhraseLang
+    // holds only the user's explicit dropdown pick; the shared phrases section
+    // derives the shown language at render time, so it is not seeded here.
+    this._autofillDateLocale();
     this.requestUpdate();
   }
 
@@ -217,6 +226,24 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // a false affordance here — hide it. The ring sub-fields (size ratio, colour)
   // remain available for tuning the icon_in_ring visual mode.
   _showIconInRingToggle() {
+    return false;
+  }
+
+  // The badge shows the allergen name only (no level text, no day columns), so
+  // hide the level-name and day-label customization. The badge label uses
+  // allergenShort, which equals the full name UNLESS allergens_abbreviated is
+  // set; the badge editor has no abbreviated toggle, but a YAML config can set
+  // it, in which case the short names DO show -- so expose the short-name fields
+  // only when allergens_abbreviated is enabled.
+  _showPhraseShort() {
+    return this._editorConfig()?.allergens_abbreviated === true;
+  }
+
+  _showPhraseLevels() {
+    return false;
+  }
+
+  _showPhraseDays() {
     return false;
   }
 
@@ -426,6 +453,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ${this._renderAllergenIconsSection()}
         ${this._renderLevelCirclesSection()}
         ${this._renderIconInRingSection()}
+        ${this._renderPhrasesSection()}
       </div>
     `;
   }
