@@ -443,6 +443,27 @@ describe("SILAM detection via entity registry vs prefix fallback", () => {
     expect(detect(hass)).toBe("silam");
   });
 
+  it("detects a weather-only SILAM install (no allergen sensors)", () => {
+    // SILAM can be configured with only the weather entity (allergy_risk
+    // index); the weather entity counts as evidence so it still autodetects.
+    const weatherId = "weather.silam_pollen_home_forecast";
+    const hass = mkHass([weatherId], {
+      stateObj: { [weatherId]: { state: "sunny", attributes: {} } },
+      entities: {
+        [weatherId]: {
+          entity_id: weatherId,
+          platform: "silam_pollen",
+          device_id: "dev_home",
+          translation_key: "forecast",
+        },
+      },
+    });
+    hass.devices = {
+      dev_home: { name: "Home", config_entries: ["entry_home"] },
+    };
+    expect(detect(hass)).toBe("silam");
+  });
+
   it("entity_category entries are excluded from SILAM entity detection", () => {
     const hass = mkHass([], {
       entities: {

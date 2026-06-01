@@ -119,6 +119,10 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
   if (silamDiscovery.locations.size > 0) {
     for (const [, loc] of silamDiscovery.locations) {
       for (const eid of loc.sensors.values()) silamStates.push(eid);
+      // A SILAM install can enable only the weather entity (no allergen
+      // sensors) and still expose the allergy_risk index; count the weather
+      // entity as evidence so weather-only installs are detected too.
+      if (loc.weatherEntity) silamStates.push(loc.weatherEntity);
     }
   }
   if (!silamStates.length) {
