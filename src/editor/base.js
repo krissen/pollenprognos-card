@@ -389,7 +389,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §1 Integration & Location -->
       <details open>
-        <summary>${this._t("summary_integration_and_place")}</summary>
+        <summary>
+          ${this._t("summary_integration_and_place")}
+          ${this._renderSectionReset(this._integrationResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_integration_and_place")}</div>
 
         <div class="subgroup-header">${this._t("subgroup_source")}</div>
@@ -839,7 +842,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §2 Allergens (promoted to §2, moved from old §3) -->
       <details>
-        <summary>${this._t("summary_allergens")}</summary>
+        <summary>
+          ${this._t("summary_allergens")}
+          ${this._renderSectionReset(this._allergensResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_allergens")}</div>
         ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
           ? html`
@@ -2318,7 +2324,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- Translations & strings -->
       <details>
-        <summary>${this._t("summary_translation_and_strings")}</summary>
+        <summary>
+          ${this._t("summary_translation_and_strings")}
+          ${this._renderSectionReset(this._phrasesResetKeys())}
+        </summary>
         <div class="section-helper">
           ${this._t("helper_translation_and_strings")}
         </div>
@@ -2787,5 +2796,50 @@ export class PollenEditorBase extends LitElement {
     ];
     if (this._thicknessAutoShifted) keys.push("levels_thickness");
     return keys;
+  }
+
+  // Keys reset by the Integration & Location (§1) section button. Resets the
+  // place/title WITHIN the chosen integration but keeps `integration` itself —
+  // switching integration is the global "Reset all"'s job, not a section reset.
+  // These are exactly the identity keys _resetAll preserves, so the two are
+  // complementary; after the reset the location re-autodetects.
+  _integrationResetKeys() {
+    return [
+      "city",
+      "region_id",
+      "location",
+      "entity_prefix",
+      "entity_suffix",
+      "entity_weather",
+      "title",
+    ];
+  }
+
+  // Keys reset by the Allergens (§2) section button: selection, threshold,
+  // sort, pin-to-top, and the summary/pollution-block toggles.
+  _allergensResetKeys() {
+    return [
+      "allergens",
+      "pollen_threshold",
+      "sort",
+      "sort_category_allergens_first",
+      "sort_pollution_block",
+      "pollution_block_position",
+      "show_block_separator",
+      "show_summary_block",
+      "show_summary_row",
+      "show_summary_separator",
+      "show_summary_top_types",
+      "show_summary_plants_in_season",
+      "allergy_risk_top",
+      "index_top",
+    ];
+  }
+
+  // Keys reset by the Translations & strings (§9) section button: custom
+  // allergen/level/day phrase overrides and the date locale (which re-autofills
+  // from the HA locale afterwards).
+  _phrasesResetKeys() {
+    return ["phrases", "date_locale"];
   }
 }
