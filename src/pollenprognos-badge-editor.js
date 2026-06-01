@@ -15,6 +15,7 @@ import {
   detectedIntegrationIds,
   autoSelectLocation,
 } from "./utils/autodetect.js";
+import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 
 class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //
@@ -92,12 +93,17 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
 
+    // HA sets `hass` before `setConfig` for the badge editor, so the set hass()
+    // autodetect was skipped while _config was still unset. Now that _config is
+    // initialized, run it here so a freshly added badge prefills the installed
+    // integration + first location and the dropdowns are populated.
+    if (this._hass) this._runAutodetect();
+
     // Prefill the locale field from the current HA locale (display-only),
-    // matching the card. HA sets `hass` before `setConfig` for the badge
-    // editor, so the set-hass call alone runs while _config is still unset;
-    // call it here too (the helper no-ops without hass), so whichever arrives
-    // last triggers the prefill. _selectedPhraseLang is intentionally NOT
-    // seeded; the shared phrases section derives the shown language at render.
+    // matching the card. The helper no-ops without hass, so whichever of
+    // hass/setConfig arrives last triggers the prefill. _selectedPhraseLang is
+    // intentionally NOT seeded; the shared phrases section derives the shown
+    // language at render time.
     this._autofillDateLocale();
   }
 
@@ -118,15 +124,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     const changed = this._hass !== hass;
     this._hass = hass;
 
-    if (this._config && changed) {
-      const detection = detectIntegrationStates(hass);
-      // Drives the integration dropdown's installed-first sort.
-      this._detectedIntegrations = detectedIntegrationIds(detection);
-      // Populate the location dropdown lists read by _renderIntegrationSection.
-      this._populateInstalledLocations(detection, hass);
-      // Prefill integration + first location when the user hasn't set them.
-      this._maybeAutofill(detection, hass);
-    }
+    // Only when _config is already initialized; if hass arrives first (the
+    // ordering HA uses for the badge editor), setConfig runs detection once it
+    // sets _config — see the _runAutodetect() call there.
+    if (this._config && changed) this._runAutodetect();
 
     // Prefill the locale field from the current HA locale (display-only),
     // matching the card editor, so it isn't left blank. _selectedPhraseLang
@@ -138,6 +139,20 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   get hass() {
     return this._hass;
+  }
+
+  /**
+   * Run the shared autodetection: mark installed integrations for the dropdown
+   * sort, populate the location dropdown lists, and prefill integration + first
+   * location. Called from both set hass() and setConfig() because HA can set
+   * either first; needs both _hass and _config.
+   */
+  _runAutodetect() {
+    if (!this._hass || !this._config) return;
+    const detection = detectIntegrationStates(this._hass);
+    this._detectedIntegrations = detectedIntegrationIds(detection);
+    this._populateInstalledLocations(detection, this._hass);
+    this._maybeAutofill(detection, this._hass);
   }
 
   // Integration -> the config key its location is stored under.
@@ -172,9 +187,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       ? toList(ppDiscovery)
       : Array.from(
           new Set(
-            detection.states.pp.map((id) =>
-              id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
-            ),
+            detection.states.pp
+              .map((id) => extractPpCitySlugFromEntityId(id))
+              .filter(Boolean),
           ),
         ).map((slug) => [slug, slug]);
 
