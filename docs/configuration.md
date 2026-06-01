@@ -368,7 +368,7 @@ The badge is today-only: it always forces `mode: daily` regardless of your integ
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL/SILAM/Atmo; falls back to `worst` elsewhere), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
+| `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL and Atmo out of the box; for SILAM add the index, `index`, to `allergens` first; falls back to `worst` everywhere else), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
 | `badge_single_allergen` | `string` | *(empty)* | The allergen key to show when `badge_content` is `single`. Must be a valid key for your integration (see [Valid allergen keys](#valid-allergen-keys)). |
 | `badge_visual` | `string` | `icon_in_ring` | Visual style: `icon_in_ring` (allergen icon inside the level ring), `ring_value` (numeric level centred in the ring), `ring_empty` (ring only), `icon_only` (bare allergen symbol, no ring). |
 | `badge_scale` | `number` | `1` | Scales the entire badge (height, padding, gap, label and ring together), based on Home Assistant's native badge size (`--ha-badge-size`, 36 px). `1` renders a standard-size HA badge. |
