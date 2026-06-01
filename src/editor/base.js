@@ -309,6 +309,24 @@ export class PollenEditorBase extends LitElement {
   }
 
   /**
+   * Prefill date_locale in the rendered config from the current HA locale when
+   * the user hasn't set one, so the editor's locale field shows the active
+   * locale instead of being blank (matching the card editor). Display-only: it
+   * mutates the render config, not _userConfig, so an untouched value is not
+   * baked into the saved YAML. Call from a subclass `set hass`.
+   */
+  _autofillDateLocale() {
+    if (!this._config || this._config.date_locale) return;
+    const detected = detectLang(this._hass, null);
+    this._config = {
+      ...this._config,
+      date_locale:
+        this._hass?.locale?.language ||
+        `${detected}-${detected.toUpperCase()}`,
+    };
+  }
+
+  /**
    * Returns the allergen list for the current integration.
    * Equivalent to the render()-local `allergens` variable in the card editor.
    */

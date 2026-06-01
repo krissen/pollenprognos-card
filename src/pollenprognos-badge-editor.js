@@ -106,9 +106,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    */
   set hass(hass) {
     this._hass = hass;
-    // _selectedPhraseLang holds only the user's explicit dropdown pick; the
-    // shared phrases section derives the shown language from it or from
-    // detectLang(hass, date_locale) at render time, so nothing is seeded here.
+    // Prefill the locale field from the current HA locale (display-only),
+    // matching the card editor, so it isn't left blank. _selectedPhraseLang
+    // holds only the user's explicit dropdown pick; the shared phrases section
+    // derives the shown language at render time, so it is not seeded here.
+    this._autofillDateLocale();
     this.requestUpdate();
   }
 
