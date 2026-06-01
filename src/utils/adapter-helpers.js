@@ -250,6 +250,38 @@ export function scaleRingLevel(integration, normalizedLevel) {
 }
 
 /**
+ * Resolve the NUMBER to display for a pollen reading: the calculated level by
+ * default, or the raw measurement (concentration / index) when the user opts in.
+ *
+ * The single shared decision point for every numeric render path (card
+ * show_value_numeric, card numeric-in-circle, badge ring_value). By default it
+ * returns `display_state ?? state` (the level). When raw is requested AND the
+ * day carries a numeric `raw_value` (>= 0), it returns that instead. Raw is
+ * requested via the shared `numeric_value_raw` flag, or via the legacy PEU
+ * `numeric_state_raw_risk` flag (kept working for existing configs).
+ *
+ * Adapters that have no distinct raw value never set `raw_value`, so this is a
+ * no-op for them regardless of the flag. Typeguarded against a null day or
+ * non-numeric fields.
+ *
+ * @param {object} day    - A day object (e.g. sensor.day0 or sensor.days[i]).
+ * @param {object} config - The card/badge config.
+ * @returns {*} The value to display (number, or display_state/state fallback).
+ */
+export function resolveNumericValue(day, config) {
+  if (!day) return null;
+  const level = day.display_state ?? day.state;
+  const wantRaw =
+    config?.numeric_value_raw === true ||
+    config?.numeric_state_raw_risk === true;
+  if (wantRaw && day.raw_value != null) {
+    const raw = Number(day.raw_value);
+    if (Number.isFinite(raw) && raw >= 0) return raw;
+  }
+  return level;
+}
+
+/**
  * Sort a sensors array in-place using one of the standard sort keys.
  * Adapter-specific post-sorts (tiered, pin-to-top) are applied by the caller.
  *

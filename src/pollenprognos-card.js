@@ -14,6 +14,7 @@ import {
   coerceBool,
   computeDisplayDays,
   scaleRingLevel,
+  resolveNumericValue,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -1605,7 +1606,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               `;
             }
             const txt = sensor.day0?.state_text ?? "";
-            const rawNum = sensor.day0?.display_state ?? sensor.day0?.state;
+            const rawNum = resolveNumericValue(sensor.day0, this.config);
             const num = rawNum != null && rawNum >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
@@ -1945,7 +1946,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                         ${(() => {
                           const normalized = Number(sensor.days[i]?.state) || 0;
                           const displayVal = Number(
-                            sensor.days[i]?.display_state ?? normalized,
+                            resolveNumericValue(sensor.days[i], this.config) ??
+                              normalized,
                           );
                           const levelVal = scaleRingLevel(
                             this.config.integration,
@@ -2009,9 +2011,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                               return html`<td></td>`;
                           }
                           const txt = sensor.days[i]?.state_text || "";
-                          const rawNum =
-                            sensor.days[i]?.display_state ??
-                            sensor.days[i]?.state;
+                          const rawNum = resolveNumericValue(
+                            sensor.days[i],
+                            this.config,
+                          );
                           const num = rawNum != null && rawNum >= 0 ? rawNum : "";
                           let content = "";
                           if (

@@ -55,6 +55,13 @@ export const LEVELS_DEFAULTS = {
   icon_in_ring_color_mode: "static",
   icon_in_ring_static_color: "var(--primary-text-color)",
   icon_in_ring_size_ratio: 0.75,
+
+  // Numeric value display: false shows the calculated level (default), true
+  // shows the raw measurement (concentration / index) for the integrations that
+  // expose one (PLU, PEU, SILAM, Kleenex). Honoured by resolveNumericValue;
+  // a no-op for integrations without a raw value. PEU's legacy
+  // numeric_state_raw_risk flag is still honoured as an alias.
+  numeric_value_raw: false,
 };
 
 // When icon_in_ring is toggled on by the editor, levels_thickness auto-
