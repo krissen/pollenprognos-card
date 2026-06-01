@@ -90,6 +90,30 @@ integration: msw
 # location auto-detected; set config_entry_id, label or station code for multi-station setups
 ```
 
+## Adding a Badge
+
+The card bundle also ships a companion badge element. Badges appear in the top strip of a dashboard view and give you a compact, at-a-glance pollen indicator.
+
+**Via the badge picker:**
+
+1. Edit your dashboard and click **Add Badge**
+2. Search for "Pollenprognos Badge" and select it
+3. Configure integration, location, and allergen in the visual editor
+4. Click **Save**
+
+**Via YAML** (add to the `badges:` list of a view, not `cards:`):
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    badge_content: worst
+    badge_visual: icon_in_ring
+```
+
+See [configuration.md](configuration.md#badge) for all badge options and [installation.md](installation.md#using-the-badge) for more detail.
+
 ## Common Customizations
 
 ### Minimal Layout
@@ -132,6 +156,19 @@ levels_colors:
   - "#FF001C"
 background_color: "var(--card-background-color)"
 ```
+
+### Icon Inside the Ring
+
+Display the allergen icon inside the level ring instead of above it:
+
+```yaml
+type: custom:pollenprognos-card
+city: Stockholm
+icon_in_ring: true
+icon_in_ring_color_mode: follow_level
+```
+
+The editor automatically adjusts `levels_thickness` to give the icon room. See [configuration.md](configuration.md#options) for `icon_in_ring_size_ratio` and `icon_in_ring_static_color`.
 
 ### More Days
 

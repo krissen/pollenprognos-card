@@ -52,7 +52,8 @@ Install one of the supported integrations above. The card auto-detects which ada
 - **Auto-Detection**: Automatically detects which integration to use based on your available sensors
 - **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
 - **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics
-- **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts
+- **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts; icon-in-ring layout places the allergen symbol inside the level ring
+- **Badge Element**: Companion `pollenprognos-badge` shows the current pollen level as a compact HA dashboard badge, ships in the same bundle, no extra install needed
 - **Full Localization**: Dynamic language support with 15 translations following Home Assistant's language setting
 - **Extensive Customization**: Configure colors, layouts, text size, sorting, and display options through the visual editor
 - **HACS Integration**: Official HACS repository with automatic updates and easy installation

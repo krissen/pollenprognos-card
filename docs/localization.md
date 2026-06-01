@@ -44,6 +44,29 @@ For adapters with a different native level count, the card uses scale-specific k
 
 When adding a new locale, translate these scale-specific keys too. For the five-level scale, the conventional mapping is to reuse each language's existing `card.levels.{0,1,3,5,6}` strings (so the scale-5 entries read "None / Low / Moderate / High / Very High" or the locale's equivalents).
 
+## Badge editor keys
+
+The badge visual editor uses the following i18n keys. Translators should add these to every locale file; `src/locales/en.json` is the canonical reference.
+
+| Key | English value |
+|-----|---------------|
+| `editor.summary_badge_content` | `Badge content` |
+| `editor.helper_badge_content` | `What the badge shows.` |
+| `editor.badge_content_worst` | `Highest pollen level` |
+| `editor.badge_content_aggregate` | `Overall risk` |
+| `editor.badge_content_single` | `Single allergen` |
+| `editor.badge_content_row` | `Several (row)` |
+| `editor.badge_single_allergen` | `Allergen` |
+| `editor.badge_visual_icon_in_ring` | `Icon in ring` |
+| `editor.badge_visual_ring_value` | `Ring with value` |
+| `editor.badge_visual_ring_empty` | `Empty ring` |
+| `editor.badge_visual_icon_only` | `Icon only` |
+| `editor.badge_scale` | `Badge size (scale)` |
+| `editor.badge_label_position` | `Label position` |
+| `editor.badge_label_position_right` | `Right` |
+| `editor.badge_label_position_below` | `Below` |
+| `editor.badge_show_label` | `Show label` |
+
 ## Custom phrases
 
 In minimal mode some allergens may be shortened in a way you do not like. You can override text strings with the `phrases` options. Only include the keys you want to customise:

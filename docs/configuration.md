@@ -25,6 +25,7 @@ In this file:
   - [Google Pollen Levels (GPL)](#google-pollen-levels-gpl)
   - [Google Pollen (GP)](#google-pollen-gp)
   - [MeteoSwiss / hass-swissweather (MSW)](#meteoswiss--hass-swissweather-msw)
+- [Badge](#badge)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -62,6 +63,10 @@ In this file:
 | `allergen_stroke_width` | `integer` | `15` | Width of SVG icon outlines (0-100, step 5). Higher values create thicker outlines around allergen icons. When `levels_inherit_mode` is `inherit_allergen` and `allergen_levels_gap_synced` is `true` (default), this also controls level circle gap width via automatic synchronization. |
 | `allergen_stroke_color_synced` | `boolean` | `true` | When enabled, the stroke (outline) color of allergen icons matches the allergen level color instead of using `allergen_outline_color`. This provides better visual consistency by making both the fill and outline colors reflect the pollen severity level. |
 | `allergen_levels_gap_synced` | `boolean` | `true` | When enabled and `levels_inherit_mode` is `inherit_allergen`, the level circle gap width automatically syncs with `allergen_stroke_width` using the formula `levelGap = Math.round(strokeWidth / 30)`. Set to `false` to independently control the gap width without switching all level colors to custom mode. |
+| `icon_in_ring` | `boolean` | `false` | Place the allergen icon inside the level ring instead of above it. When enabled, the editor auto-thins `levels_thickness` from 60 to 35 to give the icon room (restored when disabled, unless you had set a custom thickness). For the `allergy_risk` allergen the level-reactive smiley icon variant is used automatically. |
+| `icon_in_ring_size_ratio` | `number` | `0.75` | Icon size as a fraction of the ring's inner hole. Only used when `icon_in_ring` is `true`. |
+| `icon_in_ring_color_mode` | `string` | `static` | Color mode for the icon inside the ring: `static` uses a fixed color, `follow_level` tints the icon to match the current pollen level. Only used when `icon_in_ring` is `true`. |
+| `icon_in_ring_static_color` | `string` | `var(--primary-text-color)` | Color for the icon when `icon_in_ring_color_mode` is `static`. Only used when `icon_in_ring` is `true`. |
 | `no_allergens_color` | `string` | `#a9cfe0` | Color for the "no allergens" icon displayed when no pollen data is available. This color is independent of the allergen level color system and can be customized separately. |
 | `text_size_ratio` | `number` | `1` | Global text scaling factor. |
 | `allergens` | `array<string>` | *(integration default)* | List of pollen types to show. |
@@ -350,6 +355,51 @@ birch, grass, alder, hazel, beech, ash, oak
 Categorical levels reported by the integration map to a native 5-level scale (0--4): `None` -> 0, `Low` -> 1, `Medium` -> 2, `Strong` -> 3, `Very Strong` -> 4. The card keeps each integration's native level count rather than stretching onto a shared 0--6 gradient; level circles render with five segments (None empty, Very Strong full) and severity strings come from the `card.levels5.0..4` i18n keys.
 
 Multi-station configuration: set `location` to either the `config_entry_id` (Crockford-base32 ULID, the visual editor's default), the device label (`name_by_user` or `name`, e.g. `Bern`), or the station code (e.g. `8000`). Leaving `location` empty selects the first discovered station. Stale `config_entry_id` values (e.g. after an integration reinstall) auto-recover to the first discovered station, mirroring DWD/GPL/GP/SILAM/Atmo behavior.
+
+## Badge
+
+`pollenprognos-badge` is a separate custom element that appears in Home Assistant's **badge picker** as "Pollenprognos Badge". It ships in the same JS bundle as the card, so no extra installation is needed.
+
+Badges are added to a dashboard view's `badges:` list (not `cards:`), either through the badge picker UI or via YAML.
+
+The badge is today-only: it always forces `mode: daily` regardless of your integration. It reuses the card's integration/location keys (`integration`, `city`, `region_id`, `location`, `entity_prefix`, `entity_suffix`, `entity_weather`, `allergens`) and all visual keys (`levels_*`, `allergen_*`, `icon_in_ring*`, `link_to_sensors`). Card-layout keys such as `title`, `minimal`, `days_to_show`, and multi-day options are not applicable to the badge.
+
+### Badge options
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL/SILAM/Atmo; falls back to `worst` elsewhere), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
+| `badge_single_allergen` | `string` | *(empty)* | The allergen key to show when `badge_content` is `single`. Must be a valid key for your integration (see [Valid allergen keys](#valid-allergen-keys)). |
+| `badge_visual` | `string` | `icon_in_ring` | Visual style: `icon_in_ring` (allergen icon inside the level ring), `ring_value` (numeric level centred in the ring), `ring_empty` (ring only), `icon_only` (bare allergen symbol, no ring). |
+| `badge_scale` | `number` | `1` | Scales the entire badge (height, padding, gap, label and ring together), based on Home Assistant's native badge size (`--ha-badge-size`, 36 px). `1` renders a standard-size HA badge. |
+| `badge_label_position` | `string` | `right` | Where to place the label: `right` (beside the visual, the HA community convention) or `below` (under the visual). |
+| `badge_show_label` | `boolean` | `false` | Show the allergen short name or label next to the visual. |
+
+### Badge YAML examples
+
+**Pollenprognos: highest current allergen (icon in ring):**
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    badge_content: worst
+    badge_visual: icon_in_ring
+```
+
+**Google Pollen Levels: overall risk:**
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: gpl
+    badge_content: aggregate
+    badge_visual: icon_in_ring
+    badge_show_label: true
+```
+
+`badge_content: aggregate` falls back to `worst` for integrations that do not expose an overall-risk sensor.
 
 ## Color System Overview
 
