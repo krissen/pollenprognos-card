@@ -1950,8 +1950,16 @@ export class PollenEditorBase extends LitElement {
                 <ha-switch
                   .checked=${c.numeric_value_raw === true ||
                   c.numeric_state_raw_risk === true}
-                  @change=${(e) =>
-                    this._updateConfig("numeric_value_raw", e.target.checked)}
+                  @change=${(e) => {
+                    const on = e.target.checked;
+                    this._updateConfig("numeric_value_raw", on);
+                    // Migrate off the legacy PEU alias so the two cannot
+                    // diverge (turning the switch off must not leave
+                    // numeric_state_raw_risk: true silently showing raw).
+                    if (c.numeric_state_raw_risk === true) {
+                      this._updateConfig("numeric_state_raw_risk", false);
+                    }
+                  }}
                 ></ha-switch>
               </ha-formfield>
               <div class="field-helper">
