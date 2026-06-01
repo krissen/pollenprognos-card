@@ -2667,8 +2667,12 @@ export class PollenEditorBase extends LitElement {
     if (!Array.isArray(keys) || !keys.length) return;
     const base = { ...(this._userConfig || {}) };
     for (const k of keys) delete base[k];
-    // setConfig (subclass) re-derives the stub-merged _config for rendering and
-    // re-seeds _userConfig from `base`, mirroring _resetAll.
+    // Clear _userConfig BEFORE re-seeding: the card editor's setConfig
+    // deep-merges its argument into the existing _userConfig, which would
+    // reintroduce the just-deleted keys. _resetAll clears it for the same
+    // reason; setConfig(base) then restores the kept keys while the section
+    // keys stay gone.
+    this._userConfig = {};
     this.setConfig(base);
     this.dispatchEvent(
       new CustomEvent("config-changed", {
@@ -2693,6 +2697,7 @@ export class PollenEditorBase extends LitElement {
         outlined
         class="section-reset"
         title="${this._t("preset_reset_section") || "Reset section"}"
+        aria-label="${this._t("preset_reset_section") || "Reset section"}"
         style="float: right; --mdc-typography-button-font-size: 14px;"
         @click=${(e) => {
           e.preventDefault();
@@ -2710,7 +2715,10 @@ export class PollenEditorBase extends LitElement {
     return ["background_color", "icon_size", "text_size_ratio"];
   }
 
-  // Keys reset by the Allergen icons (§6) section button.
+  // Keys reset by the Allergen icons (§6) section button. levels_gap is
+  // included because in synced mode (allergen_levels_gap_synced, the default)
+  // editing allergen_stroke_width also writes levels_gap and disables the §7
+  // gap control, so resetting the stroke width must clear the derived gap too.
   _allergenIconsResetKeys() {
     return [
       "allergen_color_mode",
@@ -2719,6 +2727,7 @@ export class PollenEditorBase extends LitElement {
       "allergen_stroke_color_synced",
       "allergen_stroke_width",
       "no_allergens_color",
+      "levels_gap",
     ];
   }
 
