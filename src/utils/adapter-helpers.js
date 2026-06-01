@@ -64,6 +64,57 @@ export function selectDisplaySensors(sensors, config) {
 }
 
 /**
+ * Resolve a user-facing allergen config key to its sensor.
+ *
+ * Sensors carry the adapter-normalized slug in `allergenReplaced` (PP
+ * "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
+ * "allergy_risk"), while config keys (config.allergens, badge_single_allergen)
+ * hold whatever the user/editor wrote. The config key is reduced to a canonical
+ * allergen key via BOTH the generic slug normalization and DWD's umlaut/ß
+ * expansion (ä->ae, ß->ss); the sensor side reduces via the generic
+ * normalization (its value is already adapter-normalized). A match on either
+ * canonical form resolves the sensor, so a key works regardless of the
+ * integration's key style. Trying normalizeDWD as well matters for DWD keys
+ * like "Beifuß", where generic normalize would drop the ß ("beifu") and miss
+ * the "beifuss" sensor. A literal match on the raw `allergenReplaced` is tried
+ * first, so an exact key always wins over a merely canonical-equal one.
+ *
+ * This is the single shared "config allergen key -> sensor" resolver. The badge
+ * uses it for single mode today; the card can reuse it if it ever gains a
+ * single-allergen display. Typeguarded so a non-string key (YAML can deliver a
+ * number/null) or a sensor without a string allergenReplaced is skipped, never
+ * thrown on.
+ *
+ * @param {object[]} sensors   - normalized sensor dicts.
+ * @param {string}   configKey - the user-facing allergen key to resolve.
+ * @returns {object|null} the matching sensor, or null.
+ */
+export function matchSensorByAllergenKey(sensors, configKey) {
+  if (!Array.isArray(sensors) || typeof configKey !== "string" || !configKey) {
+    return null;
+  }
+  // Literal match first: an exact allergenReplaced wins over a normalized one.
+  const literal = sensors.find(
+    (s) => s && typeof s.allergenReplaced === "string" && s.allergenReplaced === configKey,
+  );
+  if (literal) return literal;
+  // Canonical candidates for the config key, via both the generic slug
+  // normalization and DWD's umlaut/ß expansion, so DWD keys resolve too.
+  const wanted = new Set([
+    toCanonicalAllergenKey(normalize(configKey)),
+    toCanonicalAllergenKey(normalizeDWD(configKey)),
+  ]);
+  return (
+    sensors.find(
+      (s) =>
+        s &&
+        typeof s.allergenReplaced === "string" &&
+        wanted.has(toCanonicalAllergenKey(normalize(s.allergenReplaced))),
+    ) || null
+  );
+}
+
+/**
  * Badge support (issue #235): pick which sensor(s) a compact badge renders,
  * given the badge content mode. A badge is tiny and typically shows ONE thing,
  * so this returns a short list (usually length 1) that the badge render path
@@ -117,30 +168,10 @@ export function selectBadgeSensor(sensors, config) {
     case "aggregate":
       return summary ? [summary] : worst();
     case "single": {
-      const key =
-        typeof config?.badge_single_allergen === "string"
-          ? config.badge_single_allergen
-          : null;
-      if (!key) return worst();
-      // Sensors carry the adapter-normalized slug in allergenReplaced
-      // (PP "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
-      // "allergy_risk"), but badge_single_allergen holds the user-facing config
-      // key. Match it against each sensor by trying the raw value first, then
-      // the known normalization schemes, so the configured allergen resolves
-      // regardless of the integration's key style. Ordered candidates give a
-      // literal match priority over a normalized one.
-      const candidates = [
-        key,
-        toCanonicalAllergenKey(key),
-        normalize(key),
-        normalizeDWD(key),
-      ];
-      let found = null;
-      for (const cand of candidates) {
-        if (!cand) continue;
-        found = sensors.find((s) => s && s.allergenReplaced === cand);
-        if (found) break;
-      }
+      const found = matchSensorByAllergenKey(
+        sensors,
+        config?.badge_single_allergen,
+      );
       return found ? [found] : worst();
     }
     case "row":
@@ -196,6 +227,26 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
   const n = Number(v);
   if (isNaN(n) || n < 0) return nanResult;
   return maxLevel != null ? Math.min(n, maxLevel) : n;
+}
+
+/**
+ * Scale a normalized pollen level for ring rendering. DWD reports a coarse
+ * 0-3 scale, but the doughnut ring is drawn on the shared 0-6 geometry, so DWD
+ * levels are doubled to fill the ring; every other integration renders its
+ * level unchanged. Single source for the card (normal + minimal modes) and the
+ * badge, which previously each inlined the `integration === "dwd" ? n * 2 : n`
+ * rule.
+ *
+ * @param {string} integration   - The card/badge `integration` id.
+ * @param {number} normalizedLevel - The sensor's normalized level. A negative
+ *   no-data sentinel (e.g. -1) is preserved (and doubled to -2 for DWD), so the
+ *   caller's no-data handling still sees a negative value; non-numeric input
+ *   coerces to 0.
+ * @returns {number} The level to render the ring at.
+ */
+export function scaleRingLevel(integration, normalizedLevel) {
+  const n = Number(normalizedLevel) || 0;
+  return integration === "dwd" ? n * 2 : n;
 }
 
 /**

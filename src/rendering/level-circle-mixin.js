@@ -11,6 +11,7 @@ import { html } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { getSvgContent } from "../pollenprognos-svgs.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
+import { ringSegmentsForIntegration } from "../utils/level-counts.js";
 import { buildNoiseCanvasPattern, buildNoiseSvgUri, hashStringSeed } from "../utils/no-data-pattern.js";
 import { ALLERGEN_ICON_FALLBACK, toCanonicalAllergenKey } from "../constants.js";
 import {
@@ -371,30 +372,14 @@ export const LevelCircleMixin = (Base) =>
     }
 
     /**
-     * Ring geometry/colors for the minimal-mode icon-in-ring render path.
-     * Returns the opts blob passed to _renderLevelCircle (minus per-cell
-     * values like size/iconKey/iconColor which the caller fills in).
-     *
-     * Note: _renderNormalHtml currently re-implements the same segment /
-     * color / thickness / gap derivation inline. A follow-up could refactor
-     * both call sites to share this helper.
+     * Ring geometry/colors for the level-circle render path. Returns the opts
+     * blob passed to _renderLevelCircle (minus per-cell values like
+     * size/iconKey/iconColor which the caller fills in). Shared by the card
+     * (normal and minimal modes) and the badge, so the segment count, color
+     * array, thickness and gap are derived in one place.
      */
     _buildLevelRingConfig() {
-      let segments = 6;
-      if (
-        this.config?.integration === "peu" ||
-        this.config?.integration === "kleenex" ||
-        this.config?.integration === "msw"
-      ) {
-        segments = 4;
-      } else if (
-        this.config?.integration === "gpl" ||
-        this.config?.integration === "gp"
-      ) {
-        segments = 5;
-      } else if (this.config?.integration === "plu") {
-        segments = 3;
-      }
+      const segments = ringSegmentsForIntegration(this.config?.integration);
       const colors = [];
       for (let i = 0; i < segments; i++) {
         colors.push(this._levelColorForLevel(i + 1));

@@ -13,6 +13,7 @@ import {
   selectDisplaySensors,
   coerceBool,
   computeDisplayDays,
+  scaleRingLevel,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -36,6 +37,7 @@ import {
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
+import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 
 class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   _forecastUnsub = null; // Unsubscribe-funktion
@@ -1635,10 +1637,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             // saturate the ring at high raw-risk values. Mirrors what
             // _renderNormalHtml does per-cell.
             const normalizedLevel = Number(sensor.day0?.state) || 0;
-            const ringLevel =
-              this.config.integration === "dwd"
-                ? normalizedLevel * 2
-                : normalizedLevel;
+            const ringLevel = scaleRingLevel(
+              this.config.integration,
+              normalizedLevel,
+            );
             const clickable =
               this.config.link_to_sensors !== false && !!sensor.entity_id;
             const onClickEntity = (e) => {
@@ -1754,40 +1756,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       (_, i) => i,
     );
     
-    // Number of segments in the level circle depends on the integration.
-    // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
-    // = empty); GPL/GP use five (native 0-5); PLU uses three; others use
-    // six. Match each integration's native level count so the maximum state
-    // fills the chart (no never-filled trailing segment).
-    let segments = 6;
-    if (
-      this.config.integration === "peu" ||
-      this.config.integration === "kleenex" ||
-      this.config.integration === "msw"
-    ) {
-      segments = 4;
-    } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
-      segments = 5;
-    } else if (this.config.integration === "plu") {
-      segments = 3;
-    }
-    
-    // Build colors array using the new inheritance system.
-    // Chart segments represent pollen levels 1..segments (level 0 = empty),
-    // so segments matches the integration's native non-empty level count
-    // (4 for PEU/Kleenex/MSW, 5 for GPL/GP, 3 for PLU, 6 for the others).
-    const rawColors = [];
-    for (let i = 0; i < segments; i++) {
-      rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.
-    }
-    const colors = rawColors;
-    const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
-    
-    const gapColor = this._getGapColor();
-      
-    const thickness =
-      this.config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
-    const gap = this.config.levels_gap ?? LEVELS_DEFAULTS.levels_gap;
+    // Ring geometry/colors come from the shared mixin helper
+    // (_buildLevelRingConfig): segment count per integration (PEU/Kleenex/MSW
+    // 4, GPL/GP 5, PLU 3, others 6), the level-color array, empty/gap colors,
+    // thickness and gap. Same derivation minimal mode and the badge use.
+    const { colors, emptyColor, gapColor, thickness, gap } =
+      this._buildLevelRingConfig();
     const iconSize = Number(this.config.icon_size) || 48;
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
@@ -1973,16 +1947,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                           const displayVal = Number(
                             sensor.days[i]?.display_state ?? normalized,
                           );
-                          let levelVal = normalized;
-                          if (this.config.integration === "dwd") {
-                            levelVal = normalized * 2;
-                          } else if (
-                            this.config.integration === "peu" ||
-                            this.config.integration === "kleenex" ||
-                            this.config.integration === "plu"
-                          ) {
-                            levelVal = normalized;
-                          }
+                          const levelVal = scaleRingLevel(
+                            this.config.integration,
+                            normalized,
+                          );
                           const ringOpts = {
                             colors,
                             emptyColor,
@@ -2305,6 +2273,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
   static get styles() {
     return css`
+      ${ringIconStyles}
       /* normalhtml */
       .forecast {
         width: 100%; /* Fyll hela kortet! */
@@ -2385,49 +2354,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         color: var(--pp-icon-color, var(--primary-text-color));
       }
 
-      .pp-icon svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-
-      .pp-icon svg g {
-        stroke: var(--pp-icon-stroke, none);
-        stroke-width: var(--pp-icon-stroke-width, 1);
-      }
-
-      /* No-data icon: silhouette filled with a faint solid color (anchors
-         the shape so it stays readable against a heavily textured ring)
-         plus a noise pattern on top (carries the "no data" cue). The icon
-         SVG acts as the mask; mask-mode: alpha is set explicitly so SVG
-         paths filled with black act as the opaque part of the mask in
-         Chrome (its default for SVG-via-url is luminance, which would
-         invert the result). */
-      .pp-icon-no-data {
-        -webkit-mask-image: var(--pp-icon-no-data-mask);
-        mask-image: var(--pp-icon-no-data-mask);
-        -webkit-mask-repeat: no-repeat;
-        mask-repeat: no-repeat;
-        -webkit-mask-position: center;
-        mask-position: center;
-        -webkit-mask-size: contain;
-        mask-size: contain;
-        -webkit-mask-mode: alpha;
-        mask-mode: alpha;
-        background-image: var(--pp-icon-no-data-noise);
-        background-repeat: repeat;
-        /* Plain rgba fallback first so the icon still gets a translucent
-           anchor on browsers without color-mix() support (older WebKit /
-           legacy Chromium builds shipped via plugin-legacy). The
-           color-mix() declaration overrides it on modern browsers and
-           tracks --primary-text-color through theme switches. */
-        background-color: rgba(136, 136, 136, 0.15);
-        background-color: color-mix(
-          in srgb,
-          var(--primary-text-color, #888888) 15%,
-          transparent
-        );
-      }
+      /* .pp-icon svg, .pp-icon svg g and .pp-icon-no-data live in the shared
+         ringIconStyles fragment (identical in card and badge). */
 
       .pp-icon-placeholder {
         display: flex;
@@ -2485,30 +2413,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         color: var(--primary-text-color);
       }
 
-      /* Icon centered inside the level ring (#227). Sized inline by
-         _rebuildCharts based on ring thickness and icon_in_ring_size_ratio.
-         color is inherited so SVG fill="currentColor" follows. */
-      .ring-icon {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .ring-icon svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-        fill: currentColor;
-      }
-      /* No <g fill=...> override here: SVGs that intentionally set
-         fill="none" (e.g. no_allergens uses fill="none" with
-         stroke="currentColor") must keep that. The svg-level
-         fill: currentColor handles every allergen icon whose <g> has
-         fill="currentColor" or no fill attr. */
+      /* .ring-icon and .ring-icon svg live in the shared ringIconStyles
+         fragment (identical in card and badge). */
 
       .forecast-content {
         width: 100%;
@@ -2631,13 +2537,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         display: block;
         vertical-align: middle;
       }
-      .level-value-text {
-        max-width: 100%;
-        max-height: 100%;
-        overflow: hidden;
-        text-align: center;
-        white-space: nowrap;
-      }
+      /* .level-value-text lives in the shared ringIconStyles fragment. */
 
       /* No allergens display */
       .no-allergens-container {

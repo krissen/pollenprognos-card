@@ -47,46 +47,39 @@ import {
 } from "../utils/levels-defaults.js";
 import { getAllAdapterIds } from "../adapter-registry.js";
 import {
-  stubConfigDWD,
   discoverDwdSensors,
   DWD_ENTITY_ID_RE,
 } from "../adapters/dwd.js";
 import {
-  PEU_ALLERGENS,
   discoverPeuSensors,
   extractPeuLocationSlugFromEntityId,
 } from "../adapters/peu.js";
-import { SILAM_ALLERGENS } from "../adapters/silam.js";
-import { stubConfigKleenex } from "../adapters/kleenex/index.js";
-import { stubConfigPLU } from "../adapters/plu.js";
 import {
-  ATMO_ALLERGENS,
   discoverAtmoSensors,
   findAtmoLocationBySlug,
 } from "../adapters/atmo.js";
 import {
-  GPL_BASE_ALLERGENS,
   discoverGplSensors,
   discoverGplAllergens,
 } from "../adapters/gpl/index.js";
 import {
-  GP_BASE_ALLERGENS,
   discoverGpSensors,
   discoverGpAllergens,
 } from "../adapters/gp/index.js";
-import { stubConfigMSW, discoverMswSensors } from "../adapters/msw.js";
+import { discoverMswSensors } from "../adapters/msw.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
 } from "../utils/silam.js";
 import { findLocationBySlug } from "../utils/adapter-helpers.js";
+import { numLevelsForIntegration } from "../utils/level-counts.js";
+import { allergenListForIntegration } from "./integration-allergens.js";
 import {
   PP_POSSIBLE_CITIES,
   DWD_REGIONS,
   toCanonicalAllergenKey,
 } from "../constants.js";
 import {
-  stubConfigPP,
   discoverPpSensors,
   extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
 } from "../adapters/pp.js";
@@ -321,25 +314,10 @@ export class PollenEditorBase extends LitElement {
    */
   _currentAllergens() {
     const c = this._editorConfig();
-    return c.integration === "dwd"
-      ? stubConfigDWD.allergens
-      : c.integration === "peu"
-        ? PEU_ALLERGENS
-        : c.integration === "silam"
-          ? SILAM_ALLERGENS
-          : c.integration === "kleenex"
-            ? stubConfigKleenex.allergens
-            : c.integration === "plu"
-              ? stubConfigPLU.allergens
-              : c.integration === "gpl"
-                ? [...GPL_BASE_ALLERGENS, ...(this.installedGplPlants || [])]
-                : c.integration === "gp"
-                  ? [...GP_BASE_ALLERGENS, ...(this.installedGpPlants || [])]
-                  : c.integration === "atmo"
-                ? ATMO_ALLERGENS
-                : c.integration === "msw"
-                  ? stubConfigMSW.allergens
-                  : stubConfigPP.allergens;
+    return allergenListForIntegration(c.integration, {
+      installedGplPlants: this.installedGplPlants || [],
+      installedGpPlants: this.installedGpPlants || [],
+    });
   }
 
   /**
@@ -348,15 +326,7 @@ export class PollenEditorBase extends LitElement {
    */
   _currentNumLevels() {
     const c = this._editorConfig();
-    return c.integration === "dwd"
-      ? 4
-      : c.integration === "peu" || c.integration === "msw"
-        ? 5
-        : c.integration === "gpl" || c.integration === "gp"
-          ? 6
-          : c.integration === "plu"
-            ? 4
-            : 7;
+    return numLevelsForIntegration(c.integration);
   }
 
   /**

@@ -7,22 +7,23 @@ import {
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
+import { normalize } from "./utils/normalize.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
 import { PollenEditorBase, deepMerge } from "./editor/base.js";
+import { allergenListForIntegration } from "./editor/integration-allergens.js";
+import { numLevelsForIntegration } from "./utils/level-counts.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
-import { stubConfigDWD, discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
+import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
-import { SILAM_ALLERGENS } from "./adapters/silam.js";
-import { stubConfigKleenex } from "./adapters/kleenex/index.js";
-import { stubConfigPLU, PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { ATMO_ALLERGENS, discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
+import { PLU_ALIAS_MAP } from "./adapters/plu.js";
+import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, GPL_ATTRIBUTION, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
-import { stubConfigMSW, discoverMswSensors } from "./adapters/msw.js";
+import { discoverMswSensors } from "./adapters/msw.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -65,24 +66,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       gpDiscoveredPlants = gpDiscoveredPlants.filter((k) => !GP_BASE_ALLERGENS.includes(k));
     }
 
-    const rawKeys =
-      this._config.integration === "dwd"
-        ? stubConfigDWD.allergens
-        : this._config.integration === "peu"
-          ? PEU_ALLERGENS
-          : this._config.integration === "silam"
-            ? SILAM_ALLERGENS
-            : this._config.integration === "kleenex"
-              ? stubConfigKleenex.allergens
-              : this._config.integration === "atmo"
-                ? ATMO_ALLERGENS
-                : this._config.integration === "gpl"
-                  ? [...GPL_BASE_ALLERGENS, ...gplDiscoveredPlants]
-                  : this._config.integration === "gp"
-                    ? [...GP_BASE_ALLERGENS, ...gpDiscoveredPlants]
-                    : this._config.integration === "msw"
-                      ? stubConfigMSW.allergens
-                      : stubConfigPP.allergens;
+    const rawKeys = allergenListForIntegration(this._config.integration, {
+      installedGplPlants: gplDiscoveredPlants,
+      installedGpPlants: gpDiscoveredPlants,
+    });
 
     // Börja bygga nytt phrases-objekt
     const full = {};
@@ -98,27 +85,19 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       short[raw] = t(`editor.phrases_short.${transKey}`, lang);
     });
 
-    // Levels och days hämtas precis som tidigare
-    const numLevels =
-      this._config.integration === "dwd"
-        ? 4
-        : this._config.integration === "peu" || this._config.integration === "msw"
-          ? 5
-          : this._config.integration === "gpl" || this._config.integration === "gp"
-            ? 6
-            : this._config.integration === "silam"
-              ? 7
-              : this._config.integration === "atmo"
-                ? 7
-                : 7;
+    // Native level count (incl. level 0). Shared with the rendering mixin and
+    // the editor base via numLevelsForIntegration so the count cannot drift.
+    const numLevels = numLevelsForIntegration(this._config.integration);
 
-    // Use scale-specific phrase defaults so 5-level integrations (MSW, PEU)
-    // surface semantically-correct severity labels in the editor instead of
-    // borrowing strings from the wider 7-level palette. Other scales fall
-    // back to the legacy editor.phrases_levels.0..6 keys until per-scale
-    // entries are added for them.
+    // Use scale-specific phrase defaults so 5-level integrations (MSW, PEU,
+    // Kleenex) surface semantically-correct severity labels in the editor
+    // instead of borrowing the first five strings from the wider 7-level
+    // palette. Other scales fall back to the legacy editor.phrases_levels.0..6
+    // keys until per-scale entries are added for them.
     const levelKeyPrefix =
-      this._config.integration === "msw" || this._config.integration === "peu"
+      this._config.integration === "msw" ||
+      this._config.integration === "peu" ||
+      this._config.integration === "kleenex"
         ? "editor.phrases_levels5"
         : "editor.phrases_levels";
     const levels = Array.from({ length: numLevels }, (_, i) =>

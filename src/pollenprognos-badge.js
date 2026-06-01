@@ -21,6 +21,7 @@ import {
   filterSensorsPostFetch,
   selectBadgeSensor,
   coerceBool,
+  scaleRingLevel,
 } from "./utils/adapter-helpers.js";
 import {
   LEVELS_DEFAULTS,
@@ -28,6 +29,7 @@ import {
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
+import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
 
 class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
@@ -317,10 +319,10 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       <div class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}" style="${hostStyle}">
         ${picks.map((sensor) => {
           const normalizedLevel = Number(sensor.day0?.state) || 0;
-          const ringLevel =
-            this.config.integration === "dwd"
-              ? normalizedLevel * 2
-              : normalizedLevel;
+          const ringLevel = scaleRingLevel(
+            this.config.integration,
+            normalizedLevel,
+          );
           const svgKey = this._getSvgKey(sensor.allergenReplaced);
           const rawNum =
             sensor.day0?.display_state ?? sensor.day0?.state ?? ringLevel;
@@ -415,6 +417,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
   static get styles() {
     return css`
+      ${ringIconStyles}
       :host {
         display: inline-flex;
         align-items: center;
@@ -495,55 +498,27 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       }
 
       /*
-       * The following rules mirror the card's shadow-DOM CSS verbatim.
-       * They must live here because _rebuildCharts() injects .ring-icon
-       * and .level-value-text directly into this element's renderRoot.
+       * .ring-icon, .ring-icon svg, .level-value-text and the no-data icon
+       * rules live in the shared ringIconStyles fragment (spliced above), so
+       * they stay byte-identical to the card. _rebuildCharts injects
+       * .ring-icon / .level-value-text into this element's renderRoot, which
+       * the fragment covers. The rules below are badge-specific and
+       * intentionally differ from the card.
        */
 
-      /* Icon centered inside the level ring (#227). Sized inline by
-         _rebuildCharts based on ring thickness and icon_in_ring_size_ratio.
-         color is inherited so SVG fill="currentColor" follows. */
-      .ring-icon {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .ring-icon svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-        fill: currentColor;
-      }
-      /* No <g fill=...> override here: SVGs that intentionally set
-         fill="none" (e.g. no_allergens uses fill="none" with
-         stroke="currentColor") must keep that. The svg-level
-         fill: currentColor handles every allergen icon whose <g> has
-         fill="currentColor" or no fill attr. */
-
+      /* Badge ring wrapper: no card-style sizing/margin (the badge sizes the
+         ring inline via badge_scale and spaces items with .ppb-item flex gap). */
       .level-circle {
         line-height: 0;
       }
 
-      .level-value-text {
-        max-width: 100%;
-        max-height: 100%;
-        overflow: hidden;
-        text-align: center;
-        white-space: nowrap;
-      }
-
       /*
-       * Rules below are required by _renderAllergenSvg (inherited from
-       * LevelCircleMixin) for the icon_only badge_visual mode.
-       * Copied verbatim from the card's shadow-DOM CSS with one intentional
-       * deviation: margin is 0 (not "0 auto 6px auto") because the badge
-       * controls spacing via its .ppb-item flex gap, not bottom-margin.
-       * Same deviation applies to .pp-icon-error.
+       * .pp-icon / .pp-icon-error are required by _renderAllergenSvg (inherited
+       * from LevelCircleMixin) for the icon_only badge_visual mode. They differ
+       * from the card by one intentional deviation: margin is 0 (not
+       * "0 auto 6px auto") because the badge controls spacing via its .ppb-item
+       * flex gap. The shared .pp-icon svg / svg g / no-data rules come from the
+       * ringIconStyles fragment.
        */
 
       .pp-icon {
@@ -556,38 +531,6 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         min-height: 0;
         margin: 0;
         color: var(--pp-icon-color, var(--primary-text-color));
-      }
-
-      .pp-icon svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-
-      .pp-icon svg g {
-        stroke: var(--pp-icon-stroke, none);
-        stroke-width: var(--pp-icon-stroke-width, 1);
-      }
-
-      .pp-icon-no-data {
-        -webkit-mask-image: var(--pp-icon-no-data-mask);
-        mask-image: var(--pp-icon-no-data-mask);
-        -webkit-mask-repeat: no-repeat;
-        mask-repeat: no-repeat;
-        -webkit-mask-position: center;
-        mask-position: center;
-        -webkit-mask-size: contain;
-        mask-size: contain;
-        -webkit-mask-mode: alpha;
-        mask-mode: alpha;
-        background-image: var(--pp-icon-no-data-noise);
-        background-repeat: repeat;
-        background-color: rgba(136, 136, 136, 0.15);
-        background-color: color-mix(
-          in srgb,
-          var(--primary-text-color, #888888) 15%,
-          transparent
-        );
       }
 
       .pp-icon-error {
