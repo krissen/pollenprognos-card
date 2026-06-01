@@ -86,11 +86,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // config (user-origin keys) that we dispatch back, so stub defaults are
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
-
-    // Seed the phrases language selector from the config's locale override
-    // (mirrors the card editor), so an existing date_locale is reflected even
-    // before hass arrives.
-    this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
+    // Note: _selectedPhraseLang is NOT seeded here. Seeding it before `hass`
+    // arrives would lock it to "en" (detectLang(null, undefined)), and the
+    // `set hass` guard would then never refresh it. The set hass seeding plus
+    // the render-time fallback (detectLang(hass, c.date_locale), which honours
+    // date_locale even without hass) cover all cases.
   }
 
   // ------------------------------------------------------------------ //
@@ -227,8 +227,14 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   }
 
   // The badge shows the allergen name only (no level text, no day columns), so
-  // hide the level-name and day-label customization in the phrases section. The
-  // language selector and full/short allergen names remain.
+  // hide the level-name and day-label customization. It also can't enable
+  // allergens_abbreviated (that toggle is card-only), so allergenShort always
+  // equals the full name -- the short-name fields would never affect the badge,
+  // so hide them too. Only the language selector + full allergen names remain.
+  _showPhraseShort() {
+    return false;
+  }
+
   _showPhraseLevels() {
     return false;
   }

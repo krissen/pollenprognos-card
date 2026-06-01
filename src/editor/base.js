@@ -2189,6 +2189,10 @@ export class PollenEditorBase extends LitElement {
 
   // Presentation hooks for the phrases section: subclasses that do not display
   // level names or day labels (e.g. the badge) override these to false.
+  _showPhraseShort() {
+    return true;
+  }
+
   _showPhraseLevels() {
     return true;
   }
@@ -2336,25 +2340,29 @@ export class PollenEditorBase extends LitElement {
             `,
           )}
         </details>
-        <details>
-          <summary>${this._t("phrases_short")}</summary>
-          ${allergens.map(
-            (a) => html`
-              <ha-formfield .label=${a}>
-                <ha-textfield
-                  .value=${short[a] || ""}
-                  @input=${(e) => {
-                    const p = {
-                      ...phrases,
-                      short: { ...short, [a]: e.target.value },
-                    };
-                    this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
-              </ha-formfield>
-            `,
-          )}
-        </details>
+        ${this._showPhraseShort()
+          ? html`
+              <details>
+                <summary>${this._t("phrases_short")}</summary>
+                ${allergens.map(
+                  (a) => html`
+                    <ha-formfield .label=${a}>
+                      <ha-textfield
+                        .value=${short[a] || ""}
+                        @input=${(e) => {
+                          const p = {
+                            ...phrases,
+                            short: { ...short, [a]: e.target.value },
+                          };
+                          this._updateConfig("phrases", p);
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `,
+                )}
+              </details>
+            `
+          : ""}
         ${this._showPhraseLevels()
           ? html`
               <details>
