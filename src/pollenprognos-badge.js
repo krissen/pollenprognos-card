@@ -184,9 +184,10 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       Number.isFinite(badgeScaleRaw) && badgeScaleRaw > 0
         ? Math.min(badgeScaleRaw, BADGE_SCALE_MAX)
         : 1;
-    // Icon scale: multiplies ONLY the bare icon in icon_only mode (the whole
-    // pill keeps badge_scale). Default 1 = no change. Lets users shrink the
-    // glyph without shrinking the badge (#235). Same clamp guards a typo.
+    // Icon scale: scales the allergen visual as a whole (the ring in the ring
+    // modes, the bare icon in icon_only) while the pill keeps badge_scale.
+    // Default 1 = no change. Lets users shrink the image without shrinking the
+    // badge (#235). Same clamp guards a typo.
     const badgeIconScaleRaw = Number(config.badge_icon_scale);
     const badgeIconScale =
       Number.isFinite(badgeIconScaleRaw) && badgeIconScaleRaw > 0
