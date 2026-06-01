@@ -86,6 +86,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // config (user-origin keys) that we dispatch back, so stub defaults are
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
+
+    // Seed the phrases language selector from the config's locale override
+    // (mirrors the card editor), so an existing date_locale is reflected even
+    // before hass arrives.
+    this._selectedPhraseLang = detectLang(this._hass, config.date_locale);
   }
 
   // ------------------------------------------------------------------ //

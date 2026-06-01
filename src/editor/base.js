@@ -2311,7 +2311,8 @@ export class PollenEditorBase extends LitElement {
           </ha-formfield>
           <ha-button
             outlined
-            @click=${() => this._resetPhrases(selectedLang)}
+            @click=${() =>
+              this._resetPhrases(this._selectedPhraseLang || selectedLang)}
           >
             ${this._t("phrases_apply")}
           </ha-button>
@@ -2325,7 +2326,7 @@ export class PollenEditorBase extends LitElement {
                   .value=${full[a] || ""}
                   @input=${(e) => {
                     const p = {
-                      ...(c.phrases || {}),
+                      ...phrases,
                       full: { ...full, [a]: e.target.value },
                     };
                     this._updateConfig("phrases", p);
@@ -2344,7 +2345,7 @@ export class PollenEditorBase extends LitElement {
                   .value=${short[a] || ""}
                   @input=${(e) => {
                     const p = {
-                      ...(c.phrases || {}),
+                      ...phrases,
                       short: { ...short, [a]: e.target.value },
                     };
                     this._updateConfig("phrases", p);
@@ -2367,7 +2368,7 @@ export class PollenEditorBase extends LitElement {
                           const lv = [...levels];
                           lv[i] = e.target.value;
                           this._updateConfig("phrases", {
-                            ...(c.phrases || {}),
+                            ...phrases,
                             levels: lv,
                           });
                         }}
@@ -2390,7 +2391,7 @@ export class PollenEditorBase extends LitElement {
                         @input=${(e) => {
                           const dd = { ...days, [i]: e.target.value };
                           this._updateConfig("phrases", {
-                            ...(c.phrases || {}),
+                            ...phrases,
                             days: dd,
                           });
                         }}
@@ -2406,7 +2407,7 @@ export class PollenEditorBase extends LitElement {
             .value=${phrases.no_information || ""}
             @input=${(e) =>
               this._updateConfig("phrases", {
-                ...(c.phrases || {}),
+                ...phrases,
                 no_information: e.target.value,
               })}
           ></ha-textfield>
