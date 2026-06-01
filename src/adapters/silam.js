@@ -431,6 +431,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // source value is not numeric.
       let rawList = [];
       const asRaw = (v) => {
+        // null/undefined/"" are missing data, not 0 (Number(null) === 0), so
+        // they must stay null and let the display fall back to the level.
+        if (v == null || v === "") return null;
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
       };

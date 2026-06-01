@@ -483,8 +483,13 @@ export async function fetchForecast(hass, config) {
           // via numeric_value_raw; resolveNumericValue picks level or raw.
           let rawValue = null;
           if (allergenSlug === "allergy_risk") {
-            const r = Number(entry.numeric_state_raw ?? entry.level_raw);
-            if (Number.isFinite(r)) rawValue = r;
+            const src = entry.numeric_state_raw ?? entry.level_raw;
+            // Guard null/"" so a missing raw field stays null (Number(null) is
+            // 0) and the display falls back to the level. A real 0 is kept.
+            if (src != null && src !== "") {
+              const r = Number(src);
+              if (Number.isFinite(r)) rawValue = r;
+            }
           }
           const levelIdx = lookupIndex(state);
           const dayObj = {
@@ -539,8 +544,13 @@ export async function fetchForecast(hass, config) {
           // via numeric_value_raw. display_state stays the normalized level.
           let rawValue = null;
           if (allergenSlug === "allergy_risk") {
-            const r = Number(raw.numeric_state_raw ?? raw.level_raw);
-            if (Number.isFinite(r)) rawValue = r;
+            const src = raw.numeric_state_raw ?? raw.level_raw;
+            // Guard null/"" so a missing raw field stays null (Number(null) is
+            // 0) and the display falls back to the level. A real 0 is kept.
+            if (src != null && src !== "") {
+              const r = Number(src);
+              if (Number.isFinite(r)) rawValue = r;
+            }
           }
           if (level !== null && level >= 0) {
             const d = new Date(dateStr);
