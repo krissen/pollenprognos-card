@@ -323,12 +323,12 @@ export class PollenEditorBase extends LitElement {
     if (!this._hass || !this._config || this._config.date_locale != null) {
       return;
     }
-    const detected = detectLang(this._hass, null);
+    // Prefer HA's full locale tag (e.g. "sv-SE"); fall back to the bare
+    // detected language code ("sv"), which is a valid tag -- not a fabricated
+    // `${lang}-${LANG}` ("en-EN") that no locale actually uses.
     this._config = {
       ...this._config,
-      date_locale:
-        this._hass?.locale?.language ||
-        `${detected}-${detected.toUpperCase()}`,
+      date_locale: this._hass?.locale?.language || detectLang(this._hass, null),
     };
   }
 
