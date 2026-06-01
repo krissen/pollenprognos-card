@@ -2669,6 +2669,12 @@ export class PollenEditorBase extends LitElement {
     if (!Array.isArray(keys) || !keys.length) return;
     const base = { ...(this._userConfig || {}) };
     for (const k of keys) delete base[k];
+    // Preserve the HA `type` key (as _resetAll does): _userConfig may lack it
+    // even when _config carries it, and dispatching a config without `type`
+    // can break HA card persistence.
+    if (base.type === undefined && this._config?.type !== undefined) {
+      base.type = this._config.type;
+    }
     // Clear _userConfig BEFORE re-seeding: the card editor's setConfig
     // deep-merges its argument into the existing _userConfig, which would
     // reintroduce the just-deleted keys. _resetAll clears it for the same
