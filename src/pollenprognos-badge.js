@@ -21,6 +21,7 @@ import {
   filterSensorsPostFetch,
   selectBadgeSensor,
   coerceBool,
+  scaleRingLevel,
 } from "./utils/adapter-helpers.js";
 import {
   LEVELS_DEFAULTS,
@@ -318,10 +319,10 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       <div class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}" style="${hostStyle}">
         ${picks.map((sensor) => {
           const normalizedLevel = Number(sensor.day0?.state) || 0;
-          const ringLevel =
-            this.config.integration === "dwd"
-              ? normalizedLevel * 2
-              : normalizedLevel;
+          const ringLevel = scaleRingLevel(
+            this.config.integration,
+            normalizedLevel,
+          );
           const svgKey = this._getSvgKey(sensor.allergenReplaced);
           const rawNum =
             sensor.day0?.display_state ?? sensor.day0?.state ?? ringLevel;

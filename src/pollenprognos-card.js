@@ -13,6 +13,7 @@ import {
   selectDisplaySensors,
   coerceBool,
   computeDisplayDays,
+  scaleRingLevel,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 import { PLU_ALIAS_MAP } from "./adapters/plu.js";
@@ -1636,10 +1637,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             // saturate the ring at high raw-risk values. Mirrors what
             // _renderNormalHtml does per-cell.
             const normalizedLevel = Number(sensor.day0?.state) || 0;
-            const ringLevel =
-              this.config.integration === "dwd"
-                ? normalizedLevel * 2
-                : normalizedLevel;
+            const ringLevel = scaleRingLevel(
+              this.config.integration,
+              normalizedLevel,
+            );
             const clickable =
               this.config.link_to_sensors !== false && !!sensor.entity_id;
             const onClickEntity = (e) => {
@@ -1974,16 +1975,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                           const displayVal = Number(
                             sensor.days[i]?.display_state ?? normalized,
                           );
-                          let levelVal = normalized;
-                          if (this.config.integration === "dwd") {
-                            levelVal = normalized * 2;
-                          } else if (
-                            this.config.integration === "peu" ||
-                            this.config.integration === "kleenex" ||
-                            this.config.integration === "plu"
-                          ) {
-                            levelVal = normalized;
-                          }
+                          const levelVal = scaleRingLevel(
+                            this.config.integration,
+                            normalized,
+                          );
                           const ringOpts = {
                             colors,
                             emptyColor,

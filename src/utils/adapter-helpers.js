@@ -199,6 +199,23 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
 }
 
 /**
+ * Scale a normalized pollen level for ring rendering. DWD reports a coarse
+ * 0-3 scale, but the doughnut ring is drawn on the shared 0-6 geometry, so DWD
+ * levels are doubled to fill the ring; every other integration renders its
+ * level unchanged. Single source for the card (normal + minimal modes) and the
+ * badge, which previously each inlined the `integration === "dwd" ? n * 2 : n`
+ * rule.
+ *
+ * @param {string} integration   - The card/badge `integration` id.
+ * @param {number} normalizedLevel - The sensor's normalized level (>= 0).
+ * @returns {number} The level to render the ring at.
+ */
+export function scaleRingLevel(integration, normalizedLevel) {
+  const n = Number(normalizedLevel) || 0;
+  return integration === "dwd" ? n * 2 : n;
+}
+
+/**
  * Sort a sensors array in-place using one of the standard sort keys.
  * Adapter-specific post-sorts (tiered, pin-to-top) are applied by the caller.
  *
