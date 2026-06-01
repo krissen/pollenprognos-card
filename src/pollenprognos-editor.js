@@ -1251,9 +1251,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
 
-      // Immediately mark integration as explicit so set hass() won't
-      // override the user's choice before the round-trip completes.
-      this._userConfig.integration = newInt;
+      // _userConfig becomes the pruned user-origin config (location/allergen
+      // keys for the old integration removed) + the new integration. Assigning
+      // newUser keeps _userConfig clean — the generic per-key sync below is
+      // skipped for integration changes, since diffing cfg (full new-integration
+      // stub) against the old _config would mark stub defaults as user-set.
+      newUser.integration = newInt;
+      this._userConfig = newUser;
       this._integrationExplicit = true;
     } else {
       cfg = { ...this._config, [prop]: value };
@@ -1349,9 +1353,14 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // Sync _userConfig with every key this edit changed (the edited prop plus
     // any side-effect keys written above), diffed against the pre-edit config.
     // Mirrors the visual-side-effects branch; keeps _userConfig a faithful
-    // user-origin view so per-section resets derive correct payloads.
-    for (const k of Object.keys(cfg)) {
-      if (!deepEqual(cfg[k], this._config[k])) this._userConfig[k] = cfg[k];
+    // user-origin view so per-section resets derive correct payloads. Skipped
+    // for integration changes: cfg there is the new integration's full stub, so
+    // diffing it against the old _config would mark stub defaults as user-set —
+    // that branch already set _userConfig to the pruned newUser.
+    if (prop !== "integration") {
+      for (const k of Object.keys(cfg)) {
+        if (!deepEqual(cfg[k], this._config[k])) this._userConfig[k] = cfg[k];
+      }
     }
 
     if (!deepEqual(this._config, cfg)) {
