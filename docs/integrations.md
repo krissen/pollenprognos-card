@@ -32,7 +32,7 @@ The card tries to auto-detect which adapter to use based on your sensors. The ta
 
 The `pollenprognos-badge` element works with all integrations listed above. Configure it with the same `integration`, location (`city`, `region_id`, or `location` depending on the integration), and `allergens` keys as the card.
 
-`badge_content: aggregate` uses the integration's overall-risk sensor (the one the card tags as the summary). This is available out of the box for **GPL** (`allergy_risk`) and **Atmo** (`allergy_risk`, the pollen aggregate; Atmo's `qualite_globale` is air quality and is not used as the aggregate). For **SILAM** the aggregate is the index, but SILAM does not enable it by default, so add `index` to the badge's `allergens` for `aggregate` to work. For all other integrations, and for SILAM without the index, the badge automatically falls back to `badge_content: worst` (the allergen with the highest current level).
+`badge_content: aggregate` uses the integration's overall-risk sensor (the one the card tags as the summary). This is available out of the box for **GPL** (`allergy_risk`) and **Atmo** (`allergy_risk`, the pollen aggregate; Atmo's `qualite_globale` is air quality and is not used as the aggregate). For **SILAM** the aggregate is the index, but SILAM does not enable it by default, so add `index` to the badge's `allergens`. SILAM also drops the index on low-pollen days under the default `pollen_threshold: 1` (level 0 is filtered out), so set `pollen_threshold: 0` on the badge to keep it visible when low. For all other integrations, and for SILAM without the index, the badge automatically falls back to `badge_content: worst` (the allergen with the highest current level).
 
 ## Google Pollen Levels — design decisions
 

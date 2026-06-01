@@ -362,13 +362,13 @@ Multi-station configuration: set `location` to either the `config_entry_id` (Cro
 
 Badges are added to a dashboard view's `badges:` list (not `cards:`), either through the badge picker UI or via YAML.
 
-The badge is today-only: it always forces `mode: daily` regardless of your integration. It reuses the card's integration/location keys (`integration`, `city`, `region_id`, `location`, `entity_prefix`, `entity_suffix`, `entity_weather`, `allergens`) and all visual keys (`levels_*`, `allergen_*`, `icon_in_ring*`, `link_to_sensors`). Card-layout keys such as `title`, `minimal`, `days_to_show`, and multi-day options are not applicable to the badge.
+The badge is today-only: it always forces `mode: daily` regardless of your integration. It reuses the card's integration/location keys (`integration`, `city`, `region_id`, `location`, `entity_prefix`, `entity_suffix`, `entity_weather`, `allergens`) and the card's visual keys (`levels_*`, `allergen_*`, `icon_in_ring*`, `show_no_data_distinct`, `link_to_sensors`). Card-layout keys such as `title`, `minimal`, `days_to_show`, and multi-day options are not applicable to the badge.
 
 ### Badge options
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL and Atmo out of the box; for SILAM add the index, `index`, to `allergens` first; falls back to `worst` everywhere else), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
+| `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL and Atmo out of the box; for SILAM add the index, `index`, to `allergens` and set `pollen_threshold: 0` so a low index is not filtered out; falls back to `worst` everywhere else), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
 | `badge_single_allergen` | `string` | *(empty)* | The allergen key to show when `badge_content` is `single`. Must be a valid key for your integration (see [Valid allergen keys](#valid-allergen-keys)). |
 | `badge_visual` | `string` | `icon_in_ring` | Visual style: `icon_in_ring` (allergen icon inside the level ring), `ring_value` (numeric level centred in the ring), `ring_empty` (ring only), `icon_only` (bare allergen symbol, no ring). |
 | `badge_scale` | `number` | `1` | Scales the entire badge (height, padding, gap, label and ring together), based on Home Assistant's native badge size (`--ha-badge-size`, 36 px). `1` renders a standard-size HA badge. |
