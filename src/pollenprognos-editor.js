@@ -279,7 +279,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           debug: this.debug,
         });
         const picked = pickIntegration(detection, { explicit: false });
-        if (picked) integration = picked;
+        // pickIntegration yields undefined when nothing is detected and no
+        // prior integration is set; fall back to "pp" so we never persist an
+        // undefined integration that could override the stub during merges.
+        integration = picked || integration || "pp";
         this._userConfig.integration = integration;
         if (this.debug)
           console.debug("[Editor] auto-detected integration:", integration);
@@ -590,11 +593,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // and missed them; the shared module unifies every path.
     this._detectedIntegrations = detectedIntegrationIds(detection);
 
-    // 1) Autodetektera integration om användaren inte valt själv
-    let integration = pickIntegration(detection, {
-      explicit,
-      userIntegration: this._userConfig.integration,
-    });
+    // 1) Autodetektera integration om användaren inte valt själv.
+    // Fall back to "pp" so a no-sensors hass never yields an undefined
+    // integration (which would override the stub during merges and leave an
+    // invalid id).
+    let integration =
+      pickIntegration(detection, {
+        explicit,
+        userIntegration: this._userConfig.integration,
+      }) || "pp";
     if (!explicit) {
       this._userConfig.integration = integration;
       if (this.debug)
