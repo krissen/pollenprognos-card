@@ -2716,19 +2716,21 @@ export class PollenEditorBase extends LitElement {
   }
 
   // Keys reset by the Allergen icons (§6) section button. levels_gap is
-  // included because in synced mode (allergen_levels_gap_synced, the default)
-  // editing allergen_stroke_width also writes levels_gap and disables the §7
-  // gap control, so resetting the stroke width must clear the derived gap too.
+  // included ONLY when it is actually derived from allergen_stroke_width, i.e.
+  // inherit_allergen mode with the gap synced (gapDisabled). When the user has
+  // unsynced the gap or picked custom mode, levels_gap is owned by the §7 Level
+  // circles section and an icon reset must not clear it.
   _allergenIconsResetKeys() {
-    return [
+    const keys = [
       "allergen_color_mode",
       "allergen_colors",
       "allergen_outline_color",
       "allergen_stroke_color_synced",
       "allergen_stroke_width",
       "no_allergens_color",
-      "levels_gap",
     ];
+    if (this._inheritState().gapDisabled) keys.push("levels_gap");
+    return keys;
   }
 
   // Keys reset by the Level circles (§7) section button.
