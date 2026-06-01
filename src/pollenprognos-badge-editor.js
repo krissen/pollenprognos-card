@@ -9,6 +9,12 @@ import { PollenEditorBase, deepMerge } from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
+import {
+  detectIntegrationStates,
+  pickIntegration,
+  detectedIntegrationIds,
+  autoSelectLocation,
+} from "./utils/autodetect.js";
 
 class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //
@@ -100,15 +106,28 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //
 
   /**
-   * Store hass so section methods (_renderIntegrationSection etc.) can
-   * read this._hass. For the badge MVP we don't run full integration
-   * auto-detection; _buildIntegrationOptions() falls back gracefully to
-   * the alphabetical list when _detectedIntegrations is empty.
+   * Store hass and run the same autodetection the card editor does, so the
+   * integration dropdown marks installed integrations, the location dropdown
+   * is populated, and a freshly added badge prefills the integration + first
+   * location of whatever is actually installed (issue #235). Detection is
+   * shared with the card via src/utils/autodetect.js.
    *
    * @param {object} hass
    */
   set hass(hass) {
+    const changed = this._hass !== hass;
     this._hass = hass;
+
+    if (this._config && changed) {
+      const detection = detectIntegrationStates(hass);
+      // Drives the integration dropdown's installed-first sort.
+      this._detectedIntegrations = detectedIntegrationIds(detection);
+      // Populate the location dropdown lists read by _renderIntegrationSection.
+      this._populateInstalledLocations(detection, hass);
+      // Prefill integration + first location when the user hasn't set them.
+      this._maybeAutofill(detection, hass);
+    }
+
     // Prefill the locale field from the current HA locale (display-only),
     // matching the card editor, so it isn't left blank. _selectedPhraseLang
     // holds only the user's explicit dropdown pick; the shared phrases section
@@ -119,6 +138,136 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   get hass() {
     return this._hass;
+  }
+
+  // Integration -> the config key its location is stored under.
+  static get _LOCATION_KEYS() {
+    return { pp: "city", dwd: "region_id" };
+  }
+
+  _locationKeyFor(integration) {
+    return PollenPrognosBadgeEditor._LOCATION_KEYS[integration] || "location";
+  }
+
+  /**
+   * Build the installed-location lists the shared integration section reads
+   * (installedPpLocations, installedDwdLocations, ...). The badge is new, so
+   * there are no legacy slug configs to preserve: this is the discovery-first
+   * path only (the card editor keeps the richer legacy-compat variant). Lists
+   * are [key, label] pairs; the dropdown shows label, stores key.
+   *
+   * @param {ReturnType<typeof detectIntegrationStates>} detection
+   * @param {object} hass
+   */
+  _populateInstalledLocations(detection, hass) {
+    const toList = (discovery) =>
+      Array.from(discovery.locations.entries()).map(([key, loc]) => [
+        key,
+        loc.label,
+      ]);
+
+    // PP / DWD / PEU via memoized discovery getters.
+    const ppDiscovery = detection.getPpDiscovery();
+    this.installedPpLocations = ppDiscovery.locations.size
+      ? toList(ppDiscovery)
+      : Array.from(
+          new Set(
+            detection.states.pp.map((id) =>
+              id.slice("sensor.pollen_".length).replace(/_[^_]+$/, ""),
+            ),
+          ),
+        ).map((slug) => [slug, slug]);
+
+    const dwdDiscovery = detection.getDwdDiscovery();
+    this.installedDwdLocations = dwdDiscovery.locations.size
+      ? toList(dwdDiscovery)
+      : Array.from(
+          new Set(detection.states.dwd.map((id) => id.split("_").pop())),
+        )
+          .sort((a, b) => Number(a) - Number(b))
+          .map((id) => [id, id]);
+
+    const peuDiscovery = detection.getPeuDiscovery();
+    this.installedPeuLocations = peuDiscovery.locations.size
+      ? toList(peuDiscovery)
+      : Array.from(
+          new Set(
+            detection.states.peu
+              .map((eid) => hass.states[eid]?.attributes?.location_slug || null)
+              .filter(Boolean),
+          ),
+        ).map((slug) => [slug, slug]);
+
+    // SILAM / Atmo / GP via eager discovery; GPL / MSW via memoized getters.
+    this.installedSilamLocations = toList(detection.discovery.silam);
+    this.installedAtmoLocations = toList(detection.discovery.atmo);
+    this.installedGpLocations = toList(detection.discovery.gp);
+    this.installedGplLocations = toList(detection.getGplDiscovery());
+    this.installedMswLocations = toList(detection.getMswDiscovery());
+
+    // Kleenex has no discovery helper; derive slugs from the *_date sensors.
+    this.installedKleenexLocations = Array.from(
+      new Set(
+        detection.stateIds
+          .map((id) => {
+            const m =
+              typeof id === "string" &&
+              id.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
+            return m ? m[1] : null;
+          })
+          .filter(Boolean),
+      ),
+    ).map((slug) => [slug, slug]);
+  }
+
+  /**
+   * Prefill the integration (when the user hasn't pinned one) and the first
+   * available location for the active integration (when none is set and not in
+   * manual mode), then dispatch config-changed once if anything changed. The
+   * diff-before-dispatch guard prevents an HA update loop on every hass tick.
+   *
+   * @param {ReturnType<typeof detectIntegrationStates>} detection
+   * @param {object} hass
+   */
+  _maybeAutofill(detection, hass) {
+    const userSetIntegration = Object.prototype.hasOwnProperty.call(
+      this._userConfig || {},
+      "integration",
+    );
+
+    const next = { ...this._config };
+
+    if (!userSetIntegration) {
+      const picked = pickIntegration(detection, { explicit: false });
+      if (picked && picked !== next.integration) {
+        next.integration = picked;
+      }
+    }
+
+    const integration = next.integration;
+    const locKey = this._locationKeyFor(integration);
+    const userSetLocation = Object.prototype.hasOwnProperty.call(
+      this._userConfig || {},
+      locKey,
+    );
+    if (!userSetLocation && next[locKey] !== "manual" && !next[locKey]) {
+      const sel = autoSelectLocation(integration, next, hass, detection);
+      if (sel) next[sel.key] = sel.value;
+    }
+
+    if (!deepEqual(this._config, next)) {
+      this._config = next;
+      this._userConfig = { ...this._userConfig };
+      if (!userSetIntegration) this._userConfig.integration = next.integration;
+      if (next[locKey] != null) this._userConfig[locKey] = next[locKey];
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._userConfig },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
   }
 
   // ------------------------------------------------------------------ //
