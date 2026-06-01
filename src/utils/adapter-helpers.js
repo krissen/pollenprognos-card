@@ -229,7 +229,10 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
  * rule.
  *
  * @param {string} integration   - The card/badge `integration` id.
- * @param {number} normalizedLevel - The sensor's normalized level (>= 0).
+ * @param {number} normalizedLevel - The sensor's normalized level. A negative
+ *   no-data sentinel (e.g. -1) is preserved (and doubled to -2 for DWD), so the
+ *   caller's no-data handling still sees a negative value; non-numeric input
+ *   coerces to 0.
  * @returns {number} The level to render the ring at.
  */
 export function scaleRingLevel(integration, normalizedLevel) {
