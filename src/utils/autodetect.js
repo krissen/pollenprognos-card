@@ -20,7 +20,10 @@ import { discoverAtmoSensors } from "../adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "../adapters/gpl/index.js";
 import { discoverGpSensors } from "../adapters/gp/index.js";
 import { discoverMswSensors } from "../adapters/msw.js";
-import { discoverPpSensors } from "../adapters/pp.js";
+import {
+  discoverPpSensors,
+  extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
+} from "../adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "../adapters/dwd.js";
 import { discoverPeuSensors } from "../adapters/peu.js";
 import { discoverSilamSensors } from "./silam.js";
@@ -364,10 +367,15 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
   }
 
   if (integration === "pp" && states.pp?.length) {
-    const value = states.pp[0]
-      .slice("sensor.pollen_".length)
-      .replace(/_[^_]+$/, "");
-    return { key: "city", value };
+    // Use the PP adapter's extractor (PP_ALLERGEN_SLUGS suffix whitelist) so
+    // allergens whose slug contains underscores (e.g. "salg_och_viden") and
+    // manual-mode sensors are handled correctly; a naive `_[^_]+$` split would
+    // mis-derive the city. Pick the first sensor that yields a real city slug.
+    for (const id of states.pp) {
+      const value = extractPpCitySlugFromEntityId(id);
+      if (value) return { key: "city", value };
+    }
+    return null;
   }
 
   if (integration === "peu" && states.peu?.length) {
