@@ -684,17 +684,23 @@ export const LevelCircleMixin = (Base) =>
             const valueText = document.createElement("div");
             valueText.className = "level-value-text";
             valueText.textContent = displayLevel;
+            // Fill the ring box and flex-centre the digit, so it is centred
+            // optically rather than anchored to the text baseline (which made
+            // the number read slightly high). line-height:1 keeps the line box
+            // tight; explicit edges (not the `inset` shorthand) for the legacy
+            // browser build.
             valueText.style.position = "absolute";
-            valueText.style.top = "50%";
-            valueText.style.left = "50%";
-            valueText.style.transform = "translate(-50%, -50%)";
+            valueText.style.top = "0";
+            valueText.style.left = "0";
+            valueText.style.right = "0";
+            valueText.style.bottom = "0";
+            valueText.style.display = "flex";
+            valueText.style.alignItems = "center";
+            valueText.style.justifyContent = "center";
+            valueText.style.lineHeight = "1";
             valueText.style.fontSize = `${size * fontSizeRatio}px`;
             valueText.style.fontWeight = fontWeight;
             valueText.style.color = textColor;
-            if (size < 42) {
-              valueText.style.lineHeight = "1";
-              valueText.style.height = "1em";
-            }
             container.appendChild(valueText);
           }
         } else if (existingText) {
