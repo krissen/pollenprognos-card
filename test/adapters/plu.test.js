@@ -74,13 +74,16 @@ describe("PLU adapter: fetchForecast", () => {
     expect(result[0].day0.state).toBe(-1);
   });
 
-  it("has display_state with raw numeric value", async () => {
+  it("keeps the raw concentration in raw_value and shows the level by default", async () => {
     const hass = makeHass({ birch: 25 });
     const config = makeConfig({ allergens: ["birch"] });
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.display_state).toBe(25);
+    // display_state is the calculated level (shown by default); the raw p/m3
+    // concentration lives in raw_value (surfaced only via numeric_value_raw).
+    expect(result[0].day0.raw_value).toBe(25);
+    expect(result[0].day0.display_state).toBe(result[0].day0.state);
   });
 
   it("has PLU-specific extra day properties", async () => {

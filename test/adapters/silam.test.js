@@ -387,6 +387,8 @@ describe("fetchForecast: level computation from grain counts", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].day0.state).toBe(2);
+    // The raw grains/m3 measurement is kept for numeric_value_raw.
+    expect(result[0].day0.raw_value).toBe(30);
   });
 
   it("converts pollen_alder=5 to level 1 (between thresholds 1 and 10)", async () => {

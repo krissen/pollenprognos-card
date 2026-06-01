@@ -288,6 +288,8 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     // 15 <= 20 (low threshold) so level 1
     expect(result[0].day0.state).toBe(1);
+    // The raw ppm measurement is kept for numeric_value_raw.
+    expect(result[0].day0.raw_value).toBe(15);
   });
 
   it("coerces 'unavailable' sensor state to level 0 for category sensors", async () => {

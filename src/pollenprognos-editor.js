@@ -1758,20 +1758,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                 this._updateConfig("show_no_data_distinct", e.target.checked)}
             ></ha-switch>
           </ha-formfield>
-          ${c.integration === "peu"
-            ? html`
-                <ha-formfield label="${this._t("numeric_state_raw_risk")}">
-                  <ha-switch
-                    .checked=${c.numeric_state_raw_risk}
-                    @change=${(e) =>
-                      this._updateConfig(
-                        "numeric_state_raw_risk",
-                        e.target.checked,
-                      )}
-                  ></ha-switch>
-                </ha-formfield>
-              `
-            : ""}
+          <!-- The level/raw numeric toggle (numeric_value_raw) lives in the
+               shared Level circles section now, gated to integrations with a
+               raw value (PLU/PEU/SILAM/Kleenex). PEU's legacy
+               numeric_state_raw_risk config still works via resolveNumericValue. -->
 
           <div class="subgroup-header">${this._t("subgroup_day_labels")}</div>
           <ha-formfield label="${this._t("days_relative")}">

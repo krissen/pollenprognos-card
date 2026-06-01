@@ -425,6 +425,18 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // pollen_index=1). This is an upstream data inconsistency; the card
       // faithfully displays whatever each source reports.
       let stateList = [];
+      // rawList mirrors stateList with the raw numeric measurement (the index
+      // for allergy_risk, grains/m3 for the per-allergen sensors), kept so the
+      // user can opt into showing it via numeric_value_raw. null where the
+      // source value is not numeric.
+      let rawList = [];
+      const asRaw = (v) => {
+        // null/undefined/"" are missing data, not 0 (Number(null) === 0), so
+        // they must stay null and let the display fall back to the level.
+        if (v == null || v === "") return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
       if (allergen === "allergy_risk") {
         if (config.mode === "hourly" || config.mode === "twice_daily") {
           for (let i = 0; i < maxItems; ++i) {
@@ -433,6 +445,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
               ? forecast.index ?? forecast.pollen_index
               : null;
             stateList.push(indexToLevel(val));
+            rawList.push(asRaw(val));
           }
         } else {
           const currentVal =
@@ -440,12 +453,14 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
             entity.attributes.pollen_index ??
             entity.state;
           stateList.push(indexToLevel(currentVal));
+          rawList.push(asRaw(currentVal));
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
             const val = forecast
               ? forecast.index ?? forecast.pollen_index
               : null;
             stateList.push(indexToLevel(val));
+            rawList.push(asRaw(val));
           }
         }
       } else {
@@ -456,16 +471,19 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
               ? Number(forecast[`pollen_${allergen}`])
               : NaN;
             stateList.push(grainsToLevel(allergen, pollenVal));
+            rawList.push(asRaw(pollenVal));
           }
         } else {
           const currentVal = Number(entity.attributes[`pollen_${allergen}`]);
           stateList.push(grainsToLevel(allergen, currentVal));
+          rawList.push(asRaw(currentVal));
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
             const pollenVal = forecast
               ? Number(forecast[`pollen_${allergen}`])
               : NaN;
             stateList.push(grainsToLevel(allergen, pollenVal));
+            rawList.push(asRaw(pollenVal));
           }
         }
       }
@@ -518,6 +536,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           day: label,
           icon: icon,
           state: scaled,
+          raw_value: rawList[i] ?? null,
           state_text: stateText,
         };
         dict.days.push(dict[`day${i}`]);

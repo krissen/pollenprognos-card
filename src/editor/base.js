@@ -330,6 +330,16 @@ export class PollenEditorBase extends LitElement {
   }
 
   /**
+   * Whether the current integration exposes a raw measurement (concentration /
+   * index) distinct from the calculated level, so the numeric_value_raw
+   * level-vs-raw toggle is meaningful. PP/DWD/Atmo/GPL/GP/MSW have no distinct
+   * raw value. Mirrors the resolveNumericValue contract.
+   */
+  _integrationHasRawValue(integration) {
+    return ["plu", "peu", "silam", "kleenex"].includes(integration);
+  }
+
+  /**
    * Returns the slider parameters for the pollen_threshold control.
    * Equivalent to the render()-local `thresholdParams` variable in the card editor.
    */
@@ -1930,6 +1940,31 @@ export class PollenEditorBase extends LitElement {
               </ha-formfield>
               <div class="field-helper">
                 ${this._t("helper_show_value_numeric_in_circle")}
+              </div>
+            `
+          : ""}
+
+        ${this._integrationHasRawValue(c.integration)
+          ? html`
+              <ha-formfield label="${this._t("numeric_value_raw")}">
+                <ha-switch
+                  .checked=${c.numeric_value_raw === true ||
+                  (c.integration === "peu" &&
+                    c.numeric_state_raw_risk === true)}
+                  @change=${(e) => {
+                    const on = e.target.checked;
+                    this._updateConfig("numeric_value_raw", on);
+                    // Migrate off the legacy PEU alias so the two cannot
+                    // diverge (turning the switch off must not leave
+                    // numeric_state_raw_risk: true silently showing raw).
+                    if (c.numeric_state_raw_risk === true) {
+                      this._updateConfig("numeric_state_raw_risk", false);
+                    }
+                  }}
+                ></ha-switch>
+              </ha-formfield>
+              <div class="field-helper">
+                ${this._t("helper_numeric_value_raw")}
               </div>
             `
           : ""}
