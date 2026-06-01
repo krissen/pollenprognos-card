@@ -2692,6 +2692,11 @@ export class PollenEditorBase extends LitElement {
     // gone.
     this._userConfig = {};
     this.setConfig(base);
+    // setConfig re-derives _config for rendering and (card editor) injects
+    // LEVELS_DEFAULTS into _userConfig. Restore the clean `base` as the
+    // user-origin view so a subsequent section reset doesn't start from a
+    // defaults-polluted base and persist level defaults as if user settings.
+    this._userConfig = { ...base };
     this.dispatchEvent(
       new CustomEvent("config-changed", {
         detail: { config: base },
