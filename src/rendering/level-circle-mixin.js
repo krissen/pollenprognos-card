@@ -8,9 +8,10 @@
 //   class MyElement extends LevelCircleMixin(LitElement) { ... }
 
 import { html } from "lit";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { getSvgContent } from "../pollenprognos-svgs.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
-import { buildNoiseCanvasPattern, hashStringSeed } from "../utils/no-data-pattern.js";
+import { buildNoiseCanvasPattern, buildNoiseSvgUri, hashStringSeed } from "../utils/no-data-pattern.js";
 import { ALLERGEN_ICON_FALLBACK, toCanonicalAllergenKey } from "../constants.js";
 import {
   Chart,
@@ -208,8 +209,11 @@ export const LevelCircleMixin = (Base) =>
       entityId = null,
       clickable = true,
     ) {
-      // Create a unique key for this chart configuration
-      const chartId = `chart-${allergen}-${dayIndex}-${level}`;
+      // Create a unique key for this chart configuration. `size` is part of the
+      // key so a size change (e.g. the badge's badge_scale live-preview) forces
+      // a fresh canvas at the new dimensions instead of reusing a cached Chart
+      // whose canvas width/height was fixed at the old size.
+      const chartId = `chart-${allergen}-${dayIndex}-${level}-${size}`;
 
       // Use attributes instead of properties so values persist if DOM is cloned
       const noDataDistinct = this.config?.show_no_data_distinct !== false;
@@ -251,6 +255,119 @@ export const LevelCircleMixin = (Base) =>
           }}
         ></div>
       `;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Allergen icon rendering
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Renders an allergen SVG icon with proper color styling
+     * @param {string} allergenKey - The allergen key
+     * @param {number} level - The pollen level for color
+     * @param {Object} options - Optional configuration
+     * @param {Function} options.onClick - Click handler
+     * @param {boolean} options.clickable - Whether icon should be clickable
+     * @returns {TemplateResult} HTML template with SVG or placeholder
+     */
+    _renderAllergenSvg(allergenKey, level, options = {}) {
+      // Guard against null/undefined keys - show error placeholder
+      if (!allergenKey || typeof allergenKey !== 'string') {
+        if (this.debug) {
+          console.warn('[SVG] Cannot render SVG with invalid key:', allergenKey);
+        }
+        return html`
+          <div class="pp-icon pp-icon-error" aria-hidden="true">
+            <div style="background: #ff0000; color: white; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+          </div>
+        `;
+      }
+
+      const { onClick, clickable = false, stale = false } = options;
+      const color = stale ? "#e6a800" : this._colorForLevel(level, allergenKey);
+      const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
+      const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
+      // Select level-reactive icon variant for allergy_risk smiley
+      const effectiveKey = this._getEffectiveSvgKey(allergenKey, level);
+      const svgContent = getSvgContent(effectiveKey);
+
+      // No-data branch: render the icon as a CSS mask filled with the noise
+      // pattern instead of inline SVG. The shape is preserved (you still see
+      // the allergen silhouette) but the fill is fuzzy, signalling "we have
+      // no data for this entry" without screaming red.
+      // `level < 0` rather than `=== -1`: DWD scales the level by 2 in the
+      // chart path, so adapter-emitted -1 can arrive here as -2.
+      const noDataDistinct = this.config?.show_no_data_distinct !== false;
+      if (!stale && noDataDistinct && level < 0 && svgContent) {
+        const clickHandler = clickable && onClick ? onClick : null;
+        const iconUri = `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
+        const noiseUri = buildNoiseSvgUri(this._noDataDotColor());
+        // No --pp-icon-stroke-width here: the no-data branch renders a masked
+        // div with no inline SVG, so the stroke-width var (read by
+        // `.pp-icon svg g`) has no effect in this branch.
+        const style =
+          `--pp-icon-no-data-mask: url("${iconUri}"); ` +
+          `--pp-icon-no-data-noise: url("${noiseUri}");` +
+          (clickable ? " cursor: pointer;" : "");
+        return html`
+          <div
+            class="pp-icon pp-icon-no-data"
+            data-state="no_data"
+            style="${style}"
+            aria-hidden="true"
+            @click=${clickHandler}
+          ></div>
+        `;
+      }
+
+      // Determine stroke color based on sync setting
+      let actualStrokeColor;
+      if (allergenKey === "no_allergens") {
+        // Special handling for no_allergens: always use its color as stroke color since it's stroke-based
+        actualStrokeColor = color;
+      } else if (this.config?.allergen_stroke_color_synced) {
+        // When synced, use the level color for stroke
+        actualStrokeColor = color;
+      } else {
+        // Default: use outline color
+        actualStrokeColor = outlineColor;
+      }
+
+      const clickHandler = clickable && onClick ? onClick : null;
+      const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
+
+      if (svgContent) {
+        // Render inline SVG with color styling.
+        // data-state="ok" mirrors the attribute the no-data icon branch sets,
+        // and matches the same attribute on .level-circle, so theme / card-mod
+        // overrides can target both states symmetrically.
+        return html`
+          <div
+            class="pp-icon"
+            data-state="ok"
+            style="${style}"
+            aria-hidden="true"
+            @click=${clickHandler}
+          >
+            ${unsafeSVG(svgContent)}
+          </div>
+        `;
+      } else {
+        // SVG not found - show error placeholder
+        if (this.debug) {
+          console.warn(`[SVG] No SVG found for key: ${allergenKey}`);
+        }
+        return html`
+          <div
+            class="pp-icon pp-icon-error"
+            style="${style}"
+            aria-hidden="true"
+            @click=${clickHandler}
+          >
+            <div style="background: #ccc; color: #666; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+          </div>
+        `;
+      }
     }
 
     /**
