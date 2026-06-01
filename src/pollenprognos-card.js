@@ -633,6 +633,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       userIntegration: this._userConfig.integration,
       skip: this._skipIntegrations,
     });
+    // Nothing detected and no prior choice: default to pp so the
+    // unknown-integration error below stays reserved for genuinely invalid ids
+    // (a user-typed bad value), not noisy on every no-sensors install.
+    if (!integration) integration = "pp";
 
     // Plocka rätt stub
     let baseStub = getStubConfig(integration);

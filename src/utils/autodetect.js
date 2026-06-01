@@ -390,14 +390,15 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
           .filter(Boolean),
       ),
     );
-    return { key: "location", value: peuLocations[0] || null };
+    const value = peuLocations[0];
+    return value ? { key: "location", value } : null;
   }
 
   if (integration === "silam" && states.silam?.length) {
     const silamDiscovery = detection.discovery.silam;
     if (silamDiscovery.locations.size > 0) {
       const firstLocId = silamDiscovery.locations.keys().next().value;
-      return { key: "location", value: firstLocId || null };
+      return firstLocId ? { key: "location", value: firstLocId } : null;
     }
     const silamLocations = Array.from(
       new Set(
@@ -409,7 +410,8 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
           .filter(Boolean),
       ),
     );
-    return { key: "location", value: silamLocations[0] || null };
+    const value = silamLocations[0];
+    return value ? { key: "location", value } : null;
   }
 
   if (integration === "kleenex" && states.kleenex?.length) {
@@ -428,7 +430,8 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
           .filter(Boolean),
       ),
     );
-    return { key: "location", value: kleenexLocations[0] || null };
+    const value = kleenexLocations[0];
+    return value ? { key: "location", value } : null;
   }
 
   if (integration === "atmo" && states.atmo?.length) {
@@ -444,13 +447,14 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
           .filter(Boolean),
       ),
     );
-    return { key: "location", value: atmoLocations[0] || null };
+    const value = atmoLocations[0];
+    return value ? { key: "location", value } : null;
   }
 
   if (integration === "gpl" && states.gpl?.length) {
     const gplDiscovery = detection.getGplDiscovery();
     const firstLocId = gplDiscovery.locations.keys().next().value;
-    return { key: "location", value: firstLocId || null };
+    return firstLocId ? { key: "location", value: firstLocId } : null;
   }
 
   if (integration === "gp" && states.gp?.length) {
