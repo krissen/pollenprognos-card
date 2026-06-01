@@ -69,11 +69,15 @@ export function selectDisplaySensors(sensors, config) {
  * Sensors carry the adapter-normalized slug in `allergenReplaced` (PP
  * "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
  * "allergy_risk"), while config keys (config.allergens, badge_single_allergen)
- * hold whatever the user/editor wrote. Both sides reduce to the same canonical
- * allergen key via toCanonicalAllergenKey(normalize(x)), so a key resolves
- * regardless of the integration's key style. A literal match on the raw
- * `allergenReplaced` is tried first, so an exact key always wins over a merely
- * canonical-equal one.
+ * hold whatever the user/editor wrote. The config key is reduced to a canonical
+ * allergen key via BOTH the generic slug normalization and DWD's umlaut/ß
+ * expansion (ä->ae, ß->ss); the sensor side reduces via the generic
+ * normalization (its value is already adapter-normalized). A match on either
+ * canonical form resolves the sensor, so a key works regardless of the
+ * integration's key style. Trying normalizeDWD as well matters for DWD keys
+ * like "Beifuß", where generic normalize would drop the ß ("beifu") and miss
+ * the "beifuss" sensor. A literal match on the raw `allergenReplaced` is tried
+ * first, so an exact key always wins over a merely canonical-equal one.
  *
  * This is the single shared "config allergen key -> sensor" resolver. The badge
  * uses it for single mode today; the card can reuse it if it ever gains a
@@ -94,13 +98,18 @@ export function matchSensorByAllergenKey(sensors, configKey) {
     (s) => s && typeof s.allergenReplaced === "string" && s.allergenReplaced === configKey,
   );
   if (literal) return literal;
-  const wanted = toCanonicalAllergenKey(normalize(configKey));
+  // Canonical candidates for the config key, via both the generic slug
+  // normalization and DWD's umlaut/ß expansion, so DWD keys resolve too.
+  const wanted = new Set([
+    toCanonicalAllergenKey(normalize(configKey)),
+    toCanonicalAllergenKey(normalizeDWD(configKey)),
+  ]);
   return (
     sensors.find(
       (s) =>
         s &&
         typeof s.allergenReplaced === "string" &&
-        toCanonicalAllergenKey(normalize(s.allergenReplaced)) === wanted,
+        wanted.has(toCanonicalAllergenKey(normalize(s.allergenReplaced))),
     ) || null
   );
 }

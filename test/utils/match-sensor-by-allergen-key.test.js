@@ -21,6 +21,15 @@ describe("matchSensorByAllergenKey", () => {
     expect(matchSensorByAllergenKey([dwd, english], "gräser")).toBe(dwd);
   });
 
+  it("matches a DWD key with ß (Beifuß -> beifuss)", () => {
+    // Generic normalize drops the ß ("beifu"); only normalizeDWD expands it to
+    // "beifuss" to match the sensor. The matcher must try both.
+    const dwdMugwort = { allergenReplaced: "beifuss" };
+    expect(matchSensorByAllergenKey([dwdMugwort, english], "Beifuß")).toBe(
+      dwdMugwort,
+    );
+  });
+
   it("matches the SILAM index by its user-facing key", () => {
     expect(matchSensorByAllergenKey([silamIndex, english], "index")).toBe(
       silamIndex,
