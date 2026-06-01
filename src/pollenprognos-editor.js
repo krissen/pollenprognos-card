@@ -89,13 +89,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // the editor base via numLevelsForIntegration so the count cannot drift.
     const numLevels = numLevelsForIntegration(this._config.integration);
 
-    // Use scale-specific phrase defaults so 5-level integrations (MSW, PEU)
-    // surface semantically-correct severity labels in the editor instead of
-    // borrowing strings from the wider 7-level palette. Other scales fall
-    // back to the legacy editor.phrases_levels.0..6 keys until per-scale
-    // entries are added for them.
+    // Use scale-specific phrase defaults so 5-level integrations (MSW, PEU,
+    // Kleenex) surface semantically-correct severity labels in the editor
+    // instead of borrowing the first five strings from the wider 7-level
+    // palette. Other scales fall back to the legacy editor.phrases_levels.0..6
+    // keys until per-scale entries are added for them.
     const levelKeyPrefix =
-      this._config.integration === "msw" || this._config.integration === "peu"
+      this._config.integration === "msw" ||
+      this._config.integration === "peu" ||
+      this._config.integration === "kleenex"
         ? "editor.phrases_levels5"
         : "editor.phrases_levels";
     const levels = Array.from({ length: numLevels }, (_, i) =>
