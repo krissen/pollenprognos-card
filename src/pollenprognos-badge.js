@@ -176,9 +176,22 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       ? config.badge_visual
       : "icon_in_ring";
     // Scale: whole-badge multiplier; default 1 = standard HA badge size.
+    // Clamp to a sane ceiling so a typo (e.g. 100 typed into the editor field)
+    // can't render an editor-breaking giant pill (#235).
+    const BADGE_SCALE_MAX = 10;
     const badgeScaleRaw = Number(config.badge_scale);
     const badgeScale =
-      Number.isFinite(badgeScaleRaw) && badgeScaleRaw > 0 ? badgeScaleRaw : 1;
+      Number.isFinite(badgeScaleRaw) && badgeScaleRaw > 0
+        ? Math.min(badgeScaleRaw, BADGE_SCALE_MAX)
+        : 1;
+    // Icon scale: multiplies ONLY the bare icon in icon_only mode (the whole
+    // pill keeps badge_scale). Default 1 = no change. Lets users shrink the
+    // glyph without shrinking the badge (#235). Same clamp guards a typo.
+    const badgeIconScaleRaw = Number(config.badge_icon_scale);
+    const badgeIconScale =
+      Number.isFinite(badgeIconScaleRaw) && badgeIconScaleRaw > 0
+        ? Math.min(badgeIconScaleRaw, BADGE_SCALE_MAX)
+        : 1;
     // Label position: right (community convention, default) | below.
     const badgeLabelPosition =
       config.badge_label_position === "below" ? "below" : "right";
@@ -225,6 +238,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       badge_show_label: badgeShowLabel,
       badge_visual: badgeVisual,
       badge_scale: badgeScale,
+      badge_icon_scale: badgeIconScale,
       badge_label_position: badgeLabelPosition,
       icon_in_ring: iconInRing,
       show_value_numeric_in_circle: showValueInCircle,
@@ -348,12 +362,18 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const ring = Math.round(height * 0.78);
     // --ppb-size drives the proportional pill CSS (padding/gap/radius/label);
     // --pollen-icon-size sizes the bare icon used by the icon_only mode.
+    // badge_icon_scale multiplies ONLY that bare icon, so users can shrink the
+    // glyph without shrinking the whole badge (#235). It is consumed only by the
+    // .pp-icon rule (icon_only path); the in-ring icon uses iconSizeRatio, so
+    // applying it here has no effect on the other visual modes.
+    const iconScale = Number(this.config?.badge_icon_scale) || 1;
+    const bareIcon = Math.round(ring * iconScale);
     // A configured background_color sets --ppb-bg (consumed by the .ppb rule,
     // which otherwise falls back to the themed background). Same ?.trim?.()
     // guard the card uses, so non-string YAML values can't throw.
     const bg = this.config?.background_color?.trim?.();
     const hostStyle =
-      `--ppb-size: ${height}px; --pollen-icon-size: ${ring}px;` +
+      `--ppb-size: ${height}px; --pollen-icon-size: ${bareIcon}px;` +
       (bg ? ` --ppb-bg: ${bg};` : "");
 
     // Not yet loaded: render an empty pill placeholder so the badge slot
