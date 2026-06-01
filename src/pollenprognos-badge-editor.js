@@ -768,6 +768,36 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         margin-bottom: 4px;
       }
 
+      /* Anchor for the per-section reset button so it can centre itself. */
+      details > summary {
+        position: relative;
+      }
+      /* Compact ↺ reset button in the section header: small circle, vertically
+         centred, ghost style until hovered. */
+      .section-reset {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border-radius: 50%;
+        border: 1px solid var(--divider-color, #ccc);
+        background: transparent;
+        color: var(--secondary-text-color);
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .section-reset:hover {
+        background: var(--secondary-background-color);
+        color: var(--primary-text-color);
+      }
+
       details details {
         margin-left: 24px;
         margin-right: 24px;

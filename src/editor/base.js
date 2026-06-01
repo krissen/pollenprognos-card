@@ -2677,9 +2677,10 @@ export class PollenEditorBase extends LitElement {
     }
     // Clear _userConfig BEFORE re-seeding: the card editor's setConfig
     // deep-merges its argument into the existing _userConfig, which would
-    // reintroduce the just-deleted keys. _resetAll clears it for the same
-    // reason; setConfig(base) then restores the kept keys while the section
-    // keys stay gone.
+    // reintroduce the just-deleted keys. (The card editor's _resetAll override
+    // clears _userConfig for the same reason before delegating to the base.)
+    // setConfig(base) then restores the kept keys while the section keys stay
+    // gone.
     this._userConfig = {};
     this.setConfig(base);
     this.dispatchEvent(
@@ -2700,20 +2701,25 @@ export class PollenEditorBase extends LitElement {
    * @returns {import("lit").TemplateResult}
    */
   _renderSectionReset(keys) {
+    const label = this._t("preset_reset_section") || "Reset section";
+    // Compact icon button absolutely positioned + vertically centred in the
+    // section header (.section-reset CSS lives in each editor's styles). A
+    // plain <button> instead of <ha-button> keeps it small and avoids the
+    // chunky Material button height that overflowed the summary bar.
     return html`
-      <ha-button
-        outlined
+      <button
+        type="button"
         class="section-reset"
-        title="${this._t("preset_reset_section") || "Reset section"}"
-        aria-label="${this._t("preset_reset_section") || "Reset section"}"
-        style="float: right; --mdc-typography-button-font-size: 14px;"
+        title="${label}"
+        aria-label="${label}"
         @click=${(e) => {
           e.preventDefault();
           e.stopPropagation();
           this._resetSection(keys);
         }}
-        >↺</ha-button
       >
+        ↺
+      </button>
     `;
   }
 
