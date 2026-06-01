@@ -17,21 +17,24 @@ import {
   resolveNumericValue,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
-import { PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
-import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
-import { discoverGpSensors } from "./adapters/gp/index.js";
-import { discoverMswSensors } from "./adapters/msw.js";
-import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
-import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
-import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
+// Sensor detection / integration pick / location auto-select are shared with
+// the card editor and the badge via src/utils/autodetect.js. The adapter
+// imports kept below are the ones still used by the header label-resolution
+// block in set hass() (slug extractors + location resolvers).
+import { findAtmoLocationBySlug } from "./adapters/atmo.js";
+import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
+import { extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
-  discoverSilamSensors,
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
+import {
+  detectIntegrationStates,
+  pickIntegration,
+  autoSelectLocation,
+} from "./utils/autodetect.js";
 import {
   DWD_REGIONS,
   PP_POSSIBLE_CITIES,
@@ -599,225 +602,37 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     if (this.debug)
       console.debug("[Card] set hass called; explicit:", explicit);
 
-    // Sensordetektion
-    // Build set of PLU allergen slugs for more specific detection
-    const pluAllergenSlugs = new Set(
-      Object.values(PLU_ALIAS_MAP).flat()
-    );
-
-    const ppStates = Object.keys(hass.states).filter(
-      (id) => {
-        if (typeof id !== "string") return false;
-        if (!id.startsWith("sensor.pollen_")) return false;
-        if (id.startsWith("sensor.pollenflug_")) return false;
-        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
-        if (id.includes("_level_at_")) return false;
-
-        // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
-        const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
-        if (!match) return false;
-
-        const allergenSlug = match[1];
-        // Exclude known PLU allergens to avoid misclassification
-        // PLU uses sensor.pollen_<allergen> pattern with specific allergen list
-        // PP manual mode also uses sensor.pollen_<allergen> but with different allergens
-        if (!match[2] && pluAllergenSlugs.has(allergenSlug)) {
-          // Single underscore AND known PLU allergen → likely PLU, not PP
-          return false;
-        }
-
-        return true;
+    // Sensordetektion — shared autodetect (see src/utils/autodetect.js).
+    // Destructure local aliases with the same names the header block below
+    // already uses, so only the scan/pick/location logic moves to the shared
+    // module while the rest of set hass() is untouched. The lazy discovery
+    // getters preserve the per-tick discovery call count on large installs.
+    const detection = detectIntegrationStates(hass, { debug: this.debug });
+    // peuStates + the discovery objects/getters below are consumed by the
+    // header label-resolution block further down; the per-integration state
+    // lists used only for the pick/location are handled inside the shared
+    // module, so they are not destructured here.
+    const {
+      states: { peu: peuStates },
+      discovery: {
+        silam: silamDiscovery,
+        atmo: atmoDiscovery,
+        gp: gpDiscovery,
       },
-    );
-    // DWD: match the integration's pollenflug_<allergen>_<region> segment
-    // whether or not HA has prepended a device-name slug (#217).
-    const dwdStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
-    );
-    const peuStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
-    );
-    // SILAM: primary via hass.entities, fallback via regex
-    const silamDiscovery = discoverSilamSensors(hass, this.debug);
+      getPpDiscovery,
+      getDwdDiscovery,
+      getPeuDiscovery,
+      getGplDiscovery,
+      getMswDiscovery,
+    } = detection;
     this._silamDiscovery = silamDiscovery;
-    let silamStates = [];
-    if (silamDiscovery.locations.size > 0) {
-      for (const [, loc] of silamDiscovery.locations) {
-        for (const eid of loc.sensors.values()) {
-          silamStates.push(eid);
-        }
-      }
-    }
-    if (!silamStates.length) {
-      silamStates = Object.keys(hass.states).filter(
-        (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-      );
-    }
-    const kleenexStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
-    );
-    const pluStates = Object.keys(hass.states).filter(
-      (id) => {
-        if (typeof id !== "string") return false;
-        const match = /^sensor\.pollen_([^_]+)$/.exec(id);
-        if (!match) return false;
-        const allergenSlug = match[1];
-        // Only match if it's a known PLU allergen
-        return pluAllergenSlugs.has(allergenSlug);
-      },
-    );
-    // ATMO: primary via discovery (handles prefixed entity IDs and
-    // device-based detection); fallback to regex for older HA registries.
-    const atmoDiscovery = discoverAtmoSensors(hass, this.debug);
-    let atmoStates = [];
-    if (atmoDiscovery.locations.size > 0) {
-      for (const [, loc] of atmoDiscovery.locations) {
-        for (const eid of loc.entities.values()) {
-          atmoStates.push(eid);
-        }
-      }
-    }
-    if (!atmoStates.length) {
-      // Legacy fallback for older HA registries without device/platform metadata.
-      // Matches both current niveau_{slug} and legacy niveau_alerte_{slug}.
-      atmoStates = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-          !/_j_\d+$/.test(id),
-      );
-    }
-    // GPL: use hass.entities (primary) or attribution (fallback)
-    let gplStates = [];
-    if (hass.entities) {
-      gplStates = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
-        .map(([eid]) => eid);
-    }
-    if (!gplStates.length) {
-      gplStates = Object.keys(hass.states).filter((id) => {
-        const s = hass.states[id];
-        return s?.attributes?.attribution === GPL_ATTRIBUTION
-          && s.attributes.device_class !== "date"
-          && s.attributes.device_class !== "timestamp";
-      });
-    }
-    // GP (svenove/google_pollen): full discovery once; state list derived
-    // from it so the header auto-title path can reuse the same result later.
-    const gpDiscovery = discoverGpSensors(hass, this.debug);
-    let gpStates = [];
-    if (gpDiscovery.locations.size > 0) {
-      for (const [, loc] of gpDiscovery.locations) {
-        for (const eid of loc.entities.values()) {
-          gpStates.push(eid);
-        }
-      }
-    }
-    if (!gpStates.length) {
-      if (hass.entities) {
-        gpStates = Object.entries(hass.entities)
-          .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
-          .map(([eid]) => eid);
-      }
-      if (!gpStates.length) {
-        gpStates = Object.keys(hass.states).filter((id) =>
-          typeof id === "string" && id.startsWith("sensor.google_pollen_")
-        );
-      }
-    }
-    // MSW (MeteoSwiss / hass-swissweather). Entity IDs follow
-    // sensor.<device-slug>_pollen_<allergen>_level_at_<station>; the
-    // <device-slug> prefix is added by HA from the device's friendly name and
-    // varies per install. Primary detection uses hass.entities platform check
-    // (same as SILAM/GP); fallback regex covers older HA registries.
-    const mswLevelRe =
-      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
-    let mswStates = [];
-    if (hass.entities) {
-      mswStates = Object.entries(hass.entities)
-        .filter(([eid, entry]) =>
-          entry.platform === "swissweather" &&
-          !entry.entity_category &&
-          mswLevelRe.test(eid),
-        )
-        .map(([eid]) => eid);
-    }
-    if (!mswStates.length) {
-      mswStates = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-      );
-    }
 
-    // Discovery results for adapters whose header label resolution would
-    // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached
-    // above; PP, DWD, PEU, and GPL go here so the header block can reuse the
-    // same result instead of calling discover*Sensors a second time per HA
-    // update.
-    let _ppDiscovery = null;
-    let _dwdDiscovery = null;
-    let _peuDiscovery = null;
-    let _gplDiscovery = null;
-    let _mswDiscovery = null;
-    const getPpDiscovery = () => {
-      if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, this.debug);
-      return _ppDiscovery;
-    };
-    const getDwdDiscovery = () => {
-      if (_dwdDiscovery === null) _dwdDiscovery = discoverDwdSensors(hass, this.debug);
-      return _dwdDiscovery;
-    };
-    const getPeuDiscovery = () => {
-      if (_peuDiscovery === null) _peuDiscovery = discoverPeuSensors(hass, this.debug);
-      return _peuDiscovery;
-    };
-    const getGplDiscovery = () => {
-      if (_gplDiscovery === null) _gplDiscovery = discoverGplSensors(hass, this.debug);
-      return _gplDiscovery;
-    };
-    const getMswDiscovery = () => {
-      if (_mswDiscovery === null) _mswDiscovery = discoverMswSensors(hass, this.debug);
-      return _mswDiscovery;
-    };
-
-    if (this.debug) {
-      console.debug("Sensor states detected:");
-      console.debug("PP:", ppStates);
-      console.debug("DWD:", dwdStates);
-      console.debug("PEU:", peuStates);
-      console.debug("SILAM:", silamStates);
-      console.debug("KLEENEX:", kleenexStates);
-      console.debug("PLU:", pluStates);
-      console.debug("ATMO:", atmoStates);
-      console.debug("GPL:", gplStates);
-      console.debug("GP:", gpStates);
-      console.debug("MSW:", mswStates);
-    }
-
-    // Bestäm integration (PEU går före DWD)
-    let integration = this._userConfig.integration;
-
-    // Normalize integration name to handle case sensitivity and whitespace
-    if (integration && typeof integration === "string") {
-      integration = integration.trim().toLowerCase();
-    }
-
-    if (!explicit) {
-      const skip = this._skipIntegrations;
-      if (ppStates.length && !skip.has("pp")) integration = "pp";
-      else if (pluStates.length && !skip.has("plu")) integration = "plu";
-      else if (peuStates.length && !skip.has("peu")) integration = "peu";
-      else if (dwdStates.length && !skip.has("dwd")) integration = "dwd";
-      else if (silamStates.length && !skip.has("silam")) integration = "silam";
-      else if (kleenexStates.length && !skip.has("kleenex")) integration = "kleenex";
-      else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
-      else if (gpStates.length && !skip.has("gp")) integration = "gp";
-      else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
-      else if (mswStates.length && !skip.has("msw")) integration = "msw";
-    }
+    // Bestäm integration (shared priority pick honouring explicit + skip set).
+    let integration = pickIntegration(detection, {
+      explicit,
+      userIntegration: this._userConfig.integration,
+      skip: this._skipIntegrations,
+    });
 
     // Plocka rätt stub
     let baseStub = getStubConfig(integration);
@@ -886,159 +701,16 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       }
     }
 
-    // Automatic region/city/location detection unless manual mode is selected
-    if (
-      integration === "dwd" &&
-      cfg.region_id !== "manual" &&
-      !cfg.region_id &&
-      dwdStates.length
-    ) {
-      cfg.region_id = Array.from(
-        new Set(dwdStates.map((id) => id.split("_").pop())),
-      ).sort((a, b) => Number(a) - Number(b))[0];
+    // Automatic region/city/location detection unless manual mode is selected.
+    // Shared autoSelectLocation() returns { key, value } for the integration;
+    // the "manual"/already-set guard stays here so PLU's earlier city/region
+    // deletion and explicit "manual" mode keep their meaning. (The card element
+    // now also auto-selects GP/MSW locations, matching the editor.)
+    const autoLoc = autoSelectLocation(integration, cfg, hass, detection);
+    if (autoLoc && cfg[autoLoc.key] !== "manual" && !cfg[autoLoc.key]) {
+      cfg[autoLoc.key] = autoLoc.value;
       if (this.debug)
-        console.debug("[Card] Auto-set region_id:", cfg.region_id);
-    } else if (
-      integration === "pp" &&
-      cfg.city !== "manual" &&
-      !cfg.city &&
-      ppStates.length
-    ) {
-      cfg.city = ppStates[0]
-        .slice("sensor.pollen_".length)
-        .replace(/_[^_]+$/, "");
-      if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (
-      integration === "peu" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      peuStates.length
-    ) {
-      // Samla alla location_slug från entity attributes (om de finns)
-      const peuLocations = Array.from(
-        new Set(
-          peuStates
-            .map((eid) => {
-              const attr = hass.states[eid]?.attributes || {};
-              return attr.location_slug || null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = peuLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][PEU] Auto-set location (location_slug):",
-          cfg.location,
-          peuLocations,
-        );
-    } else if (
-      integration === "silam" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      silamStates.length
-    ) {
-      // Primärt: discovery-baserad auto-select (config_entry_id)
-      if (silamDiscovery.locations.size > 0) {
-        const firstLocId = silamDiscovery.locations.keys().next().value;
-        cfg.location = firstLocId || null;
-        if (this.debug)
-          console.debug(
-            "[Card][SILAM] Auto-set location (discovery):",
-            cfg.location,
-            [...silamDiscovery.locations.keys()],
-          );
-      } else {
-        // Fallback: regex-baserad auto-select (slug)
-        const silamLocations = Array.from(
-          new Set(
-            silamStates
-              .map((eid) => {
-                const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                return m ? m[1] : null;
-              })
-              .filter(Boolean),
-          ),
-        );
-        cfg.location = silamLocations[0] || null;
-        if (this.debug)
-          console.debug(
-            "[Card][SILAM] Auto-set location (regex):",
-            cfg.location,
-            silamLocations,
-          );
-      }
-    } else if (
-      integration === "kleenex" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      kleenexStates.length
-    ) {
-      // Look specifically for *_date sensors to extract location
-      const kleenexDateSensors = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          id.match(/^sensor\.kleenex_pollen_radar_.+_date$/),
-      );
-
-      const kleenexLocations = Array.from(
-        new Set(
-          kleenexDateSensors
-            .map((eid) => {
-              // sensor.kleenex_pollen_radar_<location>_date
-              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = kleenexLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][KLEENEX] Auto-set location:",
-          cfg.location,
-          kleenexLocations,
-        );
-    } else if (
-      integration === "atmo" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      atmoStates.length
-    ) {
-      const atmoLocations = Array.from(
-        new Set(
-          atmoStates
-            .map((eid) => {
-              const m = eid.match(
-                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
-              );
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = atmoLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][ATMO] Auto-set location:",
-          cfg.location,
-          atmoLocations,
-        );
-    } else if (
-      integration === "gpl" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      gplStates.length
-    ) {
-      const gplDiscovery = getGplDiscovery();
-      const firstLocId = gplDiscovery.locations.keys().next().value;
-      cfg.location = firstLocId || null;
-      if (this.debug)
-        console.debug(
-          "[Card][GPL] Auto-set location:",
-          cfg.location,
-          [...gplDiscovery.locations.keys()],
-        );
+        console.debug(`[Card] Auto-set ${autoLoc.key}:`, autoLoc.value);
     }
 
     // Only update reactive properties when values actually changed.
