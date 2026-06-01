@@ -11,6 +11,7 @@ import { html } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { getSvgContent } from "../pollenprognos-svgs.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
+import { ringSegmentsForIntegration } from "../utils/level-counts.js";
 import { buildNoiseCanvasPattern, buildNoiseSvgUri, hashStringSeed } from "../utils/no-data-pattern.js";
 import { ALLERGEN_ICON_FALLBACK, toCanonicalAllergenKey } from "../constants.js";
 import {
@@ -380,21 +381,7 @@ export const LevelCircleMixin = (Base) =>
      * both call sites to share this helper.
      */
     _buildLevelRingConfig() {
-      let segments = 6;
-      if (
-        this.config?.integration === "peu" ||
-        this.config?.integration === "kleenex" ||
-        this.config?.integration === "msw"
-      ) {
-        segments = 4;
-      } else if (
-        this.config?.integration === "gpl" ||
-        this.config?.integration === "gp"
-      ) {
-        segments = 5;
-      } else if (this.config?.integration === "plu") {
-        segments = 3;
-      }
+      const segments = ringSegmentsForIntegration(this.config?.integration);
       const colors = [];
       for (let i = 0; i < segments; i++) {
         colors.push(this._levelColorForLevel(i + 1));
