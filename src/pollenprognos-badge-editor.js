@@ -85,11 +85,14 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // config (user-origin keys) that we dispatch back, so stub defaults are
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
-    // _selectedPhraseLang is intentionally NOT seeded here. It holds only the
-    // user's explicit dropdown pick; the shared phrases section derives the
-    // shown/applied language at render time from it or from
-    // detectLang(hass, date_locale), which honours an existing date_locale
-    // override regardless of whether hass or setConfig arrived first.
+
+    // Prefill the locale field from the current HA locale (display-only),
+    // matching the card. HA sets `hass` before `setConfig` for the badge
+    // editor, so the set-hass call alone runs while _config is still unset;
+    // call it here too (the helper no-ops without hass), so whichever arrives
+    // last triggers the prefill. _selectedPhraseLang is intentionally NOT
+    // seeded; the shared phrases section derives the shown language at render.
+    this._autofillDateLocale();
   }
 
   // ------------------------------------------------------------------ //

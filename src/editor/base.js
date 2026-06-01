@@ -316,7 +316,13 @@ export class PollenEditorBase extends LitElement {
    * baked into the saved YAML. Call from a subclass `set hass`.
    */
   _autofillDateLocale() {
-    if (!this._config || this._config.date_locale) return;
+    // Require hass (detectLang needs it; without it we'd lock to "en"), require
+    // a built _config, and only fill when date_locale is genuinely unset
+    // (undefined/null) -- an explicit "" is user intent (autodetect) and is
+    // left alone. Safe to call from both setConfig and set hass, in any order.
+    if (!this._hass || !this._config || this._config.date_locale != null) {
+      return;
+    }
     const detected = detectLang(this._hass, null);
     this._config = {
       ...this._config,
@@ -2306,7 +2312,7 @@ export class PollenEditorBase extends LitElement {
         </div>
         <ha-formfield label="${this._t("locale")}">
           <ha-textfield
-            .value=${c.date_locale || ""}
+            .value=${dateLocale || ""}
             @input=${(e) => this._updateConfig("date_locale", e.target.value)}
           ></ha-textfield>
         </ha-formfield>
