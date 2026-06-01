@@ -94,22 +94,23 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    * Default stub config surfaced in the HA badge picker.
    * No `type` key — HA badge convention differs from card convention.
    *
-   * Autodetects the integration from hass (when HA provides it) so a freshly
-   * added badge shows real data instead of always defaulting to PollenPrognos.
-   * HA may call getStubConfig with no hass, so fall back to "pp" then.
+   * When HA provides hass and an integration is detected, pin it so a freshly
+   * added badge shows real data. When hass is absent (the documented no-arg
+   * badge stub call) OR nothing is detected, OMIT `integration`: both the badge
+   * element and editor treat a present `integration` as a user pin via
+   * hasOwnProperty, so emitting a "pp" fallback here would wrongly suppress
+   * autodetect on a DWD/PEU-only install. Without it, autodetect runs once hass
+   * is available.
    */
   static getStubConfig(hass, _entities, _entitiesFallback) {
-    let integration = "pp";
+    const base = { badge_content: "worst", icon_in_ring: true };
     if (hass) {
-      integration =
-        pickIntegration(detectIntegrationStates(hass), { explicit: false }) ||
-        "pp";
+      const integration = pickIntegration(detectIntegrationStates(hass), {
+        explicit: false,
+      });
+      if (integration) return { integration, ...base };
     }
-    return {
-      integration,
-      badge_content: "worst",
-      icon_in_ring: true,
-    };
+    return base;
   }
 
   // ---------------------------------------------------------------------- //

@@ -575,21 +575,21 @@ describe("ATMO detection", () => {
 //
 // PollenPrognosBadge.getStubConfig(hass) is a LitElement static method we
 // cannot import in the node test environment (no customElements), so we assert
-// the exact expression it uses: pick the detected integration, fall back to
-// "pp" when nothing is detected. HA also calls getStubConfig with no hass, in
-// which case the badge defaults to "pp" without scanning.
+// the pick it relies on. The stub pins `integration` ONLY when one is detected;
+// when nothing is detected or hass is absent it omits the key (so the present-
+// integration => user-pin heuristic doesn't suppress autodetect later).
 // ---------------------------------------------------------------------------
 
 describe("badge picker integration choice (getStubConfig logic)", () => {
-  const pickStubIntegration = (hass) =>
-    pickIntegration(detectIntegrationStates(hass), { explicit: false }) || "pp";
+  const pickStub = (hass) =>
+    pickIntegration(detectIntegrationStates(hass), { explicit: false });
 
-  it("uses the detected integration (e.g. DWD), not always pp", () => {
-    expect(pickStubIntegration(hassWithIntegrations("dwd"))).toBe("dwd");
+  it("pins the detected integration (e.g. DWD), not always pp", () => {
+    expect(pickStub(hassWithIntegrations("dwd"))).toBe("dwd");
   });
 
-  it("falls back to pp when nothing is installed", () => {
-    expect(pickStubIntegration(mkHass([]))).toBe("pp");
+  it("omits integration when nothing is installed (autodetect later)", () => {
+    expect(pickStub(mkHass([]))).toBeUndefined();
   });
 
   it("detectIntegrationStates tolerates an empty hass", () => {
