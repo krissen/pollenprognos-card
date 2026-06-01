@@ -1949,7 +1949,8 @@ export class PollenEditorBase extends LitElement {
               <ha-formfield label="${this._t("numeric_value_raw")}">
                 <ha-switch
                   .checked=${c.numeric_value_raw === true ||
-                  c.numeric_state_raw_risk === true}
+                  (c.integration === "peu" &&
+                    c.numeric_state_raw_risk === true)}
                   @change=${(e) => {
                     const on = e.target.checked;
                     this._updateConfig("numeric_value_raw", on);

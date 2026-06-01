@@ -273,7 +273,11 @@ export function resolveNumericValue(day, config) {
   const level = day.display_state ?? day.state;
   const wantRaw =
     config?.numeric_value_raw === true ||
-    config?.numeric_state_raw_risk === true;
+    // numeric_state_raw_risk is a PEU-specific legacy key; honour it only for
+    // PEU so a stale value left after switching integrations cannot force raw
+    // on another integration.
+    (config?.integration === "peu" &&
+      config?.numeric_state_raw_risk === true);
   if (wantRaw && day.raw_value != null) {
     const raw = Number(day.raw_value);
     if (Number.isFinite(raw) && raw >= 0) return raw;

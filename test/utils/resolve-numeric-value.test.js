@@ -19,10 +19,20 @@ describe("resolveNumericValue", () => {
     expect(resolveNumericValue(dayWithRaw, { numeric_value_raw: true })).toBe(369);
   });
 
-  it("honours the legacy PEU numeric_state_raw_risk alias", () => {
+  it("honours the legacy numeric_state_raw_risk alias only for PEU", () => {
     expect(
-      resolveNumericValue(dayWithRaw, { numeric_state_raw_risk: true }),
+      resolveNumericValue(dayWithRaw, {
+        integration: "peu",
+        numeric_state_raw_risk: true,
+      }),
     ).toBe(369);
+    // A stale legacy flag on another integration must NOT force raw.
+    expect(
+      resolveNumericValue(dayWithRaw, {
+        integration: "plu",
+        numeric_state_raw_risk: true,
+      }),
+    ).toBe(2);
   });
 
   it("falls back to the level when raw is requested but raw_value is absent", () => {
