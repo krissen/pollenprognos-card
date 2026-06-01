@@ -1869,12 +1869,16 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         margin-bottom: 4px; /* Space below summary */
       }
 
-      /* Anchor for the per-section reset button so it can centre itself. */
+      /* Anchor for the per-section reset button so it can centre itself, and
+         reserve room on the right so a long section title can't run under it. */
       details > summary {
         position: relative;
       }
+      details > summary:has(.section-reset) {
+        padding-right: 48px;
+      }
       /* Compact ↺ reset button in the section header: small circle, vertically
-         centred, ghost style until hovered. */
+         centred, ghost style until hovered/focused. */
       .section-reset {
         position: absolute;
         right: 12px;
@@ -1894,9 +1898,14 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         align-items: center;
         justify-content: center;
       }
-      .section-reset:hover {
+      .section-reset:hover,
+      .section-reset:focus-visible {
         background: var(--secondary-background-color);
         color: var(--primary-text-color);
+      }
+      .section-reset:focus-visible {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 1px;
       }
 
       /* Nested details styling */

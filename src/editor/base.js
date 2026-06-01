@@ -2799,10 +2799,10 @@ export class PollenEditorBase extends LitElement {
   }
 
   // Keys reset by the Integration & Location (§1) section button. Resets the
-  // place/title WITHIN the chosen integration but keeps `integration` itself —
-  // switching integration is the global "Reset all"'s job, not a section reset.
-  // These are exactly the identity keys _resetAll preserves, so the two are
-  // complementary; after the reset the location re-autodetects.
+  // place/title (and the SILAM/PEU forecast `mode` selector, which is rendered
+  // in this section) WITHIN the chosen integration but keeps `integration`
+  // itself — switching integration is the global "Reset all"'s job, not a
+  // section reset. After the reset the location re-autodetects.
   _integrationResetKeys() {
     return [
       "city",
@@ -2812,6 +2812,7 @@ export class PollenEditorBase extends LitElement {
       "entity_suffix",
       "entity_weather",
       "title",
+      "mode",
     ];
   }
 
