@@ -663,6 +663,9 @@ export const COSMETIC_FIELDS = [
   "icon_in_ring_color_mode",
   "icon_in_ring_static_color",
   "icon_in_ring_size_ratio",
+  // Display-only: chooses level vs raw_value for the numeric value; the
+  // raw_value is already on the fetched sensor dict, so no reload needed.
+  "numeric_value_raw",
   "title",
   "card_mod",
 ];
