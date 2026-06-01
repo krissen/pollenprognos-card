@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Θέση ρύπανσης",
   "editor.pollution_block_top": "Πάνω (πάνω από τη γύρη)",
   "editor.preset_reset_all": "Επαναφορά όλων των ρυθμίσεων",
+  "editor.preset_reset_section": "Επαναφορά ενότητας",
   "editor.region_id": "ID περιοχής",
   "editor.select_all_allergens": "Επιλογή όλων των αλλεργιογόνων",
   "editor.select_all_pollen": "Επιλογή γύρης",

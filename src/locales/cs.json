@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Pozice znečištění",
   "editor.pollution_block_top": "Nahoře (nad pylem)",
   "editor.preset_reset_all": "Obnovit všechna nastavení",
+  "editor.preset_reset_section": "Obnovit sekci",
   "editor.region_id": "ID regionu",
   "editor.select_all_allergens": "Vybrat všechny alergeny",
   "editor.select_all_pollen": "Vybrat pyl",

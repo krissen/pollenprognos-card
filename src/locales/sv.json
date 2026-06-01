@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Position för luftkvalitet",
   "editor.pollution_block_top": "Överst (ovanför pollen)",
   "editor.preset_reset_all": "Återställ allt",
+  "editor.preset_reset_section": "Återställ avsnitt",
   "editor.region_id": "Region ID",
   "editor.select_all_allergens": "Välj alla allergener",
   "editor.select_all_pollen": "Välj pollen",

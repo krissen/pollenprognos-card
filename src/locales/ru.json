@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Позиция загрязнения",
   "editor.pollution_block_top": "Сверху (над пыльцой)",
   "editor.preset_reset_all": "Сбросить все настройки",
+  "editor.preset_reset_section": "Сбросить раздел",
   "editor.region_id": "ID региона",
   "editor.select_all_allergens": "Выбрать все аллергены",
   "editor.select_all_pollen": "Выбрать пыльцу",

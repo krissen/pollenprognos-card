@@ -1291,7 +1291,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §5 Card appearance -->
       <details>
-        <summary>${this._t("summary_card_appearance")}</summary>
+        <summary>
+          ${this._t("summary_card_appearance")}
+          ${this._renderSectionReset(this._appearanceResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_card_appearance")}</div>
         <ha-formfield label="${this._t("background_color")}">
             <div style="display:flex; gap:8px; align-items:center;">
@@ -1396,7 +1399,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §6 Allergen icons -->
       <details>
-        <summary>${this._t("summary_allergen_icons")}</summary>
+        <summary>
+          ${this._t("summary_allergen_icons")}
+          ${this._renderSectionReset(this._allergenIconsResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_allergen_icons")}</div>
         <ha-formfield
           label="${this._t("allergen_color_mode") ||
@@ -1701,7 +1707,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §7 Level circles -->
       <details>
-        <summary>${this._t("summary_level_circles")}</summary>
+        <summary>
+          ${this._t("summary_level_circles")}
+          ${this._renderSectionReset(this._levelCirclesResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_level_circles")}</div>
         <ha-formfield
           label="${this._t("levels_inherit_mode")}"
@@ -2096,7 +2105,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §8 Icon in ring -->
       <details>
-        <summary>${this._t("summary_icon_in_ring")}</summary>
+        <summary>
+          ${this._t("summary_icon_in_ring")}
+          ${this._renderSectionReset(this._iconInRingResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_icon_in_ring")}</div>
         ${this._showIconInRingToggle()
           ? html`
@@ -2637,5 +2649,106 @@ export class PollenEditorBase extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  // ------------------------------------------------------------------
+  // Per-section reset
+  // ------------------------------------------------------------------
+
+  /**
+   * Reset one section's options to their defaults: drop the listed keys from
+   * the user-origin config so the stub / element defaults take over, then
+   * re-seed via setConfig and dispatch. Scoped sibling of _resetAll; works for
+   * both editors because _userConfig is the user-origin view they each persist.
+   *
+   * @param {string[]} keys
+   */
+  _resetSection(keys) {
+    if (!Array.isArray(keys) || !keys.length) return;
+    const base = { ...(this._userConfig || {}) };
+    for (const k of keys) delete base[k];
+    // setConfig (subclass) re-derives the stub-merged _config for rendering and
+    // re-seeds _userConfig from `base`, mirroring _resetAll.
+    this.setConfig(base);
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config: base },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  /**
+   * Small reset button for a section header. Resets the given keys via
+   * _resetSection. Rendered inside the <summary>; stops propagation and
+   * prevents default so clicking it doesn't toggle the <details>.
+   *
+   * @param {string[]} keys
+   * @returns {import("lit").TemplateResult}
+   */
+  _renderSectionReset(keys) {
+    return html`
+      <ha-button
+        outlined
+        class="section-reset"
+        title="${this._t("preset_reset_section") || "Reset section"}"
+        style="float: right; --mdc-typography-button-font-size: 14px;"
+        @click=${(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this._resetSection(keys);
+        }}
+        >↺</ha-button
+      >
+    `;
+  }
+
+  // Keys reset by the Card appearance (§5) section button. The badge editor
+  // overrides this to add its badge_* size/label keys.
+  _appearanceResetKeys() {
+    return ["background_color", "icon_size", "text_size_ratio"];
+  }
+
+  // Keys reset by the Allergen icons (§6) section button.
+  _allergenIconsResetKeys() {
+    return [
+      "allergen_color_mode",
+      "allergen_colors",
+      "allergen_outline_color",
+      "allergen_stroke_color_synced",
+      "allergen_stroke_width",
+      "no_allergens_color",
+    ];
+  }
+
+  // Keys reset by the Level circles (§7) section button.
+  _levelCirclesResetKeys() {
+    return [
+      "levels_inherit_mode",
+      "levels_colors",
+      "levels_empty_color",
+      "levels_thickness",
+      "levels_gap",
+      "levels_gap_color",
+      "levels_icon_ratio",
+      "levels_text_size",
+      "levels_text_color",
+      "levels_text_weight",
+      "allergen_levels_gap_synced",
+      "numeric_value_raw",
+      "numeric_state_raw_risk",
+      "show_value_numeric_in_circle",
+    ];
+  }
+
+  // Keys reset by the Icon in ring (§8) section button.
+  _iconInRingResetKeys() {
+    return [
+      "icon_in_ring",
+      "icon_in_ring_color_mode",
+      "icon_in_ring_size_ratio",
+      "icon_in_ring_static_color",
+    ];
   }
 }
