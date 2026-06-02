@@ -2586,7 +2586,14 @@ export class PollenEditorBase extends LitElement {
       // Honour both the Lovelace-standard `action` key and this card's `type`
       // key; map HA's renamed "perform-action" back to our "call-service".
       const raw = ta.action || ta.type || "more-info";
-      this._tapType = raw === "perform-action" ? "call-service" : raw;
+      const mapped = raw === "perform-action" ? "call-service" : raw;
+      // Coerce an unknown keyword (e.g. a YAML typo) to "none" so the enable
+      // switch and the type dropdown stay consistent: the dropdown only offers
+      // the three supported types, so an unrecognised value would otherwise
+      // leave the switch on with a blank dropdown.
+      this._tapType = ["more-info", "navigate", "call-service"].includes(mapped)
+        ? mapped
+        : "none";
       this._tapEntity = ta.entity || "";
       this._tapNavigation = ta.navigation_path || "";
       this._tapService = ta.service || ta.perform_action || "";
