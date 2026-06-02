@@ -19,26 +19,30 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 - [Google Pollen](https://github.com/svenove/home-assistant-google-pollen)
 - [MeteoSwiss / hass-swissweather](https://github.com/izacus/hass-swissweather)
 
+<p align="center">
+  <img width="900" alt="The companion pollenprognos-badge in every mode: allergen icon in the level ring, the numeric value in the ring, ring only, bare icon only, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="docs/screenshots/badge-row.png" />
+</p>
+
 <table align="center">
   <tr>
-    <td align="center" valign="middle">
-           <img width="450" alt="Screenshot showing Polleninformation EU integration with allergy risk card" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
+    <td align="center" valign="top">
+      <img width="420" alt="Daily pollen forecast card showing grass and birch over three days, one level ring per day" src="docs/screenshots/hero-card.png" />
     </td>
-    <td align="center" valign="middle">
-      <img width="450" alt="Screenshot showing Polleninformation EU integration in daily mode" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="middle">
-            <img width="450" alt="Screenshot showing forecast view with multiple allergens" src="https://github.com/user-attachments/assets/9c2df78f-6b62-4d88-a623-312fda24fab8" />
-    </td>
-    <td align="center" valign="middle">
-<img width="450" alt="Screenshot showing SILAM integration with multiple display modes" src="https://github.com/user-attachments/assets/91d051f2-dce1-4215-adbd-6f70e2968c1b" />
+    <td align="center" valign="top">
+      <img width="420" alt="Aggregate summary block (overall allergy risk, top types, in season) pinned above per-allergen rows, with the allergen icon inside the level ring" src="docs/screenshots/summary-icon-in-ring.png" />
     </td>
   </tr>
   <tr>
-    <td>Two card instances combined, both using integration `polleninformation`. The top card shows `allergy_risk` in mode `daily`.</td>
-    <td>Three card instances combined, all using integration `silam_pollen`. The top-most card uses mode `minimal`. The middle card `twice_daily`, and the bottom card `hourly`.</td>
+    <td align="center">A daily forecast (integration <code>pp</code>): one row per allergen, one level ring per day.</td>
+    <td align="center">An aggregate summary block over the <code>icon_in_ring</code> layout (GPL): overall risk and qualifier rows above the detailed allergens.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <img width="480" alt="Twice-daily forecast with morning and evening columns per day" src="docs/screenshots/modes-twice-daily.png" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">Other layouts too: <code>twice_daily</code> (above), plus <code>hourly</code> and <code>minimal</code>.</td>
   </tr>
 </table>
 
