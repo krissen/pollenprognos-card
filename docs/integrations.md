@@ -28,6 +28,33 @@ The card tries to auto-detect which adapter to use based on your sensors. The ta
 | **Google Pollen** | For `home-assistant-google-pollen` by svenove. Uses the same Google Pollen API but a different HA integration. Sensors are detected by the `google_pollen` platform or entity prefix `sensor.google_pollen_*`. Allergens are classified primarily via `unique_id` (language-independent) with `display_name` lookup as fallback, covering all 35 languages the API supports via pre-generated name maps. The API returns up to 4 days of forecast. Supports multi-location setups via separate config entries. Added in card **v3.1.0**. |
 | **MeteoSwiss / hass-swissweather** | For [`hass-swissweather`](https://github.com/izacus/hass-swissweather) by [@izacus](https://github.com/izacus). Adapter contributed by [@r3turnNull](https://github.com/r3turnNull) (#212). Sensors are detected by the `swissweather` platform; entity IDs follow `sensor.<device-slug>_pollen_<allergen>_level_at_<station>` (the device-slug prefix is added by HA from the device name and changes if you rename the device via `name_by_user`). MeteoSwiss publishes only current-day measurements, so `days_to_show` is fixed at 1 by the card regardless of config. Categorical levels (`None` / `Low` / `Medium` / `Strong` / `Very Strong`) are mapped to the integration's native 5-level scale (0--4), matching how the card keeps each integration's native level count without stretching onto the shared 0--6 gradient. Allergens supported: birch, grass, alder, hazel, beech, ash, oak. Multi-station setups: pick the station via the `location` field (accepts `config_entry_id` ULID, label, or station code). Added in card **v3.2.0**. |
 
+## Card previews per integration
+
+One representative card per integration, rendered from live sensors. Allergen names, level wording and the number of days follow each integration's own data.
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Pollenprognos card for Forshaga" src="screenshots/int-pp.png" /><br /><b>Pollenprognos</b> (Sweden)</td>
+    <td align="center" valign="top"><img width="360" alt="DWD Pollenflug card for Rheinland-Pfalz und Saarland" src="screenshots/int-dwd.png" /><br /><b>DWD Pollenflug</b> (Germany)</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Polleninformation EU card for Hamburg" src="screenshots/int-peu.png" /><br /><b>Polleninformation EU</b></td>
+    <td align="center" valign="top"><img width="360" alt="SILAM card for Stockholm" src="screenshots/int-silam.png" /><br /><b>SILAM Pollen Allergy Sensor</b></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Kleenex Pollen Radar card for Utrecht" src="screenshots/int-kleenex.png" /><br /><b>Kleenex Pollen Radar</b> (per-species)</td>
+    <td align="center" valign="top"><img width="360" alt="Atmo France card" src="screenshots/int-atmo.png" /><br /><b>Atmo France</b></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Pollen.lu card for Luxembourg" src="screenshots/int-plu.png" /><br /><b>Pollen.lu</b> (Luxembourg)</td>
+    <td align="center" valign="top"><img width="360" alt="Google Pollen Levels card" src="screenshots/int-gpl.png" /><br /><b>Google Pollen Levels</b></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Google Pollen (svenove) card" src="screenshots/int-gp.png" /><br /><b>Google Pollen</b> (svenove)</td>
+    <td align="center" valign="top"><img width="360" alt="MeteoSwiss card for Zurich" src="screenshots/msw-zurich.png" /><br /><b>MeteoSwiss / hass-swissweather</b></td>
+  </tr>
+</table>
+
 ## Badge compatibility
 
 The `pollenprognos-badge` element works with all integrations listed above. Configure it with the same `integration`, location (`city`, `region_id`, or `location` depending on the integration), and `allergens` keys as the card.

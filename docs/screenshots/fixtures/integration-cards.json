@@ -1,0 +1,77 @@
+{
+ "int-pp.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "pp",
+  "city": "Forshaga",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-dwd.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "dwd",
+  "region_id": "102",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-peu.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "peu",
+  "location": "hamburg",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-silam.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "silam",
+  "location": "stockholm",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-kleenex.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "kleenex",
+  "location": "utrecht",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-atmo.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "atmo",
+  "location": "nice",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-plu.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "plu",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-gpl.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "gpl",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "int-gp.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "gp",
+  "location": "01KP17F38S823ST410FGS5N1YS",
+  "days_to_show": 4,
+  "show_text_allergen": true,
+  "show_value_text": true
+ },
+ "msw-zurich.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "msw",
+  "location": "01KQVM6J4DC3BB3S3E9WC2DF5H"
+ }
+}

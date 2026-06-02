@@ -1,0 +1,11 @@
+[
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"Forshaga","badge_content":"single","badge_single_allergen":"Björk","pollen_threshold":0,"badge_show_label":true},
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"Forshaga","badge_content":"single","badge_single_allergen":"Gräs","pollen_threshold":0,"badge_visual":"ring_value","badge_show_label":true},
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"Forshaga","badge_content":"single","badge_single_allergen":"Al","pollen_threshold":0,"badge_visual":"icon_only","badge_show_label":true},
+  {"type":"custom:pollenprognos-badge","integration":"gpl","location":"manual","entity_prefix":"testplats","allergens":["allergy_risk","trees_cat","grass_cat","birch"],"badge_content":"aggregate","badge_show_label":true},
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"manual","entity_prefix":"pollen_forshaga","allergens":["Al","Björk","Gräs","Hassel"],"badge_content":"row"},
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"Forshaga","badge_content":"single","badge_single_allergen":"Hassel","pollen_threshold":0,"badge_visual":"ring_empty","badge_show_label":true},
+  {"type":"custom:pollenprognos-badge","integration":"dwd","region_id":"102","badge_content":"worst","badge_visual":"icon_in_ring","badge_show_label":true},
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"manual","entity_prefix":"pollen_forshaga","allergens":["Al","Björk","Gräs","Hassel"],"badge_show_label":true,"badge_scale":1.5},
+  {"type":"custom:pollenprognos-badge","integration":"pp","city":"Forshaga","badge_content":"single","badge_single_allergen":"Gräs","pollen_threshold":0,"badge_show_label":true,"phrases":{"full":{"Gräs":"MITT GRÄS!"}}}
+]
