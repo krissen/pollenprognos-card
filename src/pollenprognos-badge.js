@@ -48,6 +48,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   _hass = null;
   _userConfig = null;
   sensors = [];
+  _versionLogged = false;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
@@ -127,6 +128,14 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       "integration",
     );
     this.config = this._buildConfig(config, this._hass);
+
+    if (!this._versionLogged && this.config.show_version !== false) {
+      console.info(
+        `%c🤧 Pollenprognos Badge: version ${__VERSION__}`,
+        "background:#f0e68c;color:#000;padding:2px 4px;border-radius:2px;",
+      );
+      this._versionLogged = true;
+    }
 
     // Trigger a data fetch if hass is already available.
     if (this._hass) {
