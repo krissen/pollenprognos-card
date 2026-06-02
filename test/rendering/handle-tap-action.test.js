@@ -105,16 +105,20 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(e.preventDefault).not.toHaveBeenCalled();
   });
 
-  it("maps HA's perform-action to a service call (perform_action/data)", () => {
+  it("maps HA's perform-action to a service call and forwards the target", () => {
     el.tapAction = {
       action: "perform-action",
       perform_action: "light.turn_on",
       data: { brightness: 128 },
+      target: { entity_id: "light.kitchen" },
     };
     el._handleTapAction(makeEvent());
-    expect(el._hass.callService).toHaveBeenCalledWith("light", "turn_on", {
-      brightness: 128,
-    });
+    expect(el._hass.callService).toHaveBeenCalledWith(
+      "light",
+      "turn_on",
+      { brightness: 128 },
+      { entity_id: "light.kitchen" },
+    );
   });
 
   it("call-service splits domain.service and forwards service_data", () => {
@@ -124,16 +128,24 @@ describe("LevelCircleMixin._handleTapAction", () => {
       service_data: { brightness: 255 },
     };
     el._handleTapAction(makeEvent());
-    expect(el._hass.callService).toHaveBeenCalledWith("light", "turn_on", {
-      brightness: 255,
-    });
+    expect(el._hass.callService).toHaveBeenCalledWith(
+      "light",
+      "turn_on",
+      { brightness: 255 },
+      undefined,
+    );
     expect(el.dispatched).toHaveLength(0);
   });
 
   it("call-service tolerates missing service_data", () => {
     el.tapAction = { type: "call-service", service: "script.run" };
     el._handleTapAction(makeEvent());
-    expect(el._hass.callService).toHaveBeenCalledWith("script", "run", {});
+    expect(el._hass.callService).toHaveBeenCalledWith(
+      "script",
+      "run",
+      {},
+      undefined,
+    );
   });
 
   it("call-service ignores a non-string service", () => {
@@ -215,10 +227,14 @@ describe("LevelCircleMixin._handleTapAction", () => {
 });
 
 describe("resolveTapActionType", () => {
-  it("resolves supported explicit types", () => {
+  it("resolves supported explicit types (with their required fields)", () => {
     expect(resolveTapActionType({ type: "more-info" })).toBe("more-info");
-    expect(resolveTapActionType({ type: "navigate" })).toBe("navigate");
-    expect(resolveTapActionType({ type: "call-service" })).toBe("call-service");
+    expect(
+      resolveTapActionType({ type: "navigate", navigation_path: "/x" }),
+    ).toBe("navigate");
+    expect(
+      resolveTapActionType({ type: "call-service", service: "light.toggle" }),
+    ).toBe("call-service");
   });
 
   it("defaults a typeless object to more-info", () => {
@@ -226,15 +242,37 @@ describe("resolveTapActionType", () => {
   });
 
   it("honours the Lovelace `action` key and the perform-action alias", () => {
-    expect(resolveTapActionType({ action: "navigate" })).toBe("navigate");
+    expect(
+      resolveTapActionType({ action: "navigate", navigation_path: "/x" }),
+    ).toBe("navigate");
     expect(resolveTapActionType({ action: "more-info" })).toBe("more-info");
-    expect(resolveTapActionType({ action: "perform-action" })).toBe(
-      "call-service",
-    );
+    expect(
+      resolveTapActionType({
+        action: "perform-action",
+        perform_action: "light.toggle",
+      }),
+    ).toBe("call-service");
     // action wins over a stale type.
-    expect(resolveTapActionType({ action: "navigate", type: "more-info" })).toBe(
-      "navigate",
-    );
+    expect(
+      resolveTapActionType({
+        action: "navigate",
+        type: "more-info",
+        navigation_path: "/x",
+      }),
+    ).toBe("navigate");
+  });
+
+  it("returns null for actionable types missing their required fields", () => {
+    // navigate needs navigation_path; call-service needs a valid domain.service.
+    // Without them the handler would no-op, so binding must not treat them as
+    // actionable (keeps the pointer cursor and click listener in lockstep).
+    expect(resolveTapActionType({ type: "navigate" })).toBeNull();
+    expect(resolveTapActionType({ action: "navigate" })).toBeNull();
+    expect(resolveTapActionType({ type: "call-service" })).toBeNull();
+    expect(resolveTapActionType({ action: "perform-action" })).toBeNull();
+    expect(
+      resolveTapActionType({ type: "call-service", service: "notadomain" }),
+    ).toBeNull();
   });
 
   it("returns null for none (both shapes), unknown, and non-objects", () => {

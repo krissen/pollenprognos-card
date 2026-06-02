@@ -58,7 +58,16 @@ export function resolveTapActionType(tapAction) {
   if (!tapAction || typeof tapAction !== "object" || Array.isArray(tapAction))
     return null;
   const type = rawTapActionType(tapAction) || "more-info";
-  return TAP_ACTION_TYPES.includes(type) ? type : null;
+  if (!TAP_ACTION_TYPES.includes(type)) return null;
+  // Mirror the handler's own field requirements so callers never bind a click
+  // (or show a pointer cursor) for a config the handler would no-op on.
+  if (type === "navigate" && !tapAction.navigation_path) return null;
+  if (type === "call-service") {
+    const svc = tapAction.service || tapAction.perform_action;
+    const [domain, service] = typeof svc === "string" ? svc.split(".") : [];
+    if (!domain || !service) return null;
+  }
+  return type;
 }
 
 /**
@@ -507,16 +516,19 @@ export const LevelCircleMixin = (Base) =>
           break;
         case "call-service": {
           // Accept the card's service/service_data and HA's modern
-          // perform_action/data spelling. The target must be a
-          // "domain.service" string with both halves present.
-          const target = tapAction.service || tapAction.perform_action;
+          // perform_action/data spelling. The service must be a
+          // "domain.service" string with both halves present. Forward the
+          // HA-standard `target` (entity_id/device_id/area_id) as the fourth
+          // callService argument so perform-action targets aren't dropped.
+          const svc = tapAction.service || tapAction.perform_action;
           const [domain, service] =
-            typeof target === "string" ? target.split(".") : [];
+            typeof svc === "string" ? svc.split(".") : [];
           if (domain && service)
             this._hass.callService(
               domain,
               service,
               tapAction.service_data || tapAction.data || {},
+              tapAction.target,
             );
           break;
         }
