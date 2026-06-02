@@ -2563,6 +2563,221 @@ export class PollenEditorBase extends LitElement {
   }
 
   // ------------------------------------------------------------------
+  // §10 Interactions section (link_to_sensors + tap_action)
+  // ------------------------------------------------------------------
+
+  // Title and helper for the interactions section. The badge editor overrides
+  // these so the heading and helper speak of a badge instead of a card.
+  _interactivitySectionTitle() {
+    return this._t("summary_card_interactivity");
+  }
+  _interactivitySectionHelper() {
+    return this._t("helper_card_interactivity");
+  }
+
+  /**
+   * Seed the editor's tap_action working state from the current _config.
+   * Both editors call this from setConfig once _config is assembled, so the
+   * tap_action sub-form opens reflecting the saved action (or "none").
+   */
+  _initInteractionState() {
+    const ta = this._config?.tap_action;
+    if (ta && typeof ta === "object" && !Array.isArray(ta)) {
+      // Honour both the Lovelace-standard `action` key and this card's `type`
+      // key; map HA's renamed "perform-action" back to our "call-service".
+      const raw = ta.action || ta.type || "more-info";
+      this._tapType = raw === "perform-action" ? "call-service" : raw;
+      this._tapEntity = ta.entity || "";
+      this._tapNavigation = ta.navigation_path || "";
+      this._tapService = ta.service || ta.perform_action || "";
+      this._tapServiceData = JSON.stringify(
+        ta.service_data || ta.data || {},
+        null,
+        2,
+      );
+    } else {
+      this._tapType = "none";
+      this._tapEntity = "";
+      this._tapNavigation = "";
+      this._tapService = "";
+      this._tapServiceData = "";
+    }
+  }
+
+  /**
+   * Shared interactions section, used by both the card and the badge editor.
+   *
+   * link_to_sensors (default on) gives the effective default behavior: tapping
+   * an allergen opens its more-info dialog. tap_action is the opt-in customize
+   * control (off until enabled) for an element-level more-info / navigate /
+   * call-service action. The runtime handler lives in LevelCircleMixin.
+   */
+  _renderInteractionSection() {
+    const c = this._editorConfig();
+    return html`
+      <!-- §10 Interactions -->
+      <details>
+        <summary>
+          ${this._interactivitySectionTitle()}
+          ${this._renderSectionReset(["tap_action", "link_to_sensors"])}
+        </summary>
+        <div class="section-helper">${this._interactivitySectionHelper()}</div>
+        <h3>${this._t("tap_action")}</h3>
+        <ha-formfield label="${this._t("link_to_sensors")}">
+          <ha-switch
+            .checked=${c.link_to_sensors !== false}
+            @change=${(e) =>
+              this._updateConfig("link_to_sensors", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("tap_action_enable")}">
+          <ha-switch
+            .checked=${this._tapType !== "none"}
+            @change=${(e) => {
+              if (e.target.checked) {
+                this._tapType = "more-info";
+                this._updateConfig("tap_action", {
+                  ...this._config.tap_action,
+                  type: "more-info",
+                });
+              } else {
+                this._tapType = "none";
+                this._updateConfig("tap_action", {
+                  ...this._config.tap_action,
+                  type: "none",
+                });
+              }
+              this.requestUpdate();
+            }}
+          ></ha-switch>
+        </ha-formfield>
+        ${this._tapType !== "none"
+          ? html`
+              <div style="margin-top: 10px;">
+                <label>${this._t("tap_action_type")}</label>
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        {
+                          value: "more-info",
+                          label: this._t("tap_action_type_more_info"),
+                        },
+                        {
+                          value: "navigate",
+                          label: this._t("tap_action_type_navigate"),
+                        },
+                        {
+                          value: "call-service",
+                          label: this._t("tap_action_type_call_service"),
+                        },
+                      ],
+                    },
+                  }}
+                  .value=${this._tapType}
+                  @value-changed=${(e) => {
+                    const v = e.detail?.value;
+                    if (v === undefined) return;
+                    this._tapType = v;
+                    let tapAction = { type: this._tapType };
+                    if (this._tapType === "more-info")
+                      tapAction.entity = this._tapEntity;
+                    if (this._tapType === "navigate")
+                      tapAction.navigation_path = this._tapNavigation;
+                    if (this._tapType === "call-service") {
+                      tapAction.service = this._tapService;
+                      try {
+                        tapAction.service_data = JSON.parse(
+                          this._tapServiceData || "{}",
+                        );
+                      } catch {
+                        tapAction.service_data = {};
+                      }
+                    }
+                    this._updateConfig("tap_action", tapAction);
+                    this.requestUpdate();
+                  }}
+                ></ha-selector>
+              </div>
+              ${this._tapType === "more-info"
+                ? html`
+                    <ha-formfield label="${this._t("tap_action_entity")}">
+                      <ha-textfield
+                        .value=${this._tapEntity}
+                        @input=${(e) => {
+                          this._tapEntity = e.target.value;
+                          this._updateConfig("tap_action", {
+                            type: "more-info",
+                            entity: this._tapEntity,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `
+                : ""}
+              ${this._tapType === "navigate"
+                ? html`
+                    <ha-formfield label="${this._t("tap_action_navigation_path")}">
+                      <ha-textfield
+                        .value=${this._tapNavigation}
+                        @input=${(e) => {
+                          this._tapNavigation = e.target.value;
+                          this._updateConfig("tap_action", {
+                            type: "navigate",
+                            navigation_path: this._tapNavigation,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `
+                : ""}
+              ${this._tapType === "call-service"
+                ? html`
+                    <ha-formfield label="${this._t("tap_action_service")}">
+                      <ha-textfield
+                        .value=${this._tapService}
+                        @input=${(e) => {
+                          this._tapService = e.target.value;
+                          let data = {};
+                          try {
+                            data = JSON.parse(this._tapServiceData || "{}");
+                          } catch {}
+                          this._updateConfig("tap_action", {
+                            type: "call-service",
+                            service: this._tapService,
+                            service_data: data,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                    <ha-formfield label="${this._t("tap_action_service_data")}">
+                      <ha-textfield
+                        .value=${this._tapServiceData}
+                        @input=${(e) => {
+                          this._tapServiceData = e.target.value;
+                          let data = {};
+                          try {
+                            data = JSON.parse(this._tapServiceData || "{}");
+                          } catch {}
+                          this._updateConfig("tap_action", {
+                            type: "call-service",
+                            service: this._tapService,
+                            service_data: data,
+                          });
+                        }}
+                      ></ha-textfield>
+                    </ha-formfield>
+                  `
+                : ""}
+            `
+          : ""}
+      </details>
+    `;
+  }
+
+  // ------------------------------------------------------------------
   // Shared visual config side-effects
   // ------------------------------------------------------------------
 
