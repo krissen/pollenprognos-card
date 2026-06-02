@@ -289,7 +289,7 @@ Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for 
 
 ### Google Pollen Levels (GPL)
 
-The Google Pollen Levels integration provides global pollen data via the Google Maps Pollen API. The card detects sensors by their platform or attribution attributes — entity IDs can be freely renamed or localized without affecting detection. See [integrations.md](integrations.md#google-pollen-levels--design-decisions) for details.
+The Google Pollen Levels integration provides global pollen data via the Google Maps Pollen API. The card detects sensors by their platform or attribution attributes, so entity IDs can be freely renamed or localized without affecting detection. See [integrations.md](integrations.md#google-pollen-levels-design-decisions) for details.
 
 ```
 # Category sensors (type sensors)
@@ -322,7 +322,7 @@ Like Kleenex, GPL distinguishes between category sensors and individual plant se
 
 ### Google Pollen (GP)
 
-The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. Sensors are classified via `unique_id` (language-independent) or by direct `display_name` matching against pre-generated name maps (supports all 35 API languages). See [integrations.md](integrations.md#google-pollen-svenove--design-decisions) for the technical details.
+The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. Sensors are classified via `unique_id` (language-independent) or by direct `display_name` matching against pre-generated name maps (supports all 35 API languages). See [integrations.md](integrations.md#google-pollen-svenove-design-decisions) for the technical details.
 
 The available allergens are the same as GPL:
 

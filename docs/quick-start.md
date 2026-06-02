@@ -90,7 +90,7 @@ location: lyon
 type: custom:pollenprognos-card
 integration: gpl
 
-# Google Pollen — svenove (global)
+# Google Pollen (svenove, global)
 type: custom:pollenprognos-card
 integration: gp
 

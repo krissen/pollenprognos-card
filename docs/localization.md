@@ -32,7 +32,7 @@ This repository includes:
 2. Translate all values in the file.
 3. Open a pull request or create an issue to share your translation.
 
-Because the card uses dynamic imports there is no further code change required—the new file will be picked up automatically.
+Because the card uses dynamic imports there is no further code change required; the new file will be picked up automatically.
 
 ### Per-scale level-name keys
 
