@@ -677,6 +677,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ${this._renderLevelCirclesSection()}
         ${this._renderIconInRingSection()}
         ${this._renderPhrasesSection()}
+        ${this._renderAdvancedSection()}
       </div>
     `;
   }
@@ -692,6 +693,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         flex-direction: column;
         gap: 12px;
         padding: 16px;
+      }
+
+      .version-info {
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
       }
 
       ha-formfield,

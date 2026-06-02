@@ -2524,6 +2524,39 @@ export class PollenEditorBase extends LitElement {
   }
 
   // ------------------------------------------------------------------
+  // Advanced section (debug, show version, version string)
+  // ------------------------------------------------------------------
+
+  _renderAdvancedSection() {
+    const c = this._editorConfig();
+    return html`
+      <details>
+        <summary>
+          ${this._t("summary_advanced")}
+          ${this._renderSectionReset(["debug", "show_version"])}
+        </summary>
+        <div class="section-helper">${this._t("helper_advanced")}</div>
+        <ha-formfield label="${this._t("debug")}">
+          <ha-switch
+            .checked=${c.debug}
+            @change=${(e) => this._updateConfig("debug", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <ha-formfield label="${this._t("show_version")}">
+          <ha-switch
+            .checked=${c.show_version !== false}
+            @change=${(e) =>
+              this._updateConfig("show_version", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        <div class="version-info">
+          ${this._t("card_version")}: ${__VERSION__}
+        </div>
+      </details>
+    `;
+  }
+
+  // ------------------------------------------------------------------
   // Shared visual config side-effects
   // ------------------------------------------------------------------
 
