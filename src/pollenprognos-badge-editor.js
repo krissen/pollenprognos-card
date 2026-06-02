@@ -93,6 +93,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
 
+    // Seed the editor's tap_action working state (shared with the card editor).
+    this._initInteractionState();
+
     // HA sets `hass` before `setConfig` for the badge editor, so the set hass()
     // autodetect was skipped while _config was still unset. Now that _config is
     // initialized, run it here so a freshly added badge prefills the installed
@@ -539,13 +542,39 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
-  // The Card appearance (§5) reset also clears the badge size/label keys, which
-  // live in this section via _renderAppearanceExtras (icon_size/text_size_ratio
-  // are hidden on the badge but harmless to include).
+  // A badge is not a card: rename the shared appearance section accordingly.
+  // The size controls (badge_scale, badge_icon_scale) stay here, so the helper
+  // mentions size rather than just background/label.
+  _appearanceSectionTitle() {
+    return this._t("summary_badge_appearance");
+  }
+  _appearanceSectionHelper() {
+    return this._t("helper_badge_appearance");
+  }
+
+  // The Advanced section's version string should read "Badge", not "Card".
+  _versionLabel() {
+    return this._t("badge_version");
+  }
+
+  // A badge is not a card: override the shared interactions section title and
+  // helper with badge-specific keys so both speak of tapping the badge.
+  _interactivitySectionTitle() {
+    return this._t("summary_badge_interactivity");
+  }
+  _interactivitySectionHelper() {
+    return this._t("helper_badge_interactivity");
+  }
+
+  // The Badge appearance reset also clears the badge size/label keys, which
+  // live in this section via _renderAppearanceExtras. Includes badge_icon_scale
+  // (rendered in every visual mode), so resetting the section clears every
+  // control it shows.
   _appearanceResetKeys() {
     return [
       ...super._appearanceResetKeys(),
       "badge_scale",
+      "badge_icon_scale",
       "badge_show_label",
       "badge_label_position",
     ];
@@ -667,6 +696,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ${this._renderLevelCirclesSection()}
         ${this._renderIconInRingSection()}
         ${this._renderPhrasesSection()}
+        ${this._renderInteractionSection()}
+        ${this._renderAdvancedSection()}
       </div>
     `;
   }
@@ -682,6 +713,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         flex-direction: column;
         gap: 12px;
         padding: 16px;
+      }
+
+      .version-info {
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
       }
 
       ha-formfield,

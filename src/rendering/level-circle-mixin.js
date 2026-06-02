@@ -25,6 +25,64 @@ import {
 // Register Chart.js components once at module load time.
 Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 
+// The tap_action types the shared handler knows how to perform.
+const TAP_ACTION_TYPES = ["more-info", "navigate", "call-service"];
+
+/**
+ * Read the raw action keyword from a tap_action object, honouring both shapes:
+ * the Lovelace-standard `action` key (e.g. `{ action: "navigate" }`) and this
+ * card's historical `type` key (e.g. `{ type: "navigate" }`). `action` wins so
+ * a standard HA config is never misread. HA renamed "call-service" to
+ * "perform-action" (2024.8); map it back to our internal "call-service".
+ *
+ * @param {object} tapAction
+ * @returns {string} keyword (possibly "" when neither key is set)
+ */
+function rawTapActionType(tapAction) {
+  const raw = tapAction.action || tapAction.type || "";
+  return raw === "perform-action" ? "call-service" : raw;
+}
+
+/**
+ * Parse a HA service id into [domain, service]. A valid id is exactly
+ * "domain.service": one dot, both halves non-empty. Multi-dot strings
+ * (e.g. "foo.bar.baz") and dotless strings are rejected so a misconfigured
+ * value can't silently call an unintended service.
+ *
+ * @param {*} svc
+ * @returns {[string, string]|null}
+ */
+function parseServiceId(svc) {
+  if (typeof svc !== "string") return null;
+  const parts = svc.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  return parts;
+}
+
+/**
+ * Resolve a tap_action config to the effective action type, or null when the
+ * action is absent/unactionable. A plain object with no action keyword defaults
+ * to "more-info" (the handler's documented default); "none", non-objects,
+ * arrays, and unknown keywords resolve to null. Callers use this both to decide
+ * whether to bind a click listener (so the element isn't clickable-but-inert)
+ * and to dispatch, keeping the binding and the handler in lockstep.
+ *
+ * @param {*} tapAction
+ * @returns {"more-info"|"navigate"|"call-service"|null}
+ */
+export function resolveTapActionType(tapAction) {
+  if (!tapAction || typeof tapAction !== "object" || Array.isArray(tapAction))
+    return null;
+  const type = rawTapActionType(tapAction) || "more-info";
+  if (!TAP_ACTION_TYPES.includes(type)) return null;
+  // Mirror the handler's own field requirements so callers never bind a click
+  // (or show a pointer cursor) for a config the handler would no-op on.
+  if (type === "navigate" && !tapAction.navigation_path) return null;
+  if (type === "call-service" && !parseServiceId(tapAction.service || tapAction.perform_action))
+    return null;
+  return type;
+}
+
 /**
  * LevelCircleMixin — adds the level-circle / icon-in-ring rendering engine
  * to any LitElement subclass.
@@ -426,6 +484,68 @@ export const LevelCircleMixin = (Base) =>
         detail: { entityId },
       });
       this.dispatchEvent(ev);
+    }
+
+    /**
+     * Element-level tap_action handler, shared by the card and the badge.
+     *
+     * The configured action lives on `this.tapAction` for the card (set in its
+     * setConfig) and on `this.config.tap_action` for the badge; resolve from
+     * either so one implementation serves both. Dispatches directly via
+     * dispatchEvent (like _openEntity) so the mixin does not depend on the
+     * card's _fire helper. No-ops unless an action is configured and hass is
+     * present, so the caller can bind it unconditionally.
+     */
+    _handleTapAction(e) {
+      const tapAction = this.tapAction || this.config?.tap_action;
+      const action = resolveTapActionType(tapAction);
+      // Bail before consuming the event for absent/none/unknown actions, so an
+      // inert tap_action doesn't swallow the click. hass is needed for
+      // more-info and call-service; navigate only needs the History API.
+      if (!action) return;
+      if (action !== "navigate" && !this._hass) return;
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      switch (action) {
+        case "more-info": {
+          // Fall back to sun.sun, which always exists in Home Assistant.
+          const entityId = tapAction.entity || "sun.sun";
+          this.dispatchEvent(
+            new CustomEvent("hass-more-info", {
+              bubbles: true,
+              composed: true,
+              detail: { entityId },
+            }),
+          );
+          break;
+        }
+        case "navigate":
+          if (
+            tapAction.navigation_path &&
+            typeof window !== "undefined" &&
+            window.history?.pushState
+          )
+            window.history.pushState(null, "", tapAction.navigation_path);
+          break;
+        case "call-service": {
+          // Accept the card's service/service_data and HA's modern
+          // perform_action/data spelling. parseServiceId enforces a strict
+          // "domain.service" id. Forward the HA-standard `target`
+          // (entity_id/device_id/area_id) as the fourth callService argument
+          // so perform-action targets aren't dropped.
+          const parsed = parseServiceId(
+            tapAction.service || tapAction.perform_action,
+          );
+          if (parsed)
+            this._hass.callService(
+              parsed[0],
+              parsed[1],
+              tapAction.service_data || tapAction.data || {},
+              tapAction.target,
+            );
+          break;
+        }
+      }
     }
 
     // ---------------------------------------------------------------------------

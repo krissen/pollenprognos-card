@@ -40,7 +40,7 @@ import {
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
-import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
+import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 
 class PollenPrognosCard extends LevelCircleMixin(LitElement) {
@@ -1876,14 +1876,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
 
-    const tapAction = this.config.tap_action || null;
+    // Bind only when the action resolves to a supported type, so an inert
+    // tap_action doesn't make the card clickable-but-dead (predicate shared
+    // with the badge in LevelCircleMixin).
+    const hasTap = resolveTapActionType(this.config.tap_action) !== null;
     const bgStyle = this.config.background_color?.trim?.()
       ? `background-color: ${this.config.background_color.trim()};`
       : "";
-    const cursorStyle =
-      tapAction && tapAction.type && tapAction.type !== "none"
-        ? "pointer"
-        : "auto";
+    const cursorStyle = hasTap ? "pointer" : "auto";
     const imgSize =
       Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
     const cardStyle = `
@@ -1895,9 +1895,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return html`
       <ha-card
         style="${cardStyle}"
-        @click="${tapAction && tapAction.type && tapAction.type !== "none"
-          ? this._handleTapAction
-          : null}"
+        @click="${hasTap ? this._handleTapAction : null}"
       >
         ${cardContent}
       </ha-card>
@@ -1907,36 +1905,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return this.sensors.length + 1;
   }
 
-  _handleTapAction(e) {
-    if (!this.tapAction || !this._hass) return;
-    e.preventDefault?.();
-    e.stopPropagation?.();
-    const action = this.tapAction.type || "more-info";
-    // Use sun.sun as a fallback, since it always exists in Home Assistant.
-    let entity = this.tapAction.entity || "sun.sun";
-    switch (action) {
-      case "more-info":
-        this._fire("hass-more-info", { entityId: entity });
-        break;
-      case "navigate":
-        if (this.tapAction.navigation_path)
-          window.history.pushState(null, "", this.tapAction.navigation_path);
-        break;
-      case "call-service":
-        if (
-          this.tapAction.service &&
-          typeof this.tapAction.service === "string"
-        ) {
-          const [domain, service] = this.tapAction.service.split(".");
-          this._hass.callService(
-            domain,
-            service,
-            this.tapAction.service_data || {},
-          );
-        }
-        break;
-    }
-  }
+  // _handleTapAction is inherited from LevelCircleMixin (shared with the badge).
+  // It resolves the action from this.tapAction, which setConfig keeps in sync.
 
   _fire(type, detail, options) {
     const event = new Event(type, {
