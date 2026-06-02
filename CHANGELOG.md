@@ -4,16 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.3.0-beta2] - Unreleased
+## [3.3.0-beta2] - 2026-06-02
 
 Follow-up to the badge work in beta1, driven by feedback on issue #235.
 
 ### Added
+- **Tap action on the badge** (PR #250). The badge gains a configurable `tap_action` (`more-info`, `navigate`, `call-service` / Home Assistant's `perform-action`), sharing the card's interaction handling and runtime. A new "Interactions" section in the badge editor configures it; the handler honours the Lovelace-standard `action` shape and forwards the action `target` (entity/device/area) to the service call.
 - **Per-section reset buttons in the visual editor** (issue #235, PR #247). Every editor section now has a small reset (the circular arrow in its header) that reverts just that section's options to their defaults, complementing the existing global "Reset all". Available in both the card and the badge editor (shared implementation). The reset is coupling-aware: resetting a section that drives derived values also clears them (the synced level gap from the allergen stroke width, the auto-thinned ring thickness from icon-in-ring, the inherited empty-ring colour, and the SILAM/PEU forecast mode's day-display side effects), while keeping values owned by other sections intact. The Integration & Location reset re-autodetects the place but keeps the chosen integration.
 - **Scale the allergen image within a badge** (issue #235, PR #248). New `badge_icon_scale` (default `1`) sizes the allergen visual as a whole, the ring (with its centred icon or value) in the ring modes and the bare icon in `icon_only`, without changing the label or the overall badge box. So `badge_scale` sets how big the badge is and `badge_icon_scale` sets how big the image is within it. The scaled visual is capped at the pill height so it can fill the badge but never overflows.
 - **Translations & strings on the badge** (PR #245). The badge editor gains the same "Translations & strings" section as the card (language selector and custom full allergen names); the badge's date locale prefills from the Home Assistant locale, and short-name fields appear when `allergens_abbreviated` is set. Localization is applied at fetch time, so no badge runtime change.
 
 ### Changed
+- **Editor section headings clarified to match Home Assistant** (issue #235, PR #249). Following the badge feedback, the editor categories were reworked so controls are easier to find: "Card appearance" → "Appearance", "Card layout" → "Layout", "Card interactivity" → "Interactions". On the badge the appearance section is now "Badge appearance" (a badge is not a card), and the badge gains the card's "Advanced" section (debug toggle and version). Badge labels now use Home Assistant's own per-language word for "badge" consistently across all 15 locales. Pure presentation: no config keys changed.
 - **The badge now autodetects the installed integration** (issue #235, PR #246). Adding a badge from Home Assistant's badge picker, and opening the badge editor, now detects whichever integration is actually installed (DWD, PEU, etc.) instead of always defaulting to PollenPrognos; the editor prefills the integration and its first location and populates the location dropdowns, matching what the full card already did. Under the hood the card's integration autodetection is extracted into one shared module used by the card element, card editor, badge element and badge editor, removing previously duplicated and slightly divergent copies. Side effects of the unification: the card editor now also detects Pollen.lu and Kleenex (it previously missed them on some paths), the card element now auto-selects the first Google Pollen / MeteoSwiss location, and a weather-only SILAM install (no allergen sensors) is now detected.
 
 ### Fixed
