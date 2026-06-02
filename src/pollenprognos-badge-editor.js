@@ -93,6 +93,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // never baked into the saved YAML. Mirrors the card editor.
     this._userConfig = { ...config };
 
+    // Seed the editor's tap_action working state (shared with the card editor).
+    this._initInteractionState();
+
     // HA sets `hass` before `setConfig` for the badge editor, so the set hass()
     // autodetect was skipped while _config was still unset. Now that _config is
     // initialized, run it here so a freshly added badge prefills the installed
@@ -554,6 +557,15 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return this._t("badge_version");
   }
 
+  // A badge is not a card: rename the shared interactions section helper so it
+  // speaks of tapping the badge. (The title key is shared verbatim.)
+  _interactivitySectionTitle() {
+    return this._t("summary_badge_interactivity");
+  }
+  _interactivitySectionHelper() {
+    return this._t("helper_badge_interactivity");
+  }
+
   // The Badge appearance reset also clears the badge size/label keys, which
   // live in this section via _renderAppearanceExtras. Includes badge_icon_scale
   // (rendered in every visual mode), so resetting the section clears every
@@ -684,6 +696,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ${this._renderLevelCirclesSection()}
         ${this._renderIconInRingSection()}
         ${this._renderPhrasesSection()}
+        ${this._renderInteractionSection()}
         ${this._renderAdvancedSection()}
       </div>
     `;

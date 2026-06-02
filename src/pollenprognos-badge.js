@@ -205,6 +205,14 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // Label position: right (community convention, default) | below.
     const badgeLabelPosition =
       config.badge_label_position === "below" ? "below" : "right";
+    // tap_action: optional element-level action (more-info | navigate |
+    // call-service), shared with the card. Keep only a plain object so a
+    // mis-typed YAML scalar can't reach the runtime handler. link_to_sensors
+    // passes through ...config unchanged (boolean, read default-on at runtime).
+    const tapAction =
+      config.tap_action && typeof config.tap_action === "object"
+        ? config.tap_action
+        : undefined;
 
     // badge_visual drives two engine flags so the shared LevelCircleMixin
     // renders the right centre content: icon_in_ring shows the allergen icon;
@@ -254,6 +262,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       show_value_numeric_in_circle: showValueInCircle,
       levels_thickness: effectiveThickness,
       levels_text_size: effectiveTextSize,
+      // Type-guarded above; override the raw spread so a bad scalar becomes
+      // undefined and the runtime click guard simply skips it.
+      tap_action: tapAction,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
@@ -412,8 +423,19 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const labelBelow = this.config?.badge_label_position === "below";
     const showLabel = this.config.badge_show_label === true;
 
+    // Badge-level tap_action (shared with the card). Bind only when configured
+    // and not "none"; per-icon link_to_sensors clicks stopPropagation, so the
+    // two coexist without double-firing, exactly like the card. Handler lives
+    // in LevelCircleMixin.
+    const tapAction = this.config?.tap_action || null;
+    const hasTap = !!(tapAction && tapAction.type && tapAction.type !== "none");
+
     return html`
-      <div class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}" style="${hostStyle}">
+      <div
+        class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}"
+        style="${hostStyle}${hasTap ? " cursor: pointer;" : ""}"
+        @click=${hasTap ? this._handleTapAction : null}
+      >
         ${picks.map((sensor) => {
           const normalizedLevel = Number(sensor.day0?.state) || 0;
           const ringLevel = scaleRingLevel(
