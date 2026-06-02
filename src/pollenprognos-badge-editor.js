@@ -557,8 +557,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return this._t("badge_version");
   }
 
-  // A badge is not a card: rename the shared interactions section helper so it
-  // speaks of tapping the badge. (The title key is shared verbatim.)
+  // A badge is not a card: override the shared interactions section title and
+  // helper with badge-specific keys so both speak of tapping the badge.
   _interactivitySectionTitle() {
     return this._t("summary_badge_interactivity");
   }
