@@ -365,6 +365,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       .catch((err) => {
         console.error("[Badge] fetch error:", err);
         this._isLoaded = true;
+        // Clear any "no pollen" state from a previous successful fetch so a
+        // later error does not keep rendering the breezy no_allergens image.
+        this._noPollen = false;
         this._error = "card.error_entity_unavailable";
         this.requestUpdate();
       });
