@@ -187,14 +187,20 @@ export function selectBadgeSensor(sensors, config) {
 }
 
 /**
- * Single-mode badge pinning. When a badge names one allergen, restrict the
- * fetch to it and disable the threshold so a no-data / level-0 named allergen
- * still renders its ring instead of being dropped before selectBadgeSensor can
- * resolve it (filtered out by the stub allergens for gpl, or below threshold
- * for pp). With the fetch pinned to the one named allergen, an unresolved name
- * surfaces as a no-data badge rather than the wrong allergen. Pure: returns the
- * input unchanged for any non-single / unnamed config, else a shallow-merged
- * copy.
+ * Single-mode badge pinning. When a badge names one allergen, make sure it is
+ * fetched and survives the post-fetch filter: ADD the named key to the config's
+ * allergens (deduped) and disable the threshold, so a no-data / level-0 named
+ * allergen still reaches selectBadgeSensor instead of being dropped (filtered
+ * out by the stub allergens for gpl, or below the threshold for pp).
+ *
+ * The key is ADDED, not substituted, so an adapter whose fetch is keyed by
+ * native names (e.g. pp "Björk") still fetches its own sensors even when the
+ * user names a canonical key. selectBadgeSensor then resolves the named
+ * allergen canonically (a canonical "birch" still matches a fetched "bjork"),
+ * and a genuine miss surfaces as no-data rather than the wrong allergen.
+ * Substituting [key] would narrow pp's fetch to an unadapted canonical key and
+ * return nothing. Pure: returns the input unchanged for any non-single /
+ * unnamed config, else a shallow-merged copy.
  *
  * @param {object} config - badge config (already typeguarded by _buildConfig).
  * @returns {object} the config, or a shallow copy with allergens/threshold pinned.
@@ -203,7 +209,9 @@ export function pinBadgeSingleAllergen(config) {
   if (config?.badge_content !== "single") return config;
   const key = config.badge_single_allergen;
   if (typeof key !== "string" || !key) return config;
-  return { ...config, allergens: [key], pollen_threshold: 0 };
+  const existing = Array.isArray(config.allergens) ? config.allergens : [];
+  const allergens = existing.includes(key) ? existing : [...existing, key];
+  return { ...config, allergens, pollen_threshold: 0 };
 }
 
 /**
@@ -216,7 +224,9 @@ export function pinBadgeSingleAllergen(config) {
  * reading as a real level 0. Pure.
  *
  * @param {object|undefined} day0 - sensor.day0, may be undefined.
- * @returns {number} the level (>= 0), or -1 for no data.
+ * @returns {number} the finite state unchanged (a level >= 0, or a negative
+ *   no-data sentinel such as -1, or -2 once DWD-scaled downstream), or -1 when
+ *   there is no usable reading.
  */
 export function badgeRingLevel(day0) {
   if (day0?.state == null) return -1;
