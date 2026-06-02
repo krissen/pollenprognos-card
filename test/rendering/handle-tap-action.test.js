@@ -160,6 +160,12 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(el._hass.callService).not.toHaveBeenCalled();
   });
 
+  it("call-service ignores a multi-dot service string", () => {
+    el.tapAction = { type: "call-service", service: "foo.bar.baz" };
+    el._handleTapAction(makeEvent());
+    expect(el._hass.callService).not.toHaveBeenCalled();
+  });
+
   it("does not consume the event for an unsupported action type", () => {
     el.tapAction = { type: "totally-unknown" };
     const e = makeEvent();
@@ -272,6 +278,10 @@ describe("resolveTapActionType", () => {
     expect(resolveTapActionType({ action: "perform-action" })).toBeNull();
     expect(
       resolveTapActionType({ type: "call-service", service: "notadomain" }),
+    ).toBeNull();
+    // A valid service id is exactly domain.service; multi-dot is rejected.
+    expect(
+      resolveTapActionType({ type: "call-service", service: "foo.bar.baz" }),
     ).toBeNull();
   });
 

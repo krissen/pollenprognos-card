@@ -44,6 +44,22 @@ function rawTapActionType(tapAction) {
 }
 
 /**
+ * Parse a HA service id into [domain, service]. A valid id is exactly
+ * "domain.service": one dot, both halves non-empty. Multi-dot strings
+ * (e.g. "foo.bar.baz") and dotless strings are rejected so a misconfigured
+ * value can't silently call an unintended service.
+ *
+ * @param {*} svc
+ * @returns {[string, string]|null}
+ */
+function parseServiceId(svc) {
+  if (typeof svc !== "string") return null;
+  const parts = svc.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  return parts;
+}
+
+/**
  * Resolve a tap_action config to the effective action type, or null when the
  * action is absent/unactionable. A plain object with no action keyword defaults
  * to "more-info" (the handler's documented default); "none", non-objects,
@@ -62,11 +78,8 @@ export function resolveTapActionType(tapAction) {
   // Mirror the handler's own field requirements so callers never bind a click
   // (or show a pointer cursor) for a config the handler would no-op on.
   if (type === "navigate" && !tapAction.navigation_path) return null;
-  if (type === "call-service") {
-    const svc = tapAction.service || tapAction.perform_action;
-    const [domain, service] = typeof svc === "string" ? svc.split(".") : [];
-    if (!domain || !service) return null;
-  }
+  if (type === "call-service" && !parseServiceId(tapAction.service || tapAction.perform_action))
+    return null;
   return type;
 }
 
@@ -516,17 +529,17 @@ export const LevelCircleMixin = (Base) =>
           break;
         case "call-service": {
           // Accept the card's service/service_data and HA's modern
-          // perform_action/data spelling. The service must be a
-          // "domain.service" string with both halves present. Forward the
-          // HA-standard `target` (entity_id/device_id/area_id) as the fourth
-          // callService argument so perform-action targets aren't dropped.
-          const svc = tapAction.service || tapAction.perform_action;
-          const [domain, service] =
-            typeof svc === "string" ? svc.split(".") : [];
-          if (domain && service)
+          // perform_action/data spelling. parseServiceId enforces a strict
+          // "domain.service" id. Forward the HA-standard `target`
+          // (entity_id/device_id/area_id) as the fourth callService argument
+          // so perform-action targets aren't dropped.
+          const parsed = parseServiceId(
+            tapAction.service || tapAction.perform_action,
+          );
+          if (parsed)
             this._hass.callService(
-              domain,
-              service,
+              parsed[0],
+              parsed[1],
               tapAction.service_data || tapAction.data || {},
               tapAction.target,
             );
