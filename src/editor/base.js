@@ -2647,16 +2647,25 @@ export class PollenEditorBase extends LitElement {
         ${this._tapType !== "none"
           ? html`
               <div style="margin-top: 10px;">
-                <label>Action type</label>
+                <label>${this._t("tap_action_type")}</label>
                 <ha-selector
                   .hass=${this._hass}
                   .selector=${{
                     select: {
                       mode: "dropdown",
                       options: [
-                        { value: "more-info", label: "More Info" },
-                        { value: "navigate", label: "Navigate" },
-                        { value: "call-service", label: "Call Service" },
+                        {
+                          value: "more-info",
+                          label: this._t("tap_action_type_more_info"),
+                        },
+                        {
+                          value: "navigate",
+                          label: this._t("tap_action_type_navigate"),
+                        },
+                        {
+                          value: "call-service",
+                          label: this._t("tap_action_type_call_service"),
+                        },
                       ],
                     },
                   }}
@@ -2687,7 +2696,7 @@ export class PollenEditorBase extends LitElement {
               </div>
               ${this._tapType === "more-info"
                 ? html`
-                    <ha-formfield label="Entity">
+                    <ha-formfield label="${this._t("tap_action_entity")}">
                       <ha-textfield
                         .value=${this._tapEntity}
                         @input=${(e) => {
@@ -2703,7 +2712,7 @@ export class PollenEditorBase extends LitElement {
                 : ""}
               ${this._tapType === "navigate"
                 ? html`
-                    <ha-formfield label="Navigation path">
+                    <ha-formfield label="${this._t("tap_action_navigation_path")}">
                       <ha-textfield
                         .value=${this._tapNavigation}
                         @input=${(e) => {
@@ -2719,7 +2728,7 @@ export class PollenEditorBase extends LitElement {
                 : ""}
               ${this._tapType === "call-service"
                 ? html`
-                    <ha-formfield label="Service (e.g. light.turn_on)">
+                    <ha-formfield label="${this._t("tap_action_service")}">
                       <ha-textfield
                         .value=${this._tapService}
                         @input=${(e) => {
@@ -2736,7 +2745,7 @@ export class PollenEditorBase extends LitElement {
                         }}
                       ></ha-textfield>
                     </ha-formfield>
-                    <ha-formfield label="Service data (JSON)">
+                    <ha-formfield label="${this._t("tap_action_service_data")}">
                       <ha-textfield
                         .value=${this._tapServiceData}
                         @input=${(e) => {
