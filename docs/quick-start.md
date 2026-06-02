@@ -38,6 +38,12 @@ The easiest way to add the card is using Home Assistant's visual editor:
    - Your pollen forecast card is now showing
    - Click "Done" in the top right to exit edit mode
 
+The editor groups options into collapsible sections. Each section header has a ↺ button that resets just that section, and **Reset all settings** at the top clears everything back to defaults.
+
+<p align="center">
+  <img width="340" alt="Visual card editor with collapsible sections (Integration and place, Allergens, Layout, and more), a per-section reset button on each header, and a Reset all settings button at the top" src="screenshots/editor-card.png" />
+</p>
+
 ### Using YAML
 
 If you prefer YAML configuration, add this to your Lovelace configuration:
@@ -108,6 +114,10 @@ The card bundle also ships a companion badge element. Badges appear in the top s
 2. Search for "Pollenprognos Badge" and select it
 3. Configure integration, location, and content mode in the visual editor (a specific allergen is only selected in the `single` content mode)
 4. Click **Save**
+
+<p align="center">
+  <img width="340" alt="Visual badge editor: Integration and place with the integration and location prefilled, and a Badge content section choosing the visual (Icon in ring) and what the badge shows (Highest pollen level)" src="screenshots/editor-badge.png" />
+</p>
 
 **Via YAML** (add to the `badges:` list of a view, not `cards:`):
 
