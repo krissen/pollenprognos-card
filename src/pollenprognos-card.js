@@ -1907,36 +1907,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return this.sensors.length + 1;
   }
 
-  _handleTapAction(e) {
-    if (!this.tapAction || !this._hass) return;
-    e.preventDefault?.();
-    e.stopPropagation?.();
-    const action = this.tapAction.type || "more-info";
-    // Use sun.sun as a fallback, since it always exists in Home Assistant.
-    let entity = this.tapAction.entity || "sun.sun";
-    switch (action) {
-      case "more-info":
-        this._fire("hass-more-info", { entityId: entity });
-        break;
-      case "navigate":
-        if (this.tapAction.navigation_path)
-          window.history.pushState(null, "", this.tapAction.navigation_path);
-        break;
-      case "call-service":
-        if (
-          this.tapAction.service &&
-          typeof this.tapAction.service === "string"
-        ) {
-          const [domain, service] = this.tapAction.service.split(".");
-          this._hass.callService(
-            domain,
-            service,
-            this.tapAction.service_data || {},
-          );
-        }
-        break;
-    }
-  }
+  // _handleTapAction is inherited from LevelCircleMixin (shared with the badge).
+  // It resolves the action from this.tapAction, which setConfig keeps in sync.
 
   _fire(type, detail, options) {
     const event = new Event(type, {

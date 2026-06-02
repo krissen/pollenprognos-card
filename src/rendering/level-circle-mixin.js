@@ -428,6 +428,52 @@ export const LevelCircleMixin = (Base) =>
       this.dispatchEvent(ev);
     }
 
+    /**
+     * Element-level tap_action handler, shared by the card and the badge.
+     *
+     * The configured action lives on `this.tapAction` for the card (set in its
+     * setConfig) and on `this.config.tap_action` for the badge; resolve from
+     * either so one implementation serves both. Dispatches directly via
+     * dispatchEvent (like _openEntity) so the mixin does not depend on the
+     * card's _fire helper. No-ops unless an action is configured and hass is
+     * present, so the caller can bind it unconditionally.
+     */
+    _handleTapAction(e) {
+      const tapAction = this.tapAction || this.config?.tap_action;
+      if (!tapAction || !this._hass) return;
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      const action = tapAction.type || "more-info";
+      switch (action) {
+        case "more-info": {
+          // Fall back to sun.sun, which always exists in Home Assistant.
+          const entityId = tapAction.entity || "sun.sun";
+          this.dispatchEvent(
+            new CustomEvent("hass-more-info", {
+              bubbles: true,
+              composed: true,
+              detail: { entityId },
+            }),
+          );
+          break;
+        }
+        case "navigate":
+          if (tapAction.navigation_path)
+            window.history.pushState(null, "", tapAction.navigation_path);
+          break;
+        case "call-service":
+          if (tapAction.service && typeof tapAction.service === "string") {
+            const [domain, service] = tapAction.service.split(".");
+            this._hass.callService(
+              domain,
+              service,
+              tapAction.service_data || {},
+            );
+          }
+          break;
+      }
+    }
+
     // ---------------------------------------------------------------------------
     // Chart lifecycle
     // ---------------------------------------------------------------------------
