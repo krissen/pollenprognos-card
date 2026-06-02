@@ -2637,17 +2637,24 @@ export class PollenEditorBase extends LitElement {
               // Drop the Lovelace-standard `action` alias: the resolver gives
               // it precedence over `type`, so leaving a stale `action` here
               // would keep the old action live and make the toggle a no-op.
-              const { action: _drop, ...rest } = this._config.tap_action || {};
+              // Coerce a non-object (e.g. mis-typed YAML `tap_action: "foo"`)
+              // to {} first so string indices aren't spread into the config.
+              const _ta = this._config.tap_action;
+              const _base =
+                _ta && typeof _ta === "object" && !Array.isArray(_ta)
+                  ? _ta
+                  : {};
+              const { action: _drop, ..._rest } = _base;
               if (e.target.checked) {
                 this._tapType = "more-info";
                 this._updateConfig("tap_action", {
-                  ...rest,
+                  ..._rest,
                   type: "more-info",
                 });
               } else {
                 this._tapType = "none";
                 this._updateConfig("tap_action", {
-                  ...rest,
+                  ..._rest,
                   type: "none",
                 });
               }
