@@ -11,6 +11,10 @@ Before starting, make sure you have:
 
 ## Adding Your First Card
 
+<p align="center">
+  <img width="420" alt="Daily pollen forecast card with one row per allergen and a level ring per day" src="screenshots/hero-card.png" />
+</p>
+
 ### Using the Visual Editor (Recommended)
 
 The easiest way to add the card is using Home Assistant's visual editor:
@@ -94,6 +98,10 @@ integration: msw
 
 The card bundle also ships a companion badge element. Badges appear in the top strip of a dashboard view and give you a compact, at-a-glance pollen indicator.
 
+<p align="center">
+  <img width="760" alt="A row of pollenprognos-badge variants: allergen icon in the level ring, the numeric value in the ring, ring only, bare icon, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="screenshots/badge-row.png" />
+</p>
+
 **Via the badge picker:**
 
 1. Edit your dashboard and click **Add Badge**
@@ -126,6 +134,10 @@ city: Stockholm
 minimal: true
 icon_size: 32
 ```
+
+<p align="center">
+  <img width="420" alt="Minimal layout: allergen icons in a horizontal row with a short level label under each" src="screenshots/feature-minimal.png" />
+</p>
 
 ### Select Specific Allergens
 
@@ -167,6 +179,10 @@ city: Stockholm
 icon_in_ring: true
 icon_in_ring_color_mode: follow_level
 ```
+
+<p align="center">
+  <img width="420" alt="Icon-in-ring layout: each allergen icon sits inside its level ring" src="screenshots/feature-icon-in-ring.png" />
+</p>
 
 The editor automatically adjusts `levels_thickness` to give the icon room. See [configuration.md](configuration.md#options) for `icon_in_ring_size_ratio` and `icon_in_ring_static_color`.
 

@@ -362,6 +362,12 @@ Multi-station configuration: set `location` to either the `config_entry_id` (Cro
 
 Badges are added to a dashboard view's `badges:` list (not `cards:`), either through the badge picker UI or via YAML.
 
+<p align="center">
+  <img width="760" alt="pollenprognos-badge in every visual and content mode: icon in the level ring, the numeric value in the ring, ring only, bare icon, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="screenshots/badge-row.png" />
+</p>
+
+The badges above show the visual styles (`badge_visual`) and content modes (`badge_content`) documented below: icon in the ring, the value in the ring, ring only, bare icon, a multi-allergen `row`, and the `aggregate` allergy-risk smiley.
+
 The badge is today-only: it always forces `mode: daily` regardless of your integration. It reuses the card's integration/location keys (`integration`, `city`, `region_id`, `location`, `entity_prefix`, `entity_suffix`, `entity_weather`, `allergens`) and the card's visual keys (`levels_*`, `allergen_*`, `icon_in_ring*`, `show_no_data_distinct`, `link_to_sensors`). Card-layout keys such as `title`, `minimal`, `days_to_show`, and multi-day options are not applicable to the badge.
 
 ### Badge options
@@ -535,7 +541,7 @@ allergens:
   - oak
 ```
 
-**Google Pollen Levels — summary block**
+**Google Pollen Levels: summary block**
 
 ```yaml
 # Compact, standalone overall-risk overview (only the summary)
@@ -554,6 +560,23 @@ show_summary_separator: true      # divider between summary and rows (default)
 show_summary_top_types: true      # "Top types" qualifier row (default)
 show_summary_plants_in_season: true  # "In season" qualifier row (default)
 ```
+
+<p align="center">
+  <img width="420" alt="Aggregate summary block (overall allergy risk, top types, in season) pinned above the per-allergen rows, over the icon-in-ring layout" src="screenshots/summary-icon-in-ring.png" />
+</p>
+
+**Numeric value in the level ring**
+
+```yaml
+# Show the level number centred inside each ring
+type: custom:pollenprognos-card
+city: Stockholm
+show_value_numeric_in_circle: true
+```
+
+<p align="center">
+  <img width="420" alt="Card with the numeric pollen level shown inside each level ring" src="screenshots/feature-numeric-in-ring.png" />
+</p>
 
 **Google Pollen (svenove)**
 
