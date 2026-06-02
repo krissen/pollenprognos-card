@@ -118,6 +118,7 @@
   "editor.badge_label_position_below": "Under",
   "editor.badge_label_position_right": "Höger",
   "editor.badge_scale": "Badgestorlek (skala)",
+  "editor.badge_icon_scale": "Ikonskala",
   "editor.badge_show_label": "Visa etikett",
   "editor.badge_single_allergen": "Allergen",
   "editor.badge_visual_icon_in_ring": "Ikon i ring",
