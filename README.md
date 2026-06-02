@@ -26,23 +26,27 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 <table align="center">
   <tr>
     <td align="center" valign="top">
-      <img width="420" alt="Daily pollen forecast card showing grass and birch over three days, one level ring per day" src="docs/screenshots/hero-card.png" />
+      <img width="420" alt="Daily pollen forecast card showing grass and birch over several days, one level ring per day" src="docs/screenshots/hero-card.png" />
     </td>
     <td align="center" valign="top">
-      <img width="420" alt="Aggregate summary block (overall allergy risk, top types, in season) pinned above per-allergen rows, with the allergen icon inside the level ring" src="docs/screenshots/summary-icon-in-ring.png" />
+      <img width="420" alt="Twice-daily forecast with morning and evening columns per day" src="docs/screenshots/modes-twice-daily.png" />
     </td>
   </tr>
   <tr>
     <td align="center">A daily forecast (integration <code>pp</code>): one row per allergen, one level ring per day.</td>
-    <td align="center">An aggregate summary block over the <code>icon_in_ring</code> layout (GPL): overall risk and qualifier rows above the detailed allergens.</td>
+    <td align="center">Other layouts too: <code>twice_daily</code> (above), plus <code>hourly</code> and <code>minimal</code>.</td>
   </tr>
   <tr>
-    <td align="center" valign="top" colspan="2">
-      <img width="480" alt="Twice-daily forecast with morning and evening columns per day" src="docs/screenshots/modes-twice-daily.png" />
+    <td align="center" valign="top">
+      <img width="420" alt="Aggregate summary block (overall allergy risk, top types, in season) pinned above per-allergen rows, with the allergen icon inside the level ring" src="docs/screenshots/summary-icon-in-ring.png" />
+    </td>
+    <td align="center" valign="top">
+      <img width="300" alt="A few pollenprognos-badge instances for one location: an overall allergy-risk smiley in the ring, a grass value in the ring, and tree pollen shown as icon-in-ring and as a bare icon" src="docs/screenshots/hero-badges.png" />
     </td>
   </tr>
   <tr>
-    <td align="center" colspan="2">Other layouts too: <code>twice_daily</code> (above), plus <code>hourly</code> and <code>minimal</code>.</td>
+    <td align="center">An aggregate summary block over the <code>icon_in_ring</code> layout (GPL): overall risk and qualifier rows above the detailed allergens.</td>
+    <td align="center">The companion badges for one location, in a few visual styles.</td>
   </tr>
 </table>
 

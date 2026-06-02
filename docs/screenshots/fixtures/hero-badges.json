@@ -1,0 +1,9 @@
+{
+ "_note": "Badge block shot for the README (docs/screenshots/hero-badges.png). Place these as a view's badges:, open the view at a narrow viewport (~210 px) so they wrap into a compact block, and screenshot hui-view-badges. Uses gpl category allergens (allergy_risk/grass_cat/trees_cat) which resolve cleanly in single mode; individual-species single keys are avoided.",
+ "badges": [
+  {"type": "custom:pollenprognos-badge", "integration": "gpl", "location": "manual", "entity_prefix": "testplats", "badge_content": "single", "badge_single_allergen": "allergy_risk", "badge_visual": "icon_in_ring", "badge_show_label": true},
+  {"type": "custom:pollenprognos-badge", "integration": "gpl", "location": "manual", "entity_prefix": "testplats", "badge_content": "single", "badge_single_allergen": "grass_cat", "badge_visual": "ring_value", "badge_show_label": true},
+  {"type": "custom:pollenprognos-badge", "integration": "gpl", "location": "manual", "entity_prefix": "testplats", "badge_content": "single", "badge_single_allergen": "trees_cat", "badge_visual": "icon_in_ring", "badge_show_label": true},
+  {"type": "custom:pollenprognos-badge", "integration": "gpl", "location": "manual", "entity_prefix": "testplats", "badge_content": "single", "badge_single_allergen": "trees_cat", "badge_visual": "icon_only", "badge_show_label": true}
+ ]
+}
