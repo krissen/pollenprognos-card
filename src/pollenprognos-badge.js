@@ -19,6 +19,7 @@ import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
 import {
   filterSensorsPostFetch,
+  pinBadgeSingleAllergen,
   selectBadgeSensor,
   coerceBool,
   scaleRingLevel,
@@ -287,7 +288,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       }
     }
 
-    return built;
+    return pinBadgeSingleAllergen(built);
   }
 
   // ---------------------------------------------------------------------- //

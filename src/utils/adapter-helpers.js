@@ -129,7 +129,9 @@ export function matchSensorByAllergenKey(sensors, configKey) {
  *                 allergy_risk). Falls back to "worst" for adapters that expose
  *                 no aggregate (PP/DWD/SILAM/PEU/MSW).
  * - "single"    — the one allergen named in config.badge_single_allergen.
- *                 Falls back to "worst" if the named allergen is not present.
+ *                 Returns empty (no-data) if a named allergen is not present, so
+ *                 the miss is visible; only falls back to "worst" when no
+ *                 allergen was named.
  * - "row"       — all sensors, in their existing order, for a compact multi-ring
  *                 badge.
  *
@@ -168,11 +170,13 @@ export function selectBadgeSensor(sensors, config) {
     case "aggregate":
       return summary ? [summary] : worst();
     case "single": {
-      const found = matchSensorByAllergenKey(
-        sensors,
-        config?.badge_single_allergen,
-      );
-      return found ? [found] : worst();
+      const key = config?.badge_single_allergen;
+      const found = matchSensorByAllergenKey(sensors, key);
+      if (found) return [found];
+      // Explicitly named but absent: surface a visible miss (no-data) instead
+      // of silently swapping in the worst other allergen. Fall back to worst()
+      // only when no allergen was named (misconfigured single mode).
+      return typeof key === "string" && key ? [] : worst();
     }
     case "row":
       return sensors;
@@ -180,6 +184,23 @@ export function selectBadgeSensor(sensors, config) {
     default:
       return worst();
   }
+}
+
+/**
+ * Single-mode badge pinning. When a badge names one allergen, restrict the
+ * fetch to it and disable the threshold so a no-data / level-0 named allergen
+ * still renders its ring instead of being dropped -- which would silently fall
+ * back to the worst other allergen. Pure: returns the input unchanged for any
+ * non-single / unnamed config, else a shallow-merged copy.
+ *
+ * @param {object} config - badge config (already typeguarded by _buildConfig).
+ * @returns {object} the config, or a shallow copy with allergens/threshold pinned.
+ */
+export function pinBadgeSingleAllergen(config) {
+  if (config?.badge_content !== "single") return config;
+  const key = config.badge_single_allergen;
+  if (typeof key !== "string" || !key) return config;
+  return { ...config, allergens: [key], pollen_threshold: 0 };
 }
 
 /**
