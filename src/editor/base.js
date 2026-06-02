@@ -1340,10 +1340,10 @@ export class PollenEditorBase extends LitElement {
       <!-- §5 Card appearance -->
       <details>
         <summary>
-          ${this._t("summary_card_appearance")}
+          ${this._appearanceSectionTitle()}
           ${this._renderSectionReset(this._appearanceResetKeys())}
         </summary>
-        <div class="section-helper">${this._t("helper_card_appearance")}</div>
+        <div class="section-helper">${this._appearanceSectionHelper()}</div>
         <ha-formfield label="${this._t("background_color")}">
             <div style="display:flex; gap:8px; align-items:center;">
               <ha-textfield
@@ -1436,6 +1436,15 @@ export class PollenEditorBase extends LitElement {
   // controls, so badge size lives in "Card appearance" like the card's size.
   _renderAppearanceExtras() {
     return html``;
+  }
+
+  // Title and helper for the appearance section (§5). The badge editor
+  // overrides these to "Badge appearance" because a badge is not a card.
+  _appearanceSectionTitle() {
+    return this._t("summary_card_appearance");
+  }
+  _appearanceSectionHelper() {
+    return this._t("helper_card_appearance");
   }
 
   // ------------------------------------------------------------------

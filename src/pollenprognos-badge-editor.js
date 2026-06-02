@@ -539,6 +539,16 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
+  // A badge is not a card: rename the shared appearance section accordingly.
+  // The size controls (badge_scale, badge_icon_scale) stay here, so the helper
+  // mentions size rather than just background/label.
+  _appearanceSectionTitle() {
+    return this._t("summary_badge_appearance");
+  }
+  _appearanceSectionHelper() {
+    return this._t("helper_badge_appearance");
+  }
+
   // The Card appearance (§5) reset also clears the badge size/label keys, which
   // live in this section via _renderAppearanceExtras (icon_size/text_size_ratio
   // are hidden on the badge but harmless to include).
