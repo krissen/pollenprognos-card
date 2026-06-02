@@ -236,20 +236,28 @@ export function pinBadgeSingleAllergen(config, stubAllergens = []) {
 
 /**
  * Ring level for a badge sensor's current day, preserving the no-data sentinel.
- * A finite numeric state (including 0) is returned as-is; a missing / null /
- * NaN / non-numeric day0.state becomes -1 so the render path treats it as
- * no-data (the noise pattern) rather than a level-0 ring. Negative states pass
- * through unchanged (already a no-data marker). The null/undefined guard is
- * explicit because Number(null) is 0, which would otherwise mask a no-data
- * reading as a real level 0. Pure.
+ * Returns the canonical `state` (a level >= 0) so the caller can scale it with
+ * scaleRingLevel (DWD doubles it); a missing / null / NaN / non-numeric state
+ * becomes -1 so the render path shows the no-data noise pattern instead of a
+ * level-0 ring. The null/undefined guard is explicit because Number(null) is 0,
+ * which would otherwise mask a no-data reading as a real level 0.
+ *
+ * `display_state` is consulted only as a no-data OVERRIDE: some adapters keep a
+ * non-negative `state` but flag "no information" via `display_state: -1` (atmo
+ * "Indisponible" maps raw 0 to state 0 / display_state -1; plu/gp/gpl do the
+ * same for missing readings). A negative display_state therefore forces -1. It
+ * is NOT used as the level itself, because for DWD `display_state` is already
+ * the SCALED value and scaleRingLevel would double it again. Pure.
  *
  * @param {object|undefined} day0 - sensor.day0, may be undefined.
- * @returns {number} the finite state unchanged (a level >= 0, or a negative
- *   no-data sentinel such as -1, or -2 once DWD-scaled downstream), or -1 when
- *   there is no usable reading.
+ * @returns {number} the level (>= 0), or -1 when there is no usable reading.
  */
 export function badgeRingLevel(day0) {
-  if (day0?.state == null) return -1;
+  if (day0 == null) return -1;
+  // No-data override: a negative display_state means "no information" even when
+  // state is a non-negative placeholder (atmo unavailable = state 0).
+  if (day0.display_state != null && Number(day0.display_state) < 0) return -1;
+  if (day0.state == null) return -1;
   const n = Number(day0.state);
   return Number.isFinite(n) ? n : -1;
 }
@@ -257,11 +265,14 @@ export function badgeRingLevel(day0) {
 /**
  * True when at least one configured allergen has a valid current reading,
  * ignoring the threshold. Re-fetches at pollen_threshold 0 and checks for any
- * day0.state >= 0, so a caller can tell genuine "no pollen" (data exists, all
- * below threshold) from "no usable data" (entities exist but no valid forecast)
- * and show the no_allergens image only for the former. Defensive: returns false
- * on any fetch error. forecastEvent is forwarded for silam; other adapters
- * ignore it.
+ * sensor whose day0 resolves to a real level via badgeRingLevel (>= 0), so a
+ * caller can tell genuine "no pollen" (data exists, all below threshold) from
+ * "no usable data" (entities exist but no valid forecast) and show the
+ * no_allergens image only for the former. Reusing badgeRingLevel keeps the
+ * no-data rule identical to the render path: null/NaN state and the atmo-style
+ * `display_state: -1` placeholder both count as no-data, not as level 0.
+ * Defensive: returns false on any fetch error. forecastEvent is forwarded for
+ * silam; other adapters ignore it.
  *
  * @param {object} adapter - the integration adapter (has fetchForecast).
  * @param {object} hass
@@ -276,7 +287,7 @@ export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = nul
       { ...cfg, pollen_threshold: 0 },
       forecastEvent,
     );
-    return Array.isArray(sensors) && sensors.some((s) => Number(s?.day0?.state) >= 0);
+    return Array.isArray(sensors) && sensors.some((s) => badgeRingLevel(s?.day0) >= 0);
   } catch {
     return false;
   }

@@ -37,6 +37,31 @@ describe("hasValidPollenData", () => {
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
   });
 
+  it("returns false when day0.state is null (Number(null) is 0, must not count as data)", async () => {
+    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ day0: { state: null } }]) };
+    expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
+  });
+
+  it("returns false when all sensors are atmo-unavailable (state 0 / display_state -1)", async () => {
+    const adapter = {
+      fetchForecast: vi.fn().mockResolvedValue([
+        { day0: { state: 0, display_state: -1 } },
+        { day0: { state: 0, display_state: -1 } },
+      ]),
+    };
+    expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
+  });
+
+  it("returns true when at least one sensor has real data among unavailable ones", async () => {
+    const adapter = {
+      fetchForecast: vi.fn().mockResolvedValue([
+        { day0: { state: 0, display_state: -1 } },
+        { day0: { state: 2, display_state: 2 } },
+      ]),
+    };
+    expect(await hasValidPollenData(adapter, {}, {})).toBe(true);
+  });
+
   it("returns false when fetchForecast throws (defensive catch)", async () => {
     const adapter = { fetchForecast: vi.fn().mockRejectedValue(new Error("network error")) };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);

@@ -42,4 +42,19 @@ describe("badgeRingLevel", () => {
   it("coerces a numeric string to the corresponding number", () => {
     expect(badgeRingLevel({ state: "2" })).toBe(2);
   });
+
+  it("treats a negative display_state as no-data even when state is 0 (atmo unavailable)", () => {
+    // Atmo maps an unavailable reading (raw 0) to state 0 / display_state -1.
+    expect(badgeRingLevel({ state: 0, display_state: -1 })).toBe(-1);
+  });
+
+  it("returns state, not display_state, when display_state is non-negative", () => {
+    // DWD display_state is the already-scaled value; the ring level must stay
+    // the canonical state so scaleRingLevel does not double-scale it.
+    expect(badgeRingLevel({ state: 3, display_state: 6 })).toBe(3);
+  });
+
+  it("ignores a non-negative display_state and keeps a real level 0", () => {
+    expect(badgeRingLevel({ state: 0, display_state: 0 })).toBe(0);
+  });
 });
