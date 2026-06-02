@@ -551,8 +551,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   // The Badge appearance reset also clears the badge size/label keys, which
   // live in this section via _renderAppearanceExtras. Includes badge_icon_scale
-  // (rendered here conditionally on icon_only), so resetting the section clears
-  // every control it shows.
+  // (rendered in every visual mode), so resetting the section clears every
+  // control it shows.
   _appearanceResetKeys() {
     return [
       ...super._appearanceResetKeys(),
