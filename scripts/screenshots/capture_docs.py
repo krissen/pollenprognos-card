@@ -58,22 +58,30 @@ def save_config(pg, cfg):
 
 def wait_card(pg, timeout_s=40):
     """Wait until the lone pollenprognos-card has rendered an ha-card with
-    content, via a locator handle (pierces shadow DOM)."""
+    content, via a locator handle (pierces shadow DOM). Returns the card
+    locator when ready, or None on timeout so the caller can skip the write
+    rather than overwrite a committed PNG with a loading/empty render."""
     card = pg.locator("pollenprognos-card").first
-    card.wait_for(state="attached", timeout=timeout_s * 1000)
+    try:
+        card.wait_for(state="attached", timeout=timeout_s * 1000)
+    except Exception:
+        return None
     start = time.time()
     while time.time() - start < timeout_s:
         ok = card.evaluate(
             "c => !!(c.shadowRoot && c.shadowRoot.querySelector('ha-card') "
             "&& c.shadowRoot.textContent.trim().length > 5)")
         if ok:
-            break
+            pg.wait_for_timeout(1800)  # let Chart.js rings paint
+            return card
         pg.wait_for_timeout(500)
-    pg.wait_for_timeout(1800)  # let Chart.js rings paint
-    return card
+    return None
 
 
 def wait_badges(pg, timeout_s=40):
+    """Returns True once all badges have loaded (no .ppb-empty placeholder), or
+    False on timeout so the caller can skip the write rather than save a
+    badge-row with placeholder badges."""
     start = time.time()
     while time.time() - start < timeout_s:
         n = pg.locator("pollenprognos-badge").count()
@@ -81,9 +89,10 @@ def wait_badges(pg, timeout_s=40):
             "() => [...document.querySelectorAll('pollenprognos-badge')]"
             ".filter(b=>b.shadowRoot && b.shadowRoot.querySelector('.ppb-empty')).length")
         if n and not empties:
-            break
+            pg.wait_for_timeout(800)
+            return True
         pg.wait_for_timeout(500)
-    pg.wait_for_timeout(800)
+    return False
 
 
 def main():
@@ -112,12 +121,19 @@ def main():
             "async () => await document.querySelector('home-assistant')"
             ".hass.callWS({type:'lovelace/config', url_path:'%s'})" % DASH)
         base = [v for v in full["views"] if v.get("path") not in ("docshot", "docbadge")]
+        skipped = []
 
         for fn, cfg in cards.items():
             full["views"] = base + [{"title": "docshot", "path": "docshot", "cards": [cfg]}]
             save_config(pg, full)
             pg.goto(f"{URL}/{DASH}/docshot", wait_until="networkidle")
             card = wait_card(pg)
+            if card is None:
+                # Don't overwrite a committed PNG with a loading/empty render.
+                print(f"WARN: {fn} did not render in time; skipping (kept existing)",
+                      file=sys.stderr)
+                skipped.append(fn)
+                continue
             card.screenshot(path=os.path.join(OUT, fn))
             print("saved", fn)
 
@@ -131,14 +147,22 @@ def main():
                                      "cards": [{"type": "markdown", "content": "badge row"}]}]
             save_config(pg, full)
             pg.goto(f"{URL}/{DASH}/docbadge", wait_until="networkidle")
-            wait_badges(pg)
-            pg.locator("hui-view-badges").screenshot(path=os.path.join(OUT, "badge-row.png"))
-            print("saved badge-row.png")
+            if wait_badges(pg):
+                pg.locator("hui-view-badges").screenshot(path=os.path.join(OUT, "badge-row.png"))
+                print("saved badge-row.png")
+            else:
+                print("WARN: badges did not all load; skipping badge-row.png (kept existing)",
+                      file=sys.stderr)
+                skipped.append("badge-row.png")
 
         # remove the throwaway docshot view
         full["views"] = base
         save_config(pg, full)
         b.close()
+
+    if skipped:
+        print("FAILED to render (kept existing files):", ", ".join(skipped), file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
