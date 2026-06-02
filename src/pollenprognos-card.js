@@ -436,7 +436,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       const adapter = getAdapter(this.config.integration) || getAdapter("pp");
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
-        .then((sensors) => {
+        .then(async (sensors) => {
           const availableSensors = findAvailableSensors(
             this.config,
             this._hass,
@@ -446,6 +446,19 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             sensors, this.config, availableSensors,
             Object.keys(this._hass.states), silamAllergenMap.mapping,
           );
+          // Recompute the no-pollen-vs-no-data classification here too: a live
+          // SILAM forecast event refetches without going through set hass, so a
+          // stale _noPollenData would otherwise pick the wrong empty-state
+          // branch (no-information vs no-allergens) until the next full fetch.
+          this._noPollenData =
+            filtered.length === 0 && availableSensors.length > 0
+              ? await hasValidPollenData(
+                  adapter,
+                  this._hass,
+                  this.config,
+                  this._forecastEvent,
+                )
+              : false;
           this._updateSensorsAndColumns(filtered, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
