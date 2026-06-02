@@ -15,6 +15,7 @@ import {
   computeDisplayDays,
   scaleRingLevel,
   resolveNumericValue,
+  hasValidPollenData,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 // Sensor detection / integration pick / location auto-select are shared with
@@ -487,6 +488,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       tapAction: {},
       _isLoaded: { type: Boolean, state: true },
       _error: { type: String, state: true },
+      _noPollenData: { type: Boolean, state: true },
     };
   }
 
@@ -507,6 +509,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     this.tapAction = null;
     this._forecastSubEntity = null;
     this._forecastSubType = null;
+    this._noPollenData = false;
   }
 
   static async getConfigElement() {
@@ -1129,7 +1132,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     }
     if (fetchPromise) {
       return fetchPromise
-        .then((sensors) => {
+        .then(async (sensors) => {
           if (this.debug) {
             console.debug("[Card][Debug] Sensors before filtering:", sensors);
             console.debug(
@@ -1186,6 +1189,15 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             );
           }
 
+          // When the filtered set is empty but entities are available,
+          // distinguish genuine no-pollen (data exists, all below threshold)
+          // from a data problem (entities exist but no usable forecast), so the
+          // breezy no_allergens image is shown only for the former.
+          this._noPollenData =
+            filtered.length === 0 && availableSensorCount > 0
+              ? await hasValidPollenData(adapter, hass, cfg, this._forecastEvent)
+              : false;
+
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;
 
@@ -1225,6 +1237,22 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         <div class="no-allergens-container">
           ${this._renderAllergenSvg("no_allergens", 0)}
           <span class="no-allergens-text">${this._t("card.no_allergens")}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderNoInformationHtml() {
+    // Entities exist but carry no usable forecast data. Reuse the no_allergens
+    // silhouette, but rendered through the no-data path (level -1) so it shows
+    // the noise pattern rather than the level-0 "no pollen" colour, paired with
+    // the "(No information)" label. Distinct from the breezy no-pollen state.
+    return html`
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
+        <div class="no-allergens-container">
+          ${this._renderAllergenSvg("no_allergens", -1)}
+          <span class="no-allergens-text">${this._t("card.no_information")}</span>
         </div>
       </div>
     `;
@@ -1850,14 +1878,24 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             <div class="card-error">${errorMsg} (${name})</div>
           </ha-card>
         `;
-      } else {
-        const filteredMsg = this._t("card.error_filtered_sensors");
-        if (this.debug) {
-          console.debug(`[PollenPrognosCard] ${filteredMsg} (${name})`);
-        }
+      } else if (this._noPollenData) {
+        // Entities exist and at least one has a real reading, all below
+        // threshold: genuine no pollen.
         return html`
           <ha-card>
             ${this._renderNoAllergensHtml()}
+          </ha-card>
+        `;
+      } else {
+        // Entities exist but none have usable forecast data: a data problem,
+        // not "no pollen". Show the no-info visual (the no_allergens silhouette
+        // filled with the no-data noise pattern) instead of the breezy image.
+        if (this.debug) {
+          console.debug(`[PollenPrognosCard] no usable forecast data (${name})`);
+        }
+        return html`
+          <ha-card>
+            ${this._renderNoInformationHtml()}
           </ha-card>
         `;
       }

@@ -255,6 +255,34 @@ export function badgeRingLevel(day0) {
 }
 
 /**
+ * True when at least one configured allergen has a valid current reading,
+ * ignoring the threshold. Re-fetches at pollen_threshold 0 and checks for any
+ * day0.state >= 0, so a caller can tell genuine "no pollen" (data exists, all
+ * below threshold) from "no usable data" (entities exist but no valid forecast)
+ * and show the no_allergens image only for the former. Defensive: returns false
+ * on any fetch error. forecastEvent is forwarded for silam; other adapters
+ * ignore it.
+ *
+ * @param {object} adapter - the integration adapter (has fetchForecast).
+ * @param {object} hass
+ * @param {object} cfg - badge/card config.
+ * @param {object|null} forecastEvent - silam forecast event, or null.
+ * @returns {Promise<boolean>}
+ */
+export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = null) {
+  try {
+    const sensors = await adapter.fetchForecast(
+      hass,
+      { ...cfg, pollen_threshold: 0 },
+      forecastEvent,
+    );
+    return Array.isArray(sensors) && sensors.some((s) => Number(s?.day0?.state) >= 0);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Compute the number of day columns to render for a given sensor list and
  * config. Extracted from _updateSensorsAndColumns so that _renderNormalHtml
  * can recompute columns from the *displayed* row set rather than the full

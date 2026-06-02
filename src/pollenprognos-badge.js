@@ -25,6 +25,7 @@ import {
   scaleRingLevel,
   resolveNumericValue,
   badgeRingLevel,
+  hasValidPollenData,
 } from "./utils/adapter-helpers.js";
 import {
   LEVELS_DEFAULTS,
@@ -52,6 +53,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   sensors = [];
   _versionLogged = false;
   _noPollen = false;
+  _noData = false;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
@@ -65,6 +67,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       _error: { type: String, state: true },
       _isLoaded: { type: Boolean, state: true },
       _noPollen: { state: true },
+      _noData: { state: true },
     };
   }
 
@@ -332,7 +335,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     adapter
       .fetchForecast(hass, cfg)
-      .then((sensors) => {
+      .then(async (sensors) => {
         const availableSensors = findAvailableSensors(cfg, hass, this.debug);
 
         // For silam daily, pass the full state-key list + allergen map so
@@ -351,12 +354,19 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
         this.sensors = filtered;
         this._isLoaded = true;
-        // Distinguish "no pollen" (entities exist but everything is below the
-        // threshold, so the filtered set is empty) from "no sensors at all".
-        // The former mirrors the card's no_allergens breezy state; only the
-        // latter is a real error. availableSensors comes from findAvailableSensors
-        // above (already in scope in this block).
-        this._noPollen = filtered.length === 0 && availableSensors.length > 0;
+        // Classify an empty result. With entities available, an empty fetch has
+        // two causes: genuine no-pollen (data exists, all below threshold) or no
+        // usable data (entities exist but no valid forecast). A threshold-0
+        // confirmation tells them apart so render shows the breezy no_allergens
+        // image only for the former and the no-info (noise) visual for the
+        // latter, never a false no-pollen image for a data problem.
+        const emptyWithEntities =
+          filtered.length === 0 && availableSensors.length > 0;
+        const hasData = emptyWithEntities
+          ? await hasValidPollenData(adapter, hass, cfg)
+          : false;
+        this._noPollen = emptyWithEntities && hasData;
+        this._noData = emptyWithEntities && !hasData;
         this._error =
           filtered.length === 0 && availableSensors.length === 0
             ? "card.error_no_sensors"
@@ -365,9 +375,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       .catch((err) => {
         console.error("[Badge] fetch error:", err);
         this._isLoaded = true;
-        // Clear any "no pollen" state from a previous successful fetch so a
-        // later error does not keep rendering the breezy no_allergens image.
+        // Clear the no-pollen/no-data state from a previous successful fetch so
+        // a later error does not keep rendering a stale no_allergens / no-info
+        // image.
         this._noPollen = false;
+        this._noData = false;
         this._error = "card.error_entity_unavailable";
         this.requestUpdate();
       });
@@ -429,12 +441,23 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // error card — the badge slot is not the right place for verbose errors.
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) {
+      // Entities exist but none have usable forecast data: show the no-info
+      // visual (the no_allergens silhouette filled with the no-data noise
+      // pattern via level -1), not a blank pill or a false no-pollen image. The
+      // badge stays text-free; the card adds the "(No information)" label.
+      if (this._noData) {
+        return html`<div class="ppb ppb--right" style="${hostStyle}">
+          <div class="ppb-item">
+            ${this._renderAllergenSvg("no_allergens", -1, {})}
+          </div>
+        </div>`;
+      }
       // No pollen (entities exist, nothing above threshold): mirror the card's
       // breezy no_allergens image instead of a blank pill, for the worst and row
       // modes only. Reuse _renderAllergenSvg("no_allergens", 0) so the level-0
       // colour is applied identically to the card. single mode pins one named
-      // allergen and must not collapse to breezy (a missing named entity stays a
-      // blank pill); aggregate keeps its own summary ring (so it is excluded).
+      // allergen (its own no-data ring is rendered above when present); aggregate
+      // keeps its own summary ring (so both are excluded here).
       const contentMode = this.config?.badge_content || "worst";
       if (
         this._noPollen &&
