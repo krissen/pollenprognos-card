@@ -88,6 +88,35 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(el.dispatched[0].detail).toEqual({ entityId: "sensor.badge" });
   });
 
+  it("honours the Lovelace-standard `action` key (navigate)", () => {
+    const prev = globalThis.window;
+    globalThis.window = { history: { pushState: vi.fn() } };
+    el.tapAction = { action: "navigate", navigation_path: "/lovelace/2" };
+    el._handleTapAction(makeEvent());
+    expect(window.history.pushState).toHaveBeenCalledWith(null, "", "/lovelace/2");
+    globalThis.window = prev;
+  });
+
+  it("treats `{ action: 'none' }` as inert (does not default to more-info)", () => {
+    el.tapAction = { action: "none" };
+    const e = makeEvent();
+    el._handleTapAction(e);
+    expect(el.dispatched).toHaveLength(0);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("maps HA's perform-action to a service call (perform_action/data)", () => {
+    el.tapAction = {
+      action: "perform-action",
+      perform_action: "light.turn_on",
+      data: { brightness: 128 },
+    };
+    el._handleTapAction(makeEvent());
+    expect(el._hass.callService).toHaveBeenCalledWith("light", "turn_on", {
+      brightness: 128,
+    });
+  });
+
   it("call-service splits domain.service and forwards service_data", () => {
     el.tapAction = {
       type: "call-service",
@@ -196,8 +225,21 @@ describe("resolveTapActionType", () => {
     expect(resolveTapActionType({ entity: "sensor.x" })).toBe("more-info");
   });
 
-  it("returns null for none, unknown, and non-objects", () => {
+  it("honours the Lovelace `action` key and the perform-action alias", () => {
+    expect(resolveTapActionType({ action: "navigate" })).toBe("navigate");
+    expect(resolveTapActionType({ action: "more-info" })).toBe("more-info");
+    expect(resolveTapActionType({ action: "perform-action" })).toBe(
+      "call-service",
+    );
+    // action wins over a stale type.
+    expect(resolveTapActionType({ action: "navigate", type: "more-info" })).toBe(
+      "navigate",
+    );
+  });
+
+  it("returns null for none (both shapes), unknown, and non-objects", () => {
     expect(resolveTapActionType({ type: "none" })).toBeNull();
+    expect(resolveTapActionType({ action: "none" })).toBeNull();
     expect(resolveTapActionType({ type: "weird" })).toBeNull();
     expect(resolveTapActionType(null)).toBeNull();
     expect(resolveTapActionType(undefined)).toBeNull();

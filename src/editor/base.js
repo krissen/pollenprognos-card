@@ -2582,12 +2582,19 @@ export class PollenEditorBase extends LitElement {
    */
   _initInteractionState() {
     const ta = this._config?.tap_action;
-    if (ta) {
-      this._tapType = ta.type || "more-info";
+    if (ta && typeof ta === "object" && !Array.isArray(ta)) {
+      // Honour both the Lovelace-standard `action` key and this card's `type`
+      // key; map HA's renamed "perform-action" back to our "call-service".
+      const raw = ta.action || ta.type || "more-info";
+      this._tapType = raw === "perform-action" ? "call-service" : raw;
       this._tapEntity = ta.entity || "";
       this._tapNavigation = ta.navigation_path || "";
-      this._tapService = ta.service || "";
-      this._tapServiceData = JSON.stringify(ta.service_data || {}, null, 2);
+      this._tapService = ta.service || ta.perform_action || "";
+      this._tapServiceData = JSON.stringify(
+        ta.service_data || ta.data || {},
+        null,
+        2,
+      );
     } else {
       this._tapType = "none";
       this._tapEntity = "";

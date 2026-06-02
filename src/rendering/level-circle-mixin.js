@@ -29,10 +29,25 @@ Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 const TAP_ACTION_TYPES = ["more-info", "navigate", "call-service"];
 
 /**
+ * Read the raw action keyword from a tap_action object, honouring both shapes:
+ * the Lovelace-standard `action` key (e.g. `{ action: "navigate" }`) and this
+ * card's historical `type` key (e.g. `{ type: "navigate" }`). `action` wins so
+ * a standard HA config is never misread. HA renamed "call-service" to
+ * "perform-action" (2024.8); map it back to our internal "call-service".
+ *
+ * @param {object} tapAction
+ * @returns {string} keyword (possibly "" when neither key is set)
+ */
+function rawTapActionType(tapAction) {
+  const raw = tapAction.action || tapAction.type || "";
+  return raw === "perform-action" ? "call-service" : raw;
+}
+
+/**
  * Resolve a tap_action config to the effective action type, or null when the
- * action is absent/unactionable. A plain object with no `type` defaults to
- * "more-info" (the handler's documented default); "none", non-objects, arrays,
- * and unknown type strings resolve to null. Callers use this both to decide
+ * action is absent/unactionable. A plain object with no action keyword defaults
+ * to "more-info" (the handler's documented default); "none", non-objects,
+ * arrays, and unknown keywords resolve to null. Callers use this both to decide
  * whether to bind a click listener (so the element isn't clickable-but-inert)
  * and to dispatch, keeping the binding and the handler in lockstep.
  *
@@ -42,7 +57,7 @@ const TAP_ACTION_TYPES = ["more-info", "navigate", "call-service"];
 export function resolveTapActionType(tapAction) {
   if (!tapAction || typeof tapAction !== "object" || Array.isArray(tapAction))
     return null;
-  const type = tapAction.type || "more-info";
+  const type = rawTapActionType(tapAction) || "more-info";
   return TAP_ACTION_TYPES.includes(type) ? type : null;
 }
 
@@ -491,16 +506,17 @@ export const LevelCircleMixin = (Base) =>
             window.history.pushState(null, "", tapAction.navigation_path);
           break;
         case "call-service": {
-          // service must be a "domain.service" string with both halves present.
+          // Accept the card's service/service_data and HA's modern
+          // perform_action/data spelling. The target must be a
+          // "domain.service" string with both halves present.
+          const target = tapAction.service || tapAction.perform_action;
           const [domain, service] =
-            typeof tapAction.service === "string"
-              ? tapAction.service.split(".")
-              : [];
+            typeof target === "string" ? target.split(".") : [];
           if (domain && service)
             this._hass.callService(
               domain,
               service,
-              tapAction.service_data || {},
+              tapAction.service_data || tapAction.data || {},
             );
           break;
         }
