@@ -111,7 +111,7 @@ def main():
         full = pg.evaluate(
             "async () => await document.querySelector('home-assistant')"
             ".hass.callWS({type:'lovelace/config', url_path:'%s'})" % DASH)
-        base = [v for v in full["views"] if v.get("path") != "docshot"]
+        base = [v for v in full["views"] if v.get("path") not in ("docshot", "docbadge")]
 
         for fn, cfg in cards.items():
             full["views"] = base + [{"title": "docshot", "path": "docshot", "cards": [cfg]}]
@@ -122,7 +122,15 @@ def main():
             print("saved", fn)
 
         if not a.no_badges and not a.only:
-            pg.goto(f"{URL}/{DASH}/documentation", wait_until="networkidle")
+            # Build the badge row from the committed fixture in a throwaway view,
+            # so badge-row.png is reproducible from badge-row.json (not from
+            # whatever badges happen to be live in the Documentation view).
+            badge_row = load("badge-row.json")
+            full["views"] = base + [{"title": "docbadge", "path": "docbadge",
+                                     "badges": badge_row,
+                                     "cards": [{"type": "markdown", "content": "badge row"}]}]
+            save_config(pg, full)
+            pg.goto(f"{URL}/{DASH}/docbadge", wait_until="networkidle")
             wait_badges(pg)
             pg.locator("hui-view-badges").screenshot(path=os.path.join(OUT, "badge-row.png"))
             print("saved badge-row.png")
