@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.3.0-beta2] - Unreleased
+
+Follow-up to the badge work in beta1, driven by feedback on issue #235.
+
+### Added
+- **Per-section reset buttons in the visual editor** (issue #235, PR #247). Every editor section now has a small reset (the circular arrow in its header) that reverts just that section's options to their defaults, complementing the existing global "Reset all". Available in both the card and the badge editor (shared implementation). The reset is coupling-aware: resetting a section that drives derived values also clears them (the synced level gap from the allergen stroke width, the auto-thinned ring thickness from icon-in-ring, the inherited empty-ring colour, and the SILAM/PEU forecast mode's day-display side effects), while keeping values owned by other sections intact. The Integration & Location reset re-autodetects the place but keeps the chosen integration.
+- **Scale the allergen image within a badge** (issue #235, PR #248). New `badge_icon_scale` (default `1`) sizes the allergen visual as a whole, the ring (with its centred icon or value) in the ring modes and the bare icon in `icon_only`, without changing the label or the overall badge box. So `badge_scale` sets how big the badge is and `badge_icon_scale` sets how big the image is within it. The scaled visual is capped at the pill height so it can fill the badge but never overflows.
+- **Translations & strings on the badge** (PR #245). The badge editor gains the same "Translations & strings" section as the card (language selector and custom full allergen names); the badge's date locale prefills from the Home Assistant locale, and short-name fields appear when `allergens_abbreviated` is set. Localization is applied at fetch time, so no badge runtime change.
+
+### Changed
+- **The badge now autodetects the installed integration** (issue #235, PR #246). Adding a badge from Home Assistant's badge picker, and opening the badge editor, now detects whichever integration is actually installed (DWD, PEU, etc.) instead of always defaulting to PollenPrognos; the editor prefills the integration and its first location and populates the location dropdowns, matching what the full card already did. Under the hood the card's integration autodetection is extracted into one shared module used by the card element, card editor, badge element and badge editor, removing previously duplicated and slightly divergent copies. Side effects of the unification: the card editor now also detects Pollen.lu and Kleenex (it previously missed them on some paths), the card element now auto-selects the first Google Pollen / MeteoSwiss location, and a weather-only SILAM install (no allergen sensors) is now detected.
+
+### Fixed
+- **(badge) `badge_scale` can no longer break the editor** (issue #235, PR #248). Typing a pathological value (for example `100`) into the badge size field is clamped to a sane ceiling, so the preview can't balloon and make the editor unusable.
+- **(autodetect) Correct city detection for multi-word Swedish allergens** (PR #246). PollenPrognos location auto-selection now uses the adapter's allergen-suffix extractor, so allergens whose slug contains underscores (for example `salg_och_viden`) no longer mis-derive the city.
+
 ## [3.3.0-beta1] - 2026-06-01
 
 ### Added
