@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { pinBadgeSingleAllergen } from "../../src/utils/adapter-helpers.js";
 
 // pinBadgeSingleAllergen rewrites the config so that when badge_content is
-// "single" and badge_single_allergen names a specific allergen, the card's
+// "single" and badge_single_allergen names a specific allergen, the badge's
 // fetch/filter pipeline is scoped down to that allergen only (allergens:
 // [named] + pollen_threshold: 0). This avoids leaking unrelated allergens
 // into the fetch path. Non-single modes and unconfigured single modes get the

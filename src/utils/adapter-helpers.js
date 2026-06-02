@@ -189,9 +189,12 @@ export function selectBadgeSensor(sensors, config) {
 /**
  * Single-mode badge pinning. When a badge names one allergen, restrict the
  * fetch to it and disable the threshold so a no-data / level-0 named allergen
- * still renders its ring instead of being dropped -- which would silently fall
- * back to the worst other allergen. Pure: returns the input unchanged for any
- * non-single / unnamed config, else a shallow-merged copy.
+ * still renders its ring instead of being dropped before selectBadgeSensor can
+ * resolve it (filtered out by the stub allergens for gpl, or below threshold
+ * for pp). With the fetch pinned to the one named allergen, an unresolved name
+ * surfaces as a no-data badge rather than the wrong allergen. Pure: returns the
+ * input unchanged for any non-single / unnamed config, else a shallow-merged
+ * copy.
  *
  * @param {object} config - badge config (already typeguarded by _buildConfig).
  * @returns {object} the config, or a shallow copy with allergens/threshold pinned.
@@ -201,6 +204,24 @@ export function pinBadgeSingleAllergen(config) {
   const key = config.badge_single_allergen;
   if (typeof key !== "string" || !key) return config;
   return { ...config, allergens: [key], pollen_threshold: 0 };
+}
+
+/**
+ * Ring level for a badge sensor's current day, preserving the no-data sentinel.
+ * A finite numeric state (including 0) is returned as-is; a missing / null /
+ * NaN / non-numeric day0.state becomes -1 so the render path treats it as
+ * no-data (the noise pattern) rather than a level-0 ring. Negative states pass
+ * through unchanged (already a no-data marker). The null/undefined guard is
+ * explicit because Number(null) is 0, which would otherwise mask a no-data
+ * reading as a real level 0. Pure.
+ *
+ * @param {object|undefined} day0 - sensor.day0, may be undefined.
+ * @returns {number} the level (>= 0), or -1 for no data.
+ */
+export function badgeRingLevel(day0) {
+  if (day0?.state == null) return -1;
+  const n = Number(day0.state);
+  return Number.isFinite(n) ? n : -1;
 }
 
 /**

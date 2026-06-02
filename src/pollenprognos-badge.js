@@ -24,6 +24,7 @@ import {
   coerceBool,
   scaleRingLevel,
   resolveNumericValue,
+  badgeRingLevel,
 } from "./utils/adapter-helpers.js";
 import {
   LEVELS_DEFAULTS,
@@ -50,6 +51,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   _userConfig = null;
   sensors = [];
   _versionLogged = false;
+  _noPollen = false;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
@@ -62,6 +64,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       sensors: { state: true },
       _error: { type: String, state: true },
       _isLoaded: { type: Boolean, state: true },
+      _noPollen: { state: true },
     };
   }
 
@@ -348,7 +351,16 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
         this.sensors = filtered;
         this._isLoaded = true;
-        this._error = filtered.length ? null : "card.error_no_sensors";
+        // Distinguish "no pollen" (entities exist but everything is below the
+        // threshold, so the filtered set is empty) from "no sensors at all".
+        // The former mirrors the card's no_allergens breezy state; only the
+        // latter is a real error. availableSensors comes from findAvailableSensors
+        // above (already in scope in this block).
+        this._noPollen = filtered.length === 0 && availableSensors.length > 0;
+        this._error =
+          filtered.length === 0 && availableSensors.length === 0
+            ? "card.error_no_sensors"
+            : null;
       })
       .catch((err) => {
         console.error("[Badge] fetch error:", err);
@@ -414,6 +426,23 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // error card — the badge slot is not the right place for verbose errors.
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) {
+      // No pollen (entities exist, nothing above threshold): mirror the card's
+      // breezy no_allergens image instead of a blank pill, for the aggregate/
+      // selection modes. Reuse _renderAllergenSvg("no_allergens", 0) so the
+      // level-0 colour is applied identically to the card. single mode pins one
+      // named allergen and must not collapse to breezy (a missing named entity
+      // stays a blank pill); aggregate keeps its own summary ring elsewhere.
+      const contentMode = this.config?.badge_content || "worst";
+      if (
+        this._noPollen &&
+        (contentMode === "worst" || contentMode === "row")
+      ) {
+        return html`<div class="ppb ppb--right" style="${hostStyle}">
+          <div class="ppb-item">
+            ${this._renderAllergenSvg("no_allergens", 0, {})}
+          </div>
+        </div>`;
+      }
       return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
@@ -440,7 +469,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         @click=${hasTap ? this._handleTapAction : null}
       >
         ${picks.map((sensor) => {
-          const normalizedLevel = Number(sensor.day0?.state) || 0;
+          // Preserve a no-data sensor (missing / NaN / negative day0) as a
+          // negative level so the ring + icon render the no-data noise pattern
+          // instead of collapsing to a green level-0 ring. This matters for a
+          // single pinned allergen whose entity is unavailable (e.g. DWD/PEU
+          // emit no day0 for no data), which would otherwise look like level 0.
+          const normalizedLevel = badgeRingLevel(sensor.day0);
           const ringLevel = scaleRingLevel(
             this.config.integration,
             normalizedLevel,
