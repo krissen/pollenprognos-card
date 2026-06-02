@@ -3,109 +3,102 @@ import { pinBadgeSingleAllergen } from "../../src/utils/adapter-helpers.js";
 
 // pinBadgeSingleAllergen rewrites the config so that when badge_content is
 // "single" and badge_single_allergen names a specific allergen, that allergen
-// is guaranteed to be fetched and kept: the named key is ADDED to allergens
-// (deduped) and pollen_threshold is set to 0. The key is added, not
-// substituted, so an adapter keyed by native names (e.g. pp "Bjork") still
-// fetches its own sensors and selectBadgeSensor can resolve a canonical name
-// against them. Non-single modes and unconfigured single modes get the
-// original config back unchanged (same reference).
+// is guaranteed to be fetched and kept. The fetch is based on the adapter's
+// STUB allergen set (native slugs), not the possibly-custom configured list, so
+// an adapter keyed by localized slugs (pp "bjork", dwd "birke") still fetches
+// the native sensor when the user names a canonical key ("birch"). The named
+// key is appended only when no stub allergen is canonically equivalent, so a
+// canonical name the stub omits but the adapter resolves directly (gpl "birch")
+// is still fetched, without double-fetching a localized stub key. Threshold is
+// set to 0. Non-single modes and unconfigured single modes return the original
+// config unchanged (same reference).
+
+// pp-like stub: native Swedish slugs, "Björk" canonicalizes to "birch".
+const PP_STUB = ["Al", "Björk", "Ek", "Gräs", "Hassel"];
+// gpl-like stub: category keys, none canonicalizes to "birch".
+const GPL_STUB = ["allergy_risk", "grass_cat", "trees_cat", "weeds_cat"];
 
 describe("pinBadgeSingleAllergen", () => {
-  it("adds the named allergen and drops the threshold for a named single allergen", () => {
+  it("uses the stub allergens (not the configured list) and drops the threshold", () => {
     const input = {
       integration: "pp",
       badge_content: "single",
       badge_single_allergen: "birch",
-      allergens: ["grass_cat"],
+      allergens: ["Gräs"], // custom list WITHOUT the localized birch slug
       pollen_threshold: 3,
     };
 
-    const result = pinBadgeSingleAllergen(input);
+    const result = pinBadgeSingleAllergen(input, PP_STUB);
 
-    // Must be a NEW object, not the same reference.
     expect(result).not.toBe(input);
-
-    // Core rewrite: the named key is added (not substituted) and threshold drops.
-    expect(result.allergens).toEqual(["grass_cat", "birch"]);
+    // Localized "Björk" already covers canonical "birch", so the stub is used
+    // as-is (the named canonical key is NOT appended, no double fetch).
+    expect(result.allergens).toEqual(PP_STUB);
     expect(result.pollen_threshold).toBe(0);
-
-    // Other keys must be preserved unchanged.
+    // Other keys preserved; input not mutated.
     expect(result.integration).toBe("pp");
-    expect(result.badge_content).toBe("single");
     expect(result.badge_single_allergen).toBe("birch");
-
-    // Input must NOT be mutated.
-    expect(input.allergens).toEqual(["grass_cat"]);
+    expect(input.allergens).toEqual(["Gräs"]);
     expect(input.pollen_threshold).toBe(3);
   });
 
-  it("does not duplicate the named allergen when it is already in allergens", () => {
+  it("does not duplicate when the named key matches a stub slug case-insensitively", () => {
     const input = {
       badge_content: "single",
-      badge_single_allergen: "birch",
-      allergens: ["grass", "birch"],
-      pollen_threshold: 1,
+      badge_single_allergen: "al", // lowercase variant of stub "Al"
     };
-
-    const result = pinBadgeSingleAllergen(input);
-
-    expect(result.allergens).toEqual(["grass", "birch"]);
+    const result = pinBadgeSingleAllergen(input, PP_STUB);
+    expect(result.allergens).toEqual(PP_STUB);
     expect(result.pollen_threshold).toBe(0);
   });
 
-  it("adds the named allergen when the config has no allergens array", () => {
+  it("appends a canonical key the stub omits but the adapter resolves directly", () => {
+    const input = {
+      integration: "gpl",
+      badge_content: "single",
+      badge_single_allergen: "birch",
+    };
+    const result = pinBadgeSingleAllergen(input, GPL_STUB);
+    expect(result.allergens).toEqual([...GPL_STUB, "birch"]);
+    expect(result.pollen_threshold).toBe(0);
+  });
+
+  it("falls back to just the named key when no stub allergens are provided", () => {
     const input = {
       badge_content: "single",
       badge_single_allergen: "birch",
     };
-
     const result = pinBadgeSingleAllergen(input);
-
     expect(result.allergens).toEqual(["birch"]);
     expect(result.pollen_threshold).toBe(0);
   });
 
-  it("returns the same reference when badge_content is 'single' but badge_single_allergen is absent", () => {
-    const input = {
-      badge_content: "single",
-      allergens: ["grass"],
-      pollen_threshold: 2,
-    };
-    expect(pinBadgeSingleAllergen(input)).toBe(input);
+  it("returns the same reference when badge_single_allergen is absent", () => {
+    const input = { badge_content: "single", allergens: ["grass"] };
+    expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
-  it("returns the same reference when badge_content is 'single' but badge_single_allergen is an empty string", () => {
-    const input = {
-      badge_content: "single",
-      badge_single_allergen: "",
-      allergens: ["grass"],
-    };
-    expect(pinBadgeSingleAllergen(input)).toBe(input);
+  it("returns the same reference when badge_single_allergen is an empty string", () => {
+    const input = { badge_content: "single", badge_single_allergen: "" };
+    expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
-  it("returns the same reference when badge_content is not 'single', even if badge_single_allergen is set", () => {
+  it("returns the same reference when badge_content is not 'single'", () => {
     const input = {
       badge_content: "worst",
       badge_single_allergen: "birch",
       allergens: ["grass", "birch"],
-      pollen_threshold: 1,
     };
-    expect(pinBadgeSingleAllergen(input)).toBe(input);
+    expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
   it("returns the same reference when badge_content is 'aggregate'", () => {
-    const input = {
-      badge_content: "aggregate",
-      badge_single_allergen: "birch",
-    };
-    expect(pinBadgeSingleAllergen(input)).toBe(input);
+    const input = { badge_content: "aggregate", badge_single_allergen: "birch" };
+    expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
-  it("returns the same reference when badge_content is absent (no mode set)", () => {
-    const input = {
-      badge_single_allergen: "birch",
-      allergens: ["grass"],
-    };
-    expect(pinBadgeSingleAllergen(input)).toBe(input);
+  it("returns the same reference when badge_content is absent", () => {
+    const input = { badge_single_allergen: "birch", allergens: ["grass"] };
+    expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 });

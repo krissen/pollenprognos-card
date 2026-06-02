@@ -291,7 +291,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       }
     }
 
-    return pinBadgeSingleAllergen(built);
+    return pinBadgeSingleAllergen(built, stub.allergens);
   }
 
   // ---------------------------------------------------------------------- //
@@ -430,11 +430,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) {
       // No pollen (entities exist, nothing above threshold): mirror the card's
-      // breezy no_allergens image instead of a blank pill, for the aggregate/
-      // selection modes. Reuse _renderAllergenSvg("no_allergens", 0) so the
-      // level-0 colour is applied identically to the card. single mode pins one
-      // named allergen and must not collapse to breezy (a missing named entity
-      // stays a blank pill); aggregate keeps its own summary ring elsewhere.
+      // breezy no_allergens image instead of a blank pill, for the worst and row
+      // modes only. Reuse _renderAllergenSvg("no_allergens", 0) so the level-0
+      // colour is applied identically to the card. single mode pins one named
+      // allergen and must not collapse to breezy (a missing named entity stays a
+      // blank pill); aggregate keeps its own summary ring (so it is excluded).
       const contentMode = this.config?.badge_content || "worst";
       if (
         this._noPollen &&
