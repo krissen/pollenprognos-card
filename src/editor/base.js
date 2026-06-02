@@ -1337,7 +1337,7 @@ export class PollenEditorBase extends LitElement {
   _renderAppearanceSection() {
     const c = this._editorConfig();
     return html`
-      <!-- §5 Card appearance -->
+      <!-- §5 Appearance (badge editor overrides the title to "Badge appearance") -->
       <details>
         <summary>
           ${this._appearanceSectionTitle()}
@@ -2550,10 +2550,16 @@ export class PollenEditorBase extends LitElement {
           ></ha-switch>
         </ha-formfield>
         <div class="version-info">
-          ${this._t("card_version")}: ${__VERSION__}
+          ${this._versionLabel()}: ${__VERSION__}
         </div>
       </details>
     `;
+  }
+
+  // Label for the version string in the Advanced section. The badge editor
+  // overrides this to "Pollenprognos Badge version" so it doesn't read "Card".
+  _versionLabel() {
+    return this._t("card_version");
   }
 
   // ------------------------------------------------------------------

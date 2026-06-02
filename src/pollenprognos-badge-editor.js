@@ -549,6 +549,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return this._t("helper_badge_appearance");
   }
 
+  // The Advanced section's version string should read "Badge", not "Card".
+  _versionLabel() {
+    return this._t("badge_version");
+  }
+
   // The Badge appearance reset also clears the badge size/label keys, which
   // live in this section via _renderAppearanceExtras. Includes badge_icon_scale
   // (rendered in every visual mode), so resetting the section clears every
