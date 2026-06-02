@@ -375,9 +375,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       .catch((err) => {
         console.error("[Badge] fetch error:", err);
         this._isLoaded = true;
-        // Clear the no-pollen/no-data state from a previous successful fetch so
-        // a later error does not keep rendering a stale no_allergens / no-info
-        // image.
+        // Clear the previous fetch's data and no-pollen/no-data state so an
+        // error renders the empty pill instead of stale rings: render() only
+        // consults selectBadgeSensor(this.sensors), never _error, so leaving the
+        // old sensors in place would keep showing outdated readings as current.
+        this.sensors = [];
         this._noPollen = false;
         this._noData = false;
         this._error = "card.error_entity_unavailable";
