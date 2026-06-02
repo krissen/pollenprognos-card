@@ -431,10 +431,17 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       `--ppb-size: ${height}px; --pollen-icon-size: ${visualSize}px;` +
       (bg ? ` --ppb-bg: ${bg};` : "");
 
+    // Pill layout class, shared by every render path (placeholder, no-data,
+    // no-pollen, empty, and the normal data render) so the pill keeps the same
+    // height/padding across states instead of jumping between ppb--right and
+    // ppb--below when data appears or disappears.
+    const wrapClass =
+      this.config?.badge_label_position === "below" ? "ppb--below" : "ppb--right";
+
     // Not yet loaded: render an empty pill placeholder so the badge slot
     // doesn't jump when data arrives. It carries the same size base.
     if (!this._isLoaded) {
-      return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ${wrapClass}" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     // Error or no sensors: render a tiny empty pill; do NOT render a big
@@ -446,7 +453,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       // pattern via level -1), not a blank pill or a false no-pollen image. The
       // badge stays text-free; the card adds the "(No information)" label.
       if (this._noData) {
-        return html`<div class="ppb ppb--right" style="${hostStyle}">
+        return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
           <div class="ppb-item">
             ${this._renderAllergenSvg("no_allergens", -1, {})}
           </div>
@@ -463,13 +470,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         this._noPollen &&
         (contentMode === "worst" || contentMode === "row")
       ) {
-        return html`<div class="ppb ppb--right" style="${hostStyle}">
+        return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
           <div class="ppb-item">
             ${this._renderAllergenSvg("no_allergens", 0, {})}
           </div>
         </div>`;
       }
-      return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ${wrapClass}" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     const ringConfig = this._buildLevelRingConfig();
@@ -478,7 +485,6 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
 
     const visualMode = this.config?.badge_visual || "icon_in_ring";
-    const labelBelow = this.config?.badge_label_position === "below";
     const showLabel = this.config.badge_show_label === true;
 
     // Badge-level tap_action (shared with the card). Bind only when the action
@@ -490,7 +496,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     return html`
       <div
-        class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}"
+        class="ppb ${wrapClass}"
         style="${hostStyle}${hasTap ? " cursor: pointer;" : ""}"
         @click=${hasTap ? this._handleTapAction : null}
       >
