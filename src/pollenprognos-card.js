@@ -1910,6 +1910,19 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       `;
     }
 
+    // Every remaining sensor is no-data (e.g. a threshold-0 config where each
+    // configured allergen has a missing/invalid reading): computeDisplayDays
+    // yields zero forecast columns, so the normal layout would render blank.
+    // Surface the no-information state instead. Mixed data/no-data keeps
+    // rendering normally (the no-data rows show the noise pattern).
+    if (this.sensors.length && this.days_to_show === 0) {
+      return html`
+        <ha-card>
+          ${this._renderNoInformationHtml()}
+        </ha-card>
+      `;
+    }
+
     const cardContent = this.config.minimal
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
