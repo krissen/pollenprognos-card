@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Position de la pollution",
   "editor.pollution_block_top": "En haut (au-dessus du pollen)",
   "editor.preset_reset_all": "Réinitialiser tous les paramètres",
+  "editor.preset_reset_section": "Réinitialiser la section",
   "editor.region_id": "ID de région",
   "editor.select_all_allergens": "Sélectionner tous les allergènes",
   "editor.select_all_pollen": "Sélectionner le pollen",

@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Ilmanlaadun sijainti",
   "editor.pollution_block_top": "Ylhäällä (siitepölyn yläpuolella)",
   "editor.preset_reset_all": "Palauta kaikki asetukset",
+  "editor.preset_reset_section": "Palauta osio",
   "editor.region_id": "Alueen tunnus",
   "editor.select_all_allergens": "Valitse kaikki allergeenit",
   "editor.select_all_pollen": "Valitse siitepöly",

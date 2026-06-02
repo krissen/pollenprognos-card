@@ -5,7 +5,7 @@
 
 import { html, css } from "lit";
 import { getStubConfig } from "./adapter-registry.js";
-import { PollenEditorBase, deepMerge } from "./editor/base.js";
+import { PollenEditorBase, deepMerge, sectionResetStyles } from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -448,7 +448,14 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
     return html`
       <details open>
-        <summary>${this._t("summary_badge_content")}</summary>
+        <summary>
+          ${this._t("summary_badge_content")}
+          ${this._renderSectionReset([
+            "badge_visual",
+            "badge_content",
+            "badge_single_allergen",
+          ])}
+        </summary>
         <div class="section-helper">${this._t("helper_badge_content")}</div>
 
         <!-- badge_visual: what kind of badge (the section header + helper say
@@ -530,6 +537,18 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // shared Card appearance section; the badge uses badge_scale instead.
   _showCardSizeControls() {
     return false;
+  }
+
+  // The Card appearance (§5) reset also clears the badge size/label keys, which
+  // live in this section via _renderAppearanceExtras (icon_size/text_size_ratio
+  // are hidden on the badge but harmless to include).
+  _appearanceResetKeys() {
+    return [
+      ...super._appearanceResetKeys(),
+      "badge_scale",
+      "badge_show_label",
+      "badge_label_position",
+    ];
   }
 
   // Badge size + label controls, rendered inside the shared Card appearance
@@ -748,6 +767,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         color: var(--primary-text-color, #222);
         margin-bottom: 4px;
       }
+
+      /* Per-section ↺ reset button styles (shared with the card editor). */
+      ${sectionResetStyles}
 
       details details {
         margin-left: 24px;

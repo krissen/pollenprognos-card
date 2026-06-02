@@ -9,7 +9,7 @@ import {
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
-import { PollenEditorBase, deepMerge } from "./editor/base.js";
+import { PollenEditorBase, deepMerge, sectionResetStyles } from "./editor/base.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
@@ -1251,12 +1251,23 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       cfg = deepMerge(base, newUser);
       cfg.integration = newInt;
 
-      // Immediately mark integration as explicit so set hass() won't
-      // override the user's choice before the round-trip completes.
-      this._userConfig.integration = newInt;
+      // _userConfig becomes the pruned user-origin config (location/allergen
+      // keys for the old integration removed) + the new integration. Assigning
+      // newUser keeps _userConfig clean — the generic per-key sync below is
+      // skipped for integration changes, since diffing cfg (full new-integration
+      // stub) against the old _config would mark stub defaults as user-set.
+      newUser.integration = newInt;
+      this._userConfig = newUser;
       this._integrationExplicit = true;
     } else {
       cfg = { ...this._config, [prop]: value };
+
+      // _userConfig is synced to the full set of changed keys below (after all
+      // side-effects are applied), so it stays a faithful user-origin view even
+      // for generic fields and side-effect keys (entity_prefix/suffix on leaving
+      // manual mode, mode->days_to_show, ...). That keeps per-section resets,
+      // which derive their payload from _userConfig, from losing or resurrecting
+      // stale values before HA's setConfig round-trip.
 
       // Track explicit allergen changes
       if (prop === "allergens") {
@@ -1339,6 +1350,19 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     }
     cfg.type = this._config.type;
 
+    // Sync _userConfig with every key this edit changed (the edited prop plus
+    // any side-effect keys written above), diffed against the pre-edit config.
+    // Mirrors the visual-side-effects branch; keeps _userConfig a faithful
+    // user-origin view so per-section resets derive correct payloads. Skipped
+    // for integration changes: cfg there is the new integration's full stub, so
+    // diffing it against the old _config would mark stub defaults as user-set —
+    // that branch already set _userConfig to the pruned newUser.
+    if (prop !== "integration") {
+      for (const k of Object.keys(cfg)) {
+        if (!deepEqual(cfg[k], this._config[k])) this._userConfig[k] = cfg[k];
+      }
+    }
+
     if (!deepEqual(this._config, cfg)) {
       this._config = cfg;
       if (this.debug) console.debug("[Editor] updated _config:", this._config);
@@ -1383,7 +1407,16 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
         <!-- §3 Card layout (open by default) -->
         <details open>
-          <summary>${this._t("summary_card_layout")}</summary>
+          <summary>
+            ${this._t("summary_card_layout")}
+            ${this._renderSectionReset([
+              "minimal",
+              "minimal_gap",
+              "allergens_abbreviated",
+              "show_allergen_column",
+              "show_text_allergen",
+            ])}
+          </summary>
           <div class="section-helper">${this._t("helper_card_layout")}</div>
           <ha-formfield label="${this._t("minimal")}">
             <ha-switch
@@ -1450,7 +1483,20 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
         <!-- §4 Day display -->
         <details>
-          <summary>${this._t("summary_day_display")}</summary>
+          <summary>
+            ${this._t("summary_day_display")}
+            ${this._renderSectionReset([
+              "days_to_show",
+              "days_abbreviated",
+              "days_boldfaced",
+              "days_relative",
+              "days_uppercase",
+              "show_empty_days",
+              "show_no_data_distinct",
+              "show_value_numeric",
+              "show_value_text",
+            ])}
+          </summary>
           <div class="section-helper">${this._t("helper_day_display")}</div>
 
           <div class="subgroup-header">${this._t("subgroup_values")}</div>
@@ -1555,7 +1601,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
         <!-- §10 Card interactivity -->
         <details>
-          <summary>${this._t("summary_card_interactivity")}</summary>
+          <summary>
+            ${this._t("summary_card_interactivity")}
+            ${this._renderSectionReset(["tap_action", "link_to_sensors"])}
+          </summary>
           <div class="section-helper">${this._t("helper_card_interactivity")}</div>
           <h3>${this._t("tap_action")}</h3>
           <ha-formfield label="${this._t("link_to_sensors")}">
@@ -1703,7 +1752,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
         <!-- §11 Advanced -->
         <details>
-          <summary>${this._t("summary_advanced")}</summary>
+          <summary>
+            ${this._t("summary_advanced")}
+            ${this._renderSectionReset(["debug", "show_version"])}
+          </summary>
           <div class="section-helper">${this._t("helper_advanced")}</div>
           <ha-formfield label="${this._t("debug")}">
             <ha-switch
@@ -1840,6 +1892,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         color: var(--primary-text-color, #222);
         margin-bottom: 4px; /* Space below summary */
       }
+
+      /* Per-section ↺ reset button styles (shared with the badge editor). */
+      ${sectionResetStyles}
 
       /* Nested details styling */
       details details {

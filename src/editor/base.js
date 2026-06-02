@@ -35,7 +35,7 @@
 //   - The icon_in_ring branch needs the session flag this._thicknessAutoShifted;
 //     the caller must maintain that flag based on the returned state.
 
-import { LitElement, html } from "lit";
+import { LitElement, html, css } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
@@ -127,6 +127,48 @@ export const deepMerge = (target, source) => {
  * Subclasses MAY override `_showTitleSection()` / `_showModeSelector()` to drop
  * card-only controls (the badge editor returns false for both).
  */
+/**
+ * Shared CSS for the per-section ↺ reset button and its summary anchoring.
+ * Spliced into both editors' styles (PollenPrognosCardEditor and
+ * PollenPrognosBadgeEditor) so the two never drift. `details > summary` reserves
+ * right padding for the absolutely-positioned, vertically-centred button;
+ * :focus-visible gives keyboard users a ring. Avoids :has() (older Firefox ESR).
+ */
+export const sectionResetStyles = css`
+  details > summary {
+    position: relative;
+    padding-right: 48px;
+  }
+  .section-reset {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--divider-color, #ccc);
+    background: transparent;
+    color: var(--secondary-text-color);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .section-reset:hover,
+  .section-reset:focus-visible {
+    background: var(--secondary-background-color);
+    color: var(--primary-text-color);
+  }
+  .section-reset:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+`;
+
 export class PollenEditorBase extends LitElement {
   // ------------------------------------------------------------------
   // Presentation hooks (overridable by subclasses)
@@ -389,7 +431,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §1 Integration & Location -->
       <details open>
-        <summary>${this._t("summary_integration_and_place")}</summary>
+        <summary>
+          ${this._t("summary_integration_and_place")}
+          ${this._renderSectionReset(this._integrationResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_integration_and_place")}</div>
 
         <div class="subgroup-header">${this._t("subgroup_source")}</div>
@@ -839,7 +884,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §2 Allergens (promoted to §2, moved from old §3) -->
       <details>
-        <summary>${this._t("summary_allergens")}</summary>
+        <summary>
+          ${this._t("summary_allergens")}
+          ${this._renderSectionReset(this._allergensResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_allergens")}</div>
         ${c.integration === "kleenex" || c.integration === "gpl" || c.integration === "gp"
           ? html`
@@ -1291,7 +1339,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §5 Card appearance -->
       <details>
-        <summary>${this._t("summary_card_appearance")}</summary>
+        <summary>
+          ${this._t("summary_card_appearance")}
+          ${this._renderSectionReset(this._appearanceResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_card_appearance")}</div>
         <ha-formfield label="${this._t("background_color")}">
             <div style="display:flex; gap:8px; align-items:center;">
@@ -1396,7 +1447,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §6 Allergen icons -->
       <details>
-        <summary>${this._t("summary_allergen_icons")}</summary>
+        <summary>
+          ${this._t("summary_allergen_icons")}
+          ${this._renderSectionReset(this._allergenIconsResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_allergen_icons")}</div>
         <ha-formfield
           label="${this._t("allergen_color_mode") ||
@@ -1701,7 +1755,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §7 Level circles -->
       <details>
-        <summary>${this._t("summary_level_circles")}</summary>
+        <summary>
+          ${this._t("summary_level_circles")}
+          ${this._renderSectionReset(this._levelCirclesResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_level_circles")}</div>
         <ha-formfield
           label="${this._t("levels_inherit_mode")}"
@@ -2096,7 +2153,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- §8 Icon in ring -->
       <details>
-        <summary>${this._t("summary_icon_in_ring")}</summary>
+        <summary>
+          ${this._t("summary_icon_in_ring")}
+          ${this._renderSectionReset(this._iconInRingResetKeys())}
+        </summary>
         <div class="section-helper">${this._t("helper_icon_in_ring")}</div>
         ${this._showIconInRingToggle()
           ? html`
@@ -2306,7 +2366,10 @@ export class PollenEditorBase extends LitElement {
     return html`
       <!-- Translations & strings -->
       <details>
-        <summary>${this._t("summary_translation_and_strings")}</summary>
+        <summary>
+          ${this._t("summary_translation_and_strings")}
+          ${this._renderSectionReset(this._phrasesResetKeys())}
+        </summary>
         <div class="section-helper">
           ${this._t("helper_translation_and_strings")}
         </div>
@@ -2637,5 +2700,202 @@ export class PollenEditorBase extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  // ------------------------------------------------------------------
+  // Per-section reset
+  // ------------------------------------------------------------------
+
+  /**
+   * Reset one section's options to their defaults: drop the listed keys from
+   * the user-origin config so the stub / element defaults take over, then
+   * re-seed via setConfig and dispatch. Scoped sibling of _resetAll; works for
+   * both editors because _userConfig is the user-origin view both editors
+   * maintain and which serves as the reset base (it is not necessarily what
+   * gets dispatched in config-changed).
+   *
+   * @param {string[]} keys
+   */
+  _resetSection(keys) {
+    if (!Array.isArray(keys) || !keys.length) return;
+    const base = { ...(this._userConfig || {}) };
+    for (const k of keys) delete base[k];
+    // Preserve the HA `type` key (as _resetAll does): _userConfig may lack it
+    // even when _config carries it, and dispatching a config without `type`
+    // can break HA card persistence.
+    if (base.type === undefined && this._config?.type !== undefined) {
+      base.type = this._config.type;
+    }
+    // Clear _userConfig BEFORE re-seeding: the card editor's setConfig
+    // deep-merges its argument into the existing _userConfig, which would
+    // reintroduce the just-deleted keys. (The card editor's _resetAll override
+    // clears _userConfig for the same reason before delegating to the base.)
+    // setConfig(base) then restores the kept keys while the section keys stay
+    // gone.
+    this._userConfig = {};
+    this.setConfig(base);
+    // setConfig re-derives _config for rendering and (card editor) injects
+    // LEVELS_DEFAULTS into _userConfig. Restore the clean `base` as the
+    // user-origin view so a subsequent section reset doesn't start from a
+    // defaults-polluted base and persist level defaults as if user settings.
+    this._userConfig = { ...base };
+    this.dispatchEvent(
+      new CustomEvent("config-changed", {
+        detail: { config: base },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  /**
+   * Small reset button for a section header. Resets the given keys via
+   * _resetSection. Rendered inside the <summary>; stops propagation and
+   * prevents default so clicking it doesn't toggle the <details>.
+   *
+   * @param {string[]} keys
+   * @returns {import("lit").TemplateResult}
+   */
+  _renderSectionReset(keys) {
+    const label = this._t("preset_reset_section") || "Reset section";
+    // Compact icon button absolutely positioned + vertically centred in the
+    // section header (.section-reset CSS lives in each editor's styles). A
+    // plain <button> instead of <ha-button> keeps it small and avoids the
+    // chunky Material button height that overflowed the summary bar.
+    return html`
+      <button
+        type="button"
+        class="section-reset"
+        title="${label}"
+        aria-label="${label}"
+        @click=${(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this._resetSection(keys);
+        }}
+      >
+        ↺
+      </button>
+    `;
+  }
+
+  // Keys reset by the Card appearance (§5) section button. The badge editor
+  // overrides this to add its badge_* size/label keys.
+  _appearanceResetKeys() {
+    return ["background_color", "icon_size", "text_size_ratio"];
+  }
+
+  // Keys reset by the Allergen icons (§6) section button. levels_gap is
+  // included ONLY when it is actually derived from allergen_stroke_width, i.e.
+  // inherit_allergen mode with the gap synced (gapDisabled). When the user has
+  // unsynced the gap or picked custom mode, levels_gap is owned by the §7 Level
+  // circles section and an icon reset must not clear it.
+  _allergenIconsResetKeys() {
+    const keys = [
+      "allergen_color_mode",
+      "allergen_colors",
+      "allergen_outline_color",
+      "allergen_stroke_color_synced",
+      "allergen_stroke_width",
+      "no_allergens_color",
+    ];
+    const { inheritMode, gapDisabled } = this._inheritState();
+    // In inherit_allergen mode the allergen settings DERIVE level keys via
+    // _applyVisualConfigSideEffects: allergen_stroke_width -> levels_gap (when
+    // synced) and allergen_colors[0] -> levels_empty_color. Clear those derived
+    // keys too, else the reset leaves the ring's gap/empty-color customized.
+    if (gapDisabled) keys.push("levels_gap");
+    if (inheritMode === "inherit_allergen") keys.push("levels_empty_color");
+    return keys;
+  }
+
+  // Keys reset by the Level circles (§7) section button.
+  _levelCirclesResetKeys() {
+    return [
+      "levels_inherit_mode",
+      "levels_colors",
+      "levels_empty_color",
+      "levels_thickness",
+      "levels_gap",
+      "levels_gap_color",
+      "levels_icon_ratio",
+      "levels_text_size",
+      "levels_text_color",
+      "levels_text_weight",
+      "allergen_levels_gap_synced",
+      "numeric_value_raw",
+      "numeric_state_raw_risk",
+      "show_value_numeric_in_circle",
+    ];
+  }
+
+  // Keys reset by the Icon in ring (§8) section button. levels_thickness is
+  // included only when it was auto-thinned by enabling icon_in_ring (tracked by
+  // _thicknessAutoShifted) and never user-customized; otherwise turning the
+  // feature off via reset would leave the rings unexpectedly thin. A
+  // user-customized thickness is owned by §7 and left untouched.
+  _iconInRingResetKeys() {
+    const keys = [
+      "icon_in_ring",
+      "icon_in_ring_color_mode",
+      "icon_in_ring_size_ratio",
+      "icon_in_ring_static_color",
+    ];
+    if (this._thicknessAutoShifted) keys.push("levels_thickness");
+    return keys;
+  }
+
+  // Keys reset by the Integration & Location (§1) section button. Resets the
+  // place/title WITHIN the chosen integration but keeps `integration` itself —
+  // switching integration is the global "Reset all"'s job, not a section reset.
+  // After the reset the location re-autodetects. For SILAM/PEU the forecast
+  // `mode` selector is rendered in this section; clear it AND its hard-coupled
+  // day-display side effects (changing mode auto-writes days_to_show /
+  // show_empty_days), so the reset returns the whole mode-related config to
+  // defaults. Other integrations have no mode control here, so those keys are
+  // left to the Day display (§4) reset.
+  _integrationResetKeys() {
+    const keys = [
+      "city",
+      "region_id",
+      "location",
+      "entity_prefix",
+      "entity_suffix",
+      "entity_weather",
+      "title",
+    ];
+    const integration = this._config?.integration;
+    if (integration === "silam" || integration === "peu") {
+      keys.push("mode", "days_to_show", "show_empty_days");
+    }
+    return keys;
+  }
+
+  // Keys reset by the Allergens (§2) section button: selection, threshold,
+  // sort, pin-to-top, and the summary/pollution-block toggles.
+  _allergensResetKeys() {
+    return [
+      "allergens",
+      "pollen_threshold",
+      "sort",
+      "sort_category_allergens_first",
+      "sort_pollution_block",
+      "pollution_block_position",
+      "show_block_separator",
+      "show_summary_block",
+      "show_summary_row",
+      "show_summary_separator",
+      "show_summary_top_types",
+      "show_summary_plants_in_season",
+      "allergy_risk_top",
+      "index_top",
+    ];
+  }
+
+  // Keys reset by the Translations & strings (§9) section button: custom
+  // allergen/level/day phrase overrides and the date locale (which re-autofills
+  // from the HA locale afterwards).
+  _phrasesResetKeys() {
+    return ["phrases", "date_locale"];
   }
 }

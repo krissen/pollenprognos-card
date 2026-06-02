@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Positie luchtkwaliteit",
   "editor.pollution_block_top": "Bovenaan (boven pollen)",
   "editor.preset_reset_all": "Alle instellingen resetten",
+  "editor.preset_reset_section": "Sectie resetten",
   "editor.region_id": "Regio-ID",
   "editor.select_all_allergens": "Selecteer alle allergenen",
   "editor.select_all_pollen": "Pollen selecteren",

@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Position der Luftqualität",
   "editor.pollution_block_top": "Oben (über Pollen)",
   "editor.preset_reset_all": "Alles zurücksetzen",
+  "editor.preset_reset_section": "Abschnitt zurücksetzen",
   "editor.region_id": "Region ID",
   "editor.select_all_allergens": "Alle Allergene auswählen",
   "editor.select_all_pollen": "Pollen auswählen",

@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Posición de la contaminación",
   "editor.pollution_block_top": "Arriba (encima del polen)",
   "editor.preset_reset_all": "Restablecer toda la configuración",
+  "editor.preset_reset_section": "Restablecer sección",
   "editor.region_id": "ID de región",
   "editor.select_all_allergens": "Seleccionar todos los alérgenos",
   "editor.select_all_pollen": "Seleccionar polen",

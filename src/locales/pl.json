@@ -331,6 +331,7 @@
   "editor.pollution_block_position": "Pozycja zanieczyszczeń",
   "editor.pollution_block_top": "Na górze (nad pyłkiem)",
   "editor.preset_reset_all": "Przywróć ustawienia",
+  "editor.preset_reset_section": "Przywróć sekcję",
   "editor.region_id": "ID regionu",
   "editor.select_all_allergens": "Wybierz wszystkie alergeny",
   "editor.select_all_pollen": "Wybierz pyłek",
