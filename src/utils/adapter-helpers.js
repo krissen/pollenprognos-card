@@ -192,19 +192,20 @@ export function selectBadgeSensor(sensors, config) {
  * no-data / level-0 named allergen still reaches selectBadgeSensor instead of
  * being dropped.
  *
- * The fetch is based on the adapter's STUB allergen set (passed in), not the
- * possibly-custom configured list. The stub holds each adapter's native slugs
- * (pp "Björk", dwd "Birke"), so the named sensor is fetched even when the user
- * named a canonical key ("birch") or trimmed the allergens list: an adapter
- * keyed by localized slugs would never resolve a bare canonical key on its own.
- * The named key is appended only when no stub allergen is canonically
- * equivalent to it, so a canonical name the stub omits but the adapter resolves
- * directly (e.g. gpl "birch") is still fetched, without duplicating a localized
- * stub key that already covers it (which would double-fetch the same entity).
- * selectBadgeSensor then resolves the named allergen canonically and a genuine
- * miss surfaces as no-data rather than the wrong allergen. Pure: returns the
- * input unchanged for any non-single / unnamed config, else a shallow-merged
- * copy.
+ * The fetch is narrowed to the one named allergen, resolved through the
+ * adapter's STUB allergen set (passed in): pick the stub key(s) whose canonical
+ * form matches the named key, so an adapter keyed by localized slugs fetches its
+ * native sensor (pp "Björk" / dwd "Birke" for a canonical "birch") rather than a
+ * bare canonical key it cannot resolve. Fall back to [key] when the stub has no
+ * canonical match but the adapter resolves the key directly (e.g. gpl "birch",
+ * which its stub omits). Resolving against the stub (not the possibly-custom
+ * configured list) means a trimmed allergens list cannot hide the named
+ * allergen, and matching canonically (not by exact string) avoids double-
+ * fetching the same entity from a casing/diacritic variant. The threshold is set
+ * to 0 so a level-0 / no-data named allergen still reaches selectBadgeSensor,
+ * which resolves the name canonically; a genuine miss then surfaces as no-data
+ * rather than the wrong allergen. Pure: returns the input unchanged for any
+ * non-single / unnamed config, else a shallow-merged copy.
  *
  * @param {object} config - badge config (already typeguarded by _buildConfig).
  * @param {string[]} stubAllergens - the adapter's stub allergens (native slugs).
@@ -214,22 +215,22 @@ export function pinBadgeSingleAllergen(config, stubAllergens = []) {
   if (config?.badge_content !== "single") return config;
   const key = config.badge_single_allergen;
   if (typeof key !== "string" || !key) return config;
-  const base = Array.isArray(stubAllergens) ? stubAllergens.slice() : [];
+  const base = Array.isArray(stubAllergens) ? stubAllergens : [];
   // Canonical forms of the named key, via both normalizers, mirroring how
-  // matchSensorByAllergenKey later resolves it (so "covered" agrees with the
+  // matchSensorByAllergenKey later resolves it (so the match agrees with the
   // eventual lookup, and dwd umlaut/ß keys are matched too).
   const wanted = new Set([
     toCanonicalAllergenKey(normalize(key)),
     toCanonicalAllergenKey(normalizeDWD(key)),
   ]);
-  const covered = base.some((a) => {
+  const matches = base.filter((a) => {
     const s = String(a);
     return (
       wanted.has(toCanonicalAllergenKey(normalize(s))) ||
       wanted.has(toCanonicalAllergenKey(normalizeDWD(s)))
     );
   });
-  const allergens = covered ? base : [...base, key];
+  const allergens = matches.length ? matches : [key];
   return { ...config, allergens, pollen_threshold: 0 };
 }
 
