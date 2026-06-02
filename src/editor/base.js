@@ -2634,16 +2634,20 @@ export class PollenEditorBase extends LitElement {
           <ha-switch
             .checked=${this._tapType !== "none"}
             @change=${(e) => {
+              // Drop the Lovelace-standard `action` alias: the resolver gives
+              // it precedence over `type`, so leaving a stale `action` here
+              // would keep the old action live and make the toggle a no-op.
+              const { action: _drop, ...rest } = this._config.tap_action || {};
               if (e.target.checked) {
                 this._tapType = "more-info";
                 this._updateConfig("tap_action", {
-                  ...this._config.tap_action,
+                  ...rest,
                   type: "more-info",
                 });
               } else {
                 this._tapType = "none";
                 this._updateConfig("tap_action", {
-                  ...this._config.tap_action,
+                  ...rest,
                   type: "none",
                 });
               }
