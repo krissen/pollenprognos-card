@@ -84,7 +84,8 @@ In this file:
 | `show_value_numeric` | `boolean` | `false` | Show numeric pollen value. |
 | `show_value_numeric_in_circle` | `boolean` | `false` | Place numeric value inside the circle. |
 | `link_to_sensors` | `boolean` | `true` | Link allergen icons and circles to their sensor entities. |
-| `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). |
+| `numeric_value_raw` | `boolean` | `false` | For integrations that report a raw measurement distinct from the level (Pollen.lu, Polleninformation, SILAM, Kleenex), show the raw value (concentration in grains or particles per m3, or an index) in the ring / numeric text instead of the card's calculated level. Other integrations are unaffected. |
+| `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). Now a PEU-scoped alias of `numeric_value_raw`; either key works for Polleninformation. |
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
 | `show_no_data_distinct` | `boolean` | `true` | Render entries where the sensor exists but has no current value (e.g. `state: unknown`, upstream API returned `null`) with a distinct fuzzy texture instead of a plain empty circle. Disable to fall back to the old appearance, where no-data and a real `0` look identical. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
@@ -102,7 +103,7 @@ In this file:
 | `show_summary_plants_in_season` *(GPL only)* | `boolean` | `true` | Show an "In season" row listing the plants currently in pollen season. Requires `show_summary_block: true`. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
-| `tap_action` | `object` | *(empty)* | Lovelace tap action configuration. |
+| `tap_action` | `object` | *(empty)* | Lovelace tap action. Supported types: `more-info`, `navigate` (needs `navigation_path`), and `call-service` / Home Assistant's `perform-action` (needs a `service` / `perform_action` and optional `target` / `data`). Honours both the Lovelace-standard `action` key and the card's historical `type` key; when a `tap_action` is set with no explicit type it defaults to `more-info`. |
 | `debug` | `boolean` | `false` | Enable verbose console logging. |
 | `show_version` | `boolean` | `true` | Log card version in the browser console. |
 | `phrases.full` | `object` | `{}` | Map allergen keys to full length names. |
@@ -377,9 +378,11 @@ The badge is today-only: it always forces `mode: daily` regardless of your integ
 | `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL and Atmo out of the box; for SILAM add the index, `index`, to `allergens` and set `pollen_threshold: 0` so a low index is not filtered out; falls back to `worst` everywhere else), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
 | `badge_single_allergen` | `string` | *(empty)* | The allergen key to show when `badge_content` is `single`. Must be a valid key for your integration (see [Valid allergen keys](#valid-allergen-keys)). |
 | `badge_visual` | `string` | `icon_in_ring` | Visual style: `icon_in_ring` (allergen icon inside the level ring), `ring_value` (numeric level centred in the ring), `ring_empty` (ring only), `icon_only` (bare allergen symbol, no ring). |
-| `badge_scale` | `number` | `1` | Scales the entire badge (height, padding, gap, label and ring together), based on Home Assistant's native badge size (`--ha-badge-size`, 36 px). `1` renders a standard-size HA badge. |
+| `badge_scale` | `number` | `1` | Scales the entire badge (height, padding, gap, label and ring together), based on Home Assistant's native badge size (`--ha-badge-size`, 36 px). `1` renders a standard-size HA badge. Clamped to a sane range (0.5 to 3) so a pathological value cannot break the editor preview. |
+| `badge_icon_scale` | `number` | `1` | Scales just the allergen visual within the badge: the ring (with its centred icon or value) in the ring modes, or the bare icon in `icon_only`. The label text and the overall pill box are unchanged, and the scaled visual is capped at the pill height so it never overflows. So `badge_scale` sets how big the badge is, `badge_icon_scale` sets how big the image is within it. Range 0.3 to 3. |
 | `badge_label_position` | `string` | `right` | Where to place the label: `right` (beside the visual, the HA community convention) or `below` (under the visual). |
 | `badge_show_label` | `boolean` | `false` | Show the allergen short name or label next to the visual. |
+| `tap_action` | `object` | *(empty)* | Lovelace tap action for the badge, configured in the editor's **Interactions** section. Same shape and supported types as the card's [`tap_action`](#options): `more-info`, `navigate`, and `call-service` / `perform-action`. With no `tap_action` set the badge is inert. |
 
 ### Badge YAML examples
 
@@ -406,6 +409,19 @@ badges:
 ```
 
 `badge_content: aggregate` falls back to `worst` for integrations that do not expose an overall-risk sensor.
+
+**Tap action (open more-info on tap):**
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    tap_action:
+      action: more-info
+```
+
+The badge's `tap_action` is set in the editor's **Interactions** section and uses the same shape and types as the card (`more-info`, `navigate`, `call-service` / `perform-action`); see [`tap_action`](#options) under the card options. With no `tap_action` the badge is inert.
 
 ## Color System Overview
 
@@ -600,6 +616,21 @@ type: custom:pollenprognos-card
 minimal: true
 show_value_numeric: true
 ```
+
+**Minimal layout with the icon in the ring**
+
+With no allergen column on the left, `icon_in_ring` is at its clearest: the allergen icon sits inside the level ring and the ring colour shows the level.
+
+```yaml
+type: custom:pollenprognos-card
+integration: gpl
+minimal: true
+icon_in_ring: true
+```
+
+<p align="center">
+  <img width="420" alt="Minimal layout with the allergen icon centred inside each level ring and no separate icon column, the ring colour showing the level" src="screenshots/feature-minimal-icon-in-ring.png" />
+</p>
 
 **Custom phrases**
 
