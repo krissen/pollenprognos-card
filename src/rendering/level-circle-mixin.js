@@ -25,6 +25,27 @@ import {
 // Register Chart.js components once at module load time.
 Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 
+// The tap_action types the shared handler knows how to perform.
+const TAP_ACTION_TYPES = ["more-info", "navigate", "call-service"];
+
+/**
+ * Resolve a tap_action config to the effective action type, or null when the
+ * action is absent/unactionable. A plain object with no `type` defaults to
+ * "more-info" (the handler's documented default); "none", non-objects, arrays,
+ * and unknown type strings resolve to null. Callers use this both to decide
+ * whether to bind a click listener (so the element isn't clickable-but-inert)
+ * and to dispatch, keeping the binding and the handler in lockstep.
+ *
+ * @param {*} tapAction
+ * @returns {"more-info"|"navigate"|"call-service"|null}
+ */
+export function resolveTapActionType(tapAction) {
+  if (!tapAction || typeof tapAction !== "object" || Array.isArray(tapAction))
+    return null;
+  const type = tapAction.type || "more-info";
+  return TAP_ACTION_TYPES.includes(type) ? type : null;
+}
+
 /**
  * LevelCircleMixin — adds the level-circle / icon-in-ring rendering engine
  * to any LitElement subclass.
@@ -440,10 +461,14 @@ export const LevelCircleMixin = (Base) =>
      */
     _handleTapAction(e) {
       const tapAction = this.tapAction || this.config?.tap_action;
-      if (!tapAction || !this._hass) return;
+      const action = resolveTapActionType(tapAction);
+      // Bail before consuming the event for absent/none/unknown actions, so an
+      // inert tap_action doesn't swallow the click. hass is needed for
+      // more-info and call-service; navigate only needs the History API.
+      if (!action) return;
+      if (action !== "navigate" && !this._hass) return;
       e?.preventDefault?.();
       e?.stopPropagation?.();
-      const action = tapAction.type || "more-info";
       switch (action) {
         case "more-info": {
           // Fall back to sun.sun, which always exists in Home Assistant.
@@ -458,19 +483,27 @@ export const LevelCircleMixin = (Base) =>
           break;
         }
         case "navigate":
-          if (tapAction.navigation_path)
+          if (
+            tapAction.navigation_path &&
+            typeof window !== "undefined" &&
+            window.history?.pushState
+          )
             window.history.pushState(null, "", tapAction.navigation_path);
           break;
-        case "call-service":
-          if (tapAction.service && typeof tapAction.service === "string") {
-            const [domain, service] = tapAction.service.split(".");
+        case "call-service": {
+          // service must be a "domain.service" string with both halves present.
+          const [domain, service] =
+            typeof tapAction.service === "string"
+              ? tapAction.service.split(".")
+              : [];
+          if (domain && service)
             this._hass.callService(
               domain,
               service,
               tapAction.service_data || {},
             );
-          }
           break;
+        }
       }
     }
 

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { LevelCircleMixin } from "../../src/rendering/level-circle-mixin.js";
+import {
+  LevelCircleMixin,
+  resolveTapActionType,
+} from "../../src/rendering/level-circle-mixin.js";
 
 // The shared element-level tap_action handler lives in LevelCircleMixin so the
 // card and the badge share one implementation. Test it against a minimal base
@@ -110,6 +113,39 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(el._hass.callService).not.toHaveBeenCalled();
   });
 
+  it("call-service ignores a service string without a dot", () => {
+    el.tapAction = { type: "call-service", service: "notadomain" };
+    el._handleTapAction(makeEvent());
+    expect(el._hass.callService).not.toHaveBeenCalled();
+  });
+
+  it("does not consume the event for an unsupported action type", () => {
+    el.tapAction = { type: "totally-unknown" };
+    const e = makeEvent();
+    el._handleTapAction(e);
+    expect(el.dispatched).toHaveLength(0);
+    expect(el._hass.callService).not.toHaveBeenCalled();
+    // Inert action must not swallow the click.
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    expect(e.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  it('does not consume the event for type "none"', () => {
+    el.tapAction = { type: "none" };
+    const e = makeEvent();
+    el._handleTapAction(e);
+    expect(el.dispatched).toHaveLength(0);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("ignores an array tap_action", () => {
+    el.tapAction = [{ type: "more-info" }];
+    const e = makeEvent();
+    el._handleTapAction(e);
+    expect(el.dispatched).toHaveLength(0);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+
   describe("navigate", () => {
     let prevWindow;
     beforeEach(() => {
@@ -135,5 +171,37 @@ describe("LevelCircleMixin._handleTapAction", () => {
       el._handleTapAction(makeEvent());
       expect(window.history.pushState).not.toHaveBeenCalled();
     });
+
+    it("navigates even without hass (navigate needs only the History API)", () => {
+      el._hass = undefined;
+      el.tapAction = { type: "navigate", navigation_path: "/lovelace/1" };
+      el._handleTapAction(makeEvent());
+      expect(window.history.pushState).toHaveBeenCalledWith(
+        null,
+        "",
+        "/lovelace/1",
+      );
+    });
+  });
+});
+
+describe("resolveTapActionType", () => {
+  it("resolves supported explicit types", () => {
+    expect(resolveTapActionType({ type: "more-info" })).toBe("more-info");
+    expect(resolveTapActionType({ type: "navigate" })).toBe("navigate");
+    expect(resolveTapActionType({ type: "call-service" })).toBe("call-service");
+  });
+
+  it("defaults a typeless object to more-info", () => {
+    expect(resolveTapActionType({ entity: "sensor.x" })).toBe("more-info");
+  });
+
+  it("returns null for none, unknown, and non-objects", () => {
+    expect(resolveTapActionType({ type: "none" })).toBeNull();
+    expect(resolveTapActionType({ type: "weird" })).toBeNull();
+    expect(resolveTapActionType(null)).toBeNull();
+    expect(resolveTapActionType(undefined)).toBeNull();
+    expect(resolveTapActionType("more-info")).toBeNull();
+    expect(resolveTapActionType([{ type: "more-info" }])).toBeNull();
   });
 });

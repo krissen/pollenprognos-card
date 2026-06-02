@@ -40,7 +40,7 @@ import {
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
-import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
+import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 
 class PollenPrognosCard extends LevelCircleMixin(LitElement) {
@@ -1876,14 +1876,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
 
-    const tapAction = this.config.tap_action || null;
+    // Bind only when the action resolves to a supported type, so an inert
+    // tap_action doesn't make the card clickable-but-dead (predicate shared
+    // with the badge in LevelCircleMixin).
+    const hasTap = resolveTapActionType(this.config.tap_action) !== null;
     const bgStyle = this.config.background_color?.trim?.()
       ? `background-color: ${this.config.background_color.trim()};`
       : "";
-    const cursorStyle =
-      tapAction && tapAction.type && tapAction.type !== "none"
-        ? "pointer"
-        : "auto";
+    const cursorStyle = hasTap ? "pointer" : "auto";
     const imgSize =
       Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
     const cardStyle = `
@@ -1895,9 +1895,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return html`
       <ha-card
         style="${cardStyle}"
-        @click="${tapAction && tapAction.type && tapAction.type !== "none"
-          ? this._handleTapAction
-          : null}"
+        @click="${hasTap ? this._handleTapAction : null}"
       >
         ${cardContent}
       </ha-card>

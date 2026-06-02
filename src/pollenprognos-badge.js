@@ -29,7 +29,7 @@ import {
   NORMAL_DEFAULT_THICKNESS,
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
-import { LevelCircleMixin } from "./rendering/level-circle-mixin.js";
+import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -210,7 +210,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // mis-typed YAML scalar can't reach the runtime handler. link_to_sensors
     // passes through ...config unchanged (boolean, read default-on at runtime).
     const tapAction =
-      config.tap_action && typeof config.tap_action === "object"
+      config.tap_action &&
+      typeof config.tap_action === "object" &&
+      !Array.isArray(config.tap_action)
         ? config.tap_action
         : undefined;
 
@@ -423,12 +425,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const labelBelow = this.config?.badge_label_position === "below";
     const showLabel = this.config.badge_show_label === true;
 
-    // Badge-level tap_action (shared with the card). Bind only when configured
-    // and not "none"; per-icon link_to_sensors clicks stopPropagation, so the
-    // two coexist without double-firing, exactly like the card. Handler lives
-    // in LevelCircleMixin.
-    const tapAction = this.config?.tap_action || null;
-    const hasTap = !!(tapAction && tapAction.type && tapAction.type !== "none");
+    // Badge-level tap_action (shared with the card). Bind only when the action
+    // resolves to a supported type (so an inert/unknown action doesn't make the
+    // badge clickable-but-dead); per-icon link_to_sensors clicks stopPropagation,
+    // so the two coexist without double-firing, exactly like the card. Handler
+    // and predicate live in LevelCircleMixin.
+    const hasTap = resolveTapActionType(this.config?.tap_action) !== null;
 
     return html`
       <div
