@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- **(badge) `badge_content: single` no longer silently shows the wrong allergen** (PR #252). With `badge_content: single` and `badge_single_allergen: X`, the badge could render a *different* allergen (the highest-level one) with no error, whenever the named allergen was absent from the (often defaulted) `allergens` set or had been dropped below the threshold. Single mode now scopes the fetch to the named allergen, resolving it to the adapter's native key (so a canonical key like `birch` finds PollenPrognos `Björk`), and disables the threshold so a level-0 or no-data reading still surfaces; a genuinely unresolved name shows a no-data badge instead of the wrong allergen.
+- **(badge, card) Distinguish "no pollen", "no data" and "no information"** (PR #252). A `worst`/`row`/`aggregate` badge with no pollen now shows the breezy `no_allergens` image instead of a blank pill, and a no-information visual (the `no_allergens` silhouette drawn with the no-data noise pattern, plus the "(No information)" label on the card) when entities exist but carry no usable forecast, distinct from a real level-0 ring. The classification honours adapters that flag no-data via a negative `display_state` (e.g. Atmo "Indisponible") and PollenPrognos no-info under `pollen_threshold: 0`, and a card whose allergens are all no-data now shows the no-information state instead of rendering blank.
+- **(editor) Badge preview stays in sync with the allergen picker** (PR #252). Switching a badge to `single`, or switching integration while in `single`, now commits the allergen the picker shows (the first allergen) instead of leaving it unset; previously the preview fell back to "highest pollen level" while the picker displayed a different allergen.
+- **(badge) Editor preview no longer blanks when changing the allergen** (PR #252). Changing the single allergen in the editor could leave the preview stuck on the empty pill until save: a stale, out-of-order fetch overwrote the current data, and a sensors-only change did not repaint. Fetches now apply only their latest result, and the badge re-renders after each fetch.
+
 ## [3.3.0-beta2] - 2026-06-02
 
 Follow-up to the badge work in beta1, driven by feedback on issue #235.
