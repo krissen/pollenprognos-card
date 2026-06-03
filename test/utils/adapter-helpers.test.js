@@ -1128,12 +1128,40 @@ describe("resolveAllergenNames", () => {
     expect(allergenCapitalized).toBe("MY GRASS");
   });
 
-  it("carries a dwd-keyed override (ß differs) to msw via normalizeDWD", () => {
+  it("carries a dwd umlaut key (Gräser) via the primary normalizer", () => {
+    // "Gräser" resolves through normalize() (NFD strips ä → graser, an alias),
+    // not the DWD ß path.
     const { allergenCapitalized } = callMSW({
       fullPhrases: { "Gräser": "GRÄSER!" },
       shortPhrases: {},
     });
     expect(allergenCapitalized).toBe("GRÄSER!");
+  });
+
+  it("carries a dwd ß key (Beifuß → mugwort) via normalizeDWD fallback", () => {
+    // normalize("Beifuß") → "beifu" (no alias); only normalizeDWD's ß→ss
+    // expansion reaches "beifuss" → mugwort.
+    const { allergenCapitalized } = resolveAllergenNames("mugwort", {
+      configKey: "mugwort",
+      lang: "en",
+      fullPhrases: { "Beifuß": "MUGGA" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MUGGA");
+  });
+
+  it("does not cross-alias a pp grass key onto GP graminales (issue #253 review)", () => {
+    // normalizeDWD("Gräs") → "graes" → graminales, a *distinct* canonical. The
+    // DWD fallback must not fire here because normalize() already recognized
+    // "gras" as grass, so a grass override must never relabel Graminales.
+    const { allergenCapitalized } = resolveAllergenNames("graminales", {
+      configKey: "graminales",
+      lang: "en",
+      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).not.toBe("MITT GRÄS!");
+    expect(allergenCapitalized).toBe("Graminales");
   });
 
   it("exact raw key beats a canonical alias in the same map", () => {

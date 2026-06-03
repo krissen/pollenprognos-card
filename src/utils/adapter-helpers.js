@@ -1,7 +1,7 @@
 // src/utils/adapter-helpers.js
 // Shared pure helpers used by multiple adapters.
 import { t, detectLang } from "../i18n.js";
-import { toCanonicalAllergenKey } from "../constants.js";
+import { toCanonicalAllergenKey, ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize, normalizeDWD } from "./normalize.js";
 
 /**
@@ -481,11 +481,20 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
  * override carry across integrations that share an allergen: resolveAllergenNames
  * falls back to this index by canonical key after the exact raw-key lookup misses.
  *
- * Each raw key is canonicalized through both normalize() and normalizeDWD()
- * (they differ on ß→ss, so German keys like "Gräser" only resolve via the DWD
- * normalizer) and mapped with toCanonicalAllergenKey(). First-defined-wins;
- * since the exact raw-key match in resolveAllergenNames takes precedence over
- * this fallback, any canonical collisions here are low-impact.
+ * Canonicalization uses normalize() as the primary path. It covers alias hits
+ * (PP "Gräs" → gras → grass), keys already written as a canonical name
+ * ("grass" → grass), and DWD umlaut keys (NFD strips ä/ö/ü, so "Gräser" →
+ * graser → grass, an alias). normalizeDWD() is consulted only as a fallback for
+ * keys the primary path does NOT recognize as an alias — its sole added value
+ * is the ß→ss expansion (e.g. "Beifuß" → beifuss → mugwort, where normalize
+ * yields the unrecognized "beifu"). Restricting the DWD path to unrecognized
+ * keys prevents cross-aliasing a recognized non-DWD key onto a different
+ * canonical allergen (e.g. PP "Gräs", whose DWD form "graes" is GP's distinct
+ * "graminales", must not relabel Graminales).
+ *
+ * First-defined-wins; since the exact raw-key match in resolveAllergenNames
+ * takes precedence over this fallback, any residual canonical collisions are
+ * low-impact.
  *
  * Memoized per phrase-object via a WeakMap: a single fetchForecast reuses the
  * same fullPhrases/shortPhrases reference across all allergens, so the index is
@@ -502,9 +511,16 @@ function getCanonicalPhraseIndex(phrases) {
   if (idx) return idx;
   idx = {};
   for (const rawKey of Object.keys(phrases)) {
-    for (const norm of [normalize, normalizeDWD]) {
-      const canon = toCanonicalAllergenKey(norm(rawKey));
-      if (canon && !(canon in idx)) idx[canon] = phrases[rawKey];
+    const value = phrases[rawKey];
+    const addCanon = (canon) => {
+      if (canon && !(canon in idx)) idx[canon] = value;
+    };
+    const n = normalize(rawKey);
+    addCanon(toCanonicalAllergenKey(n));
+    // DWD ß→ss fallback only for keys normalize() did not recognize as an alias.
+    if (!(n in ALLERGEN_TRANSLATION)) {
+      const nd = normalizeDWD(rawKey);
+      if (nd in ALLERGEN_TRANSLATION) addCanon(toCanonicalAllergenKey(nd));
     }
   }
   _canonicalPhraseCache.set(phrases, idx);
