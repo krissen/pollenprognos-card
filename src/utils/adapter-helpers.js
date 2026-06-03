@@ -450,8 +450,9 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   const canonKey = toCanonicalAllergenKey(allergenKey);
 
   let allergenCapitalized;
-  if (fullPhrases[ck]) {
-    allergenCapitalized = fullPhrases[ck];
+  const fullOverride = fullPhrases[ck] || getCanonicalPhraseIndex(fullPhrases)[canonKey];
+  if (fullOverride) {
+    allergenCapitalized = fullOverride;
   } else {
     const nameKey = `card.allergen.${canonKey}`;
     const i18nName = t(nameKey, lang);
@@ -463,6 +464,7 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
     const shortKey = `editor.phrases_short.${canonKey}`;
     const i18nShort = t(shortKey, lang);
     allergenShort = shortPhrases[ck]
+      || getCanonicalPhraseIndex(shortPhrases)[canonKey]
       || (i18nShort !== shortKey ? i18nShort : null)
       || allergenCapitalized;
   } else {
@@ -470,6 +472,43 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   }
 
   return { allergenCapitalized, allergenShort };
+}
+
+/**
+ * Build a { canonicalAllergenKey: overrideValue } index from a user phrase map
+ * (config.phrases.full / .short), whose keys are raw, per-integration allergen
+ * names (e.g. PP's "Gräs", MSW's "grass", DWD's "Gräser"). This lets a phrase
+ * override carry across integrations that share an allergen: resolveAllergenNames
+ * falls back to this index by canonical key after the exact raw-key lookup misses.
+ *
+ * Each raw key is canonicalized through both normalize() and normalizeDWD()
+ * (they differ on ß→ss, so German keys like "Gräser" only resolve via the DWD
+ * normalizer) and mapped with toCanonicalAllergenKey(). First-defined-wins;
+ * since the exact raw-key match in resolveAllergenNames takes precedence over
+ * this fallback, any canonical collisions here are low-impact.
+ *
+ * Memoized per phrase-object via a WeakMap: a single fetchForecast reuses the
+ * same fullPhrases/shortPhrases reference across all allergens, so the index is
+ * built once rather than per allergen.
+ *
+ * @param {object} phrases - User phrase map keyed by raw allergen names.
+ * @returns {Object<string,string>} Canonical-key → override-value lookup.
+ */
+const _canonicalPhraseCache = new WeakMap();
+
+function getCanonicalPhraseIndex(phrases) {
+  if (!phrases || typeof phrases !== "object") return {};
+  let idx = _canonicalPhraseCache.get(phrases);
+  if (idx) return idx;
+  idx = {};
+  for (const rawKey of Object.keys(phrases)) {
+    for (const norm of [normalize, normalizeDWD]) {
+      const canon = toCanonicalAllergenKey(norm(rawKey));
+      if (canon && !(canon in idx)) idx[canon] = phrases[rawKey];
+    }
+  }
+  _canonicalPhraseCache.set(phrases, idx);
+  return idx;
 }
 
 /**
