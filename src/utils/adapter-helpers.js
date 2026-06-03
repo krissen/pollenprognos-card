@@ -449,8 +449,17 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   const ck = configKey ?? allergenKey;
   const canonKey = toCanonicalAllergenKey(allergenKey);
 
+  // Resolve a phrase override for one map: a *present* exact key (even an empty
+  // string the editor writes when the field is cleared) wins and opts out of
+  // the cross-integration alias; only an absent exact key falls back to the
+  // canonical index. hasOwnProperty also makes a null/array phrase map a no-op.
+  const overrideFor = (phrases) =>
+    phrases != null && Object.prototype.hasOwnProperty.call(phrases, ck)
+      ? phrases[ck]
+      : getCanonicalPhraseIndex(phrases)[canonKey];
+
   let allergenCapitalized;
-  const fullOverride = fullPhrases[ck] || getCanonicalPhraseIndex(fullPhrases)[canonKey];
+  const fullOverride = overrideFor(fullPhrases);
   if (fullOverride) {
     allergenCapitalized = fullOverride;
   } else {
@@ -463,8 +472,7 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   if (abbreviated) {
     const shortKey = `editor.phrases_short.${canonKey}`;
     const i18nShort = t(shortKey, lang);
-    allergenShort = shortPhrases[ck]
-      || getCanonicalPhraseIndex(shortPhrases)[canonKey]
+    allergenShort = overrideFor(shortPhrases)
       || (i18nShort !== shortKey ? i18nShort : null)
       || allergenCapitalized;
   } else {
@@ -506,7 +514,10 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
 const _canonicalPhraseCache = new WeakMap();
 
 function getCanonicalPhraseIndex(phrases) {
-  if (!phrases || typeof phrases !== "object") return {};
+  // Arrays satisfy typeof === "object" but would index numeric keys into a
+  // meaningless map; the editor type-guards phrases.full/short to non-array
+  // objects, so mirror that and treat anything else as no overrides.
+  if (!phrases || typeof phrases !== "object" || Array.isArray(phrases)) return {};
   let idx = _canonicalPhraseCache.get(phrases);
   if (idx) return idx;
   idx = {};

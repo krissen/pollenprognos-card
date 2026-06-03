@@ -1182,6 +1182,32 @@ describe("resolveAllergenNames", () => {
     expect(allergenShort).toBe("G!");
   });
 
+  it("a cleared exact key opts out of the cross-integration alias", () => {
+    // The editor writes "" when a phrase field is cleared. On msw the present
+    // exact key "grass":"" must opt out, NOT resurrect the carried-over "Gräs".
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräs": "OLD", grass: "" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("Grass");
+  });
+
+  it("tolerates null phrase maps (phrases: { full: null }) without throwing", () => {
+    let res;
+    expect(() => {
+      res = callMSW({ fullPhrases: null, shortPhrases: null, abbreviated: true });
+    }).not.toThrow();
+    expect(res.allergenCapitalized).toBe("Grass");
+  });
+
+  it("ignores array phrase maps from malformed YAML", () => {
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: ["bogus"],
+      shortPhrases: [],
+    });
+    expect(allergenCapitalized).toBe("Grass");
+  });
+
   it("ignores phrase keys that collide with Object.prototype names", () => {
     // "constructor" / "toString" are inherited on a plain object, so a naive
     // `in` membership test plus toCanonicalAllergenKey could flow a prototype
