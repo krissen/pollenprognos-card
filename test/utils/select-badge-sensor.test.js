@@ -63,14 +63,17 @@ describe("selectBadgeSensor", () => {
     ).toEqual([birch]);
   });
 
-  it("falls back to worst when 'single' names a missing allergen", () => {
-    const sensors = [birch, grass, mugwort];
-    expect(
-      selectBadgeSensor(sensors, {
-        badge_content: "single",
-        badge_single_allergen: "oak",
-      }),
-    ).toEqual([grass]);
+  it("returns [] when 'single' names an allergen absent from the sensor set", () => {
+    // Named but absent: surface a visible miss rather than silently swapping in
+    // the worst other allergen. The badge must NOT show grass (state 4) here.
+    const sensors = [grass, mugwort];
+    const result = selectBadgeSensor(sensors, {
+      badge_content: "single",
+      badge_single_allergen: "birch",
+    });
+    expect(result).toEqual([]);
+    // Confirm worst is NOT returned (grass at state 4 would be the worst).
+    expect(result).not.toEqual([grass]);
   });
 
   it("falls back to worst when 'single' has no allergen configured", () => {

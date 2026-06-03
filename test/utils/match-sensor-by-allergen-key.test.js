@@ -66,4 +66,19 @@ describe("matchSensorByAllergenKey", () => {
       english,
     );
   });
+
+  it("matches PP short config keys (capital initial) against lowercase allergenReplaced slugs", () => {
+    // PP sensors store normalize(configKey) as lowercase slugs. The badge config
+    // holds the original PP key as the user/editor wrote it (e.g. "Al", "Hassel",
+    // "Ek"). The matcher must bridge the case difference via normalization so
+    // single mode works for PP without requiring the user to know the slug.
+    const al = { allergenReplaced: "al", day0: { state: 2 } };
+    const hassel = { allergenReplaced: "hassel", day0: { state: 1 } };
+    const ek = { allergenReplaced: "ek", day0: { state: 4 } };
+    const sensors = [al, hassel, ek];
+
+    expect(matchSensorByAllergenKey(sensors, "Al")).toBe(al);
+    expect(matchSensorByAllergenKey(sensors, "Hassel")).toBe(hassel);
+    expect(matchSensorByAllergenKey(sensors, "Ek")).toBe(ek);
+  });
 });

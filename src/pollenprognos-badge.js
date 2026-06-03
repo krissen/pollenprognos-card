@@ -19,10 +19,13 @@ import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
 import {
   filterSensorsPostFetch,
+  pinBadgeSingleAllergen,
   selectBadgeSensor,
   coerceBool,
   scaleRingLevel,
   resolveNumericValue,
+  badgeRingLevel,
+  hasValidPollenData,
 } from "./utils/adapter-helpers.js";
 import {
   LEVELS_DEFAULTS,
@@ -49,6 +52,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   _userConfig = null;
   sensors = [];
   _versionLogged = false;
+  _noPollen = false;
+  _noData = false;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
@@ -61,6 +66,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       sensors: { state: true },
       _error: { type: String, state: true },
       _isLoaded: { type: Boolean, state: true },
+      _noPollen: { state: true },
+      _noData: { state: true },
     };
   }
 
@@ -287,7 +294,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       }
     }
 
-    return built;
+    return pinBadgeSingleAllergen(built, stub.allergens);
   }
 
   // ---------------------------------------------------------------------- //
@@ -326,9 +333,19 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     const adapter = getAdapter(cfg.integration) || getAdapter("pp");
 
+    // Monotonic token: the editor preview reuses one badge element and refetches
+    // on every config + hass change, so several fetches can be in flight. Each
+    // fetch is async (and emptyWithEntities triggers a second await), so an
+    // OLDER fetch can resolve after a NEWER one. Without this guard the stale
+    // result overwrites this.sensors with the previous allergen's data, and the
+    // render then finds nothing for the new allergen and goes blank until a save
+    // (the bug behind "changing the allergen blanks the preview"). Only the
+    // latest fetch is allowed to apply its result.
+    const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
+
     adapter
       .fetchForecast(hass, cfg)
-      .then((sensors) => {
+      .then(async (sensors) => {
         const availableSensors = findAvailableSensors(cfg, hass, this.debug);
 
         // For silam daily, pass the full state-key list + allergen map so
@@ -345,13 +362,51 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           isSilamDaily ? silamAllergenMap.mapping : {},
         );
 
+        // Classify an empty result. With entities available, an empty fetch has
+        // two causes: genuine no-pollen (data exists, all below threshold) or no
+        // usable data (entities exist but no valid forecast). A threshold-0
+        // confirmation tells them apart so render shows the breezy no_allergens
+        // image only for the former and the no-info (noise) visual for the
+        // latter, never a false no-pollen image for a data problem.
+        const emptyWithEntities =
+          filtered.length === 0 && availableSensors.length > 0;
+        const hasData = emptyWithEntities
+          ? await hasValidPollenData(adapter, hass, cfg)
+          : false;
+
+        // Drop a superseded (out-of-order) fetch: a newer config/hass change
+        // already started a later fetch, so applying this one would clobber the
+        // current allergen with stale data.
+        if (fetchId !== this._fetchSeq) return;
+
         this.sensors = filtered;
         this._isLoaded = true;
-        this._error = filtered.length ? null : "card.error_no_sensors";
+        this._noPollen = emptyWithEntities && hasData;
+        this._noData = emptyWithEntities && !hasData;
+        this._error =
+          filtered.length === 0 && availableSensors.length === 0
+            ? "card.error_no_sensors"
+            : null;
+        // Force a re-render: sensors / _noPollen / _noData are reactive
+        // properties that are also class-field-initialised, which shadows Lit's
+        // accessor (useDefineForClassFields), so assigning them does not by
+        // itself schedule an update. Without this, only the FIRST fetch repaints
+        // (via _isLoaded flipping); later fetches change only sensors and the
+        // view keeps showing the previous allergen -- the bug behind the editor
+        // preview going blank when the allergen is changed.
+        this.requestUpdate();
       })
       .catch((err) => {
+        if (fetchId !== this._fetchSeq) return;
         console.error("[Badge] fetch error:", err);
         this._isLoaded = true;
+        // Clear the previous fetch's data and no-pollen/no-data state so an
+        // error renders the empty pill instead of stale rings: render() only
+        // consults selectBadgeSensor(this.sensors), never _error, so leaving the
+        // old sensors in place would keep showing outdated readings as current.
+        this.sensors = [];
+        this._noPollen = false;
+        this._noData = false;
         this._error = "card.error_entity_unavailable";
         this.requestUpdate();
       });
@@ -403,17 +458,52 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       `--ppb-size: ${height}px; --pollen-icon-size: ${visualSize}px;` +
       (bg ? ` --ppb-bg: ${bg};` : "");
 
+    // Pill layout class, shared by every render path (placeholder, no-data,
+    // no-pollen, empty, and the normal data render) so the pill keeps the same
+    // height/padding across states instead of jumping between ppb--right and
+    // ppb--below when data appears or disappears.
+    const wrapClass =
+      this.config?.badge_label_position === "below" ? "ppb--below" : "ppb--right";
+
     // Not yet loaded: render an empty pill placeholder so the badge slot
     // doesn't jump when data arrives. It carries the same size base.
     if (!this._isLoaded) {
-      return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ${wrapClass}" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     // Error or no sensors: render a tiny empty pill; do NOT render a big
     // error card — the badge slot is not the right place for verbose errors.
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) {
-      return html`<div class="ppb ppb--right" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      // Entities exist but none have usable forecast data: show the no-info
+      // visual (the no_allergens silhouette filled with the no-data noise
+      // pattern via level -1), not a blank pill or a false no-pollen image. The
+      // badge stays text-free; the card adds the "(No information)" label.
+      if (this._noData) {
+        return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
+          <div class="ppb-item">
+            ${this._renderAllergenSvg("no_allergens", -1, {})}
+          </div>
+        </div>`;
+      }
+      // No pollen (entities exist, nothing above threshold): mirror the card's
+      // breezy no_allergens image instead of a blank pill. Reuse
+      // _renderAllergenSvg("no_allergens", 0) so the level-0 colour matches the
+      // card. This applies to every mode, keyed only on _noPollen: a single
+      // badge WITH a named allergen never reaches here with _noPollen set,
+      // because the pin forces pollen_threshold 0 so its sensor is kept (it
+      // renders its own ring / no-data visual). A single badge with NO named
+      // allergen is effectively "worst" and must show breezy here too, not a
+      // blank pill. aggregate with a surviving summary is non-empty and rendered
+      // below; with no summary it falls back to worst, so breezy is right.
+      if (this._noPollen) {
+        return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
+          <div class="ppb-item">
+            ${this._renderAllergenSvg("no_allergens", 0, {})}
+          </div>
+        </div>`;
+      }
+      return html`<div class="ppb ${wrapClass}" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
     }
 
     const ringConfig = this._buildLevelRingConfig();
@@ -422,7 +512,6 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
 
     const visualMode = this.config?.badge_visual || "icon_in_ring";
-    const labelBelow = this.config?.badge_label_position === "below";
     const showLabel = this.config.badge_show_label === true;
 
     // Badge-level tap_action (shared with the card). Bind only when the action
@@ -434,12 +523,17 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     return html`
       <div
-        class="ppb ${labelBelow ? "ppb--below" : "ppb--right"}"
+        class="ppb ${wrapClass}"
         style="${hostStyle}${hasTap ? " cursor: pointer;" : ""}"
         @click=${hasTap ? this._handleTapAction : null}
       >
         ${picks.map((sensor) => {
-          const normalizedLevel = Number(sensor.day0?.state) || 0;
+          // Preserve a no-data sensor (missing / NaN / negative day0) as a
+          // negative level so the ring + icon render the no-data noise pattern
+          // instead of collapsing to a green level-0 ring. This matters for a
+          // single pinned allergen whose entity is unavailable (e.g. DWD/PEU
+          // emit no day0 for no data), which would otherwise look like level 0.
+          const normalizedLevel = badgeRingLevel(sensor.day0);
           const ringLevel = scaleRingLevel(
             this.config.integration,
             normalizedLevel,

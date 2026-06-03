@@ -15,6 +15,7 @@ import {
   computeDisplayDays,
   scaleRingLevel,
   resolveNumericValue,
+  hasValidPollenData,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 // Sensor detection / integration pick / location auto-select are shared with
@@ -433,9 +434,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this._forecastEvent
     ) {
       const adapter = getAdapter(this.config.integration) || getAdapter("pp");
+      // Out-of-order guard shared with the main fetch (see set hass): only the
+      // latest fetch may apply, so a slow SILAM event fetch cannot clobber a
+      // newer result with stale sensors.
+      const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
-        .then((sensors) => {
+        .then(async (sensors) => {
           const availableSensors = findAvailableSensors(
             this.config,
             this._hass,
@@ -445,6 +450,21 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             sensors, this.config, availableSensors,
             Object.keys(this._hass.states), silamAllergenMap.mapping,
           );
+          // Recompute the no-pollen-vs-no-data classification here too: a live
+          // SILAM forecast event refetches without going through set hass, so a
+          // stale _noPollenData would otherwise pick the wrong empty-state
+          // branch (no-information vs no-allergens) until the next full fetch.
+          const noPollenData =
+            filtered.length === 0 && availableSensors.length > 0
+              ? await hasValidPollenData(
+                  adapter,
+                  this._hass,
+                  this.config,
+                  this._forecastEvent,
+                )
+              : false;
+          if (fetchId !== this._fetchSeq) return;
+          this._noPollenData = noPollenData;
           this._updateSensorsAndColumns(filtered, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
@@ -487,6 +507,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       tapAction: {},
       _isLoaded: { type: Boolean, state: true },
       _error: { type: String, state: true },
+      _noPollenData: { type: Boolean, state: true },
     };
   }
 
@@ -507,6 +528,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     this.tapAction = null;
     this._forecastSubEntity = null;
     this._forecastSubType = null;
+    this._noPollenData = false;
   }
 
   static async getConfigElement() {
@@ -1118,6 +1140,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
     // Hämta prognos via rätt adapter
     const adapter = getAdapter(cfg.integration) || getAdapter("pp");
+    // Out-of-order guard (shared with the SILAM forecast-event fetch): only the
+    // latest fetch may apply its result, so a slower earlier fetch cannot
+    // overwrite newer sensors with stale data on rapid config/hass changes.
+    const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
     let fetchPromise = null;
     if (cfg.integration === "silam") {
       // Pass forecastEvent when available; fetchForecast falls back to
@@ -1129,7 +1155,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     }
     if (fetchPromise) {
       return fetchPromise
-        .then((sensors) => {
+        .then(async (sensors) => {
           if (this.debug) {
             console.debug("[Card][Debug] Sensors before filtering:", sensors);
             console.debug(
@@ -1186,6 +1212,19 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             );
           }
 
+          // When the filtered set is empty but entities are available,
+          // distinguish genuine no-pollen (data exists, all below threshold)
+          // from a data problem (entities exist but no usable forecast), so the
+          // breezy no_allergens image is shown only for the former.
+          const noPollenData =
+            filtered.length === 0 && availableSensorCount > 0
+              ? await hasValidPollenData(adapter, hass, cfg, this._forecastEvent)
+              : false;
+
+          // Drop a superseded fetch before mutating any state.
+          if (fetchId !== this._fetchSeq) return;
+          this._noPollenData = noPollenData;
+
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;
 
@@ -1225,6 +1264,22 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         <div class="no-allergens-container">
           ${this._renderAllergenSvg("no_allergens", 0)}
           <span class="no-allergens-text">${this._t("card.no_allergens")}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderNoInformationHtml() {
+    // Entities exist but carry no usable forecast data. Reuse the no_allergens
+    // silhouette, but rendered through the no-data path (level -1) so it shows
+    // the noise pattern rather than the level-0 "no pollen" colour, paired with
+    // the "(No information)" label. Distinct from the breezy no-pollen state.
+    return html`
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
+        <div class="no-allergens-container">
+          ${this._renderAllergenSvg("no_allergens", -1)}
+          <span class="no-allergens-text">${this._t("card.no_information")}</span>
         </div>
       </div>
     `;
@@ -1850,14 +1905,24 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             <div class="card-error">${errorMsg} (${name})</div>
           </ha-card>
         `;
-      } else {
-        const filteredMsg = this._t("card.error_filtered_sensors");
-        if (this.debug) {
-          console.debug(`[PollenPrognosCard] ${filteredMsg} (${name})`);
-        }
+      } else if (this._noPollenData) {
+        // Entities exist and at least one has a real reading, all below
+        // threshold: genuine no pollen.
         return html`
           <ha-card>
             ${this._renderNoAllergensHtml()}
+          </ha-card>
+        `;
+      } else {
+        // Entities exist but none have usable forecast data: a data problem,
+        // not "no pollen". Show the no-info visual (the no_allergens silhouette
+        // filled with the no-data noise pattern) instead of the breezy image.
+        if (this.debug) {
+          console.debug(`[PollenPrognosCard] no usable forecast data (${name})`);
+        }
+        return html`
+          <ha-card>
+            ${this._renderNoInformationHtml()}
           </ha-card>
         `;
       }
@@ -1868,6 +1933,19 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       return html`
         <ha-card>
           ${this._renderStaleDataHtml()}
+        </ha-card>
+      `;
+    }
+
+    // Every remaining sensor is no-data (e.g. a threshold-0 config where each
+    // configured allergen has a missing/invalid reading): computeDisplayDays
+    // yields zero forecast columns, so the normal layout would render blank.
+    // Surface the no-information state instead. Mixed data/no-data keeps
+    // rendering normally (the no-data rows show the noise pattern).
+    if (this.sensors.length && this.days_to_show === 0) {
+      return html`
+        <ha-card>
+          ${this._renderNoInformationHtml()}
         </ha-card>
       `;
     }

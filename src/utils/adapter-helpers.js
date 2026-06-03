@@ -129,7 +129,9 @@ export function matchSensorByAllergenKey(sensors, configKey) {
  *                 allergy_risk). Falls back to "worst" for adapters that expose
  *                 no aggregate (PP/DWD/SILAM/PEU/MSW).
  * - "single"    — the one allergen named in config.badge_single_allergen.
- *                 Falls back to "worst" if the named allergen is not present.
+ *                 Returns empty (no-data) if a named allergen is not present, so
+ *                 the miss is visible; only falls back to "worst" when no
+ *                 allergen was named.
  * - "row"       — all sensors, in their existing order, for a compact multi-ring
  *                 badge.
  *
@@ -168,17 +170,126 @@ export function selectBadgeSensor(sensors, config) {
     case "aggregate":
       return summary ? [summary] : worst();
     case "single": {
-      const found = matchSensorByAllergenKey(
-        sensors,
-        config?.badge_single_allergen,
-      );
-      return found ? [found] : worst();
+      const key = config?.badge_single_allergen;
+      const found = matchSensorByAllergenKey(sensors, key);
+      if (found) return [found];
+      // Explicitly named but absent: surface a visible miss (no-data) instead
+      // of silently swapping in the worst other allergen. Fall back to worst()
+      // only when no allergen was named (misconfigured single mode).
+      return typeof key === "string" && key ? [] : worst();
     }
     case "row":
       return sensors;
     case "worst":
     default:
       return worst();
+  }
+}
+
+/**
+ * Single-mode badge pinning. When a badge names one allergen, make sure it is
+ * fetched and survives the post-fetch filter, then disable the threshold so a
+ * no-data / level-0 named allergen still reaches selectBadgeSensor instead of
+ * being dropped.
+ *
+ * The fetch is narrowed to the one named allergen, resolved through the
+ * adapter's STUB allergen set (passed in): pick the stub key(s) whose canonical
+ * form matches the named key, so an adapter keyed by localized slugs fetches its
+ * native sensor (pp "Björk" / dwd "Birke" for a canonical "birch") rather than a
+ * bare canonical key it cannot resolve. Fall back to [key] when the stub has no
+ * canonical match but the adapter resolves the key directly (e.g. gpl "birch",
+ * which its stub omits). Resolving against the stub (not the possibly-custom
+ * configured list) means a trimmed allergens list cannot hide the named
+ * allergen, and matching canonically (not by exact string) avoids double-
+ * fetching the same entity from a casing/diacritic variant. The threshold is set
+ * to 0 so a level-0 / no-data named allergen still reaches selectBadgeSensor,
+ * which resolves the name canonically; a genuine miss then surfaces as no-data
+ * rather than the wrong allergen. Pure: returns the input unchanged for any
+ * non-single / unnamed config, else a shallow-merged copy.
+ *
+ * @param {object} config - badge config (already typeguarded by _buildConfig).
+ * @param {string[]} stubAllergens - the adapter's stub allergens (native slugs).
+ * @returns {object} the config, or a shallow copy with allergens/threshold pinned.
+ */
+export function pinBadgeSingleAllergen(config, stubAllergens = []) {
+  if (config?.badge_content !== "single") return config;
+  const key = config.badge_single_allergen;
+  if (typeof key !== "string" || !key) return config;
+  const base = Array.isArray(stubAllergens) ? stubAllergens : [];
+  // Canonical forms of the named key, via both normalizers, mirroring how
+  // matchSensorByAllergenKey later resolves it (so the match agrees with the
+  // eventual lookup, and dwd umlaut/ß keys are matched too).
+  const wanted = new Set([
+    toCanonicalAllergenKey(normalize(key)),
+    toCanonicalAllergenKey(normalizeDWD(key)),
+  ]);
+  const matches = base.filter((a) => {
+    const s = String(a);
+    return (
+      wanted.has(toCanonicalAllergenKey(normalize(s))) ||
+      wanted.has(toCanonicalAllergenKey(normalizeDWD(s)))
+    );
+  });
+  const allergens = matches.length ? matches : [key];
+  return { ...config, allergens, pollen_threshold: 0 };
+}
+
+/**
+ * Ring level for a badge sensor's current day, preserving the no-data sentinel.
+ * Returns the canonical `state` (a level >= 0) so the caller can scale it with
+ * scaleRingLevel (DWD doubles it); a missing / null / NaN / non-numeric state
+ * becomes -1 so the render path shows the no-data noise pattern instead of a
+ * level-0 ring. The null/undefined guard is explicit because Number(null) is 0,
+ * which would otherwise mask a no-data reading as a real level 0.
+ *
+ * `display_state` is consulted only as a no-data OVERRIDE: some adapters keep a
+ * non-negative `state` but flag "no information" via `display_state: -1` (atmo
+ * "Indisponible" maps raw 0 to state 0 / display_state -1; plu/gp/gpl do the
+ * same for missing readings). A negative display_state therefore forces -1. It
+ * is NOT used as the level itself, because for DWD `display_state` is already
+ * the SCALED value and scaleRingLevel would double it again. Pure.
+ *
+ * @param {object|undefined} day0 - sensor.day0, may be undefined.
+ * @returns {number} the level (>= 0), or -1 when there is no usable reading.
+ */
+export function badgeRingLevel(day0) {
+  if (day0 == null) return -1;
+  // No-data override: a negative display_state means "no information" even when
+  // state is a non-negative placeholder (atmo unavailable = state 0).
+  if (day0.display_state != null && Number(day0.display_state) < 0) return -1;
+  if (day0.state == null) return -1;
+  const n = Number(day0.state);
+  return Number.isFinite(n) ? n : -1;
+}
+
+/**
+ * True when at least one configured allergen has a valid current reading,
+ * ignoring the threshold. Re-fetches at pollen_threshold 0 and checks for any
+ * sensor whose day0 resolves to a real level via badgeRingLevel (>= 0), so a
+ * caller can tell genuine "no pollen" (data exists, all below threshold) from
+ * "no usable data" (entities exist but no valid forecast) and show the
+ * no_allergens image only for the former. Reusing badgeRingLevel keeps the
+ * no-data rule identical to the render path: null/NaN state and the atmo-style
+ * `display_state: -1` placeholder both count as no-data, not as level 0.
+ * Defensive: returns false on any fetch error. forecastEvent is forwarded for
+ * silam; other adapters ignore it.
+ *
+ * @param {object} adapter - the integration adapter (has fetchForecast).
+ * @param {object} hass
+ * @param {object} cfg - badge/card config.
+ * @param {object|null} forecastEvent - silam forecast event, or null.
+ * @returns {Promise<boolean>}
+ */
+export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = null) {
+  try {
+    const sensors = await adapter.fetchForecast(
+      hass,
+      { ...cfg, pollen_threshold: 0 },
+      forecastEvent,
+    );
+    return Array.isArray(sensors) && sensors.some((s) => badgeRingLevel(s?.day0) >= 0);
+  } catch {
+    return false;
   }
 }
 
