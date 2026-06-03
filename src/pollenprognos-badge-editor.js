@@ -503,7 +503,19 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
             .value=${c.badge_content || "worst"}
             @value-changed=${(e) => {
               const v = e.detail?.value;
-              if (v !== undefined) this._updateConfig("badge_content", v);
+              if (v === undefined) return;
+              // Switching to "single" commits the default allergen the dropdown
+              // already shows (allergens[0]) when the user hasn't picked one, so
+              // the preview renders that allergen immediately instead of an
+              // unnamed single badge (which falls back to no-pollen/worst).
+              if (
+                v === "single" &&
+                !this._userConfig?.badge_single_allergen &&
+                allergens.length
+              ) {
+                this._updateConfig("badge_single_allergen", allergens[0]);
+              }
+              this._updateConfig("badge_content", v);
             }}
           ></ha-selector>
         </ha-formfield>
