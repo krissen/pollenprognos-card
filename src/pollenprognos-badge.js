@@ -387,6 +387,14 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           filtered.length === 0 && availableSensors.length === 0
             ? "card.error_no_sensors"
             : null;
+        // Force a re-render: sensors / _noPollen / _noData are reactive
+        // properties that are also class-field-initialised, which shadows Lit's
+        // accessor (useDefineForClassFields), so assigning them does not by
+        // itself schedule an update. Without this, only the FIRST fetch repaints
+        // (via _isLoaded flipping); later fetches change only sensors and the
+        // view keeps showing the previous allergen -- the bug behind the editor
+        // preview going blank when the allergen is changed.
+        this.requestUpdate();
       })
       .catch((err) => {
         if (fetchId !== this._fetchSeq) return;
