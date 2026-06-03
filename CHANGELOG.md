@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [3.3.0-beta3] - 2026-06-03
+
+Bugfix follow-up to beta2: the badge and editor fixes from #252, plus a
+cross-integration fix for custom allergen names (#253).
+
 ### Fixed
 - **(phrases) Allergen name overrides now carry across integrations** (issue #253). A `phrases.full` / `phrases.short` override keyed by one integration's allergen name (for example PollenPrognos `Gräs`) used to stop applying when you switched to another integration that names the same allergen differently (MeteoSwiss `grass`, DWD `Gräser`), because the lookup matched only the raw, per-integration key. The override now also resolves by the shared canonical allergen key, so "I customized grass" keeps meaning "grass is customized" regardless of which integration provides the data. Fully additive: existing raw-name keys still match exactly and take precedence, so no existing config changes behaviour; clearing a phrase field opts that allergen back out. Applies across every integration (card and badge), SILAM included.
 - **(badge) `badge_content: single` no longer silently shows the wrong allergen** (PR #252). With `badge_content: single` and `badge_single_allergen: X`, the badge could render a *different* allergen (the highest-level one) with no error, whenever the named allergen was absent from the (often defaulted) `allergens` set or had been dropped below the threshold. Single mode now scopes the fetch to the named allergen, resolving it to the adapter's native key (so a canonical key like `birch` finds PollenPrognos `Björk`), and disables the threshold so a level-0 or no-data reading still surfaces; a genuinely unresolved name shows a no-data badge instead of the wrong allergen.
