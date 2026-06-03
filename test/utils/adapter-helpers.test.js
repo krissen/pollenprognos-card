@@ -4,6 +4,7 @@ import {
   findLocationBySlug,
   resolveLocationByKey,
   normalizeManualPrefix,
+  resolveAllergenNames,
 } from "../../src/utils/adapter-helpers.js";
 import {
   createHassWithRegistry,
@@ -1084,5 +1085,81 @@ describe("normalizeManualPrefix", () => {
     expect(normalizeManualPrefix(true)).toBe("");
     expect(normalizeManualPrefix(["pollen"])).toBe("");
     expect(normalizeManualPrefix({ prefix: "pollen" })).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveAllergenNames — phrase override resolution (issue #253)
+// ---------------------------------------------------------------------------
+
+describe("resolveAllergenNames", () => {
+  // The three integrations all map grass to the canonical key "grass" but feed
+  // resolveAllergenNames different (allergenKey, configKey) pairs:
+  //   pp : ("gras",  configKey "Gräs")
+  //   msw: ("grass", configKey "grass")
+  //   dwd: ("graeser", configKey "Gräser")
+  const callPP = (opts) =>
+    resolveAllergenNames("gras", { configKey: "Gräs", lang: "en", ...opts });
+  const callMSW = (opts) =>
+    resolveAllergenNames("grass", { configKey: "grass", lang: "en", ...opts });
+
+  it("backward compat: exact raw config key still wins (pp Gräs)", () => {
+    const { allergenCapitalized } = callPP({
+      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MITT GRÄS!");
+  });
+
+  it("carries a pp-keyed override forward to msw via canonical key", () => {
+    // Issue #253 core repro: phrases.full.Gräs set, integration switched to msw.
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MITT GRÄS!");
+  });
+
+  it("carries a canonical-keyed override back to pp", () => {
+    const { allergenCapitalized } = callPP({
+      fullPhrases: { grass: "MY GRASS" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MY GRASS");
+  });
+
+  it("carries a dwd-keyed override (ß differs) to msw via normalizeDWD", () => {
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräser": "GRÄSER!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("GRÄSER!");
+  });
+
+  it("exact raw key beats a canonical alias in the same map", () => {
+    // msw's ck is "grass" → exact match must win over the "Gräs" canonical entry.
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräs": "A", grass: "B" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("B");
+  });
+
+  it("resolves short names across integrations via canonical key", () => {
+    const { allergenShort } = callMSW({
+      fullPhrases: {},
+      shortPhrases: { "Gräs": "G!" },
+      abbreviated: true,
+    });
+    expect(allergenShort).toBe("G!");
+  });
+
+  it("no override: falls back to i18n allergen name (regression guard)", () => {
+    const { allergenCapitalized, allergenShort } = callMSW({
+      fullPhrases: {},
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("Grass");
+    expect(allergenShort).toBe("Grass");
   });
 });
