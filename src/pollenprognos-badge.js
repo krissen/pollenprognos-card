@@ -462,17 +462,16 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         </div>`;
       }
       // No pollen (entities exist, nothing above threshold): mirror the card's
-      // breezy no_allergens image instead of a blank pill, for every aggregate/
-      // selection mode. Reuse _renderAllergenSvg("no_allergens", 0) so the
-      // level-0 colour is applied identically to the card. single mode is the
-      // only exception: it is pinned to one named allergen and renders that
-      // allergen's own ring (or its no-data ring above), never breezy. This
-      // empty branch is reached only when the filtered set is empty, so an
-      // aggregate badge whose summary survived is already handled below; when
-      // the adapter has no summary (e.g. pp/plu) aggregate falls back to worst,
-      // and no pollen should look the same as worst -- breezy, not a blank pill.
-      const contentMode = this.config?.badge_content || "worst";
-      if (this._noPollen && contentMode !== "single") {
+      // breezy no_allergens image instead of a blank pill. Reuse
+      // _renderAllergenSvg("no_allergens", 0) so the level-0 colour matches the
+      // card. This applies to every mode, keyed only on _noPollen: a single
+      // badge WITH a named allergen never reaches here with _noPollen set,
+      // because the pin forces pollen_threshold 0 so its sensor is kept (it
+      // renders its own ring / no-data visual). A single badge with NO named
+      // allergen is effectively "worst" and must show breezy here too, not a
+      // blank pill. aggregate with a surviving summary is non-empty and rendered
+      // below; with no summary it falls back to worst, so breezy is right.
+      if (this._noPollen) {
         return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
           <div class="ppb-item">
             ${this._renderAllergenSvg("no_allergens", 0, {})}
