@@ -9,7 +9,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { t } from "../i18n.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool, resolvePhraseOverride } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -154,10 +154,16 @@ export function indexToLevel(val) {
 }
 
 export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
+  // Phrase overrides resolve through the shared canonical-aware helper so a
+  // cross-integration override (e.g. PP phrases.full.Gräs) also applies here
+  // (issue #253); SILAM keeps its own name-map / capitalize fallbacks below.
+  const canonKey = toCanonicalAllergenKey(allergen);
+
   // Capitalized: phrases > silamAllergenMap > fallback
   let allergenCapitalized;
-  if (fullPhrases[allergen]) {
-    allergenCapitalized = fullPhrases[allergen];
+  const fullOverride = resolvePhraseOverride(fullPhrases, allergen, canonKey);
+  if (fullOverride) {
+    allergenCapitalized = fullOverride;
   } else if (
     silamAllergenMap.names &&
     silamAllergenMap.names[allergen] &&
@@ -169,7 +175,7 @@ export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   }
 
   // Short: phrases > capitalized
-  const allergenShort = shortPhrases[allergen] || allergenCapitalized;
+  const allergenShort = resolvePhraseOverride(shortPhrases, allergen, canonKey) || allergenCapitalized;
 
   return { allergenCapitalized, allergenShort };
 }

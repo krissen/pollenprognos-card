@@ -7,6 +7,7 @@ import {
   SILAM_THRESHOLDS,
   grainsToLevel,
   indexToLevel,
+  getAllergenNames,
 } from "../../src/adapters/silam.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 import silamAllergenMap from "../../src/adapters/silam_allergen_map.json" assert { type: "json" };
@@ -1417,5 +1418,48 @@ describe("fetchForecast: summary block (#222)", () => {
     });
     const result = await fetchForecast(hass, config);
     expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+  });
+});
+
+describe("getAllergenNames: phrase overrides (issue #253)", () => {
+  it("applies an exact SILAM-keyed phrase override", () => {
+    const { allergenCapitalized } = getAllergenNames(
+      "grass",
+      { grass: "MY GRASS" },
+      {},
+      "en",
+    );
+    expect(allergenCapitalized).toBe("MY GRASS");
+  });
+
+  it("carries a PP-keyed override (Gräs) to SILAM grass via canonical key", () => {
+    // Core #253 case for SILAM: an override keyed by PollenPrognos's "Gräs"
+    // must apply when SILAM names the same allergen "grass".
+    const { allergenCapitalized, allergenShort } = getAllergenNames(
+      "grass",
+      { "Gräs": "MITT GRÄS!" },
+      { "Gräs": "G!" },
+      "en",
+    );
+    expect(allergenCapitalized).toBe("MITT GRÄS!");
+    expect(allergenShort).toBe("G!");
+  });
+
+  it("a cleared exact key opts out and falls back to the SILAM name map", () => {
+    const expected = silamAllergenMap.names?.grass?.en;
+    const { allergenCapitalized } = getAllergenNames(
+      "grass",
+      { "Gräs": "OLD", grass: "" },
+      {},
+      "en",
+    );
+    expect(allergenCapitalized).not.toBe("OLD");
+    if (expected) expect(allergenCapitalized).toBe(expected);
+  });
+
+  it("no override: uses the SILAM localized name map", () => {
+    const expected = silamAllergenMap.names?.grass?.en;
+    const { allergenCapitalized } = getAllergenNames("grass", {}, {}, "en");
+    if (expected) expect(allergenCapitalized).toBe(expected);
   });
 });

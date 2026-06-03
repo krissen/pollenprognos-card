@@ -449,17 +449,8 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   const ck = configKey ?? allergenKey;
   const canonKey = toCanonicalAllergenKey(allergenKey);
 
-  // Resolve a phrase override for one map: a *present* exact key (even an empty
-  // string the editor writes when the field is cleared) wins and opts out of
-  // the cross-integration alias; only an absent exact key falls back to the
-  // canonical index. hasOwnProperty also makes a null/array phrase map a no-op.
-  const overrideFor = (phrases) =>
-    phrases != null && Object.prototype.hasOwnProperty.call(phrases, ck)
-      ? phrases[ck]
-      : getCanonicalPhraseIndex(phrases)[canonKey];
-
   let allergenCapitalized;
-  const fullOverride = overrideFor(fullPhrases);
+  const fullOverride = resolvePhraseOverride(fullPhrases, ck, canonKey);
   if (fullOverride) {
     allergenCapitalized = fullOverride;
   } else {
@@ -472,7 +463,7 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   if (abbreviated) {
     const shortKey = `editor.phrases_short.${canonKey}`;
     const i18nShort = t(shortKey, lang);
-    allergenShort = overrideFor(shortPhrases)
+    allergenShort = resolvePhraseOverride(shortPhrases, ck, canonKey)
       || (i18nShort !== shortKey ? i18nShort : null)
       || allergenCapitalized;
   } else {
@@ -480,6 +471,33 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   }
 
   return { allergenCapitalized, allergenShort };
+}
+
+/**
+ * Resolve a single phrase override (full or short) for an allergen, honoring
+ * both the exact per-integration config key and the shared canonical key.
+ *
+ * A *present* exact key wins, even an empty string (which the editor writes
+ * when a phrase field is cleared) — so a user can opt out of a carried-over
+ * cross-integration override; an empty value falls through to the caller's
+ * default name. Only a genuinely *absent* exact key consults the canonical
+ * index, letting an override keyed by one integration's raw name (PP "Gräs")
+ * apply to another that names the same allergen differently (MSW/SILAM
+ * "grass"). The hasOwnProperty test also makes a null or array phrase map a
+ * safe no-op.
+ *
+ * Shared by resolveAllergenNames and SILAM's getAllergenNames so both
+ * integrations resolve overrides identically (issue #253).
+ *
+ * @param {object} phrases   - User phrase map (config.phrases.full / .short).
+ * @param {string} configKey - Raw per-integration allergen key to match exactly.
+ * @param {string} canonKey  - Canonical allergen key for the cross-integration fallback.
+ * @returns {string|undefined} The override value, or undefined if none applies.
+ */
+export function resolvePhraseOverride(phrases, configKey, canonKey) {
+  return phrases != null && Object.prototype.hasOwnProperty.call(phrases, configKey)
+    ? phrases[configKey]
+    : getCanonicalPhraseIndex(phrases)[canonKey];
 }
 
 /**
