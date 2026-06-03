@@ -1,7 +1,7 @@
 // src/utils/adapter-helpers.js
 // Shared pure helpers used by multiple adapters.
 import { t, detectLang } from "../i18n.js";
-import { toCanonicalAllergenKey } from "../constants.js";
+import { toCanonicalAllergenKey, ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize, normalizeDWD } from "./normalize.js";
 
 /**
@@ -450,8 +450,9 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   const canonKey = toCanonicalAllergenKey(allergenKey);
 
   let allergenCapitalized;
-  if (fullPhrases[ck]) {
-    allergenCapitalized = fullPhrases[ck];
+  const fullOverride = resolvePhraseOverride(fullPhrases, ck, canonKey);
+  if (fullOverride) {
+    allergenCapitalized = fullOverride;
   } else {
     const nameKey = `card.allergen.${canonKey}`;
     const i18nName = t(nameKey, lang);
@@ -462,7 +463,7 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   if (abbreviated) {
     const shortKey = `editor.phrases_short.${canonKey}`;
     const i18nShort = t(shortKey, lang);
-    allergenShort = shortPhrases[ck]
+    allergenShort = resolvePhraseOverride(shortPhrases, ck, canonKey)
       || (i18nShort !== shortKey ? i18nShort : null)
       || allergenCapitalized;
   } else {
@@ -470,6 +471,94 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   }
 
   return { allergenCapitalized, allergenShort };
+}
+
+/**
+ * Resolve a single phrase override (full or short) for an allergen, honoring
+ * both the exact per-integration config key and the shared canonical key.
+ *
+ * A *present* exact key wins, even an empty string (which the editor writes
+ * when a phrase field is cleared) — so a user can opt out of a carried-over
+ * cross-integration override; an empty value falls through to the caller's
+ * default name. Only a genuinely *absent* exact key consults the canonical
+ * index, letting an override keyed by one integration's raw name (PP "Gräs")
+ * apply to another that names the same allergen differently (MSW/SILAM
+ * "grass"). The hasOwnProperty test also makes a null or array phrase map a
+ * safe no-op.
+ *
+ * Shared by resolveAllergenNames and SILAM's getAllergenNames so both
+ * integrations resolve overrides identically (issue #253).
+ *
+ * @param {object} phrases   - User phrase map (config.phrases.full / .short).
+ * @param {string} configKey - Raw per-integration allergen key to match exactly.
+ * @param {string} canonKey  - Canonical allergen key for the cross-integration fallback.
+ * @returns {string|undefined} The override value, or undefined if none applies.
+ */
+export function resolvePhraseOverride(phrases, configKey, canonKey) {
+  return phrases != null && Object.prototype.hasOwnProperty.call(phrases, configKey)
+    ? phrases[configKey]
+    : getCanonicalPhraseIndex(phrases)[canonKey];
+}
+
+/**
+ * Build a { canonicalAllergenKey: overrideValue } index from a user phrase map
+ * (config.phrases.full / .short), whose keys are raw, per-integration allergen
+ * names (e.g. PP's "Gräs", MSW's "grass", DWD's "Gräser"). This lets a phrase
+ * override carry across integrations that share an allergen: resolveAllergenNames
+ * falls back to this index by canonical key after the exact raw-key lookup misses.
+ *
+ * Canonicalization uses normalize() as the primary path. It covers alias hits
+ * (PP "Gräs" → gras → grass), keys already written as a canonical name
+ * ("grass" → grass), and DWD umlaut keys (NFD strips ä/ö/ü, so "Gräser" →
+ * graser → grass, an alias). normalizeDWD() is consulted only as a fallback for
+ * keys the primary path does NOT recognize as an alias — its sole added value
+ * is the ß→ss expansion (e.g. "Beifuß" → beifuss → mugwort, where normalize
+ * yields the unrecognized "beifu"). Restricting the DWD path to unrecognized
+ * keys prevents cross-aliasing a recognized non-DWD key onto a different
+ * canonical allergen (e.g. PP "Gräs", whose DWD form "graes" is GP's distinct
+ * "graminales", must not relabel Graminales).
+ *
+ * First-defined-wins; since the exact raw-key match in resolveAllergenNames
+ * takes precedence over this fallback, any residual canonical collisions are
+ * low-impact.
+ *
+ * Memoized per phrase-object via a WeakMap: a single fetchForecast reuses the
+ * same fullPhrases/shortPhrases reference across all allergens, so the index is
+ * built once rather than per allergen.
+ *
+ * @param {object} phrases - User phrase map keyed by raw allergen names.
+ * @returns {Object<string,string>} Canonical-key → override-value lookup.
+ */
+const _canonicalPhraseCache = new WeakMap();
+
+function getCanonicalPhraseIndex(phrases) {
+  // Arrays satisfy typeof === "object" but would index numeric keys into a
+  // meaningless map; the editor type-guards phrases.full/short to non-array
+  // objects, so mirror that and treat anything else as no overrides.
+  if (!phrases || typeof phrases !== "object" || Array.isArray(phrases)) return {};
+  let idx = _canonicalPhraseCache.get(phrases);
+  if (idx) return idx;
+  idx = {};
+  // Own-property check: `in` would match inherited keys ("constructor",
+  // "toString", …), through which toCanonicalAllergenKey can hand back a
+  // non-string (a prototype function), so the string guard in addCanon backstops
+  // it at the storage point too.
+  const isAlias = (k) => Object.prototype.hasOwnProperty.call(ALLERGEN_TRANSLATION, k);
+  for (const rawKey of Object.keys(phrases)) {
+    const value = phrases[rawKey];
+    const addCanon = (canon) => {
+      if (typeof canon === "string" && canon && !(canon in idx)) idx[canon] = value;
+    };
+    const n = normalize(rawKey);
+    addCanon(toCanonicalAllergenKey(n));
+    // DWD ß→ss fallback only for keys normalize() did not recognize as an alias.
+    if (!isAlias(n)) {
+      const nd = normalizeDWD(rawKey);
+      if (isAlias(nd)) addCanon(toCanonicalAllergenKey(nd));
+    }
+  }
+  _canonicalPhraseCache.set(phrases, idx);
+  return idx;
 }
 
 /**
