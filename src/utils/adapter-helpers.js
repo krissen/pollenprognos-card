@@ -510,17 +510,22 @@ function getCanonicalPhraseIndex(phrases) {
   let idx = _canonicalPhraseCache.get(phrases);
   if (idx) return idx;
   idx = {};
+  // Own-property check: `in` would match inherited keys ("constructor",
+  // "toString", …), through which toCanonicalAllergenKey can hand back a
+  // non-string (a prototype function), so the string guard in addCanon backstops
+  // it at the storage point too.
+  const isAlias = (k) => Object.prototype.hasOwnProperty.call(ALLERGEN_TRANSLATION, k);
   for (const rawKey of Object.keys(phrases)) {
     const value = phrases[rawKey];
     const addCanon = (canon) => {
-      if (canon && !(canon in idx)) idx[canon] = value;
+      if (typeof canon === "string" && canon && !(canon in idx)) idx[canon] = value;
     };
     const n = normalize(rawKey);
     addCanon(toCanonicalAllergenKey(n));
     // DWD ß→ss fallback only for keys normalize() did not recognize as an alias.
-    if (!(n in ALLERGEN_TRANSLATION)) {
+    if (!isAlias(n)) {
       const nd = normalizeDWD(rawKey);
-      if (nd in ALLERGEN_TRANSLATION) addCanon(toCanonicalAllergenKey(nd));
+      if (isAlias(nd)) addCanon(toCanonicalAllergenKey(nd));
     }
   }
   _canonicalPhraseCache.set(phrases, idx);

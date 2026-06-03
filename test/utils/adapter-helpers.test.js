@@ -1182,6 +1182,23 @@ describe("resolveAllergenNames", () => {
     expect(allergenShort).toBe("G!");
   });
 
+  it("ignores phrase keys that collide with Object.prototype names", () => {
+    // "constructor" / "toString" are inherited on a plain object, so a naive
+    // `in` membership test plus toCanonicalAllergenKey could flow a prototype
+    // function into the index. The lookup must stay a no-op and never throw.
+    expect(() =>
+      callMSW({
+        fullPhrases: { constructor: "X", toString: "Y", hasOwnProperty: "Z" },
+        shortPhrases: {},
+      }),
+    ).not.toThrow();
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { constructor: "X", toString: "Y" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("Grass");
+  });
+
   it("no override: falls back to i18n allergen name (regression guard)", () => {
     const { allergenCapitalized, allergenShort } = callMSW({
       fullPhrases: {},
