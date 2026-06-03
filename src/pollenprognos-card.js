@@ -434,6 +434,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this._forecastEvent
     ) {
       const adapter = getAdapter(this.config.integration) || getAdapter("pp");
+      // Out-of-order guard shared with the main fetch (see set hass): only the
+      // latest fetch may apply, so a slow SILAM event fetch cannot clobber a
+      // newer result with stale sensors.
+      const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
         .then(async (sensors) => {
@@ -450,7 +454,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // SILAM forecast event refetches without going through set hass, so a
           // stale _noPollenData would otherwise pick the wrong empty-state
           // branch (no-information vs no-allergens) until the next full fetch.
-          this._noPollenData =
+          const noPollenData =
             filtered.length === 0 && availableSensors.length > 0
               ? await hasValidPollenData(
                   adapter,
@@ -459,6 +463,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                   this._forecastEvent,
                 )
               : false;
+          if (fetchId !== this._fetchSeq) return;
+          this._noPollenData = noPollenData;
           this._updateSensorsAndColumns(filtered, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
@@ -1134,6 +1140,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
     // Hämta prognos via rätt adapter
     const adapter = getAdapter(cfg.integration) || getAdapter("pp");
+    // Out-of-order guard (shared with the SILAM forecast-event fetch): only the
+    // latest fetch may apply its result, so a slower earlier fetch cannot
+    // overwrite newer sensors with stale data on rapid config/hass changes.
+    const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
     let fetchPromise = null;
     if (cfg.integration === "silam") {
       // Pass forecastEvent when available; fetchForecast falls back to
@@ -1206,10 +1216,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // distinguish genuine no-pollen (data exists, all below threshold)
           // from a data problem (entities exist but no usable forecast), so the
           // breezy no_allergens image is shown only for the former.
-          this._noPollenData =
+          const noPollenData =
             filtered.length === 0 && availableSensorCount > 0
               ? await hasValidPollenData(adapter, hass, cfg, this._forecastEvent)
               : false;
+
+          // Drop a superseded fetch before mutating any state.
+          if (fetchId !== this._fetchSeq) return;
+          this._noPollenData = noPollenData;
 
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;

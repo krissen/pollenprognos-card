@@ -333,6 +333,16 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     const adapter = getAdapter(cfg.integration) || getAdapter("pp");
 
+    // Monotonic token: the editor preview reuses one badge element and refetches
+    // on every config + hass change, so several fetches can be in flight. Each
+    // fetch is async (and emptyWithEntities triggers a second await), so an
+    // OLDER fetch can resolve after a NEWER one. Without this guard the stale
+    // result overwrites this.sensors with the previous allergen's data, and the
+    // render then finds nothing for the new allergen and goes blank until a save
+    // (the bug behind "changing the allergen blanks the preview"). Only the
+    // latest fetch is allowed to apply its result.
+    const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
+
     adapter
       .fetchForecast(hass, cfg)
       .then(async (sensors) => {
@@ -352,8 +362,6 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           isSilamDaily ? silamAllergenMap.mapping : {},
         );
 
-        this.sensors = filtered;
-        this._isLoaded = true;
         // Classify an empty result. With entities available, an empty fetch has
         // two causes: genuine no-pollen (data exists, all below threshold) or no
         // usable data (entities exist but no valid forecast). A threshold-0
@@ -365,6 +373,14 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         const hasData = emptyWithEntities
           ? await hasValidPollenData(adapter, hass, cfg)
           : false;
+
+        // Drop a superseded (out-of-order) fetch: a newer config/hass change
+        // already started a later fetch, so applying this one would clobber the
+        // current allergen with stale data.
+        if (fetchId !== this._fetchSeq) return;
+
+        this.sensors = filtered;
+        this._isLoaded = true;
         this._noPollen = emptyWithEntities && hasData;
         this._noData = emptyWithEntities && !hasData;
         this._error =
@@ -373,6 +389,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
             : null;
       })
       .catch((err) => {
+        if (fetchId !== this._fetchSeq) return;
         console.error("[Badge] fetch error:", err);
         this._isLoaded = true;
         // Clear the previous fetch's data and no-pollen/no-data state so an
