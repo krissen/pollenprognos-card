@@ -325,6 +325,20 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       this._userConfig.integration = value;
       const stub = getStubConfig(value) || getStubConfig("pp");
       this._config = deepMerge(stub, this._userConfig);
+      // In single mode the cleared badge_single_allergen would leave the badge
+      // with no named allergen on the new integration, so the preview falls back
+      // to "worst" while the picker shows the new integration's first allergen.
+      // Re-default it to that first allergen (what the picker displays) so the
+      // preview and picker stay in sync, mirroring the switch-to-single default.
+      if (this._config.badge_content === "single") {
+        const first = this._currentAllergens()[0];
+        if (first) {
+          this._userConfig.badge_single_allergen = first;
+          this._config = deepMerge(this._config, {
+            badge_single_allergen: first,
+          });
+        }
+      }
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._userConfig },
