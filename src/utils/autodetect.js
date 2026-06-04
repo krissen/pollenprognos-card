@@ -165,13 +165,21 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     );
   }
 
-  // GPL: hass.entities platform (primary) or attribution (fallback).
+  // GPL: hass.entities platform (primary) or attribution (fallback). Exclude
+  // date/timestamp helper entities (e.g. an "update time" sensor) so they are
+  // never treated as pollen sensors -- matching the attribution fallback below.
+  const isNonDataDeviceClass = (eid) => {
+    const dc = hass?.states?.[eid]?.attributes?.device_class;
+    return dc === "date" || dc === "timestamp";
+  };
   let gplStates = [];
   if (hass && hass.entities) {
     gplStates = Object.entries(hass.entities)
       .filter(
-        ([, entry]) =>
-          entry.platform === "pollenlevels" && !entry.entity_category,
+        ([eid, entry]) =>
+          entry.platform === "pollenlevels" &&
+          !entry.entity_category &&
+          !isNonDataDeviceClass(eid),
       )
       .map(([eid]) => eid);
   }
@@ -198,8 +206,10 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     if (hass && hass.entities) {
       gpStates = Object.entries(hass.entities)
         .filter(
-          ([, entry]) =>
-            entry.platform === "google_pollen" && !entry.entity_category,
+          ([eid, entry]) =>
+            entry.platform === "google_pollen" &&
+            !entry.entity_category &&
+            !isNonDataDeviceClass(eid),
         )
         .map(([eid]) => eid);
     }
@@ -624,8 +634,9 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
  * Build a card-picker suggestion for a picked entity id (HA 2026.6
  * window.customCards getEntitySuggestion). Reverse-maps the entity to one of our
  * integrations, derives its specific location, and returns a config the picker
- * can drop in. Returns null for non-sensor or unrecognised entities so we don't
- * clutter the picker.
+ * can drop in. Only sensor.* and SILAM weather.* entities are considered;
+ * returns null for any other domain or unrecognised entity so we don't clutter
+ * the picker.
  *
  * @param {object} hass
  * @param {string} entityId
