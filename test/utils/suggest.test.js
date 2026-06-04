@@ -131,6 +131,51 @@ describe("suggestEntityConfig", () => {
         },
       });
     });
+
+    it("does not suggest for a non-data pollenlevels helper (e.g. update_time)", () => {
+      // A timestamp helper on the pollenlevels platform must not be treated as a
+      // pollen sensor, so picking it offers no card suggestion. (Codex #258)
+      const deviceId = "gpl_device_1";
+      const configEntryId = "abc123";
+      const hass = createHass(
+        {
+          "sensor.gpl_grass": { state: "3", attributes: { icon: "mdi:grass" } },
+          "sensor.pollenlevels_update_time": {
+            state: "2026-06-04T08:00:00+00:00",
+            attributes: { device_class: "timestamp" },
+          },
+        },
+        {
+          entities: {
+            "sensor.gpl_grass": {
+              platform: "pollenlevels",
+              device_id: deviceId,
+              entity_category: null,
+            },
+            "sensor.pollenlevels_update_time": {
+              platform: "pollenlevels",
+              device_id: deviceId,
+              entity_category: null,
+            },
+          },
+          devices: {
+            [deviceId]: { name: "Home", config_entries: [configEntryId] },
+          },
+        },
+      );
+
+      expect(
+        suggestEntityConfig(hass, "sensor.pollenlevels_update_time"),
+      ).toBeNull();
+      // The real pollen sensor on the same platform still works.
+      expect(suggestEntityConfig(hass, "sensor.gpl_grass")).toEqual({
+        config: {
+          type: "custom:pollenprognos-card",
+          integration: "gpl",
+          location: configEntryId,
+        },
+      });
+    });
   });
 
   describe("location fallback", () => {
