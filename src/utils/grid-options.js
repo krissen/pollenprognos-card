@@ -5,6 +5,13 @@
 // spans the full width and its height is ignored. This helper is a pure function
 // so the sizing logic can be unit-tested without instantiating the LitElement.
 //
+// The minimal-mode width is derived from the configured allergen count
+// (config.allergens), NOT from the fetched sensor list: the sections grid calls
+// getGridOptions() while it builds the card wrapper, before the card's async
+// forecast fetch has populated this.sensors, and the parent grid is not
+// recomputed when the sensors later load. config.allergens is synchronously
+// available and stable, so the width is right from first paint.
+//
 // minimal mode = a horizontal strip of icons whose width scales with the number
 //   of allergens. Height is left content-driven via rows:"auto": although the
 //   strip is usually a single row of icons, an optional card header and per-icon
@@ -13,9 +20,11 @@
 // normal mode = a forecast table whose height varies (title on/off, icon_size,
 //   day-label header, one row per allergen, no-data / no-information states), so
 //   the height is likewise content-driven via rows:"auto".
-export function computeGridOptions(config = {}, sensorCount = 0) {
-  const count =
-    Number.isFinite(sensorCount) && sensorCount > 0 ? sensorCount : 1;
+export function computeGridOptions(config = {}) {
+  const configured = Array.isArray(config?.allergens)
+    ? config.allergens.length
+    : 0;
+  const count = configured > 0 ? configured : 1;
 
   if (config && config.minimal) {
     // Icons sit side by side: ~2 grid cols per icon at default size.

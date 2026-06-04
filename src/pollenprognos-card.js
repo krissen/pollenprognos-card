@@ -1985,7 +1985,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   }
 
   getGridOptions() {
-    return computeGridOptions(this.config, this.sensors?.length ?? 0);
+    return computeGridOptions(this.config);
   }
 
   // _handleTapAction is inherited from LevelCircleMixin (shared with the badge).
