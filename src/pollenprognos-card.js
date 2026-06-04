@@ -31,6 +31,7 @@ import {
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
+import { computeGridOptions } from "./utils/grid-options.js";
 import {
   detectIntegrationStates,
   pickIntegration,
@@ -1981,6 +1982,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   }
   getCardSize() {
     return this.sensors.length + 1;
+  }
+
+  getGridOptions() {
+    return computeGridOptions(this.config);
   }
 
   // _handleTapAction is inherited from LevelCircleMixin (shared with the badge).
