@@ -176,6 +176,49 @@ describe("suggestEntityConfig", () => {
         },
       });
     });
+
+    it("does not suggest for an unclassified pollenlevels helper (e.g. plants_in_season_today)", () => {
+      // A non-timestamp summary/helper sensor passes the broad platform list but
+      // the discovery classifier skips it (render-unsupported), so it must yield
+      // no suggestion instead of being pinned to the first location. (Codex #258)
+      const deviceId = "gpl_device_1";
+      const configEntryId = "abc123";
+      const hass = createHass(
+        {
+          "sensor.gpl_grass": { state: "3", attributes: { icon: "mdi:grass" } },
+          "sensor.plants_in_season_today": { state: "5", attributes: {} },
+        },
+        {
+          entities: {
+            "sensor.gpl_grass": {
+              platform: "pollenlevels",
+              device_id: deviceId,
+              entity_category: null,
+            },
+            "sensor.plants_in_season_today": {
+              platform: "pollenlevels",
+              device_id: deviceId,
+              entity_category: null,
+              translation_key: "plants_in_season_today",
+            },
+          },
+          devices: {
+            [deviceId]: { name: "Home", config_entries: [configEntryId] },
+          },
+        },
+      );
+
+      expect(
+        suggestEntityConfig(hass, "sensor.plants_in_season_today"),
+      ).toBeNull();
+      expect(suggestEntityConfig(hass, "sensor.gpl_grass")).toEqual({
+        config: {
+          type: "custom:pollenprognos-card",
+          integration: "gpl",
+          location: configEntryId,
+        },
+      });
+    });
   });
 
   describe("location fallback", () => {
