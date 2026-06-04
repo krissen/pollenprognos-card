@@ -7,6 +7,8 @@ import "./pollenprognos-editor.js";
 import "./pollenprognos-badge.js";
 import "./pollenprognos-badge-editor.js";
 
+import { suggestEntityConfig } from "./utils/autodetect.js";
+
 // Register for Lovelace UI picker (HACS)
 window.customCards = window.customCards || [];
 window.customCards.push({
@@ -15,6 +17,10 @@ window.customCards.push({
   preview: true,
   description: "Visar en grafisk prognos för pollenhalter",
   documentationURL: "https://github.com/krissen/pollenprognos-card",
+  // HA 2026.6 card-picker suggestions: when a user picks a pollen sensor, offer
+  // a correctly-configured card under the picker's Community section. Returns
+  // null for entities we don't recognise.
+  getEntitySuggestion: (hass, entityId) => suggestEntityConfig(hass, entityId),
 });
 
 // Register for the Lovelace badge picker. HA reads window.customBadges the same

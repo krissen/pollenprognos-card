@@ -25,7 +25,10 @@ import {
   extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
 } from "../adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "../adapters/dwd.js";
-import { discoverPeuSensors } from "../adapters/peu.js";
+import {
+  discoverPeuSensors,
+  extractPeuLocationSlugFromEntityId,
+} from "../adapters/peu.js";
 import { discoverSilamSensors } from "./silam.js";
 
 // Canonical autodetect priority order. The first integration with detected
@@ -165,13 +168,21 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     );
   }
 
-  // GPL: hass.entities platform (primary) or attribution (fallback).
+  // GPL: hass.entities platform (primary) or attribution (fallback). Exclude
+  // date/timestamp helper entities (e.g. an "update time" sensor) so they are
+  // never treated as pollen sensors -- matching the attribution fallback below.
+  const isNonDataDeviceClass = (eid) => {
+    const dc = hass?.states?.[eid]?.attributes?.device_class;
+    return dc === "date" || dc === "timestamp";
+  };
   let gplStates = [];
   if (hass && hass.entities) {
     gplStates = Object.entries(hass.entities)
       .filter(
-        ([, entry]) =>
-          entry.platform === "pollenlevels" && !entry.entity_category,
+        ([eid, entry]) =>
+          entry.platform === "pollenlevels" &&
+          !entry.entity_category &&
+          !isNonDataDeviceClass(eid),
       )
       .map(([eid]) => eid);
   }
@@ -198,8 +209,10 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     if (hass && hass.entities) {
       gpStates = Object.entries(hass.entities)
         .filter(
-          ([, entry]) =>
-            entry.platform === "google_pollen" && !entry.entity_category,
+          ([eid, entry]) =>
+            entry.platform === "google_pollen" &&
+            !entry.entity_category &&
+            !isNonDataDeviceClass(eid),
         )
         .map(([eid]) => eid);
     }
@@ -470,4 +483,237 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
   }
 
   return null;
+}
+
+/**
+ * Find the location key of the discovery entry that owns a specific entity id.
+ * Works for every discovery shape used here: device-based discoveries expose
+ * `entities` (Map<key, entityId>), SILAM exposes `sensors` (Map) plus an
+ * optional `weatherEntity`. Returns the location map key (the same value
+ * autoSelectLocation returns as `value`) or null.
+ *
+ * @param {{locations?: Map<string, {entities?: Map, sensors?: Map, weatherEntity?: string}>}} discovery
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function findLocationKeyInDiscovery(discovery, entityId) {
+  if (!discovery || !discovery.locations) return null;
+  for (const [key, loc] of discovery.locations) {
+    if (!loc) continue;
+    if (loc.weatherEntity === entityId) return key;
+    for (const map of [loc.entities, loc.sensors]) {
+      if (map && typeof map.values === "function") {
+        for (const eid of map.values()) {
+          if (eid === entityId) return key;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Per-entity sibling of autoSelectLocation: derive the location/city/region of a
+ * SPECIFIC entity id (not the integration's first location). Used by the card
+ * picker suggestion so picking sensor.pollen_stockholm_bjork yields a Stockholm
+ * card. Returns { key, value } or null when the entity's location can't be
+ * derived (caller falls back to autoSelectLocation).
+ *
+ * Mirrors the per-integration logic in autoSelectLocation; discovery-based
+ * integrations (gp/gpl/msw/silam-discovery/atmo) resolve via
+ * findLocationKeyInDiscovery, id-pattern integrations via their adapter regexes.
+ *
+ * @param {string} integration
+ * @param {string} entityId
+ * @param {object} hass
+ * @param {ReturnType<typeof detectIntegrationStates>} detection
+ * @returns {{key: string, value: *}|null}
+ */
+export function deriveLocationForEntity(integration, entityId, hass, detection) {
+  if (typeof integration !== "string" || typeof entityId !== "string")
+    return null;
+
+  switch (integration) {
+    case "pp": {
+      const value = extractPpCitySlugFromEntityId(entityId);
+      return value ? { key: "city", value } : null;
+    }
+
+    case "dwd": {
+      const value = entityId.match(DWD_ENTITY_ID_RE)?.[2] || null;
+      return value ? { key: "region_id", value } : null;
+    }
+
+    case "peu": {
+      // Prefer the integration's own location_slug attribute; fall back to the
+      // PEU adapter's entity-id slug extractor so multi-location installs that
+      // don't expose the (optional) attribute still pin the picked location.
+      const value =
+        hass?.states?.[entityId]?.attributes?.location_slug ||
+        extractPeuLocationSlugFromEntityId(entityId);
+      return value ? { key: "location", value } : null;
+    }
+
+    case "atmo": {
+      // The niveau_{allergen}_{slug} regex gives the precise per-entity slug,
+      // which the adapter resolves in both modern (config-entry) and
+      // legacy/no-registry setups via its legacy-slug path -- mirroring
+      // autoSelectLocation. Prefer it. Only non-niveau entities (pollution /
+      // summary) need the discovery key, and we never return the tier-3
+      // "default" merge bucket (it pins every location to one colliding key).
+      const m = entityId.match(
+        /^sensor\.niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+      );
+      if (m) return { key: "location", value: m[1] };
+      const fromDiscovery = findLocationKeyInDiscovery(
+        detection?.discovery?.atmo,
+        entityId,
+      );
+      return fromDiscovery && fromDiscovery !== "default"
+        ? { key: "location", value: fromDiscovery }
+        : null;
+    }
+
+    case "silam": {
+      const fromDiscovery = findLocationKeyInDiscovery(
+        detection?.discovery?.silam,
+        entityId,
+      );
+      if (fromDiscovery) return { key: "location", value: fromDiscovery };
+      const m = entityId.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+      return m ? { key: "location", value: m[1] } : null;
+    }
+
+    case "kleenex": {
+      // Location can contain underscores, so match against the known location
+      // set derived from the `..._date` sensors and pick the longest prefix
+      // that owns this entity.
+      const dateSensors = (detection?.stateIds || []).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.kleenex_pollen_radar_.+_date$/.test(id),
+      );
+      const locations = Array.from(
+        new Set(
+          dateSensors
+            .map((eid) => {
+              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      let best = null;
+      for (const loc of locations) {
+        const prefix = `sensor.kleenex_pollen_radar_${loc}_`;
+        if (
+          entityId === `sensor.kleenex_pollen_radar_${loc}_date` ||
+          entityId.startsWith(prefix)
+        ) {
+          if (!best || loc.length > best.length) best = loc;
+        }
+      }
+      if (!best) return null;
+      // Reject diagnostic helper sensors (date/last_updated/region); only
+      // category/detail sensors are renderable pollen data.
+      const rest = entityId.slice(
+        `sensor.kleenex_pollen_radar_${best}_`.length,
+      );
+      const KLEENEX_DIAGNOSTIC_SUFFIXES = new Set([
+        "date",
+        "last_updated",
+        "region",
+      ]);
+      if (!rest || KLEENEX_DIAGNOSTIC_SUFFIXES.has(rest)) return null;
+      return { key: "location", value: best };
+    }
+
+    case "gp": {
+      const value = findLocationKeyInDiscovery(
+        detection?.discovery?.gp,
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
+    case "gpl": {
+      const value = findLocationKeyInDiscovery(
+        detection?.getGplDiscovery?.(),
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
+    case "msw": {
+      const value = findLocationKeyInDiscovery(
+        detection?.getMswDiscovery?.(),
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Build a card-picker suggestion for a picked entity id (HA 2026.6
+ * window.customCards getEntitySuggestion). Reverse-maps the entity to one of our
+ * integrations, derives its specific location, and returns a config the picker
+ * can drop in. Only sensor.* and weather.* entities pass the initial guard
+ * (weather.* supports SILAM weather-only installs, including renamed weather
+ * entities); any entity not owned by a known pollen integration -- including
+ * weather.* entities that aren't SILAM's -- then returns null, so we never
+ * clutter the picker.
+ *
+ * @param {object} hass
+ * @param {string} entityId
+ * @returns {{config: object}|null}
+ */
+export function suggestEntityConfig(hass, entityId) {
+  // Pollen sensors live on sensor.*; SILAM weather-only installs expose the
+  // allergy_risk index via a weather.* entity that detection/discovery already
+  // recognise, so let that domain through too.
+  if (
+    typeof entityId !== "string" ||
+    !(entityId.startsWith("sensor.") || entityId.startsWith("weather."))
+  )
+    return null;
+  if (!hass || !hass.states) return null;
+
+  const detection = detectIntegrationStates(hass);
+
+  let integration;
+  for (const id of INTEGRATION_PRIORITY) {
+    if (detection.states[id]?.includes(entityId)) {
+      integration = id;
+      break;
+    }
+  }
+  if (!integration) return null;
+
+  const derived = deriveLocationForEntity(integration, entityId, hass, detection);
+
+  // For gpl/gp/msw/kleenex the detection list is broader than the set of
+  // render-usable pollen sensors: gpl/gp/msw include sibling summary/helper
+  // sensors (e.g. plants_in_season_today, top_pollen_types_today) the discovery
+  // classifier skips, and kleenex includes diagnostic helpers (_date,
+  // _last_updated, _region). For these, a renderable sensor always yields a
+  // per-entity derivation, so a null derivation means the entity isn't usable
+  // -- offer no suggestion rather than the wrong one autoSelectLocation's
+  // first-location guess would produce.
+  const STRICT_DERIVATION = new Set(["gpl", "gp", "msw", "kleenex"]);
+  if (!derived && STRICT_DERIVATION.has(integration)) return null;
+
+  const loc =
+    derived || autoSelectLocation(integration, {}, hass, detection);
+
+  const config = {
+    type: "custom:pollenprognos-card",
+    integration,
+    ...(loc ? { [loc.key]: loc.value } : {}),
+  };
+
+  return { config };
 }

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Card picker suggestions** (issue #255, PR #258). On Home Assistant 2026.6+, picking a pollen sensor in the dashboard's "Add card" dialog now offers a ready-configured Pollenprognos Card in the picker's Community section, via the new `window.customCards` `getEntitySuggestion` hook. The picked entity is reverse-mapped to its integration and its specific location (city/region/location) through the shared autodetection, so the suggestion lands pre-filled at the location the picked sensor belongs to, not just the first one found. Works across all 10 integrations (including SILAM weather-only installs, which expose the allergy-risk index via a `weather.*` entity). Entities not owned by a known pollen integration, and non-renderable sibling or diagnostic sensors (for example a Pollen Levels timestamp or in-season helper, or Kleenex `_date`/`_region`), produce no suggestion. Card only (the badge is unchanged); additive and opt-in by Home Assistant, with no config keys changed.
+
 ## [3.3.0-beta3] - 2026-06-03
 
 Bugfix follow-up to beta2: the badge and editor fixes from #252, plus a
