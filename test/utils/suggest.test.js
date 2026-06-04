@@ -221,6 +221,27 @@ describe("suggestEntityConfig", () => {
     });
   });
 
+  describe("PEU multi-location", () => {
+    it("suggests the picked entity's location from its id, not a sibling's", () => {
+      // No location_slug attribute; multi-location install. The picked entity's
+      // own location must win, not autoSelectLocation's first pick. (Codex #258)
+      const hass = createHass({
+        "sensor.polleninformation_wien_birch": s("2"),
+        "sensor.polleninformation_graz_birch": s("3"),
+      });
+
+      expect(
+        suggestEntityConfig(hass, "sensor.polleninformation_graz_birch"),
+      ).toEqual({
+        config: {
+          type: "custom:pollenprognos-card",
+          integration: "peu",
+          location: "graz",
+        },
+      });
+    });
+  });
+
   describe("location fallback", () => {
     it("falls back to autoSelectLocation when per-entity derivation fails", () => {
       // The picked PEU entity lacks location_slug, but a sibling PEU entity has
@@ -359,6 +380,18 @@ describe("deriveLocationForEntity", () => {
     };
     expect(
       deriveLocationForEntity("peu", "sensor.polleninformation_x", hass, {}),
+    ).toEqual({ key: "location", value: "wien" });
+  });
+
+  it("PEU: derives location from the entity id when the attribute is absent", () => {
+    const hass = { states: { "sensor.polleninformation_wien_birch": { attributes: {} } } };
+    expect(
+      deriveLocationForEntity(
+        "peu",
+        "sensor.polleninformation_wien_birch",
+        hass,
+        {},
+      ),
     ).toEqual({ key: "location", value: "wien" });
   });
 
