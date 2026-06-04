@@ -641,9 +641,11 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
  * Build a card-picker suggestion for a picked entity id (HA 2026.6
  * window.customCards getEntitySuggestion). Reverse-maps the entity to one of our
  * integrations, derives its specific location, and returns a config the picker
- * can drop in. Only sensor.* and SILAM weather.* entities are considered;
- * returns null for any other domain or unrecognised entity so we don't clutter
- * the picker.
+ * can drop in. Only sensor.* and weather.* entities pass the initial guard
+ * (weather.* supports SILAM weather-only installs, including renamed weather
+ * entities); any entity not owned by a known pollen integration -- including
+ * weather.* entities that aren't SILAM's -- then returns null, so we never
+ * clutter the picker.
  *
  * @param {object} hass
  * @param {string} entityId
@@ -671,9 +673,20 @@ export function suggestEntityConfig(hass, entityId) {
   }
   if (!integration) return null;
 
+  const derived = deriveLocationForEntity(integration, entityId, hass, detection);
+
+  // For gpl/gp/msw the detection list is broader than the set of render-usable
+  // pollen sensors: it includes sibling summary/helper sensors (e.g.
+  // plants_in_season_today, top_pollen_types_today) that the discovery
+  // classifier intentionally skips. There the discovery result is
+  // authoritative, so an entity that didn't resolve to a discovery location is
+  // one the card can't use -- offer no suggestion rather than a wrong one
+  // (which autoSelectLocation's first-location guess would produce).
+  const DISCOVERY_AUTHORITATIVE = new Set(["gpl", "gp", "msw"]);
+  if (!derived && DISCOVERY_AUTHORITATIVE.has(integration)) return null;
+
   const loc =
-    deriveLocationForEntity(integration, entityId, hass, detection) ||
-    autoSelectLocation(integration, {}, hass, detection);
+    derived || autoSelectLocation(integration, {}, hass, detection);
 
   const config = {
     type: "custom:pollenprognos-card",
