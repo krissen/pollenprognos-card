@@ -290,17 +290,27 @@ describe("deriveLocationForEntity", () => {
     ).toEqual({ key: "location", value: "wien" });
   });
 
-  it("ATMO: discovery map takes precedence over the legacy regex", () => {
+  it("ATMO: niveau entity yields the precise slug via regex, even with discovery present", () => {
+    // Regex-first: the per-entity slug wins over the discovery config-entry key
+    // so multi-location and no-registry setups stay precise. (Codex #258)
     const detection = {
       discovery: {
         atmo: disc([
-          ["lyon", { entities: new Map([["birch", "sensor.atmo_lyon_birch"]]) }],
+          [
+            "entry_atmo",
+            { entities: new Map([["birch", "sensor.niveau_bouleau_paris"]]) },
+          ],
         ]),
       },
     };
     expect(
-      deriveLocationForEntity("atmo", "sensor.atmo_lyon_birch", {}, detection),
-    ).toEqual({ key: "location", value: "lyon" });
+      deriveLocationForEntity(
+        "atmo",
+        "sensor.niveau_bouleau_paris",
+        {},
+        detection,
+      ),
+    ).toEqual({ key: "location", value: "paris" });
   });
 
   it("ATMO: legacy niveau_ regex when discovery is empty", () => {
@@ -313,6 +323,32 @@ describe("deriveLocationForEntity", () => {
         detection,
       ),
     ).toEqual({ key: "location", value: "paris" });
+  });
+
+  it("ATMO: a non-niveau entity resolves via a real discovery config entry", () => {
+    const detection = {
+      discovery: {
+        atmo: disc([
+          ["entry_atmo", { entities: new Map([["pm25", "sensor.pm25_paris"]]) }],
+        ]),
+      },
+    };
+    expect(
+      deriveLocationForEntity("atmo", "sensor.pm25_paris", {}, detection),
+    ).toEqual({ key: "location", value: "entry_atmo" });
+  });
+
+  it("ATMO: never pins a non-niveau entity to the tier-3 'default' bucket", () => {
+    const detection = {
+      discovery: {
+        atmo: disc([
+          ["default", { entities: new Map([["pm25", "sensor.pm25_paris"]]) }],
+        ]),
+      },
+    };
+    expect(
+      deriveLocationForEntity("atmo", "sensor.pm25_paris", {}, detection),
+    ).toBeNull();
   });
 
   it("SILAM: weatherEntity match in discovery", () => {

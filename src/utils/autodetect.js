@@ -547,16 +547,23 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
     }
 
     case "atmo": {
+      // The niveau_{allergen}_{slug} regex gives the precise per-entity slug,
+      // which the adapter resolves in both modern (config-entry) and
+      // legacy/no-registry setups via its legacy-slug path -- mirroring
+      // autoSelectLocation. Prefer it. Only non-niveau entities (pollution /
+      // summary) need the discovery key, and we never return the tier-3
+      // "default" merge bucket (it pins every location to one colliding key).
+      const m = entityId.match(
+        /^sensor\.niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+      );
+      if (m) return { key: "location", value: m[1] };
       const fromDiscovery = findLocationKeyInDiscovery(
         detection?.discovery?.atmo,
         entityId,
       );
-      if (fromDiscovery) return { key: "location", value: fromDiscovery };
-      // Legacy fallback: niveau_{allergen}_{location}[_j_N].
-      const m = entityId.match(
-        /^sensor\.niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
-      );
-      return m ? { key: "location", value: m[1] } : null;
+      return fromDiscovery && fromDiscovery !== "default"
+        ? { key: "location", value: fromDiscovery }
+        : null;
     }
 
     case "silam": {
