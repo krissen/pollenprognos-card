@@ -20,9 +20,9 @@ describe("computeGridOptions", () => {
   });
 
   describe("minimal (icon strip) mode", () => {
-    it("is always one row tall", () => {
+    it("leaves height content-driven so a header/text labels can't be clipped", () => {
       for (const count of [1, 3, 6, 20]) {
-        expect(computeGridOptions({ minimal: true }, count).rows).toBe(1);
+        expect(computeGridOptions({ minimal: true }, count).rows).toBe("auto");
       }
     });
 
@@ -36,7 +36,7 @@ describe("computeGridOptions", () => {
 
     it("keeps a small minimum width so a single icon still fits", () => {
       expect(computeGridOptions({ minimal: true }, 1)).toMatchObject({
-        rows: 1,
+        rows: "auto",
         min_rows: 1,
         min_columns: 2,
       });
