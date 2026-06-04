@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Card picker suggestions** (issue #255). On Home Assistant 2026.6+, picking a pollen sensor in the dashboard's "add card" dialog now offers a ready-configured Pollenprognos Card under the picker's Community section, via the new `getEntitySuggestion` hook. The picked entity is reverse-mapped to its integration and its specific location (city/region/location) using the shared autodetection, so the suggested card lands pre-filled; non-pollen entities produce no suggestion. Additive and opt-in by Home Assistant; no config keys changed.
+
 ## [3.3.0-beta3] - 2026-06-03
 
 Bugfix follow-up to beta2: the badge and editor fixes from #252, plus a
