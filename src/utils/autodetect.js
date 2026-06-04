@@ -605,7 +605,19 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
           if (!best || loc.length > best.length) best = loc;
         }
       }
-      return best ? { key: "location", value: best } : null;
+      if (!best) return null;
+      // Reject diagnostic helper sensors (date/last_updated/region); only
+      // category/detail sensors are renderable pollen data.
+      const rest = entityId.slice(
+        `sensor.kleenex_pollen_radar_${best}_`.length,
+      );
+      const KLEENEX_DIAGNOSTIC_SUFFIXES = new Set([
+        "date",
+        "last_updated",
+        "region",
+      ]);
+      if (!rest || KLEENEX_DIAGNOSTIC_SUFFIXES.has(rest)) return null;
+      return { key: "location", value: best };
     }
 
     case "gp": {
@@ -675,15 +687,16 @@ export function suggestEntityConfig(hass, entityId) {
 
   const derived = deriveLocationForEntity(integration, entityId, hass, detection);
 
-  // For gpl/gp/msw the detection list is broader than the set of render-usable
-  // pollen sensors: it includes sibling summary/helper sensors (e.g.
-  // plants_in_season_today, top_pollen_types_today) that the discovery
-  // classifier intentionally skips. There the discovery result is
-  // authoritative, so an entity that didn't resolve to a discovery location is
-  // one the card can't use -- offer no suggestion rather than a wrong one
-  // (which autoSelectLocation's first-location guess would produce).
-  const DISCOVERY_AUTHORITATIVE = new Set(["gpl", "gp", "msw"]);
-  if (!derived && DISCOVERY_AUTHORITATIVE.has(integration)) return null;
+  // For gpl/gp/msw/kleenex the detection list is broader than the set of
+  // render-usable pollen sensors: gpl/gp/msw include sibling summary/helper
+  // sensors (e.g. plants_in_season_today, top_pollen_types_today) the discovery
+  // classifier skips, and kleenex includes diagnostic helpers (_date,
+  // _last_updated, _region). For these, a renderable sensor always yields a
+  // per-entity derivation, so a null derivation means the entity isn't usable
+  // -- offer no suggestion rather than the wrong one autoSelectLocation's
+  // first-location guess would produce.
+  const STRICT_DERIVATION = new Set(["gpl", "gp", "msw", "kleenex"]);
+  if (!derived && STRICT_DERIVATION.has(integration)) return null;
 
   const loc =
     derived || autoSelectLocation(integration, {}, hass, detection);
