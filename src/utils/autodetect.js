@@ -471,3 +471,191 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
 
   return null;
 }
+
+/**
+ * Find the location key of the discovery entry that owns a specific entity id.
+ * Works for every discovery shape used here: device-based discoveries expose
+ * `entities` (Map<key, entityId>), SILAM exposes `sensors` (Map) plus an
+ * optional `weatherEntity`. Returns the location map key (the same value
+ * autoSelectLocation returns as `value`) or null.
+ *
+ * @param {{locations?: Map<string, {entities?: Map, sensors?: Map, weatherEntity?: string}>}} discovery
+ * @param {string} entityId
+ * @returns {string|null}
+ */
+function findLocationKeyInDiscovery(discovery, entityId) {
+  if (!discovery || !discovery.locations) return null;
+  for (const [key, loc] of discovery.locations) {
+    if (!loc) continue;
+    if (loc.weatherEntity === entityId) return key;
+    for (const map of [loc.entities, loc.sensors]) {
+      if (map && typeof map.values === "function") {
+        for (const eid of map.values()) {
+          if (eid === entityId) return key;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Per-entity sibling of autoSelectLocation: derive the location/city/region of a
+ * SPECIFIC entity id (not the integration's first location). Used by the card
+ * picker suggestion so picking sensor.pollen_birch_stockholm yields a Stockholm
+ * card. Returns { key, value } or null when the entity's location can't be
+ * derived (caller falls back to autoSelectLocation).
+ *
+ * Mirrors the per-integration logic in autoSelectLocation; discovery-based
+ * integrations (gp/gpl/msw/silam-discovery/atmo) resolve via
+ * findLocationKeyInDiscovery, id-pattern integrations via their adapter regexes.
+ *
+ * @param {string} integration
+ * @param {string} entityId
+ * @param {object} hass
+ * @param {ReturnType<typeof detectIntegrationStates>} detection
+ * @returns {{key: string, value: *}|null}
+ */
+export function deriveLocationForEntity(integration, entityId, hass, detection) {
+  if (typeof integration !== "string" || typeof entityId !== "string")
+    return null;
+
+  switch (integration) {
+    case "pp": {
+      const value = extractPpCitySlugFromEntityId(entityId);
+      return value ? { key: "city", value } : null;
+    }
+
+    case "dwd": {
+      const value = entityId.match(DWD_ENTITY_ID_RE)?.[2] || null;
+      return value ? { key: "region_id", value } : null;
+    }
+
+    case "peu": {
+      const value = hass?.states?.[entityId]?.attributes?.location_slug || null;
+      return value ? { key: "location", value } : null;
+    }
+
+    case "atmo": {
+      const fromDiscovery = findLocationKeyInDiscovery(
+        detection?.discovery?.atmo,
+        entityId,
+      );
+      if (fromDiscovery) return { key: "location", value: fromDiscovery };
+      // Legacy fallback: niveau_{allergen}_{location}[_j_N].
+      const m = entityId.match(
+        /^sensor\.niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
+      );
+      return m ? { key: "location", value: m[1] } : null;
+    }
+
+    case "silam": {
+      const fromDiscovery = findLocationKeyInDiscovery(
+        detection?.discovery?.silam,
+        entityId,
+      );
+      if (fromDiscovery) return { key: "location", value: fromDiscovery };
+      const m = entityId.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
+      return m ? { key: "location", value: m[1] } : null;
+    }
+
+    case "kleenex": {
+      // Location can contain underscores, so match against the known location
+      // set derived from the `..._date` sensors and pick the longest prefix
+      // that owns this entity.
+      const dateSensors = (detection?.stateIds || []).filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.kleenex_pollen_radar_.+_date$/.test(id),
+      );
+      const locations = Array.from(
+        new Set(
+          dateSensors
+            .map((eid) => {
+              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
+              return m ? m[1] : null;
+            })
+            .filter(Boolean),
+        ),
+      );
+      let best = null;
+      for (const loc of locations) {
+        const prefix = `sensor.kleenex_pollen_radar_${loc}_`;
+        if (
+          entityId === `sensor.kleenex_pollen_radar_${loc}_date` ||
+          entityId.startsWith(prefix)
+        ) {
+          if (!best || loc.length > best.length) best = loc;
+        }
+      }
+      return best ? { key: "location", value: best } : null;
+    }
+
+    case "gp": {
+      const value = findLocationKeyInDiscovery(
+        detection?.discovery?.gp,
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
+    case "gpl": {
+      const value = findLocationKeyInDiscovery(
+        detection?.getGplDiscovery?.(),
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
+    case "msw": {
+      const value = findLocationKeyInDiscovery(
+        detection?.getMswDiscovery?.(),
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Build a card-picker suggestion for a picked entity id (HA 2026.6
+ * window.customCards getEntitySuggestion). Reverse-maps the entity to one of our
+ * integrations, derives its specific location, and returns a config the picker
+ * can drop in. Returns null for non-sensor or unrecognised entities so we don't
+ * clutter the picker.
+ *
+ * @param {object} hass
+ * @param {string} entityId
+ * @returns {{config: object}|null}
+ */
+export function suggestEntityConfig(hass, entityId) {
+  if (typeof entityId !== "string" || !entityId.startsWith("sensor."))
+    return null;
+  if (!hass || !hass.states) return null;
+
+  const detection = detectIntegrationStates(hass);
+
+  let integration;
+  for (const id of INTEGRATION_PRIORITY) {
+    if (detection.states[id]?.includes(entityId)) {
+      integration = id;
+      break;
+    }
+  }
+  if (!integration) return null;
+
+  const loc =
+    deriveLocationForEntity(integration, entityId, hass, detection) ||
+    autoSelectLocation(integration, {}, hass, detection);
+
+  const config = {
+    type: "custom:pollenprognos-card",
+    integration,
+    ...(loc ? { [loc.key]: loc.value } : {}),
+  };
+
+  return { config };
+}
