@@ -298,6 +298,35 @@ describe("suggestEntityConfig", () => {
       });
     });
   });
+
+  describe("Kleenex diagnostic helpers", () => {
+    // Diagnostic sensors share the kleenex prefix and so appear in
+    // detection.states.kleenex, but are not renderable; they must not produce a
+    // suggestion (and must not fall back to the first location). (Codex #258)
+    it("offers no suggestion for a Kleenex date helper, but does for a category sensor", () => {
+      const hass = createHass({
+        "sensor.kleenex_pollen_radar_amsterdam_date": s("2026-06-04"),
+        "sensor.kleenex_pollen_radar_amsterdam_trees": s("3"),
+      });
+
+      expect(
+        suggestEntityConfig(hass, "sensor.kleenex_pollen_radar_amsterdam_date"),
+      ).toBeNull();
+
+      expect(
+        suggestEntityConfig(
+          hass,
+          "sensor.kleenex_pollen_radar_amsterdam_trees",
+        ),
+      ).toEqual({
+        config: {
+          type: "custom:pollenprognos-card",
+          integration: "kleenex",
+          location: "amsterdam",
+        },
+      });
+    });
+  });
 });
 
 // deriveLocationForEntity per-integration branches. The discovery-backed
@@ -442,6 +471,31 @@ describe("deriveLocationForEntity", () => {
         detection,
       ),
     ).toEqual({ key: "location", value: "noord_holland" });
+  });
+
+  it("Kleenex: rejects diagnostic helper suffixes (date/last_updated/region)", () => {
+    const detection = {
+      stateIds: ["sensor.kleenex_pollen_radar_amsterdam_date"],
+    };
+    for (const suffix of ["date", "last_updated", "region"]) {
+      expect(
+        deriveLocationForEntity(
+          "kleenex",
+          `sensor.kleenex_pollen_radar_amsterdam_${suffix}`,
+          {},
+          detection,
+        ),
+      ).toBeNull();
+    }
+    // A category sensor for the same location still resolves.
+    expect(
+      deriveLocationForEntity(
+        "kleenex",
+        "sensor.kleenex_pollen_radar_amsterdam_trees",
+        {},
+        detection,
+      ),
+    ).toEqual({ key: "location", value: "amsterdam" });
   });
 
   it("GP: location from the discovery entities map", () => {
