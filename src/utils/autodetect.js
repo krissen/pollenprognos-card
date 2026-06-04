@@ -25,7 +25,10 @@ import {
   extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
 } from "../adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "../adapters/dwd.js";
-import { discoverPeuSensors } from "../adapters/peu.js";
+import {
+  discoverPeuSensors,
+  extractPeuLocationSlugFromEntityId,
+} from "../adapters/peu.js";
 import { discoverSilamSensors } from "./silam.js";
 
 // Canonical autodetect priority order. The first integration with detected
@@ -512,7 +515,7 @@ function findLocationKeyInDiscovery(discovery, entityId) {
 /**
  * Per-entity sibling of autoSelectLocation: derive the location/city/region of a
  * SPECIFIC entity id (not the integration's first location). Used by the card
- * picker suggestion so picking sensor.pollen_birch_stockholm yields a Stockholm
+ * picker suggestion so picking sensor.pollen_stockholm_bjork yields a Stockholm
  * card. Returns { key, value } or null when the entity's location can't be
  * derived (caller falls back to autoSelectLocation).
  *
@@ -542,7 +545,12 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
     }
 
     case "peu": {
-      const value = hass?.states?.[entityId]?.attributes?.location_slug || null;
+      // Prefer the integration's own location_slug attribute; fall back to the
+      // PEU adapter's entity-id slug extractor so multi-location installs that
+      // don't expose the (optional) attribute still pin the picked location.
+      const value =
+        hass?.states?.[entityId]?.attributes?.location_slug ||
+        extractPeuLocationSlugFromEntityId(entityId);
       return value ? { key: "location", value } : null;
     }
 
