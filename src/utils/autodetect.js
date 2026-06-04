@@ -632,7 +632,13 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
  * @returns {{config: object}|null}
  */
 export function suggestEntityConfig(hass, entityId) {
-  if (typeof entityId !== "string" || !entityId.startsWith("sensor."))
+  // Pollen sensors live on sensor.*; SILAM weather-only installs expose the
+  // allergy_risk index via a weather.* entity that detection/discovery already
+  // recognise, so let that domain through too.
+  if (
+    typeof entityId !== "string" ||
+    !(entityId.startsWith("sensor.") || entityId.startsWith("weather."))
+  )
     return null;
   if (!hass || !hass.states) return null;
 
