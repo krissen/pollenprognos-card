@@ -16,14 +16,20 @@ project code). The development team requests review, addresses findings, and rep
 
 ## When it is used, the fallback
 
-**When BOTH Codex and Copilot are down, Nagelfar is the review for the PR; this is THE
-fallback, not an optional extra layer.** Do not skip review just because the bots are
-unavailable.
+Nagelfar **substitutes for a bot that can't run — not an extra layer on top of working
+bots.**
 
-Conversely: **when the bots are up, do NOT run Nagelfar**; it costs tokens for review the
-bots already give. The normal path is the Codex + Copilot double loop (see
-`~/.claude/CLAUDE.md` § Code review-loop). Nagelfar only fills the gap when that loop
-cannot run.
+- **One bot out of quota → that bot is replaced, per-bot.** When a bot signals it is out
+  of quota/usage-limit (even once), the substitution is sticky for the rest of the
+  session: run Nagelfararna in that bot's place, alongside the surviving bot. Review stays
+  dual: *(surviving bot + Nagelfararna)*.
+- **BOTH Codex and Copilot down → Nagelfararna alone are the review** for the PR. This is
+  THE fallback; don't skip review just because the bots are unavailable.
+- **Both bots up and working → do NOT run Nagelfar**; it costs tokens for review the bots
+  already give.
+
+The normal path is the Codex + Copilot double loop (see `~/.claude/CLAUDE.md` § Code
+review-loop). Nagelfar only fills the gap when that loop cannot run in full.
 
 ## Quickstart
 
