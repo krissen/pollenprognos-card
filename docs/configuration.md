@@ -25,6 +25,7 @@ In this file:
   - [Google Pollen Levels (GPL)](#google-pollen-levels-gpl)
   - [Google Pollen (GP)](#google-pollen-gp)
   - [MeteoSwiss / hass-swissweather (MSW)](#meteoswiss--hass-swissweather-msw)
+- [Badge](#badge)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
   - [Level Circle Colors](#level-circle-colors)
@@ -62,6 +63,10 @@ In this file:
 | `allergen_stroke_width` | `integer` | `15` | Width of SVG icon outlines (0-100, step 5). Higher values create thicker outlines around allergen icons. When `levels_inherit_mode` is `inherit_allergen` and `allergen_levels_gap_synced` is `true` (default), this also controls level circle gap width via automatic synchronization. |
 | `allergen_stroke_color_synced` | `boolean` | `true` | When enabled, the stroke (outline) color of allergen icons matches the allergen level color instead of using `allergen_outline_color`. This provides better visual consistency by making both the fill and outline colors reflect the pollen severity level. |
 | `allergen_levels_gap_synced` | `boolean` | `true` | When enabled and `levels_inherit_mode` is `inherit_allergen`, the level circle gap width automatically syncs with `allergen_stroke_width` using the formula `levelGap = Math.round(strokeWidth / 30)`. Set to `false` to independently control the gap width without switching all level colors to custom mode. |
+| `icon_in_ring` | `boolean` | `false` | Place the allergen icon inside the level ring instead of above it. When enabled, the editor auto-thins `levels_thickness` from 60 to 35 to give the icon room (restored when disabled, unless you had set a custom thickness). For the `allergy_risk` allergen the level-reactive smiley icon variant is used automatically. |
+| `icon_in_ring_size_ratio` | `number` | `0.75` | Icon size as a fraction of the ring's inner hole. Only used when `icon_in_ring` is `true`. |
+| `icon_in_ring_color_mode` | `string` | `static` | Color mode for the icon inside the ring: `static` uses a fixed color, `follow_level` tints the icon to match the current pollen level. Only used when `icon_in_ring` is `true`. |
+| `icon_in_ring_static_color` | `string` | `var(--primary-text-color)` | Color for the icon when `icon_in_ring_color_mode` is `static`. Only used when `icon_in_ring` is `true`. |
 | `no_allergens_color` | `string` | `#a9cfe0` | Color for the "no allergens" icon displayed when no pollen data is available. This color is independent of the allergen level color system and can be customized separately. |
 | `text_size_ratio` | `number` | `1` | Global text scaling factor. |
 | `allergens` | `array<string>` | *(integration default)* | List of pollen types to show. |
@@ -79,8 +84,10 @@ In this file:
 | `show_value_numeric` | `boolean` | `false` | Show numeric pollen value. |
 | `show_value_numeric_in_circle` | `boolean` | `false` | Place numeric value inside the circle. |
 | `link_to_sensors` | `boolean` | `true` | Link allergen icons and circles to their sensor entities. |
-| `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). |
+| `numeric_value_raw` | `boolean` | `false` | For integrations that report a raw measurement distinct from the level (Pollen.lu, Polleninformation, SILAM, Kleenex), show the raw value (concentration in grains or particles per m3, or an index) in the ring / numeric text instead of the card's calculated level. Other integrations are unaffected. |
+| `numeric_state_raw_risk` | `boolean` | `false` | Show the raw allergy risk value in numeric displays (PEU only). Now a PEU-scoped alias of `numeric_value_raw`; either key works for Polleninformation. |
 | `show_empty_days` | `boolean` | `true` | Always render `days_to_show` columns even when there is no data. |
+| `show_no_data_distinct` | `boolean` | `true` | Render entries where the sensor exists but has no current value (e.g. `state: unknown`, upstream API returned `null`) with a distinct fuzzy texture instead of a plain empty circle. Disable to fall back to the old appearance, where no-data and a real `0` look identical. |
 | `pollen_threshold` | `integer` | `1` | Minimum value required to show an allergen. Use `0` to always show all. |
 | `sort` | `string` | `name_ascending` (PP) / `value_descending` (DWD) | Row sorting mode. Available options: `value_ascending`, `value_descending`, `name_ascending`, `name_descending`, `none`. |
 | `sort_category_allergens_first` *(Kleenex, GPL)* | `boolean` | `true` | Display category allergens (trees, grass, weeds) above individual allergens in the editor. |
@@ -89,9 +96,14 @@ In this file:
 | `pollution_block_position` *(Atmo only)* | `string` | `bottom` | Where to place the pollution group relative to pollen: `top` or `bottom`. Requires `sort_pollution_block: true`. |
 | `show_block_separator` *(Atmo only)* | `boolean` | `false` | Show a visual separator line between pollen and pollution groups. Requires `sort_pollution_block: true`. |
 | `index_top` *(SILAM only)* | `boolean` | `true` | Show the `index` sensor first in the list. |
+| `show_summary_block` *(GPL, SILAM, Atmo)* | `boolean` | `false` | Render the aggregate risk (`allergy_risk` / `index`) as a summary row pinned at the top. Standalone by default: only the summary is shown unless `show_summary_row` is enabled. |
+| `show_summary_row` *(GPL, SILAM, Atmo)* | `boolean` | `false` | Also show the detailed allergen rows below the summary. Requires `show_summary_block: true`. |
+| `show_summary_separator` *(GPL, SILAM, Atmo)* | `boolean` | `true` | Show a divider line between the summary and the detailed rows. Requires `show_summary_block: true` and `show_summary_row: true`. |
+| `show_summary_top_types` *(GPL only)* | `boolean` | `true` | Show a "Top types" row listing the day's dominant pollen categories (trees, grass, weeds). Requires `show_summary_block: true`. |
+| `show_summary_plants_in_season` *(GPL only)* | `boolean` | `true` | Show an "In season" row listing the plants currently in pollen season. Requires `show_summary_block: true`. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
-| `tap_action` | `object` | *(empty)* | Lovelace tap action configuration. |
+| `tap_action` | `object` | *(empty)* | Lovelace tap action. Supported types: `more-info`, `navigate` (needs `navigation_path`), and `call-service` / Home Assistant's `perform-action` (needs a `service` / `perform_action` and optional `target` / `data`). Honours both the Lovelace-standard `action` key and the card's historical `type` key; when a `tap_action` is set with no explicit type it defaults to `more-info`. |
 | `debug` | `boolean` | `false` | Enable verbose console logging. |
 | `show_version` | `boolean` | `true` | Log card version in the browser console. |
 | `phrases.full` | `object` | `{}` | Map allergen keys to full length names. |
@@ -185,6 +197,8 @@ ragweed
 index
 ```
 
+The `index` allergen is SILAM's aggregate allergy-risk value. It can be pinned to the top with `index_top: true`, or shown as a level-only summary block via `show_summary_block` / `show_summary_row` / `show_summary_separator` (the GPL-only `show_summary_top_types` / `show_summary_plants_in_season` qualifier rows do not apply to SILAM).
+
 #### Sensor detection
 
 The card tries to discover SILAM entities via the Home Assistant entity registry when available. If registry data is unavailable, it falls back to entity-id pattern matching; in that case renamed entities may not be detected. If the card does not find your sensors, set `location` explicitly in your config or use `location: manual` with `entity_prefix`/`entity_suffix`.
@@ -272,11 +286,11 @@ grass
 olive
 ```
 
-Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for individual allergens and `sensor.qualite_globale_pollen_{city_slug}` for the global allergy risk. The `allergy_risk` allergen shows the overall pollen quality index and can be pinned to the top of the list with `allergy_risk_top: true`.
+Entity naming follows the pattern `sensor.niveau_{allergen_fr}_{city_slug}` for individual allergens and `sensor.qualite_globale_pollen_{city_slug}` for the global allergy risk. The `allergy_risk` allergen shows the overall pollen quality index and can be pinned to the top of the list with `allergy_risk_top: true`. It can also be shown as a level-only summary block via `show_summary_block` / `show_summary_row` / `show_summary_separator` (the GPL-only `show_summary_top_types` / `show_summary_plants_in_season` qualifier rows do not apply to Atmo).
 
 ### Google Pollen Levels (GPL)
 
-The Google Pollen Levels integration provides global pollen data via the Google Maps Pollen API. The card detects sensors by their platform or attribution attributes — entity IDs can be freely renamed or localized without affecting detection. See [integrations.md](integrations.md#google-pollen-levels--design-decisions) for details.
+The Google Pollen Levels integration provides global pollen data via the Google Maps Pollen API. The card detects sensors by their platform or attribution attributes, so entity IDs can be freely renamed or localized without affecting detection. See [integrations.md](integrations.md#google-pollen-levels-design-decisions) for details.
 
 ```
 # Category sensors (type sensors)
@@ -305,9 +319,11 @@ Levels range from 0 to 5 and are displayed with 5 doughnut segments. Level names
 
 Like Kleenex, GPL distinguishes between category sensors and individual plant sensors. Category allergens can be sorted to the top of the list with `sort_category_allergens_first: true` (enabled by default).
 
+**Summary block.** GPL exposes an aggregate `allergy_risk` (the v2.1.0 *overall pollen risk today* sensor). With `show_summary_block: true` it renders as a summary row pinned at the top, showing only the overall risk by default; add `show_summary_row: true` to also show the detailed allergen rows below it (with a divider you can turn off via `show_summary_separator: false`). GPL additionally supports two qualifier rows directly under the summary: `show_summary_top_types` (the day's dominant pollen categories) and `show_summary_plants_in_season` (the plants currently in season). Both are on by default and only render when the block is enabled. Their names are localized to the card's language, independent of the language the integration fetched its data in.
+
 ### Google Pollen (GP)
 
-The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. Sensors are classified via `unique_id` (language-independent) or by direct `display_name` matching against pre-generated name maps (supports all 35 API languages). See [integrations.md](integrations.md#google-pollen-svenove--design-decisions) for the technical details.
+The Google Pollen adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. It uses the same Google Pollen API as GPL but exposes data differently. Sensors are classified via `unique_id` (language-independent) or by direct `display_name` matching against pre-generated name maps (supports all 35 API languages). See [integrations.md](integrations.md#google-pollen-svenove-design-decisions) for the technical details.
 
 The available allergens are the same as GPL:
 
@@ -340,6 +356,72 @@ birch, grass, alder, hazel, beech, ash, oak
 Categorical levels reported by the integration map to a native 5-level scale (0--4): `None` -> 0, `Low` -> 1, `Medium` -> 2, `Strong` -> 3, `Very Strong` -> 4. The card keeps each integration's native level count rather than stretching onto a shared 0--6 gradient; level circles render with five segments (None empty, Very Strong full) and severity strings come from the `card.levels5.0..4` i18n keys.
 
 Multi-station configuration: set `location` to either the `config_entry_id` (Crockford-base32 ULID, the visual editor's default), the device label (`name_by_user` or `name`, e.g. `Bern`), or the station code (e.g. `8000`). Leaving `location` empty selects the first discovered station. Stale `config_entry_id` values (e.g. after an integration reinstall) auto-recover to the first discovered station, mirroring DWD/GPL/GP/SILAM/Atmo behavior.
+
+## Badge
+
+`pollenprognos-badge` is a separate custom element that appears in Home Assistant's **badge picker** as "Pollenprognos Badge". It ships in the same JS bundle as the card, so no extra installation is needed.
+
+Badges are added to a dashboard view's `badges:` list (not `cards:`), either through the badge picker UI or via YAML.
+
+<p align="center">
+  <img width="760" alt="pollenprognos-badge in every visual and content mode: icon in the level ring, the numeric value in the ring, ring only, bare icon, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="screenshots/badge-row.png" />
+</p>
+
+The badges above show the visual styles (`badge_visual`) and content modes (`badge_content`) documented below: icon in the ring, the value in the ring, ring only, bare icon, a multi-allergen `row`, and the `aggregate` allergy-risk smiley.
+
+The badge is today-only: it always forces `mode: daily` regardless of your integration. It reuses the card's integration/location keys (`integration`, `city`, `region_id`, `location`, `entity_prefix`, `entity_suffix`, `entity_weather`, `allergens`) and the card's visual keys (`levels_*`, `allergen_*`, `icon_in_ring*`, `show_no_data_distinct`, `link_to_sensors`). Card-layout keys such as `title`, `minimal`, `days_to_show`, and multi-day options are not applicable to the badge.
+
+### Badge options
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `badge_content` | `string` | `worst` | What the badge shows: `worst` (allergen with the highest current level), `aggregate` (integration's overall-risk sensor, available for GPL and Atmo out of the box; for SILAM add the index, `index`, to `allergens` and set `pollen_threshold: 0` so a low index is not filtered out; falls back to `worst` everywhere else), `single` (one allergen set via `badge_single_allergen`), `row` (several allergens side by side). |
+| `badge_single_allergen` | `string` | *(empty)* | The allergen key to show when `badge_content` is `single`. Must be a valid key for your integration (see [Valid allergen keys](#valid-allergen-keys)). |
+| `badge_visual` | `string` | `icon_in_ring` | Visual style: `icon_in_ring` (allergen icon inside the level ring), `ring_value` (numeric level centred in the ring), `ring_empty` (ring only), `icon_only` (bare allergen symbol, no ring). |
+| `badge_scale` | `number` | `1` | Scales the entire badge (height, padding, gap, label and ring together), based on Home Assistant's native badge size (`--ha-badge-size`, 36 px). `1` renders a standard-size HA badge. Clamped to a sane range (0.5 to 3) so a pathological value cannot break the editor preview. |
+| `badge_icon_scale` | `number` | `1` | Scales just the allergen visual within the badge: the ring (with its centred icon or value) in the ring modes, or the bare icon in `icon_only`. The label text and the overall pill box are unchanged, and the scaled visual is capped at the pill height so it never overflows. So `badge_scale` sets how big the badge is, `badge_icon_scale` sets how big the image is within it. Range 0.3 to 3. |
+| `badge_label_position` | `string` | `right` | Where to place the label: `right` (beside the visual, the HA community convention) or `below` (under the visual). |
+| `badge_show_label` | `boolean` | `false` | Show the allergen short name or label next to the visual. |
+| `tap_action` | `object` | *(empty)* | Lovelace tap action for the badge, configured in the editor's **Interactions** section. Same shape and supported types as the card's [`tap_action`](#options): `more-info`, `navigate`, and `call-service` / `perform-action`. With no `tap_action` set the badge is inert. |
+
+### Badge YAML examples
+
+**Pollenprognos: highest current allergen (icon in ring):**
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    badge_content: worst
+    badge_visual: icon_in_ring
+```
+
+**Google Pollen Levels: overall risk:**
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: gpl
+    badge_content: aggregate
+    badge_visual: icon_in_ring
+    badge_show_label: true
+```
+
+`badge_content: aggregate` falls back to `worst` for integrations that do not expose an overall-risk sensor.
+
+**Tap action (open more-info on tap):**
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    tap_action:
+      action: more-info
+```
+
+The badge's `tap_action` is set in the editor's **Interactions** section and uses the same shape and types as the card (`more-info`, `navigate`, `call-service` / `perform-action`); see [`tap_action`](#options) under the card options. With no `tap_action` the badge is inert.
 
 ## Color System Overview
 
@@ -475,6 +557,43 @@ allergens:
   - oak
 ```
 
+**Google Pollen Levels: summary block**
+
+```yaml
+# Compact, standalone overall-risk overview (only the summary)
+type: custom:pollenprognos-card
+integration: gpl
+show_summary_block: true
+```
+
+```yaml
+# Overall risk pinned on top, with the detailed rows below
+type: custom:pollenprognos-card
+integration: gpl
+show_summary_block: true
+show_summary_row: true            # also show the per-allergen rows
+show_summary_separator: true      # divider between summary and rows (default)
+show_summary_top_types: true      # "Top types" qualifier row (default)
+show_summary_plants_in_season: true  # "In season" qualifier row (default)
+```
+
+<p align="center">
+  <img width="420" alt="Aggregate summary block (overall allergy risk, top types, in season) pinned above the per-allergen rows, over the icon-in-ring layout" src="screenshots/summary-icon-in-ring.png" />
+</p>
+
+**Numeric value in the level ring**
+
+```yaml
+# Show the level number centred inside each ring
+type: custom:pollenprognos-card
+city: Stockholm
+show_value_numeric_in_circle: true
+```
+
+<p align="center">
+  <img width="420" alt="Card with the numeric pollen level shown inside each level ring" src="screenshots/feature-numeric-in-ring.png" />
+</p>
+
 **Google Pollen (svenove)**
 
 ```yaml
@@ -497,6 +616,21 @@ type: custom:pollenprognos-card
 minimal: true
 show_value_numeric: true
 ```
+
+**Minimal layout with the icon in the ring**
+
+With no allergen column on the left, `icon_in_ring` is at its clearest: the allergen icon sits inside the level ring and the ring colour shows the level.
+
+```yaml
+type: custom:pollenprognos-card
+integration: gpl
+minimal: true
+icon_in_ring: true
+```
+
+<p align="center">
+  <img width="420" alt="Minimal layout with the allergen icon centred inside each level ring and no separate icon column, the ring colour showing the level" src="screenshots/feature-minimal-icon-in-ring.png" />
+</p>
 
 **Custom phrases**
 

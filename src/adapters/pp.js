@@ -401,11 +401,16 @@ export async function fetchForecast(hass, config) {
           dict[`day${idx}`] = dayObj;
           dict.days.push(dayObj);
         } else if (pollen_threshold === 0) {
-          // When threshold is 0, show all allergens even with no data
+          // When threshold is 0, show all allergens even with no data. Emit the
+          // no-data sentinel (state -1), not 0: a missing reading is "no info",
+          // not a real level 0. The render path then shows the no-data pattern
+          // (LevelCircleMixin level < 0) so the ring matches the no-info label,
+          // instead of a green no-pollen ring. Matters for badge single mode,
+          // which forces threshold 0 to keep a named allergen.
           const dayObj = {
             name: dict.allergenCapitalized,
             day: label,
-            state: 0,
+            state: -1,
             state_text: noInfoLabel,
           };
           dict[`day${idx}`] = dayObj;
@@ -416,7 +421,7 @@ export async function fetchForecast(hass, config) {
       // Threshold filtering
       if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
-      console.warn(`[PP] Fel vid allergen ${allergen}:`, e);
+      console.warn(`[PP] Error for allergen ${allergen}:`, e);
     }
   }
 

@@ -1478,3 +1478,54 @@ describe("findAtmoLocationBySlug", () => {
     expect(map.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Summary block: isSummary tag + threshold bypass (#222)
+// ---------------------------------------------------------------------------
+
+describe("ATMO summary block (#222)", () => {
+  it("tags allergy_risk with isSummary but NOT qualite_globale", async () => {
+    const hass = makeHass("paris", [
+      ["allergy_risk", 3, 2],
+      ["qualite_globale", 3, 2],
+    ]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["allergy_risk", "qualite_globale"],
+      pollen_threshold: 0,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const qg = result.find((s) => s.allergenReplaced === "qualite_globale");
+    expect(ar.isSummary).toBe(true);
+    // qualite_globale is air quality, NOT the pollen summary block.
+    expect(qg.isSummary).toBeUndefined();
+  });
+
+  it("retains the aggregate below threshold when show_summary_block is on", async () => {
+    const hass = makeHass("paris", [["allergy_risk", 2, 1]]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["allergy_risk"],
+      pollen_threshold: 99, // above any real level
+      show_summary_block: true,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+  });
+
+  it("still drops the below-threshold aggregate when the block is off", async () => {
+    const hass = makeHass("paris", [
+      ["allergy_risk", 2, 1],
+      ["birch", 5, 4],
+    ]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["allergy_risk", "birch"],
+      pollen_threshold: 99,
+      show_summary_block: false,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+  });
+});

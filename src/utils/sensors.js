@@ -14,9 +14,11 @@ export function findAvailableSensors(cfg, hass, debug = false) {
   const sensors = [...map.values()].filter((eid) => {
     if (!eid) return false;
     const entity = hass?.states?.[eid];
-    // Exclude non-existent, unavailable, or unknown entities
     if (!entity) return false;
-    return entity.state !== "unavailable" && entity.state !== "unknown";
+    // Keep `unknown`: the entity exists but its value is currently None
+    // (e.g. API returned null). Only `unavailable` signals a disabled/down
+    // integration, where "no sensors found" is the right message.
+    return entity.state !== "unavailable";
   });
 
   if (debug) {

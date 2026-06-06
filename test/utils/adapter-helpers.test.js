@@ -3,6 +3,8 @@ import {
   discoverEntitiesByDevice,
   findLocationBySlug,
   resolveLocationByKey,
+  normalizeManualPrefix,
+  resolveAllergenNames,
 } from "../../src/utils/adapter-helpers.js";
 import {
   createHassWithRegistry,
@@ -1051,5 +1053,184 @@ describe("findLocationBySlug", () => {
     const result = findLocationBySlug(discovery, "nice", { slugExtractor });
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// normalizeManualPrefix
+// ---------------------------------------------------------------------------
+
+describe("normalizeManualPrefix", () => {
+  it("returns empty string for falsy input", () => {
+    expect(normalizeManualPrefix("")).toBe("");
+    expect(normalizeManualPrefix(null)).toBe("");
+    expect(normalizeManualPrefix(undefined)).toBe("");
+  });
+
+  it("appends trailing underscore when missing", () => {
+    expect(normalizeManualPrefix("pollen")).toBe("pollen_");
+    expect(normalizeManualPrefix("pollen_")).toBe("pollen_");
+  });
+
+  it("strips leading 'sensor.'", () => {
+    expect(normalizeManualPrefix("sensor.pollen")).toBe("pollen_");
+    expect(normalizeManualPrefix("sensor.pollen_")).toBe("pollen_");
+  });
+
+  it("coerces non-string input to empty (does not throw)", () => {
+    // YAML misconfiguration can surface entity_prefix as a number, array,
+    // or object. Callers use the result as a string everywhere, so the
+    // helper must return a string rather than crash on .startsWith.
+    expect(normalizeManualPrefix(123)).toBe("");
+    expect(normalizeManualPrefix(true)).toBe("");
+    expect(normalizeManualPrefix(["pollen"])).toBe("");
+    expect(normalizeManualPrefix({ prefix: "pollen" })).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveAllergenNames — phrase override resolution (issue #253)
+// ---------------------------------------------------------------------------
+
+describe("resolveAllergenNames", () => {
+  // The three integrations all map grass to the canonical key "grass" but feed
+  // resolveAllergenNames different (allergenKey, configKey) pairs:
+  //   pp : ("gras",  configKey "Gräs")
+  //   msw: ("grass", configKey "grass")
+  //   dwd: ("graeser", configKey "Gräser")
+  const callPP = (opts) =>
+    resolveAllergenNames("gras", { configKey: "Gräs", lang: "en", ...opts });
+  const callMSW = (opts) =>
+    resolveAllergenNames("grass", { configKey: "grass", lang: "en", ...opts });
+
+  it("backward compat: exact raw config key still wins (pp Gräs)", () => {
+    const { allergenCapitalized } = callPP({
+      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MITT GRÄS!");
+  });
+
+  it("carries a pp-keyed override forward to msw via canonical key", () => {
+    // Issue #253 core repro: phrases.full.Gräs set, integration switched to msw.
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MITT GRÄS!");
+  });
+
+  it("carries a canonical-keyed override back to pp", () => {
+    const { allergenCapitalized } = callPP({
+      fullPhrases: { grass: "MY GRASS" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MY GRASS");
+  });
+
+  it("carries a dwd umlaut key (Gräser) via the primary normalizer", () => {
+    // "Gräser" resolves through normalize() (NFD strips ä → graser, an alias),
+    // not the DWD ß path.
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräser": "GRÄSER!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("GRÄSER!");
+  });
+
+  it("carries a dwd ß key (Beifuß → mugwort) via normalizeDWD fallback", () => {
+    // normalize("Beifuß") → "beifu" (no alias); only normalizeDWD's ß→ss
+    // expansion reaches "beifuss" → mugwort.
+    const { allergenCapitalized } = resolveAllergenNames("mugwort", {
+      configKey: "mugwort",
+      lang: "en",
+      fullPhrases: { "Beifuß": "MUGGA" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("MUGGA");
+  });
+
+  it("does not cross-alias a pp grass key onto GP graminales (issue #253 review)", () => {
+    // normalizeDWD("Gräs") → "graes" → graminales, a *distinct* canonical. The
+    // DWD fallback must not fire here because normalize() already recognized
+    // "gras" as grass, so a grass override must never relabel Graminales.
+    const { allergenCapitalized } = resolveAllergenNames("graminales", {
+      configKey: "graminales",
+      lang: "en",
+      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).not.toBe("MITT GRÄS!");
+    expect(allergenCapitalized).toBe("Graminales");
+  });
+
+  it("exact raw key beats a canonical alias in the same map", () => {
+    // msw's ck is "grass" → exact match must win over the "Gräs" canonical entry.
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräs": "A", grass: "B" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("B");
+  });
+
+  it("resolves short names across integrations via canonical key", () => {
+    const { allergenShort } = callMSW({
+      fullPhrases: {},
+      shortPhrases: { "Gräs": "G!" },
+      abbreviated: true,
+    });
+    expect(allergenShort).toBe("G!");
+  });
+
+  it("a cleared exact key opts out of the cross-integration alias", () => {
+    // The editor writes "" when a phrase field is cleared. On msw the present
+    // exact key "grass":"" must opt out, NOT resurrect the carried-over "Gräs".
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { "Gräs": "OLD", grass: "" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("Grass");
+  });
+
+  it("tolerates null phrase maps (phrases: { full: null }) without throwing", () => {
+    let res;
+    expect(() => {
+      res = callMSW({ fullPhrases: null, shortPhrases: null, abbreviated: true });
+    }).not.toThrow();
+    expect(res.allergenCapitalized).toBe("Grass");
+  });
+
+  it("ignores array phrase maps from malformed YAML", () => {
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: ["bogus"],
+      shortPhrases: [],
+    });
+    expect(allergenCapitalized).toBe("Grass");
+  });
+
+  it("ignores phrase keys that collide with Object.prototype names", () => {
+    // "constructor" / "toString" are inherited on a plain object, so a naive
+    // `in` membership test plus toCanonicalAllergenKey could flow a prototype
+    // function into the index. The lookup must stay a no-op and never throw.
+    expect(() =>
+      callMSW({
+        fullPhrases: { constructor: "X", toString: "Y", hasOwnProperty: "Z" },
+        shortPhrases: {},
+      }),
+    ).not.toThrow();
+    const { allergenCapitalized } = callMSW({
+      fullPhrases: { constructor: "X", toString: "Y" },
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("Grass");
+  });
+
+  it("no override: falls back to i18n allergen name (regression guard)", () => {
+    const { allergenCapitalized, allergenShort } = callMSW({
+      fullPhrases: {},
+      shortPhrases: {},
+    });
+    expect(allergenCapitalized).toBe("Grass");
+    expect(allergenShort).toBe("Grass");
   });
 });

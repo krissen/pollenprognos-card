@@ -94,10 +94,11 @@ describe("PP adapter: fetchForecast", () => {
 
     // Level 8 should be clamped to 6
     expect(result[0].day0.state).toBe(6);
-    // -1 and NaN produce null via clampLevel; with pollen_threshold 0
-    // these days still appear but with state: 0
-    expect(result[0].day1.state).toBe(0);
-    expect(result[0].day2.state).toBe(0);
+    // -1 and NaN produce null via clampLevel; with pollen_threshold 0 these
+    // days still appear but carry the no-data sentinel state -1 (no info, not a
+    // real level 0), so the render path shows the no-data pattern.
+    expect(result[0].day1.state).toBe(-1);
+    expect(result[0].day2.state).toBe(-1);
     // Valid level passes through
     expect(result[0].day3.state).toBe(3);
   });

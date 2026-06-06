@@ -1,30 +1,37 @@
 /**
  * Autodetect precedence tests.
  *
- * The pollenprognos-card has THREE separate autodetect codepaths with
- * intentionally different precedence orders. This test file locks the
- * current behavior so accidental changes are caught.
+ * Integration autodetection now lives in ONE shared module
+ * (src/utils/autodetect.js) consumed by the card element, card editor, badge
+ * element and badge editor. This file exercises the REAL shared functions
+ * (no parallel reimplementation), so it catches drift in the actual code.
  *
- * Paths tested:
- *   1. Card set hass()          — PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GPL
- *   2. Editor setConfig()       — PP > PEU > DWD > SILAM > Kleenex > ATMO > GPL  (no PLU)
- *   3. Editor set hass()        — PP > PLU > PEU > DWD > SILAM > ATMO > GPL      (no Kleenex)
+ * Canonical precedence (single source of truth, INTEGRATION_PRIORITY):
+ *   PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GP > GPL > MSW
  *
- * Since we cannot easily instantiate LitElement components in vitest, we
- * replicate each detection path as a pure function and verify the logic
- * matches the source code exactly.
+ * Previously the card and the two editor codepaths had documented divergences
+ * (editor setConfig missed PLU; editor set hass missed Kleenex). The extraction
+ * unified them, so every path now agrees — the old divergence cases are flipped
+ * below to assert the unified behaviour.
  */
 
 import { describe, it, expect } from "vitest";
 import { PLU_ALIAS_MAP } from "../../src/adapters/plu.js";
 import { GPL_ATTRIBUTION } from "../../src/adapters/gpl/index.js";
-import { discoverAtmoSensors } from "../../src/adapters/atmo.js";
+import {
+  detectIntegrationStates,
+  pickIntegration,
+  detectedIntegrationIds,
+} from "../../src/utils/autodetect.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-const pluAllergenSlugs = new Set(Object.values(PLU_ALIAS_MAP).flat());
+/** Run the real shared autodetect and return the picked integration id. */
+function detect(hass) {
+  return pickIntegration(detectIntegrationStates(hass));
+}
 
 /** Minimal hass mock. */
 function mkHass(entityIds, opts = {}) {
@@ -36,341 +43,6 @@ function mkHass(entityIds, opts = {}) {
     states,
     entities: opts.entities || {},
   };
-}
-
-// ---------------------------------------------------------------------------
-// Path 1: Card set hass()
-// Order: PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GPL
-// ---------------------------------------------------------------------------
-
-function detectCardSetHass(hass) {
-  const all = Object.keys(hass.states);
-
-  const ppStates = all.filter((id) => {
-    if (typeof id !== "string") return false;
-    if (!id.startsWith("sensor.pollen_")) return false;
-    if (id.startsWith("sensor.pollenflug_")) return false;
-    if (id.includes("_level_at_")) return false;
-    const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
-    if (!match) return false;
-    const allergenSlug = match[1];
-    if (!match[2] && pluAllergenSlugs.has(allergenSlug)) return false;
-    return true;
-  });
-
-  const pluStates = all.filter((id) => {
-    if (typeof id !== "string") return false;
-    const match = /^sensor\.pollen_([^_]+)$/.exec(id);
-    if (!match) return false;
-    return pluAllergenSlugs.has(match[1]);
-  });
-
-  const peuStates = all.filter(
-    (id) => typeof id === "string" && id.startsWith("sensor.polleninformation_"),
-  );
-
-  const dwdStates = all.filter(
-    (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
-  );
-
-  // SILAM: primary via hass.entities platform check, fallback via prefix
-  let silamStates = [];
-  if (hass.entities) {
-    silamStates = Object.entries(hass.entities)
-      .filter(([, e]) => e.platform === "silam_pollen" && !e.entity_category)
-      .map(([eid]) => eid);
-  }
-  if (!silamStates.length) {
-    silamStates = all.filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-    );
-  }
-
-  const kleenexStates = all.filter(
-    (id) => typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
-  );
-
-  // ATMO: primary via discovery (handles prefixed entity IDs), fallback to regex
-  const atmoDiscovery = discoverAtmoSensors(hass, false);
-  let atmoStates = [];
-  if (atmoDiscovery.locations.size > 0) {
-    for (const [, loc] of atmoDiscovery.locations) {
-      for (const eid of loc.entities.values()) {
-        atmoStates.push(eid);
-      }
-    }
-  }
-  if (!atmoStates.length) {
-    atmoStates = all.filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-        !/_j_\d+$/.test(id),
-    );
-  }
-
-  // GPL: primary via hass.entities, fallback via attribution
-  let gplStates = [];
-  if (hass.entities) {
-    gplStates = Object.entries(hass.entities)
-      .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
-      .map(([eid]) => eid);
-  }
-  if (!gplStates.length) {
-    gplStates = all.filter((id) => {
-      const s = hass.states[id];
-      return (
-        s?.attributes?.attribution === GPL_ATTRIBUTION &&
-        s.attributes.device_class !== "date" &&
-        s.attributes.device_class !== "timestamp"
-      );
-    });
-  }
-
-  // MSW (MeteoSwiss / hass-swissweather). HA prefixes entity IDs with
-  // device-name slug, so use platform check primary + lenient regex fallback.
-  const mswLevelRe =
-    /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
-  let mswStates = [];
-  if (hass.entities) {
-    mswStates = Object.entries(hass.entities)
-      .filter(
-        ([eid, entry]) =>
-          entry.platform === "swissweather" &&
-          !entry.entity_category &&
-          mswLevelRe.test(eid),
-      )
-      .map(([eid]) => eid);
-  }
-  if (!mswStates.length) {
-    mswStates = all.filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-    );
-  }
-
-  if (ppStates.length) return "pp";
-  if (pluStates.length) return "plu";
-  if (peuStates.length) return "peu";
-  if (dwdStates.length) return "dwd";
-  if (silamStates.length) return "silam";
-  if (kleenexStates.length) return "kleenex";
-  if (atmoStates.length) return "atmo";
-  if (gplStates.length) return "gpl";
-  if (mswStates.length) return "msw";
-  return undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Path 2: Editor setConfig()
-// Order: PP > PEU > DWD > SILAM > Kleenex > ATMO > GPL
-// NOTE: No PLU detection; PP check is simpler (no PLU exclusion).
-// ---------------------------------------------------------------------------
-
-function detectEditorSetConfig(hass) {
-  const all = Object.keys(hass.states);
-
-  // Simple sensor.pollen_* startsWith check (no PLU filtering); MSW excluded.
-  if (
-    all.some(
-      (id) =>
-        typeof id === "string" &&
-        id.startsWith("sensor.pollen_") &&
-        !id.includes("_level_at_"),
-    )
-  ) {
-    return "pp";
-  }
-
-  if (all.some((id) => typeof id === "string" && id.startsWith("sensor.polleninformation_"))) {
-    return "peu";
-  }
-
-  if (all.some((id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"))) {
-    return "dwd";
-  }
-
-  // SILAM: primary via hass.entities, fallback via prefix
-  if (
-    (hass.entities &&
-      Object.values(hass.entities).some(
-        (e) => e.platform === "silam_pollen" && !e.entity_category,
-      )) ||
-    all.some((id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"))
-  ) {
-    return "silam";
-  }
-
-  if (
-    all.some(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
-    )
-  ) {
-    return "kleenex";
-  }
-
-  // ATMO: discovery-based detection handles prefixed multi-instance entity IDs
-  if (discoverAtmoSensors(hass, false).locations.size > 0) {
-    return "atmo";
-  }
-
-  // GPL: primary via hass.entities, fallback via attribution
-  if (
-    (hass.entities &&
-      Object.values(hass.entities).some(
-        (e) => e.platform === "pollenlevels" && !e.entity_category,
-      )) ||
-    all.some((id) => {
-      const s = hass.states[id];
-      return (
-        s?.attributes?.attribution === GPL_ATTRIBUTION &&
-        s.attributes?.device_class !== "date" &&
-        s.attributes?.device_class !== "timestamp"
-      );
-    })
-  ) {
-    return "gpl";
-  }
-
-  // MSW (MeteoSwiss / hass-swissweather): platform check primary, regex fallback.
-  if (
-    (hass.entities &&
-      Object.values(hass.entities).some(
-        (e) => e.platform === "swissweather" && !e.entity_category,
-      )) ||
-    all.some(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-    )
-  ) {
-    return "msw";
-  }
-
-  return undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Path 3: Editor set hass()
-// Order: PP > PLU > PEU > DWD > SILAM > ATMO > GPL
-// NOTE: No Kleenex detection; has PLU.
-// ---------------------------------------------------------------------------
-
-function detectEditorSetHass(hass) {
-  const all = Object.keys(hass.states);
-
-  const ppStates = all.filter((id) => {
-    if (typeof id !== "string") return false;
-    if (!id.startsWith("sensor.pollen_")) return false;
-    if (id.startsWith("sensor.pollenflug_")) return false;
-    if (id.includes("_level_at_")) return false;
-    const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
-    if (!match) return false;
-    const allergenSlug = match[1];
-    if (!match[2] && pluAllergenSlugs.has(allergenSlug)) return false;
-    return true;
-  });
-
-  const pluStates = all.filter((id) => {
-    if (typeof id !== "string") return false;
-    const match = /^sensor\.pollen_([^_]+)$/.exec(id);
-    if (!match) return false;
-    return pluAllergenSlugs.has(match[1]);
-  });
-
-  const peuStates = all.filter(
-    (id) => typeof id === "string" && id.startsWith("sensor.polleninformation_"),
-  );
-
-  const dwdStates = all.filter(
-    (id) => typeof id === "string" && id.startsWith("sensor.pollenflug_"),
-  );
-
-  // SILAM: primary via hass.entities, fallback via prefix
-  let silamStates = [];
-  if (hass.entities) {
-    silamStates = Object.entries(hass.entities)
-      .filter(([, e]) => e.platform === "silam_pollen" && !e.entity_category)
-      .map(([eid]) => eid);
-  }
-  if (!silamStates.length) {
-    silamStates = all.filter(
-      (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-    );
-  }
-
-  // No Kleenex detection in this path
-
-  // ATMO: primary via discovery (handles prefixed entity IDs), fallback to regex
-  const atmoDiscovery = discoverAtmoSensors(hass, false);
-  let atmoStates = [];
-  if (atmoDiscovery.locations.size > 0) {
-    for (const [, loc] of atmoDiscovery.locations) {
-      for (const eid of loc.entities.values()) {
-        atmoStates.push(eid);
-      }
-    }
-  }
-  if (!atmoStates.length) {
-    atmoStates = all.filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-        !/_j_\d+$/.test(id),
-    );
-  }
-
-  // GPL: primary via hass.entities, fallback via attribution
-  let gplStates = [];
-  if (hass.entities) {
-    gplStates = Object.entries(hass.entities)
-      .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
-      .map(([eid]) => eid);
-  }
-  if (!gplStates.length) {
-    gplStates = all.filter((id) => {
-      const s = hass.states[id];
-      return (
-        s?.attributes?.attribution === GPL_ATTRIBUTION &&
-        s.attributes.device_class !== "date" &&
-        s.attributes.device_class !== "timestamp"
-      );
-    });
-  }
-
-  // MSW (MeteoSwiss / hass-swissweather): platform check primary, regex fallback.
-  const mswLevelRe =
-    /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
-  let mswStates = [];
-  if (hass.entities) {
-    mswStates = Object.entries(hass.entities)
-      .filter(
-        ([eid, entry]) =>
-          entry.platform === "swissweather" &&
-          !entry.entity_category &&
-          mswLevelRe.test(eid),
-      )
-      .map(([eid]) => eid);
-  }
-  if (!mswStates.length) {
-    mswStates = all.filter(
-      (id) =>
-        typeof id === "string" &&
-        /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-    );
-  }
-
-  if (ppStates.length) return "pp";
-  if (pluStates.length) return "plu";
-  if (peuStates.length) return "peu";
-  if (dwdStates.length) return "dwd";
-  if (silamStates.length) return "silam";
-  if (atmoStates.length) return "atmo";
-  if (gplStates.length) return "gpl";
-  if (mswStates.length) return "msw";
-  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -388,12 +60,13 @@ const FIXTURES = {
   kleenex: ["sensor.kleenex_pollen_radar_trees"],
   // ATMO needs to match the regex (pollen allergen, not a forecast day)
   atmo: ["sensor.niveau_bouleau_montpellier"],
+  // GP (svenove/google_pollen): prefix fallback when no registry entry
+  gp: ["sensor.google_pollen_grass"],
   // GPL uses entity registry platform check
   gpl: ["sensor.pollenlevels_grass"],
   // MSW: HA prefixes entity_id with the device name slug (e.g.
   // "meteoswiss_at_8000_klo"). Use a realistic prefixed shape so the
-  // detection regex is exercised for the real-world case, not just the
-  // bare-prefix case in the PR's original tests.
+  // detection regex is exercised for the real-world case.
   msw: ["sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh"],
 };
 
@@ -446,12 +119,10 @@ function hassWithIntegrations(...keys) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Unified autodetect (shared module)
 // ---------------------------------------------------------------------------
 
-describe("Card set hass() autodetect", () => {
-  const detect = detectCardSetHass;
-
+describe("shared autodetect", () => {
   describe("single integration present", () => {
     it.each([
       ["pp", "pp"],
@@ -461,28 +132,53 @@ describe("Card set hass() autodetect", () => {
       ["silam", "silam"],
       ["kleenex", "kleenex"],
       ["atmo", "atmo"],
+      ["gp", "gp"],
       ["gpl", "gpl"],
+      ["msw", "msw"],
     ])("detects %s alone as %s", (fixture, expected) => {
       expect(detect(hassWithIntegrations(fixture))).toBe(expected);
     });
   });
 
-  describe("precedence when all integrations present", () => {
-    it("selects PP when all 8 are present", () => {
+  describe("precedence when multiple integrations present", () => {
+    it("selects PP when all are present", () => {
       expect(
-        detect(hassWithIntegrations("pp", "plu", "peu", "dwd", "silam", "kleenex", "atmo", "gpl")),
+        detect(
+          hassWithIntegrations(
+            "pp",
+            "plu",
+            "peu",
+            "dwd",
+            "silam",
+            "kleenex",
+            "atmo",
+            "gpl",
+          ),
+        ),
       ).toBe("pp");
     });
 
     it("selects PLU when PP is absent", () => {
       expect(
-        detect(hassWithIntegrations("plu", "peu", "dwd", "silam", "kleenex", "atmo", "gpl")),
+        detect(
+          hassWithIntegrations(
+            "plu",
+            "peu",
+            "dwd",
+            "silam",
+            "kleenex",
+            "atmo",
+            "gpl",
+          ),
+        ),
       ).toBe("plu");
     });
 
     it("selects PEU when PP and PLU are absent", () => {
       expect(
-        detect(hassWithIntegrations("peu", "dwd", "silam", "kleenex", "atmo", "gpl")),
+        detect(
+          hassWithIntegrations("peu", "dwd", "silam", "kleenex", "atmo", "gpl"),
+        ),
       ).toBe("peu");
     });
 
@@ -493,15 +189,29 @@ describe("Card set hass() autodetect", () => {
     });
 
     it("selects SILAM when PP, PLU, PEU, DWD are absent", () => {
-      expect(detect(hassWithIntegrations("silam", "kleenex", "atmo", "gpl"))).toBe("silam");
+      expect(detect(hassWithIntegrations("silam", "kleenex", "atmo", "gpl"))).toBe(
+        "silam",
+      );
     });
 
     it("selects Kleenex when PP, PLU, PEU, DWD, SILAM are absent", () => {
-      expect(detect(hassWithIntegrations("kleenex", "atmo", "gpl"))).toBe("kleenex");
+      expect(detect(hassWithIntegrations("kleenex", "atmo", "gpl"))).toBe(
+        "kleenex",
+      );
     });
 
-    it("selects ATMO when only ATMO and GPL are present", () => {
-      expect(detect(hassWithIntegrations("atmo", "gpl"))).toBe("atmo");
+    it("selects ATMO when ATMO, GP, GPL, MSW are present", () => {
+      expect(detect(hassWithIntegrations("atmo", "gp", "gpl", "msw"))).toBe(
+        "atmo",
+      );
+    });
+
+    it("selects GP over GPL and MSW", () => {
+      expect(detect(hassWithIntegrations("gp", "gpl", "msw"))).toBe("gp");
+    });
+
+    it("selects GPL over MSW", () => {
+      expect(detect(hassWithIntegrations("gpl", "msw"))).toBe("gpl");
     });
 
     it("detects ATMO via discovery for prefixed entity IDs", () => {
@@ -533,87 +243,19 @@ describe("Card set hass() autodetect", () => {
     expect(detect(mkHass([]))).toBeUndefined();
   });
 
-  describe("full precedence order is PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GPL", () => {
-    const order = ["pp", "plu", "peu", "dwd", "silam", "kleenex", "atmo", "gpl"];
-
-    it("each integration wins over all that follow it", () => {
-      for (let i = 0; i < order.length; i++) {
-        const remaining = order.slice(i);
-        expect(detect(hassWithIntegrations(...remaining))).toBe(order[i]);
-      }
-    });
-  });
-});
-
-describe("Editor setConfig() autodetect", () => {
-  const detect = detectEditorSetConfig;
-
-  describe("single integration present", () => {
-    it.each([
-      ["pp", "pp"],
-      ["peu", "peu"],
-      ["dwd", "dwd"],
-      ["silam", "silam"],
-      ["kleenex", "kleenex"],
-      ["atmo", "atmo"],
-      ["gpl", "gpl"],
-    ])("detects %s alone as %s", (fixture, expected) => {
-      expect(detect(hassWithIntegrations(fixture))).toBe(expected);
-    });
-  });
-
-  describe("precedence when multiple integrations present", () => {
-    it("selects PP when all 7 (no PLU path) are present", () => {
-      expect(
-        detect(hassWithIntegrations("pp", "peu", "dwd", "silam", "kleenex", "atmo", "gpl")),
-      ).toBe("pp");
-    });
-
-    it("selects PEU when PP is absent", () => {
-      expect(
-        detect(hassWithIntegrations("peu", "dwd", "silam", "kleenex", "atmo", "gpl")),
-      ).toBe("peu");
-    });
-
-    it("selects DWD when PP, PEU are absent", () => {
-      expect(
-        detect(hassWithIntegrations("dwd", "silam", "kleenex", "atmo", "gpl")),
-      ).toBe("dwd");
-    });
-
-    it("selects SILAM when PP, PEU, DWD are absent", () => {
-      expect(detect(hassWithIntegrations("silam", "kleenex", "atmo", "gpl"))).toBe("silam");
-    });
-
-    it("selects Kleenex when PP, PEU, DWD, SILAM are absent", () => {
-      expect(detect(hassWithIntegrations("kleenex", "atmo", "gpl"))).toBe("kleenex");
-    });
-
-    it("selects ATMO when only ATMO and GPL are present", () => {
-      expect(detect(hassWithIntegrations("atmo", "gpl"))).toBe("atmo");
-    });
-
-    it("selects GPL when only GPL is present", () => {
-      expect(detect(hassWithIntegrations("gpl"))).toBe("gpl");
-    });
-  });
-
-  describe("known divergence: no PLU detection", () => {
-    it("PLU-only sensors match PP (simpler sensor.pollen_* check)", () => {
-      // Editor setConfig() has no PLU-specific detection.
-      // sensor.pollen_bouleau starts with "sensor.pollen_", so it matches PP.
-      const hass = hassWithIntegrations("plu");
-      expect(detect(hass)).toBe("pp");
-    });
-
-    it("PLU sensors alongside PEU: PP wins (PLU sensors trigger PP check)", () => {
-      const hass = hassWithIntegrations("plu", "peu");
-      expect(detect(hass)).toBe("pp");
-    });
-  });
-
-  describe("full precedence order is PP > PEU > DWD > SILAM > Kleenex > ATMO > GPL", () => {
-    const order = ["pp", "peu", "dwd", "silam", "kleenex", "atmo", "gpl"];
+  describe("full precedence order PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GP > GPL > MSW", () => {
+    const order = [
+      "pp",
+      "plu",
+      "peu",
+      "dwd",
+      "silam",
+      "kleenex",
+      "atmo",
+      "gp",
+      "gpl",
+      "msw",
+    ];
 
     it("each integration wins over all that follow it", () => {
       for (let i = 0; i < order.length; i++) {
@@ -623,94 +265,19 @@ describe("Editor setConfig() autodetect", () => {
     });
   });
 
-  it("returns undefined when no sensors present", () => {
-    expect(detect(mkHass([]))).toBeUndefined();
-  });
-});
-
-describe("Editor set hass() autodetect", () => {
-  const detect = detectEditorSetHass;
-
-  describe("single integration present", () => {
-    it.each([
-      ["pp", "pp"],
-      ["plu", "plu"],
-      ["peu", "peu"],
-      ["dwd", "dwd"],
-      ["silam", "silam"],
-      ["atmo", "atmo"],
-      ["gpl", "gpl"],
-    ])("detects %s alone as %s", (fixture, expected) => {
-      expect(detect(hassWithIntegrations(fixture))).toBe(expected);
-    });
-  });
-
-  describe("precedence when multiple integrations present", () => {
-    it("selects PP when all 7 (no Kleenex path) are present", () => {
-      expect(
-        detect(hassWithIntegrations("pp", "plu", "peu", "dwd", "silam", "atmo", "gpl")),
-      ).toBe("pp");
+  describe("unified behaviour (former divergences)", () => {
+    it("PLU is detected on every path (formerly missed by editor setConfig)", () => {
+      expect(detect(hassWithIntegrations("plu"))).toBe("plu");
+      // PLU alongside PEU still resolves to PLU (PLU outranks PEU).
+      expect(detect(hassWithIntegrations("plu", "peu"))).toBe("plu");
     });
 
-    it("selects PLU when PP is absent", () => {
-      expect(
-        detect(hassWithIntegrations("plu", "peu", "dwd", "silam", "atmo", "gpl")),
-      ).toBe("plu");
+    it("Kleenex is detected on every path (formerly missed by editor set hass)", () => {
+      expect(detect(hassWithIntegrations("kleenex"))).toBe("kleenex");
+      // Kleenex outranks ATMO and GPL.
+      expect(detect(hassWithIntegrations("kleenex", "atmo"))).toBe("kleenex");
+      expect(detect(hassWithIntegrations("kleenex", "gpl"))).toBe("kleenex");
     });
-
-    it("selects PEU when PP, PLU are absent", () => {
-      expect(
-        detect(hassWithIntegrations("peu", "dwd", "silam", "atmo", "gpl")),
-      ).toBe("peu");
-    });
-
-    it("selects DWD when PP, PLU, PEU are absent", () => {
-      expect(detect(hassWithIntegrations("dwd", "silam", "atmo", "gpl"))).toBe("dwd");
-    });
-
-    it("selects SILAM when PP, PLU, PEU, DWD are absent", () => {
-      expect(detect(hassWithIntegrations("silam", "atmo", "gpl"))).toBe("silam");
-    });
-
-    it("selects ATMO when only ATMO and GPL are present", () => {
-      expect(detect(hassWithIntegrations("atmo", "gpl"))).toBe("atmo");
-    });
-
-    it("selects GPL when only GPL is present", () => {
-      expect(detect(hassWithIntegrations("gpl"))).toBe("gpl");
-    });
-  });
-
-  describe("known divergence: no Kleenex detection", () => {
-    it("Kleenex-only sensors are not detected", () => {
-      const hass = hassWithIntegrations("kleenex");
-      expect(detect(hass)).toBeUndefined();
-    });
-
-    it("Kleenex sensors are ignored, ATMO wins when both present", () => {
-      const hass = hassWithIntegrations("kleenex", "atmo");
-      expect(detect(hass)).toBe("atmo");
-    });
-
-    it("Kleenex sensors are ignored, GPL wins when Kleenex + GPL present", () => {
-      const hass = hassWithIntegrations("kleenex", "gpl");
-      expect(detect(hass)).toBe("gpl");
-    });
-  });
-
-  describe("full precedence order is PP > PLU > PEU > DWD > SILAM > ATMO > GPL", () => {
-    const order = ["pp", "plu", "peu", "dwd", "silam", "atmo", "gpl"];
-
-    it("each integration wins over all that follow it", () => {
-      for (let i = 0; i < order.length; i++) {
-        const remaining = order.slice(i);
-        expect(detect(hassWithIntegrations(...remaining))).toBe(order[i]);
-      }
-    });
-  });
-
-  it("returns undefined when no sensors present", () => {
-    expect(detect(mkHass([]))).toBeUndefined();
   });
 });
 
@@ -719,114 +286,59 @@ describe("Editor set hass() autodetect", () => {
 // ---------------------------------------------------------------------------
 
 describe("PP / PLU disambiguation", () => {
-  describe("PLU-pattern sensors (sensor.pollen_{allergen}, no city suffix)", () => {
-    it("known PLU allergen slug goes to PLU in card set hass()", () => {
-      // "bouleau" is a PLU alias for "birch"
-      const hass = mkHass(["sensor.pollen_bouleau"]);
-      expect(detectCardSetHass(hass)).toBe("plu");
-    });
-
-    it("known PLU allergen slug goes to PLU in editor set hass()", () => {
-      const hass = mkHass(["sensor.pollen_bouleau"]);
-      expect(detectEditorSetHass(hass)).toBe("plu");
-    });
-
-    it("known PLU allergen slug goes to PP in editor setConfig() (no PLU path)", () => {
-      // Editor setConfig() has no PLU-specific detection
-      const hass = mkHass(["sensor.pollen_bouleau"]);
-      expect(detectEditorSetConfig(hass)).toBe("pp");
-    });
+  it("known PLU allergen slug (no city suffix) goes to PLU", () => {
+    // "bouleau" is a PLU alias for "birch"
+    const hass = mkHass(["sensor.pollen_bouleau"]);
+    expect(detect(hass)).toBe("plu");
   });
 
-  describe("PP-pattern sensors (sensor.pollen_{city}_{allergen})", () => {
-    it("city-mode sensor goes to PP in card set hass()", () => {
-      const hass = mkHass(["sensor.pollen_stockholm_bjork"]);
-      expect(detectCardSetHass(hass)).toBe("pp");
-    });
-
-    it("city-mode sensor goes to PP in editor set hass()", () => {
-      const hass = mkHass(["sensor.pollen_stockholm_bjork"]);
-      expect(detectEditorSetHass(hass)).toBe("pp");
-    });
-
-    it("city-mode sensor goes to PP in editor setConfig()", () => {
-      const hass = mkHass(["sensor.pollen_stockholm_bjork"]);
-      expect(detectEditorSetConfig(hass)).toBe("pp");
-    });
+  it("city-mode sensor goes to PP", () => {
+    const hass = mkHass(["sensor.pollen_stockholm_bjork"]);
+    expect(detect(hass)).toBe("pp");
   });
 
-  describe("mixed PP and PLU sensors", () => {
-    it("PP wins over PLU in card set hass() when both present", () => {
-      const hass = mkHass([
-        "sensor.pollen_stockholm_bjork",
-        "sensor.pollen_bouleau",
-      ]);
-      expect(detectCardSetHass(hass)).toBe("pp");
-    });
-
-    it("PP wins over PLU in editor set hass() when both present", () => {
-      const hass = mkHass([
-        "sensor.pollen_stockholm_bjork",
-        "sensor.pollen_bouleau",
-      ]);
-      expect(detectEditorSetHass(hass)).toBe("pp");
-    });
+  it("PP wins over PLU when both present", () => {
+    const hass = mkHass([
+      "sensor.pollen_stockholm_bjork",
+      "sensor.pollen_bouleau",
+    ]);
+    expect(detect(hass)).toBe("pp");
   });
 
   describe("PLU canonical slugs are correctly identified", () => {
-    // All canonical PLU allergens should be detected as PLU (not PP)
-    // in paths that have PLU detection
     const canonicalPluAllergens = Object.keys(PLU_ALIAS_MAP);
 
     it.each(canonicalPluAllergens)(
-      "sensor.pollen_%s detected as PLU in card set hass()",
+      "sensor.pollen_%s detected as PLU",
       (allergen) => {
         const hass = mkHass([`sensor.pollen_${allergen}`]);
-        expect(detectCardSetHass(hass)).toBe("plu");
-      },
-    );
-
-    it.each(canonicalPluAllergens)(
-      "sensor.pollen_%s detected as PLU in editor set hass()",
-      (allergen) => {
-        const hass = mkHass([`sensor.pollen_${allergen}`]);
-        expect(detectEditorSetHass(hass)).toBe("plu");
+        expect(detect(hass)).toBe("plu");
       },
     );
   });
 
   describe("PLU alias slugs are correctly identified", () => {
-    // Slugified aliases should also route to PLU
     const aliasSamples = [
-      "rumex",      // sorrel alias
-      "artemisia",  // mugwort alias
-      "betula",     // birch alias
-      "corylus",    // hazel alias
-      "fraxinus",   // ash alias
-      "quercus",    // oak alias
-      "poacea",     // poaceae alias (note: single 'a' variant)
-      "plantago",   // plantain alias
+      "rumex", // sorrel alias
+      "artemisia", // mugwort alias
+      "betula", // birch alias
+      "corylus", // hazel alias
+      "fraxinus", // ash alias
+      "quercus", // oak alias
+      "poacea", // poaceae alias (note: single 'a' variant)
+      "plantago", // plantain alias
     ];
 
-    it.each(aliasSamples)(
-      "sensor.pollen_%s detected as PLU in card set hass()",
-      (slug) => {
-        const hass = mkHass([`sensor.pollen_${slug}`]);
-        expect(detectCardSetHass(hass)).toBe("plu");
-      },
-    );
+    it.each(aliasSamples)("sensor.pollen_%s detected as PLU", (slug) => {
+      const hass = mkHass([`sensor.pollen_${slug}`]);
+      expect(detect(hass)).toBe("plu");
+    });
   });
 
   describe("unknown allergen with no city suffix goes to PP (not PLU)", () => {
-    it("sensor.pollen_unknownallergen is PP in card set hass()", () => {
-      // "unknownallergen" is not a PLU slug, so PP filter accepts it
+    it("sensor.pollen_unknownallergen is PP", () => {
       const hass = mkHass(["sensor.pollen_unknownallergen"]);
-      expect(detectCardSetHass(hass)).toBe("pp");
-    });
-
-    it("sensor.pollen_unknownallergen is PP in editor set hass()", () => {
-      const hass = mkHass(["sensor.pollen_unknownallergen"]);
-      expect(detectEditorSetHass(hass)).toBe("pp");
+      expect(detect(hass)).toBe("pp");
     });
   });
 });
@@ -836,76 +348,62 @@ describe("PP / PLU disambiguation", () => {
 // ---------------------------------------------------------------------------
 
 describe("MSW detection", () => {
-  it("device-prefixed entity is detected as MSW (card set hass)", () => {
-    // hass-swissweather entity_ids are prefixed with the device-name slug
-    // ("meteoswiss_at_8000_klo_" for default name; "bern_" for renamed device).
+  it("device-prefixed entity is detected as MSW", () => {
     const hass = mkHass([
       "sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh",
       "sensor.meteoswiss_at_8000_klo_pollen_grasses_level_at_8000_pzh",
     ]);
-    expect(detectCardSetHass(hass)).toBe("msw");
+    expect(detect(hass)).toBe("msw");
   });
 
   it("renamed device prefix is also detected as MSW", () => {
     const hass = mkHass(["sensor.bern_pollen_birch_level_at_3000_pbe"]);
-    expect(detectCardSetHass(hass)).toBe("msw");
+    expect(detect(hass)).toBe("msw");
   });
 
   it("non-prefixed shape is also detected (legacy/no device-name path)", () => {
     const hass = mkHass(["sensor.pollen_birch_level_at_8000"]);
-    expect(detectCardSetHass(hass)).toBe("msw");
+    expect(detect(hass)).toBe("msw");
   });
 
   it("MSW pattern is excluded from PP detection (no false PP hit)", () => {
-    // Without the exclusion, PP regex would match these as
-    // sensor.pollen_<allergen>_<city> and route the card to PP.
     const hass = mkHass(["sensor.pollen_birch_level_at_8000"]);
-    expect(detectCardSetHass(hass)).not.toBe("pp");
+    expect(detect(hass)).not.toBe("pp");
   });
 
   it("entity-registry platform check detects MSW even without state", () => {
-    const hass = mkHass(
-      ["sensor.bern_pollen_birch_level_at_3000_pbe"],
-      {
-        entities: {
-          "sensor.bern_pollen_birch_level_at_3000_pbe": {
-            platform: "swissweather",
-          },
+    const hass = mkHass(["sensor.bern_pollen_birch_level_at_3000_pbe"], {
+      entities: {
+        "sensor.bern_pollen_birch_level_at_3000_pbe": {
+          platform: "swissweather",
         },
       },
-    );
-    expect(detectCardSetHass(hass)).toBe("msw");
+    });
+    expect(detect(hass)).toBe("msw");
   });
 
   it("PP wins when both PP and MSW sensors are present", () => {
-    // PP runs first in the autodetect chain; MSW only kicks in when no
-    // earlier integration matches.
     const hass = mkHass([
       "sensor.pollen_stockholm_bjork",
       "sensor.bern_pollen_birch_level_at_3000_pbe",
     ]);
-    expect(detectCardSetHass(hass)).toBe("pp");
+    expect(detect(hass)).toBe("pp");
   });
 });
 
 // ---------------------------------------------------------------------------
-// Edge cases: pollenflug_ prefix exclusion
+// pollenflug_ prefix exclusion from PP
 // ---------------------------------------------------------------------------
 
 describe("pollenflug_ prefix exclusion from PP", () => {
   it("sensor.pollenflug_ is excluded from PP detection (goes to DWD)", () => {
     const hass = mkHass(["sensor.pollenflug_erle_11"]);
-    expect(detectCardSetHass(hass)).toBe("dwd");
-    expect(detectEditorSetHass(hass)).toBe("dwd");
-    expect(detectEditorSetConfig(hass)).toBe("dwd");
+    expect(detect(hass)).toBe("dwd");
   });
 
   it("sensor.pollenflug_ does not trigger PP even when only PP-like prefix matches", () => {
-    // "sensor.pollenflug_" starts with "sensor.pollen" but the explicit
-    // pollenflug exclusion should prevent it from matching PP
     const hass = mkHass(["sensor.pollenflug_hasel_11"]);
-    expect(detectCardSetHass(hass)).toBe("dwd");
-    expect(detectEditorSetHass(hass)).toBe("dwd");
+    expect(detect(hass)).toBe("dwd");
   });
 });
 
@@ -914,26 +412,56 @@ describe("pollenflug_ prefix exclusion from PP", () => {
 // ---------------------------------------------------------------------------
 
 describe("SILAM detection via entity registry vs prefix fallback", () => {
-  it("detects SILAM via hass.entities platform check", () => {
-    const hass = mkHass([], {
+  it("detects SILAM via registry discovery (device + platform)", () => {
+    // Realistic registry setup: discoverSilamSensors() walks hass.entities by
+    // platform and resolves the device. A bare registry entry with no device
+    // and no state is not a real SILAM install and is intentionally not
+    // detected (it only ever matched the old test shim).
+    const sensorId = "sensor.silam_pollen_birch_home";
+    const hass = mkHass([sensorId], {
+      stateObj: { [sensorId]: { state: "1", attributes: {} } },
       entities: {
-        "sensor.silam_pollen_birch_home": {
+        [sensorId]: {
+          entity_id: sensorId,
           platform: "silam_pollen",
+          device_id: "dev_home",
+          entity_category: null,
+          translation_key: "birch",
         },
       },
     });
-    // The entity is in hass.entities but NOT in hass.states,
-    // so only the entities path fires
-    expect(detectCardSetHass(hass)).toBe("silam");
-    expect(detectEditorSetHass(hass)).toBe("silam");
+    hass.devices = {
+      dev_home: { name: "Home", config_entries: ["entry_home"] },
+    };
+    expect(detect(hass)).toBe("silam");
   });
 
   it("detects SILAM via sensor prefix fallback when no entities", () => {
     const hass = mkHass(["sensor.silam_pollen_birch_home"], {
       entities: {},
     });
-    expect(detectCardSetHass(hass)).toBe("silam");
-    expect(detectEditorSetHass(hass)).toBe("silam");
+    expect(detect(hass)).toBe("silam");
+  });
+
+  it("detects a weather-only SILAM install (no allergen sensors)", () => {
+    // SILAM can be configured with only the weather entity (allergy_risk
+    // index); the weather entity counts as evidence so it still autodetects.
+    const weatherId = "weather.silam_pollen_home_forecast";
+    const hass = mkHass([weatherId], {
+      stateObj: { [weatherId]: { state: "sunny", attributes: {} } },
+      entities: {
+        [weatherId]: {
+          entity_id: weatherId,
+          platform: "silam_pollen",
+          device_id: "dev_home",
+          translation_key: "forecast",
+        },
+      },
+    });
+    hass.devices = {
+      dev_home: { name: "Home", config_entries: ["entry_home"] },
+    };
+    expect(detect(hass)).toBe("silam");
   });
 
   it("entity_category entries are excluded from SILAM entity detection", () => {
@@ -945,7 +473,7 @@ describe("SILAM detection via entity registry vs prefix fallback", () => {
         },
       },
     });
-    expect(detectCardSetHass(hass)).toBeUndefined();
+    expect(detect(hass)).toBeUndefined();
   });
 });
 
@@ -962,9 +490,7 @@ describe("GPL detection via entity registry vs attribution fallback", () => {
         },
       },
     });
-    expect(detectCardSetHass(hass)).toBe("gpl");
-    expect(detectEditorSetHass(hass)).toBe("gpl");
-    expect(detectEditorSetConfig(hass)).toBe("gpl");
+    expect(detect(hass)).toBe("gpl");
   });
 
   it("detects GPL via attribution fallback when no entities", () => {
@@ -977,9 +503,7 @@ describe("GPL detection via entity registry vs attribution fallback", () => {
         },
       },
     });
-    expect(detectCardSetHass(hass)).toBe("gpl");
-    expect(detectEditorSetHass(hass)).toBe("gpl");
-    expect(detectEditorSetConfig(hass)).toBe("gpl");
+    expect(detect(hass)).toBe("gpl");
   });
 
   it("GPL date/timestamp sensors are excluded from attribution fallback", () => {
@@ -995,7 +519,7 @@ describe("GPL detection via entity registry vs attribution fallback", () => {
         },
       },
     });
-    expect(detectCardSetHass(hass)).toBeUndefined();
+    expect(detect(hass)).toBeUndefined();
   });
 
   it("entity_category entries are excluded from GPL entity detection", () => {
@@ -1007,7 +531,7 @@ describe("GPL detection via entity registry vs attribution fallback", () => {
         },
       },
     });
-    expect(detectCardSetHass(hass)).toBeUndefined();
+    expect(detect(hass)).toBeUndefined();
   });
 });
 
@@ -1018,31 +542,17 @@ describe("GPL detection via entity registry vs attribution fallback", () => {
 describe("ATMO detection", () => {
   it("detects ATMO via pollen sensor (niveau_bouleau)", () => {
     const hass = mkHass(["sensor.niveau_bouleau_montpellier"]);
-    expect(detectCardSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetConfig(hass)).toBe("atmo");
+    expect(detect(hass)).toBe("atmo");
   });
 
-  it("detects ATMO via pollution sensor (pm25) in card and editor set hass()", () => {
-    // pm25 sensors are in the broader ATMO regex used by card/editor set hass()
+  it("detects ATMO via pollution sensor (pm25)", () => {
     const hass = mkHass(["sensor.pm25_montpellier"]);
-    expect(detectCardSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetHass(hass)).toBe("atmo");
+    expect(detect(hass)).toBe("atmo");
   });
 
-  it("editor setConfig() matches ATMO pollution sensors via discovery fallback", () => {
-    // Editor setConfig() now uses discoverAtmoSensors(), whose tier 3 regex
-    // covers pollution (pm25/pm10/ozone/dioxyde_*/qualite_globale) as well
-    // as pollen. Previously this path was limited to the niveau_{slug} form.
-    const hass = mkHass(["sensor.pm25_montpellier"]);
-    expect(detectEditorSetConfig(hass)).toBe("atmo");
-  });
-
-  it("excludes forecast day entities (_j_N suffix) in card and editor set hass()", () => {
-    // Sensors ending with _j_1, _j_2 etc are forecast-day entities, excluded
+  it("excludes forecast day entities (_j_N suffix)", () => {
     const hass = mkHass(["sensor.niveau_bouleau_montpellier_j_1"]);
-    expect(detectCardSetHass(hass)).toBeUndefined();
-    expect(detectEditorSetHass(hass)).toBeUndefined();
+    expect(detect(hass)).toBeUndefined();
   });
 
   it.each([
@@ -1054,13 +564,10 @@ describe("ATMO detection", () => {
     "sensor.niveau_olivier_nice",
   ])("all six ATMO pollen allergens are detected: %s", (id) => {
     const hass = mkHass([id]);
-    expect(detectCardSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetConfig(hass)).toBe("atmo");
+    expect(detect(hass)).toBe("atmo");
   });
 
-  it("editor setConfig() detects ATMO via discovery for prefixed entity IDs", () => {
-    // Multi-instance prefixed entity IDs don't match the legacy regex, but
-    // tier 1 device-based discovery finds them via hass.devices/entities.
+  it("detects ATMO via discovery for prefixed entity IDs", () => {
     const eid = "sensor.toulouse_niveau_bouleau_toulouse";
     const hass = {
       states: { [eid]: { state: "2", attributes: {} } },
@@ -1075,35 +582,39 @@ describe("ATMO detection", () => {
         },
       },
     };
-    expect(detectEditorSetConfig(hass)).toBe("atmo");
+    expect(detect(hass)).toBe("atmo");
+  });
+
+  it("qualite_globale pollution sensor is detected as ATMO", () => {
+    const hass = mkHass(["sensor.qualite_globale_montpellier"]);
+    expect(detect(hass)).toBe("atmo");
   });
 });
 
 // ---------------------------------------------------------------------------
-// Cross-path comparison: document the three divergences
+// Badge picker (getStubConfig) integration choice
+//
+// PollenPrognosBadge.getStubConfig(hass) is a LitElement static method we
+// cannot import in the node test environment (no customElements), so we assert
+// the pick it relies on. The stub pins `integration` ONLY when one is detected;
+// when nothing is detected or hass is absent it omits the key (so the present-
+// integration => user-pin heuristic doesn't suppress autodetect later).
 // ---------------------------------------------------------------------------
 
-describe("cross-path divergence documentation", () => {
-  it("editor setConfig() detects PLU sensors as PP (no PLU path)", () => {
-    const hass = hassWithIntegrations("plu");
-    expect(detectCardSetHass(hass)).toBe("plu");
-    expect(detectEditorSetConfig(hass)).toBe("pp"); // divergence
-    expect(detectEditorSetHass(hass)).toBe("plu");
+describe("badge picker integration choice (getStubConfig logic)", () => {
+  const pickStub = (hass) =>
+    pickIntegration(detectIntegrationStates(hass), { explicit: false });
+
+  it("pins the detected integration (e.g. DWD), not always pp", () => {
+    expect(pickStub(hassWithIntegrations("dwd"))).toBe("dwd");
   });
 
-  it("editor set hass() does not detect Kleenex (no Kleenex path)", () => {
-    const hass = hassWithIntegrations("kleenex");
-    expect(detectCardSetHass(hass)).toBe("kleenex");
-    expect(detectEditorSetConfig(hass)).toBe("kleenex");
-    expect(detectEditorSetHass(hass)).toBeUndefined(); // divergence
+  it("omits integration when nothing is installed (autodetect later)", () => {
+    expect(pickStub(mkHass([]))).toBeUndefined();
   });
 
-  it("ATMO pollution sensors detected consistently in all three paths", () => {
-    // All three paths now use discoverAtmoSensors() whose tier 3 regex covers
-    // pm25, pm10, ozone, dioxyde_*, qualite_globale alongside niveau_{slug}.
-    const hass = mkHass(["sensor.qualite_globale_montpellier"]);
-    expect(detectCardSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetHass(hass)).toBe("atmo");
-    expect(detectEditorSetConfig(hass)).toBe("atmo");
+  it("detectIntegrationStates tolerates an empty hass", () => {
+    const detection = detectIntegrationStates({ states: {}, entities: {} });
+    expect(detectedIntegrationIds(detection).size).toBe(0);
   });
 });

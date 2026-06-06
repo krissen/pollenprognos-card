@@ -1,8 +1,74 @@
 // src/adapters/gpl/forecast.js
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, coerceBool } from "../../utils/adapter-helpers.js";
 import { stubConfigGPL, capitalize } from "./constants.js";
 import { resolveEntityIds } from "./discovery.js";
+import { t } from "../../i18n.js";
+
+// Google Pollen API top-type codes -> our canonical category keys.
+const TOP_CODE_TO_KEY = { TREE: "trees_cat", GRASS: "grass_cat", WEED: "weeds_cat" };
+
+/**
+ * Localize a pollen code to the CARD's language (issue #222). The pollenlevels
+ * integration may have fetched its *_names in a different language than the
+ * card (e.g. a config entry set to Ukrainian), so we localize from the code
+ * via our own translations and only fall back to the integration's name when
+ * we have no translation for that code.
+ */
+function localizeAllergenLabel(key, fallbackName, lang) {
+  const tk = `card.allergen.${key}`;
+  const tr = t(tk, lang);
+  if (typeof tr === "string" && tr && tr !== tk) return tr;
+  if (typeof fallbackName === "string" && fallbackName.trim()) return fallbackName.trim();
+  return capitalize(String(key).replace(/_/g, " "));
+}
+
+/**
+ * Config-entry ids an entity belongs to, via its device (config_entries /
+ * primary_config_entry) plus any direct config_entry_id on the entity entry.
+ */
+function entityConfigEntries(hass, eid) {
+  const set = new Set();
+  const entry = hass?.entities?.[eid];
+  if (entry?.config_entry_id) set.add(entry.config_entry_id);
+  const dev = entry?.device_id ? hass?.devices?.[entry.device_id] : null;
+  if (dev) {
+    if (Array.isArray(dev.config_entries)) dev.config_entries.forEach((c) => set.add(c));
+    if (dev.primary_config_entry) set.add(dev.primary_config_entry);
+  }
+  return set;
+}
+
+/**
+ * Resolve a sibling pollenlevels entity in the SAME config entry (location) as
+ * the summary (e.g. plants_in_season_today next to overall_pollen_risk_today).
+ * pollenlevels splits a location across several devices (pollen types vs
+ * plants), so scope by config entry, not device. Matches by translation_key OR
+ * unique_id suffix — the frontend's reduced hass.entities does not always
+ * expose unique_id, so translation_key is the primary signal. Returns the
+ * sibling entity_id or null.
+ */
+function findSiblingEntityId(hass, summaryEntityId, translationKey, uidSuffix) {
+  const entities = hass?.entities;
+  if (!entities) return null;
+  const summaryCfg = entityConfigEntries(hass, summaryEntityId);
+  for (const [eid, entry] of Object.entries(entities)) {
+    const matches =
+      entry?.translation_key === translationKey ||
+      (typeof entry?.unique_id === "string" && entry.unique_id.endsWith(uidSuffix));
+    if (!matches) continue;
+    if (summaryCfg.size) {
+      const cfg = entityConfigEntries(hass, eid);
+      let shared = false;
+      for (const c of cfg) {
+        if (summaryCfg.has(c)) { shared = true; break; }
+      }
+      if (!shared) continue;
+    }
+    return eid;
+  }
+  return null;
+}
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
@@ -45,6 +111,51 @@ export async function fetchForecast(hass, config) {
 
       const sensor = hass.states[sensorId];
       dict.entity_id = sensorId;
+
+      // Summary block (issue #222): tag the aggregate and enrich it with the
+      // v2.1.0 extras (top pollen types + plants in season), each shown as its
+      // own text qualifier row under the aggregate. SILAM/Atmo have no
+      // equivalent and stay a plain aggregate row.
+      if (allergen === "allergy_risk") {
+        dict.isSummary = true;
+        const attrs = sensor.attributes ?? {};
+        // Top types: localize from the canonical category codes in the CARD's
+        // language (TREE -> trees_cat -> "Träd"). The integration's *_names may
+        // be in another language, so they are only a per-item fallback.
+        const topCodes = Array.isArray(attrs.top_pollen_codes) ? attrs.top_pollen_codes : [];
+        const topNames = Array.isArray(attrs.top_pollen_names) ? attrs.top_pollen_names : [];
+        const topList = topCodes
+          .map((code, i) => {
+            const key = TOP_CODE_TO_KEY[String(code).toUpperCase()] || String(code).toLowerCase();
+            return localizeAllergenLabel(key, topNames[i], lang);
+          })
+          .filter((n) => typeof n === "string" && n.trim());
+        if (topList.length) dict.topPollen = topList;
+
+        // Plants in season: list + count from the sibling
+        // `plants_in_season_today` entity (same config entry, shared unique_id
+        // prefix). Localize from plant codes in the card language; fall back to
+        // the integration's names per item.
+        const plantsId = findSiblingEntityId(
+          hass,
+          sensorId,
+          "plants_in_season_today",
+          "_plants_in_season_today",
+        );
+        const plantsState = plantsId ? hass.states[plantsId] : null;
+        const pAttrs = plantsState?.attributes ?? {};
+        const plantCodes = Array.isArray(pAttrs.plant_codes) ? pAttrs.plant_codes : [];
+        const plantNames = Array.isArray(pAttrs.plant_names) ? pAttrs.plant_names : [];
+        let plantList;
+        if (plantCodes.length) {
+          plantList = plantCodes
+            .map((code, i) => localizeAllergenLabel(String(code).toLowerCase(), plantNames[i], lang))
+            .filter((n) => typeof n === "string" && n.trim());
+        } else {
+          plantList = plantNames.filter((n) => typeof n === "string" && n.trim());
+        }
+        if (plantList.length) dict.plantsInSeasonList = plantList;
+      }
 
       if (debug) {
         console.debug(`[GPL] Processing sensor ${sensorId}:`, {
@@ -129,8 +240,12 @@ export async function fetchForecast(hass, config) {
         dict.days.push(dayObj);
       }
 
-      // Threshold filter
-      if (meetsThreshold(dict.days, pollen_threshold)) {
+      // Threshold filter. The summary block (issue #222) needs the aggregate
+      // retained regardless of threshold, but only when the block is enabled,
+      // so existing row behaviour is unchanged when it is off.
+      const skipThreshold =
+        allergen === "allergy_risk" && coerceBool(config.show_summary_block);
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) {
         sensors.push(dict);
       }
     } catch (e) {
@@ -156,6 +271,17 @@ export async function fetchForecast(hass, config) {
     } else {
       sortSensors(sensors, config.sort);
     }
+  }
+
+  // Pin the `allergy_risk` summary row to the top when configured. Done
+  // after sorting so the user's chosen sort order (and the
+  // sort_category_allergens_first grouping above) is preserved for
+  // everything else. Mirrors Atmo's allergy_risk_top pattern.
+  if (config.allergy_risk_top) {
+    const arIdx = sensors.findIndex(
+      (s) => s.allergenReplaced === "allergy_risk",
+    );
+    if (arIdx > 0) sensors.unshift(...sensors.splice(arIdx, 1));
   }
 
   if (debug) console.debug("[GPL] Adapter complete sensors:", sensors);

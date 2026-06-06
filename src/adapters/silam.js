@@ -9,7 +9,7 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { t } from "../i18n.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool, resolvePhraseOverride } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
 import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
@@ -18,9 +18,16 @@ import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" }
 export const stubConfigSILAM = {
   integration: "silam",
   location: "",
-  // Optional entity naming used when location is "manual"
+  // Optional entity naming used when location is "manual".
+  // entity_weather is an optional override that points at the weather.*
+  // entity emitting forecast events (SILAM derives per-allergen levels
+  // from its forecast attribute). When omitted, manual mode falls back
+  // to weather-entity discovery using entity_prefix as a hint; set
+  // entity_weather explicitly only when that discovery picks the wrong
+  // entity. Ignored outside manual mode.
   entity_prefix: "",
   entity_suffix: "",
+  entity_weather: "",
   allergens: [
     "alder",
     "birch",
@@ -52,6 +59,10 @@ export const stubConfigSILAM = {
   pollen_threshold: 1,
   sort: "value_descending",
   index_top: true,
+  // Summary block (issue #222): opt-in, additive, never duplicates by default.
+  show_summary_block: false,
+  show_summary_row: false,
+  show_summary_separator: true,
   allergens_abbreviated: false,
   link_to_sensors: true,
   date_locale: undefined,
@@ -143,10 +154,16 @@ export function indexToLevel(val) {
 }
 
 export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
+  // Phrase overrides resolve through the shared canonical-aware helper so a
+  // cross-integration override (e.g. PP phrases.full.Gräs) also applies here
+  // (issue #253); SILAM keeps its own name-map / capitalize fallbacks below.
+  const canonKey = toCanonicalAllergenKey(allergen);
+
   // Capitalized: phrases > silamAllergenMap > fallback
   let allergenCapitalized;
-  if (fullPhrases[allergen]) {
-    allergenCapitalized = fullPhrases[allergen];
+  const fullOverride = resolvePhraseOverride(fullPhrases, allergen, canonKey);
+  if (fullOverride) {
+    allergenCapitalized = fullOverride;
   } else if (
     silamAllergenMap.names &&
     silamAllergenMap.names[allergen] &&
@@ -158,7 +175,7 @@ export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   }
 
   // Short: phrases > capitalized
-  const allergenShort = shortPhrases[allergen] || allergenCapitalized;
+  const allergenShort = resolvePhraseOverride(shortPhrases, allergen, canonKey) || allergenCapitalized;
 
   return { allergenCapitalized, allergenShort };
 }
@@ -238,31 +255,90 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   const pollen_threshold =
     config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
 
-  // Hitta weather-entity och discovery-data
-  // In manual mode, use entity_prefix as location hint for weather entity discovery
-  // so the weather entity matches the sensor entities.
+  // Hitta weather-entity och discovery-data.
+  // Pick the location hint that drives discovery. In manual mode without an
+  // explicit weather override, fall back to using entity_prefix as a hint.
+  // Also strip a leading "silam_pollen_" if the user typed the full prefix
+  // (sensor.silam_pollen_<loc>_<allergen> is the default naming, so users
+  // naturally enter entity_prefix="silam_pollen_<loc>_"). Without this
+  // strip, findSilamWeatherEntity would build
+  // weather.silam_pollen_silam_pollen_<loc>_<suffix> and discovery fails.
   let configLocation;
   if (config.location === "manual" && config.entity_prefix) {
-    configLocation = normalizeManualPrefix(config.entity_prefix).replace(/_$/, "");
+    configLocation = normalizeManualPrefix(config.entity_prefix)
+      .replace(/_$/, "")
+      .replace(/^silam_pollen_/, "");
   } else if (config.location === "manual") {
     configLocation = "";
   } else {
     configLocation = config.location || "";
   }
 
-  // Discovery for weather entity (allergen sensors delegated to resolveEntityIds)
-  const tDisc = debug ? performance.now() : 0;
-  const discovery = discoverSilamSensors(hass, debug);
-  const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
-  if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
+  // Normalize entity_weather once: must be a non-empty string. YAML can
+  // surface this as a number/array/object on misconfiguration, and we use
+  // the value as a truthy flag (skipDiscovery) AND as a string
+  // (.startsWith). Coerce to null when invalid so both checks treat it as
+  // "no override" instead of crashing.
+  const rawEW = config.entity_weather;
+  const entityWeather =
+    typeof rawEW === "string" && rawEW.length > 0 ? rawEW : null;
 
-  const weatherEntity = discoveredLoc?.weatherEntity
-    || findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);
+  // Discovery for weather entity (allergen sensors delegated to resolveEntityIds).
+  // Skip entirely when the manual override path is taken: both the weather
+  // entity (entity_weather) and the allergen sensors (resolveEntityIds
+  // manual branch via prefix/suffix) resolve without discovery, so the scan
+  // would be pure overhead on every refresh.
+  const skipDiscovery = config.location === "manual" && entityWeather !== null;
+  let discovery;
+  let discoveredLoc = null;
+  if (skipDiscovery) {
+    discovery = { locations: new Map() };
+  } else {
+    const tDisc = debug ? performance.now() : 0;
+    discovery = discoverSilamSensors(hass, debug);
+    discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+    if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
+  }
 
-  if (!weatherEntity || !hass.states[weatherEntity]) {
-    if (debug)
-      console.warn("[SILAM] Ingen weather-entity hittad:", weatherEntity);
-    return [];
+  // Manual mode honors an optional entity_weather override -- if set, it
+  // bypasses discovery for the weather entity. Useful when the prefix-
+  // based discovery hint doesn't find the right one (custom-renamed
+  // entities, multiple SILAM instances, etc.).
+  let weatherEntity;
+  if (config.location === "manual" && entityWeather !== null) {
+    if (!entityWeather.startsWith("weather.")) {
+      console.warn(
+        `[SILAM] Manual mode: entity_weather '${entityWeather}' ` +
+          "is not a weather.* entity. The forecast subscription only works " +
+          "against the weather domain. Set entity_weather to the weather.* " +
+          "entity that emits SILAM forecast events.",
+      );
+      return [];
+    }
+    if (!hass.states[entityWeather]) {
+      console.warn(
+        `[SILAM] Manual mode: entity_weather '${entityWeather}' ` +
+          "not found in hass.states. Verify the entity ID is correct.",
+      );
+      return [];
+    }
+    weatherEntity = entityWeather;
+  } else {
+    weatherEntity = discoveredLoc?.weatherEntity
+      || findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);
+
+    if (!weatherEntity || !hass.states[weatherEntity]) {
+      if (config.location === "manual") {
+        console.warn(
+          "[SILAM] Manual mode: could not auto-discover a weather entity " +
+            "matching entity_prefix. Set config.entity_weather to the " +
+            "weather.* entity ID explicitly (see issue #231).",
+        );
+      } else if (debug) {
+        console.warn("[SILAM] No weather entity found:", weatherEntity);
+      }
+      return [];
+    }
   }
 
   const entity = hass.states[weatherEntity];
@@ -337,6 +413,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         const name = silamAllergenMap.names?.allergy_risk?.[lang] || "Index";
         dict.allergenCapitalized = name;
         dict.allergenShort = name;
+        // Tag the aggregate so the card can render it as a summary block
+        // (issue #222). Card-side filtering, not adapter-side dropping.
+        dict.isSummary = true;
       }
 
       // Sensor lookup (delegated to resolveEntityIds)
@@ -352,6 +431,18 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // pollen_index=1). This is an upstream data inconsistency; the card
       // faithfully displays whatever each source reports.
       let stateList = [];
+      // rawList mirrors stateList with the raw numeric measurement (the index
+      // for allergy_risk, grains/m3 for the per-allergen sensors), kept so the
+      // user can opt into showing it via numeric_value_raw. null where the
+      // source value is not numeric.
+      let rawList = [];
+      const asRaw = (v) => {
+        // null/undefined/"" are missing data, not 0 (Number(null) === 0), so
+        // they must stay null and let the display fall back to the level.
+        if (v == null || v === "") return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
       if (allergen === "allergy_risk") {
         if (config.mode === "hourly" || config.mode === "twice_daily") {
           for (let i = 0; i < maxItems; ++i) {
@@ -360,6 +451,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
               ? forecast.index ?? forecast.pollen_index
               : null;
             stateList.push(indexToLevel(val));
+            rawList.push(asRaw(val));
           }
         } else {
           const currentVal =
@@ -367,12 +459,14 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
             entity.attributes.pollen_index ??
             entity.state;
           stateList.push(indexToLevel(currentVal));
+          rawList.push(asRaw(currentVal));
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
             const val = forecast
               ? forecast.index ?? forecast.pollen_index
               : null;
             stateList.push(indexToLevel(val));
+            rawList.push(asRaw(val));
           }
         }
       } else {
@@ -383,16 +477,19 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
               ? Number(forecast[`pollen_${allergen}`])
               : NaN;
             stateList.push(grainsToLevel(allergen, pollenVal));
+            rawList.push(asRaw(pollenVal));
           }
         } else {
           const currentVal = Number(entity.attributes[`pollen_${allergen}`]);
           stateList.push(grainsToLevel(allergen, currentVal));
+          rawList.push(asRaw(currentVal));
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
             const pollenVal = forecast
               ? Number(forecast[`pollen_${allergen}`])
               : NaN;
             stateList.push(grainsToLevel(allergen, pollenVal));
+            rawList.push(asRaw(pollenVal));
           }
         }
       }
@@ -445,6 +542,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           day: label,
           icon: icon,
           state: scaled,
+          raw_value: rawList[i] ?? null,
           state_text: stateText,
         };
         dict.days.push(dict[`day${i}`]);
@@ -452,10 +550,15 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
       // Auto-added allergy_risk bypasses the threshold: even "very_low" (level 0)
       // is worth showing when it is the only data available for this location.
-      const skipThreshold = autoAddedAllergyRisk && allergen === "allergy_risk";
+      // The summary block (issue #222) also needs the aggregate retained
+      // regardless of threshold, but only when the block is enabled, so the
+      // existing row behaviour for 4000 configs is unchanged when it is off.
+      const skipThreshold =
+        (autoAddedAllergyRisk && allergen === "allergy_risk") ||
+        (allergen === "allergy_risk" && coerceBool(config.show_summary_block));
       if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
-      if (debug) console.warn(`[SILAM] Fel vid allergen ${allergen}:`, e);
+      if (debug) console.warn(`[SILAM] Error for allergen ${allergen}:`, e);
     }
   }
 

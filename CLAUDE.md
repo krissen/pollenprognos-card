@@ -270,6 +270,16 @@ This project uses Claude Code's built-in subagent system. Agents are defined in
 | HA Developer | `.claude/agents/ha-developer.md` | HA platform expertise, best practices |
 | User Panel | `.claude/agents/user-panel.md` | Simulated user feedback (4 personas) |
 
+### Code review fallback (Nagelfar)
+
+The `nagelfararna` agent (`.claude/agents/nagelfararna.md`) is a read-only review role,
+separate from the dev-team roles above. It **substitutes for a bot that can't run**
+(Nagelfaringsprotokollet, anchor `NF_PROTOCOL`): when one bot is out of quota it is
+replaced *per-bot* (review stays dual — surviving bot + Nagelfararna); when **both**
+Codex and Copilot are down, Nagelfararna alone are the review. Do not run it when both
+bots are up. See `docs/nagelfar.md` for the process pointer and
+`~/.claude/skills/nagelfar/SKILL.md` for the full protocol.
+
 ### Delegation
 
 **Without approval:**

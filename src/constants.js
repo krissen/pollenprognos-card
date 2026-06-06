@@ -161,6 +161,11 @@ const GPL_ALIASES = {
   // (the category). Icon presentation is still handled via
   // ALLERGEN_ICON_FALLBACK.graminales = "grass".
   cypress_pine: "cypress",
+  // Identity alias for the v2.1.0 summary sensor key. Discovery in
+  // src/adapters/gpl/discovery.js maps overall_pollen_risk_today ->
+  // allergy_risk; this line lets the canonical key resolve through
+  // the shared allergen normalization without losing its identity.
+  allergy_risk: "allergy_risk",
 };
 
 // GP (svenove/home-assistant-google-pollen) slugified display_name aliases.
@@ -645,6 +650,25 @@ export const COSMETIC_FIELDS = [
   "text_size_ratio",
   "minimal_gap",
   "show_block_separator",
+  // Summary-block render toggles (#222). show_summary_block itself is NOT
+  // cosmetic: it changes adapter output (threshold bypass), so it must trigger
+  // a data reload. These three only affect card rendering.
+  "show_summary_row",
+  "show_summary_separator",
+  "show_summary_top_types",
+  "show_summary_plants_in_season",
+  "show_no_data_distinct",
+  "icon_in_ring",
+  "show_allergen_column",
+  "icon_in_ring_color_mode",
+  "icon_in_ring_static_color",
+  "icon_in_ring_size_ratio",
+  // Display-only: chooses level vs raw_value for the numeric value; the
+  // raw_value is already on the fetched sensor dict, so no reload needed.
+  // numeric_state_raw_risk is the legacy PEU alias, now also display-only
+  // (resolveNumericValue reads it; adapters no longer change output for it).
+  "numeric_value_raw",
+  "numeric_state_raw_risk",
   "title",
   "card_mod",
 ];

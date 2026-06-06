@@ -1430,4 +1430,136 @@ describe("findAvailableSensors", () => {
       expect(withDebug).toEqual(withoutDebug);
     });
   });
+
+  // ===========================================================================
+  // State filtering (#224)
+  // ===========================================================================
+  // `unavailable` means the integration coordinator is down or the entity is
+  // disabled -- treat as "no sensors". `unknown` means the entity is alive but
+  // its value is currently None (e.g. API returned null for this location);
+  // it must still be reported as a discovered sensor.
+
+  describe("State filtering", () => {
+    it("includes entities with state='unknown'", () => {
+      const hass = createHass({
+        "sensor.pollen_stockholm_birch": s("unknown"),
+      });
+      const cfg = {
+        integration: "pp",
+        city: "Stockholm",
+        allergens: ["birch"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual(["sensor.pollen_stockholm_birch"]);
+    });
+
+    it("excludes entities with state='unavailable'", () => {
+      const hass = createHass({
+        "sensor.pollen_stockholm_birch": s("unavailable"),
+      });
+      const cfg = {
+        integration: "pp",
+        city: "Stockholm",
+        allergens: ["birch"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual([]);
+    });
+
+    it("excludes entities missing from hass.states (resolved but not present)", () => {
+      // Resolution may yield a candidate id that never made it into states.
+      // Filter must drop it instead of returning a dangling reference.
+      const hass = createHass({});
+      const cfg = {
+        integration: "pp",
+        city: "Stockholm",
+        allergens: ["birch"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual([]);
+    });
+
+    it("mixes states: keeps unknown, drops unavailable, keeps a normal value", () => {
+      const hass = createHass({
+        "sensor.pollen_stockholm_birch": s("unknown"),
+        "sensor.pollen_stockholm_grass": s("unavailable"),
+        "sensor.pollen_stockholm_alder": s("3"),
+      });
+      const cfg = {
+        integration: "pp",
+        city: "Stockholm",
+        allergens: ["birch", "grass", "alder"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual([
+        "sensor.pollen_stockholm_birch",
+        "sensor.pollen_stockholm_alder",
+      ]);
+    });
+
+    it("includes entities with null or empty state (treated like unknown)", () => {
+      const hass = createHass({
+        "sensor.pollen_stockholm_birch": s(null),
+        "sensor.pollen_stockholm_grass": s(""),
+      });
+      const cfg = {
+        integration: "pp",
+        city: "Stockholm",
+        allergens: ["birch", "grass"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual([
+        "sensor.pollen_stockholm_birch",
+        "sensor.pollen_stockholm_grass",
+      ]);
+    });
+
+    it("includes SILAM entity in state='unknown' (regex fallback path)", () => {
+      // SILAM's resolveEntityIds matches against hass.states[candidate]; an
+      // unknown-state entity passes its own filter and reaches sensors.js.
+      const hass = createHass(
+        {
+          "sensor.silam_pollen_london_birch": s("unknown"),
+        },
+        { entities: {} },
+      );
+      const cfg = {
+        integration: "silam",
+        location: "London",
+        allergens: ["birch"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual(["sensor.silam_pollen_london_birch"]);
+    });
+
+    it("includes MSW entity in state='unknown' (entity returned, value None upstream)", () => {
+      // MSW's level map can't translate 'unknown' to a level later in
+      // fetchForecast, but resolveEntityIds still returns it -- which is
+      // what sensors.js sees. Mirrors the #223 scenario for swissweather.
+      const hass = createHass({
+        "sensor.pollen_birch_level_at_8000_za": { state: "unknown", attributes: {} },
+      });
+      const cfg = {
+        integration: "msw",
+        location: "",
+        allergens: ["birch"],
+      };
+
+      const result = findAvailableSensors(cfg, hass);
+
+      expect(result).toEqual(["sensor.pollen_birch_level_at_8000_za"]);
+    });
+  });
 });

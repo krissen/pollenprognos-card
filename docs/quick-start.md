@@ -11,6 +11,10 @@ Before starting, make sure you have:
 
 ## Adding Your First Card
 
+<p align="center">
+  <img width="420" alt="Daily pollen forecast card with one row per allergen and a level ring per day" src="screenshots/hero-card.png" />
+</p>
+
 ### Using the Visual Editor (Recommended)
 
 The easiest way to add the card is using Home Assistant's visual editor:
@@ -33,6 +37,12 @@ The easiest way to add the card is using Home Assistant's visual editor:
 4. **Done!**
    - Your pollen forecast card is now showing
    - Click "Done" in the top right to exit edit mode
+
+The editor groups options into collapsible sections. Each section header has a ↺ button that resets just that section, and **Reset all settings** at the top clears everything back to defaults.
+
+<p align="center">
+  <img width="340" alt="Visual card editor with collapsible sections (Integration and place, Allergens, Layout, and more), a per-section reset button on each header, and a Reset all settings button at the top" src="screenshots/editor-card.png" />
+</p>
 
 ### Using YAML
 
@@ -80,7 +90,7 @@ location: lyon
 type: custom:pollenprognos-card
 integration: gpl
 
-# Google Pollen — svenove (global)
+# Google Pollen (svenove, global)
 type: custom:pollenprognos-card
 integration: gp
 
@@ -89,6 +99,38 @@ type: custom:pollenprognos-card
 integration: msw
 # location auto-detected; set config_entry_id, label or station code for multi-station setups
 ```
+
+## Adding a Badge
+
+The card bundle also ships a companion badge element. Badges appear in the top strip of a dashboard view and give you a compact, at-a-glance pollen indicator.
+
+<p align="center">
+  <img width="760" alt="A row of pollenprognos-badge variants: allergen icon in the level ring, the numeric value in the ring, ring only, bare icon, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="screenshots/badge-row.png" />
+</p>
+
+**Via the badge picker:**
+
+1. Edit your dashboard and click **Add Badge**
+2. Search for "Pollenprognos Badge" and select it
+3. Configure integration, location, and content mode in the visual editor (a specific allergen is only selected in the `single` content mode)
+4. Click **Save**
+
+<p align="center">
+  <img width="340" alt="Visual badge editor: Integration and place with the integration and location prefilled, and a Badge content section choosing the visual (Icon in ring) and what the badge shows (Highest pollen level)" src="screenshots/editor-badge.png" />
+</p>
+
+**Via YAML** (add to the `badges:` list of a view, not `cards:`):
+
+```yaml
+badges:
+  - type: custom:pollenprognos-badge
+    integration: pp
+    city: Stockholm
+    badge_content: worst
+    badge_visual: icon_in_ring
+```
+
+See [configuration.md](configuration.md#badge) for all badge options and [installation.md](installation.md#using-the-badge) for more detail.
 
 ## Common Customizations
 
@@ -102,6 +144,10 @@ city: Stockholm
 minimal: true
 icon_size: 32
 ```
+
+<p align="center">
+  <img width="420" alt="Minimal layout: allergen icons in a horizontal row with a short level label under each" src="screenshots/feature-minimal.png" />
+</p>
 
 ### Select Specific Allergens
 
@@ -132,6 +178,23 @@ levels_colors:
   - "#FF001C"
 background_color: "var(--card-background-color)"
 ```
+
+### Icon Inside the Ring
+
+Display the allergen icon inside the level ring instead of above it:
+
+```yaml
+type: custom:pollenprognos-card
+city: Stockholm
+icon_in_ring: true
+icon_in_ring_color_mode: follow_level
+```
+
+<p align="center">
+  <img width="420" alt="Icon-in-ring layout: each allergen icon sits inside its level ring" src="screenshots/feature-icon-in-ring.png" />
+</p>
+
+The editor automatically adjusts `levels_thickness` to give the icon room. See [configuration.md](configuration.md#options) for `icon_in_ring_size_ratio` and `icon_in_ring_static_color`.
 
 ### More Days
 

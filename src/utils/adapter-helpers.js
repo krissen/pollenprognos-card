@@ -1,7 +1,7 @@
 // src/utils/adapter-helpers.js
 // Shared pure helpers used by multiple adapters.
 import { t, detectLang } from "../i18n.js";
-import { toCanonicalAllergenKey } from "../constants.js";
+import { toCanonicalAllergenKey, ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize, normalizeDWD } from "./normalize.js";
 
 /**
@@ -25,6 +25,307 @@ export function isConfigEntryId(value) {
 }
 
 /**
+ * Coerce a YAML-or-boolean config flag to a real boolean. YAML lets a value
+ * arrive as the string "true"/"false", so a strict === true check would
+ * silently ignore a quoted value. Mirrors the defensive-typeguard policy used
+ * for other config flags.
+ *
+ * @param {*} value
+ * @returns {boolean}
+ */
+export function coerceBool(value) {
+  return value === true || value === "true";
+}
+
+/**
+ * Summary block (issue #222): pick which sensors the card renders, and in
+ * what order, given the summary-block config. Pure so both the normal-mode and
+ * minimal-mode render paths share one tested rule.
+ *
+ * - block off (default): return the sensors unchanged (today's behaviour; the
+ *   aggregate keeps whatever position the adapter's *_top pinning gave it).
+ * - block on: the aggregate (isSummary) is pinned first. By default only the
+ *   aggregate is shown (the standalone overall-risk overview); when
+ *   show_summary_row is on, the per-allergen detail sensors follow it.
+ *
+ * The aggregate renders through the ordinary row / minimal-icon path, so it is
+ * visually identical to a normal entry, just first.
+ *
+ * @param {object[]} sensors - normalized sensor array from the adapter.
+ * @param {object}   config  - card config.
+ * @returns {object[]}
+ */
+export function selectDisplaySensors(sensors, config) {
+  if (!Array.isArray(sensors)) return [];
+  const summary = sensors.find((s) => s && s.isSummary) || null;
+  if (!coerceBool(config?.show_summary_block) || !summary) return sensors;
+  if (!coerceBool(config?.show_summary_row)) return [summary];
+  return [summary, ...sensors.filter((s) => s !== summary)];
+}
+
+/**
+ * Resolve a user-facing allergen config key to its sensor.
+ *
+ * Sensors carry the adapter-normalized slug in `allergenReplaced` (PP
+ * "Björk" -> "bjork", DWD "gräser" -> "graeser", SILAM "index" ->
+ * "allergy_risk"), while config keys (config.allergens, badge_single_allergen)
+ * hold whatever the user/editor wrote. The config key is reduced to a canonical
+ * allergen key via BOTH the generic slug normalization and DWD's umlaut/ß
+ * expansion (ä->ae, ß->ss); the sensor side reduces via the generic
+ * normalization (its value is already adapter-normalized). A match on either
+ * canonical form resolves the sensor, so a key works regardless of the
+ * integration's key style. Trying normalizeDWD as well matters for DWD keys
+ * like "Beifuß", where generic normalize would drop the ß ("beifu") and miss
+ * the "beifuss" sensor. A literal match on the raw `allergenReplaced` is tried
+ * first, so an exact key always wins over a merely canonical-equal one.
+ *
+ * This is the single shared "config allergen key -> sensor" resolver. The badge
+ * uses it for single mode today; the card can reuse it if it ever gains a
+ * single-allergen display. Typeguarded so a non-string key (YAML can deliver a
+ * number/null) or a sensor without a string allergenReplaced is skipped, never
+ * thrown on.
+ *
+ * @param {object[]} sensors   - normalized sensor dicts.
+ * @param {string}   configKey - the user-facing allergen key to resolve.
+ * @returns {object|null} the matching sensor, or null.
+ */
+export function matchSensorByAllergenKey(sensors, configKey) {
+  if (!Array.isArray(sensors) || typeof configKey !== "string" || !configKey) {
+    return null;
+  }
+  // Literal match first: an exact allergenReplaced wins over a normalized one.
+  const literal = sensors.find(
+    (s) => s && typeof s.allergenReplaced === "string" && s.allergenReplaced === configKey,
+  );
+  if (literal) return literal;
+  // Canonical candidates for the config key, via both the generic slug
+  // normalization and DWD's umlaut/ß expansion, so DWD keys resolve too.
+  const wanted = new Set([
+    toCanonicalAllergenKey(normalize(configKey)),
+    toCanonicalAllergenKey(normalizeDWD(configKey)),
+  ]);
+  return (
+    sensors.find(
+      (s) =>
+        s &&
+        typeof s.allergenReplaced === "string" &&
+        wanted.has(toCanonicalAllergenKey(normalize(s.allergenReplaced))),
+    ) || null
+  );
+}
+
+/**
+ * Badge support (issue #235): pick which sensor(s) a compact badge renders,
+ * given the badge content mode. A badge is tiny and typically shows ONE thing,
+ * so this returns a short list (usually length 1) that the badge render path
+ * maps to icon-in-ring visuals. Pure, so it can be unit-tested in isolation and
+ * shared by the badge element and any future caller.
+ *
+ * Modes (config.badge_content), defaulting to "worst":
+ * - "worst"     — the single per-allergen sensor with the highest current
+ *                 (day0) level. The universal default: works for every adapter,
+ *                 since no integration-specific aggregate is required.
+ * - "aggregate" — the adapter's overall-risk sensor (isSummary, e.g. GPL/Atmo
+ *                 allergy_risk). Falls back to "worst" for adapters that expose
+ *                 no aggregate (PP/DWD/SILAM/PEU/MSW).
+ * - "single"    — the one allergen named in config.badge_single_allergen.
+ *                 Returns empty (no-data) if a named allergen is not present, so
+ *                 the miss is visible; only falls back to "worst" when no
+ *                 allergen was named.
+ * - "row"       — all sensors, in their existing order, for a compact multi-ring
+ *                 badge.
+ *
+ * No-data sensors (day0.state < 0) rank below a real level 0 in the "worst"
+ * comparison, so a badge prefers a sensor that actually has data.
+ *
+ * @param {object[]} sensors - normalized sensor array from the adapter.
+ * @param {object}   config  - card/badge config.
+ * @returns {object[]} sensors to render (length 0 when nothing is available).
+ */
+export function selectBadgeSensor(sensors, config) {
+  if (!Array.isArray(sensors) || sensors.length === 0) return [];
+
+  const mode =
+    typeof config?.badge_content === "string" ? config.badge_content : "worst";
+
+  const perAllergen = sensors.filter((s) => s && !s.isSummary);
+  const summary = sensors.find((s) => s && s.isSummary) || null;
+
+  // Highest-level per-allergen sensor. Falls back to the full list when every
+  // sensor is a summary (so the aggregate can still surface as "worst").
+  const worst = () => {
+    const pool = perAllergen.length ? perAllergen : sensors;
+    const best = pool.reduce((acc, s) => {
+      if (!acc) return s;
+      const lvl = Number(s?.day0?.state);
+      const accLvl = Number(acc?.day0?.state);
+      const safeLvl = Number.isNaN(lvl) ? -Infinity : lvl;
+      const safeAcc = Number.isNaN(accLvl) ? -Infinity : accLvl;
+      return safeLvl > safeAcc ? s : acc;
+    }, null);
+    return best ? [best] : [];
+  };
+
+  switch (mode) {
+    case "aggregate":
+      return summary ? [summary] : worst();
+    case "single": {
+      const key = config?.badge_single_allergen;
+      const found = matchSensorByAllergenKey(sensors, key);
+      if (found) return [found];
+      // Explicitly named but absent: surface a visible miss (no-data) instead
+      // of silently swapping in the worst other allergen. Fall back to worst()
+      // only when no allergen was named (misconfigured single mode).
+      return typeof key === "string" && key ? [] : worst();
+    }
+    case "row":
+      return sensors;
+    case "worst":
+    default:
+      return worst();
+  }
+}
+
+/**
+ * Single-mode badge pinning. When a badge names one allergen, make sure it is
+ * fetched and survives the post-fetch filter, then disable the threshold so a
+ * no-data / level-0 named allergen still reaches selectBadgeSensor instead of
+ * being dropped.
+ *
+ * The fetch is narrowed to the one named allergen, resolved through the
+ * adapter's STUB allergen set (passed in): pick the stub key(s) whose canonical
+ * form matches the named key, so an adapter keyed by localized slugs fetches its
+ * native sensor (pp "Björk" / dwd "Birke" for a canonical "birch") rather than a
+ * bare canonical key it cannot resolve. Fall back to [key] when the stub has no
+ * canonical match but the adapter resolves the key directly (e.g. gpl "birch",
+ * which its stub omits). Resolving against the stub (not the possibly-custom
+ * configured list) means a trimmed allergens list cannot hide the named
+ * allergen, and matching canonically (not by exact string) avoids double-
+ * fetching the same entity from a casing/diacritic variant. The threshold is set
+ * to 0 so a level-0 / no-data named allergen still reaches selectBadgeSensor,
+ * which resolves the name canonically; a genuine miss then surfaces as no-data
+ * rather than the wrong allergen. Pure: returns the input unchanged for any
+ * non-single / unnamed config, else a shallow-merged copy.
+ *
+ * @param {object} config - badge config (already typeguarded by _buildConfig).
+ * @param {string[]} stubAllergens - the adapter's stub allergens (native slugs).
+ * @returns {object} the config, or a shallow copy with allergens/threshold pinned.
+ */
+export function pinBadgeSingleAllergen(config, stubAllergens = []) {
+  if (config?.badge_content !== "single") return config;
+  const key = config.badge_single_allergen;
+  if (typeof key !== "string" || !key) return config;
+  const base = Array.isArray(stubAllergens) ? stubAllergens : [];
+  // Canonical forms of the named key, via both normalizers, mirroring how
+  // matchSensorByAllergenKey later resolves it (so the match agrees with the
+  // eventual lookup, and dwd umlaut/ß keys are matched too).
+  const wanted = new Set([
+    toCanonicalAllergenKey(normalize(key)),
+    toCanonicalAllergenKey(normalizeDWD(key)),
+  ]);
+  const matches = base.filter((a) => {
+    const s = String(a);
+    return (
+      wanted.has(toCanonicalAllergenKey(normalize(s))) ||
+      wanted.has(toCanonicalAllergenKey(normalizeDWD(s)))
+    );
+  });
+  const allergens = matches.length ? matches : [key];
+  return { ...config, allergens, pollen_threshold: 0 };
+}
+
+/**
+ * Ring level for a badge sensor's current day, preserving the no-data sentinel.
+ * Returns the canonical `state` (a level >= 0) so the caller can scale it with
+ * scaleRingLevel (DWD doubles it); a missing / null / NaN / non-numeric state
+ * becomes -1 so the render path shows the no-data noise pattern instead of a
+ * level-0 ring. The null/undefined guard is explicit because Number(null) is 0,
+ * which would otherwise mask a no-data reading as a real level 0.
+ *
+ * `display_state` is consulted only as a no-data OVERRIDE: some adapters keep a
+ * non-negative `state` but flag "no information" via `display_state: -1` (atmo
+ * "Indisponible" maps raw 0 to state 0 / display_state -1; plu/gp/gpl do the
+ * same for missing readings). A negative display_state therefore forces -1. It
+ * is NOT used as the level itself, because for DWD `display_state` is already
+ * the SCALED value and scaleRingLevel would double it again. Pure.
+ *
+ * @param {object|undefined} day0 - sensor.day0, may be undefined.
+ * @returns {number} the level (>= 0), or -1 when there is no usable reading.
+ */
+export function badgeRingLevel(day0) {
+  if (day0 == null) return -1;
+  // No-data override: a negative display_state means "no information" even when
+  // state is a non-negative placeholder (atmo unavailable = state 0).
+  if (day0.display_state != null && Number(day0.display_state) < 0) return -1;
+  if (day0.state == null) return -1;
+  const n = Number(day0.state);
+  return Number.isFinite(n) ? n : -1;
+}
+
+/**
+ * True when at least one configured allergen has a valid current reading,
+ * ignoring the threshold. Re-fetches at pollen_threshold 0 and checks for any
+ * sensor whose day0 resolves to a real level via badgeRingLevel (>= 0), so a
+ * caller can tell genuine "no pollen" (data exists, all below threshold) from
+ * "no usable data" (entities exist but no valid forecast) and show the
+ * no_allergens image only for the former. Reusing badgeRingLevel keeps the
+ * no-data rule identical to the render path: null/NaN state and the atmo-style
+ * `display_state: -1` placeholder both count as no-data, not as level 0.
+ * Defensive: returns false on any fetch error. forecastEvent is forwarded for
+ * silam; other adapters ignore it.
+ *
+ * @param {object} adapter - the integration adapter (has fetchForecast).
+ * @param {object} hass
+ * @param {object} cfg - badge/card config.
+ * @param {object|null} forecastEvent - silam forecast event, or null.
+ * @returns {Promise<boolean>}
+ */
+export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = null) {
+  try {
+    const sensors = await adapter.fetchForecast(
+      hass,
+      { ...cfg, pollen_threshold: 0 },
+      forecastEvent,
+    );
+    return Array.isArray(sensors) && sensors.some((s) => badgeRingLevel(s?.day0) >= 0);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Compute the number of day columns to render for a given sensor list and
+ * config. Extracted from _updateSensorsAndColumns so that _renderNormalHtml
+ * can recompute columns from the *displayed* row set rather than the full
+ * unfiltered sensor list -- needed for standalone summary mode where
+ * selectDisplaySensors returns only the aggregate (which has no future days)
+ * while the detail sensors it hides may have several.
+ *
+ * Reproduces the logic in _updateSensorsAndColumns exactly:
+ *   - MSW is always clamped to 1 day regardless of days_to_show.
+ *   - show_empty_days skips the sensor scan and returns the configured count.
+ *   - Otherwise: max over sensors of min(realDays, effectiveDaysToShow),
+ *     where realDays = days with state >= 0; sensors without a days array are
+ *     skipped.
+ *
+ * @param {object[]} sensors - Sensor array to derive column count from.
+ * @param {object}   cfg     - Card config object.
+ * @returns {number}
+ */
+export function computeDisplayDays(sensors, cfg) {
+  const effectiveDaysToShow = cfg.integration === "msw" ? 1 : cfg.days_to_show;
+  if (cfg.show_empty_days) return effectiveDaysToShow;
+  let daysCount = 0;
+  for (const s of sensors) {
+    if (!s.days || !s.days.length) continue;
+    const realDays = s.days.filter((d) => d.state >= 0).length;
+    const count = Math.min(realDays, effectiveDaysToShow);
+    if (count > daysCount) daysCount = count;
+  }
+  return daysCount;
+}
+
+/**
  * Clamp a sensor value to a valid level range.
  *
  * @param {*}      v         - Raw sensor value (will be coerced via Number()).
@@ -37,6 +338,62 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
   const n = Number(v);
   if (isNaN(n) || n < 0) return nanResult;
   return maxLevel != null ? Math.min(n, maxLevel) : n;
+}
+
+/**
+ * Scale a normalized pollen level for ring rendering. DWD reports a coarse
+ * 0-3 scale, but the doughnut ring is drawn on the shared 0-6 geometry, so DWD
+ * levels are doubled to fill the ring; every other integration renders its
+ * level unchanged. Single source for the card (normal + minimal modes) and the
+ * badge, which previously each inlined the `integration === "dwd" ? n * 2 : n`
+ * rule.
+ *
+ * @param {string} integration   - The card/badge `integration` id.
+ * @param {number} normalizedLevel - The sensor's normalized level. A negative
+ *   no-data sentinel (e.g. -1) is preserved (and doubled to -2 for DWD), so the
+ *   caller's no-data handling still sees a negative value; non-numeric input
+ *   coerces to 0.
+ * @returns {number} The level to render the ring at.
+ */
+export function scaleRingLevel(integration, normalizedLevel) {
+  const n = Number(normalizedLevel) || 0;
+  return integration === "dwd" ? n * 2 : n;
+}
+
+/**
+ * Resolve the NUMBER to display for a pollen reading: the calculated level by
+ * default, or the raw measurement (concentration / index) when the user opts in.
+ *
+ * The single shared decision point for every numeric render path (card
+ * show_value_numeric, card numeric-in-circle, badge ring_value). By default it
+ * returns `display_state ?? state` (the level). When raw is requested AND the
+ * day carries a numeric `raw_value` (>= 0), it returns that instead. Raw is
+ * requested via the shared `numeric_value_raw` flag, or via the legacy PEU
+ * `numeric_state_raw_risk` flag (kept working for existing configs).
+ *
+ * Adapters that have no distinct raw value never set `raw_value`, so this is a
+ * no-op for them regardless of the flag. Typeguarded against a null day or
+ * non-numeric fields.
+ *
+ * @param {object} day    - A day object (e.g. sensor.day0 or sensor.days[i]).
+ * @param {object} config - The card/badge config.
+ * @returns {*} The value to display (number, or display_state/state fallback).
+ */
+export function resolveNumericValue(day, config) {
+  if (!day) return null;
+  const level = day.display_state ?? day.state;
+  const wantRaw =
+    config?.numeric_value_raw === true ||
+    // numeric_state_raw_risk is a PEU-specific legacy key; honour it only for
+    // PEU so a stale value left after switching integrations cannot force raw
+    // on another integration.
+    (config?.integration === "peu" &&
+      config?.numeric_state_raw_risk === true);
+  if (wantRaw && day.raw_value != null) {
+    const raw = Number(day.raw_value);
+    if (Number.isFinite(raw) && raw >= 0) return raw;
+  }
+  return level;
 }
 
 /**
@@ -93,8 +450,9 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   const canonKey = toCanonicalAllergenKey(allergenKey);
 
   let allergenCapitalized;
-  if (fullPhrases[ck]) {
-    allergenCapitalized = fullPhrases[ck];
+  const fullOverride = resolvePhraseOverride(fullPhrases, ck, canonKey);
+  if (fullOverride) {
+    allergenCapitalized = fullOverride;
   } else {
     const nameKey = `card.allergen.${canonKey}`;
     const i18nName = t(nameKey, lang);
@@ -105,7 +463,7 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   if (abbreviated) {
     const shortKey = `editor.phrases_short.${canonKey}`;
     const i18nShort = t(shortKey, lang);
-    allergenShort = shortPhrases[ck]
+    allergenShort = resolvePhraseOverride(shortPhrases, ck, canonKey)
       || (i18nShort !== shortKey ? i18nShort : null)
       || allergenCapitalized;
   } else {
@@ -113,6 +471,94 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   }
 
   return { allergenCapitalized, allergenShort };
+}
+
+/**
+ * Resolve a single phrase override (full or short) for an allergen, honoring
+ * both the exact per-integration config key and the shared canonical key.
+ *
+ * A *present* exact key wins, even an empty string (which the editor writes
+ * when a phrase field is cleared) — so a user can opt out of a carried-over
+ * cross-integration override; an empty value falls through to the caller's
+ * default name. Only a genuinely *absent* exact key consults the canonical
+ * index, letting an override keyed by one integration's raw name (PP "Gräs")
+ * apply to another that names the same allergen differently (MSW/SILAM
+ * "grass"). The hasOwnProperty test also makes a null or array phrase map a
+ * safe no-op.
+ *
+ * Shared by resolveAllergenNames and SILAM's getAllergenNames so both
+ * integrations resolve overrides identically (issue #253).
+ *
+ * @param {object} phrases   - User phrase map (config.phrases.full / .short).
+ * @param {string} configKey - Raw per-integration allergen key to match exactly.
+ * @param {string} canonKey  - Canonical allergen key for the cross-integration fallback.
+ * @returns {string|undefined} The override value, or undefined if none applies.
+ */
+export function resolvePhraseOverride(phrases, configKey, canonKey) {
+  return phrases != null && Object.prototype.hasOwnProperty.call(phrases, configKey)
+    ? phrases[configKey]
+    : getCanonicalPhraseIndex(phrases)[canonKey];
+}
+
+/**
+ * Build a { canonicalAllergenKey: overrideValue } index from a user phrase map
+ * (config.phrases.full / .short), whose keys are raw, per-integration allergen
+ * names (e.g. PP's "Gräs", MSW's "grass", DWD's "Gräser"). This lets a phrase
+ * override carry across integrations that share an allergen: resolveAllergenNames
+ * falls back to this index by canonical key after the exact raw-key lookup misses.
+ *
+ * Canonicalization uses normalize() as the primary path. It covers alias hits
+ * (PP "Gräs" → gras → grass), keys already written as a canonical name
+ * ("grass" → grass), and DWD umlaut keys (NFD strips ä/ö/ü, so "Gräser" →
+ * graser → grass, an alias). normalizeDWD() is consulted only as a fallback for
+ * keys the primary path does NOT recognize as an alias — its sole added value
+ * is the ß→ss expansion (e.g. "Beifuß" → beifuss → mugwort, where normalize
+ * yields the unrecognized "beifu"). Restricting the DWD path to unrecognized
+ * keys prevents cross-aliasing a recognized non-DWD key onto a different
+ * canonical allergen (e.g. PP "Gräs", whose DWD form "graes" is GP's distinct
+ * "graminales", must not relabel Graminales).
+ *
+ * First-defined-wins; since the exact raw-key match in resolveAllergenNames
+ * takes precedence over this fallback, any residual canonical collisions are
+ * low-impact.
+ *
+ * Memoized per phrase-object via a WeakMap: a single fetchForecast reuses the
+ * same fullPhrases/shortPhrases reference across all allergens, so the index is
+ * built once rather than per allergen.
+ *
+ * @param {object} phrases - User phrase map keyed by raw allergen names.
+ * @returns {Object<string,string>} Canonical-key → override-value lookup.
+ */
+const _canonicalPhraseCache = new WeakMap();
+
+function getCanonicalPhraseIndex(phrases) {
+  // Arrays satisfy typeof === "object" but would index numeric keys into a
+  // meaningless map; the editor type-guards phrases.full/short to non-array
+  // objects, so mirror that and treat anything else as no overrides.
+  if (!phrases || typeof phrases !== "object" || Array.isArray(phrases)) return {};
+  let idx = _canonicalPhraseCache.get(phrases);
+  if (idx) return idx;
+  idx = {};
+  // Own-property check: `in` would match inherited keys ("constructor",
+  // "toString", …), through which toCanonicalAllergenKey can hand back a
+  // non-string (a prototype function), so the string guard in addCanon backstops
+  // it at the storage point too.
+  const isAlias = (k) => Object.prototype.hasOwnProperty.call(ALLERGEN_TRANSLATION, k);
+  for (const rawKey of Object.keys(phrases)) {
+    const value = phrases[rawKey];
+    const addCanon = (canon) => {
+      if (typeof canon === "string" && canon && !(canon in idx)) idx[canon] = value;
+    };
+    const n = normalize(rawKey);
+    addCanon(toCanonicalAllergenKey(n));
+    // DWD ß→ss fallback only for keys normalize() did not recognize as an alias.
+    if (!isAlias(n)) {
+      const nd = normalizeDWD(rawKey);
+      if (isAlias(nd)) addCanon(toCanonicalAllergenKey(nd));
+    }
+  }
+  _canonicalPhraseCache.set(phrases, idx);
+  return idx;
 }
 
 /**
@@ -164,12 +610,14 @@ export function getLangAndLocale(hass, config, defaultLocale = null) {
 /**
  * Normalize a manual-mode entity prefix.
  * Strips leading "sensor." and ensures a trailing "_" (unless empty).
+ * Non-string input (e.g. a number/object from YAML misconfiguration)
+ * is coerced to "" so downstream consumers don't crash on .startsWith.
  *
- * @param {string} raw - The raw entity_prefix from config.
+ * @param {*} raw - The raw entity_prefix from config.
  * @returns {string}
  */
 export function normalizeManualPrefix(raw) {
-  let p = raw || "";
+  let p = typeof raw === "string" ? raw : "";
   if (p.startsWith("sensor.")) p = p.substring(7);
   if (p && !p.endsWith("_")) p = p + "_";
   return p;

@@ -19,26 +19,34 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 - [Google Pollen](https://github.com/svenove/home-assistant-google-pollen)
 - [MeteoSwiss / hass-swissweather](https://github.com/izacus/hass-swissweather)
 
+<p align="center">
+  <img width="900" alt="The companion pollenprognos-badge in every mode: allergen icon in the level ring, the numeric value in the ring, ring only, bare icon only, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="docs/screenshots/badge-row.png" />
+</p>
+
 <table align="center">
   <tr>
-    <td align="center" valign="middle">
-           <img width="450" alt="Screenshot showing Polleninformation EU integration with allergy risk card" src="https://github.com/user-attachments/assets/9385ba7a-57d8-434a-89ce-9e03892afce3" />
+    <td align="center" valign="top">
+      <img width="420" alt="Daily pollen forecast card showing grass and birch over several days, one level ring per day" src="docs/screenshots/hero-card.png" />
     </td>
-    <td align="center" valign="middle">
-      <img width="450" alt="Screenshot showing Polleninformation EU integration in daily mode" src="https://github.com/user-attachments/assets/39ae37a5-6eb5-49b7-b323-80d96923d72e" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="middle">
-            <img width="450" alt="Screenshot showing forecast view with multiple allergens" src="https://github.com/user-attachments/assets/9c2df78f-6b62-4d88-a623-312fda24fab8" />
-    </td>
-    <td align="center" valign="middle">
-<img width="450" alt="Screenshot showing SILAM integration with multiple display modes" src="https://github.com/user-attachments/assets/91d051f2-dce1-4215-adbd-6f70e2968c1b" />
+    <td align="center" valign="top">
+      <img width="420" alt="Twice-daily forecast with morning and evening columns per day" src="docs/screenshots/modes-twice-daily.png" />
     </td>
   </tr>
   <tr>
-    <td>Two card instances combined, both using integration `polleninformation`. The top card shows `allergy_risk` in mode `daily`.</td>
-    <td>Three card instances combined, all using integration `silam_pollen`. The top-most card uses mode `minimal`. The middle card `twice_daily`, and the bottom card `hourly`.</td>
+    <td align="center">A daily forecast (integration <code>pp</code>): one row per allergen, one level ring per day.</td>
+    <td align="center">Other layouts too: <code>twice_daily</code> (above), plus <code>hourly</code> and <code>minimal</code>.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <img width="420" alt="Aggregate summary block (overall allergy risk, top types, in season) pinned above per-allergen rows, with the allergen icon inside the level ring" src="docs/screenshots/summary-icon-in-ring.png" />
+    </td>
+    <td align="center" valign="top">
+      <img width="300" alt="A few pollenprognos-badge instances for one location: an overall allergy-risk smiley in the ring, a grass value in the ring, and tree pollen shown as icon-in-ring and as a bare icon" src="docs/screenshots/hero-badges.png" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center">An aggregate summary block over the <code>icon_in_ring</code> layout (GPL): overall risk and qualifier rows above the detailed allergens.</td>
+    <td align="center">The companion badges for one location, in a few visual styles.</td>
   </tr>
 </table>
 
@@ -52,7 +60,8 @@ Install one of the supported integrations above. The card auto-detects which ada
 - **Auto-Detection**: Automatically detects which integration to use based on your available sensors
 - **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
 - **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics
-- **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts
+- **Multiple Display Modes**: Support for minimal, daily, hourly, and twice-daily forecast layouts; icon-in-ring layout places the allergen symbol inside the level ring
+- **Badge Element**: Companion `pollenprognos-badge` shows the current pollen level as a compact HA dashboard badge, ships in the same bundle, no extra install needed
 - **Full Localization**: Dynamic language support with 15 translations following Home Assistant's language setting
 - **Extensive Customization**: Configure colors, layouts, text size, sorting, and display options through the visual editor
 - **HACS Integration**: Official HACS repository with automatic updates and easy installation

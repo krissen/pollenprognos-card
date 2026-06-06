@@ -1,8 +1,7 @@
 // src/pollenprognos-card.js
 import { LitElement, html, css } from "lit";
-import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { slugify } from "./utils/slugify.js";
-import { svgs, getSvgContent } from "./pollenprognos-svgs.js";
+import { getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
@@ -10,270 +9,49 @@ import { cleanDeviceLabel } from "./utils/device-label.js";
 import {
   filterSensorsPostFetch,
   resolveLocationByKey,
+  normalizeManualPrefix,
+  selectDisplaySensors,
+  coerceBool,
+  computeDisplayDays,
+  scaleRingLevel,
+  resolveNumericValue,
+  hasValidPollenData,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
-import { PLU_ALIAS_MAP } from "./adapters/plu.js";
-import { discoverAtmoSensors, findAtmoLocationBySlug } from "./adapters/atmo.js";
-import { GPL_ATTRIBUTION, discoverGplSensors } from "./adapters/gpl/index.js";
-import { discoverGpSensors } from "./adapters/gp/index.js";
-import { discoverMswSensors } from "./adapters/msw.js";
-import { discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
-import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
-import { discoverPeuSensors, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
+// Sensor detection / integration pick / location auto-select are shared with
+// the card editor and the badge via src/utils/autodetect.js. The adapter
+// imports kept below are the ones still used by the header label-resolution
+// block in set hass() (slug extractors + location resolvers).
+import { findAtmoLocationBySlug } from "./adapters/atmo.js";
+import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
+import { extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
-  discoverSilamSensors,
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
+import { computeGridOptions } from "./utils/grid-options.js";
+import {
+  detectIntegrationStates,
+  pickIntegration,
+  autoSelectLocation,
+} from "./utils/autodetect.js";
 import {
   DWD_REGIONS,
-  ALLERGEN_ICON_FALLBACK,
   PP_POSSIBLE_CITIES,
-  toCanonicalAllergenKey,
 } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
-import {
-  Chart,
-  ArcElement,
-  DoughnutController,
-  Tooltip,
-  Legend,
-} from "chart.js/auto";
+import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
+import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 
-// Chart.js registreren
-Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
-
-class PollenPrognosCard extends LitElement {
+class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   _forecastUnsub = null; // Unsubscribe-funktion
   _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
 
-  _chartCache = new Map();
   _versionLogged = false;
   _error = null; // Holds error translation key when something goes wrong
   _skipIntegrations = new Set(); // Integrations that failed during autodetect
-
-
-  _renderLevelCircle(
-    level,
-    {
-      colors = LEVELS_DEFAULTS.levels_colors,
-      emptyColor = LEVELS_DEFAULTS.levels_empty_color,
-      gapColor = LEVELS_DEFAULTS.levels_gap_color,
-      thickness = LEVELS_DEFAULTS.levels_thickness,
-      gap = LEVELS_DEFAULTS.levels_gap,
-      size = 100,
-    },
-    allergen = "default",
-    dayIndex = 0,
-    displayLevel = level,
-    entityId = null,
-    clickable = true,
-  ) {
-    // Create a unique key for this chart configuration
-    const chartId = `chart-${allergen}-${dayIndex}-${level}`;
-
-    // Use attributes instead of properties so values persist if DOM is cloned
-    return html`
-      <div
-        id="${chartId}"
-        class="level-circle"
-        style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
-        entityId
-          ? " cursor: pointer;"
-          : ""}"
-        data-level="${level}"
-        data-display-level="${displayLevel}"
-        data-colors="${JSON.stringify(colors)}"
-        data-empty-color="${emptyColor}"
-        data-gap-color="${gapColor}"
-        data-thickness="${thickness}"
-        data-gap="${gap}"
-        data-size="${size}"
-        data-show-value="${this.config &&
-        this.config.show_value_numeric_in_circle}"
-        data-font-weight="${this.config?.levels_text_weight || "normal"}"
-        data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
-        data-text-color="${this.config?.levels_text_color ||
-        "var(--primary-text-color)"}"
-        @click=${(e) => {
-          if (clickable && entityId) {
-            e.stopPropagation();
-            this._openEntity(entityId);
-          }
-        }}
-      ></div>
-    `;
-  }
-
-  _openEntity(entityId) {
-    const ev = new CustomEvent("hass-more-info", {
-      bubbles: true,
-      composed: true,
-      detail: { entityId },
-    });
-    this.dispatchEvent(ev);
-  }
-
-  /**
-   * Build or refresh all level-circle charts in the current DOM.
-   * Chart options are stored as data attributes so charts can be
-   * reconstructed after the DOM is cloned or replaced.
-   */
-  _rebuildCharts() {
-    const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
-    const activeIds = new Set();
-
-    containers.forEach((container) => {
-      activeIds.add(container.id);
-
-      // Extract values from data attributes
-      const level = Number(container.dataset.level || 0);
-      const displayLevel = Number(container.dataset.displayLevel ?? level);
-      const colors = JSON.parse(container.dataset.colors || "[]");
-      const numSegments = colors.length;
-      const safeLevel = Math.min(level, numSegments);
-      const emptyColor = container.dataset.emptyColor;
-      const gapColor = container.dataset.gapColor;
-      const thickness = Number(container.dataset.thickness);
-      const gap = Number(container.dataset.gap);
-      const size = Number(container.dataset.size);
-      const showValue = container.dataset.showValue === "true";
-
-      // Get custom styling from data attributes
-      const fontWeight = container.dataset.fontWeight || "normal";
-      const fontSizeRatio = parseFloat(container.dataset.fontSizeRatio) || 0.2;
-      const textColor =
-        container.dataset.textColor || "var(--primary-text-color)";
-
-      // Retrieve existing chart if it exists
-      let chart = this._chartCache.get(container.id);
-
-      // Recreate chart if missing or detached
-      if (!chart || !container.contains(chart.canvas)) {
-        if (chart) chart.destroy();
-        container.innerHTML = "";
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        container.appendChild(canvas);
-
-        const data = Array(numSegments).fill(1);
-        const bg = Array(numSegments)
-          .fill(emptyColor)
-          .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-        const bc = Array(numSegments).fill(gapColor);
-
-        chart = new Chart(canvas.getContext("2d"), {
-          type: "doughnut",
-          data: {
-            labels: Array(numSegments).fill(""),
-            datasets: [
-              {
-                data,
-                backgroundColor: bg,
-                borderColor: bc,
-                borderWidth: gap,
-              },
-            ],
-          },
-          options: {
-            rotation: -Math.PI / 2,
-            cutout: `${100 - thickness}%`,
-            responsive: false,
-            maintainAspectRatio: false,
-            animation: {
-              duration: 0,
-              animateRotate: false,
-              animateScale: false,
-              easing: "linear",
-            },
-            transitions: {
-              active: {
-                animation: {
-                  duration: 0,
-                  animateRotate: false,
-                  animateScale: false,
-                  easing: "linear",
-                },
-              },
-              show: {
-                animations: {
-                  numbers: { duration: 0, easing: "linear" },
-                  colors: { duration: 0, easing: "linear" },
-                },
-              },
-              hide: {
-                animations: {
-                  numbers: { duration: 0, easing: "linear" },
-                  colors: { duration: 0, easing: "linear" },
-                },
-              },
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: { enabled: false },
-            },
-          },
-        });
-
-        this._chartCache.set(container.id, chart);
-      } else {
-        // Update existing chart only if colors actually changed
-        const datasets = chart.data.datasets;
-        if (datasets && datasets[0]) {
-          const bg = Array(datasets[0].backgroundColor.length)
-            .fill(emptyColor)
-            .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-
-          const oldBg = datasets[0].backgroundColor;
-          const colorsChanged =
-            bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
-          if (colorsChanged) {
-            datasets[0].backgroundColor = bg;
-            chart.update("none");
-          }
-        }
-      }
-
-      // Add or update numeric text overlay (suppress negative values).
-      // Only mutate DOM when the displayed value actually changed.
-      const existingText = container.querySelector(".level-value-text");
-      if (showValue && displayLevel >= 0) {
-        if (existingText && existingText.textContent === String(displayLevel)) {
-          // Value unchanged — skip DOM mutation.
-        } else {
-          if (existingText) existingText.remove();
-          const valueText = document.createElement("div");
-          valueText.className = "level-value-text";
-          valueText.textContent = displayLevel;
-          valueText.style.position = "absolute";
-          valueText.style.top = "50%";
-          valueText.style.left = "50%";
-          valueText.style.transform = "translate(-50%, -50%)";
-          valueText.style.fontSize = `${size * fontSizeRatio}px`;
-          valueText.style.fontWeight = fontWeight;
-          valueText.style.color = textColor;
-          if (size < 42) {
-            valueText.style.lineHeight = "1";
-            valueText.style.height = "1em";
-          }
-          container.appendChild(valueText);
-        }
-      } else if (existingText) {
-        existingText.remove();
-      }
-    });
-
-    // Remove charts whose containers disappeared
-    this._chartCache.forEach((cachedChart, id) => {
-      if (!activeIds.has(id)) {
-        cachedChart.destroy();
-        this._chartCache.delete(id);
-      }
-    });
-  }
 
   updated(changedProps) {
     // Handle forecast subscription.
@@ -293,22 +71,18 @@ class PollenPrognosCard extends LitElement {
       this._subscribeForecastIfNeeded();
     }
 
-    // After rendering, ensure all charts exist
-    this.updateComplete.then(() => this._rebuildCharts());
-
-    // Call parent's updated if it exists
-    if (super.updated) super.updated(changedProps);
+    // Chart lifecycle delegated to LevelCircleMixin via super.updated().
+    super.updated(changedProps);
   }
-  // Recreate charts when element is connected, useful after DOM cloning
+
+  // Recreate charts when element is connected, useful after DOM cloning.
   connectedCallback() {
+    // Chart rebuild delegated to LevelCircleMixin via super.connectedCallback().
     super.connectedCallback();
-    Promise.resolve().then(() => this._rebuildCharts());
   }
 
-  // Clean up charts when component is disconnected
+  // Clean up forecast subscription and charts when component is disconnected.
   disconnectedCallback() {
-    super.disconnectedCallback();
-
     // Clean up forecast subscription
     if (this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub).then((fn) => {
@@ -319,11 +93,8 @@ class PollenPrognosCard extends LitElement {
       this._forecastSubType = null;
     }
 
-    // Destroy cached charts
-    this._chartCache.forEach((chart) => {
-      chart.destroy();
-    });
-    this._chartCache.clear();
+    // Chart cache destruction delegated to LevelCircleMixin via super.disconnectedCallback().
+    super.disconnectedCallback();
   }
 
   _updateSensorsAndColumns(filtered, availableSensors, cfg) {
@@ -336,22 +107,7 @@ class PollenPrognosCard extends LitElement {
         "available sensors",
       );
     }
-    let daysCount = 0;
-    // MSW only exposes same-day measurements upstream; never display
-    // synthetic empty future days for it even if the user set days_to_show > 1.
-    const effectiveDaysToShow =
-      cfg.integration === "msw" ? 1 : cfg.days_to_show;
-    if (cfg.show_empty_days) {
-      daysCount = effectiveDaysToShow;
-    } else {
-      // Use max real days across all sensors (not just the first one)
-      for (const s of filtered) {
-        if (!s.days || !s.days.length) continue;
-        const realDays = s.days.filter((d) => d.state >= 0).length;
-        const count = Math.min(realDays, effectiveDaysToShow);
-        if (count > daysCount) daysCount = count;
-      }
-    }
+    const daysCount = computeDisplayDays(filtered, cfg);
     const expectedDisplayCols = Array.from({ length: daysCount }, (_, i) => i);
 
     // Determine if an update is required. Always update when data has not been loaded yet.
@@ -470,12 +226,71 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.config.integration === "silam") {
-      const configLocation = this.config.location === "manual" ? "" : (this.config.location || "");
+      const isManual = this.config.location === "manual";
+      // Mirror silam.js fetchForecast: in manual mode use entity_prefix as a
+      // discovery hint so the subscription targets the same weather entity
+      // the adapter renders from. Without this, an empty configLocation lets
+      // discovery pick the first available weather entity, which can differ
+      // from the prefix-matched one used for sensor resolution.
+      // Strip a leading "silam_pollen_" if present: users with default
+      // naming enter entity_prefix="silam_pollen_<loc>_", which would
+      // otherwise double up against findSilamWeatherEntity's own
+      // weather.silam_pollen_${loc}_${suffix} template.
+      let configLocation;
+      if (isManual && this.config.entity_prefix) {
+        configLocation = normalizeManualPrefix(this.config.entity_prefix)
+          .replace(/_$/, "")
+          .replace(/^silam_pollen_/, "");
+      } else if (isManual) {
+        configLocation = "";
+      } else {
+        configLocation = this.config.location || "";
+      }
       const lang = this.config?.date_locale?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
       }
-      const entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+      // Manual mode with entity_weather override (#231): subscribe directly
+      // to the user-supplied weather entity instead of trying to discover one
+      // from configLocation. Mirror the adapter's fetchForecast normalization
+      // exactly so the card and adapter never disagree about which path
+      // they're on:
+      //   1. Coerce non-string entity_weather to null (YAML can surface this
+      //      as a number/object on misconfiguration). The adapter treats
+      //      this case as "no override" and falls back to discovery; the
+      //      card must do the same or hourly/twice_daily modes get stale
+      //      because the card never subscribes for forecast events.
+      //   2. With a real string override, require weather.* domain (the HA
+      //      weather/subscribe_forecast service only accepts weather
+      //      entities) AND presence in hass.states. When set-but-invalid,
+      //      leave entityId null so no subscription is created. The
+      //      downstream null-entityId branch surfaces this as the standard
+      //      "location not found" error box, while the adapter
+      //      independently warns + returns []. Both agree there's no usable
+      //      weather entity, which is what the user needs to fix.
+      const rawEW = isManual ? this.config.entity_weather : null;
+      const entityWeather =
+        typeof rawEW === "string" && rawEW.length > 0 ? rawEW : null;
+      let entityId;
+      if (entityWeather !== null) {
+        if (
+          entityWeather.startsWith("weather.") &&
+          this._hass.states[entityWeather]
+        ) {
+          entityId = entityWeather;
+        } else {
+          if (this.debug) {
+            console.warn(
+              "[Card][subscribeForecast] entity_weather is set but invalid " +
+                "(must be weather.* domain and present in hass.states):",
+              entityWeather,
+            );
+          }
+          entityId = null;
+        }
+      } else {
+        entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+      }
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
         forecastType = "twice_daily";
@@ -620,9 +435,13 @@ class PollenPrognosCard extends LitElement {
       this._forecastEvent
     ) {
       const adapter = getAdapter(this.config.integration) || getAdapter("pp");
+      // Out-of-order guard shared with the main fetch (see set hass): only the
+      // latest fetch may apply, so a slow SILAM event fetch cannot clobber a
+      // newer result with stale sensors.
+      const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
       adapter
         .fetchForecast(this._hass, this.config, this._forecastEvent)
-        .then((sensors) => {
+        .then(async (sensors) => {
           const availableSensors = findAvailableSensors(
             this.config,
             this._hass,
@@ -632,6 +451,21 @@ class PollenPrognosCard extends LitElement {
             sensors, this.config, availableSensors,
             Object.keys(this._hass.states), silamAllergenMap.mapping,
           );
+          // Recompute the no-pollen-vs-no-data classification here too: a live
+          // SILAM forecast event refetches without going through set hass, so a
+          // stale _noPollenData would otherwise pick the wrong empty-state
+          // branch (no-information vs no-allergens) until the next full fetch.
+          const noPollenData =
+            filtered.length === 0 && availableSensors.length > 0
+              ? await hasValidPollenData(
+                  adapter,
+                  this._hass,
+                  this.config,
+                  this._forecastEvent,
+                )
+              : false;
+          if (fetchId !== this._fetchSeq) return;
+          this._noPollenData = noPollenData;
           this._updateSensorsAndColumns(filtered, availableSensors, this.config);
           // this.sensors = sensors;
           // this.requestUpdate();
@@ -654,8 +488,8 @@ class PollenPrognosCard extends LitElement {
     return detectLang(this._hass, this.config?.date_locale);
   }
 
-  _t(key) {
-    return t(key, this._lang);
+  _t(key, vars = {}) {
+    return t(key, this._lang, vars);
   }
 
   _hasTapAction() {
@@ -674,180 +508,13 @@ class PollenPrognosCard extends LitElement {
       tapAction: {},
       _isLoaded: { type: Boolean, state: true },
       _error: { type: String, state: true },
+      _noPollenData: { type: Boolean, state: true },
     };
   }
 
   /**
-   * Gets the SVG key for an allergen
-   * @param {string} allergenReplaced - The allergen identifier
-   * @returns {string|null} The key to use for SVG loading, or null if invalid
+   * _renderAllergenSvg is inherited from LevelCircleMixin.
    */
-  _getSvgKey(allergenReplaced) {
-    // Guard against undefined/null allergenReplaced
-    if (!allergenReplaced || typeof allergenReplaced !== 'string') {
-      if (this.debug) {
-        console.warn('[SVG] Invalid allergenReplaced:', allergenReplaced);
-      }
-      return null;
-    }
-
-    const key = toCanonicalAllergenKey(allergenReplaced);
-    
-    // Check if we have the primary key SVG available
-    if (getSvgContent(key)) {
-      return key;
-    }
-    
-    // Try icon fallback for category allergens
-    if (ALLERGEN_ICON_FALLBACK[allergenReplaced]) {
-      const fallbackKey = ALLERGEN_ICON_FALLBACK[allergenReplaced];
-      if (getSvgContent(fallbackKey)) {
-        return fallbackKey;
-      }
-    }
-    
-    return key; // Return original key even if SVG not found
-  }
-
-  /**
-   * Gets color for a specific level for allergen icons
-   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
-   * @param {string} allergenKey - Optional allergen key for special handling
-   * @returns {string} Color hex string
-   */
-  _colorForLevel(level, allergenKey = null) {
-    // Special handling for no_allergens icon
-    if (allergenKey === "no_allergens") {
-      return this.config?.no_allergens_color || LEVELS_DEFAULTS.no_allergens_color;
-    }
-    
-    // Use custom allergen colors if set
-    if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
-      const allergenColors = this.config.allergen_colors;
-      const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
-      return allergenColors[clampedLevel] || allergenColors[0];
-    }
-    
-    // Default: use default allergen colors (which includes empty color at index 0)
-    const defaultColors = LEVELS_DEFAULTS.allergen_colors;
-    const clampedLevel = Math.max(0, Math.min(level, defaultColors.length - 1));
-    return defaultColors[clampedLevel] || defaultColors[0];
-  }
-
-  /**
-   * Gets color for level circles (charts) - may inherit from allergen colors
-   * Note: Level circles don't use specific allergen keys, so we pass null
-   * @param {number} level - The pollen level (0-6 or 0-4 depending on integration)
-   * @returns {string} Color hex string
-   */
-  _levelColorForLevel(level) {
-    // If level circles inherit from allergen colors (default)
-    if (this.config?.levels_inherit_mode !== "custom") {
-      // Use allergen color directly - same level mapping (but no special allergen key)
-      return this._colorForLevel(level, null);
-    }
-    
-    // Use custom level colors with traditional mapping
-    // Level 0 uses empty color, Level 1+ uses pollen colors
-    if (level === 0) {
-      return this.config?.levels_empty_color || LEVELS_DEFAULTS.levels_empty_color;
-    }
-    
-    const colors = this.config?.levels_colors || LEVELS_DEFAULTS.levels_colors;
-    const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
-    const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
-    return colors[clampedIndex] || colors[0];
-  }
-
-  /**
-   * Determines the appropriate gap color based on inheritance mode
-   * @returns {string} The gap color to use
-   */
-  _getGapColor() {
-    // Use allergen outline color as gap color when inheriting, otherwise use custom gap color
-    return this.config?.levels_inherit_mode !== "custom" 
-      ? (this.config.allergen_outline_color ?? LEVELS_DEFAULTS.levels_gap_color)
-      : (this.config.levels_gap_color ?? "var(--card-background-color)");
-  }
-
-  /**
-   * Renders an allergen SVG icon with proper color styling
-   * @param {string} allergenKey - The allergen key 
-   * @param {number} level - The pollen level for color
-   * @param {Object} options - Optional configuration
-   * @param {Function} options.onClick - Click handler
-   * @param {boolean} options.clickable - Whether icon should be clickable
-   * @returns {TemplateResult} HTML template with SVG or placeholder
-   */
-  _renderAllergenSvg(allergenKey, level, options = {}) {
-    // Guard against null/undefined keys - show error placeholder
-    if (!allergenKey || typeof allergenKey !== 'string') {
-      if (this.debug) {
-        console.warn('[SVG] Cannot render SVG with invalid key:', allergenKey);
-      }
-      return html`
-        <div class="pp-icon pp-icon-error" aria-hidden="true">
-          <div style="background: #ff0000; color: white; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
-        </div>
-      `;
-    }
-
-    const { onClick, clickable = false, stale = false } = options;
-    const color = stale ? "#e6a800" : this._colorForLevel(level, allergenKey);
-    const outlineColor = this.config?.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color;
-    const strokeWidth = this.config?.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width;
-    // Select level-reactive icon variant for allergy_risk smiley
-    let effectiveKey = allergenKey;
-    if (allergenKey === "allergy_risk" && level > 0) {
-      effectiveKey = `allergy_risk_${Math.min(level, 6)}`;
-    }
-    const svgContent = getSvgContent(effectiveKey);
-
-    // Determine stroke color based on sync setting
-    let actualStrokeColor;
-    if (allergenKey === "no_allergens") {
-      // Special handling for no_allergens: always use its color as stroke color since it's stroke-based
-      actualStrokeColor = color;
-    } else if (this.config?.allergen_stroke_color_synced) {
-      // When synced, use the level color for stroke
-      actualStrokeColor = color;
-    } else {
-      // Default: use outline color
-      actualStrokeColor = outlineColor;
-    }
-
-    const clickHandler = clickable && onClick ? onClick : null;
-    const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
-
-    if (svgContent) {
-      // Render inline SVG with color styling
-      return html`
-        <div 
-          class="pp-icon" 
-          style="${style}"
-          aria-hidden="true"
-          @click=${clickHandler}
-        >
-          ${unsafeSVG(svgContent)}
-        </div>
-      `;
-    } else {
-      // SVG not found - show error placeholder
-      if (this.debug) {
-        console.warn(`[SVG] No SVG found for key: ${allergenKey}`);
-      }
-      return html`
-        <div 
-          class="pp-icon pp-icon-error" 
-          style="${style}"
-          aria-hidden="true"
-          @click=${clickHandler}
-        >
-          <div style="background: #ccc; color: #666; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
-        </div>
-      `;
-    }
-  }
 
 
 
@@ -862,6 +529,7 @@ class PollenPrognosCard extends LitElement {
     this.tapAction = null;
     this._forecastSubEntity = null;
     this._forecastSubType = null;
+    this._noPollenData = false;
   }
 
   static async getConfigElement() {
@@ -957,225 +625,41 @@ class PollenPrognosCard extends LitElement {
     if (this.debug)
       console.debug("[Card] set hass called; explicit:", explicit);
 
-    // Sensordetektion
-    // Build set of PLU allergen slugs for more specific detection
-    const pluAllergenSlugs = new Set(
-      Object.values(PLU_ALIAS_MAP).flat()
-    );
-
-    const ppStates = Object.keys(hass.states).filter(
-      (id) => {
-        if (typeof id !== "string") return false;
-        if (!id.startsWith("sensor.pollen_")) return false;
-        if (id.startsWith("sensor.pollenflug_")) return false;
-        // Exclude MSW (hass-swissweather) entities: sensor.pollen_<allergen>_level_at_<station>
-        if (id.includes("_level_at_")) return false;
-
-        // Match both manual mode (sensor.pollen_<allergen>) and city mode (sensor.pollen_<allergen>_<city>)
-        const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
-        if (!match) return false;
-
-        const allergenSlug = match[1];
-        // Exclude known PLU allergens to avoid misclassification
-        // PLU uses sensor.pollen_<allergen> pattern with specific allergen list
-        // PP manual mode also uses sensor.pollen_<allergen> but with different allergens
-        if (!match[2] && pluAllergenSlugs.has(allergenSlug)) {
-          // Single underscore AND known PLU allergen → likely PLU, not PP
-          return false;
-        }
-
-        return true;
+    // Sensordetektion — shared autodetect (see src/utils/autodetect.js).
+    // Destructure local aliases with the same names the header block below
+    // already uses, so only the scan/pick/location logic moves to the shared
+    // module while the rest of set hass() is untouched. The lazy discovery
+    // getters preserve the per-tick discovery call count on large installs.
+    const detection = detectIntegrationStates(hass, { debug: this.debug });
+    // peuStates + the discovery objects/getters below are consumed by the
+    // header label-resolution block further down; the per-integration state
+    // lists used only for the pick/location are handled inside the shared
+    // module, so they are not destructured here.
+    const {
+      states: { peu: peuStates },
+      discovery: {
+        silam: silamDiscovery,
+        atmo: atmoDiscovery,
+        gp: gpDiscovery,
       },
-    );
-    // DWD: match the integration's pollenflug_<allergen>_<region> segment
-    // whether or not HA has prepended a device-name slug (#217).
-    const dwdStates = Object.keys(hass.states).filter(
-      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
-    );
-    const peuStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
-    );
-    // SILAM: primary via hass.entities, fallback via regex
-    const silamDiscovery = discoverSilamSensors(hass, this.debug);
+      getPpDiscovery,
+      getDwdDiscovery,
+      getPeuDiscovery,
+      getGplDiscovery,
+      getMswDiscovery,
+    } = detection;
     this._silamDiscovery = silamDiscovery;
-    let silamStates = [];
-    if (silamDiscovery.locations.size > 0) {
-      for (const [, loc] of silamDiscovery.locations) {
-        for (const eid of loc.sensors.values()) {
-          silamStates.push(eid);
-        }
-      }
-    }
-    if (!silamStates.length) {
-      silamStates = Object.keys(hass.states).filter(
-        (id) => typeof id === "string" && id.startsWith("sensor.silam_pollen_"),
-      );
-    }
-    const kleenexStates = Object.keys(hass.states).filter(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.kleenex_pollen_radar_"),
-    );
-    const pluStates = Object.keys(hass.states).filter(
-      (id) => {
-        if (typeof id !== "string") return false;
-        const match = /^sensor\.pollen_([^_]+)$/.exec(id);
-        if (!match) return false;
-        const allergenSlug = match[1];
-        // Only match if it's a known PLU allergen
-        return pluAllergenSlugs.has(allergenSlug);
-      },
-    );
-    // ATMO: primary via discovery (handles prefixed entity IDs and
-    // device-based detection); fallback to regex for older HA registries.
-    const atmoDiscovery = discoverAtmoSensors(hass, this.debug);
-    let atmoStates = [];
-    if (atmoDiscovery.locations.size > 0) {
-      for (const [, loc] of atmoDiscovery.locations) {
-        for (const eid of loc.entities.values()) {
-          atmoStates.push(eid);
-        }
-      }
-    }
-    if (!atmoStates.length) {
-      // Legacy fallback for older HA registries without device/platform metadata.
-      // Matches both current niveau_{slug} and legacy niveau_alerte_{slug}.
-      atmoStates = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(id) &&
-          !/_j_\d+$/.test(id),
-      );
-    }
-    // GPL: use hass.entities (primary) or attribution (fallback)
-    let gplStates = [];
-    if (hass.entities) {
-      gplStates = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
-        .map(([eid]) => eid);
-    }
-    if (!gplStates.length) {
-      gplStates = Object.keys(hass.states).filter((id) => {
-        const s = hass.states[id];
-        return s?.attributes?.attribution === GPL_ATTRIBUTION
-          && s.attributes.device_class !== "date"
-          && s.attributes.device_class !== "timestamp";
-      });
-    }
-    // GP (svenove/google_pollen): full discovery once; state list derived
-    // from it so the header auto-title path can reuse the same result later.
-    const gpDiscovery = discoverGpSensors(hass, this.debug);
-    let gpStates = [];
-    if (gpDiscovery.locations.size > 0) {
-      for (const [, loc] of gpDiscovery.locations) {
-        for (const eid of loc.entities.values()) {
-          gpStates.push(eid);
-        }
-      }
-    }
-    if (!gpStates.length) {
-      if (hass.entities) {
-        gpStates = Object.entries(hass.entities)
-          .filter(([, entry]) => entry.platform === "google_pollen" && !entry.entity_category)
-          .map(([eid]) => eid);
-      }
-      if (!gpStates.length) {
-        gpStates = Object.keys(hass.states).filter((id) =>
-          typeof id === "string" && id.startsWith("sensor.google_pollen_")
-        );
-      }
-    }
-    // MSW (MeteoSwiss / hass-swissweather). Entity IDs follow
-    // sensor.<device-slug>_pollen_<allergen>_level_at_<station>; the
-    // <device-slug> prefix is added by HA from the device's friendly name and
-    // varies per install. Primary detection uses hass.entities platform check
-    // (same as SILAM/GP); fallback regex covers older HA registries.
-    const mswLevelRe =
-      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
-    let mswStates = [];
-    if (hass.entities) {
-      mswStates = Object.entries(hass.entities)
-        .filter(([eid, entry]) =>
-          entry.platform === "swissweather" &&
-          !entry.entity_category &&
-          mswLevelRe.test(eid),
-        )
-        .map(([eid]) => eid);
-    }
-    if (!mswStates.length) {
-      mswStates = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(id),
-      );
-    }
 
-    // Discovery results for adapters whose header label resolution would
-    // otherwise re-scan the registry. SILAM, Atmo, and GP are already cached
-    // above; PP, DWD, PEU, and GPL go here so the header block can reuse the
-    // same result instead of calling discover*Sensors a second time per HA
-    // update.
-    let _ppDiscovery = null;
-    let _dwdDiscovery = null;
-    let _peuDiscovery = null;
-    let _gplDiscovery = null;
-    let _mswDiscovery = null;
-    const getPpDiscovery = () => {
-      if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, this.debug);
-      return _ppDiscovery;
-    };
-    const getDwdDiscovery = () => {
-      if (_dwdDiscovery === null) _dwdDiscovery = discoverDwdSensors(hass, this.debug);
-      return _dwdDiscovery;
-    };
-    const getPeuDiscovery = () => {
-      if (_peuDiscovery === null) _peuDiscovery = discoverPeuSensors(hass, this.debug);
-      return _peuDiscovery;
-    };
-    const getGplDiscovery = () => {
-      if (_gplDiscovery === null) _gplDiscovery = discoverGplSensors(hass, this.debug);
-      return _gplDiscovery;
-    };
-    const getMswDiscovery = () => {
-      if (_mswDiscovery === null) _mswDiscovery = discoverMswSensors(hass, this.debug);
-      return _mswDiscovery;
-    };
-
-    if (this.debug) {
-      console.debug("Sensor states detected:");
-      console.debug("PP:", ppStates);
-      console.debug("DWD:", dwdStates);
-      console.debug("PEU:", peuStates);
-      console.debug("SILAM:", silamStates);
-      console.debug("KLEENEX:", kleenexStates);
-      console.debug("PLU:", pluStates);
-      console.debug("ATMO:", atmoStates);
-      console.debug("GPL:", gplStates);
-      console.debug("GP:", gpStates);
-      console.debug("MSW:", mswStates);
-    }
-
-    // Bestäm integration (PEU går före DWD)
-    let integration = this._userConfig.integration;
-
-    // Normalize integration name to handle case sensitivity and whitespace
-    if (integration && typeof integration === "string") {
-      integration = integration.trim().toLowerCase();
-    }
-
-    if (!explicit) {
-      const skip = this._skipIntegrations;
-      if (ppStates.length && !skip.has("pp")) integration = "pp";
-      else if (pluStates.length && !skip.has("plu")) integration = "plu";
-      else if (peuStates.length && !skip.has("peu")) integration = "peu";
-      else if (dwdStates.length && !skip.has("dwd")) integration = "dwd";
-      else if (silamStates.length && !skip.has("silam")) integration = "silam";
-      else if (kleenexStates.length && !skip.has("kleenex")) integration = "kleenex";
-      else if (atmoStates.length && !skip.has("atmo")) integration = "atmo";
-      else if (gpStates.length && !skip.has("gp")) integration = "gp";
-      else if (gplStates.length && !skip.has("gpl")) integration = "gpl";
-      else if (mswStates.length && !skip.has("msw")) integration = "msw";
-    }
+    // Bestäm integration (shared priority pick honouring explicit + skip set).
+    let integration = pickIntegration(detection, {
+      explicit,
+      userIntegration: this._userConfig.integration,
+      skip: this._skipIntegrations,
+    });
+    // Nothing detected and no prior choice: default to pp so the
+    // unknown-integration error below stays reserved for genuinely invalid ids
+    // (a user-typed bad value), not noisy on every no-sensors install.
+    if (!integration) integration = "pp";
 
     // Plocka rätt stub
     let baseStub = getStubConfig(integration);
@@ -1200,7 +684,9 @@ class PollenPrognosCard extends LitElement {
     if (integration === "plu") {
       delete cfg.city;
       delete cfg.region_id;
-      delete cfg.location;
+      // Preserve cfg.location: "manual" is a meaningful value that signals
+      // the adapter's manual-mode branch (entity_prefix-based lookup).
+      // Dropping it silently disabled PLU manual mode entirely.
     }
 
     if (
@@ -1242,159 +728,16 @@ class PollenPrognosCard extends LitElement {
       }
     }
 
-    // Automatic region/city/location detection unless manual mode is selected
-    if (
-      integration === "dwd" &&
-      cfg.region_id !== "manual" &&
-      !cfg.region_id &&
-      dwdStates.length
-    ) {
-      cfg.region_id = Array.from(
-        new Set(dwdStates.map((id) => id.split("_").pop())),
-      ).sort((a, b) => Number(a) - Number(b))[0];
+    // Automatic region/city/location detection unless manual mode is selected.
+    // Shared autoSelectLocation() returns { key, value } for the integration;
+    // the "manual"/already-set guard stays here so PLU's earlier city/region
+    // deletion and explicit "manual" mode keep their meaning. (The card element
+    // now also auto-selects GP/MSW locations, matching the editor.)
+    const autoLoc = autoSelectLocation(integration, cfg, hass, detection);
+    if (autoLoc && cfg[autoLoc.key] !== "manual" && !cfg[autoLoc.key]) {
+      cfg[autoLoc.key] = autoLoc.value;
       if (this.debug)
-        console.debug("[Card] Auto-set region_id:", cfg.region_id);
-    } else if (
-      integration === "pp" &&
-      cfg.city !== "manual" &&
-      !cfg.city &&
-      ppStates.length
-    ) {
-      cfg.city = ppStates[0]
-        .slice("sensor.pollen_".length)
-        .replace(/_[^_]+$/, "");
-      if (this.debug) console.debug("[Card] Auto-set city:", cfg.city);
-    } else if (
-      integration === "peu" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      peuStates.length
-    ) {
-      // Samla alla location_slug från entity attributes (om de finns)
-      const peuLocations = Array.from(
-        new Set(
-          peuStates
-            .map((eid) => {
-              const attr = hass.states[eid]?.attributes || {};
-              return attr.location_slug || null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = peuLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][PEU] Auto-set location (location_slug):",
-          cfg.location,
-          peuLocations,
-        );
-    } else if (
-      integration === "silam" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      silamStates.length
-    ) {
-      // Primärt: discovery-baserad auto-select (config_entry_id)
-      if (silamDiscovery.locations.size > 0) {
-        const firstLocId = silamDiscovery.locations.keys().next().value;
-        cfg.location = firstLocId || null;
-        if (this.debug)
-          console.debug(
-            "[Card][SILAM] Auto-set location (discovery):",
-            cfg.location,
-            [...silamDiscovery.locations.keys()],
-          );
-      } else {
-        // Fallback: regex-baserad auto-select (slug)
-        const silamLocations = Array.from(
-          new Set(
-            silamStates
-              .map((eid) => {
-                const m = eid.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
-                return m ? m[1] : null;
-              })
-              .filter(Boolean),
-          ),
-        );
-        cfg.location = silamLocations[0] || null;
-        if (this.debug)
-          console.debug(
-            "[Card][SILAM] Auto-set location (regex):",
-            cfg.location,
-            silamLocations,
-          );
-      }
-    } else if (
-      integration === "kleenex" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      kleenexStates.length
-    ) {
-      // Look specifically for *_date sensors to extract location
-      const kleenexDateSensors = Object.keys(hass.states).filter(
-        (id) =>
-          typeof id === "string" &&
-          id.match(/^sensor\.kleenex_pollen_radar_.+_date$/),
-      );
-
-      const kleenexLocations = Array.from(
-        new Set(
-          kleenexDateSensors
-            .map((eid) => {
-              // sensor.kleenex_pollen_radar_<location>_date
-              const m = eid.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = kleenexLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][KLEENEX] Auto-set location:",
-          cfg.location,
-          kleenexLocations,
-        );
-    } else if (
-      integration === "atmo" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      atmoStates.length
-    ) {
-      const atmoLocations = Array.from(
-        new Set(
-          atmoStates
-            .map((eid) => {
-              const m = eid.match(
-                /^sensor\.niveau_(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)_(.+?)(?:_j_\d+)?$/,
-              );
-              return m ? m[1] : null;
-            })
-            .filter(Boolean),
-        ),
-      );
-      cfg.location = atmoLocations[0] || null;
-      if (this.debug)
-        console.debug(
-          "[Card][ATMO] Auto-set location:",
-          cfg.location,
-          atmoLocations,
-        );
-    } else if (
-      integration === "gpl" &&
-      cfg.location !== "manual" &&
-      !cfg.location &&
-      gplStates.length
-    ) {
-      const gplDiscovery = getGplDiscovery();
-      const firstLocId = gplDiscovery.locations.keys().next().value;
-      cfg.location = firstLocId || null;
-      if (this.debug)
-        console.debug(
-          "[Card][GPL] Auto-set location:",
-          cfg.location,
-          [...gplDiscovery.locations.keys()],
-        );
+        console.debug(`[Card] Auto-set ${autoLoc.key}:`, autoLoc.value);
     }
 
     // Only update reactive properties when values actually changed.
@@ -1411,8 +754,8 @@ class PollenPrognosCard extends LitElement {
     }
 
     if (this.debug) {
-      console.debug("[Card][Debug] Aktiv integration:", integration);
-      console.debug("[Card][Debug] Allergens i config:", cfg.allergens);
+      console.debug("[Card][Debug] Active integration:", integration);
+      console.debug("[Card][Debug] Allergens in config:", cfg.allergens);
     }
 
     // Compute header into a local variable, only assign if changed.
@@ -1688,9 +1031,39 @@ class PollenPrognosCard extends LitElement {
         // keys and legacy label slugs both produce the friendly location name.
         // Reuses cached discovery from set hass() to avoid a second scan.
         const gplDiscovery = getGplDiscovery();
-        const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        let gplMatch = null;
+        if (cfg.location === "manual" && cfg.entity_prefix) {
+          // Manual mode: entity resolution filters by prefix AND suffix
+          // (gpl/discovery.js:resolveEntityId). Title resolution has to
+          // follow the same filters or it picks a location that the
+          // adapter would discard, mislabeling the rendered data.
+          const rawPrefix = String(cfg.entity_prefix).replace(/^sensor\./, "");
+          const wantedPrefix = `sensor.${rawPrefix}`;
+          const wantedSuffix = cfg.entity_suffix || "";
+          for (const [key, loc2] of gplDiscovery?.locations || []) {
+            const entities = loc2?.entities;
+            if (!entities) continue;
+            let hit = false;
+            for (const entityId of entities.values()) {
+              if (typeof entityId !== "string") continue;
+              if (!entityId.startsWith(wantedPrefix)) continue;
+              if (wantedSuffix && !entityId.endsWith(wantedSuffix)) continue;
+              hit = true;
+              break;
+            }
+            if (hit) {
+              gplMatch = [key, loc2];
+              break;
+            }
+          }
+        }
+        if (!gplMatch) {
+          // Non-manual (or manual with no prefix / no match): fall back to
+          // key-based lookup. Empty key picks first deterministically.
+          const wantedLocation =
+            cfg.location && cfg.location !== "manual" ? cfg.location : "";
+          gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
+        }
         // Defensive: discovery already calls cleanDeviceLabel, but apply again
         // here so a future discovery refactor that drops the call doesn't leak
         // the integration's "- <category> (<coords>)" suffix into the title.
@@ -1768,6 +1141,10 @@ class PollenPrognosCard extends LitElement {
 
     // Hämta prognos via rätt adapter
     const adapter = getAdapter(cfg.integration) || getAdapter("pp");
+    // Out-of-order guard (shared with the SILAM forecast-event fetch): only the
+    // latest fetch may apply its result, so a slower earlier fetch cannot
+    // overwrite newer sensors with stale data on rapid config/hass changes.
+    const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
     let fetchPromise = null;
     if (cfg.integration === "silam") {
       // Pass forecastEvent when available; fetchForecast falls back to
@@ -1779,9 +1156,9 @@ class PollenPrognosCard extends LitElement {
     }
     if (fetchPromise) {
       return fetchPromise
-        .then((sensors) => {
+        .then(async (sensors) => {
           if (this.debug) {
-            console.debug("[Card][Debug] Sensors före filtrering:", sensors);
+            console.debug("[Card][Debug] Sensors before filtering:", sensors);
             console.debug(
               `[Card][Debug] Adapter returned ${sensors.length} sensors:`,
               sensors.map((s) => ({
@@ -1801,15 +1178,15 @@ class PollenPrognosCard extends LitElement {
 
           if (this.debug) {
             // console.debug(
-            //   "[Card][Debug] Alla tillgängliga hass.states:",
+            //   "[Card][Debug] All available hass.states:",
             //   Object.keys(hass.states),
             // );
-            console.debug("[Card] Användaren har valt city:", cfg.city);
+            console.debug("[Card] User selected city:", cfg.city);
             console.debug(
-              "[Card] Användaren har valt allergener:",
+              "[Card] User selected allergens:",
               cfg.allergens,
             );
-            console.debug("[Card] Användaren har valt plats:", cfg.location);
+            console.debug("[Card] User selected location:", cfg.location);
           }
 
           const availableSensors = findAvailableSensors(cfg, hass, this.debug);
@@ -1836,6 +1213,19 @@ class PollenPrognosCard extends LitElement {
             );
           }
 
+          // When the filtered set is empty but entities are available,
+          // distinguish genuine no-pollen (data exists, all below threshold)
+          // from a data problem (entities exist but no usable forecast), so the
+          // breezy no_allergens image is shown only for the former.
+          const noPollenData =
+            filtered.length === 0 && availableSensorCount > 0
+              ? await hasValidPollenData(adapter, hass, cfg, this._forecastEvent)
+              : false;
+
+          // Drop a superseded fetch before mutating any state.
+          if (fetchId !== this._fetchSeq) return;
+          this._noPollenData = noPollenData;
+
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;
 
@@ -1844,7 +1234,7 @@ class PollenPrognosCard extends LitElement {
             this._updateSensorsAndColumns([], [], cfg);
             if (this.debug) {
               console.warn(
-                `[Card] Ingen sensor hittad för explicit vald plats: '${cfg.location}'`,
+                `[Card] No sensor found for explicitly selected location: '${cfg.location}'`,
               );
             }
             return;
@@ -1880,6 +1270,22 @@ class PollenPrognosCard extends LitElement {
     `;
   }
 
+  _renderNoInformationHtml() {
+    // Entities exist but carry no usable forecast data. Reuse the no_allergens
+    // silhouette, but rendered through the no-data path (level -1) so it shows
+    // the noise pattern rather than the level-0 "no pollen" colour, paired with
+    // the "(No information)" label. Distinct from the breezy no-pollen state.
+    return html`
+      ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
+      <div class="card-content">
+        <div class="no-allergens-container">
+          ${this._renderAllergenSvg("no_allergens", -1)}
+          <span class="no-allergens-text">${this._t("card.no_information")}</span>
+        </div>
+      </div>
+    `;
+  }
+
   _renderStaleDataHtml() {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
@@ -1897,6 +1303,12 @@ class PollenPrognosCard extends LitElement {
 
   _renderMinimalHtml() {
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
+    const iconInRing = this.config?.icon_in_ring === true;
+    const ringConfig = iconInRing ? this._buildLevelRingConfig() : null;
+    const ringIconRatio =
+      Number(this.config?.icon_in_ring_size_ratio) ||
+      LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+    const iconSize = Number(this.config?.icon_size) || 48;
 
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
@@ -1905,7 +1317,7 @@ class PollenPrognosCard extends LitElement {
           class="flex-container"
           style="gap: ${this.config?.minimal_gap ?? 35}px;"
         >
-          ${(this.sensors || []).map((sensor) => {
+          ${selectDisplaySensors(this.sensors, this.config).map((sensor) => {
             if (sensor.stale) {
               const staleLabel = this.config?.show_text_allergen
                 ? (this.config?.allergens_abbreviated
@@ -1926,7 +1338,7 @@ class PollenPrognosCard extends LitElement {
               `;
             }
             const txt = sensor.day0?.state_text ?? "";
-            const rawNum = sensor.day0?.display_state ?? sensor.day0?.state;
+            const rawNum = resolveNumericValue(sensor.day0, this.config);
             const num = rawNum != null && rawNum >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
@@ -1953,21 +1365,53 @@ class PollenPrognosCard extends LitElement {
               this.config.integration === "plu"
                 ? sensor.day0?.state ?? 0
                 : sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
+            // For ring rendering, use the *normalized* state (not
+            // display_state), so PEU's numeric_state_raw_risk doesn't
+            // saturate the ring at high raw-risk values. Mirrors what
+            // _renderNormalHtml does per-cell.
+            const normalizedLevel = Number(sensor.day0?.state) || 0;
+            const ringLevel = scaleRingLevel(
+              this.config.integration,
+              normalizedLevel,
+            );
+            const clickable =
+              this.config.link_to_sensors !== false && !!sensor.entity_id;
+            const onClickEntity = (e) => {
+              if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                e.stopPropagation();
+                this._openEntity(sensor.entity_id);
+              }
+            };
+            const allergenSvgKey = this._getSvgKey(sensor.allergenReplaced);
+            const visual = iconInRing
+              ? this._renderLevelCircle(
+                  ringLevel,
+                  {
+                    ...ringConfig,
+                    size: iconSize,
+                    iconKey: this._getEffectiveSvgKey(
+                      allergenSvgKey,
+                      ringLevel,
+                    ),
+                    iconColor: this._iconInRingColor(
+                      ringLevel,
+                      sensor.allergenReplaced,
+                    ),
+                    iconSizeRatio: ringIconRatio,
+                  },
+                  sensor.allergenReplaced,
+                  0,
+                  rawNum !== "" ? rawNum : levelForColor,
+                  sensor.entity_id,
+                  clickable,
+                )
+              : this._renderAllergenSvg(allergenSvgKey, levelForColor, {
+                  clickable,
+                  onClick: onClickEntity,
+                });
             return html`
               <div class="sensor minimal">
-                ${this._renderAllergenSvg(
-                  this._getSvgKey(sensor.allergenReplaced),
-                  levelForColor,
-                  {
-                    clickable: this.config.link_to_sensors !== false && sensor.entity_id,
-                    onClick: (e) => {
-                      if (this.config.link_to_sensors !== false && sensor.entity_id) {
-                        e.stopPropagation();
-                        this._openEntity(sensor.entity_id);
-                      }
-                    }
-                  }
-                )}
+                ${visual}
                 ${label
                   ? html`<span
                       class="short-text"
@@ -1997,11 +1441,18 @@ class PollenPrognosCard extends LitElement {
       return html``;
     }
 
-    const sensorsWithDays = this.sensors.filter(
+    // Summary block (issue #222): the aggregate renders as an ordinary row,
+    // pinned first, via selectDisplaySensors. When the standalone summary is
+    // requested (show_summary_block on, show_summary_row off) the list is just
+    // the aggregate; otherwise it is the aggregate followed by the detail rows.
+    // Block off returns the sensors unchanged.
+    const rowSensors = selectDisplaySensors(this.sensors, this.config);
+
+    const sensorsWithDays = rowSensors.filter(
       (s) => s.days && s.days.length > 0,
     );
-    const staleSensors = this.sensors.filter((s) => s.stale === true);
-    
+    const staleSensors = rowSensors.filter((s) => s.stale === true);
+
     if (sensorsWithDays.length === 0 && staleSensors.length === 0) {
       if (this.debug) {
         console.debug(
@@ -2027,44 +1478,73 @@ class PollenPrognosCard extends LitElement {
 
     const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
-    const cols = this.displayCols;
+    // Compute column count from the displayed row set, not the full sensor list.
+    // When standalone summary mode is active (show_summary_block on,
+    // show_summary_row off), rowSensors contains only the aggregate which has
+    // no future days; using this.displayCols (derived from the full list) would
+    // add empty future columns. When the block is off rowSensors === this.sensors
+    // so the result is identical to the old this.displayCols path.
+    const cols = Array.from(
+      { length: computeDisplayDays(rowSensors, this.config) },
+      (_, i) => i,
+    );
     
-    // Number of segments in the level circle depends on the integration.
-    // PEU, Kleenex and MSW use four segments (native 5-level scale, 0=None
-    // = empty); GPL/GP use five (native 0-5); PLU uses three; others use
-    // six. Match each integration's native level count so the maximum state
-    // fills the chart (no never-filled trailing segment).
-    let segments = 6;
-    if (
-      this.config.integration === "peu" ||
-      this.config.integration === "kleenex" ||
-      this.config.integration === "msw"
-    ) {
-      segments = 4;
-    } else if (this.config.integration === "gpl" || this.config.integration === "gp") {
-      segments = 5;
-    } else if (this.config.integration === "plu") {
-      segments = 3;
-    }
-    
-    // Build colors array using the new inheritance system.
-    // Chart segments represent pollen levels 1..segments (level 0 = empty),
-    // so segments matches the integration's native non-empty level count
-    // (4 for PEU/Kleenex/MSW, 5 for GPL/GP, 3 for PLU, 6 for the others).
-    const rawColors = [];
-    for (let i = 0; i < segments; i++) {
-      rawColors.push(this._levelColorForLevel(i + 1)); // i=0 -> level 1, i=1 -> level 2, etc.
-    }
-    const colors = rawColors;
-    const emptyColor = this.config.levels_empty_color ?? "var(--divider-color)";
-    
-    const gapColor = this._getGapColor();
-      
-    const thickness = this.config.levels_thickness ?? 60;
-    const gap = this.config.levels_gap ?? 5;
+    // Ring geometry/colors come from the shared mixin helper
+    // (_buildLevelRingConfig): segment count per integration (PEU/Kleenex/MSW
+    // 4, GPL/GP 5, PLU 3, others 6), the level-color array, empty/gap colors,
+    // thickness and gap. Same derivation minimal mode and the badge use.
+    const { colors, emptyColor, gapColor, thickness, gap } =
+      this._buildLevelRingConfig();
     const iconSize = Number(this.config.icon_size) || 48;
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
+
+    // Icon-in-ring (#227) state for the daily cells.
+    const iconInRing = this.config?.icon_in_ring === true;
+    const showAllergenColumn = this.config?.show_allergen_column !== false;
+    const ringIconRatio =
+      Number(this.config?.icon_in_ring_size_ratio) ||
+      LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+
+    // Degenerate config: no day columns at all (e.g. every sensor
+    // stale plus show_empty_days=false). The forecast table can't
+    // anchor stale rows without producing a colgroup/colspan
+    // mismatch, so fall back to a flat list of stale sensors —
+    // each row is just the allergen icon next to its stale text.
+    if (cols.length === 0) {
+      const staleOnly = rowSensors.filter((s) => s.stale === true);
+      if (staleOnly.length === 0) return html``;
+      return html`
+        ${this.header
+          ? html`<div class="card-header">${this.header}</div>`
+          : ""}
+        <div class="card-content">
+          <div class="stale-only-list">
+            ${staleOnly.map(
+              (sensor) => html`
+                <div class="sensor minimal stale">
+                  ${this._renderAllergenSvg(
+                    this._getSvgKey(sensor.allergenReplaced),
+                    0,
+                    { stale: true },
+                  )}
+                  <span
+                    class="short-text stale-allergen-text"
+                    style="font-size: ${1.0 * textSizeRatio}em;"
+                  >
+                    ${this.config.allergens_abbreviated
+                      ? sensor.allergenShort
+                      : sensor.allergenCapitalized}:
+                    ${this._t("card.stale_allergen")}
+                  </span>
+                </div>
+              `,
+            )}
+          </div>
+        </div>
+      `;
+    }
+    const totalCols = cols.length + (showAllergenColumn ? 1 : 0);
 
     if (this.debug) {
       console.debug("Display columns:", cols);
@@ -2074,15 +1554,15 @@ class PollenPrognosCard extends LitElement {
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
         <div class="forecast-content">
-          <table class="forecast"">
+          <table class="forecast">
             <colgroup>
-              ${[0, ...cols].map(
-                () => html`<col style="width: ${100 / (cols.length + 1)}%;" />`,
+              ${(showAllergenColumn ? [0, ...cols] : cols).map(
+                () => html`<col style="width: ${100 / totalCols}%;" />`,
               )}
             </colgroup>
             <thead>
               <tr>
-                <th></th>
+                ${showAllergenColumn ? html`<th></th>` : ""}
                 ${cols.map(
                   (i) => html`
                     <th
@@ -2097,12 +1577,12 @@ class PollenPrognosCard extends LitElement {
                           class="day-header"
                           style="font-size: ${1.0 * textSizeRatio}em;"
                         >
-                          ${this.sensors?.[0]?.days?.[i]?.day || ""}
+                          ${rowSensors?.[0]?.days?.[i]?.day || ""}
                         </span>
                         ${this.config.mode === "twice_daily" &&
-                        this.sensors?.[0]?.days?.[i]?.icon
+                        rowSensors?.[0]?.days?.[i]?.icon
                           ? html`<ha-icon
-                              icon="${this.sensors[0].days[i].icon}"
+                              icon="${rowSensors[0].days[i].icon}"
                               style="margin-top: 2px;"
                             ></ha-icon>`
                           : ""}
@@ -2112,40 +1592,52 @@ class PollenPrognosCard extends LitElement {
                 )}
               </tr>
             </thead>
-            ${this.sensors.flatMap(
+            ${rowSensors.flatMap(
               (sensor, sIdx) => {
                 const separator =
                   this.config.show_block_separator &&
                   sIdx > 0 &&
                   sensor.group &&
-                  this.sensors[sIdx - 1].group &&
-                  sensor.group !== this.sensors[sIdx - 1].group
-                    ? html`<tr class="block-separator-row"><td colspan="${cols.length + 1}"><hr class="block-separator" /></td></tr>`
+                  rowSensors[sIdx - 1].group &&
+                  sensor.group !== rowSensors[sIdx - 1].group
+                    ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
                     : "";
                 const row = sensor.stale
                 ? html`
                   <tr class="allergen-icon-row allergen-stale-row" valign="top">
-                    <td>
-                      ${this._renderAllergenSvg(
-                        this._getSvgKey(sensor.allergenReplaced),
-                        0,
-                        { stale: true }
-                      )}
-                    </td>
+                    ${showAllergenColumn
+                      ? html`<td>
+                          ${this._renderAllergenSvg(
+                            this._getSvgKey(sensor.allergenReplaced),
+                            0,
+                            { stale: true }
+                          )}
+                        </td>`
+                      : ""}
                     <td colspan="${cols.length}" class="stale-cell">
-                      <span class="stale-allergen-text">${this._t("card.stale_allergen")}</span>
+                      <span class="stale-allergen-text">
+                        ${showAllergenColumn
+                          ? this._t("card.stale_allergen")
+                          : `${
+                              this.config.allergens_abbreviated
+                                ? sensor.allergenShort
+                                : sensor.allergenCapitalized
+                            }: ${this._t("card.stale_allergen")}`}
+                      </span>
                     </td>
                   </tr>
                   ${this.config.show_text_allergen
                     ? html`
                         <tr class="allergen-text-row allergen-stale-row">
-                          <td>
-                            <span class="stale-allergen-name" style="font-size: ${1.0 * textSizeRatio}em;">
-                              ${this.config.allergens_abbreviated
-                                ? sensor.allergenShort
-                                : sensor.allergenCapitalized}
-                            </span>
-                          </td>
+                          ${showAllergenColumn
+                            ? html`<td>
+                                <span class="stale-allergen-name" style="font-size: ${1.0 * textSizeRatio}em;">
+                                  ${this.config.allergens_abbreviated
+                                    ? sensor.allergenShort
+                                    : sensor.allergenCapitalized}
+                                </span>
+                              </td>`
+                            : ""}
                           <td colspan="${cols.length}"></td>
                         </tr>
                       `
@@ -2153,51 +1645,68 @@ class PollenPrognosCard extends LitElement {
                 `
                 : html`
                 <tr class="allergen-icon-row" valign="top">
-                  <td>
-                    ${this._renderAllergenSvg(
-                      this._getSvgKey(sensor.allergenReplaced),
-                      this.config.integration === "plu"
-                        ? sensor.days[0]?.state ?? 0
-                        : sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
-                      {
-                        clickable: this.config.link_to_sensors !== false && sensor.entity_id,
-                        onClick: (e) => {
-                          if (this.config.link_to_sensors !== false && sensor.entity_id) {
-                            e.stopPropagation();
-                            this._openEntity(sensor.entity_id);
+                  ${showAllergenColumn
+                    ? html`<td>
+                        ${this._renderAllergenSvg(
+                          this._getSvgKey(sensor.allergenReplaced),
+                          this.config.integration === "plu"
+                            ? sensor.days[0]?.state ?? 0
+                            : sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
+                          {
+                            clickable: this.config.link_to_sensors !== false && sensor.entity_id,
+                            onClick: (e) => {
+                              if (this.config.link_to_sensors !== false && sensor.entity_id) {
+                                e.stopPropagation();
+                                this._openEntity(sensor.entity_id);
+                              }
+                            }
                           }
-                        }
-                      }
-                    )}
-                  </td>
-                  ${cols.map(
-                    (i) => html`
+                        )}
+                      </td>`
+                    : ""}
+                  ${cols.map((i) => {
+                    // Summary aggregate is today-only (its sensor carries no
+                    // forecast), so suppress the no-data future cells rather
+                    // than showing no-data circles next to the multi-day detail
+                    // rows (issue #222). Render an empty cell instead.
+                    if (sensor.isSummary) {
+                      const st = sensor.days[i]?.state;
+                      if (st == null || Number(st) < 0) return html`<td></td>`;
+                    }
+                    return html`
                       <td>
                         ${(() => {
                           const normalized = Number(sensor.days[i]?.state) || 0;
                           const displayVal = Number(
-                            sensor.days[i]?.display_state ?? normalized,
+                            resolveNumericValue(sensor.days[i], this.config) ??
+                              normalized,
                           );
-                          let levelVal = normalized;
-                          if (this.config.integration === "dwd") {
-                            levelVal = normalized * 2;
-                          } else if (
-                            this.config.integration === "peu" ||
-                            this.config.integration === "kleenex" ||
-                            this.config.integration === "plu"
-                          ) {
-                            levelVal = normalized;
+                          const levelVal = scaleRingLevel(
+                            this.config.integration,
+                            normalized,
+                          );
+                          const ringOpts = {
+                            colors,
+                            emptyColor,
+                            gapColor,
+                            thickness,
+                            gap,
+                            size,
+                          };
+                          if (iconInRing) {
+                            ringOpts.iconKey = this._getEffectiveSvgKey(
+                              this._getSvgKey(sensor.allergenReplaced),
+                              levelVal,
+                            );
+                            ringOpts.iconColor = this._iconInRingColor(
+                              levelVal,
+                              sensor.allergenReplaced,
+                            );
+                            ringOpts.iconSizeRatio = ringIconRatio;
                           }
                           return this._renderLevelCircle(
                             levelVal,
-                            {
-                              colors,
-                              emptyColor,
-                              gapColor,
-                              thickness,
-                              gap,
-                              size,
-                            },
+                            ringOpts,
                             sensor.allergenReplaced,
                             i,
                             displayVal,
@@ -2206,28 +1715,38 @@ class PollenPrognosCard extends LitElement {
                           );
                         })()}
                       </td>
-                    `,
-                  )}
+                    `;
+                  })}
                 </tr>
                 ${this.config.show_text_allergen ||
                 this.config.show_value_text ||
                 this.config.show_value_numeric
                   ? html`
                       <tr class="allergen-text-row">
-                        <td>
-                          <span style="font-size: ${1.0 * textSizeRatio}em;">
-                            ${this.config.show_text_allergen
-                              ? this.config.allergens_abbreviated
-                                ? sensor.allergenShort
-                                : sensor.allergenCapitalized
-                              : ""}
-                          </span>
-                        </td>
+                        ${showAllergenColumn
+                          ? html`<td>
+                              <span style="font-size: ${1.0 * textSizeRatio}em;">
+                                ${this.config.show_text_allergen
+                                  ? this.config.allergens_abbreviated
+                                    ? sensor.allergenShort
+                                    : sensor.allergenCapitalized
+                                  : ""}
+                              </span>
+                            </td>`
+                          : ""}
                         ${cols.map((i) => {
+                          // Suppress the summary aggregate's no-data future
+                          // cells (today-only), matching the icon row above.
+                          if (sensor.isSummary) {
+                            const st = sensor.days[i]?.state;
+                            if (st == null || Number(st) < 0)
+                              return html`<td></td>`;
+                          }
                           const txt = sensor.days[i]?.state_text || "";
-                          const rawNum =
-                            sensor.days[i]?.display_state ??
-                            sensor.days[i]?.state;
+                          const rawNum = resolveNumericValue(
+                            sensor.days[i],
+                            this.config,
+                          );
                           const num = rawNum != null && rawNum >= 0 ? rawNum : "";
                           let content = "";
                           if (
@@ -2250,12 +1769,100 @@ class PollenPrognosCard extends LitElement {
                     `
                   : ""}
               `;
-                return [separator, row];
+                // Divider between the summary group (aggregate + its extras)
+                // and the detail rows below, shown only when both are present
+                // (issue #222) and not disabled via show_summary_separator
+                // (default on). Reuses the block-separator style.
+                const summarySeparator =
+                  coerceBool(this.config.show_summary_block) &&
+                  sIdx > 0 &&
+                  rowSensors[sIdx - 1]?.isSummary &&
+                  !sensor.isSummary &&
+                  this.config.show_summary_separator !== false &&
+                  this.config.show_summary_separator !== "false"
+                    ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
+                    : "";
+                const extras = sensor.isSummary
+                  ? this._renderSummaryExtrasRows(
+                      sensor,
+                      totalCols,
+                      textSizeRatio,
+                      showAllergenColumn,
+                    )
+                  : [];
+                return [separator, summarySeparator, row, ...extras];
               })}
           </table>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * GPL summary qualifiers (issue #222): two text rows directly beneath the
+   * aggregate — the day's top pollen types ("Top") and the plants in season
+   * ("In season") — each a localized label in the allergen column and the
+   * localized name list as plain text to the right. The aggregate row above
+   * carries the colour/level; these rows only qualify it, so no icons, no
+   * colours, no count. Each row is behind its own toggle and null-safe, so
+   * SILAM/Atmo (which never set these fields) render nothing. Returns an array
+   * of <tr> so the caller can spread into flatMap.
+   */
+  _renderSummaryExtrasRows(sensor, totalCols, textSizeRatio, showAllergenColumn) {
+    if (!coerceBool(this.config.show_summary_block)) return [];
+    const rows = [];
+    const valueColspan = showAllergenColumn ? totalCols - 1 : totalCols;
+    // Match the regular allergen text rows (same size/colour), not a dimmed
+    // footnote — the product owner wants these to look like the other rows.
+    const fs = `font-size: ${1.0 * textSizeRatio}em;`;
+
+    const makeRow = (label, list) =>
+      showAllergenColumn
+        ? html`
+            <tr class="allergen-text-row summary-qualifier-row">
+              <td>
+                <span class="summary-q-label" style="${fs}">${label}</span>
+              </td>
+              <td colspan="${valueColspan}" style="text-align: left;">
+                <span class="summary-q-list" style="${fs}">${list}</span>
+              </td>
+            </tr>
+          `
+        : html`
+            <tr class="allergen-text-row summary-qualifier-row">
+              <td colspan="${totalCols}" style="text-align: left;">
+                <span class="summary-q-label" style="${fs}">${label}:</span>
+                <span class="summary-q-list" style="${fs}">${list}</span>
+              </td>
+            </tr>
+          `;
+
+    if (
+      this.config.show_summary_top_types !== false &&
+      this.config.show_summary_top_types !== "false" &&
+      Array.isArray(sensor.topPollen) &&
+      sensor.topPollen.length > 0
+    ) {
+      rows.push(
+        makeRow(this._t("card.summary.top_label"), sensor.topPollen.join(", ")),
+      );
+    }
+
+    if (
+      this.config.show_summary_plants_in_season !== false &&
+      this.config.show_summary_plants_in_season !== "false" &&
+      Array.isArray(sensor.plantsInSeasonList) &&
+      sensor.plantsInSeasonList.length > 0
+    ) {
+      rows.push(
+        makeRow(
+          this._t("card.summary.in_season_label"),
+          sensor.plantsInSeasonList.join(", "),
+        ),
+      );
+    }
+
+    return rows;
   }
 
   render() {
@@ -2299,14 +1906,24 @@ class PollenPrognosCard extends LitElement {
             <div class="card-error">${errorMsg} (${name})</div>
           </ha-card>
         `;
-      } else {
-        const filteredMsg = this._t("card.error_filtered_sensors");
-        if (this.debug) {
-          console.debug(`[PollenPrognosCard] ${filteredMsg} (${name})`);
-        }
+      } else if (this._noPollenData) {
+        // Entities exist and at least one has a real reading, all below
+        // threshold: genuine no pollen.
         return html`
           <ha-card>
             ${this._renderNoAllergensHtml()}
+          </ha-card>
+        `;
+      } else {
+        // Entities exist but none have usable forecast data: a data problem,
+        // not "no pollen". Show the no-info visual (the no_allergens silhouette
+        // filled with the no-data noise pattern) instead of the breezy image.
+        if (this.debug) {
+          console.debug(`[PollenPrognosCard] no usable forecast data (${name})`);
+        }
+        return html`
+          <ha-card>
+            ${this._renderNoInformationHtml()}
           </ha-card>
         `;
       }
@@ -2321,18 +1938,31 @@ class PollenPrognosCard extends LitElement {
       `;
     }
 
+    // Every remaining sensor is no-data (e.g. a threshold-0 config where each
+    // configured allergen has a missing/invalid reading): computeDisplayDays
+    // yields zero forecast columns, so the normal layout would render blank.
+    // Surface the no-information state instead. Mixed data/no-data keeps
+    // rendering normally (the no-data rows show the noise pattern).
+    if (this.sensors.length && this.days_to_show === 0) {
+      return html`
+        <ha-card>
+          ${this._renderNoInformationHtml()}
+        </ha-card>
+      `;
+    }
+
     const cardContent = this.config.minimal
       ? this._renderMinimalHtml()
       : this._renderNormalHtml();
 
-    const tapAction = this.config.tap_action || null;
+    // Bind only when the action resolves to a supported type, so an inert
+    // tap_action doesn't make the card clickable-but-dead (predicate shared
+    // with the badge in LevelCircleMixin).
+    const hasTap = resolveTapActionType(this.config.tap_action) !== null;
     const bgStyle = this.config.background_color?.trim?.()
       ? `background-color: ${this.config.background_color.trim()};`
       : "";
-    const cursorStyle =
-      tapAction && tapAction.type && tapAction.type !== "none"
-        ? "pointer"
-        : "auto";
+    const cursorStyle = hasTap ? "pointer" : "auto";
     const imgSize =
       Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
     const cardStyle = `
@@ -2344,9 +1974,7 @@ class PollenPrognosCard extends LitElement {
     return html`
       <ha-card
         style="${cardStyle}"
-        @click="${tapAction && tapAction.type && tapAction.type !== "none"
-          ? this._handleTapAction
-          : null}"
+        @click="${hasTap ? this._handleTapAction : null}"
       >
         ${cardContent}
       </ha-card>
@@ -2356,36 +1984,12 @@ class PollenPrognosCard extends LitElement {
     return this.sensors.length + 1;
   }
 
-  _handleTapAction(e) {
-    if (!this.tapAction || !this._hass) return;
-    e.preventDefault?.();
-    e.stopPropagation?.();
-    const action = this.tapAction.type || "more-info";
-    // Use sun.sun as a fallback, since it always exists in Home Assistant.
-    let entity = this.tapAction.entity || "sun.sun";
-    switch (action) {
-      case "more-info":
-        this._fire("hass-more-info", { entityId: entity });
-        break;
-      case "navigate":
-        if (this.tapAction.navigation_path)
-          window.history.pushState(null, "", this.tapAction.navigation_path);
-        break;
-      case "call-service":
-        if (
-          this.tapAction.service &&
-          typeof this.tapAction.service === "string"
-        ) {
-          const [domain, service] = this.tapAction.service.split(".");
-          this._hass.callService(
-            domain,
-            service,
-            this.tapAction.service_data || {},
-          );
-        }
-        break;
-    }
+  getGridOptions() {
+    return computeGridOptions(this.config);
   }
+
+  // _handleTapAction is inherited from LevelCircleMixin (shared with the badge).
+  // It resolves the action from this.tapAction, which setConfig keeps in sync.
 
   _fire(type, detail, options) {
     const event = new Event(type, {
@@ -2401,6 +2005,7 @@ class PollenPrognosCard extends LitElement {
 
   static get styles() {
     return css`
+      ${ringIconStyles}
       /* normalhtml */
       .forecast {
         width: 100%; /* Fyll hela kortet! */
@@ -2481,16 +2086,8 @@ class PollenPrognosCard extends LitElement {
         color: var(--pp-icon-color, var(--primary-text-color));
       }
 
-      .pp-icon svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-
-      .pp-icon svg g {
-        stroke: var(--pp-icon-stroke, none);
-        stroke-width: var(--pp-icon-stroke-width, 1);
-      }
+      /* .pp-icon svg, .pp-icon svg g and .pp-icon-no-data live in the shared
+         ringIconStyles fragment (identical in card and badge). */
 
       .pp-icon-placeholder {
         display: flex;
@@ -2533,6 +2130,23 @@ class PollenPrognosCard extends LitElement {
         height: auto;
         margin: 0 auto 6px auto;
       }
+
+      /* Summary qualifiers (issue #222): GPL's top types and plants-in-season,
+         two text rows under the aggregate. The aggregate carries the colour;
+         these only qualify it — a secondary-colour label in the allergen column
+         and the name list as primary-colour text to the right. */
+      .summary-qualifier-row td {
+        vertical-align: middle;
+        padding-top: 0;
+      }
+
+      .summary-q-label,
+      .summary-q-list {
+        color: var(--primary-text-color);
+      }
+
+      /* .ring-icon and .ring-icon svg live in the shared ringIconStyles
+         fragment (identical in card and badge). */
 
       .forecast-content {
         width: 100%;
@@ -2608,6 +2222,22 @@ class PollenPrognosCard extends LitElement {
         width: 100%;
         /* No font-size set here */
       }
+      /* Stale-only fallback layout — used when normal-mode render has
+         no day columns to anchor a table (e.g. every sensor stale and
+         show_empty_days=false). Lays sensors out vertically like the
+         minimal-mode stale rows. */
+      .stale-only-list {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+      }
+      .stale-only-list .sensor.minimal.stale {
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+      }
       .sensor.minimal {
         display: flex;
         flex-direction: column;
@@ -2639,13 +2269,7 @@ class PollenPrognosCard extends LitElement {
         display: block;
         vertical-align: middle;
       }
-      .level-value-text {
-        max-width: 100%;
-        max-height: 100%;
-        overflow: hidden;
-        text-align: center;
-        white-space: nowrap;
-      }
+      /* .level-value-text lives in the shared ringIconStyles fragment. */
 
       /* No allergens display */
       .no-allergens-container {

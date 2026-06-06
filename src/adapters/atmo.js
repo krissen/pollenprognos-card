@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, findLocationBySlug, isConfigEntryId } from "../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, findLocationBySlug, isConfigEntryId, coerceBool } from "../utils/adapter-helpers.js";
 
 // Mapping from canonical allergen names to French entity slugs used by Atmo France
 export const ATMO_ALLERGEN_MAP = {
@@ -61,6 +61,10 @@ export const stubConfigATMO = {
   pollen_threshold: 1,
   sort: "value_descending",
   allergy_risk_top: true,
+  // Summary block (issue #222): opt-in, additive, never duplicates by default.
+  show_summary_block: false,
+  show_summary_row: false,
+  show_summary_separator: true,
   sort_pollution_block: true,
   pollution_block_position: "bottom",
   show_block_separator: false,
@@ -493,6 +497,10 @@ export async function fetchForecast(hass, config) {
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
+      // Tag the pollen aggregate (NOT qualite_globale, which is air quality)
+      // so the card can render it as a summary block (issue #222).
+      if (allergen === "allergy_risk") dict.isSummary = true;
+
       // Sensor lookup (delegated to resolveEntityIds)
       const sensorId = entityMap.get(allergen);
       if (!sensorId) continue;
@@ -544,8 +552,12 @@ export async function fetchForecast(hass, config) {
         dict.days.push(dict[`day${idx}`]);
       });
 
-      // Threshold filter
-      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
+      // Threshold filter. The summary block (issue #222) needs the aggregate
+      // retained regardless of threshold, but only when the block is enabled,
+      // so existing row behaviour is unchanged when it is off.
+      const skipThreshold =
+        allergen === "allergy_risk" && coerceBool(config.show_summary_block);
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
     } catch (e) {
       console.warn(`ATMO adapter error for allergen ${allergen}:`, e);
     }

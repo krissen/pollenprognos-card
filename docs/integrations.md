@@ -24,11 +24,44 @@ The card tries to auto-detect which adapter to use based on your sensors. The ta
 | **Kleenex Pollen Radar** | Keep the default sensor names. Supports forecasts for Netherlands, UK, France, Italy and USA. Added in card **v2.6.0**. **Note**: The integration reports level as "low" even when ppm values are 0, while the card interprets 0 ppm as "none" level. This different interpretation may affect which allergens appear in the card, and the level of the allergen, as compared to the integration. To confirm what the card shows, open up the relevant sensor in the integration (`trees`, `weeds`, or `grass`). Look at the attributes. Even though the ppm **value** is `0` (no particles in the air) the **level** is shown as `low`. The card would instead show a ppm level of `0` as `none`. **US zones**: the upstream API does not return per-allergen breakdowns for North America. Only category totals are available. Use `allergens: [trees_cat, grass_cat, weeds_cat]` in your card config; individual allergens such as `birch` or `oak` will never appear for US zones. **EU/UK zones**: per-allergen data comes through the category sensors automatically. If individual allergens are missing, try enabling the per-allergen DetailSensor entities in HA (disabled by default in the entity registry under Settings → Devices & Services → Kleenex Pollen Radar). The card will detect and use them as a fallback when category-sensor details are empty. |
 | **Pollen.lu** | Keep the default sensor names. The integration exposes current-day pollen levels for Luxembourg with one sensor per allergen. Added in card **v2.8.0**. |
 | **Atmo France** | Keep the default sensor names. The integration provides pollen levels (0–6) for French cities with optional J+1 forecasts. Added in card **v2.9.0**. |
-| **Google Pollen Levels** | Entity names can be freely renamed or localized — the card detects sensors by their `platform` attribute or `attribution` string, not by entity ID patterns. Works with any Home Assistant language. Supports multi-location setups via separate config entries. Added in card **v2.9.0**. |
+| **Google Pollen Levels** | Entity names can be freely renamed or localized; the card detects sensors by their `platform` attribute or `attribution` string, not by entity ID patterns. Works with any Home Assistant language. Supports multi-location setups via separate config entries. Added in card **v2.9.0**. |
 | **Google Pollen** | For `home-assistant-google-pollen` by svenove. Uses the same Google Pollen API but a different HA integration. Sensors are detected by the `google_pollen` platform or entity prefix `sensor.google_pollen_*`. Allergens are classified primarily via `unique_id` (language-independent) with `display_name` lookup as fallback, covering all 35 languages the API supports via pre-generated name maps. The API returns up to 4 days of forecast. Supports multi-location setups via separate config entries. Added in card **v3.1.0**. |
 | **MeteoSwiss / hass-swissweather** | For [`hass-swissweather`](https://github.com/izacus/hass-swissweather) by [@izacus](https://github.com/izacus). Adapter contributed by [@r3turnNull](https://github.com/r3turnNull) (#212). Sensors are detected by the `swissweather` platform; entity IDs follow `sensor.<device-slug>_pollen_<allergen>_level_at_<station>` (the device-slug prefix is added by HA from the device name and changes if you rename the device via `name_by_user`). MeteoSwiss publishes only current-day measurements, so `days_to_show` is fixed at 1 by the card regardless of config. Categorical levels (`None` / `Low` / `Medium` / `Strong` / `Very Strong`) are mapped to the integration's native 5-level scale (0--4), matching how the card keeps each integration's native level count without stretching onto the shared 0--6 gradient. Allergens supported: birch, grass, alder, hazel, beech, ash, oak. Multi-station setups: pick the station via the `location` field (accepts `config_entry_id` ULID, label, or station code). Added in card **v3.2.0**. |
 
-## Google Pollen Levels — design decisions
+## Card previews per integration
+
+One representative card per integration, rendered from live sensors. Allergen names, level wording and the number of days follow each integration's own data.
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Pollenprognos card for Forshaga" src="screenshots/int-pp.png" /><br /><b>Pollenprognos</b> (Sweden)</td>
+    <td align="center" valign="top"><img width="360" alt="DWD Pollenflug card for Rheinland-Pfalz und Saarland" src="screenshots/int-dwd.png" /><br /><b>DWD Pollenflug</b> (Germany)</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Polleninformation EU card for Hamburg" src="screenshots/int-peu.png" /><br /><b>Polleninformation EU</b></td>
+    <td align="center" valign="top"><img width="360" alt="SILAM card for Stockholm" src="screenshots/int-silam.png" /><br /><b>SILAM Pollen Allergy Sensor</b></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Kleenex Pollen Radar card for Utrecht" src="screenshots/int-kleenex.png" /><br /><b>Kleenex Pollen Radar</b> (per-species)</td>
+    <td align="center" valign="top"><img width="360" alt="Atmo France card" src="screenshots/int-atmo.png" /><br /><b>Atmo France</b></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Pollen.lu card for Luxembourg" src="screenshots/int-plu.png" /><br /><b>Pollen.lu</b> (Luxembourg)</td>
+    <td align="center" valign="top"><img width="360" alt="Google Pollen Levels card" src="screenshots/int-gpl.png" /><br /><b>Google Pollen Levels</b></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="Google Pollen (svenove) card" src="screenshots/int-gp.png" /><br /><b>Google Pollen</b> (svenove)</td>
+    <td align="center" valign="top"><img width="360" alt="MeteoSwiss card for Zurich" src="screenshots/msw-zurich.png" /><br /><b>MeteoSwiss / hass-swissweather</b></td>
+  </tr>
+</table>
+
+## Badge compatibility
+
+The `pollenprognos-badge` element works with all integrations listed above. Configure it with the same `integration`, location (`city`, `region_id`, or `location` depending on the integration), and `allergens` keys as the card.
+
+`badge_content: aggregate` uses the integration's overall-risk sensor (the one the card tags as the summary). This is available out of the box for **GPL** (`allergy_risk`) and **Atmo** (`allergy_risk`, the pollen aggregate; Atmo's `qualite_globale` is air quality and is not used as the aggregate). For **SILAM** the aggregate is the index, but SILAM does not enable it by default, so add `index` to the badge's `allergens`. SILAM also drops the index on low-pollen days under the default `pollen_threshold: 1` (level 0 is filtered out), so set `pollen_threshold: 0` on the badge to keep it visible when low. For all other integrations, and for SILAM without the index, the badge automatically falls back to `badge_content: worst` (the allergen with the highest current level).
+
+## Google Pollen Levels: design decisions
 
 The Google Pollen Levels (GPL) adapter uses a different detection strategy than the other adapters. This section explains the design choices and how sensor discovery works.
 
@@ -44,9 +77,9 @@ The GPL adapter instead uses **attribute-based detection**: it examines sensor m
 
 The adapter tries two detection paths in order:
 
-1. **Primary — `hass.entities`**: Filters by `platform === "pollenlevels"` and excludes diagnostic sensors (`entity_category` is set on meta sensors like region, date, last_updated). This path also provides `device_id` for grouping sensors into locations.
+1. **Primary (`hass.entities`)**: Filters by `platform === "pollenlevels"` and excludes diagnostic sensors (`entity_category` is set on meta sensors like region, date, last_updated). This path also provides `device_id` for grouping sensors into locations.
 
-2. **Fallback — `hass.states`**: Scans all sensors for `attributes.attribution === "Data provided by Google Maps Pollen API"` and excludes `device_class: "date"` / `"timestamp"`. Used when `hass.entities` is not available or returns no results.
+2. **Fallback (`hass.states`)**: Scans all sensors for `attributes.attribution === "Data provided by Google Maps Pollen API"` and excludes `device_class: "date"` / `"timestamp"`. Used when `hass.entities` is not available or returns no results.
 
 ### Sensor classification
 
@@ -69,9 +102,16 @@ If only the fallback path is available, all sensors are grouped into a single de
 
 ### Level scale
 
-Google Pollen API uses a 0–5 scale. The card keeps this scale as-is and displays 5 segments in the doughnut chart (one per active level, excluding level 0 "None"). Level names are mapped to the card's standard terminology the same way as for Kleenex and PEU — the raw level is preserved for sorting and thresholds while the display text is looked up from the card's localized level name table.
+Google Pollen API uses a 0–5 scale. The card keeps this scale as-is and displays 5 segments in the doughnut chart (one per active level, excluding level 0 "None"). Level names are mapped to the card's standard terminology the same way as for Kleenex and PEU; the raw level is preserved for sorting and thresholds while the display text is looked up from the card's localized level name table.
 
-## Google Pollen (svenove) — design decisions
+### Summary block (Pollen Levels v2.1.0)
+
+Pollen Levels v2.1.0 adds an `overall_pollen_risk_today` sensor (mapped to the canonical `allergy_risk` key) and two sibling summary sensors. The card's summary block (`show_summary_block`) renders `allergy_risk` as a pinned row and, for GPL, two optional qualifier rows below it. Two design choices are worth noting:
+
+- **Top types are localized in the card's language, not the integration's.** The dominant pollen categories come from the summary sensor's `top_pollen_codes` (`TREE` / `GRASS` / `WEED`). Each code is mapped to the canonical category key (`trees_cat` / `grass_cat` / `weeds_cat`) and translated via the card's own locale files. The integration also ships pre-localized `top_pollen_names`, but those reflect whatever language that config entry fetched in (which may differ from the card), so they are used only as a per-item fallback for codes the card has no translation for.
+- **The in-season list comes from a sibling entity, resolved by config entry.** The plant list lives on the separate `plants_in_season_today` entity (`plant_codes` / `plant_names`), not on the summary entity. pollenlevels splits one location across several devices (pollen types vs plants), so the adapter resolves the sibling by **config entry** (not by device), matching on `translation_key` (the frontend's reduced `hass.entities` does not always expose `unique_id`). Plant names are localized the same way as the top types.
+
+## Google Pollen (svenove): design decisions
 
 The Google Pollen (GP) adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. Both GP and GPL use the same underlying Google Pollen API, but the two HA integrations expose data in different formats.
 
