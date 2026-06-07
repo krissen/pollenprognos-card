@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- **Visual editor restored on Home Assistant 2026.6** (issue #265). HA 2026.6 removed `ha-textfield` and migrated `ha-button`, which the editor relied on for every text/number input and reset/select-all control — so on 2026.6 the input boxes rendered empty and the reset buttons appeared as oversized circles, making the editor unusable (the card itself on dashboards was unaffected). The editor now uses its own inputs and buttons, styled with Home Assistant's theme tokens so they match the surrounding UI. No configuration changes.
 - **Editor number fields follow the Home Assistant profile, not the OS locale** (issue #263). The visual editor's numeric inputs (icon scale, text size, badge scale, level circle sizes, gaps, threshold, etc.) used native `type="number"` fields, whose decimal separator was dictated by the browser/OS locale. On a device whose OS uses a comma, a point was rejected even when the Home Assistant profile asked for a point, and an invalid entry could reset the value to `0`. Inputs now format and parse via the profile's `number_format` (point vs comma), accept either separator, clamp to range, and revert to the previous value instead of zeroing on invalid input. The threshold and days-to-show readouts follow the profile separator too.
 
 ## [3.3.0] - 2026-06-06
