@@ -40,6 +40,10 @@ import { t, detectLang, SUPPORTED_LOCALES } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import {
+  formatNumberForInput,
+  parseLocaleNumber,
+} from "../utils/number-format.js";
+import {
   LEVELS_DEFAULTS,
   convertStrokeWidthToGap,
   NORMAL_DEFAULT_THICKNESS,
@@ -166,6 +170,109 @@ export const sectionResetStyles = css`
   .section-reset:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 1px;
+  }
+`;
+
+/**
+ * Styling for the editor's own form controls, replacing HA's removed/migrated
+ * built-in components (`ha-textfield`, `ha-button`) on HA 2026.6+. Built only
+ * from HA theme tokens so native `<input>`/`<button>` match the surrounding HA
+ * form fields and inherit the user's theme. Shared by both editors.
+ */
+export const editorControlStyles = css`
+  /* Text/number input — emulates HA's filled textfield look. */
+  .pp-input {
+    font-family: inherit;
+    font-size: 1em;
+    color: var(--primary-text-color);
+    background: var(
+      --mdc-text-field-fill-color,
+      var(--secondary-background-color, rgba(0, 0, 0, 0.05))
+    );
+    border: none;
+    border-bottom: 1px solid
+      var(--mdc-text-field-idle-line-color, var(--divider-color, #ccc));
+    border-radius: 4px 4px 0 0;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    outline: none;
+    min-width: 0;
+  }
+  .pp-input:hover {
+    border-bottom-color: var(
+      --mdc-text-field-hover-line-color,
+      var(--primary-text-color, #212121)
+    );
+  }
+  .pp-input:focus {
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 5px;
+  }
+  .pp-input:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  /* Numeric variant keeps the compact width used next to the sliders. */
+  .pp-input.num-field {
+    width: 80px;
+    min-width: 80px;
+    max-width: 100px;
+    font-size: 1.1em;
+  }
+
+  /* Text button — outlined, like HA's buttons. */
+  .pp-button {
+    font-family: inherit;
+    font-size: 0.95em;
+    color: var(--primary-color);
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    padding: 6px 16px;
+    cursor: pointer;
+    line-height: 1.2;
+  }
+  .pp-button:hover {
+    background: rgba(var(--rgb-primary-color, 33, 150, 243), 0.08);
+  }
+  .pp-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+  .pp-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* Round reset (↺) button — same look as the per-section reset. */
+  .pp-icon-button {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--divider-color, #ccc);
+    background: transparent;
+    color: var(--secondary-text-color);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .pp-icon-button:hover,
+  .pp-icon-button:focus-visible {
+    background: var(--secondary-background-color);
+    color: var(--primary-text-color);
+  }
+  .pp-icon-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+  .pp-icon-button:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 `;
 
@@ -420,6 +527,119 @@ export class PollenEditorBase extends LitElement {
           : c.integration === "plu"
             ? { min: 0, max: 3, step: 1 }
             : { min: 0, max: 6, step: 1 };
+  }
+
+  /**
+   * Render a locale-aware numeric input. Uses our own native `<input>` (HA
+   * removed `ha-textfield` in 2026.6) styled via `.pp-input`. Honours the HA
+   * profile's number_format instead of the browser/OS locale and accepts either
+   * decimal separator. Commits on `change` (blur/enter) so a config-driven
+   * re-render doesn't reset the box mid-typing; the paired `<ha-slider>` keeps
+   * live preview while dragging.
+   */
+  _renderNumberField({
+    value,
+    min,
+    max,
+    step,
+    onValue,
+    width = "80px",
+    disabled = false,
+  }) {
+    const isInt = Number.isInteger(step ?? 1);
+    return html`
+      <input
+        class="pp-input num-field"
+        type="text"
+        inputmode=${isInt ? "numeric" : "decimal"}
+        .value=${formatNumberForInput(value, this._hass)}
+        ?disabled=${disabled}
+        style="width: ${width};"
+        @change=${(e) => {
+          let n = parseLocaleNumber(e.target.value, this._hass);
+          if (n === null) {
+            // Invalid/empty input: restore the displayed value from config.
+            // Assigning .value directly is required because Lit dirty-checks the
+            // bound .value expression: when the config is unchanged a re-render
+            // won't write back, so the invalid text would otherwise persist.
+            e.target.value = formatNumberForInput(value, this._hass);
+            return;
+          }
+          if (typeof min === "number") n = Math.max(min, n);
+          if (typeof max === "number") n = Math.min(max, n);
+          if (isInt) n = Math.round(n);
+          // Normalise the displayed text to the canonical formatted value so
+          // clamped/reformatted input (e.g. "999" -> "3", a different
+          // separator, trailing zeros) is reflected even when the resulting
+          // config value is unchanged (same Lit dirty-check caveat).
+          e.target.value = formatNumberForInput(n, this._hass);
+          onValue(n);
+        }}
+      />
+    `;
+  }
+
+  /**
+   * Render a text input using our own native `<input>` (`.pp-input`), replacing
+   * HA's removed `ha-textfield`. Commits live on `input`, mirroring the previous
+   * `ha-textfield @input` behaviour. `onInput` receives the raw string value.
+   */
+  _renderTextField({
+    value,
+    onInput,
+    placeholder = "",
+    width = "",
+    type = "text",
+    disabled = false,
+  }) {
+    return html`
+      <input
+        class="pp-input"
+        type=${type}
+        .value=${value ?? ""}
+        placeholder=${placeholder}
+        ?disabled=${disabled}
+        style=${width ? `width: ${width};` : ""}
+        @input=${(e) => onInput(e.target.value)}
+      />
+    `;
+  }
+
+  /**
+   * Render the round reset (↺) button using a native `<button>`
+   * (`.pp-icon-button`), replacing HA's migrated `ha-button`.
+   */
+  _renderResetButton({ title = "", onClick, style = "", disabled = false }) {
+    return html`
+      <button
+        class="pp-icon-button"
+        type="button"
+        title=${title}
+        style=${style}
+        ?disabled=${disabled}
+        @click=${onClick}
+      >
+        ↺
+      </button>
+    `;
+  }
+
+  /**
+   * Render a text button (select-all, apply, reset-all) using a native
+   * `<button>` (`.pp-button`), replacing HA's migrated `ha-button`.
+   */
+  _renderTextButton({ label, onClick, style = "", disabled = false }) {
+    return html`
+      <button
+        class="pp-button"
+        type="button"
+        style=${style}
+        ?disabled=${disabled}
+        @click=${onClick}
+      >
+        ${label}
+      </button>
+    `;
   }
 
   // ------------------------------------------------------------------
@@ -774,30 +994,28 @@ export class PollenEditorBase extends LitElement {
               <details>
                 <summary>${this._t("summary_entity_prefix_suffix")}</summary>
                 <ha-formfield label="${this._t("entity_prefix")}">
-                  <ha-textfield
-                    .value=${c.entity_prefix || ""}
-                    placeholder="${this._t("entity_prefix_placeholder")}"
-                    @input=${(e) =>
-                      this._updateConfig("entity_prefix", e.target.value)}
-                  ></ha-textfield>
+                  ${this._renderTextField({
+                    value: c.entity_prefix || "",
+                    placeholder: this._t("entity_prefix_placeholder"),
+                    onInput: (v) => this._updateConfig("entity_prefix", v),
+                  })}
                 </ha-formfield>
                 <ha-formfield label="${this._t("entity_suffix")}">
-                  <ha-textfield
-                    .value=${c.entity_suffix || ""}
-                    placeholder="${this._t("entity_suffix_placeholder")}"
-                    @input=${(e) =>
-                      this._updateConfig("entity_suffix", e.target.value)}
-                  ></ha-textfield>
+                  ${this._renderTextField({
+                    value: c.entity_suffix || "",
+                    placeholder: this._t("entity_suffix_placeholder"),
+                    onInput: (v) => this._updateConfig("entity_suffix", v),
+                  })}
                 </ha-formfield>
                 ${c.integration === "silam"
                   ? html`
                       <ha-formfield label="${this._t("entity_weather")}">
-                        <ha-textfield
-                          .value=${c.entity_weather || ""}
-                          placeholder="${this._t("entity_weather_placeholder")}"
-                          @input=${(e) =>
-                            this._updateConfig("entity_weather", e.target.value)}
-                        ></ha-textfield>
+                        ${this._renderTextField({
+                          value: c.entity_weather || "",
+                          placeholder: this._t("entity_weather_placeholder"),
+                          onInput: (v) =>
+                            this._updateConfig("entity_weather", v),
+                        })}
                       </ha-formfield>
                     `
                   : ""}
@@ -836,23 +1054,23 @@ export class PollenEditorBase extends LitElement {
                 </ha-formfield>
               </div>
               <ha-formfield label="${this._t("title")}">
-                <ha-textfield
-                  .value=${typeof c.title === "string"
-                    ? c.title
-                    : c.title === false
-                      ? "(false)"
-                      : ""}
-                  placeholder="${this._t("title_placeholder")}"
-                  .disabled=${c.title === false}
-                  @input=${(e) => {
-                    const val = e.target.value;
+                ${this._renderTextField({
+                  value:
+                    typeof c.title === "string"
+                      ? c.title
+                      : c.title === false
+                        ? "(false)"
+                        : "",
+                  placeholder: this._t("title_placeholder"),
+                  disabled: c.title === false,
+                  onInput: (val) => {
                     if (val.trim() === "") {
                       this._updateConfig("title", true);
                     } else {
                       this._updateConfig("title", val);
                     }
-                  }}
-                ></ha-textfield>
+                  },
+                })}
               </ha-formfield>
             `
           : ""}
@@ -1060,46 +1278,43 @@ export class PollenEditorBase extends LitElement {
                 </div>
               `}
         <div class="preset-buttons">
-          <ha-button
-            @click=${() => {
+          ${this._renderTextButton({
+            label: this._t("select_all_allergens"),
+            onClick: () => {
               const allAllergens =
                 c.integration === "kleenex"
                   ? [...allergens, "trees_cat", "grass_cat", "weeds_cat"]
                   : allergens;
               this._toggleSelectAllAllergens(allAllergens);
-            }}
-          >
-            ${this._t("select_all_allergens")}
-          </ha-button>
+            },
+          })}
           ${c.integration === "atmo"
             ? html`
-                <ha-button
-                  @click=${() => {
+                ${this._renderTextButton({
+                  label: this._t("select_all_pollen"),
+                  onClick: () => {
                     const pollenKeys = allergens.filter(
                       (k) =>
                         !["allergy_risk", "qualite_globale", "pm25", "pm10", "ozone", "no2", "so2"].includes(k),
                     );
                     this._toggleAllergenSubset(pollenKeys);
-                  }}
-                >
-                  ${this._t("select_all_pollen")}
-                </ha-button>
-                <ha-button
-                  @click=${() => {
+                  },
+                })}
+                ${this._renderTextButton({
+                  label: this._t("select_all_pollution"),
+                  onClick: () => {
                     const pollutionKeys = ["pm25", "pm10", "ozone", "no2", "so2"].filter(
                       (k) => allergens.includes(k),
                     );
                     this._toggleAllergenSubset(pollutionKeys);
-                  }}
-                >
-                  ${this._t("select_all_pollution")}
-                </ha-button>
+                  },
+                })}
               `
             : ""}
         </div>
         <div class="slider-row">
           <div class="slider-text">${this._t("pollen_threshold")}</div>
-          <div class="slider-value">${c.pollen_threshold}</div>
+          <div class="slider-value">${formatNumberForInput(c.pollen_threshold, this._hass)}</div>
           <ha-slider
             min="${thresholdParams.min}"
             max="${thresholdParams.max}"
@@ -1346,14 +1561,12 @@ export class PollenEditorBase extends LitElement {
         <div class="section-helper">${this._appearanceSectionHelper()}</div>
         <ha-formfield label="${this._t("background_color")}">
             <div style="display:flex; gap:8px; align-items:center;">
-              <ha-textfield
-                .value=${c.background_color || ""}
-                placeholder="${this._t("background_color_placeholder") ||
-                "#ffffff"}"
-                @input=${(e) =>
-                  this._updateConfig("background_color", e.target.value)}
-                style="width: 120px;"
-              ></ha-textfield>
+              ${this._renderTextField({
+                value: c.background_color || "",
+                placeholder: this._t("background_color_placeholder") || "#ffffff",
+                width: "120px",
+                onInput: (v) => this._updateConfig("background_color", v),
+              })}
               <input
                 type="color"
                 .value=${c.background_color &&
@@ -1379,16 +1592,13 @@ export class PollenEditorBase extends LitElement {
                       this._updateConfig("icon_size", Number(e.target.value))}
                     style="width: 120px;"
                   ></ha-slider>
-                  <ha-textfield
-                    .value=${c.icon_size ?? 48}
-                    type="number"
-                    min="16"
-                    max="128"
-                    step="1"
-                    @input=${(e) =>
-                      this._updateConfig("icon_size", Number(e.target.value))}
-                    style="width: 80px;"
-                  ></ha-textfield>
+                  ${this._renderNumberField({
+                    value: c.icon_size ?? 48,
+                    min: 16,
+                    max: 128,
+                    step: 1,
+                    onValue: (n) => this._updateConfig("icon_size", n),
+                  })}
                 </ha-formfield>
                 <ha-formfield label="${this._t("text_size_ratio")}">
                   <ha-slider
@@ -1403,19 +1613,13 @@ export class PollenEditorBase extends LitElement {
                       )}
                     style="width: 120px;"
                   ></ha-slider>
-                  <ha-textfield
-                    type="number"
-                    .value=${c.text_size_ratio ?? 1}
-                    min="0.5"
-                    max="2"
-                    step="0.05"
-                    @input=${(e) =>
-                      this._updateConfig(
-                        "text_size_ratio",
-                        Number(e.target.value),
-                      )}
-                    style="width: 80px;"
-                  ></ha-textfield>
+                  ${this._renderNumberField({
+                    value: c.text_size_ratio ?? 1,
+                    min: 0.5,
+                    max: 2,
+                    step: 0.05,
+                    onValue: (n) => this._updateConfig("text_size_ratio", n),
+                  })}
                 </ha-formfield>
               `
             : ""}
@@ -1539,28 +1743,29 @@ export class PollenEditorBase extends LitElement {
                                 }}
                                 style="width: 28px; height: 28px; border: none; background: none;"
                               />
-                              <ha-textfield
-                                .value=${col}
-                                placeholder="${i === 0
-                                  ? this._t("allergen_empty_placeholder") ||
-                                    "rgba(200,200,200,0.15)"
-                                  : this._t("allergen_colors_placeholder") ||
-                                    "#ffcc00"}"
-                                @input=${(e) => {
+                              ${this._renderTextField({
+                                value: col,
+                                placeholder:
+                                  i === 0
+                                    ? this._t("allergen_empty_placeholder") ||
+                                      "rgba(200,200,200,0.15)"
+                                    : this._t("allergen_colors_placeholder") ||
+                                      "#ffcc00",
+                                width: "120px",
+                                onInput: (v) => {
                                   const newColors = [...allergenColors];
-                                  newColors[i] = e.target.value;
+                                  newColors[i] = v;
                                   this._updateConfig(
                                     "allergen_colors",
                                     newColors,
                                   );
-                                }}
-                                style="width: 120px;"
-                              ></ha-textfield>
-                              <ha-button
-                                outlined
-                                title="${this._t("allergen_colors_reset") ||
-                                "Reset"}"
-                                @click=${() => {
+                                },
+                              })}
+                              ${this._renderResetButton({
+                                title:
+                                  this._t("allergen_colors_reset") || "Reset",
+                                style: "margin-left: 8px;",
+                                onClick: () => {
                                   const newColors = [...allergenColors];
                                   newColors[i] =
                                     LEVELS_DEFAULTS.allergen_colors[i];
@@ -1568,10 +1773,8 @@ export class PollenEditorBase extends LitElement {
                                     "allergen_colors",
                                     newColors,
                                   );
-                                }}
-                                style="margin-left: 8px;"
-                                >↺</ha-button
-                              >
+                                },
+                              })}
                             </div>
                           `,
                         );
@@ -1602,31 +1805,27 @@ export class PollenEditorBase extends LitElement {
                           )}
                         style="width: 28px; height: 28px; border: none; background: none;"
                       />
-                      <ha-textfield
-                        .value=${c.no_allergens_color ||
-                        LEVELS_DEFAULTS.no_allergens_color}
-                        placeholder="${this._t(
-                          "no_allergens_color_placeholder",
-                        ) || "#a9cfe0"}"
-                        @input=${(e) =>
-                          this._updateConfig(
-                            "no_allergens_color",
-                            e.target.value,
-                          )}
-                        style="width: 100px;"
-                      ></ha-textfield>
-                      <ha-button
-                        outlined
-                        title="${this._t("no_allergens_color_reset") ||
-                        "Reset"}"
-                        @click=${() =>
+                      ${this._renderTextField({
+                        value:
+                          c.no_allergens_color ||
+                          LEVELS_DEFAULTS.no_allergens_color,
+                        placeholder:
+                          this._t("no_allergens_color_placeholder") ||
+                          "#a9cfe0",
+                        width: "100px",
+                        onInput: (v) =>
+                          this._updateConfig("no_allergens_color", v),
+                      })}
+                      ${this._renderResetButton({
+                        title:
+                          this._t("no_allergens_color_reset") || "Reset",
+                        style: "margin-left: 8px;",
+                        onClick: () =>
                           this._updateConfig(
                             "no_allergens_color",
                             LEVELS_DEFAULTS.no_allergens_color,
-                          )}
-                        style="margin-left: 8px;"
-                        >↺</ha-button
-                      >
+                          ),
+                      })}
                     </div>
                   </ha-formfield>
                 `
@@ -1655,30 +1854,24 @@ export class PollenEditorBase extends LitElement {
                 )}
               style="width: 28px; height: 28px; border: none; background: none;"
             />
-            <ha-textfield
-              .value=${c.allergen_outline_color ||
-              LEVELS_DEFAULTS.levels_gap_color}
-              placeholder="${this._t(
-                "allergen_outline_placeholder",
-              ) || "rgba(200,200,200,1)"}"
-              @input=${(e) =>
-                this._updateConfig(
-                  "allergen_outline_color",
-                  e.target.value,
-                )}
-              style="width: 100px;"
-            ></ha-textfield>
-            <ha-button
-              outlined
-              title="${this._t("allergen_outline_reset") || "Reset"}"
-              @click=${() =>
+            ${this._renderTextField({
+              value:
+                c.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color,
+              placeholder:
+                this._t("allergen_outline_placeholder") || "rgba(200,200,200,1)",
+              width: "100px",
+              onInput: (v) =>
+                this._updateConfig("allergen_outline_color", v),
+            })}
+            ${this._renderResetButton({
+              title: this._t("allergen_outline_reset") || "Reset",
+              style: "margin-left: 8px;",
+              onClick: () =>
                 this._updateConfig(
                   "allergen_outline_color",
                   LEVELS_DEFAULTS.levels_gap_color,
-                )}
-              style="margin-left: 8px;"
-              >↺</ha-button
-            >
+                ),
+            })}
           </div>
         </ha-formfield>
         <ha-formfield
@@ -1712,34 +1905,29 @@ export class PollenEditorBase extends LitElement {
             }}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            min="0"
-            max="150"
-            step="5"
-            .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
-            @input=${(e) => {
-              const value = e.target.value === "" ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
+          ${this._renderNumberField({
+            value: c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width,
+            min: 0,
+            max: 150,
+            step: 5,
+            onValue: (value) => {
               this._updateConfig("allergen_stroke_width", value);
               const { inheritMode, gapSynced } = this._inheritState();
               if (inheritMode === "inherit_allergen" && gapSynced) {
                 const levelGap = convertStrokeWidthToGap(value);
                 this._updateConfig("levels_gap", levelGap);
               }
-            }}
-            style="width: 80px;"
-          ></ha-textfield>
-          <ha-button
-            outlined
-            title="${this._t("allergen_stroke_width_reset") || "Reset"}"
-            @click=${() =>
+            },
+          })}
+          ${this._renderResetButton({
+            title: this._t("allergen_stroke_width_reset") || "Reset",
+            style: "margin-left: 8px;",
+            onClick: () =>
               this._updateConfig(
                 "allergen_stroke_width",
                 LEVELS_DEFAULTS.allergen_stroke_width,
-              )}
-            style="margin-left: 8px;"
-            >↺</ha-button
-          >
+              ),
+          })}
         </ha-formfield>
         <div class="field-helper">${this._t("helper_allergen_stroke_width")}</div>
       </details>
@@ -1837,27 +2025,25 @@ export class PollenEditorBase extends LitElement {
                           }}
                           style="width: 28px; height: 28px; border: none; background: none;"
                         />
-                        <ha-textfield
-                          .value=${col}
-                          placeholder="${this._t("levels_colors_placeholder")}"
-                          @input=${(e) => {
+                        ${this._renderTextField({
+                          value: col,
+                          placeholder: this._t("levels_colors_placeholder"),
+                          width: "100px",
+                          onInput: (v) => {
                             const newColors = [...c.levels_colors];
-                            newColors[i] = e.target.value;
+                            newColors[i] = v;
                             this._updateConfig("levels_colors", newColors);
-                          }}
-                          style="width: 100px;"
-                        ></ha-textfield>
-                        <ha-button
-                          outlined
-                          title="${this._t("levels_reset")}"
-                          @click=${() => {
+                          },
+                        })}
+                        ${this._renderResetButton({
+                          title: this._t("levels_reset"),
+                          style: "margin-left: 8px;",
+                          onClick: () => {
                             const newColors = [...c.levels_colors];
                             newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
                             this._updateConfig("levels_colors", newColors);
-                          }}
-                          style="margin-left: 8px;"
-                          >↺</ha-button
-                        >
+                          },
+                        })}
                       </div>
                     `,
                   )}
@@ -1883,24 +2069,22 @@ export class PollenEditorBase extends LitElement {
                       this._updateConfig("levels_empty_color", e.target.value)}
                     style="width: 28px; height: 28px; border: none; background: none;"
                   />
-                  <ha-textfield
-                    .value=${c.levels_empty_color}
-                    placeholder="${this._t("levels_colors_placeholder")}"
-                    @input=${(e) =>
-                      this._updateConfig("levels_empty_color", e.target.value)}
-                    style="width: 100px;"
-                  ></ha-textfield>
-                  <ha-button
-                    outlined
-                    title="${this._t("levels_reset")}"
-                    @click=${() =>
+                  ${this._renderTextField({
+                    value: c.levels_empty_color,
+                    placeholder: this._t("levels_colors_placeholder"),
+                    width: "100px",
+                    onInput: (v) =>
+                      this._updateConfig("levels_empty_color", v),
+                  })}
+                  ${this._renderResetButton({
+                    title: this._t("levels_reset"),
+                    style: "margin-left: 8px;",
+                    onClick: () =>
                       this._updateConfig(
                         "levels_empty_color",
                         LEVELS_DEFAULTS.levels_empty_color,
-                      )}
-                    style="margin-left: 8px;"
-                    >↺</ha-button
-                  >
+                      ),
+                  })}
                 </div>
               </ha-formfield>
             `
@@ -1916,21 +2100,19 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_thickness", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_thickness}
-            @input=${(e) =>
-              this._updateConfig("levels_thickness", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-          <ha-button
-            outlined
-            title="${this._t("levels_reset")}"
-            @click=${() =>
-              this._updateConfig("levels_thickness", LEVELS_DEFAULTS.levels_thickness)}
-            style="margin-left: 8px;"
-            >↺</ha-button
-          >
+          ${this._renderNumberField({
+            value: c.levels_thickness,
+            min: 10,
+            max: 90,
+            step: 1,
+            onValue: (n) => this._updateConfig("levels_thickness", n),
+          })}
+          ${this._renderResetButton({
+            title: this._t("levels_reset"),
+            style: "margin-left: 8px;",
+            onClick: () =>
+              this._updateConfig("levels_thickness", LEVELS_DEFAULTS.levels_thickness),
+          })}
         </ha-formfield>
 
         <ha-formfield
@@ -1947,23 +2129,21 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_gap", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_gap}
-            .disabled=${gapDisabled}
-            @input=${(e) =>
-              this._updateConfig("levels_gap", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
-          <ha-button
-            outlined
-            title="${this._t("levels_reset")}"
-            .disabled=${gapDisabled}
-            @click=${() =>
-              this._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap)}
-            style="margin-left: 8px;"
-            >↺</ha-button
-          >
+          ${this._renderNumberField({
+            value: c.levels_gap,
+            min: 0,
+            max: 20,
+            step: 1,
+            disabled: gapDisabled,
+            onValue: (n) => this._updateConfig("levels_gap", n),
+          })}
+          ${this._renderResetButton({
+            title: this._t("levels_reset"),
+            style: "margin-left: 8px;",
+            disabled: gapDisabled,
+            onClick: () =>
+              this._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap),
+          })}
         </ha-formfield>
         <div class="field-helper">
           ${gapDisabled
@@ -1991,24 +2171,21 @@ export class PollenEditorBase extends LitElement {
                       this._updateConfig("levels_gap_color", e.target.value)}
                     style="width: 28px; height: 28px; border: none; background: none;"
                   />
-                  <ha-textfield
-                    .value=${c.levels_gap_color}
-                    placeholder="${this._t("levels_colors_placeholder")}"
-                    @input=${(e) =>
-                      this._updateConfig("levels_gap_color", e.target.value)}
-                    style="width: 100px;"
-                  ></ha-textfield>
-                  <ha-button
-                    outlined
-                    title="${this._t("levels_reset")}"
-                    @click=${() =>
+                  ${this._renderTextField({
+                    value: c.levels_gap_color,
+                    placeholder: this._t("levels_colors_placeholder"),
+                    width: "100px",
+                    onInput: (v) => this._updateConfig("levels_gap_color", v),
+                  })}
+                  ${this._renderResetButton({
+                    title: this._t("levels_reset"),
+                    style: "margin-left: 8px;",
+                    onClick: () =>
                       this._updateConfig(
                         "levels_gap_color",
                         LEVELS_DEFAULTS.levels_gap_color,
-                      )}
-                    style="margin-left: 8px;"
-                    >↺</ha-button
-                  >
+                      ),
+                  })}
                 </div>
               </ha-formfield>
             `
@@ -2090,13 +2267,13 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_text_size", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_text_size || 0.3}
-            @input=${(e) =>
-              this._updateConfig("levels_text_size", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
+          ${this._renderNumberField({
+            value: c.levels_text_size || 0.3,
+            min: 0.1,
+            max: 0.5,
+            step: 0.05,
+            onValue: (n) => this._updateConfig("levels_text_size", n),
+          })}
         </ha-formfield>
 
         <ha-formfield label="${this._t("levels_icon_ratio")}">
@@ -2109,13 +2286,13 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_icon_ratio", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_icon_ratio || 1}
-            @input=${(e) =>
-              this._updateConfig("levels_icon_ratio", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
+          ${this._renderNumberField({
+            value: c.levels_icon_ratio || 1,
+            min: 0.1,
+            max: 2,
+            step: 0.05,
+            onValue: (n) => this._updateConfig("levels_icon_ratio", n),
+          })}
         </ha-formfield>
 
         <ha-formfield label="${this._t("levels_text_color")}">
@@ -2131,13 +2308,12 @@ export class PollenEditorBase extends LitElement {
                 this._updateConfig("levels_text_color", e.target.value)}
               style="width: 28px; height: 28px; border: none; background: none;"
             />
-            <ha-textfield
-              .value=${c.levels_text_color || ""}
-              placeholder="var(--primary-text-color)"
-              @input=${(e) =>
-                this._updateConfig("levels_text_color", e.target.value)}
-              style="width: 100px;"
-            ></ha-textfield>
+            ${this._renderTextField({
+              value: c.levels_text_color || "",
+              placeholder: "var(--primary-text-color)",
+              width: "100px",
+              onInput: (v) => this._updateConfig("levels_text_color", v),
+            })}
           </div>
         </ha-formfield>
       </details>
@@ -2194,20 +2370,16 @@ export class PollenEditorBase extends LitElement {
                   Number(e.target.value),
                 )}
             ></ha-slider>
-            <ha-textfield
-              type="number"
-              min="0.2"
-              max="0.9"
-              step="0.05"
-              .value=${c.icon_in_ring_size_ratio ??
-              LEVELS_DEFAULTS.icon_in_ring_size_ratio}
-              @change=${(e) =>
-                this._updateConfig(
-                  "icon_in_ring_size_ratio",
-                  Number(e.target.value),
-                )}
-              style="width: 80px;"
-            ></ha-textfield>
+            ${this._renderNumberField({
+              value:
+                c.icon_in_ring_size_ratio ??
+                LEVELS_DEFAULTS.icon_in_ring_size_ratio,
+              min: 0.2,
+              max: 0.9,
+              step: 0.05,
+              onValue: (n) =>
+                this._updateConfig("icon_in_ring_size_ratio", n),
+            })}
           </div>
         </ha-formfield>
         <ha-formfield
@@ -2262,16 +2434,13 @@ export class PollenEditorBase extends LitElement {
                       )}
                     style="width: 28px; height: 28px; border: none; background: none;"
                   />
-                  <ha-textfield
-                    .value=${c.icon_in_ring_static_color || ""}
-                    placeholder="${LEVELS_DEFAULTS.icon_in_ring_static_color}"
-                    @input=${(e) =>
-                      this._updateConfig(
-                        "icon_in_ring_static_color",
-                        e.target.value,
-                      )}
-                    style="width: 100px;"
-                  ></ha-textfield>
+                  ${this._renderTextField({
+                    value: c.icon_in_ring_static_color || "",
+                    placeholder: LEVELS_DEFAULTS.icon_in_ring_static_color,
+                    width: "100px",
+                    onInput: (v) =>
+                      this._updateConfig("icon_in_ring_static_color", v),
+                  })}
                 </div>
               </ha-formfield>
             `
@@ -2383,10 +2552,10 @@ export class PollenEditorBase extends LitElement {
           ${this._t("helper_translation_and_strings")}
         </div>
         <ha-formfield label="${this._t("locale")}">
-          <ha-textfield
-            .value=${dateLocale || ""}
-            @input=${(e) => this._updateConfig("date_locale", e.target.value)}
-          ></ha-textfield>
+          ${this._renderTextField({
+            value: dateLocale || "",
+            onInput: (v) => this._updateConfig("date_locale", v),
+          })}
         </ha-formfield>
         <h3>${this._t("phrases")}</h3>
         <div class="preset-buttons">
@@ -2412,29 +2581,27 @@ export class PollenEditorBase extends LitElement {
               }}
             ></ha-selector>
           </ha-formfield>
-          <ha-button
-            outlined
-            @click=${() =>
-              this._resetPhrases(this._selectedPhraseLang || selectedLang)}
-          >
-            ${this._t("phrases_apply")}
-          </ha-button>
+          ${this._renderTextButton({
+            label: this._t("phrases_apply"),
+            onClick: () =>
+              this._resetPhrases(this._selectedPhraseLang || selectedLang),
+          })}
         </div>
         <details>
           <summary>${this._t("phrases_full")}</summary>
           ${allergens.map(
             (a) => html`
               <ha-formfield .label=${a}>
-                <ha-textfield
-                  .value=${full[a] || ""}
-                  @input=${(e) => {
+                ${this._renderTextField({
+                  value: full[a] || "",
+                  onInput: (v) => {
                     const p = {
                       ...phrases,
-                      full: { ...full, [a]: e.target.value },
+                      full: { ...full, [a]: v },
                     };
                     this._updateConfig("phrases", p);
-                  }}
-                ></ha-textfield>
+                  },
+                })}
               </ha-formfield>
             `,
           )}
@@ -2446,16 +2613,16 @@ export class PollenEditorBase extends LitElement {
                 ${allergens.map(
                   (a) => html`
                     <ha-formfield .label=${a}>
-                      <ha-textfield
-                        .value=${short[a] || ""}
-                        @input=${(e) => {
+                      ${this._renderTextField({
+                        value: short[a] || "",
+                        onInput: (v) => {
                           const p = {
                             ...phrases,
-                            short: { ...short, [a]: e.target.value },
+                            short: { ...short, [a]: v },
                           };
                           this._updateConfig("phrases", p);
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                   `,
                 )}
@@ -2469,17 +2636,17 @@ export class PollenEditorBase extends LitElement {
                 ${Array.from({ length: numLevels }, (_, i) => i).map(
                   (i) => html`
                     <ha-formfield .label=${i}>
-                      <ha-textfield
-                        .value=${levels[i] || ""}
-                        @input=${(e) => {
+                      ${this._renderTextField({
+                        value: levels[i] || "",
+                        onInput: (v) => {
                           const lv = [...levels];
-                          lv[i] = e.target.value;
+                          lv[i] = v;
                           this._updateConfig("phrases", {
                             ...phrases,
                             levels: lv,
                           });
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                   `,
                 )}
@@ -2493,16 +2660,16 @@ export class PollenEditorBase extends LitElement {
                 ${[0, 1, 2].map(
                   (i) => html`
                     <ha-formfield .label=${i}>
-                      <ha-textfield
-                        .value=${days[i] || ""}
-                        @input=${(e) => {
-                          const dd = { ...days, [i]: e.target.value };
+                      ${this._renderTextField({
+                        value: days[i] || "",
+                        onInput: (v) => {
+                          const dd = { ...days, [i]: v };
                           this._updateConfig("phrases", {
                             ...phrases,
                             days: dd,
                           });
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                   `,
                 )}
@@ -2510,14 +2677,14 @@ export class PollenEditorBase extends LitElement {
             `
           : ""}
         <ha-formfield label="${this._t("no_information")}">
-          <ha-textfield
-            .value=${phrases.no_information || ""}
-            @input=${(e) =>
+          ${this._renderTextField({
+            value: phrases.no_information || "",
+            onInput: (v) =>
               this._updateConfig("phrases", {
                 ...phrases,
-                no_information: e.target.value,
-              })}
-          ></ha-textfield>
+                no_information: v,
+              }),
+          })}
         </ha-formfield>
       </details>
     `;
@@ -2722,42 +2889,42 @@ export class PollenEditorBase extends LitElement {
               ${this._tapType === "more-info"
                 ? html`
                     <ha-formfield label="${this._t("tap_action_entity")}">
-                      <ha-textfield
-                        .value=${this._tapEntity}
-                        @input=${(e) => {
-                          this._tapEntity = e.target.value;
+                      ${this._renderTextField({
+                        value: this._tapEntity,
+                        onInput: (v) => {
+                          this._tapEntity = v;
                           this._updateConfig("tap_action", {
                             type: "more-info",
                             entity: this._tapEntity,
                           });
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                   `
                 : ""}
               ${this._tapType === "navigate"
                 ? html`
                     <ha-formfield label="${this._t("tap_action_navigation_path")}">
-                      <ha-textfield
-                        .value=${this._tapNavigation}
-                        @input=${(e) => {
-                          this._tapNavigation = e.target.value;
+                      ${this._renderTextField({
+                        value: this._tapNavigation,
+                        onInput: (v) => {
+                          this._tapNavigation = v;
                           this._updateConfig("tap_action", {
                             type: "navigate",
                             navigation_path: this._tapNavigation,
                           });
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                   `
                 : ""}
               ${this._tapType === "call-service"
                 ? html`
                     <ha-formfield label="${this._t("tap_action_service")}">
-                      <ha-textfield
-                        .value=${this._tapService}
-                        @input=${(e) => {
-                          this._tapService = e.target.value;
+                      ${this._renderTextField({
+                        value: this._tapService,
+                        onInput: (v) => {
+                          this._tapService = v;
                           let data = {};
                           try {
                             data = JSON.parse(this._tapServiceData || "{}");
@@ -2767,14 +2934,14 @@ export class PollenEditorBase extends LitElement {
                             service: this._tapService,
                             service_data: data,
                           });
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                     <ha-formfield label="${this._t("tap_action_service_data")}">
-                      <ha-textfield
-                        .value=${this._tapServiceData}
-                        @input=${(e) => {
-                          this._tapServiceData = e.target.value;
+                      ${this._renderTextField({
+                        value: this._tapServiceData,
+                        onInput: (v) => {
+                          this._tapServiceData = v;
                           let data = {};
                           try {
                             data = JSON.parse(this._tapServiceData || "{}");
@@ -2784,8 +2951,8 @@ export class PollenEditorBase extends LitElement {
                             service: this._tapService,
                             service_data: data,
                           });
-                        }}
-                      ></ha-textfield>
+                        },
+                      })}
                     </ha-formfield>
                   `
                 : ""}
