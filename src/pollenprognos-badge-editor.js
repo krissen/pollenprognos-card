@@ -623,16 +623,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
             this._updateConfig("badge_scale", Number(e.target.value))}
           style="width: 120px;"
         ></ha-slider>
-        <ha-textfield
-          type="number"
-          min="0.5"
-          max="3"
-          step="0.1"
-          .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
-          @input=${(e) =>
-            this._updateConfig("badge_scale", Number(e.target.value))}
-          style="width: 80px;"
-        ></ha-textfield>
+        ${this._renderNumberField({
+          value: typeof c.badge_scale === "number" ? c.badge_scale : 1,
+          min: 0.5,
+          max: 3,
+          step: 0.1,
+          onValue: (n) => this._updateConfig("badge_scale", n),
+        })}
       </ha-formfield>
 
       <!-- badge_icon_scale: scale the allergen visual as a whole — the ring
@@ -651,18 +648,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
             this._updateConfig("badge_icon_scale", Number(e.target.value))}
           style="width: 120px;"
         ></ha-slider>
-        <ha-textfield
-          type="number"
-          min="0.3"
-          max="3"
-          step="0.05"
-          .value=${typeof c.badge_icon_scale === "number"
-            ? c.badge_icon_scale
-            : 1}
-          @input=${(e) =>
-            this._updateConfig("badge_icon_scale", Number(e.target.value))}
-          style="width: 80px;"
-        ></ha-textfield>
+        ${this._renderNumberField({
+          value: typeof c.badge_icon_scale === "number" ? c.badge_icon_scale : 1,
+          min: 0.3,
+          max: 3,
+          step: 0.05,
+          onValue: (n) => this._updateConfig("badge_icon_scale", n),
+        })}
       </ha-formfield>
 
       <!-- badge_show_label / badge_label_position -->
@@ -906,7 +898,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         margin-right: 24px;
       }
 
-      ha-textfield[type="number"] {
+      ha-textfield.num-field {
         width: 80px;
         min-width: 80px;
         max-width: 100px;

@@ -40,6 +40,10 @@ import { t, detectLang, SUPPORTED_LOCALES } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import {
+  formatNumberForInput,
+  parseLocaleNumber,
+} from "../utils/number-format.js";
+import {
   LEVELS_DEFAULTS,
   convertStrokeWidthToGap,
   NORMAL_DEFAULT_THICKNESS,
@@ -420,6 +424,47 @@ export class PollenEditorBase extends LitElement {
           : c.integration === "plu"
             ? { min: 0, max: 3, step: 1 }
             : { min: 0, max: 6, step: 1 };
+  }
+
+  /**
+   * Render a locale-aware numeric textfield. Replaces native
+   * `<ha-textfield type="number">`, whose decimal separator follows the
+   * browser/OS locale; this honours the HA profile's number_format instead and
+   * accepts either separator on input. Commits on `change` (blur/enter) so a
+   * config-driven re-render doesn't reset the box mid-typing; the paired
+   * `<ha-slider>` keeps live preview while dragging.
+   */
+  _renderNumberField({
+    value,
+    min,
+    max,
+    step,
+    onValue,
+    width = "80px",
+    disabled = false,
+  }) {
+    const isInt = Number.isInteger(step ?? 1);
+    return html`
+      <ha-textfield
+        class="num-field"
+        inputmode=${isInt ? "numeric" : "decimal"}
+        .value=${formatNumberForInput(value, this._hass)}
+        .disabled=${disabled}
+        style="width: ${width};"
+        @change=${(e) => {
+          let n = parseLocaleNumber(e.target.value, this._hass);
+          if (n === null) {
+            // Invalid/empty input: revert display, don't write NaN/0.
+            this.requestUpdate();
+            return;
+          }
+          if (typeof min === "number") n = Math.max(min, n);
+          if (typeof max === "number") n = Math.min(max, n);
+          if (isInt) n = Math.round(n);
+          onValue(n);
+        }}
+      ></ha-textfield>
+    `;
   }
 
   // ------------------------------------------------------------------
@@ -1099,7 +1144,7 @@ export class PollenEditorBase extends LitElement {
         </div>
         <div class="slider-row">
           <div class="slider-text">${this._t("pollen_threshold")}</div>
-          <div class="slider-value">${c.pollen_threshold}</div>
+          <div class="slider-value">${formatNumberForInput(c.pollen_threshold, this._hass)}</div>
           <ha-slider
             min="${thresholdParams.min}"
             max="${thresholdParams.max}"
@@ -1379,16 +1424,13 @@ export class PollenEditorBase extends LitElement {
                       this._updateConfig("icon_size", Number(e.target.value))}
                     style="width: 120px;"
                   ></ha-slider>
-                  <ha-textfield
-                    .value=${c.icon_size ?? 48}
-                    type="number"
-                    min="16"
-                    max="128"
-                    step="1"
-                    @input=${(e) =>
-                      this._updateConfig("icon_size", Number(e.target.value))}
-                    style="width: 80px;"
-                  ></ha-textfield>
+                  ${this._renderNumberField({
+                    value: c.icon_size ?? 48,
+                    min: 16,
+                    max: 128,
+                    step: 1,
+                    onValue: (n) => this._updateConfig("icon_size", n),
+                  })}
                 </ha-formfield>
                 <ha-formfield label="${this._t("text_size_ratio")}">
                   <ha-slider
@@ -1403,19 +1445,13 @@ export class PollenEditorBase extends LitElement {
                       )}
                     style="width: 120px;"
                   ></ha-slider>
-                  <ha-textfield
-                    type="number"
-                    .value=${c.text_size_ratio ?? 1}
-                    min="0.5"
-                    max="2"
-                    step="0.05"
-                    @input=${(e) =>
-                      this._updateConfig(
-                        "text_size_ratio",
-                        Number(e.target.value),
-                      )}
-                    style="width: 80px;"
-                  ></ha-textfield>
+                  ${this._renderNumberField({
+                    value: c.text_size_ratio ?? 1,
+                    min: 0.5,
+                    max: 2,
+                    step: 0.05,
+                    onValue: (n) => this._updateConfig("text_size_ratio", n),
+                  })}
                 </ha-formfield>
               `
             : ""}
@@ -1712,23 +1748,20 @@ export class PollenEditorBase extends LitElement {
             }}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            min="0"
-            max="150"
-            step="5"
-            .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
-            @input=${(e) => {
-              const value = e.target.value === "" ? LEVELS_DEFAULTS.allergen_stroke_width : Number(e.target.value);
+          ${this._renderNumberField({
+            value: c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width,
+            min: 0,
+            max: 150,
+            step: 5,
+            onValue: (value) => {
               this._updateConfig("allergen_stroke_width", value);
               const { inheritMode, gapSynced } = this._inheritState();
               if (inheritMode === "inherit_allergen" && gapSynced) {
                 const levelGap = convertStrokeWidthToGap(value);
                 this._updateConfig("levels_gap", levelGap);
               }
-            }}
-            style="width: 80px;"
-          ></ha-textfield>
+            },
+          })}
           <ha-button
             outlined
             title="${this._t("allergen_stroke_width_reset") || "Reset"}"
@@ -1916,13 +1949,13 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_thickness", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_thickness}
-            @input=${(e) =>
-              this._updateConfig("levels_thickness", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
+          ${this._renderNumberField({
+            value: c.levels_thickness,
+            min: 10,
+            max: 90,
+            step: 1,
+            onValue: (n) => this._updateConfig("levels_thickness", n),
+          })}
           <ha-button
             outlined
             title="${this._t("levels_reset")}"
@@ -1947,14 +1980,14 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_gap", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_gap}
-            .disabled=${gapDisabled}
-            @input=${(e) =>
-              this._updateConfig("levels_gap", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
+          ${this._renderNumberField({
+            value: c.levels_gap,
+            min: 0,
+            max: 20,
+            step: 1,
+            disabled: gapDisabled,
+            onValue: (n) => this._updateConfig("levels_gap", n),
+          })}
           <ha-button
             outlined
             title="${this._t("levels_reset")}"
@@ -2090,13 +2123,13 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_text_size", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_text_size || 0.3}
-            @input=${(e) =>
-              this._updateConfig("levels_text_size", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
+          ${this._renderNumberField({
+            value: c.levels_text_size || 0.3,
+            min: 0.1,
+            max: 0.5,
+            step: 0.05,
+            onValue: (n) => this._updateConfig("levels_text_size", n),
+          })}
         </ha-formfield>
 
         <ha-formfield label="${this._t("levels_icon_ratio")}">
@@ -2109,13 +2142,13 @@ export class PollenEditorBase extends LitElement {
               this._updateConfig("levels_icon_ratio", Number(e.target.value))}
             style="width: 120px;"
           ></ha-slider>
-          <ha-textfield
-            type="number"
-            .value=${c.levels_icon_ratio || 1}
-            @input=${(e) =>
-              this._updateConfig("levels_icon_ratio", Number(e.target.value))}
-            style="width: 80px;"
-          ></ha-textfield>
+          ${this._renderNumberField({
+            value: c.levels_icon_ratio || 1,
+            min: 0.1,
+            max: 2,
+            step: 0.05,
+            onValue: (n) => this._updateConfig("levels_icon_ratio", n),
+          })}
         </ha-formfield>
 
         <ha-formfield label="${this._t("levels_text_color")}">
@@ -2194,20 +2227,16 @@ export class PollenEditorBase extends LitElement {
                   Number(e.target.value),
                 )}
             ></ha-slider>
-            <ha-textfield
-              type="number"
-              min="0.2"
-              max="0.9"
-              step="0.05"
-              .value=${c.icon_in_ring_size_ratio ??
-              LEVELS_DEFAULTS.icon_in_ring_size_ratio}
-              @change=${(e) =>
-                this._updateConfig(
-                  "icon_in_ring_size_ratio",
-                  Number(e.target.value),
-                )}
-              style="width: 80px;"
-            ></ha-textfield>
+            ${this._renderNumberField({
+              value:
+                c.icon_in_ring_size_ratio ??
+                LEVELS_DEFAULTS.icon_in_ring_size_ratio,
+              min: 0.2,
+              max: 0.9,
+              step: 0.05,
+              onValue: (n) =>
+                this._updateConfig("icon_in_ring_size_ratio", n),
+            })}
           </div>
         </ha-formfield>
         <ha-formfield

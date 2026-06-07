@@ -25,6 +25,7 @@ import {
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { findLocationBySlug } from "./utils/adapter-helpers.js";
+import { formatNumberForInput } from "./utils/number-format.js";
 import {
   detectIntegrationStates,
   pickIntegration,
@@ -1422,16 +1423,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                       this._updateConfig("minimal_gap", Number(e.target.value))}
                     style="width: 120px;"
                   ></ha-slider>
-                  <ha-textfield
-                    type="number"
-                    .value=${c.minimal_gap ?? 35}
-                    min="0"
-                    max="100"
-                    step="1"
-                    @input=${(e) =>
-                      this._updateConfig("minimal_gap", Number(e.target.value))}
-                    style="width: 80px;"
-                  ></ha-textfield>
+                  ${this._renderNumberField({
+                    value: c.minimal_gap ?? 35,
+                    min: 0,
+                    max: 100,
+                    step: 1,
+                    onValue: (n) => this._updateConfig("minimal_gap", n),
+                  })}
                 </ha-formfield>
                 <div class="field-helper">${this._t("helper_minimal_gap")}</div>
               `
@@ -1556,7 +1554,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   ? this._t("to_show_hours")
                   : this._t("to_show_days")}
             </div>
-            <div class="slider-value">${c.days_to_show}</div>
+            <div class="slider-value">${formatNumberForInput(c.days_to_show, this._hass)}</div>
             <ha-slider
               min="0"
               max="${(c.integration === "silam" || c.integration === "peu") &&
@@ -1844,9 +1842,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         (such as minimal_gap, icon size, text size, etc) display at least
         three digits clearly, without white space truncating the value.
         This patch sets width and internal padding. Applies to all number-type
-        ha-textfield elements in the editor.
+        ha-textfield elements in the editor (rendered via _renderNumberField,
+        which tags them with the .num-field class).
 */
-      ha-textfield[type="number"] {
+      ha-textfield.num-field {
         /* Set a specific width to fit at least three digits and controls */
         width: 80px;
         min-width: 80px;
@@ -1860,7 +1859,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       /* Ensure the input itself inherits width and font size */
-      ha-textfield[type="number"] input[type="number"] {
+      ha-textfield.num-field input {
         width: 100%;
         min-width: 0;
         max-width: 100%;
@@ -1876,7 +1875,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
   Slider row input: force numeric box to be visible and aligned
   (applies to all numeric ha-textfield within .slider-row)
 */
-      .slider-row ha-textfield[type="number"] {
+      .slider-row ha-textfield.num-field {
         width: 80px;
         min-width: 80px;
         max-width: 100px;
