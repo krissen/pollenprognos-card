@@ -75,8 +75,11 @@ export function parseLocaleNumber(str, hass) {
   if (typeof str !== "string") str = String(str ?? "");
   const trimmed = str.trim();
   if (trimmed === "") return null;
-  // Strip grouping whitespace, unify comma -> dot for a single decimal value.
-  const normalized = trimmed.replace(/\s/g, "").replace(",", ".");
+  // Strip grouping whitespace, unify any comma -> dot. These fields hold a
+  // single small decimal value (no thousands grouping), so a bare comma->dot
+  // swap is sufficient; replace all commas (not just the first) so stray
+  // separators yield NaN -> null (revert) rather than a partial parse.
+  const normalized = trimmed.replace(/\s/g, "").replace(/,/g, ".");
   const num = Number(normalized);
   return Number.isFinite(num) ? num : null;
 }
