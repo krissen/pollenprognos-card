@@ -9,7 +9,12 @@ import {
 import { COSMETIC_FIELDS } from "./constants.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
-import { PollenEditorBase, deepMerge, sectionResetStyles } from "./editor/base.js";
+import {
+  PollenEditorBase,
+  deepMerge,
+  sectionResetStyles,
+  editorControlStyles,
+} from "./editor/base.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
 import { getStubConfig } from "./adapter-registry.js";
@@ -1380,9 +1385,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     return html`
       <div class="card-config">
         <!-- Reset button -->
-        <ha-button outlined @click=${() => this._resetAll()}>
-          ${this._t("preset_reset_all")}
-        </ha-button>
+        ${this._renderTextButton({
+          label: this._t("preset_reset_all"),
+          onClick: () => this._resetAll(),
+        })}
 
         <!-- §1 Integration & Location -->
         ${this._renderIntegrationSection()}
@@ -1708,6 +1714,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       /* Per-section ↺ reset button styles (shared with the badge editor). */
       ${sectionResetStyles}
 
+      /* Own form controls (input/button) replacing HA's removed components. */
+      ${editorControlStyles}
+
       /* Nested details styling */
       details details {
         margin-left: 24px; /* More indent */
@@ -1835,54 +1844,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       /* End of boolean control styles */
-      /* --- Numeric input box width and padding fix for ha-textfield --- */
-
-      /*
-        Ensures that all ha-textfield elements used for numeric input
-        (such as minimal_gap, icon size, text size, etc) display at least
-        three digits clearly, without white space truncating the value.
-        This patch sets width and internal padding. Applies to all number-type
-        ha-textfield elements in the editor (rendered via _renderNumberField,
-        which tags them with the .num-field class).
-*/
-      ha-textfield.num-field {
-        /* Set a specific width to fit at least three digits and controls */
-        width: 80px;
-        min-width: 80px;
-        max-width: 100px;
-        /* Remove extra margin and padding */
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        /* Set font size for clarity */
-        font-size: 1.1em;
-      }
-
-      /* Ensure the input itself inherits width and font size */
-      ha-textfield.num-field input {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-        font-size: 1.1em;
-        box-sizing: border-box;
-        padding: 2px 8px;
-        /* Remove border/background if needed */
-        background: none;
-        border: none;
-      }
-
-      /*
-  Slider row input: force numeric box to be visible and aligned
-  (applies to all numeric ha-textfield within .slider-row)
-*/
-      .slider-row ha-textfield.num-field {
-        width: 80px;
-        min-width: 80px;
-        max-width: 100px;
-        font-size: 1.1em;
-        margin: 0;
-        padding: 0;
-      }
+      /* Numeric input box sizing lives in editorControlStyles (.pp-input.num-field). */
     `;
   }
 }

@@ -5,7 +5,12 @@
 
 import { html, css } from "lit";
 import { getStubConfig } from "./adapter-registry.js";
-import { PollenEditorBase, deepMerge, sectionResetStyles } from "./editor/base.js";
+import {
+  PollenEditorBase,
+  deepMerge,
+  sectionResetStyles,
+  editorControlStyles,
+} from "./editor/base.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -702,9 +707,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return html`
       <div class="card-config">
         <!-- Reset button (inherited from PollenEditorBase) -->
-        <ha-button outlined @click=${() => this._resetAll()}>
-          ${this._t("preset_reset_all")}
-        </ha-button>
+        ${this._renderTextButton({
+          label: this._t("preset_reset_all"),
+          onClick: () => this._resetAll(),
+        })}
 
         ${this._renderIntegrationSection()}
         ${this._renderBadgeContentSection()}
@@ -826,6 +832,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       /* Per-section ↺ reset button styles (shared with the card editor). */
       ${sectionResetStyles}
 
+      /* Own form controls (input/button) replacing HA's removed components. */
+      ${editorControlStyles}
+
       details details {
         margin-left: 24px;
         margin-right: 24px;
@@ -898,15 +907,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         margin-right: 24px;
       }
 
-      ha-textfield.num-field {
-        width: 80px;
-        min-width: 80px;
-        max-width: 100px;
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-size: 1.1em;
-      }
+      /* Numeric input box sizing lives in editorControlStyles (.pp-input.num-field). */
     `;
   }
 }
