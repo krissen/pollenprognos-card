@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Editor number fields follow the Home Assistant profile, not the OS locale** (issue #263). The visual editor's numeric inputs (icon scale, text size, badge scale, level circle sizes, gaps, threshold, etc.) used native `type="number"` fields, whose decimal separator was dictated by the browser/OS locale. On a device whose OS uses a comma, a point was rejected even when the Home Assistant profile asked for a point, and an invalid entry could reset the value to `0`. Inputs now format and parse via the profile's `number_format` (point vs comma), accept either separator, clamp to range, and revert to the previous value instead of zeroing on invalid input. The threshold and days-to-show readouts follow the profile separator too.
+
 ## [3.3.0] - 2026-06-06
 
 This is a visual release. pollenprognos grows a companion **badge** element you
