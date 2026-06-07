@@ -32,6 +32,7 @@ export function getDecimalSeparator(hass) {
   const fmt = hass?.locale?.number_format;
   switch (fmt) {
     case "comma_decimal": // 1,234.56
+    case "quote_decimal": // 1'234.56
     case "none": // 1234.56
       return ".";
     case "decimal_comma": // 1.234,56

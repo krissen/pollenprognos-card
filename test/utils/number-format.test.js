@@ -11,6 +11,7 @@ describe("number-format", () => {
   describe("getDecimalSeparator", () => {
     it("maps point-decimal number_format enums to '.'", () => {
       expect(getDecimalSeparator(hassWith({ number_format: "comma_decimal" }))).toBe(".");
+      expect(getDecimalSeparator(hassWith({ number_format: "quote_decimal" }))).toBe(".");
       expect(getDecimalSeparator(hassWith({ number_format: "none" }))).toBe(".");
     });
 
