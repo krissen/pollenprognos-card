@@ -454,13 +454,21 @@ export class PollenEditorBase extends LitElement {
         @change=${(e) => {
           let n = parseLocaleNumber(e.target.value, this._hass);
           if (n === null) {
-            // Invalid/empty input: revert display, don't write NaN/0.
-            this.requestUpdate();
+            // Invalid/empty input: restore the displayed value from config.
+            // Assigning .value directly is required because Lit dirty-checks the
+            // bound .value expression: when the config is unchanged a re-render
+            // won't write back, so the invalid text would otherwise persist.
+            e.target.value = formatNumberForInput(value, this._hass);
             return;
           }
           if (typeof min === "number") n = Math.max(min, n);
           if (typeof max === "number") n = Math.min(max, n);
           if (isInt) n = Math.round(n);
+          // Normalise the displayed text to the canonical formatted value so
+          // clamped/reformatted input (e.g. "999" -> "3", a different
+          // separator, trailing zeros) is reflected even when the resulting
+          // config value is unchanged (same Lit dirty-check caveat).
+          e.target.value = formatNumberForInput(n, this._hass);
           onValue(n);
         }}
       ></ha-textfield>
