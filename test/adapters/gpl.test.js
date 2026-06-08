@@ -1532,6 +1532,58 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
   });
 
+  it("resolves the sibling across devices within the same subentry (v3, issue #262)", async () => {
+    // v3 analogue of the cross-device case: pollenlevels splits a single
+    // subentry location across a "pollen types" device and a "plants" device.
+    // Both devices carry the SAME subentry id, so the summary on dev_types must
+    // bind the plants_in_season sibling on dev_plants.
+    const PARENT = "01PARENTENTRYAAAAAAAAAAAAA";
+    const SUB_A = "01SUBENTRYAAAAAAAAAAAAAAAA";
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: "3",
+        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 2),
+      "sensor.home_plants_in_season_today": {
+        state: "2",
+        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+      },
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev_types" },
+      "sensor.home_grass": { device_id: "dev_types" },
+      "sensor.home_plants_in_season_today": { device_id: "dev_plants" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev_types: {
+        name: "Home types",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_A] },
+      },
+      dev_plants: {
+        name: "Home plants",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_A] },
+      },
+    });
+    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+      "plants_in_season_today";
+    hass.language = "sv";
+    hass.locale = { language: "sv" };
+    const config = makeConfig({
+      location: SUB_A,
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
+  });
+
   it("scopes the sibling to the same subentry location (v3, issue #262)", async () => {
     // Two locations under one parent config entry, each with its own summary
     // and plants_in_season sibling. The summary must bind the sibling from its
