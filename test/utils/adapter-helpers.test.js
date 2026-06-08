@@ -1235,7 +1235,9 @@ describe("resolveAllergenNames", () => {
       shortPhrases: {},
     });
     expect(allergenCapitalized).not.toBe("MITT GRÄS!");
-    expect(allergenCapitalized).toBe("Graminales");
+    // graminales keeps its own i18n name (Google's en displayName "Grasses",
+    // issue #262 follow-up), never the carried-over grass override.
+    expect(allergenCapitalized).toBe("Grasses");
   });
 
   it("exact raw key beats a canonical alias in the same map", () => {
