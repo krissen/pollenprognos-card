@@ -76,6 +76,7 @@ import {
   resolveDiscoveredLocation,
 } from "../utils/silam.js";
 import { findLocationBySlug } from "../utils/adapter-helpers.js";
+import { resolveAllergenPhrase } from "../utils/allergen-label.js";
 import { numLevelsForIntegration } from "../utils/level-counts.js";
 import { allergenListForIntegration } from "./integration-allergens.js";
 import {
@@ -421,30 +422,12 @@ export class PollenEditorBase extends LitElement {
 
   /**
    * Resolve a human label for an allergen, never leaking a raw i18n key.
-   *
-   * Chain: editor.phrases_{full|short}.<canonical> -> card.allergen.<canonical>
-   * -> capitalized humanized raw. A t() result is a hit only when it differs
-   * from the *full* key passed to t() (t() echoes the key on a miss). This is
-   * the correct miss-detection; the previous _getAllergenDisplayName guard
-   * compared against the un-prefixed key, so misses on the editor.* namespace
-   * were never detected and the raw key leaked (e.g. `graminales`, which has no
-   * editor.phrases_* entry -- issue #262 follow-up).
-   *
-   * @param {string} canonical - canonical allergen key (e.g. "graminales").
-   * @param {string} raw - the original key, used for the humanized fallback.
-   * @param {object} [opts]
-   * @param {boolean} [opts.short] - use the phrases_short namespace.
-   * @param {string} [opts.lang] - locale; defaults to the editor language.
+   * Thin wrapper that defaults the locale to the editor language; the chain
+   * (editor.phrases -> card.allergen -> humanized fallback) lives in the pure,
+   * unit-tested `resolveAllergenPhrase` util. Issue #262 follow-up.
    */
   _resolveAllergenPhrase(canonical, raw, { short = false, lang = this._lang } = {}) {
-    const editorKey = `editor.phrases_${short ? "short" : "full"}.${canonical}`;
-    const editorVal = t(editorKey, lang);
-    if (editorVal && editorVal !== editorKey) return editorVal;
-    const cardKey = `card.allergen.${canonical}`;
-    const cardVal = t(cardKey, lang);
-    if (cardVal && cardVal !== cardKey) return cardVal;
-    const base = String(raw || canonical || "").replace(/_/g, " ");
-    return base ? base.charAt(0).toUpperCase() + base.slice(1) : "";
+    return resolveAllergenPhrase(canonical, raw, { short, lang });
   }
 
   _getAllergenDisplayName(allergenKey) {
