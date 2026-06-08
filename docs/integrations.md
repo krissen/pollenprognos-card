@@ -94,6 +94,8 @@ Each sensor is classified as either a **type sensor** (category) or a **plant se
 
 The `code` attribute is always in English regardless of the Home Assistant language. The icon values come from the integration's `TYPE_ICONS` dictionary and are stable across versions.
 
+**The `graminales` plant key.** Google's grass *plant* code `GRAMINALES` is classified to the canonical key `graminales`, kept deliberately **distinct** from the grass *category* (`grass_cat`) and **not** aliased to `grass` (the same separation the GP adapter relies on for collision handling — see [Google Pollen (svenove)](#sensor-classification-1) below). Its display label uses Google's own per-language plant `displayName` (sourced from the Pollen API: e.g. `de` "Gräser", `es` "Gramíneas", `it` "Piante erbacee"). In several languages that name reads the same as the grass category — this **mirrors Google's own output** (the integration shows the same), not a card bug. Allergen labels in the editor resolve through `editor.phrases_full/short.<key>` → `card.allergen.<key>` → a capitalized humanized fallback, so a code without a localized string is shown as a readable name rather than a raw translation key.
+
 ### Multi-location support
 
 When the primary detection path is available, the adapter groups sensors by `config_entry_id` (resolved via the device registry). Each `pollenlevels` config entry represents one location. The card stores the `config_entry_id` in the `location` field and shows human-readable labels derived from device names in the editor dropdown.

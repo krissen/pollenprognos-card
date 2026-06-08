@@ -76,6 +76,7 @@ import {
   resolveDiscoveredLocation,
 } from "../utils/silam.js";
 import { findLocationBySlug } from "../utils/adapter-helpers.js";
+import { resolveAllergenPhrase } from "../utils/allergen-label.js";
 import { numLevelsForIntegration } from "../utils/level-counts.js";
 import { allergenListForIntegration } from "./integration-allergens.js";
 import {
@@ -419,20 +420,22 @@ export class PollenEditorBase extends LitElement {
   // Allergen display name helper
   // ------------------------------------------------------------------
 
+  /**
+   * Resolve a human label for an allergen, never leaking a raw i18n key.
+   * Thin wrapper that defaults the locale to the editor language; the chain
+   * (editor.phrases -> card.allergen -> humanized fallback) lives in the pure,
+   * unit-tested `resolveAllergenPhrase` util. Issue #262 follow-up.
+   */
+  _resolveAllergenPhrase(canonical, raw, { short = false, lang = this._lang } = {}) {
+    return resolveAllergenPhrase(canonical, raw, { short, lang });
+  }
+
   _getAllergenDisplayName(allergenKey) {
     if (allergenKey === undefined || allergenKey === null) return "";
     const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
     const slug = slugify(raw);
     const canonical = toCanonicalAllergenKey(slug);
-    const translationKey = `phrases_full.${canonical}`;
-    const translated = this._t(translationKey);
-    if (translated && translated !== translationKey) {
-      return translated;
-    }
-    if (raw) {
-      return raw.charAt(0).toUpperCase() + raw.slice(1);
-    }
-    return canonical ? canonical.charAt(0).toUpperCase() + canonical.slice(1) : "";
+    return this._resolveAllergenPhrase(canonical, raw);
   }
 
   // ------------------------------------------------------------------
@@ -2483,8 +2486,11 @@ export class PollenEditorBase extends LitElement {
       const canonKey = toCanonicalAllergenKey(normKey);
       // SILAM's aggregate uses the user-facing 'index' name, not 'allergy_risk'.
       const transKey = normKey === "index" ? "index" : canonKey;
-      full[raw] = t(`editor.phrases_full.${transKey}`, lang);
-      short[raw] = t(`editor.phrases_short.${transKey}`, lang);
+      // Use the shared resolver so a missing editor phrase falls back to the
+      // card allergen name / capitalized term instead of storing the raw i18n
+      // key as the phrase default (issue #262 follow-up: `graminales`).
+      full[raw] = this._resolveAllergenPhrase(transKey, raw, { lang });
+      short[raw] = this._resolveAllergenPhrase(transKey, raw, { short: true, lang });
     });
 
     const numLevels = this._currentNumLevels();
