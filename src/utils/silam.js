@@ -1,5 +1,5 @@
 import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
-import { discoverEntitiesByDevice, isConfigEntryId } from "./adapter-helpers.js";
+import { discoverEntitiesByDevice, isConfigEntryId, deviceLocationKey } from "./adapter-helpers.js";
 
 // Re-export so editor and other callers can keep their silam.js import path.
 export { isConfigEntryId };
@@ -103,7 +103,11 @@ export function discoverSilamSensors(hass, debug = false) {
         deviceWeatherMap.set(deviceId, eid);
         if (!deviceInfoMap.has(deviceId)) {
           const device = hass.devices?.[deviceId];
-          const configEntryId = device?.config_entries?.[0] ?? "default";
+          // Use the same subentry-aware key as discoverEntitiesByDevice's
+          // default resolver, so a weather-only location keys identically to a
+          // location discovered via its allergen sensors. No behaviour change
+          // for current SILAM (one config entry per location, no subentries).
+          const configEntryId = deviceLocationKey(device);
           const label =
             device?.name_by_user ||
             (device?.name ? stripSilamPrefix(device.name) : null) ||
