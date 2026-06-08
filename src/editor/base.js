@@ -419,20 +419,40 @@ export class PollenEditorBase extends LitElement {
   // Allergen display name helper
   // ------------------------------------------------------------------
 
+  /**
+   * Resolve a human label for an allergen, never leaking a raw i18n key.
+   *
+   * Chain: editor.phrases_{full|short}.<canonical> -> card.allergen.<canonical>
+   * -> capitalized humanized raw. A t() result is a hit only when it differs
+   * from the *full* key passed to t() (t() echoes the key on a miss). This is
+   * the correct miss-detection; the previous _getAllergenDisplayName guard
+   * compared against the un-prefixed key, so misses on the editor.* namespace
+   * were never detected and the raw key leaked (e.g. `graminales`, which has no
+   * editor.phrases_* entry -- issue #262 follow-up).
+   *
+   * @param {string} canonical - canonical allergen key (e.g. "graminales").
+   * @param {string} raw - the original key, used for the humanized fallback.
+   * @param {object} [opts]
+   * @param {boolean} [opts.short] - use the phrases_short namespace.
+   * @param {string} [opts.lang] - locale; defaults to the editor language.
+   */
+  _resolveAllergenPhrase(canonical, raw, { short = false, lang = this._lang } = {}) {
+    const editorKey = `editor.phrases_${short ? "short" : "full"}.${canonical}`;
+    const editorVal = t(editorKey, lang);
+    if (editorVal && editorVal !== editorKey) return editorVal;
+    const cardKey = `card.allergen.${canonical}`;
+    const cardVal = t(cardKey, lang);
+    if (cardVal && cardVal !== cardKey) return cardVal;
+    const base = String(raw || canonical || "").replace(/_/g, " ");
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : "";
+  }
+
   _getAllergenDisplayName(allergenKey) {
     if (allergenKey === undefined || allergenKey === null) return "";
     const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
     const slug = slugify(raw);
     const canonical = toCanonicalAllergenKey(slug);
-    const translationKey = `phrases_full.${canonical}`;
-    const translated = this._t(translationKey);
-    if (translated && translated !== translationKey) {
-      return translated;
-    }
-    if (raw) {
-      return raw.charAt(0).toUpperCase() + raw.slice(1);
-    }
-    return canonical ? canonical.charAt(0).toUpperCase() + canonical.slice(1) : "";
+    return this._resolveAllergenPhrase(canonical, raw);
   }
 
   // ------------------------------------------------------------------
@@ -2483,8 +2503,11 @@ export class PollenEditorBase extends LitElement {
       const canonKey = toCanonicalAllergenKey(normKey);
       // SILAM's aggregate uses the user-facing 'index' name, not 'allergy_risk'.
       const transKey = normKey === "index" ? "index" : canonKey;
-      full[raw] = t(`editor.phrases_full.${transKey}`, lang);
-      short[raw] = t(`editor.phrases_short.${transKey}`, lang);
+      // Use the shared resolver so a missing editor phrase falls back to the
+      // card allergen name / capitalized term instead of storing the raw i18n
+      // key as the phrase default (issue #262 follow-up: `graminales`).
+      full[raw] = this._resolveAllergenPhrase(transKey, raw, { lang });
+      short[raw] = this._resolveAllergenPhrase(transKey, raw, { short: true, lang });
     });
 
     const numLevels = this._currentNumLevels();
