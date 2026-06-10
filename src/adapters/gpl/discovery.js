@@ -46,11 +46,30 @@ export function classifySensor(state, entry) {
   ) {
     return "allergy_risk";
   }
-  // State-attribute fallback: pollenlevels exposes `top_pollen_codes`
-  // (and siblings) only on the summary entity. Per-allergen sensors
-  // have `code`, `forecast`, `tomorrow_has_index` etc. but not this
-  // array. Discovered by inspecting actual entity state in hass-test.
-  if (Array.isArray(attrs.top_pollen_codes)) {
+  // The two sibling summary sensors -- `top_pollen_types_today` (a text
+  // sensor whose state is a category name) and `plants_in_season_today`
+  // (a count) -- are intentionally unhandled (tracked in #222). Exclude
+  // them explicitly: since Pollen Levels v3 they ALSO carry
+  // `top_pollen_codes`, so the attribute fallback below would otherwise
+  // misclassify `top_pollen_types_today` as `allergy_risk` and collide
+  // with the real overall-risk sensor in the location's allergen map.
+  if (
+    translationKey === "top_pollen_types_today" ||
+    translationKey === "plants_in_season_today" ||
+    (typeof uniqueId === "string" &&
+      (uniqueId.endsWith("_top_pollen_types_today") ||
+        uniqueId.endsWith("_plants_in_season_today")))
+  ) {
+    return null;
+  }
+  // State-attribute fallback for the tier-3 attribution scan, where the
+  // registry entry (and thus translation_key) is absent. The overall-risk
+  // sensor carries a numeric daily index (`top_pollen_codes` plus a
+  // `forecast`/`trend`), while `top_pollen_types_today` carries a
+  // `top_value` and a text state. Requiring `top_value` to be absent keeps
+  // the text sibling from being read as a risk index when both expose
+  // `top_pollen_codes`.
+  if (Array.isArray(attrs.top_pollen_codes) && attrs.top_value === undefined) {
     return "allergy_risk";
   }
 

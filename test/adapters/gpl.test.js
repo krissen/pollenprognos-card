@@ -1173,6 +1173,109 @@ describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
   });
 });
 
+// Pollen Levels v3 (#262): top_pollen_types_today now ALSO ships
+// top_pollen_codes, so the attribute fallback must not misread it as the
+// overall-risk summary and collide with the real allergy_risk sensor.
+// ---------------------------------------------------------------------------
+
+describe("classifySensor: v3 top_pollen_types_today no longer collides (#262)", () => {
+  // Real v3-beta3 shape: a text sensor whose state is a category name, with
+  // top_pollen_codes AND a top_value, identified by translation_key (the
+  // reduced frontend hass.entities exposes no unique_id).
+  const topTypesState = {
+    state: "Трава",
+    attributes: {
+      attribution: GPL_ATTRIBUTION,
+      top_value: 3,
+      top_pollen_codes: ["GRASS"],
+      top_pollen_names: ["Трава"],
+      top_pollen_categories: ["Средний"],
+      tie_count: 1,
+    },
+  };
+  // Real v3-beta3 overall-risk shape: numeric state, top_pollen_codes but
+  // NO top_value, plus a daily forecast/trend.
+  const overallRiskState = {
+    state: "3",
+    attributes: {
+      attribution: GPL_ATTRIBUTION,
+      category: "Средний",
+      top_pollen_codes: ["GRASS"],
+      forecast: [{ offset: 1, value: 3 }],
+      trend: "flat",
+    },
+  };
+
+  it("returns null for top_pollen_types_today identified by translation_key", () => {
+    const entry = { translation_key: "top_pollen_types_today" };
+    expect(classifySensor(topTypesState, entry)).toBeNull();
+  });
+
+  it("returns null for plants_in_season_today identified by translation_key", () => {
+    const entry = { translation_key: "plants_in_season_today" };
+    const state = { state: "5", attributes: { plant_codes: ["BIRCH"] } };
+    expect(classifySensor(state, entry)).toBeNull();
+  });
+
+  it("still classifies the v3 overall-risk sensor as allergy_risk", () => {
+    const entry = { translation_key: "overall_pollen_risk_today" };
+    expect(classifySensor(overallRiskState, entry)).toBe("allergy_risk");
+  });
+
+  it("tier-3 (no entry): top_value discriminates the text sibling from the risk index", () => {
+    // Attribution scan passes no registry entry. Both carry top_pollen_codes;
+    // only top_pollen_types_today carries top_value.
+    expect(classifySensor(topTypesState)).toBeNull();
+    expect(classifySensor(overallRiskState)).toBe("allergy_risk");
+  });
+});
+
+describe("discoverGplSensors: v3 summary siblings don't collide on allergy_risk (#262)", () => {
+  it("binds allergy_risk to overall-risk and drops top_pollen_types entirely", () => {
+    const statesMap = {
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 3),
+      "sensor.home_overall": {
+        state: "3",
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_pollen_codes: ["GRASS"],
+          forecast: [{ offset: 1, value: 3 }],
+        },
+      },
+      "sensor.home_top_types": {
+        state: "Грас",
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_value: 3,
+          top_pollen_codes: ["GRASS"],
+        },
+      },
+    };
+    const entitiesMap = {
+      "sensor.home_grass": { device_id: "dev1" },
+      "sensor.home_overall": { device_id: "dev1" },
+      "sensor.home_top_types": { device_id: "dev1" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev1: { name: "Home", config_entries: ["entry_v3"] },
+    });
+    // Reduced frontend shape carries translation_key, not unique_id.
+    hass.entities["sensor.home_overall"].translation_key =
+      "overall_pollen_risk_today";
+    hass.entities["sensor.home_top_types"].translation_key =
+      "top_pollen_types_today";
+
+    const result = discoverGplSensors(hass);
+    const loc = result.locations.get("entry_v3");
+    expect(loc).toBeDefined();
+    expect(loc.entities.get("allergy_risk")).toBe("sensor.home_overall");
+    // The text "top types" sensor must not appear under any allergen key.
+    for (const eid of loc.entities.values()) {
+      expect(eid).not.toBe("sensor.home_top_types");
+    }
+  });
+});
+
 describe("discoverGplSensors: summary sensor flows through to allergy_risk key", () => {
   it("registers the overall_pollen_risk_today entity under the 'allergy_risk' allergen key", () => {
     const statesMap = {
