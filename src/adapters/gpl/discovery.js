@@ -69,6 +69,11 @@ export function classifySensor(state, entry) {
   // `top_value` and a text state. Requiring `top_value` to be absent keeps
   // the text sibling from being read as a risk index when both expose
   // `top_pollen_codes`.
+  //
+  // NOTE: `plants_in_season_today` lacks `top_pollen_codes` in all observed
+  // shapes (v2.1.0 and v3-beta3), so it never reaches this line. If a future
+  // version adds `top_pollen_codes` to it without a `top_value`, add a second
+  // discriminator here (e.g. its `plant_codes` array). Tracked in #222.
   if (Array.isArray(attrs.top_pollen_codes) && attrs.top_value === undefined) {
     return "allergy_risk";
   }
