@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [3.3.1] - 2026-06-11
 
 ### Fixed
 - **(gpl) Pollen Levels v3 overall-risk row stays correct alongside the new "top types" sensor** (issue #262). Pollen Levels v3 (beta 3) added overall-pollen-risk forecast attributes, and in doing so its `top_pollen_types_today` sensor (a text sensor naming the day's dominant pollen) started shipping the same `top_pollen_codes` attribute the card used to recognize the overall-risk summary. Both sensors then mapped to the `allergy_risk` slot in a location, and only entity order kept the right one; a different order could bind the text sensor and leave the overall-risk row without a value. Discovery now identifies the two sibling summary sensors (`top_pollen_types_today`, `plants_in_season_today`) explicitly and never treats them as the risk index. Legacy and v2.1.0 installations are unaffected.
