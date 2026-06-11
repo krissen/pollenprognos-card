@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   discoverEntitiesByDevice,
+  deviceLocationKey,
   findLocationBySlug,
   resolveLocationByKey,
   normalizeManualPrefix,
@@ -27,6 +28,79 @@ function makeClassifier(mapping) {
     return null;
   };
 }
+
+// ---------------------------------------------------------------------------
+// deviceLocationKey (config-subentry-aware location keying, issue #262)
+// ---------------------------------------------------------------------------
+
+describe("deviceLocationKey", () => {
+  const ENTRY = "01ENTRYAAAAAAAAAAAAAAAAAAA";
+  const SUB = "01SUBENTRYAAAAAAAAAAAAAAAA";
+
+  it("returns 'default' when device is null/undefined", () => {
+    expect(deviceLocationKey(null)).toBe("default");
+    expect(deviceLocationKey(undefined)).toBe("default");
+  });
+
+  it("returns 'default' when no config entry is present", () => {
+    expect(deviceLocationKey({})).toBe("default");
+    expect(deviceLocationKey({ config_entries: [] })).toBe("default");
+  });
+
+  it("keys by config entry id for a legacy device (no subentries map)", () => {
+    expect(deviceLocationKey({ config_entries: [ENTRY] })).toBe(ENTRY);
+  });
+
+  it("keys by config entry id when the subentry list is [null]", () => {
+    expect(
+      deviceLocationKey({
+        config_entries: [ENTRY],
+        primary_config_entry: ENTRY,
+        config_entries_subentries: { [ENTRY]: [null] },
+      }),
+    ).toBe(ENTRY);
+  });
+
+  it("keys by subentry id when the primary entry has a non-null subentry", () => {
+    expect(
+      deviceLocationKey({
+        config_entries: [ENTRY],
+        primary_config_entry: ENTRY,
+        config_entries_subentries: { [ENTRY]: [SUB] },
+      }),
+    ).toBe(SUB);
+  });
+
+  it("prefers primary_config_entry over config_entries[0]", () => {
+    const OTHER = "01OTHERENTRYAAAAAAAAAAAAAA";
+    expect(
+      deviceLocationKey({
+        config_entries: [OTHER, ENTRY],
+        primary_config_entry: ENTRY,
+        config_entries_subentries: { [ENTRY]: [SUB], [OTHER]: [null] },
+      }),
+    ).toBe(SUB);
+  });
+
+  it("falls back to config_entries[0] when primary_config_entry is absent", () => {
+    expect(
+      deviceLocationKey({
+        config_entries: [ENTRY],
+        config_entries_subentries: { [ENTRY]: [SUB] },
+      }),
+    ).toBe(SUB);
+  });
+
+  it("picks the first non-null subentry id from the list", () => {
+    expect(
+      deviceLocationKey({
+        config_entries: [ENTRY],
+        primary_config_entry: ENTRY,
+        config_entries_subentries: { [ENTRY]: [null, SUB] },
+      }),
+    ).toBe(SUB);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // discoverEntitiesByDevice
@@ -1161,7 +1235,9 @@ describe("resolveAllergenNames", () => {
       shortPhrases: {},
     });
     expect(allergenCapitalized).not.toBe("MITT GRÄS!");
-    expect(allergenCapitalized).toBe("Graminales");
+    // graminales keeps its own i18n name (Google's en displayName "Grasses",
+    // issue #262 follow-up), never the carried-over grass override.
+    expect(allergenCapitalized).toBe("Grasses");
   });
 
   it("exact raw key beats a canonical alias in the same map", () => {

@@ -1,6 +1,6 @@
 // src/adapters/gpl/forecast.js
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, coerceBool } from "../../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, coerceBool, deviceLocationKey } from "../../utils/adapter-helpers.js";
 import { stubConfigGPL, capitalize } from "./constants.js";
 import { resolveEntityIds } from "./discovery.js";
 import { t } from "../../i18n.js";
@@ -24,47 +24,46 @@ function localizeAllergenLabel(key, fallbackName, lang) {
 }
 
 /**
- * Config-entry ids an entity belongs to, via its device (config_entries /
- * primary_config_entry) plus any direct config_entry_id on the entity entry.
+ * Subentry-aware location key for an entity, derived from its device.
+ *
+ * pollenlevels v3 puts several locations under one parent config entry via
+ * config subentries (issue #262), so scoping siblings by config entry alone
+ * would let a summary in location A bind a sibling in location B (both share
+ * the parent entry). deviceLocationKey collapses to the subentry id when the
+ * device has one and to the config entry id otherwise, so legacy (one entry
+ * per location) and v3 (subentry per location) both scope correctly. Returns
+ * the location key, or null when the entity has no resolvable device.
  */
-function entityConfigEntries(hass, eid) {
-  const set = new Set();
+function entityLocationKey(hass, eid) {
   const entry = hass?.entities?.[eid];
-  if (entry?.config_entry_id) set.add(entry.config_entry_id);
   const dev = entry?.device_id ? hass?.devices?.[entry.device_id] : null;
-  if (dev) {
-    if (Array.isArray(dev.config_entries)) dev.config_entries.forEach((c) => set.add(c));
-    if (dev.primary_config_entry) set.add(dev.primary_config_entry);
-  }
-  return set;
+  if (!dev) return null;
+  const key = deviceLocationKey(dev);
+  return key === "default" ? null : key;
 }
 
 /**
- * Resolve a sibling pollenlevels entity in the SAME config entry (location) as
- * the summary (e.g. plants_in_season_today next to overall_pollen_risk_today).
+ * Resolve a sibling pollenlevels entity in the SAME location as the summary
+ * (e.g. plants_in_season_today next to overall_pollen_risk_today).
  * pollenlevels splits a location across several devices (pollen types vs
- * plants), so scope by config entry, not device. Matches by translation_key OR
- * unique_id suffix — the frontend's reduced hass.entities does not always
- * expose unique_id, so translation_key is the primary signal. Returns the
+ * plants), so scope by location key, not device. Matches by translation_key OR
+ * unique_id suffix (the frontend's reduced hass.entities does not always
+ * expose unique_id, so translation_key is the primary signal). Returns the
  * sibling entity_id or null.
  */
 function findSiblingEntityId(hass, summaryEntityId, translationKey, uidSuffix) {
   const entities = hass?.entities;
   if (!entities) return null;
-  const summaryCfg = entityConfigEntries(hass, summaryEntityId);
+  const summaryKey = entityLocationKey(hass, summaryEntityId);
   for (const [eid, entry] of Object.entries(entities)) {
     const matches =
       entry?.translation_key === translationKey ||
       (typeof entry?.unique_id === "string" && entry.unique_id.endsWith(uidSuffix));
     if (!matches) continue;
-    if (summaryCfg.size) {
-      const cfg = entityConfigEntries(hass, eid);
-      let shared = false;
-      for (const c of cfg) {
-        if (summaryCfg.has(c)) { shared = true; break; }
-      }
-      if (!shared) continue;
-    }
+    // When the summary has a resolvable location, only accept a sibling from
+    // the same location. A candidate without a resolvable key can't be proven
+    // same-location, so skip it.
+    if (summaryKey !== null && entityLocationKey(hass, eid) !== summaryKey) continue;
     return eid;
   }
   return null;

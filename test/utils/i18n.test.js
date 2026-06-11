@@ -80,4 +80,36 @@ describe("i18n", () => {
       expect(result.length).toBeGreaterThan(0);
     });
   });
+
+  describe("graminales allergen strings (issue #262 follow-up)", () => {
+    // Google's per-language displayName for the GRAMINALES grass-plant code,
+    // sourced from the Pollen API. The editor used to leak the raw key
+    // `editor.phrases_full.graminales` because these were missing.
+    const EXPECTED = {
+      cs: "Trávy", da: "Græs", de: "Gräser", el: "Γρασίδι", en: "Grasses",
+      es: "Gramíneas", fi: "Ruohot", fr: "Graminées", it: "Piante erbacee",
+      nl: "Grassen", no: "Gress", pl: "Trawy", ru: "Травы", sk: "Trávy",
+      sv: "Gräs",
+    };
+    const NAMESPACES = [
+      "card.allergen",
+      "editor.phrases_full",
+      "editor.phrases_short",
+    ];
+
+    for (const lang of SUPPORTED_LOCALES) {
+      it(`resolves graminales in all namespaces for '${lang}' (no raw key)`, () => {
+        for (const ns of NAMESPACES) {
+          const key = `${ns}.graminales`;
+          const val = t(key, lang);
+          // never the raw key, never empty
+          expect(val).not.toBe(key);
+          expect(typeof val).toBe("string");
+          expect(val.length).toBeGreaterThan(0);
+          // matches the sourced Google displayName for this locale
+          expect(val).toBe(EXPECTED[lang]);
+        }
+      });
+    }
+  });
 });

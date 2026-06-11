@@ -25,6 +25,42 @@ export function isConfigEntryId(value) {
 }
 
 /**
+ * Derive a stable per-location key from a device registry entry.
+ *
+ * Default location grouping used to key on `device.config_entries[0]`, which
+ * breaks for integrations using Home Assistant config subentries (one parent
+ * config entry, one subentry per location, e.g. Pollen Levels v3 / issue #262):
+ * every location's device belongs to the same parent entry, so all locations
+ * collapse into one bucket and their allergens collide.
+ *
+ * The frontend's reduced `hass.entities` does not expose `config_subentry_id`,
+ * but the full `hass.devices` does, via `config_entries_subentries`
+ * ({ configEntryId: [subentryId | null, ...] }). When the device's primary
+ * config entry carries a non-null subentry id, that subentry id (itself a ULID)
+ * is the location key; otherwise we fall back to the (top-level) config entry
+ * id, preserving legacy behavior exactly (legacy devices report `[null]`).
+ *
+ * @param {object|null|undefined} device - hass.devices entry.
+ * @returns {string} location key, or "default" when no device/entry is present.
+ */
+export function deviceLocationKey(device) {
+  if (device === null || device === undefined) return "default";
+  const entries = device.config_entries;
+  const primary =
+    device.primary_config_entry ||
+    (Array.isArray(entries) && entries.length > 0 ? entries[0] : null);
+  if (!primary) return "default";
+  const subentries = device.config_entries_subentries;
+  const subs =
+    subentries !== null && subentries !== undefined ? subentries[primary] : undefined;
+  if (Array.isArray(subs)) {
+    const sub = subs.find((s) => s !== null && s !== undefined);
+    if (sub) return sub; // subentry ULID -- one bucket per location
+  }
+  return primary; // legacy / top-level entry -- unchanged behavior
+}
+
+/**
  * Coerce a YAML-or-boolean config flag to a real boolean. YAML lets a value
  * arrive as the string "true"/"false", so a strict === true check would
  * silently ignore a quoted value. Mirrors the defensive-typeguard policy used
@@ -800,7 +836,9 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
  *   (ctx) => string. ctx includes { state, entry, device, entityId, tier, locationKey }.
  *   Default: device.name_by_user || device.name || state.attributes.friendly_name || "Auto".
  * @param {Function} [opts.resolveLocationKey]
- *   (ctx) => string. Default: device.config_entries[0] || "default".
+ *   (ctx) => string. Default: deviceLocationKey(ctx.device) -- subentry id when
+ *   the device's primary config entry has one, else the config entry id, else
+ *   "default".
  * @param {Function} [opts.onCollision]
  *   (ctx, { existingKey, existingEntityId, locEntities }) => string|null.
  *   Called when classify returns a key already present in the current location.
@@ -850,14 +888,7 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
   };
   const getLabel = resolveLabel || defaultResolveLabel;
 
-  const defaultResolveLocationKey = (ctx) => {
-    const { device } = ctx;
-    if (device !== null && device !== undefined) {
-      const entries = device.config_entries;
-      if (Array.isArray(entries) && entries.length > 0) return entries[0];
-    }
-    return "default";
-  };
+  const defaultResolveLocationKey = (ctx) => deviceLocationKey(ctx.device);
   const getLocationKey = resolveLocationKey || defaultResolveLocationKey;
 
   const locations = new Map();

@@ -386,6 +386,87 @@ function makeHasPrimary(statesMap, entitiesMap, devicesMap = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// discoverGplSensors: Pollen Levels v3 config subentries (issue #262)
+// ---------------------------------------------------------------------------
+
+describe("discoverGplSensors: v3 config subentries", () => {
+  const PARENT = "01PARENTENTRYAAAAAAAAAAAAA"; // 26-char ULID-shaped
+  const SUB_A = "01SUBENTRYAAAAAAAAAAAAAAAA";
+  const SUB_B = "01SUBENTRYBBBBBBBBBBBBBBBB";
+
+  it("keeps two subentry locations under one parent as separate buckets", () => {
+    // Both location devices belong to the SAME parent config entry; they
+    // differ only in their config_entries_subentries subentry id. Without
+    // subentry awareness both collapse into one bucket and the second
+    // location's allergens are dropped on key collision.
+    const statesMap = {
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 3),
+      "sensor.home_birch": makePlantSensor("birch", 2),
+      "sensor.work_grass": makeTypeSensor("mdi:grass", 1),
+      "sensor.work_birch": makePlantSensor("birch", 4),
+    };
+    const entitiesMap = {
+      "sensor.home_grass": { device_id: "dev_a" },
+      "sensor.home_birch": { device_id: "dev_a" },
+      "sensor.work_grass": { device_id: "dev_b" },
+      "sensor.work_birch": { device_id: "dev_b" },
+    };
+    const devicesMap = {
+      dev_a: {
+        name: "Home",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_A] },
+      },
+      dev_b: {
+        name: "Work",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_B] },
+      },
+    };
+    const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
+    const result = discoverGplSensors(hass);
+
+    expect(result.locations.size).toBe(2);
+    expect(result.locations.has(SUB_A)).toBe(true);
+    expect(result.locations.has(SUB_B)).toBe(true);
+    expect(result.locations.get(SUB_A).label).toBe("Home");
+    expect(result.locations.get(SUB_B).label).toBe("Work");
+    // Each location keeps its own grass + birch (no collision drop).
+    expect(result.locations.get(SUB_A).entities.get("grass_cat")).toBe("sensor.home_grass");
+    expect(result.locations.get(SUB_A).entities.get("birch")).toBe("sensor.home_birch");
+    expect(result.locations.get(SUB_B).entities.get("grass_cat")).toBe("sensor.work_grass");
+    expect(result.locations.get(SUB_B).entities.get("birch")).toBe("sensor.work_birch");
+  });
+
+  it("keys a legacy device (subentry list [null]) by its config entry id, not 'default'", () => {
+    // Backward compatibility: the current pollenlevels release reports
+    // config_entries_subentries = { entry: [null] }. The location key must
+    // stay the top-level config entry id so existing card configs resolve.
+    const statesMap = {
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 3),
+    };
+    const entitiesMap = {
+      "sensor.home_grass": { device_id: "dev_a" },
+    };
+    const devicesMap = {
+      dev_a: {
+        name: "Home",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [null] },
+      },
+    };
+    const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
+    const result = discoverGplSensors(hass);
+
+    expect(result.locations.size).toBe(1);
+    expect(result.locations.has(PARENT)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // fetchForecast: basic shape
 // ---------------------------------------------------------------------------
 
@@ -1092,6 +1173,109 @@ describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
   });
 });
 
+// Pollen Levels v3 (#262): top_pollen_types_today now ALSO ships
+// top_pollen_codes, so the attribute fallback must not misread it as the
+// overall-risk summary and collide with the real allergy_risk sensor.
+// ---------------------------------------------------------------------------
+
+describe("classifySensor: v3 top_pollen_types_today no longer collides (#262)", () => {
+  // Real v3-beta3 shape: a text sensor whose state is a category name, with
+  // top_pollen_codes AND a top_value, identified by translation_key (the
+  // reduced frontend hass.entities exposes no unique_id).
+  const topTypesState = {
+    state: "Трава",
+    attributes: {
+      attribution: GPL_ATTRIBUTION,
+      top_value: 3,
+      top_pollen_codes: ["GRASS"],
+      top_pollen_names: ["Трава"],
+      top_pollen_categories: ["Средний"],
+      tie_count: 1,
+    },
+  };
+  // Real v3-beta3 overall-risk shape: numeric state, top_pollen_codes but
+  // NO top_value, plus a daily forecast/trend.
+  const overallRiskState = {
+    state: "3",
+    attributes: {
+      attribution: GPL_ATTRIBUTION,
+      category: "Средний",
+      top_pollen_codes: ["GRASS"],
+      forecast: [{ offset: 1, value: 3 }],
+      trend: "flat",
+    },
+  };
+
+  it("returns null for top_pollen_types_today identified by translation_key", () => {
+    const entry = { translation_key: "top_pollen_types_today" };
+    expect(classifySensor(topTypesState, entry)).toBeNull();
+  });
+
+  it("returns null for plants_in_season_today identified by translation_key", () => {
+    const entry = { translation_key: "plants_in_season_today" };
+    const state = { state: "5", attributes: { plant_codes: ["BIRCH"] } };
+    expect(classifySensor(state, entry)).toBeNull();
+  });
+
+  it("still classifies the v3 overall-risk sensor as allergy_risk", () => {
+    const entry = { translation_key: "overall_pollen_risk_today" };
+    expect(classifySensor(overallRiskState, entry)).toBe("allergy_risk");
+  });
+
+  it("tier-3 (no entry): top_value discriminates the text sibling from the risk index", () => {
+    // Attribution scan passes no registry entry. Both carry top_pollen_codes;
+    // only top_pollen_types_today carries top_value.
+    expect(classifySensor(topTypesState)).toBeNull();
+    expect(classifySensor(overallRiskState)).toBe("allergy_risk");
+  });
+});
+
+describe("discoverGplSensors: v3 summary siblings don't collide on allergy_risk (#262)", () => {
+  it("binds allergy_risk to overall-risk and drops top_pollen_types entirely", () => {
+    const statesMap = {
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 3),
+      "sensor.home_overall": {
+        state: "3",
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_pollen_codes: ["GRASS"],
+          forecast: [{ offset: 1, value: 3 }],
+        },
+      },
+      "sensor.home_top_types": {
+        state: "Грас",
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_value: 3,
+          top_pollen_codes: ["GRASS"],
+        },
+      },
+    };
+    const entitiesMap = {
+      "sensor.home_grass": { device_id: "dev1" },
+      "sensor.home_overall": { device_id: "dev1" },
+      "sensor.home_top_types": { device_id: "dev1" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev1: { name: "Home", config_entries: ["entry_v3"] },
+    });
+    // Reduced frontend shape carries translation_key, not unique_id.
+    hass.entities["sensor.home_overall"].translation_key =
+      "overall_pollen_risk_today";
+    hass.entities["sensor.home_top_types"].translation_key =
+      "top_pollen_types_today";
+
+    const result = discoverGplSensors(hass);
+    const loc = result.locations.get("entry_v3");
+    expect(loc).toBeDefined();
+    expect(loc.entities.get("allergy_risk")).toBe("sensor.home_overall");
+    // The text "top types" sensor must not appear under any allergen key.
+    for (const eid of loc.entities.values()) {
+      expect(eid).not.toBe("sensor.home_top_types");
+    }
+  });
+});
+
 describe("discoverGplSensors: summary sensor flows through to allergy_risk key", () => {
   it("registers the overall_pollen_risk_today entity under the 'allergy_risk' allergen key", () => {
     const statesMap = {
@@ -1448,6 +1632,122 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     });
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
+  });
+
+  it("resolves the sibling across devices within the same subentry (v3, issue #262)", async () => {
+    // v3 analogue of the cross-device case: pollenlevels splits a single
+    // subentry location across a "pollen types" device and a "plants" device.
+    // Both devices carry the SAME subentry id, so the summary on dev_types must
+    // bind the plants_in_season sibling on dev_plants.
+    const PARENT = "01PARENTENTRYAAAAAAAAAAAAA";
+    const SUB_A = "01SUBENTRYAAAAAAAAAAAAAAAA";
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: "3",
+        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+      },
+      "sensor.home_grass": makeTypeSensor("mdi:grass", 2),
+      "sensor.home_plants_in_season_today": {
+        state: "2",
+        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+      },
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev_types" },
+      "sensor.home_grass": { device_id: "dev_types" },
+      "sensor.home_plants_in_season_today": { device_id: "dev_plants" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev_types: {
+        name: "Home types",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_A] },
+      },
+      dev_plants: {
+        name: "Home plants",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_A] },
+      },
+    });
+    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+      "plants_in_season_today";
+    hass.language = "sv";
+    hass.locale = { language: "sv" };
+    const config = makeConfig({
+      location: SUB_A,
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
+  });
+
+  it("scopes the sibling to the same subentry location (v3, issue #262)", async () => {
+    // Two locations under one parent config entry, each with its own summary
+    // and plants_in_season sibling. The summary must bind the sibling from its
+    // OWN subentry, not the other location's (both share the parent entry, so
+    // config-entry scoping alone would cross the boundary).
+    const PARENT = "01PARENTENTRYAAAAAAAAAAAAA";
+    const SUB_A = "01SUBENTRYAAAAAAAAAAAAAAAA";
+    const SUB_B = "01SUBENTRYBBBBBBBBBBBBBBBB";
+    const statesMap = {
+      "sensor.home_overall_pollen_risk_today": {
+        state: "3",
+        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+      },
+      "sensor.home_plants_in_season_today": {
+        state: "2",
+        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+      },
+      "sensor.work_overall_pollen_risk_today": {
+        state: "1",
+        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["GRASS"] },
+      },
+      "sensor.work_plants_in_season_today": {
+        state: "1",
+        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["OAK"] },
+      },
+    };
+    const entitiesMap = {
+      "sensor.home_overall_pollen_risk_today": { device_id: "dev_a" },
+      "sensor.home_plants_in_season_today": { device_id: "dev_a" },
+      "sensor.work_overall_pollen_risk_today": { device_id: "dev_b" },
+      "sensor.work_plants_in_season_today": { device_id: "dev_b" },
+    };
+    const hass = makeHassPrimary(statesMap, entitiesMap, {
+      dev_a: {
+        name: "Home",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_A] },
+      },
+      dev_b: {
+        name: "Work",
+        config_entries: [PARENT],
+        primary_config_entry: PARENT,
+        config_entries_subentries: { [PARENT]: [SUB_B] },
+      },
+    });
+    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+      "plants_in_season_today";
+    hass.entities["sensor.work_plants_in_season_today"].translation_key =
+      "plants_in_season_today";
+    hass.language = "sv";
+    hass.locale = { language: "sv" };
+    const config = makeConfig({
+      location: SUB_A,
+      allergens: ["allergy_risk"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    // Home's summary must list Home's plants (Björk/Tall), not Work's (Ek).
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
   });
 
