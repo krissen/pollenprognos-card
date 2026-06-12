@@ -166,39 +166,64 @@ export async function fetchForecast(hass, config) {
       // Today's value (0-5 direct)
       const todayVal = testVal(sensor.state);
 
-      // Build levels array from today + forecast
-      const levels = [{ date: today, level: todayVal }];
+      // pollenlevels items: { offset, date, has_index, value, category, ... }.
+      // The sensor STATE is Google's dailyInfo[0], i.e. the value for the
+      // integration's LAST FETCH DAY (undated); forecast item dates come
+      // straight from the Google API (location ground truth) while `offset` is
+      // the item's position relative to that fetch day. When the integration
+      // has not refreshed since yesterday, the state is yesterday's value and
+      // forecast[0] (offset 1) is dated today: the old code pinned the state
+      // to today and appended the item, rendering two "Today" columns (issue
+      // #271). Anchor everything by calendar day instead: derive the fetch day
+      // from the first dated item (date minus offset), place the state there
+      // and each item on its own date, then render from the browser's today
+      // forward. Dates are parsed at LOCAL midnight (UTC parsing skewed the
+      // day diff in timezones away from UTC).
+      const forecastData = Array.isArray(sensor.attributes?.forecast)
+        ? sensor.attributes.forecast
+        : [];
+      const addDays = (date, n) => {
+        const d = new Date(date);
+        d.setDate(d.getDate() + n);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+      let stateDate = today;
+      for (const item of forecastData) {
+        const d = parseLocalDate(item.date);
+        const off = Number(item.offset);
+        if (d && Number.isFinite(off) && off >= 1) {
+          stateDate = addDays(d, -off);
+          break;
+        }
+      }
 
-      // Read forecast from entity attributes
-      // pollenlevels items: { offset, date, has_index, value, category, ... }
-      // The `date` field is the ground truth for which calendar day an item
-      // belongs to; `offset` is relative to the integration's last fetch day
-      // and can lag behind the user's local day (issue #271: offset 1 carried
-      // date == today, producing a second "Today" column). Parse dates at
-      // LOCAL midnight and drop items for days already covered by day 0.
-      const forecastData = sensor.attributes?.forecast;
-      for (const forecastItem of (Array.isArray(forecastData) ? forecastData : [])) {
-        if (levels.length >= days_to_show) break;
-        const offset = forecastItem.offset ?? levels.length;
-        const forecastDate =
-          parseLocalDate(forecastItem.date) ??
-          new Date(today.getTime() + offset * 86400000);
-        const hasIndex = forecastItem.has_index !== false;
-        const val = forecastItem.value ?? forecastItem.state ?? forecastItem.level ?? forecastItem;
-        const level = hasIndex ? testVal(val) : -1;
-        if (forecastDate - today <= 0) {
-          // Stale item on (or before) day 0: backfill today's value if the
-          // sensor state gave none, but never add a duplicate column.
-          if (forecastDate - today === 0 && levels[0].level < 0 && level >= 0) {
-            levels[0].level = level;
-          }
+      const entries = [{ date: stateDate, level: todayVal }];
+      for (const forecastItem of forecastData) {
+        const off = Number.isFinite(Number(forecastItem.offset))
+          ? Number(forecastItem.offset)
+          : entries.length;
+        const date = parseLocalDate(forecastItem.date) ?? addDays(stateDate, off);
+        // Same calendar day already present: first entry wins (the state for
+        // the fetch day, or an earlier item).
+        if (entries.some((e) => e.date.toDateString() === date.toDateString())) {
           continue;
         }
-        levels.push({
-          date: forecastDate,
-          level,
-        });
+        const hasIndex = forecastItem.has_index !== false;
+        const val = forecastItem.value ?? forecastItem.state ?? forecastItem.level ?? forecastItem;
+        entries.push({ date, level: hasIndex ? testVal(val) : -1 });
       }
+
+      // Render from the browser's today forward; past days fall away. If the
+      // known data starts after today (e.g. viewing a location whose local day
+      // is ahead of the browser's), keep day 0 as an honest empty "today".
+      const levels = entries
+        .filter((e) => e.date - today >= 0)
+        .sort((a, b) => a.date - b.date);
+      if (!levels.length || levels[0].date - today > 0) {
+        levels.unshift({ date: today, level: -1 });
+      }
+      levels.splice(days_to_show);
 
       // Pad to days_to_show. Continue from the last entry's date (not the
       // array index): forecast items are placed by their `date`, so an
