@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- **(gpl) No more duplicate "Today" column with Pollen Levels v3** (issue #271). The integration's forecast `offset` is relative to its last fetch day and can lag the user's local day, so the first forecast item may carry `offset: 1` while being dated *today*; the card appended it after its own today column, showing two columns both labeled "Today" where the second should have been "Tomorrow". Forecast items are now placed by their `date` (parsed in the user's local timezone rather than UTC, which also skewed day labels in timezones far from UTC, such as the reporter's Sydney): items dated on or before today no longer produce an extra column, and a today-dated item instead fills in today's value when the sensor state itself is unavailable. Well-formed forecasts (dates starting at tomorrow) render exactly as before.
+
 ## [3.3.1] - 2026-06-11
 
 ### Fixed
