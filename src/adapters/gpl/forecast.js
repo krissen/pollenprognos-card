@@ -1,6 +1,6 @@
 // src/adapters/gpl/forecast.js
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, coerceBool, deviceLocationKey } from "../../utils/adapter-helpers.js";
+import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, coerceBool, deviceLocationKey, parseLocalDate } from "../../utils/adapter-helpers.js";
 import { stubConfigGPL, capitalize } from "./constants.js";
 import { resolveEntityIds } from "./discovery.js";
 import { t } from "../../i18n.js";
@@ -171,36 +171,43 @@ export async function fetchForecast(hass, config) {
 
       // Read forecast from entity attributes
       // pollenlevels items: { offset, date, has_index, value, category, ... }
+      // The `date` field is the ground truth for which calendar day an item
+      // belongs to; `offset` is relative to the integration's last fetch day
+      // and can lag behind the user's local day (issue #271: offset 1 carried
+      // date == today, producing a second "Today" column). Parse dates at
+      // LOCAL midnight and drop items for days already covered by day 0.
       const forecastData = sensor.attributes?.forecast;
       for (const forecastItem of (Array.isArray(forecastData) ? forecastData : [])) {
         if (levels.length >= days_to_show) break;
-        // Skip days without valid index data
-        if (forecastItem.has_index === false) {
-          const offset = forecastItem.offset ?? levels.length;
-          levels.push({
-            date: new Date(today.getTime() + offset * 86400000),
-            level: -1,
-          });
+        const offset = forecastItem.offset ?? levels.length;
+        const forecastDate =
+          parseLocalDate(forecastItem.date) ??
+          new Date(today.getTime() + offset * 86400000);
+        const hasIndex = forecastItem.has_index !== false;
+        const val = forecastItem.value ?? forecastItem.state ?? forecastItem.level ?? forecastItem;
+        const level = hasIndex ? testVal(val) : -1;
+        if (forecastDate - today <= 0) {
+          // Stale item on (or before) day 0: backfill today's value if the
+          // sensor state gave none, but never add a duplicate column.
+          if (forecastDate - today === 0 && levels[0].level < 0 && level >= 0) {
+            levels[0].level = level;
+          }
           continue;
         }
-        const offset = forecastItem.offset ?? levels.length;
-        const forecastDate = forecastItem.date
-          ? new Date(forecastItem.date)
-          : new Date(today.getTime() + offset * 86400000);
-        const val = forecastItem.value ?? forecastItem.state ?? forecastItem.level ?? forecastItem;
         levels.push({
           date: forecastDate,
-          level: testVal(val),
+          level,
         });
       }
 
-      // Pad to days_to_show
+      // Pad to days_to_show. Continue from the last entry's date (not the
+      // array index): forecast items are placed by their `date`, so an
+      // index-based date could collide with a date already in the list.
       while (levels.length < days_to_show) {
-        const idx = levels.length;
-        levels.push({
-          date: new Date(today.getTime() + idx * 86400000),
-          level: -1,
-        });
+        const last = levels[levels.length - 1].date;
+        const next = new Date(last.getTime() + 36 * 3600000);
+        next.setHours(0, 0, 0, 0);
+        levels.push({ date: next, level: -1 });
       }
 
       // Build day objects (always include -1 placeholders so show_empty_days works)

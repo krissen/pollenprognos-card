@@ -827,9 +827,68 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    // day1 should have a valid string label derived from the forecast date
-    expect(typeof result[0].day1.day).toBe("string");
-    expect(result[0].day1.day.length).toBeGreaterThan(0);
+    // day1's label is derived from the forecast date: offset 1 -> "Tomorrow"
+    expect(result[0].day1.day).toBe("Tomorrow");
+  });
+
+  // Issue #271: pollenlevels' `offset` is relative to the integration's last
+  // fetch day and can lag the user's local day, so an item with offset=1 may
+  // carry today's date. The date is the ground truth; a stale item must not
+  // produce a second "Today" column.
+  it("does not duplicate today when a stale offset=1 item carries today's date (#271)", async () => {
+    const staleItem = { ...makeForecastItem(0, 3), offset: 1 };
+    const hass = makeHassAttribution({
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 1, [staleItem]),
+    });
+    const config = makeConfig({
+      allergens: ["grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].day0.day).toBe("Today");
+    expect(result[0].day0.state).toBe(1);
+    // Second column is a padded empty tomorrow, not a duplicate today
+    expect(result[0].day1.day).toBe("Tomorrow");
+    expect(result[0].day1.state).toBe(-1);
+  });
+
+  it("places a forecast item by its date even when the offset is stale", async () => {
+    const staleItem = { ...makeForecastItem(1, 4), offset: 2 };
+    const hass = makeHassAttribution({
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 1, [staleItem]),
+    });
+    const config = makeConfig({
+      allergens: ["grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].day1.day).toBe("Tomorrow");
+    expect(result[0].day1.state).toBe(4);
+  });
+
+  it("backfills day0 from a today-dated forecast item when the state is unavailable", async () => {
+    const todayItem = { ...makeForecastItem(0, 2), offset: 1 };
+    const hass = makeHassAttribution({
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", "unavailable", [todayItem]),
+    });
+    const config = makeConfig({
+      allergens: ["grass_cat"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].day0.day).toBe("Today");
+    expect(result[0].day0.state).toBe(2);
+    expect(result[0].day1.day).toBe("Tomorrow");
+    expect(result[0].day1.state).toBe(-1);
   });
 
   it("day0 state_text is the no_information label when level is -1", async () => {
