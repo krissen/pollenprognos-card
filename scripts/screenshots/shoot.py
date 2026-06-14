@@ -10,6 +10,10 @@ integrations don't produce empty pills.
 Usage:
     export HASS_TOKEN=<long-lived token>   # never commit this
     python shoot.py --view pollen-test/documentation --badges out.png
+
+    # Render as if the browser were in another timezone (see --timezone below):
+    python shoot.py --view pollen-test/issue271 --card 0 --out out.png \
+        --timezone Australia/Sydney
 """
 import argparse, json, os, sys, time
 from playwright.sync_api import sync_playwright
@@ -49,12 +53,27 @@ def main():
     ap.add_argument("--card", type=int, help="index of pollenprognos-card to shoot")
     ap.add_argument("--out", help="output path for --card")
     ap.add_argument("--timeout", type=int, default=30)
+    # --timezone sets the headless browser's IANA timezone (Playwright
+    # timezone_id). The card decides which forecast column is "Today" from the
+    # *browser's* local date (`new Date()` in the adapters), so the only way to
+    # reproduce a timezone-dependent rendering bug is to run the browser in that
+    # zone. Needed for the GPL date logic (issue #271): Google's forecast day-0
+    # can trail a far-east local day (e.g. Sydney UTC+10), so the same sensor
+    # data renders different day columns depending on the viewer's timezone.
+    # Default (unset) keeps the test machine's own zone, so existing doc shots
+    # are unchanged.
+    ap.add_argument("--timezone",
+        help="browser IANA timezone, e.g. Australia/Sydney (default: machine zone). "
+             "Reproduces timezone-dependent day-column rendering; see issue #271.")
     a = ap.parse_args()
     if not TOKEN:
         print("ERROR: set HASS_TOKEN", file=sys.stderr); sys.exit(2)
+    ctx_opts = {"viewport": {"width": 1500, "height": 1000}, "device_scale_factor": 2}
+    if a.timezone:
+        ctx_opts["timezone_id"] = a.timezone
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)
-        ctx = b.new_context(viewport={"width": 1500, "height": 1000}, device_scale_factor=2)
+        ctx = b.new_context(**ctx_opts)
         ctx.add_init_script(tokens_init())
         pg = ctx.new_page()
         pg.goto(f"{URL}/{a.view}", wait_until="networkidle")
