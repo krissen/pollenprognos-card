@@ -20,6 +20,7 @@ import { discoverAtmoSensors } from "../adapters/atmo.js";
 import { GPL_ATTRIBUTION, discoverGplSensors } from "../adapters/gpl/index.js";
 import { discoverGpSensors } from "../adapters/gp/index.js";
 import { discoverMswSensors } from "../adapters/msw.js";
+import { discoverIrmkmiSensors } from "../adapters/irmkmi.js";
 import {
   discoverPpSensors,
   extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
@@ -44,6 +45,7 @@ export const INTEGRATION_PRIORITY = [
   "gp",
   "gpl",
   "msw",
+  "irmkmi",
 ];
 
 /**
@@ -250,6 +252,32 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     );
   }
 
+  // IRM KMI (meteo.be / irm-kmi-ha). Entity IDs follow
+  // sensor.<location-slug>_<allergen>_level. Primary via hass.entities platform
+  // check; fallback regex for older registries.
+  const irmkmiLevelRe =
+    /_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
+  let irmkmiStates = [];
+  if (hass && hass.entities) {
+    irmkmiStates = Object.entries(hass.entities)
+      .filter(
+        ([eid, entry]) =>
+          entry.platform === "irm_kmi" &&
+          !entry.entity_category &&
+          irmkmiLevelRe.test(eid),
+      )
+      .map(([eid]) => eid);
+  }
+  if (!irmkmiStates.length) {
+    irmkmiStates = stateIds.filter(
+      (id) =>
+        typeof id === "string" &&
+        /^sensor\.\w+_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/.test(
+          id,
+        ),
+    );
+  }
+
   // Lazy/memoized discoveries for adapters whose header label / location
   // resolution would otherwise re-scan the registry. SILAM/Atmo/GP are already
   // computed above; PP/DWD/PEU/GPL/MSW go behind getters so callers that only
@@ -259,6 +287,7 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
   let _peuDiscovery = null;
   let _gplDiscovery = null;
   let _mswDiscovery = null;
+  let _irmkmiDiscovery = null;
   const getPpDiscovery = () => {
     if (_ppDiscovery === null) _ppDiscovery = discoverPpSensors(hass, debug);
     return _ppDiscovery;
@@ -279,6 +308,11 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     if (_mswDiscovery === null) _mswDiscovery = discoverMswSensors(hass, debug);
     return _mswDiscovery;
   };
+  const getIrmkmiDiscovery = () => {
+    if (_irmkmiDiscovery === null)
+      _irmkmiDiscovery = discoverIrmkmiSensors(hass, debug);
+    return _irmkmiDiscovery;
+  };
 
   if (debug) {
     console.debug("Sensor states detected:");
@@ -292,6 +326,7 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     console.debug("GPL:", gplStates);
     console.debug("GP:", gpStates);
     console.debug("MSW:", mswStates);
+    console.debug("IRMKMI:", irmkmiStates);
   }
 
   return {
@@ -307,6 +342,7 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
       gpl: gplStates,
       gp: gpStates,
       msw: mswStates,
+      irmkmi: irmkmiStates,
     },
     discovery: { silam: silamDiscovery, atmo: atmoDiscovery, gp: gpDiscovery },
     getPpDiscovery,
@@ -314,6 +350,7 @@ export function detectIntegrationStates(hass, { debug = false } = {}) {
     getPeuDiscovery,
     getGplDiscovery,
     getMswDiscovery,
+    getIrmkmiDiscovery,
   };
 }
 
@@ -479,6 +516,12 @@ export function autoSelectLocation(integration, cfg, hass, detection) {
   if (integration === "msw" && states.msw?.length) {
     const mswDiscovery = detection.getMswDiscovery();
     const firstLocId = mswDiscovery.locations.keys().next().value;
+    return firstLocId ? { key: "location", value: firstLocId } : null;
+  }
+
+  if (integration === "irmkmi" && states.irmkmi?.length) {
+    const irmkmiDiscovery = detection.getIrmkmiDiscovery();
+    const firstLocId = irmkmiDiscovery.locations.keys().next().value;
     return firstLocId ? { key: "location", value: firstLocId } : null;
   }
 
@@ -652,6 +695,14 @@ export function deriveLocationForEntity(integration, entityId, hass, detection) 
       return value ? { key: "location", value } : null;
     }
 
+    case "irmkmi": {
+      const value = findLocationKeyInDiscovery(
+        detection?.getIrmkmiDiscovery?.(),
+        entityId,
+      );
+      return value ? { key: "location", value } : null;
+    }
+
     default:
       return null;
   }
@@ -695,15 +746,16 @@ export function suggestEntityConfig(hass, entityId) {
 
   const derived = deriveLocationForEntity(integration, entityId, hass, detection);
 
-  // For gpl/gp/msw/kleenex the detection list is broader than the set of
-  // render-usable pollen sensors: gpl/gp/msw include sibling summary/helper
-  // sensors (e.g. plants_in_season_today, top_pollen_types_today) the discovery
-  // classifier skips, and kleenex includes diagnostic helpers (_date,
-  // _last_updated, _region). For these, a renderable sensor always yields a
-  // per-entity derivation, so a null derivation means the entity isn't usable
-  // -- offer no suggestion rather than the wrong one autoSelectLocation's
-  // first-location guess would produce.
-  const STRICT_DERIVATION = new Set(["gpl", "gp", "msw", "kleenex"]);
+  // For gpl/gp/msw/irmkmi/kleenex a null derivation means the entity isn't a
+  // render-usable pollen sensor at the resolved location: gpl/gp/msw include
+  // sibling summary/helper sensors (e.g. plants_in_season_today,
+  // top_pollen_types_today) the discovery classifier skips, and kleenex
+  // includes diagnostic helpers (_date, _last_updated, _region). msw/irmkmi are
+  // multi-location, so falling back to autoSelectLocation's first-location
+  // guess would pick the wrong location. For all of these, a renderable sensor
+  // always yields a per-entity derivation, so a null derivation means we should
+  // offer no suggestion rather than a wrong one.
+  const STRICT_DERIVATION = new Set(["gpl", "gp", "msw", "irmkmi", "kleenex"]);
   if (!derived && STRICT_DERIVATION.has(integration)) return null;
 
   const loc =

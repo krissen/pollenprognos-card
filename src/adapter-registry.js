@@ -12,6 +12,7 @@ import * as ATMO from "./adapters/atmo.js";
 import * as GPL from "./adapters/gpl/index.js";
 import * as GP from "./adapters/gp/index.js";
 import * as MSW from "./adapters/msw.js";
+import * as IRMKMI from "./adapters/irmkmi.js";
 
 const registry = {
   pp: { module: PP, stub: PP.stubConfigPP },
@@ -24,6 +25,7 @@ const registry = {
   gpl: { module: GPL, stub: GPL.stubConfigGPL },
   gp: { module: GP, stub: GP.stubConfigGP },
   msw: { module: MSW, stub: MSW.stubConfigMSW },
+  irmkmi: { module: IRMKMI, stub: IRMKMI.stubConfigIRMKMI },
 };
 
 export function getAdapter(id) {
