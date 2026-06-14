@@ -210,7 +210,13 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     return new Map();
   }
 
-  let resolved = resolveLocationByKey(discovery, cfg?.location, {
+  // The shared location dropdown offers a "manual" option, but this is a
+  // discovery-only adapter with no entity-prefix manual mode (like MSW/GPL/GP).
+  // Treat "manual" as autodetect (first discovered location), matching the
+  // card header's pervasive `location !== "manual"` handling, instead of
+  // silently relying on the stale-location fallback below.
+  const wantedLocation = cfg?.location === "manual" ? "" : cfg?.location;
+  let resolved = resolveLocationByKey(discovery, wantedLocation, {
     slugExtractor: extractIrmkmiLocationSlugFromEntityId,
   });
   if (!resolved) {

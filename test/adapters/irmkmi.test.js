@@ -414,6 +414,18 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
     expect(map.get("grass")).toBe("sensor.antwerp_grasses_level");
   });
 
+  it("treats location 'manual' as autodetect (first location), not a stale key", () => {
+    // The shared dropdown offers a Manual option; this discovery-only adapter
+    // has no manual entity mode, so 'manual' degrades to autodetect (Antwerp,
+    // the first discovered location) rather than rendering arbitrary data.
+    const hass = createHassWithRegistry(buildMultiLocationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["grass"], location: "manual" },
+      hass,
+    );
+    expect(map.get("grass")).toBe("sensor.antwerp_grasses_level");
+  });
+
   it("does not mix allergens across locations", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
