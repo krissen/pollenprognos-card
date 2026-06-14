@@ -227,6 +227,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.installedGpLocations = toList(detection.discovery.gp);
     this.installedGplLocations = toList(detection.getGplDiscovery());
     this.installedMswLocations = toList(detection.getMswDiscovery());
+    this.installedIrmkmiLocations = toList(detection.getIrmkmiDiscovery());
 
     // Kleenex has no discovery helper; derive slugs from the *_date sensors.
     this.installedKleenexLocations = Array.from(

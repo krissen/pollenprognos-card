@@ -532,6 +532,13 @@ const MSW_ALIASES = {
   grasses: "grass",
 };
 
+// IRM KMI (meteo.be / irm-kmi-ha) aliases.
+// "grasses" is the entity slug used by the integration; canonical is "grass".
+// alder/ash/birch/hazel/mugwort/oak are already canonical.
+const IRMKMI_ALIASES = {
+  grasses: "grass",
+};
+
 // Merged map: computed from per-adapter aliases (order matches legacy map).
 export const ALLERGEN_TRANSLATION = {
   ...PP_ALIASES,
@@ -543,6 +550,7 @@ export const ALLERGEN_TRANSLATION = {
   ...GPL_ALIASES,
   ...GP_ALIASES,
   ...MSW_ALIASES,
+  ...IRMKMI_ALIASES,
 };
 
 /**

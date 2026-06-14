@@ -6,7 +6,7 @@
 [![Project Maintenance][maintenance-shield]][user_profile]
 [![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-A Lovelace card that shows pollen forecasts from several integrations. The card supports Home Assistant's visual editor and works with ten adapters:
+A Lovelace card that shows pollen forecasts from several integrations. The card supports Home Assistant's visual editor and works with eleven adapters:
 
 - [Pollenprognos](https://github.com/JohNan/homeassistant-pollenprognos)
 - [DWD Pollenflug](https://github.com/mampfes/hacs_dwd_pollenflug)
@@ -18,6 +18,7 @@ A Lovelace card that shows pollen forecasts from several integrations. The card 
 - [Google Pollen Levels](https://github.com/eXPerience83/pollenlevels)
 - [Google Pollen](https://github.com/svenove/home-assistant-google-pollen)
 - [MeteoSwiss / hass-swissweather](https://github.com/izacus/hass-swissweather)
+- [IRM KMI](https://github.com/jdejaegh/irm-kmi-ha)
 
 <p align="center">
   <img width="900" alt="The companion pollenprognos-badge in every mode: allergen icon in the level ring, the numeric value in the ring, ring only, bare icon only, a multi-allergen row, an overall allergy-risk smiley, a scaled-up badge, and a custom label" src="docs/screenshots/badge-row.png" />
@@ -56,7 +57,7 @@ Install one of the supported integrations above. The card auto-detects which ada
 
 ## Features
 
-- **Multi-Integration Support**: Works with 10 different pollen data sources (Pollenprognos, DWD Pollenflug, Polleninformation EU, SILAM, Kleenex Pollen Radar, Pollen.lu, Atmo France, Google Pollen Levels, Google Pollen, MeteoSwiss)
+- **Multi-Integration Support**: Works with 11 different pollen data sources (Pollenprognos, DWD Pollenflug, Polleninformation EU, SILAM, Kleenex Pollen Radar, Pollen.lu, Atmo France, Google Pollen Levels, Google Pollen, MeteoSwiss, IRM KMI)
 - **Auto-Detection**: Automatically detects which integration to use based on your available sensors
 - **Visual Editor**: Full Home Assistant UI configuration support - no manual YAML editing required
 - **Scalable SVG Icons**: 24+ allergen icons rendered as lightweight, customizable SVG graphics

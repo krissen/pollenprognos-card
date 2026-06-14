@@ -8,8 +8,9 @@
  * the highest level the ring can fill. Level 0 ("none") is the empty track and
  * is not a segment, so this is the native max level.
  *
- * Native max level by integration (from each adapter's clamp): PEU/Kleenex/MSW
- * cap at 4, GPL/GP at 5, PLU at 3, and PP/SILAM/Atmo at 6. DWD is special: its
+ * Native max level by integration (from each adapter's clamp):
+ * PEU/Kleenex/MSW/IRMKMI cap at 4, GPL/GP at 5, PLU at 3, and PP/SILAM/Atmo at
+ * 6. DWD is special: its
  * native 0-3 scale is doubled (see scaleRingLevel) to fill the 0-6 ring, so its
  * ring shows 6 segments even though it has only 4 native levels.
  *
@@ -21,6 +22,7 @@ export function ringSegmentsForIntegration(integration) {
     case "peu":
     case "kleenex":
     case "msw":
+    case "irmkmi":
       return 4;
     case "gpl":
     case "gp":

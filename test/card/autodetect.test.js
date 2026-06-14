@@ -7,7 +7,7 @@
  * (no parallel reimplementation), so it catches drift in the actual code.
  *
  * Canonical precedence (single source of truth, INTEGRATION_PRIORITY):
- *   PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GP > GPL > MSW
+ *   PP > PLU > PEU > DWD > SILAM > Kleenex > ATMO > GP > GPL > MSW > IRMKMI
  *
  * Previously the card and the two editor codepaths had documented divergences
  * (editor setConfig missed PLU; editor set hass missed Kleenex). The extraction
@@ -68,6 +68,9 @@ const FIXTURES = {
   // "meteoswiss_at_8000_klo"). Use a realistic prefixed shape so the
   // detection regex is exercised for the real-world case.
   msw: ["sensor.meteoswiss_at_8000_klo_pollen_birch_level_at_8000_pzh"],
+  // IRM KMI: entity ids sensor.<location>_<allergen>_level; detection falls
+  // back to the state regex when no irm_kmi platform entry is present.
+  irmkmi: ["sensor.antwerp_birch_level"],
 };
 
 /** Entities entries for integrations that use hass.entities for detection. */
@@ -135,6 +138,7 @@ describe("shared autodetect", () => {
       ["gp", "gp"],
       ["gpl", "gpl"],
       ["msw", "msw"],
+      ["irmkmi", "irmkmi"],
     ])("detects %s alone as %s", (fixture, expected) => {
       expect(detect(hassWithIntegrations(fixture))).toBe(expected);
     });

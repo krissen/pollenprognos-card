@@ -25,6 +25,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 import { findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
+import { extractIrmkmiLocationSlugFromEntityId } from "./adapters/irmkmi.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -647,6 +648,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       getPeuDiscovery,
       getGplDiscovery,
       getMswDiscovery,
+      getIrmkmiDiscovery,
     } = detection;
     this._silamDiscovery = silamDiscovery;
 
@@ -1091,6 +1093,18 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
         const title = mswMatch ? mswMatch[1].label : "";
+        loc = title || cfg.location || "";
+      } else if (integration === "irmkmi") {
+        // IRM KMI / meteo.be: resolve via shared device discovery so
+        // config_entry_id keys, device names (the location), and renamed
+        // devices (name_by_user) all surface the right location label.
+        const irmkmiDiscovery = getIrmkmiDiscovery();
+        const wantedLocation =
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+        const irmkmiMatch = resolveLocationByKey(irmkmiDiscovery, wantedLocation, {
+          slugExtractor: extractIrmkmiLocationSlugFromEntityId,
+        });
+        const title = irmkmiMatch ? irmkmiMatch[1].label : "";
         loc = title || cfg.location || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location

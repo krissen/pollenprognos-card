@@ -338,7 +338,7 @@ export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = nul
  * while the detail sensors it hides may have several.
  *
  * Reproduces the logic in _updateSensorsAndColumns exactly:
- *   - MSW is always clamped to 1 day regardless of days_to_show.
+ *   - MSW and IRM KMI are always clamped to 1 day regardless of days_to_show.
  *   - show_empty_days skips the sensor scan and returns the configured count.
  *   - Otherwise: max over sensors of min(realDays, effectiveDaysToShow),
  *     where realDays = days with state >= 0; sensors without a days array are
@@ -349,7 +349,10 @@ export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = nul
  * @returns {number}
  */
 export function computeDisplayDays(sensors, cfg) {
-  const effectiveDaysToShow = cfg.integration === "msw" ? 1 : cfg.days_to_show;
+  const effectiveDaysToShow =
+    cfg.integration === "msw" || cfg.integration === "irmkmi"
+      ? 1
+      : cfg.days_to_show;
   if (cfg.show_empty_days) return effectiveDaysToShow;
   let daysCount = 0;
   for (const s of sensors) {
