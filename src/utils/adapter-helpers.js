@@ -377,6 +377,24 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
 }
 
 /**
+ * Parse a date string to LOCAL midnight. `new Date("YYYY-MM-DD")` parses as
+ * UTC midnight, which lands on the wrong calendar day when compared against a
+ * local-midnight "today" anchor in timezones away from UTC (issue #271, Sydney
+ * UTC+10). Accepts plain dates and datetime strings (time part is dropped).
+ *
+ * @param {string} dateStr - "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm..." string.
+ * @returns {Date|null} Local-midnight Date, or null for unparsable input.
+ */
+export function parseLocalDate(dateStr) {
+  if (typeof dateStr !== "string") return null;
+  const [ymd] = dateStr.split("T");
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return null;
+  const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
  * Scale a normalized pollen level for ring rendering. DWD reports a coarse
  * 0-3 scale, but the doughnut ring is drawn on the shared 0-6 geometry, so DWD
  * levels are doubled to fill the ring; every other integration renders its
