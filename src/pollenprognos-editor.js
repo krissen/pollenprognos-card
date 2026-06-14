@@ -584,6 +584,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       getPeuDiscovery,
       getGplDiscovery,
       getMswDiscovery,
+      getIrmkmiDiscovery,
     } = detection;
 
     // Set of integrations that have at least one sensor in this hass. Drives
@@ -638,6 +639,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // when MSW is not the active integration, mirroring GPL/GP).
     const mswDiscovery = getMswDiscovery();
     this.installedMswLocations = Array.from(mswDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+
+    // 1.3b) IRM KMI discovery (always run, same rationale as MSW). Without this,
+    // when setConfig() runs before hass is assigned the location dropdown stays
+    // empty and the auto-select branch never picks the detected location.
+    const irmkmiDiscovery = getIrmkmiDiscovery();
+    this.installedIrmkmiLocations = Array.from(irmkmiDiscovery.locations.entries())
       .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
     // 1.2) Set default mode for SILAM and PEU if not specified
