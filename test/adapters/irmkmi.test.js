@@ -390,6 +390,19 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
     expect(map.get("grass")).toBe("sensor.antwerp_grasses_level");
   });
 
+  it("resolves a prefix-slug location (entity-prefix style) to the right location", () => {
+    // location: "saint_ghislain" is the entity-prefix slug, which the default
+    // suffix-based slug fallback cannot match (IRM KMI ids end with the
+    // allergen). The custom slugExtractor must resolve it instead of silently
+    // falling back to the first (Antwerp) location.
+    const hass = createHassWithRegistry(buildMultiLocationEntries());
+    const map = resolveEntityIds(
+      { allergens: ["grass"], location: "saint_ghislain" },
+      hass,
+    );
+    expect(map.get("grass")).toBe("sensor.saint_ghislain_grasses_level");
+  });
+
   it("falls back to first discovered location for stale config_entry_id", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(

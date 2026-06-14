@@ -74,6 +74,22 @@ function classifyIrmkmiEntity(eid) {
   return IRMKMI_POLLEN_TYPES[m[1]] || null;
 }
 
+// Extract the location slug from an IRM KMI entity_id
+// (sensor.<location-slug>_<allergen>_level -> <location-slug>). The location
+// slug is a PREFIX here, not a suffix, so resolveLocationByKey's default
+// suffix-based slug fallback cannot match it; adapters with this shape pass a
+// custom slugExtractor (mirrors DWD/PEU/PP). Lets a config that uses the
+// entity-prefix slug (e.g. location: "saint_ghislain") resolve to the right
+// location instead of silently falling back to the first one.
+const IRMKMI_LOCATION_SLUG_RE =
+  /^sensor\.(.+)_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
+
+export function extractIrmkmiLocationSlugFromEntityId(eid) {
+  if (typeof eid !== "string") return null;
+  const m = IRMKMI_LOCATION_SLUG_RE.exec(eid);
+  return m ? m[1] : null;
+}
+
 export const stubConfigIRMKMI = {
   integration: "irmkmi",
   location: "",
@@ -184,7 +200,9 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     return new Map();
   }
 
-  let resolved = resolveLocationByKey(discovery, cfg?.location);
+  let resolved = resolveLocationByKey(discovery, cfg?.location, {
+    slugExtractor: extractIrmkmiLocationSlugFromEntityId,
+  });
   if (!resolved) {
     // Stale or unknown location key: fall back to first discovered location
     // (sorted lex/numeric inside resolveLocationByKey when cfgLocation empty).

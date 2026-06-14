@@ -25,6 +25,7 @@ import { COSMETIC_FIELDS } from "./constants.js";
 import { findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
+import { extractIrmkmiLocationSlugFromEntityId } from "./adapters/irmkmi.js";
 import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import {
   findSilamWeatherEntity,
@@ -1100,7 +1101,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         const irmkmiDiscovery = getIrmkmiDiscovery();
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const irmkmiMatch = resolveLocationByKey(irmkmiDiscovery, wantedLocation);
+        const irmkmiMatch = resolveLocationByKey(irmkmiDiscovery, wantedLocation, {
+          slugExtractor: extractIrmkmiLocationSlugFromEntityId,
+        });
         const title = irmkmiMatch ? irmkmiMatch[1].label : "";
         loc = title || cfg.location || "";
       } else if (integration === "plu") {
