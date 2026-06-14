@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.3.2] - 2026-06-12
+## [3.3.2] - 2026-06-14
 
 ### Fixed
 - **(gpl) No more duplicate "Today" column with Pollen Levels** (issue #271). The sensor state holds the value for the integration's last *fetch* day, and forecast offsets count from that day; when the integration hasn't refreshed since yesterday (e.g. API quota), the first forecast item is dated *today*. The card assumed the state was today's value and appended the item after it, showing two columns both labeled "Today" — and the first one was actually yesterday's value. Day columns are now anchored by calendar date: the fetch day is derived from the forecast item dates (which come straight from the Google API), the state and each item land on their own day, and the card renders everything known from today forward — so a lagging sensor shows today's *actual* value once, and past values fall away. Dates are also parsed in the user's local timezone rather than UTC, which previously skewed day labels in timezones far from UTC (such as the reporter's Sydney). Fresh data (state fetched today) renders exactly as before.
