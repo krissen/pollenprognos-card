@@ -64,6 +64,18 @@ describe("computeDisplayDays: MSW integration", () => {
   });
 });
 
+describe("computeDisplayDays: IRM KMI integration", () => {
+  it("clamps to 1 regardless of days_to_show", () => {
+    const cfg = { integration: "irmkmi", days_to_show: 5 };
+    expect(computeDisplayDays([sensor5], cfg)).toBe(1);
+  });
+
+  it("clamps to 1 for irmkmi with show_empty_days true", () => {
+    const cfg = { integration: "irmkmi", days_to_show: 5, show_empty_days: true };
+    expect(computeDisplayDays([sensor5], cfg)).toBe(1);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Standalone aggregate scenario (the fix motivation)
 // ---------------------------------------------------------------------------
