@@ -30,6 +30,7 @@ import {
   resolveAllergenNames,
   discoverEntitiesByDevice,
   resolveLocationByKey,
+  deviceLocationKey,
 } from "../utils/adapter-helpers.js";
 
 // irm-kmi-ha entity slug -> canonical allergen key.
@@ -173,6 +174,15 @@ export function discoverIrmkmiSensors(hass, debug = false) {
     platform: "irm_kmi",
     classify: classifyIrmkmiEntity,
     resolveLabel: resolveIrmkmiLabel,
+    // Tiers 1/2 key by the device's config entry. The tier-3 fallback
+    // (registryless HA) has no device context and would otherwise bucket every
+    // location under "default", collapsing multi-location installs and dropping
+    // all but the first location's entities. Key tier-3 locations by their
+    // entity-prefix slug instead so they stay separate.
+    resolveLocationKey: (ctx) =>
+      ctx.device
+        ? deviceLocationKey(ctx.device)
+        : extractIrmkmiLocationSlugFromEntityId(ctx.entityId) || "default",
     fallbackRegex: fallbackRe,
     debug,
     logTag: "IRMKMI",

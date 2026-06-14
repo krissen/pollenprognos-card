@@ -426,6 +426,47 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
   });
 });
 
+describe("IRMKMI adapter: registryless (tier-3) multi-location", () => {
+  // When hass has no entity/device registry, discovery falls back to scanning
+  // hass.states. Without a per-location key the two locations would collapse
+  // into one "default" bucket and the second grass entity would be dropped.
+  function makeStatesOnlyTwoLocations() {
+    const states = {};
+    for (const slug of ["alder", "ash", "birch", "grasses", "hazel", "mugwort", "oak"]) {
+      states[`sensor.antwerp_${slug}_level`] = createIrmkmiSensor(
+        slug === "grasses" ? "purple" : "none",
+      );
+      states[`sensor.saint_ghislain_${slug}_level`] = createIrmkmiSensor(
+        slug === "grasses" ? "red" : "none",
+      );
+    }
+    return createHass(states, { language: "en" });
+  }
+
+  it("keeps the two locations separate, keyed by entity slug", () => {
+    const hass = makeStatesOnlyTwoLocations();
+    const discovery = discoverIrmkmiSensors(hass);
+    expect(discovery.locations.size).toBe(2);
+    expect(discovery.locations.has("antwerp")).toBe(true);
+    expect(discovery.locations.has("saint_ghislain")).toBe(true);
+    expect(discovery.locations.get("saint_ghislain").entities.get("grass")).toBe(
+      "sensor.saint_ghislain_grasses_level",
+    );
+  });
+
+  it("resolves location: saint_ghislain to its own data, not Antwerp's", async () => {
+    const hass = makeStatesOnlyTwoLocations();
+    const result = await fetchForecast(hass, {
+      ...stubConfigIRMKMI,
+      allergens: ["grass"],
+      location: "saint_ghislain",
+    });
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.saint_ghislain_grasses_level");
+    expect(result[0].day0.state).toBe(3); // red
+  });
+});
+
 describe("IRMKMI adapter: fetchForecast (multi-location)", () => {
   it("returns the configured location's data, not a mix", async () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
