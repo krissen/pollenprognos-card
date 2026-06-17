@@ -55,6 +55,9 @@ One representative card per integration, rendered from live sensors. Allergen na
     <td align="center" valign="top"><img width="360" alt="Google Pollen (svenove) card" src="screenshots/int-gp.png" /><br /><b>Google Pollen</b> (svenove)</td>
     <td align="center" valign="top"><img width="360" alt="MeteoSwiss card for Zurich" src="screenshots/msw-zurich.png" /><br /><b>MeteoSwiss / hass-swissweather</b></td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img width="360" alt="IRM KMI card for Antwerp" src="screenshots/int-irmkmi.png" /><br /><b>IRM KMI</b> (Belgium)</td>
+  </tr>
 </table>
 
 ## Badge compatibility
