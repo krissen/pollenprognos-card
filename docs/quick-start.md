@@ -98,6 +98,11 @@ integration: gp
 type: custom:pollenprognos-card
 integration: msw
 # location auto-detected; set config_entry_id, label or station code for multi-station setups
+
+# IRM KMI / meteo.be (Belgium)
+type: custom:pollenprognos-card
+integration: irmkmi
+# location auto-detected; set config_entry_id, label or slug for multi-location setups
 ```
 
 ## Adding a Badge
@@ -350,6 +355,21 @@ allergens:
 # days_to_show fixed at 1 (upstream provides today only); five-level scale.
 # For multi-station setups, pick the station via the visual editor or set
 # location: <config_entry_id> | <label> | <postal-code>.
+```
+
+### Belgium (IRM KMI)
+
+```yaml
+type: custom:pollenprognos-card
+integration: irmkmi
+allergens:
+  - alder
+  - birch
+  - grass
+  - mugwort
+# days_to_show fixed at 1 (meteo.be provides today only); five-level colour scale.
+# For multi-location setups, pick the location via the visual editor or set
+# location: <config_entry_id> | <label> | <slug>.
 ```
 
 ## Next Steps

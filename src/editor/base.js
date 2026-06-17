@@ -71,6 +71,7 @@ import {
   discoverGpAllergens,
 } from "../adapters/gp/index.js";
 import { discoverMswSensors } from "../adapters/msw.js";
+import { discoverIrmkmiSensors } from "../adapters/irmkmi.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -523,7 +524,9 @@ export class PollenEditorBase extends LitElement {
     const c = this._editorConfig();
     return c.integration === "dwd"
       ? { min: 0, max: 3, step: 0.5 }
-      : c.integration === "peu" || c.integration === "msw"
+      : c.integration === "peu" ||
+          c.integration === "msw" ||
+          c.integration === "irmkmi"
         ? { min: 0, max: 4, step: 1 }
         : c.integration === "gpl" || c.integration === "gp"
           ? { min: 0, max: 5, step: 1 }
@@ -838,7 +841,10 @@ export class PollenEditorBase extends LitElement {
                         ></ha-selector>
                       </ha-formfield>
                     `
-                : c.integration === "gpl" || c.integration === "gp" || c.integration === "msw"
+                : c.integration === "gpl" ||
+                    c.integration === "gp" ||
+                    c.integration === "msw" ||
+                    c.integration === "irmkmi"
                   ? html`
                       <ha-formfield label="${this._t("location")}">
                         <ha-selector
@@ -855,7 +861,9 @@ export class PollenEditorBase extends LitElement {
                                   ? (this.installedGpLocations || [])
                                   : c.integration === "msw"
                                     ? (this.installedMswLocations || [])
-                                    : (this.installedGplLocations || [])
+                                    : c.integration === "irmkmi"
+                                      ? (this.installedIrmkmiLocations || [])
+                                      : (this.installedGplLocations || [])
                                 ).map(([slug, title]) => ({
                                   value: slug,
                                   label: title,
@@ -2498,6 +2506,7 @@ export class PollenEditorBase extends LitElement {
     // labels rather than the first five of the 7-level palette.
     const levelKeyPrefix =
       integration === "msw" ||
+      integration === "irmkmi" ||
       integration === "peu" ||
       integration === "kleenex"
         ? "editor.phrases_levels5"

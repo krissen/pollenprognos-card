@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.4.0] - 2026-06-14
+
+### Added
+- **(irmkmi) Support for the IRM KMI integration** (issue #272). The card now reads pollen from [`irm-kmi-ha`](https://github.com/jdejaegh/irm-kmi-ha) (Royal Meteorological Institute of Belgium, meteo.be), which exposes seven allergens (alder, ash, birch, grass, hazel, mugwort, oak) as enum sensors per location. The meteo.be colour scale is mapped to the card's native 5-level scale (green=0, yellow=1, orange=2, red=3, purple=4) using the card's default level colours; the non-measurement states `none` (no data / out of season) and the legacy `active` flag are treated as no-data and hidden, so only allergens with an actual reading are shown. IRM KMI publishes a single current-day value, so `days_to_show` is fixed at 1. Multi-location setups (one config entry per location, e.g. Antwerp and Saint-Ghislain) are auto-discovered and selectable via the `location` field.
+
 ## [3.3.2] - 2026-06-14
 
 ### Fixed

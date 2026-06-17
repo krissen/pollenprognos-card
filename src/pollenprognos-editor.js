@@ -25,6 +25,7 @@ import { findAtmoLocationBySlug } from "./adapters/atmo.js";
 import { GPL_BASE_ALLERGENS, discoverGplSensors, discoverGplAllergens } from "./adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import { discoverMswSensors } from "./adapters/msw.js";
+import { discoverIrmkmiSensors } from "./adapters/irmkmi.js";
 import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
@@ -90,6 +91,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this.installedKleenexLocations = [];
     this.installedAtmoLocations = [];
     this.installedMswLocations = [];
+    this.installedIrmkmiLocations = [];
     this._prevIntegration = undefined;
     this.installedRegionIds = [];
     this.installedPpLocations = [];
@@ -534,6 +536,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           .map(([configEntryId, loc]) => [configEntryId, loc.label]);
       }
 
+      // IRM KMI discovery (same rationale as GPL/GP/MSW).
+      if (this._config.integration === "irmkmi" && this._hass) {
+        const id = discoverIrmkmiSensors(this._hass, false);
+        this.installedIrmkmiLocations = Array.from(id.locations.entries())
+          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+      }
+
       // SILAM discovery: run here too for same reason as GPL above
       if (this._config.integration === "silam" && this._hass) {
         const sd = discoverSilamSensors(this._hass, false);
@@ -575,6 +584,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       getPeuDiscovery,
       getGplDiscovery,
       getMswDiscovery,
+      getIrmkmiDiscovery,
     } = detection;
 
     // Set of integrations that have at least one sensor in this hass. Drives
@@ -629,6 +639,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // when MSW is not the active integration, mirroring GPL/GP).
     const mswDiscovery = getMswDiscovery();
     this.installedMswLocations = Array.from(mswDiscovery.locations.entries())
+      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+
+    // 1.3b) IRM KMI discovery (always run, same rationale as MSW). Without this,
+    // when setConfig() runs before hass is assigned the location dropdown stays
+    // empty and the auto-select branch never picks the detected location.
+    const irmkmiDiscovery = getIrmkmiDiscovery();
+    this.installedIrmkmiLocations = Array.from(irmkmiDiscovery.locations.entries())
       .map(([configEntryId, loc]) => [configEntryId, loc.label]);
 
     // 1.2) Set default mode for SILAM and PEU if not specified
@@ -1014,6 +1031,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           this.installedMswLocations?.length
         ) {
           this._config.location = this.installedMswLocations[0][0];
+        }
+        if (
+          integration === "irmkmi" &&
+          !this._userConfig.location &&
+          this.installedIrmkmiLocations?.length
+        ) {
+          this._config.location = this.installedIrmkmiLocations[0][0];
         }
       }
 

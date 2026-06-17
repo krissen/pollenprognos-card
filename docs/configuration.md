@@ -25,6 +25,7 @@ In this file:
   - [Google Pollen Levels (GPL)](#google-pollen-levels-gpl)
   - [Google Pollen (GP)](#google-pollen-gp)
   - [MeteoSwiss / hass-swissweather (MSW)](#meteoswiss--hass-swissweather-msw)
+  - [IRM KMI / meteo.be](#irm-kmi--meteobe)
 - [Badge](#badge)
 - [Color System Overview](#color-system-overview)
   - [Allergen Icon Colors](#allergen-icon-colors)
@@ -356,6 +357,22 @@ birch, grass, alder, hazel, beech, ash, oak
 Categorical levels reported by the integration map to a native 5-level scale (0--4): `None` -> 0, `Low` -> 1, `Medium` -> 2, `Strong` -> 3, `Very Strong` -> 4. The card keeps each integration's native level count rather than stretching onto a shared 0--6 gradient; level circles render with five segments (None empty, Very Strong full) and severity strings come from the `card.levels5.0..4` i18n keys.
 
 Multi-station configuration: set `location` to either the `config_entry_id` (Crockford-base32 ULID, the visual editor's default), the device label (`name_by_user` or `name`, e.g. `Bern`), or the station code (e.g. `8000`). Leaving `location` empty selects the first discovered station. Stale `config_entry_id` values (e.g. after an integration reinstall) auto-recover to the first discovered station, mirroring DWD/GPL/GP/SILAM/Atmo behavior.
+
+### IRM KMI / meteo.be
+
+The IRM KMI adapter supports [`irm-kmi-ha`](https://github.com/jdejaegh/irm-kmi-ha) by [@jdejaegh](https://github.com/jdejaegh), which publishes pollen data from the Royal Meteorological Institute of Belgium (meteo.be). meteo.be reports a single current-day value per allergen, so `days_to_show` is fixed at 1 by the card regardless of config.
+
+Sensors are detected by the `irm_kmi` platform and the entity-ID pattern `sensor.<location>_<allergen>_level`. Discovery uses the shared device-registry helper, so multi-location setups (one config entry per location) are disambiguated by config entry and entity-ID renames do not break detection.
+
+The available allergens:
+
+```
+alder, ash, birch, grass, hazel, mugwort, oak
+```
+
+meteo.be exposes the pollen colour scale as enum states, mapped to a native 5-level scale (0--4): `green` -> 0, `yellow` -> 1, `orange` -> 2, `red` -> 3, `purple` -> 4, using the card's default level colours. The non-measurement states `none` (no data / not in season) and the legacy `active` flag are treated as no-data and hidden, so the card shows only allergens with an actual reading. The default `pollen_threshold` is 1, matching the other adapters (level-0 allergens are hidden until a measurement crosses Low or higher).
+
+Multi-location configuration: set `location` to the `config_entry_id` (Crockford-base32 ULID, the visual editor's default), the location label (e.g. `Antwerp`), or the entity-prefix slug (e.g. `saint_ghislain`). Leaving `location` empty selects the first discovered location, and stale `config_entry_id` values auto-recover to the first discovered location, mirroring DWD/GPL/GP/SILAM/Atmo/MSW behavior.
 
 ## Badge
 

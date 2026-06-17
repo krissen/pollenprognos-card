@@ -13,6 +13,7 @@ import { ATMO_ALLERGENS } from "../adapters/atmo.js";
 import { GPL_BASE_ALLERGENS } from "../adapters/gpl/index.js";
 import { GP_BASE_ALLERGENS } from "../adapters/gp/index.js";
 import { stubConfigMSW } from "../adapters/msw.js";
+import { stubConfigIRMKMI } from "../adapters/irmkmi.js";
 import { stubConfigPP } from "../adapters/pp.js";
 
 /**
@@ -48,6 +49,8 @@ export function allergenListForIntegration(integration, opts = {}) {
       return ATMO_ALLERGENS;
     case "msw":
       return stubConfigMSW.allergens;
+    case "irmkmi":
+      return stubConfigIRMKMI.allergens;
     default:
       return stubConfigPP.allergens;
   }

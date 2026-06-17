@@ -73,5 +73,13 @@
   "type": "custom:pollenprognos-card",
   "integration": "msw",
   "location": "01KQVM6J4DC3BB3S3E9WC2DF5H"
+ },
+ "int-irmkmi.png": {
+  "type": "custom:pollenprognos-card",
+  "integration": "irmkmi",
+  "location": "Antwerp",
+  "date_locale": "en-GB",
+  "show_text_allergen": true,
+  "show_value_text": true
  }
 }
