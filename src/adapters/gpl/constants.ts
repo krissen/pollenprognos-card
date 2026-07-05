@@ -1,11 +1,12 @@
-// src/adapters/gpl/constants.js
+// src/adapters/gpl/constants.ts
+import type { AdapterStubConfig } from "../../types/config.js";
 import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 
 // Attribution string used by pollenlevels integration
 export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
 
 // Map pollenlevels TYPE_ICONS to our canonical allergen keys
-export const GPL_TYPE_ICON_MAP = {
+export const GPL_TYPE_ICON_MAP: Record<string, string> = {
   "mdi:grass": "grass_cat",
   "mdi:tree": "trees_cat",
   "mdi:flower-tulip": "weeds_cat",
@@ -14,7 +15,7 @@ export const GPL_TYPE_ICON_MAP = {
 // Base allergens always available (categories)
 export const GPL_BASE_ALLERGENS = ["grass_cat", "trees_cat", "weeds_cat"];
 
-export const stubConfigGPL = {
+export const stubConfigGPL: AdapterStubConfig = {
   integration: "gpl",
   location: "",
   entity_prefix: "",

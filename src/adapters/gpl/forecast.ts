@@ -1,12 +1,36 @@
-// src/adapters/gpl/forecast.js
+// src/adapters/gpl/forecast.ts
+import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { CardConfig } from "../../types/config.js";
+import type { PollenSensor, ForecastDay } from "../../types/sensor.js";
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, coerceBool, deviceLocationKey, parseLocalDate } from "../../utils/adapter-helpers.js";
+import {
+  getLangAndLocale,
+  mergePhrases,
+  buildDayLabel,
+  clampLevel,
+  sortSensors,
+  meetsThreshold,
+  resolveAllergenNames,
+  coerceBool,
+  deviceLocationKey,
+  parseLocalDate,
+} from "../../utils/adapter-helpers.js";
+import { scaleUpi0_5To0_6 } from "../base.js";
 import { stubConfigGPL, capitalize } from "./constants.js";
 import { resolveEntityIds } from "./discovery.js";
 import { t } from "../../i18n.js";
 
 // Google Pollen API top-type codes -> our canonical category keys.
-const TOP_CODE_TO_KEY = { TREE: "trees_cat", GRASS: "grass_cat", WEED: "weeds_cat" };
+const TOP_CODE_TO_KEY: Record<string, string> = {
+  TREE: "trees_cat",
+  GRASS: "grass_cat",
+  WEED: "weeds_cat",
+};
+
+interface GplLevelDay {
+  date: Date;
+  level: number;
+}
 
 /**
  * Localize a pollen code to the CARD's language (issue #222). The pollenlevels
@@ -15,11 +39,16 @@ const TOP_CODE_TO_KEY = { TREE: "trees_cat", GRASS: "grass_cat", WEED: "weeds_ca
  * via our own translations and only fall back to the integration's name when
  * we have no translation for that code.
  */
-function localizeAllergenLabel(key, fallbackName, lang) {
+function localizeAllergenLabel(
+  key: string,
+  fallbackName: unknown,
+  lang: string,
+): string {
   const tk = `card.allergen.${key}`;
   const tr = t(tk, lang);
   if (typeof tr === "string" && tr && tr !== tk) return tr;
-  if (typeof fallbackName === "string" && fallbackName.trim()) return fallbackName.trim();
+  if (typeof fallbackName === "string" && fallbackName.trim())
+    return fallbackName.trim();
   return capitalize(String(key).replace(/_/g, " "));
 }
 
@@ -34,7 +63,7 @@ function localizeAllergenLabel(key, fallbackName, lang) {
  * per location) and v3 (subentry per location) both scope correctly. Returns
  * the location key, or null when the entity has no resolvable device.
  */
-function entityLocationKey(hass, eid) {
+function entityLocationKey(hass: HomeAssistant, eid: string): string | null {
   const entry = hass?.entities?.[eid];
   const dev = entry?.device_id ? hass?.devices?.[entry.device_id] : null;
   if (!dev) return null;
@@ -51,56 +80,85 @@ function entityLocationKey(hass, eid) {
  * expose unique_id, so translation_key is the primary signal). Returns the
  * sibling entity_id or null.
  */
-function findSiblingEntityId(hass, summaryEntityId, translationKey, uidSuffix) {
+function findSiblingEntityId(
+  hass: HomeAssistant,
+  summaryEntityId: string,
+  translationKey: string,
+  uidSuffix: string,
+): string | null {
   const entities = hass?.entities;
   if (!entities) return null;
   const summaryKey = entityLocationKey(hass, summaryEntityId);
   for (const [eid, entry] of Object.entries(entities)) {
     const matches =
       entry?.translation_key === translationKey ||
-      (typeof entry?.unique_id === "string" && entry.unique_id.endsWith(uidSuffix));
+      (typeof entry?.unique_id === "string" &&
+        entry.unique_id.endsWith(uidSuffix));
     if (!matches) continue;
     // When the summary has a resolvable location, only accept a sibling from
     // the same location. A candidate without a resolvable key can't be proven
     // same-location, so skip it.
-    if (summaryKey !== null && entityLocationKey(hass, eid) !== summaryKey) continue;
+    if (summaryKey !== null && entityLocationKey(hass, eid) !== summaryKey)
+      continue;
     return eid;
   }
   return null;
 }
 
-export async function fetchForecast(hass, config) {
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
   const debug = Boolean(config.debug);
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigGPL.date_locale);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(
+      hass,
+      config,
+      stubConfigGPL.date_locale as string | undefined,
+    );
 
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
-  const levelNames = buildLevelNames(userLevels, lang);
-  const days_to_show = config.days_to_show ?? stubConfigGPL.days_to_show;
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+    mergePhrases(config, lang);
+  const levelNames = buildLevelNames(
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
+  const days_to_show =
+    (config.days_to_show as number | undefined) ??
+    (stubConfigGPL.days_to_show as number);
   const pollen_threshold =
-    config.pollen_threshold ?? stubConfigGPL.pollen_threshold;
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigGPL.pollen_threshold as number);
 
   // GPL uses 6-level system (0-5)
-  const testVal = (v) => clampLevel(v, 5, -1);
+  const testVal = (v: unknown): number => clampLevel(v, 5, -1);
 
-  if (debug) console.debug("[GPL] Adapter: start fetchForecast", { config, lang });
+  if (debug)
+    console.debug("[GPL] Adapter: start fetchForecast", { config, lang });
 
   const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let sensors = [];
+  let sensors: PollenSensor[] = [];
 
-  for (const allergen of config.allergens) {
+  for (const allergen of config.allergens as string[]) {
     try {
-      const dict = { days: [] };
+      const dict = { days: [] as ForecastDay[] } as PollenSensor;
       dict.allergenReplaced = allergen;
 
       // Allergen name resolution
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
-        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
-        capitalize: (s) => capitalize(s.replace(/_/g, " ")),
-      });
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+        allergen,
+        {
+          fullPhrases,
+          shortPhrases,
+          abbreviated: config.allergens_abbreviated as boolean,
+          lang,
+          capitalize: (s) => capitalize(s.replace(/_/g, " ")),
+        },
+      );
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
@@ -121,14 +179,20 @@ export async function fetchForecast(hass, config) {
         // Top types: localize from the canonical category codes in the CARD's
         // language (TREE -> trees_cat -> "Träd"). The integration's *_names may
         // be in another language, so they are only a per-item fallback.
-        const topCodes = Array.isArray(attrs.top_pollen_codes) ? attrs.top_pollen_codes : [];
-        const topNames = Array.isArray(attrs.top_pollen_names) ? attrs.top_pollen_names : [];
+        const topCodes = Array.isArray(attrs.top_pollen_codes)
+          ? attrs.top_pollen_codes
+          : [];
+        const topNames = Array.isArray(attrs.top_pollen_names)
+          ? attrs.top_pollen_names
+          : [];
         const topList = topCodes
-          .map((code, i) => {
-            const key = TOP_CODE_TO_KEY[String(code).toUpperCase()] || String(code).toLowerCase();
+          .map((code: unknown, i: number) => {
+            const key =
+              TOP_CODE_TO_KEY[String(code).toUpperCase()] ||
+              String(code).toLowerCase();
             return localizeAllergenLabel(key, topNames[i], lang);
           })
-          .filter((n) => typeof n === "string" && n.trim());
+          .filter((n: unknown) => typeof n === "string" && n.trim());
         if (topList.length) dict.topPollen = topList;
 
         // Plants in season: list + count from the sibling
@@ -143,15 +207,23 @@ export async function fetchForecast(hass, config) {
         );
         const plantsState = plantsId ? hass.states[plantsId] : null;
         const pAttrs = plantsState?.attributes ?? {};
-        const plantCodes = Array.isArray(pAttrs.plant_codes) ? pAttrs.plant_codes : [];
-        const plantNames = Array.isArray(pAttrs.plant_names) ? pAttrs.plant_names : [];
-        let plantList;
+        const plantCodes = Array.isArray(pAttrs.plant_codes)
+          ? pAttrs.plant_codes
+          : [];
+        const plantNames = Array.isArray(pAttrs.plant_names)
+          ? pAttrs.plant_names
+          : [];
+        let plantList: string[];
         if (plantCodes.length) {
           plantList = plantCodes
-            .map((code, i) => localizeAllergenLabel(String(code).toLowerCase(), plantNames[i], lang))
-            .filter((n) => typeof n === "string" && n.trim());
+            .map((code: unknown, i: number) =>
+              localizeAllergenLabel(String(code).toLowerCase(), plantNames[i], lang),
+            )
+            .filter((n: unknown) => typeof n === "string" && n.trim());
         } else {
-          plantList = plantNames.filter((n) => typeof n === "string" && n.trim());
+          plantList = plantNames.filter(
+            (n: unknown) => typeof n === "string" && n.trim(),
+          );
         }
         if (plantList.length) dict.plantsInSeasonList = plantList;
       }
@@ -182,7 +254,7 @@ export async function fetchForecast(hass, config) {
       const forecastData = Array.isArray(sensor.attributes?.forecast)
         ? sensor.attributes.forecast
         : [];
-      const addDays = (date, n) => {
+      const addDays = (date: Date, n: number): Date => {
         const d = new Date(date);
         d.setDate(d.getDate() + n);
         d.setHours(0, 0, 0, 0);
@@ -198,19 +270,26 @@ export async function fetchForecast(hass, config) {
         }
       }
 
-      const entries = [{ date: stateDate, level: todayVal }];
+      const entries: GplLevelDay[] = [{ date: stateDate, level: todayVal }];
       for (const forecastItem of forecastData) {
         const off = Number.isFinite(Number(forecastItem.offset))
           ? Number(forecastItem.offset)
           : entries.length;
-        const date = parseLocalDate(forecastItem.date) ?? addDays(stateDate, off);
+        const date =
+          parseLocalDate(forecastItem.date) ?? addDays(stateDate, off);
         // Same calendar day already present: first entry wins (the state for
         // the fetch day, or an earlier item).
-        if (entries.some((e) => e.date.toDateString() === date.toDateString())) {
+        if (
+          entries.some((e) => e.date.toDateString() === date.toDateString())
+        ) {
           continue;
         }
         const hasIndex = forecastItem.has_index !== false;
-        const val = forecastItem.value ?? forecastItem.state ?? forecastItem.level ?? forecastItem;
+        const val =
+          forecastItem.value ??
+          forecastItem.state ??
+          forecastItem.level ??
+          forecastItem;
         entries.push({ date, level: hasIndex ? testVal(val) : -1 });
       }
 
@@ -218,9 +297,9 @@ export async function fetchForecast(hass, config) {
       // known data starts after today (e.g. viewing a location whose local day
       // is ahead of the browser's), keep day 0 as an honest empty "today".
       const levels = entries
-        .filter((e) => e.date - today >= 0)
-        .sort((a, b) => a.date - b.date);
-      if (!levels.length || levels[0].date - today > 0) {
+        .filter((e) => e.date.getTime() - today.getTime() >= 0)
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+      if (!levels.length || levels[0].date.getTime() - today.getTime() > 0) {
         levels.unshift({ date: today, level: -1 });
       }
       levels.splice(days_to_show);
@@ -240,26 +319,26 @@ export async function fetchForecast(hass, config) {
         const entry = levels[i];
         if (!entry) continue;
 
-        const diff = Math.round((entry.date - today) / 86400000);
-        const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
+        const diff = Math.round(
+          (entry.date.getTime() - today.getTime()) / 86400000,
+        );
+        const dayLabel = buildDayLabel(entry.date, diff, {
+          daysRelative,
+          dayAbbrev,
+          daysUppercase,
+          userDays,
+          lang,
+          locale,
+        });
 
         // Scale level 0-5 to level name index 0-6 (like Kleenex does for 0-4)
         const level = entry.level;
-        let scaledLevel;
-        if (level < 0) {
-          scaledLevel = level;
-        } else if (level < 2) {
-          scaledLevel = Math.floor((level * 6) / 5);
-        } else {
-          scaledLevel = Math.ceil((level * 6) / 5);
-        }
+        const scaledLevel = scaleUpi0_5To0_6(level);
 
         const stateText =
-          scaledLevel < 0
-            ? noInfoLabel
-            : levelNames[scaledLevel] || noInfoLabel;
+          scaledLevel < 0 ? noInfoLabel : levelNames[scaledLevel] || noInfoLabel;
 
-        const dayObj = {
+        const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,
           day: dayLabel,
           state: entry.level,
@@ -292,15 +371,13 @@ export async function fetchForecast(hass, config) {
       );
       const individualAllergens = sensors.filter(
         (s) =>
-          !["trees_cat", "grass_cat", "weeds_cat"].includes(
-            s.allergenReplaced,
-          ),
+          !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
-      sortSensors(categoryAllergens, config.sort);
-      sortSensors(individualAllergens, config.sort);
+      sortSensors(categoryAllergens, config.sort as string);
+      sortSensors(individualAllergens, config.sort as string);
       sensors = [...categoryAllergens, ...individualAllergens];
     } else {
-      sortSensors(sensors, config.sort);
+      sortSensors(sensors, config.sort as string);
     }
   }
 
