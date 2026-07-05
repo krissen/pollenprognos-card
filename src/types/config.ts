@@ -30,3 +30,11 @@ export interface BadgeConfig extends LovelaceCardConfig {
  * Nothing about it is trustworthy yet, hence fully opaque values.
  */
 export type RawCardConfig = Record<string, unknown>;
+
+/**
+ * An adapter's `stubConfig*` default-configuration template. Stubs are merged
+ * under the user config in `setConfig` (`{ ...stub, ...userConfig }`), so the
+ * Lovelace `type` key always comes from the user config, never the stub. The
+ * stub therefore omits `type` rather than carrying a placeholder value.
+ */
+export type AdapterStubConfig = Omit<CardConfig, "type">;

@@ -10,7 +10,7 @@
 // reference wrappers.
 
 import type { HomeAssistant } from "../types/home-assistant.js";
-import type { CardConfig } from "../types/config.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor } from "../types/sensor.js";
 import type { DeviceDiscovery } from "../utils/adapter-helpers.js";
 import {
@@ -208,7 +208,7 @@ export interface BuildDictArgs {
 /** Options for {@link runForecastScaffold}. */
 export interface ForecastScaffoldOptions {
   /** The adapter's stubConfig (for days_to_show / pollen_threshold / date_locale defaults). */
-  stub: CardConfig;
+  stub: AdapterStubConfig;
   /** Allergen -> raw key normalizer. */
   normalize: (allergen: string) => string;
   /** The adapter's own resolveEntityIds. */

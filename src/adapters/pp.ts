@@ -1,5 +1,5 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
-import type { CardConfig } from "../types/config.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
@@ -21,8 +21,7 @@ import {
   type BuildDictArgs,
 } from "./base.js";
 
-export const stubConfigPP: CardConfig = {
-  type: "custom:pollenprognos-card",
+export const stubConfigPP: AdapterStubConfig = {
   integration: "pp",
   city: "",
   // Optional entity naming used when city is "manual"

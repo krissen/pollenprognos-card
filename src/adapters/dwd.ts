@@ -1,5 +1,5 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
-import type { CardConfig } from "../types/config.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
@@ -25,8 +25,7 @@ const ATTR_DESC_TODAY = "state_today_desc";
 const ATTR_DESC_TOMORROW = "state_tomorrow_desc";
 const ATTR_DESC_IN_2_DAYS = "state_in_2_days_desc";
 
-export const stubConfigDWD: CardConfig = {
-  type: "custom:pollenprognos-card",
+export const stubConfigDWD: AdapterStubConfig = {
   integration: "dwd",
   region_id: "",
   // Optional entity naming used when region_id is "manual"
