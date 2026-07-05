@@ -173,6 +173,6 @@ export const INDIVIDUAL_TO_CATEGORY = {
   mugwort: "weeds", ragweed: "weeds", chenopod: "weeds", nettle: "weeds",
 };
 
-export function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+// Re-exported from the shared helper so the three adapter constants modules
+// expose one identical capitalize (consumers keep their ./constants import).
+export { capitalize } from "../../utils/adapter-helpers.js";

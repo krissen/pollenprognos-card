@@ -419,7 +419,6 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 
 export async function fetchForecast(hass, config) {
   const debug = Boolean(config.debug);
-  const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigATMO.date_locale);
 
