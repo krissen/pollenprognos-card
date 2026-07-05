@@ -4,6 +4,7 @@ import {
   isConfigEntryId,
   deviceLocationKey,
 } from "./adapter-helpers.js";
+import type { DiscoveryContext } from "./adapter-helpers.js";
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { EntityRegistryDisplayEntry } from "../types/home-assistant.js";
 
@@ -28,17 +29,6 @@ interface SilamDiscovery {
 
 // Re-export so editor and other callers can keep their silam.js import path.
 export { isConfigEntryId };
-
-// Skapa dynamisk reverse-map: masterAllergen => slug för rätt språk
-export function getSilamReverseMap(lang: string): Record<string, string> {
-  const mapping =
-    silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {};
-  const reverse: Record<string, string> = {};
-  for (const [slug, master] of Object.entries(mapping)) {
-    reverse[master] = slug;
-  }
-  return reverse;
-}
 
 /**
  * Classify a SILAM entity by its translation_key.
@@ -108,7 +98,7 @@ export function discoverSilamSensors(
     platform: "silam_pollen",
     classify: classifySilamEntity,
     classifyRelaxed: classifySilamEntity,
-    resolveLabel: (ctx: any) => {
+    resolveLabel: (ctx: DiscoveryContext) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
       if (ctx.device?.name) return stripSilamPrefix(ctx.device.name);
       if (ctx.state?.attributes?.friendly_name) {
