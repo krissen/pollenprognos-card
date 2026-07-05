@@ -1,0 +1,82 @@
+[
+  {
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 3,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 4,
+        "state_text": "Moderate–high levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Day after tomorrow",
+        "state": -1,
+        "state_text": "(No information)"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 18",
+        "state": -1,
+        "state_text": "(No information)"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 19",
+        "state": -1,
+        "state_text": "(No information)"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 20",
+        "state": -1,
+        "state_text": "(No information)"
+      }
+    ],
+    "allergenReplaced": "bjork",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.pollen_stockholm_bjork",
+    "day0": {
+      "name": "Birch",
+      "day": "Today",
+      "state": 3,
+      "state_text": "Moderate levels"
+    },
+    "day1": {
+      "name": "Birch",
+      "day": "Tomorrow",
+      "state": 4,
+      "state_text": "Moderate–high levels"
+    },
+    "day2": {
+      "name": "Birch",
+      "day": "Day after tomorrow",
+      "state": -1,
+      "state_text": "(No information)"
+    },
+    "day3": {
+      "name": "Birch",
+      "day": "Jun 18",
+      "state": -1,
+      "state_text": "(No information)"
+    },
+    "day4": {
+      "name": "Birch",
+      "day": "Jun 19",
+      "state": -1,
+      "state_text": "(No information)"
+    },
+    "day5": {
+      "name": "Birch",
+      "day": "Jun 20",
+      "state": -1,
+      "state_text": "(No information)"
+    }
+  }
+]

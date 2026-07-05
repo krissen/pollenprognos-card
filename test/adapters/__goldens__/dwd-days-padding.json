@@ -1,0 +1,52 @@
+[
+  {
+    "allergenReplaced": "birke",
+    "allergenCapitalized": "Birke",
+    "allergenShort": "Birke",
+    "entity_id": "sensor.pollenflug_birke_50",
+    "days": [
+      {
+        "name": "Birke",
+        "day": "Heute",
+        "state": 2,
+        "display_state": 4,
+        "state_text": "mittlere Belastung"
+      },
+      {
+        "name": "Birke",
+        "day": "Morgen",
+        "state": 1,
+        "display_state": 2,
+        "state_text": "geringe Belastung"
+      },
+      {
+        "name": "Birke",
+        "day": "Übermorgen",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "keine Belastung"
+      }
+    ],
+    "day0": {
+      "name": "Birke",
+      "day": "Heute",
+      "state": 2,
+      "display_state": 4,
+      "state_text": "mittlere Belastung"
+    },
+    "day1": {
+      "name": "Birke",
+      "day": "Morgen",
+      "state": 1,
+      "display_state": 2,
+      "state_text": "geringe Belastung"
+    },
+    "day2": {
+      "name": "Birke",
+      "day": "Übermorgen",
+      "state": 0,
+      "display_state": 0,
+      "state_text": "keine Belastung"
+    }
+  }
+]

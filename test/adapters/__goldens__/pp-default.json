@@ -1,0 +1,170 @@
+[
+  {
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 3,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 4,
+        "state_text": "Moderate–high levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Day after tomorrow",
+        "state": 2,
+        "state_text": "Low–moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 18",
+        "state": 1,
+        "state_text": "Low levels"
+      }
+    ],
+    "allergenReplaced": "bjork",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.pollen_stockholm_bjork",
+    "day0": {
+      "name": "Birch",
+      "day": "Today",
+      "state": 3,
+      "state_text": "Moderate levels"
+    },
+    "day1": {
+      "name": "Birch",
+      "day": "Tomorrow",
+      "state": 4,
+      "state_text": "Moderate–high levels"
+    },
+    "day2": {
+      "name": "Birch",
+      "day": "Day after tomorrow",
+      "state": 2,
+      "state_text": "Low–moderate levels"
+    },
+    "day3": {
+      "name": "Birch",
+      "day": "Jun 18",
+      "state": 1,
+      "state_text": "Low levels"
+    }
+  },
+  {
+    "days": [
+      {
+        "name": "Grass",
+        "day": "Today",
+        "state": 2,
+        "state_text": "Low–moderate levels"
+      },
+      {
+        "name": "Grass",
+        "day": "Tomorrow",
+        "state": 3,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Grass",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Grass",
+        "day": "Jun 18",
+        "state": 0,
+        "state_text": "No pollen"
+      }
+    ],
+    "allergenReplaced": "gras",
+    "allergenCapitalized": "Grass",
+    "allergenShort": "Grass",
+    "entity_id": "sensor.pollen_stockholm_gras",
+    "day0": {
+      "name": "Grass",
+      "day": "Today",
+      "state": 2,
+      "state_text": "Low–moderate levels"
+    },
+    "day1": {
+      "name": "Grass",
+      "day": "Tomorrow",
+      "state": 3,
+      "state_text": "Moderate levels"
+    },
+    "day2": {
+      "name": "Grass",
+      "day": "Day after tomorrow",
+      "state": 1,
+      "state_text": "Low levels"
+    },
+    "day3": {
+      "name": "Grass",
+      "day": "Jun 18",
+      "state": 0,
+      "state_text": "No pollen"
+    }
+  },
+  {
+    "days": [
+      {
+        "name": "Alder",
+        "day": "Today",
+        "state": 1,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Alder",
+        "day": "Tomorrow",
+        "state": 2,
+        "state_text": "Low–moderate levels"
+      },
+      {
+        "name": "Alder",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "state_text": "No pollen"
+      },
+      {
+        "name": "Alder",
+        "day": "Jun 18",
+        "state": 0,
+        "state_text": "No pollen"
+      }
+    ],
+    "allergenReplaced": "al",
+    "allergenCapitalized": "Alder",
+    "allergenShort": "Alder",
+    "entity_id": "sensor.pollen_stockholm_al",
+    "day0": {
+      "name": "Alder",
+      "day": "Today",
+      "state": 1,
+      "state_text": "Low levels"
+    },
+    "day1": {
+      "name": "Alder",
+      "day": "Tomorrow",
+      "state": 2,
+      "state_text": "Low–moderate levels"
+    },
+    "day2": {
+      "name": "Alder",
+      "day": "Day after tomorrow",
+      "state": 0,
+      "state_text": "No pollen"
+    },
+    "day3": {
+      "name": "Alder",
+      "day": "Jun 18",
+      "state": 0,
+      "state_text": "No pollen"
+    }
+  }
+]
