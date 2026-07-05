@@ -1,4 +1,4 @@
-// src/adapters/irmkmi.js
+// src/adapters/irmkmi.ts
 // IRM KMI / meteo.be adapter.
 //
 // Reads current pollen levels from the enum sensors created by the
@@ -18,7 +18,17 @@
 //     Saint-Ghislain) are disambiguated by config entry rather than mixed.
 //   - Stale config_entry_id values fall back to the first discovered location,
 //     mirroring DWD/GPL/GP/SILAM/Atmo/MSW recovery behavior.
+//
+// IRM KMI keeps its own resolveEntityIds and fetchForecast rather than the
+// shared base helpers: its discovery-only resolveEntityIds treats "manual" as
+// autodetect and falls back to the first location for ANY unmatched key (not
+// just config-entry ids as createEntityResolver's recoverStaleConfig does),
+// with no manual/template path, and its fetchForecast emits a single
+// current-day row rather than the multi-day window runForecastScaffold targets.
 
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import {
@@ -31,11 +41,16 @@ import {
   discoverEntitiesByDevice,
   resolveLocationByKey,
   deviceLocationKey,
+  type DiscoveryContext,
+  type DiscoveredLocation,
 } from "../utils/adapter-helpers.js";
+
+// The subset of the discovery result irmkmi uses (config-entry keyed locations).
+type IrmkmiDiscovery = { locations: Map<string, DiscoveredLocation> };
 
 // irm-kmi-ha entity slug -> canonical allergen key.
 // "grasses" is the slug used in entity IDs by the integration.
-const IRMKMI_POLLEN_TYPES = {
+const IRMKMI_POLLEN_TYPES: Record<string, string> = {
   alder: "alder",
   ash: "ash",
   birch: "birch",
@@ -52,7 +67,8 @@ const IRMKMI_POLLEN_TYPES = {
 // green=null < yellow=low < orange=moderate < red=high < purple=very high.
 // `none` (no data) and the legacy `active` flag are intentionally absent: any
 // state not in this map is treated as no-data and the row is skipped.
-const IRMKMI_LEVEL_MAP = {
+// TODO(#259-normalize): preserve this native 0-4 level map.
+const IRMKMI_LEVEL_MAP: Record<string, number> = {
   green: 0,
   yellow: 1,
   orange: 2,
@@ -65,10 +81,9 @@ const IRMKMI_LEVEL_MAP = {
 // location (e.g. "antwerp", "saint_ghislain"). Anchoring on
 // _<allergen>_level$ extracts the allergen regardless of how many underscores
 // the location slug contains.
-const IRMKMI_LEVEL_RE =
-  /_(alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
+const IRMKMI_LEVEL_RE = /_(alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
 
-function classifyIrmkmiEntity(eid) {
+function classifyIrmkmiEntity(eid: string): string | null {
   if (typeof eid !== "string") return null;
   const m = IRMKMI_LEVEL_RE.exec(eid);
   if (!m) return null;
@@ -85,13 +100,15 @@ function classifyIrmkmiEntity(eid) {
 const IRMKMI_LOCATION_SLUG_RE =
   /^sensor\.(.+)_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
 
-export function extractIrmkmiLocationSlugFromEntityId(eid) {
+export function extractIrmkmiLocationSlugFromEntityId(
+  eid: string,
+): string | null {
   if (typeof eid !== "string") return null;
   const m = IRMKMI_LOCATION_SLUG_RE.exec(eid);
   return m ? m[1] : null;
 }
 
-export const stubConfigIRMKMI = {
+export const stubConfigIRMKMI: AdapterStubConfig = {
   integration: "irmkmi",
   location: "",
   allergens: ["alder", "ash", "birch", "grass", "hazel", "mugwort", "oak"],
@@ -140,15 +157,13 @@ export const stubConfigIRMKMI = {
  * name is the config-entry title, which is already the location (e.g.
  * "Antwerp", "Saint-Ghislain"); the RMI attribution lives in `manufacturer`,
  * not the name, so no prefix-stripping is needed.
- *
- * @param {{ device?: { name?: string, name_by_user?: string }, state?: { attributes?: { friendly_name?: string } } }} ctx
- * @returns {string}
  */
-function resolveIrmkmiLabel(ctx) {
+function resolveIrmkmiLabel(ctx: DiscoveryContext): string {
   const device = ctx?.device;
   if (device?.name_by_user) return device.name_by_user;
   if (device?.name) return device.name;
-  if (ctx?.state?.attributes?.friendly_name) return ctx.state.attributes.friendly_name;
+  if (ctx?.state?.attributes?.friendly_name)
+    return ctx.state.attributes.friendly_name;
   return "Auto";
 }
 
@@ -159,12 +174,11 @@ function resolveIrmkmiLabel(ctx) {
  *   1. Device registry: hass.devices with identifiers ["irm_kmi", ...].
  *   2. Entity registry: hass.entities filtered by platform === "irm_kmi".
  *   3. Regex fallback: hass.states scanned for the level-entity pattern.
- *
- * @param {Object} hass
- * @param {boolean} [debug]
- * @returns {{ locations: Map<string, { label: string, entities: Map<string, string>, deviceId?: string }> }}
  */
-export function discoverIrmkmiSensors(hass, debug = false) {
+export function discoverIrmkmiSensors(
+  hass: HomeAssistant,
+  debug = false,
+): IrmkmiDiscovery {
   if (!hass) return { locations: new Map() };
 
   const fallbackRe =
@@ -195,13 +209,12 @@ export function discoverIrmkmiSensors(hass, debug = false) {
  * Map allergen keys from config to irm-kmi-ha entity IDs for the resolved
  * location. Falls back to the first discovered location when the configured
  * location key does not match (auto-recovery from stale config_entry_id).
- *
- * @param {Object} cfg
- * @param {Object} hass
- * @param {boolean} [debug]
- * @returns {Map<string, string>} allergen -> entity_id
  */
-export function resolveEntityIds(cfg, hass, debug = false) {
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): Map<string, string> {
   if (!hass?.states) return new Map();
 
   const discovery = discoverIrmkmiSensors(hass, debug);
@@ -215,7 +228,8 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   // Treat "manual" as autodetect (first discovered location), matching the
   // card header's pervasive `location !== "manual"` handling, instead of
   // silently relying on the stale-location fallback below.
-  const wantedLocation = cfg?.location === "manual" ? "" : cfg?.location;
+  const wantedLocation =
+    cfg?.location === "manual" ? "" : (cfg?.location as string);
   let resolved = resolveLocationByKey(discovery, wantedLocation, {
     slugExtractor: extractIrmkmiLocationSlugFromEntityId,
   });
@@ -232,14 +246,17 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   if (!resolved) return new Map();
 
   const [, location] = resolved;
-  const map = new Map();
-  for (const allergen of cfg?.allergens || []) {
+  const map = new Map<string, string>();
+  for (const allergen of (cfg?.allergens as string[] | undefined) || []) {
     const eid = location.entities.get(allergen);
     if (eid) {
       map.set(allergen, eid);
-      if (debug) console.debug(`[IRMKMI:resolveEntityIds] ${allergen} -> ${eid}`);
+      if (debug)
+        console.debug(`[IRMKMI:resolveEntityIds] ${allergen} -> ${eid}`);
     } else if (debug) {
-      console.debug(`[IRMKMI:resolveEntityIds] No entity for '${allergen}' in resolved location`);
+      console.debug(
+        `[IRMKMI:resolveEntityIds] No entity for '${allergen}' in resolved location`,
+      );
     }
   }
   return map;
@@ -248,26 +265,39 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 /**
  * Fetch current pollen levels from irm-kmi-ha entities.
  * Returns one day (today) per allergen.
- *
- * @param {Object} hass
- * @param {Object} config
- * @returns {Promise<Array>} Sensor dicts compatible with pollenprognos-card renderer
  */
-export async function fetchForecast(hass, config) {
-  if (!hass?.states || !config.allergens?.length) return [];
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  if (!hass?.states || !(config.allergens as string[] | undefined)?.length)
+    return [];
   const debug = Boolean(config.debug);
 
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
-    getLangAndLocale(hass, config, stubConfigIRMKMI.date_locale);
-  const { fullPhrases, shortPhrases, userLevels, userDays } =
-    mergePhrases(config, lang);
+    getLangAndLocale(
+      hass,
+      config,
+      stubConfigIRMKMI.date_locale as string | undefined,
+    );
+  const { fullPhrases, shortPhrases, userLevels, userDays } = mergePhrases(
+    config,
+    lang,
+  );
   // Five-level scale: defaults from card.levels5.0..4, native-indexed.
-  const levelNames = buildLevelNamesForScale(5, userLevels, lang);
-  const pollen_threshold = config.pollen_threshold ?? stubConfigIRMKMI.pollen_threshold;
+  const levelNames = buildLevelNamesForScale(
+    5,
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
+  const pollen_threshold =
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigIRMKMI.pollen_threshold as number);
 
-  if (debug) console.debug("IRMKMI adapter: start fetchForecast", { config, lang });
+  if (debug)
+    console.debug("IRMKMI adapter: start fetchForecast", { config, lang });
 
-  const sensors = [];
+  const sensors: PollenSensor[] = [];
   const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
@@ -281,7 +311,7 @@ export async function fetchForecast(hass, config) {
     locale,
   });
 
-  for (const allergen of config.allergens) {
+  for (const allergen of config.allergens as string[]) {
     try {
       const entityId = entityMap.get(allergen);
       if (!entityId) continue;
@@ -289,23 +319,25 @@ export async function fetchForecast(hass, config) {
       const stateObj = hass.states[entityId];
       if (!stateObj) continue;
 
-      const rawState = typeof stateObj.state === "string"
-        ? stateObj.state.toLowerCase()
-        : "";
+      const rawState =
+        typeof stateObj.state === "string" ? stateObj.state.toLowerCase() : "";
       const level = IRMKMI_LEVEL_MAP[rawState];
       if (level === undefined) continue; // none / active / unavailable / unknown -> no-data
 
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
-        fullPhrases,
-        shortPhrases,
-        abbreviated: config.allergens_abbreviated,
-        lang,
-        configKey: allergen,
-      });
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+        allergen,
+        {
+          fullPhrases,
+          shortPhrases,
+          abbreviated: config.allergens_abbreviated as boolean,
+          lang,
+          configKey: allergen,
+        },
+      );
 
       const stateText = levelNames[level] ?? rawState;
 
-      const day0 = {
+      const day0: ForecastDay = {
         name: allergenCapitalized,
         day: dayLabel,
         state: level,
@@ -313,7 +345,7 @@ export async function fetchForecast(hass, config) {
         state_text: stateText,
       };
 
-      const dict = {
+      const dict: PollenSensor = {
         allergenReplaced: allergen,
         allergenCapitalized,
         allergenShort,
@@ -328,7 +360,7 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  sortSensors(sensors, config.sort);
+  sortSensors(sensors, config.sort as string);
 
   if (debug) console.debug("IRMKMI adapter complete sensors:", sensors);
   return sensors;
