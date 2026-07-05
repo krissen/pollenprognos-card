@@ -41,7 +41,7 @@ import {
   autoSelectLocation,
   normalizeIntegration,
 } from "./utils/autodetect.js";
-import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "./adapters/silam_allergen_map.json";
 
 class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // ---------------------------------------------------------------------- //

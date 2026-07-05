@@ -12,7 +12,7 @@ import { t } from "../i18n.js";
 import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool, resolvePhraseOverride } from "../utils/adapter-helpers.js";
 
 // Läs in mapping och namn för allergener
-import silamAllergenMap from "./silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "./silam_allergen_map.json";
 
 // Skapa stubConfigSILAM – allergener i master/engelsk slugform!
 export const stubConfigSILAM = {

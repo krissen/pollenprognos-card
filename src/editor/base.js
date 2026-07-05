@@ -90,7 +90,7 @@ import {
   extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
 } from "../adapters/pp.js";
 
-import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "../adapters/silam_allergen_map.json";
 
 // ------------------------------------------------------------------ //
 // Recursive merge utility — shared by both editors.                   //

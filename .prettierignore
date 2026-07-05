@@ -1,0 +1,7 @@
+dist
+node_modules
+package-lock.json
+CHANGELOG.md
+
+# Third-party bundled JS shipped inside the screenshots Python virtualenv.
+**/.venv/**
