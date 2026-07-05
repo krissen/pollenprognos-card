@@ -1,42 +1,82 @@
-// src/adapters/gp/forecast.js
+// src/adapters/gp/forecast.ts
+import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { CardConfig } from "../../types/config.js";
+import type { PollenSensor, ForecastDay } from "../../types/sensor.js";
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames } from "../../utils/adapter-helpers.js";
+import {
+  getLangAndLocale,
+  mergePhrases,
+  buildDayLabel,
+  clampLevel,
+  sortSensors,
+  meetsThreshold,
+  resolveAllergenNames,
+} from "../../utils/adapter-helpers.js";
+import { scaleUpi0_5To0_6 } from "../base.js";
 import { stubConfigGP, capitalize } from "./constants.js";
 import { resolveEntityIds } from "./discovery.js";
 
 // Forecast attribute keys used by svenove/home-assistant-google-pollen
 const FORECAST_ATTRS = ["tomorrow", "day 3", "day 4"];
 
-export async function fetchForecast(hass, config) {
-  const debug = Boolean(config.debug);
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigGP.date_locale);
+interface GpLevelDay {
+  date: Date;
+  level: number;
+}
 
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
-  const levelNames = buildLevelNames(userLevels, lang);
-  const days_to_show = config.days_to_show ?? stubConfigGP.days_to_show;
-  const pollen_threshold = config.pollen_threshold ?? stubConfigGP.pollen_threshold;
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  const debug = Boolean(config.debug);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(
+      hass,
+      config,
+      stubConfigGP.date_locale as string | undefined,
+    );
+
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+    mergePhrases(config, lang);
+  const levelNames = buildLevelNames(
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
+  const days_to_show =
+    (config.days_to_show as number | undefined) ??
+    (stubConfigGP.days_to_show as number);
+  const pollen_threshold =
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigGP.pollen_threshold as number);
 
   // google_pollen uses UPI 0-5
-  const testVal = (v) => clampLevel(v, 5, -1);
+  const testVal = (v: unknown): number => clampLevel(v, 5, -1);
 
-  if (debug) console.debug("[GP] Adapter: start fetchForecast", { config, lang });
+  if (debug)
+    console.debug("[GP] Adapter: start fetchForecast", { config, lang });
 
   const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let sensors = [];
+  let sensors: PollenSensor[] = [];
 
-  for (const allergen of config.allergens) {
+  for (const allergen of config.allergens as string[]) {
     try {
-      const dict = { days: [] };
+      const dict = { days: [] as ForecastDay[] } as PollenSensor;
       dict.allergenReplaced = allergen;
 
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
-        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
-        capitalize: (s) => capitalize(s.replace(/_/g, " ")),
-      });
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+        allergen,
+        {
+          fullPhrases,
+          shortPhrases,
+          abbreviated: config.allergens_abbreviated as boolean,
+          lang,
+          capitalize: (s) => capitalize(s.replace(/_/g, " ")),
+        },
+      );
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
@@ -57,13 +97,16 @@ export async function fetchForecast(hass, config) {
       const todayVal = testVal(sensor.attributes?.index_value);
 
       // Build levels: today + flat forecast attributes
-      const levels = [{ date: today, level: todayVal }];
+      const levels: GpLevelDay[] = [{ date: today, level: todayVal }];
 
       for (let i = 0; i < FORECAST_ATTRS.length; i++) {
         if (levels.length >= days_to_show) break;
         const attrKey = FORECAST_ATTRS[i];
         const val = sensor.attributes?.[attrKey];
-        const offset = attrKey === "tomorrow" ? 1 : parseInt(attrKey.replace("day ", ""), 10) - 1;
+        const offset =
+          attrKey === "tomorrow"
+            ? 1
+            : parseInt(attrKey.replace("day ", ""), 10) - 1;
         levels.push({
           date: new Date(today.getTime() + offset * 86400000),
           level: testVal(val),
@@ -84,25 +127,25 @@ export async function fetchForecast(hass, config) {
         const entry = levels[i];
         if (!entry) continue;
 
-        const diff = Math.round((entry.date - today) / 86400000);
-        const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
+        const diff = Math.round(
+          (entry.date.getTime() - today.getTime()) / 86400000,
+        );
+        const dayLabel = buildDayLabel(entry.date, diff, {
+          daysRelative,
+          dayAbbrev,
+          daysUppercase,
+          userDays,
+          lang,
+          locale,
+        });
 
         const level = entry.level;
-        let scaledLevel;
-        if (level < 0) {
-          scaledLevel = level;
-        } else if (level < 2) {
-          scaledLevel = Math.floor((level * 6) / 5);
-        } else {
-          scaledLevel = Math.ceil((level * 6) / 5);
-        }
+        const scaledLevel = scaleUpi0_5To0_6(level);
 
         const stateText =
-          scaledLevel < 0
-            ? noInfoLabel
-            : levelNames[scaledLevel] || noInfoLabel;
+          scaledLevel < 0 ? noInfoLabel : levelNames[scaledLevel] || noInfoLabel;
 
-        const dayObj = {
+        const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,
           day: dayLabel,
           state: entry.level,
@@ -132,11 +175,11 @@ export async function fetchForecast(hass, config) {
         (s) =>
           !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
-      sortSensors(categoryAllergens, config.sort);
-      sortSensors(individualAllergens, config.sort);
+      sortSensors(categoryAllergens, config.sort as string);
+      sortSensors(individualAllergens, config.sort as string);
       sensors = [...categoryAllergens, ...individualAllergens];
     } else {
-      sortSensors(sensors, config.sort);
+      sortSensors(sensors, config.sort as string);
     }
   }
 

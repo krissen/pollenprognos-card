@@ -1,4 +1,4 @@
-// src/adapters/gp/index.js
+// src/adapters/gp/index.ts
 // Adapter for svenove/home-assistant-google-pollen (domain: google_pollen)
 
 export { fetchForecast } from "./forecast.js";
