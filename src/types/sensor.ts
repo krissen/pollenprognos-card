@@ -1,8 +1,8 @@
 // The normalized sensor contract every adapter's `fetchForecast` returns, and
 // which the card/badge render paths consume. Fields are documented per their
 // current, empirically-verified usage across all 11 adapters. This type mirrors
-// the NULÄGE (present state) of the contract; a later PR normalizes the day-key
-// / day0 divergence noted below. Do not change adapter behaviour to fit the type.
+// the present state of the contract; a later PR normalizes the day-key / day0
+// divergence noted below. Do not change adapter behaviour to fit the type.
 
 /**
  * One forecast day within a sensor's `days` array.
