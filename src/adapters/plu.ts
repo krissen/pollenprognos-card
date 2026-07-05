@@ -1,15 +1,29 @@
-// src/adapters/plu.js
+// src/adapters/plu.ts
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, meetsThreshold, resolveAllergenNames, discoverEntitiesByDevice, normalizeManualPrefix, resolveManualEntity } from "../utils/adapter-helpers.js";
+import {
+  getLangAndLocale,
+  mergePhrases,
+  buildDayLabel,
+  meetsThreshold,
+  resolveAllergenNames,
+  discoverEntitiesByDevice,
+  normalizeManualPrefix,
+  resolveManualEntity,
+  type DeviceDiscovery,
+} from "../utils/adapter-helpers.js";
+import { PLU_LEVEL_INDICES } from "./base.js";
 
 const SENSOR_PREFIX = "sensor.pollen_";
 
 // Raw alias names (before slugification) grouped by canonical allergen name
 // This is the single source of truth for supported allergens
-const RAW_ALIAS_NAMES = {
+const RAW_ALIAS_NAMES: Record<string, string[]> = {
   sorrel: ["Rumex", "Sorrel", "Ampfer", "Oseille"],
   mugwort: ["Artemisia", "Mugwort", "Beifuß", "Beifuss", "Armoise"],
   birch: ["Betula", "Birch", "Birke", "Bouleau"],
@@ -17,8 +31,24 @@ const RAW_ALIAS_NAMES = {
   oak: ["Quercus", "Oak", "Eiche", "Chêne", "Chene"],
   alder: ["Alnus", "Alder", "Erle", "Aulne"],
   ash: ["Fraxinus", "Ash", "Esche", "Frêne", "Frene"],
-  goosefoot: ["Chenopodium", "Goosefoot", "Gänsefuß", "Gaensefuss", "Gansefuss", "Chénopode", "Chenopode"],
-  poaceae: ["Poacea", "Poaceae", "Grasses", "Gräser", "Graeser", "Graminées", "Graminees"],
+  goosefoot: [
+    "Chenopodium",
+    "Goosefoot",
+    "Gänsefuß",
+    "Gaensefuss",
+    "Gansefuss",
+    "Chénopode",
+    "Chenopode",
+  ],
+  poaceae: [
+    "Poacea",
+    "Poaceae",
+    "Grasses",
+    "Gräser",
+    "Graeser",
+    "Graminées",
+    "Graminees",
+  ],
   hazel: ["Corylus", "Hazel", "Hasel", "Haselnussstrauch", "Noisetier"],
   plantain: ["Plantago", "Plantain", "Wegerich"],
 };
@@ -27,11 +57,11 @@ const RAW_ALIAS_NAMES = {
 export const PLU_SUPPORTED_ALLERGENS = Object.keys(RAW_ALIAS_NAMES).sort();
 
 // Slugified alias map exported for sensor discovery helpers
-export const PLU_ALIAS_MAP = Object.entries(RAW_ALIAS_NAMES).reduce(
-  (acc, [canonical, names]) => {
-    const slugged = Array.from(
-      new Set(names.map((name) => slugify(name))),
-    );
+export const PLU_ALIAS_MAP: Record<string, string[]> = Object.entries(
+  RAW_ALIAS_NAMES,
+).reduce(
+  (acc: Record<string, string[]>, [canonical, names]) => {
+    const slugged = Array.from(new Set(names.map((name) => slugify(name))));
     // Ensure canonical slug is present as alias
     if (!slugged.includes(canonical)) slugged.push(canonical);
     acc[canonical] = slugged;
@@ -44,8 +74,8 @@ export const PLU_ALIAS_MAP = Object.entries(RAW_ALIAS_NAMES).reduce(
 // Built once at module load from PLU_ALIAS_MAP.
 // Allows classifyPluEntity to identify both canonical ("birch") and alias
 // ("betula", "bouleau") entity ID suffixes.
-const PLU_REVERSE_ALIAS = (() => {
-  const map = {};
+const PLU_REVERSE_ALIAS: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
   for (const [canonical, aliases] of Object.entries(PLU_ALIAS_MAP)) {
     for (const alias of aliases) map[alias] = canonical;
     // Ensure canonical itself is covered (already in aliases, but explicit is safer)
@@ -60,11 +90,8 @@ const PLU_REVERSE_ALIAS = (() => {
  * PLU sensors follow the pattern sensor.pollen_{alias}.
  * The alias can be the canonical English key ("birch"), a slugified Latin name
  * ("betula"), a slugified French name ("bouleau"), etc.
- *
- * @param {string} eid - Entity ID.
- * @returns {string|null} - Canonical allergen key or null if unrecognized.
  */
-function classifyPluEntity(eid) {
+function classifyPluEntity(eid: string): string | null {
   if (!eid.startsWith(SENSOR_PREFIX)) return null;
   const rest = eid.substring(SENSOR_PREFIX.length);
   return PLU_REVERSE_ALIAS[rest] || null;
@@ -81,12 +108,11 @@ function classifyPluEntity(eid) {
  * location key. The platform name is assumed to be "pollen_lu" based on the
  * typical HA custom-integration naming convention. "pollenlu" is included as a
  * defensive alternative.
- *
- * @param {object}  hass
- * @param {boolean} [debug=false]
- * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
  */
-export function discoverPluSensors(hass, debug = false) {
+export function discoverPluSensors(
+  hass: HomeAssistant,
+  debug = false,
+): DeviceDiscovery {
   if (!hass) return { locations: new Map(), tierUsed: 0 };
 
   return discoverEntitiesByDevice(hass, {
@@ -94,7 +120,8 @@ export function discoverPluSensors(hass, debug = false) {
     classify: classifyPluEntity,
     classifyRelaxed: classifyPluEntity,
     isRelevant: (eid) => eid.startsWith(SENSOR_PREFIX),
-    resolveLabel: (ctx) => ctx.device?.name_by_user || ctx.device?.name || "Pollen.lu",
+    resolveLabel: (ctx) =>
+      ctx.device?.name_by_user || ctx.device?.name || "Pollen.lu",
     resolveLocationKey: () => "default",
     fallbackRegex: null,
     debug,
@@ -103,7 +130,7 @@ export function discoverPluSensors(hass, debug = false) {
 }
 
 // Default thresholds per allergen (fallback when sensor attributes are missing)
-const DEFAULT_THRESHOLDS = {
+const DEFAULT_THRESHOLDS: Record<string, { moderate: number; high: number }> = {
   alder: { moderate: 11, high: 51 },
   mugwort: { moderate: 3, high: 7 },
   birch: { moderate: 11, high: 51 },
@@ -117,7 +144,7 @@ const DEFAULT_THRESHOLDS = {
   sorrel: { moderate: 4, high: 16 },
 };
 
-export const stubConfigPLU = {
+export const stubConfigPLU: AdapterStubConfig = {
   integration: "plu",
   // location: "" -> autodetect; "manual" -> use entity_prefix/_suffix.
   // PLU historically had no location field (single-instance integration),
@@ -154,13 +181,19 @@ export const stubConfigPLU = {
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },
 };
 
-function resolveSensorId(hass, canonical, debug) {
+function resolveSensorId(
+  hass: HomeAssistant,
+  canonical: string,
+  debug: boolean,
+): string | null {
   const aliases = PLU_ALIAS_MAP[canonical] || [canonical];
   for (const alias of aliases) {
     const sensorId = `${SENSOR_PREFIX}${alias}`;
     if (hass.states[sensorId]) {
       if (debug) {
-        console.debug(`[PLU] Using sensor '${sensorId}' for allergen '${canonical}'`);
+        console.debug(
+          `[PLU] Using sensor '${sensorId}' for allergen '${canonical}'`,
+        );
       }
       return sensorId;
     }
@@ -176,21 +209,22 @@ function resolveSensorId(hass, canonical, debug) {
  * pollen.lu instances, renamed entities, etc.) point the card at the
  * right sensor set. Iterates aliases because the same canonical
  * allergen can be exposed under English, Latin, French, or German names.
- *
- * @param {object}  hass
- * @param {string}  canonical    - Canonical allergen key (e.g. "birch").
- * @param {string}  prefix       - Already normalized via normalizeManualPrefix.
- * @param {string}  suffix       - Raw entity_suffix from config (may be "").
- * @param {boolean} debug
- * @returns {string|null}
  */
-function resolveSensorIdManual(hass, canonical, prefix, suffix, debug) {
+function resolveSensorIdManual(
+  hass: HomeAssistant,
+  canonical: string,
+  prefix: string,
+  suffix: string,
+  debug: boolean,
+): string | null {
   const aliases = PLU_ALIAS_MAP[canonical] || [canonical];
   for (const alias of aliases) {
     const sensorId = resolveManualEntity(hass, prefix, alias, suffix);
     if (sensorId) {
       if (debug) {
-        console.debug(`[PLU] Manual mode: using sensor '${sensorId}' for allergen '${canonical}'`);
+        console.debug(
+          `[PLU] Manual mode: using sensor '${sensorId}' for allergen '${canonical}'`,
+        );
       }
       return sensorId;
     }
@@ -198,7 +232,12 @@ function resolveSensorIdManual(hass, canonical, prefix, suffix, debug) {
   return null;
 }
 
-export function resolveEntityIds(cfg, hass, debug = false) {
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): Map<string, string> {
+  const allergens = (cfg.allergens as string[] | undefined) || [];
   // --- Path 0: Manual mode -- prefix-driven alias probe ---
   // Mirrors the manual-mode pattern used by PP/DWD/PEU/SILAM/Atmo/GPL: when
   // location === "manual" AND entity_prefix is set, use cfg.entity_prefix
@@ -211,12 +250,18 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   // for PLU, so empty-prefix manual configs always auto-discovered.
   if (cfg.location === "manual") {
     const prefix = normalizeManualPrefix(cfg.entity_prefix);
-    const suffix = cfg.entity_suffix || "";
+    const suffix = (cfg.entity_suffix as string) || "";
     if (prefix) {
-      const map = new Map();
-      for (const allergen of cfg.allergens || []) {
+      const map = new Map<string, string>();
+      for (const allergen of allergens) {
         if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
-        const sensorId = resolveSensorIdManual(hass, allergen, prefix, suffix, debug);
+        const sensorId = resolveSensorIdManual(
+          hass,
+          allergen,
+          prefix,
+          suffix,
+          debug,
+        );
         if (sensorId) map.set(allergen, sensorId);
       }
       if (map.size > 0) return map;
@@ -246,14 +291,19 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     const first = discovery.locations.entries().next();
     if (!first.done) {
       const [, location] = first.value;
-      const map = new Map();
-      for (const allergen of cfg.allergens || []) {
+      const map = new Map<string, string>();
+      for (const allergen of allergens) {
         if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
         const eid = location.entities.get(allergen);
         if (eid) map.set(allergen, eid);
       }
       if (map.size > 0) {
-        if (debug) console.debug("[PLU] resolveEntityIds via discovery:", map.size, "entities");
+        if (debug)
+          console.debug(
+            "[PLU] resolveEntityIds via discovery:",
+            map.size,
+            "entities",
+          );
         return map;
       }
     }
@@ -262,8 +312,8 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   // --- Path 2: Alias-probe fallback ---
   // Iterates PLU_ALIAS_MAP to find sensor.pollen_{alias} in hass.states.
   // Preserves multilingual alias support (Latin, French, German, English names).
-  const map = new Map();
-  for (const allergen of cfg.allergens || []) {
+  const map = new Map<string, string>();
+  for (const allergen of allergens) {
     if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
     const sensorId = resolveSensorId(hass, allergen, debug);
     if (sensorId) map.set(allergen, sensorId);
@@ -271,12 +321,15 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   return map;
 }
 
-function parseThreshold(value, fallback) {
+function parseThreshold(value: unknown, fallback: number): number {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
 }
 
-function valueToLevel(value, thresholds) {
+function valueToLevel(
+  value: unknown,
+  thresholds: { moderate: number; high: number },
+): number {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount < 0) return -1;
   if (amount === 0) return 0;
@@ -286,44 +339,63 @@ function valueToLevel(value, thresholds) {
   return 3;
 }
 
-export async function fetchForecast(hass, config) {
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
   const debug = Boolean(config.debug);
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(hass, config);
 
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+    mergePhrases(config, lang);
 
   // Build level names. Allow users to supply 4 or 7 custom labels.
-  const fullLevelNames = buildLevelNames(userLevels, lang);
-  const levelIndices = [0, 1, 3, 5];
+  // PLU is a four-level (0-3) integration; its level names come from palette
+  // positions PLU_LEVEL_INDICES ([0,1,3,5]) of the seven-level defaults.
+  // TODO(#259-normalize): retire the seven-level palette borrowing.
+  const fullLevelNames = buildLevelNames(
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
+  const levelIndices = PLU_LEVEL_INDICES;
   const levelNames = levelIndices.map((idx, pos) => {
     const custom = Array.isArray(userLevels) ? userLevels[pos] : undefined;
-    if (custom != null && custom !== "") return custom;
+    if (custom != null && custom !== "") return custom as string;
     return fullLevelNames[idx] || t(`card.levels.${idx}`, lang);
   });
 
   const pollen_threshold =
-    config.pollen_threshold ?? stubConfigPLU.pollen_threshold;
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigPLU.pollen_threshold as number);
 
   const days_to_show = Math.max(
     1,
-    config.days_to_show ?? stubConfigPLU.days_to_show,
+    (config.days_to_show as number | undefined) ??
+      (stubConfigPLU.days_to_show as number),
   );
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const sensors = [];
+  const sensors: PollenSensor[] = [];
   const entityMap = resolveEntityIds(config, hass, debug);
 
-  for (const allergen of config.allergens || []) {
+  for (const allergen of (config.allergens as string[] | undefined) || []) {
     if (!PLU_SUPPORTED_ALLERGENS.includes(allergen)) continue;
 
-    const dict = { days: [] };
+    const dict = { days: [] as ForecastDay[] } as PollenSensor;
     dict.allergenReplaced = allergen;
 
-    const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
-      fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
-    });
+    const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+      allergen,
+      {
+        fullPhrases,
+        shortPhrases,
+        abbreviated: config.allergens_abbreviated as boolean,
+        lang,
+      },
+    );
     dict.allergenCapitalized = allergenCapitalized;
     dict.allergenShort = allergenShort;
 
@@ -362,12 +434,19 @@ export async function fetchForecast(hass, config) {
       ? new Date(dict.attributes.last_update)
       : today;
 
-    const label = buildDayLabel(referenceDate, 0, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
+    const label = buildDayLabel(referenceDate, 0, {
+      daysRelative,
+      dayAbbrev,
+      daysUppercase,
+      userDays,
+      lang,
+      locale,
+    });
 
     const stateText =
       level < 0 ? noInfoLabel : levelNames[level] || noInfoLabel;
 
-    const dayObj = {
+    const dayObj: ForecastDay = {
       name: dict.allergenCapitalized,
       day: label,
       state: level,
@@ -377,6 +456,8 @@ export async function fetchForecast(hass, config) {
       display_state: level,
       raw_value: Number.isFinite(rawValue) ? rawValue : null,
       state_text: stateText,
+      // TODO(#259-normalize): thresholds/level_string/last_update/next_poll are
+      // PLU-only day fields carried through for display.
       thresholds: { moderate, high },
       level_string: dict.attributes?.level || null,
       last_update: dict.attributes?.last_update || null,
@@ -403,27 +484,29 @@ export async function fetchForecast(hass, config) {
   }
 
   if (config.sort !== "none") {
+    const sortFns: Record<
+      string,
+      (a: PollenSensor, b: PollenSensor) => number
+    > = {
+      value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+      value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+      name_ascending: (a, b) =>
+        (a.allergenCapitalized || "").localeCompare(
+          b.allergenCapitalized || "",
+          lang,
+        ),
+      name_descending: (a, b) =>
+        (b.allergenCapitalized || "").localeCompare(
+          a.allergenCapitalized || "",
+          lang,
+        ),
+      none: () => 0,
+    };
     sensors.sort(
-      {
-        value_ascending: (a, b) =>
-          (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-        value_descending: (a, b) =>
-          (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-        name_ascending: (a, b) =>
-          (a.allergenCapitalized || "").localeCompare(
-            b.allergenCapitalized || "",
-            lang,
-          ),
-        name_descending: (a, b) =>
-          (b.allergenCapitalized || "").localeCompare(
-            a.allergenCapitalized || "",
-            lang,
-          ),
-        none: () => 0,
-      }[config.sort] || ((a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0)),
+      sortFns[config.sort as string] ||
+        ((a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0)),
     );
   }
 
   return sensors;
 }
-

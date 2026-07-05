@@ -1,7 +1,9 @@
-// src/adapter-registry.js
+// src/adapter-registry.ts
 // Thin alias layer: maps integration ID → { module, stub }.
 // Replaces scattered if/else chains in card and editor.
 
+import type { AdapterModule } from "./types/adapter.js";
+import type { AdapterStubConfig } from "./types/config.js";
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
 import * as PEU from "./adapters/peu.js";
@@ -14,7 +16,12 @@ import * as GP from "./adapters/gp/index.js";
 import * as MSW from "./adapters/msw.js";
 import * as IRMKMI from "./adapters/irmkmi.js";
 
-const registry = {
+interface RegistryEntry {
+  module: AdapterModule;
+  stub: AdapterStubConfig;
+}
+
+const registry: Record<string, RegistryEntry> = {
   pp: { module: PP, stub: PP.stubConfigPP },
   dwd: { module: DWD, stub: DWD.stubConfigDWD },
   peu: { module: PEU, stub: PEU.stubConfigPEU },
@@ -28,14 +35,16 @@ const registry = {
   irmkmi: { module: IRMKMI, stub: IRMKMI.stubConfigIRMKMI },
 };
 
-export function getAdapter(id) {
-  return registry[id]?.module;
+export function getAdapter(id: string | undefined): AdapterModule | undefined {
+  return id ? registry[id]?.module : undefined;
 }
 
-export function getStubConfig(id) {
-  return registry[id]?.stub;
+export function getStubConfig(
+  id: string | undefined,
+): AdapterStubConfig | undefined {
+  return id ? registry[id]?.stub : undefined;
 }
 
-export function getAllAdapterIds() {
+export function getAllAdapterIds(): string[] {
   return Object.keys(registry);
 }

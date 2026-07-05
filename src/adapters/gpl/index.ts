@@ -1,4 +1,4 @@
-// src/adapters/gpl/index.js
+// src/adapters/gpl/index.ts
 // Public facade: re-exports all named exports from sub-modules.
 export { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS, stubConfigGPL, capitalize } from "./constants.js";
 export { classifySensor, isGplDataSensor, discoverGplSensors, discoverGplAllergens, resolveEntityIds } from "./discovery.js";

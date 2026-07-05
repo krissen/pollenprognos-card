@@ -1,4 +1,5 @@
-// src/adapters/gp/constants.js
+// src/adapters/gp/constants.ts
+import type { AdapterStubConfig } from "../../types/config.js";
 import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 
 // Domain used by svenove/home-assistant-google-pollen
@@ -9,7 +10,7 @@ export const GP_DOMAIN = "google_pollen";
 // by scripts/fetch-gp-translations.js. Uses direct string lookup instead of
 // slugify, so no transliteration dependency is needed at runtime.
 // 478 entries across 35 languages (+ manual additions for rare plant types)
-export const GP_DISPLAY_NAME_MAP = {
+export const GP_DISPLAY_NAME_MAP: Record<string, string> = {
   // Manual additions: English display_names for plant types not returned by
   // the API for Berlin/Tokyo (the script's query locations), but present in
   // svenove's PLANT_TYPES list and potentially returned for other regions.
@@ -497,7 +498,7 @@ export const GP_DISPLAY_NAME_MAP = {
 // display_name string. When a collision is detected during sensor discovery,
 // classifySensorAsPlant uses this map to get the plant interpretation.
 // 17 entries where GRASS category and GRAMINALES plant share display_name
-export const GP_COLLISION_PLANTS = {
+export const GP_COLLISION_PLANTS: Record<string, string> = {
   "cỏ": "graminales",
   "fű": "graminales",
   "grama": "graminales",
@@ -520,7 +521,7 @@ export const GP_COLLISION_PLANTS = {
 // Base allergens (categories) always available
 export const GP_BASE_ALLERGENS = ["grass_cat", "trees_cat", "weeds_cat"];
 
-export const stubConfigGP = {
+export const stubConfigGP: AdapterStubConfig = {
   integration: "gp",
   location: "",
   entity_prefix: "",

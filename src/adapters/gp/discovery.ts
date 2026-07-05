@@ -1,7 +1,27 @@
-// src/adapters/gp/discovery.js
-import { normalizeManualPrefix, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
+// src/adapters/gp/discovery.ts
+import type {
+  HomeAssistant,
+  HassEntity,
+  EntityRegistryDisplayEntry,
+} from "../../types/home-assistant.js";
+import type { CardConfig } from "../../types/config.js";
+import {
+  normalizeManualPrefix,
+  discoverEntitiesByDevice,
+  resolveLocationByKey,
+  isConfigEntryId,
+  type DiscoveredLocation,
+} from "../../utils/adapter-helpers.js";
 import { cleanDeviceLabel } from "../../utils/device-label.js";
-import { GP_DOMAIN, GP_DISPLAY_NAME_MAP, GP_COLLISION_PLANTS, GP_BASE_ALLERGENS } from "./constants.js";
+import {
+  GP_DOMAIN,
+  GP_DISPLAY_NAME_MAP,
+  GP_COLLISION_PLANTS,
+  GP_BASE_ALLERGENS,
+} from "./constants.js";
+
+// The subset of the discovery result gp uses (config-entry keyed locations).
+type GpDiscovery = { locations: Map<string, DiscoveredLocation> };
 
 // Regex to extract pollen code from unique_id.
 // Format: google_pollen_{code}_{lat}_{lon}
@@ -12,14 +32,18 @@ const UNIQUE_ID_RE = /^google_pollen_(.+?)_-?\d/;
  * Extract the pollen code from a unique_id string.
  * Returns the lowercase code (e.g. "birch", "tree") or null.
  */
-function codeFromUniqueId(uniqueId) {
+function codeFromUniqueId(uniqueId: string | undefined): string | null {
   if (!uniqueId) return null;
   const m = UNIQUE_ID_RE.exec(uniqueId);
   return m ? m[1].toLowerCase() : null;
 }
 
 // Category codes used in unique_id for the three base category sensors.
-const CATEGORY_CODES = { grass: "grass_cat", tree: "trees_cat", weed: "weeds_cat" };
+const CATEGORY_CODES: Record<string, string> = {
+  grass: "grass_cat",
+  tree: "trees_cat",
+  weed: "weeds_cat",
+};
 
 /**
  * Map a raw pollen code (from unique_id) to an allergen key.
@@ -27,7 +51,7 @@ const CATEGORY_CODES = { grass: "grass_cat", tree: "trees_cat", weed: "weeds_cat
  * Plant codes are kept as-is, since canonicalization for display/icons happens
  * later via resolveAllergenNames/ALLERGEN_ICON_FALLBACK.
  */
-function classifyCode(code) {
+function classifyCode(code: string | null): string | null {
   if (!code) return null;
   return CATEGORY_CODES[code] || code;
 }
@@ -37,7 +61,10 @@ function classifyCode(code) {
  * Used when a collision is detected and we need the plant interpretation.
  * Returns the raw pollen code (not canonicalized) to match GPL behavior.
  */
-function classifySensorAsPlant(state, entityEntry) {
+function classifySensorAsPlant(
+  state: HassEntity | undefined,
+  entityEntry: EntityRegistryDisplayEntry | null | undefined,
+): string | null {
   const code = codeFromUniqueId(entityEntry?.unique_id);
   if (code) return code;
 
@@ -58,7 +85,10 @@ function classifySensorAsPlant(state, entityEntry) {
  * 2. display_name direct lookup in GP_DISPLAY_NAME_MAP (trimmed, lowercased)
  * 3. Returns null if unclassifiable
  */
-export function classifySensor(state, entityEntry) {
+export function classifySensor(
+  state: HassEntity | undefined,
+  entityEntry: EntityRegistryDisplayEntry | null | undefined,
+): string | null {
   // 1. unique_id (best: always English pollen code)
   const code = codeFromUniqueId(entityEntry?.unique_id);
   if (code) {
@@ -88,7 +118,10 @@ export function classifySensor(state, entityEntry) {
  *
  * Returns: { locations: Map<configEntryId, { label, entities: Map<allergenKey, entityId> }> }
  */
-export function discoverGpSensors(hass, debug = false) {
+export function discoverGpSensors(
+  hass: HomeAssistant,
+  debug = false,
+): GpDiscovery {
   if (!hass) return { locations: new Map() };
 
   const { locations } = discoverEntitiesByDevice(hass, {
@@ -109,17 +142,33 @@ export function discoverGpSensors(hass, debug = false) {
     onCollision: (ctx, { existingKey, locEntities }) => {
       const alt = classifySensorAsPlant(ctx.state, ctx.entry);
       if (alt && alt !== existingKey && !locEntities.has(alt)) {
-        if (debug) console.debug("[GP] Collision on", existingKey, "-> reclassified as", alt, "for", ctx.entityId);
+        if (debug)
+          console.debug(
+            "[GP] Collision on",
+            existingKey,
+            "-> reclassified as",
+            alt,
+            "for",
+            ctx.entityId,
+          );
         return alt;
       }
-      if (debug) console.debug("[GP] Collision: duplicate key", existingKey, "for", ctx.entityId, "(skipped)");
+      if (debug)
+        console.debug(
+          "[GP] Collision: duplicate key",
+          existingKey,
+          "for",
+          ctx.entityId,
+          "(skipped)",
+        );
       return null;
     },
 
     // Fallback: prefix scan for tier 3.
-    fallbackSelector: (h) => Object.keys(h.states).filter((eid) =>
-      eid.startsWith("sensor.google_pollen_")
-    ),
+    fallbackSelector: (h) =>
+      Object.keys(h.states).filter((eid) =>
+        eid.startsWith("sensor.google_pollen_"),
+      ),
 
     /**
      * resolveLabel for GP — same shape as GPL: user override wins,
@@ -129,7 +178,7 @@ export function discoverGpSensors(hass, debug = false) {
      */
     resolveLabel: (ctx) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
-      const cleaned = cleanDeviceLabel(ctx.device?.name);
+      const cleaned = cleanDeviceLabel(ctx.device?.name as string);
       if (typeof cleaned === "string" && cleaned.trim()) return cleaned;
       if (ctx.state?.attributes?.friendly_name) {
         return cleanDeviceLabel(ctx.state.attributes.friendly_name);
@@ -148,11 +197,15 @@ export function discoverGpSensors(hass, debug = false) {
  * Get available allergen keys for a given location.
  * Returns sorted array: categories first, then plants alphabetically.
  */
-export function discoverGpAllergens(hass, configEntryId, debug = false) {
+export function discoverGpAllergens(
+  hass: HomeAssistant,
+  configEntryId: string,
+  debug = false,
+): string[] {
   const discovery = discoverGpSensors(hass, debug);
   if (!discovery.locations.size) return [];
 
-  let location;
+  let location: DiscoveredLocation | undefined;
   if (configEntryId && discovery.locations.has(configEntryId)) {
     location = discovery.locations.get(configEntryId);
   } else {
@@ -170,21 +223,29 @@ export function discoverGpAllergens(hass, configEntryId, debug = false) {
 /**
  * Resolve entity ID for a single allergen, using discovery or manual mode.
  */
-function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
+function resolveEntityId(
+  allergen: string,
+  hass: HomeAssistant,
+  config: CardConfig,
+  discoveredEntities: Map<string, string> | null,
+  debug: boolean,
+): string | null {
   if (config.location === "manual") {
-    const prefix = normalizeManualPrefix(config.entity_prefix || "");
-    const suffix = config.entity_suffix || "";
+    const prefix = normalizeManualPrefix((config.entity_prefix as string) || "");
+    const suffix = (config.entity_suffix as string) || "";
 
     // Collect candidate entity IDs
-    let candidateIds = [];
+    let candidateIds: string[] = [];
     if (hass.entities) {
       candidateIds = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === GP_DOMAIN && !entry.entity_category)
+        .filter(
+          ([, entry]) => entry.platform === GP_DOMAIN && !entry.entity_category,
+        )
         .map(([eid]) => eid);
     }
     if (!candidateIds.length) {
       candidateIds = Object.keys(hass.states || {}).filter((eid) =>
-        eid.startsWith("sensor.google_pollen_")
+        eid.startsWith("sensor.google_pollen_"),
       );
     }
 
@@ -201,25 +262,33 @@ function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
       if (key === allergen) return eid;
     }
 
-    if (debug) console.debug(`[GP] Manual mode: no sensor found for allergen "${allergen}"`);
+    if (debug)
+      console.debug(
+        `[GP] Manual mode: no sensor found for allergen "${allergen}"`,
+      );
     return null;
   }
 
   // Discovery-based lookup
   if (discoveredEntities && discoveredEntities.has(allergen)) {
-    return discoveredEntities.get(allergen);
+    return discoveredEntities.get(allergen) as string;
   }
 
-  if (debug) console.debug(`[GP] Sensor not found for allergen "${allergen}"`);
+  if (debug)
+    console.debug(`[GP] Sensor not found for allergen "${allergen}"`);
   return null;
 }
 
-export function resolveEntityIds(cfg, hass, debug = false) {
-  const map = new Map();
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): Map<string, string> {
+  const map = new Map<string, string>();
   const discovery = discoverGpSensors(hass, debug);
-  const configEntryId = cfg.location || "";
+  const configEntryId = (cfg.location as string) || "";
 
-  let discoveredEntities = null;
+  let discoveredEntities: Map<string, string> | null = null;
   if (configEntryId !== "manual") {
     let match = resolveLocationByKey(discovery, configEntryId);
     // Stale-config recovery: a saved ULID that no longer matches any
@@ -232,8 +301,14 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     if (match) discoveredEntities = match[1].entities;
   }
 
-  for (const allergen of cfg.allergens || []) {
-    const sensorId = resolveEntityId(allergen, hass, cfg, discoveredEntities, debug);
+  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
+    const sensorId = resolveEntityId(
+      allergen,
+      hass,
+      cfg,
+      discoveredEntities,
+      debug,
+    );
     if (sensorId && hass.states[sensorId]) {
       map.set(allergen, sensorId);
     }

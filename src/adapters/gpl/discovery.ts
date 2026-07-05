@@ -1,19 +1,36 @@
-// src/adapters/gpl/discovery.js
+// src/adapters/gpl/discovery.ts
+import type {
+  HomeAssistant,
+  HassEntity,
+  EntityRegistryDisplayEntry,
+} from "../../types/home-assistant.js";
+import type { CardConfig } from "../../types/config.js";
 import { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
-import { discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../../utils/adapter-helpers.js";
+import {
+  discoverEntitiesByDevice,
+  resolveLocationByKey,
+  isConfigEntryId,
+  type DiscoveredLocation,
+} from "../../utils/adapter-helpers.js";
 import { cleanDeviceLabel } from "../../utils/device-label.js";
+
+// The subset of the discovery result gpl uses (config-entry keyed locations).
+type GplDiscovery = { locations: Map<string, DiscoveredLocation> };
 
 /**
  * Classify a GPL sensor by its attributes / registry entry.
  * Returns the allergen key (e.g. "birch", "grass_cat", "allergy_risk")
  * or null.
  *
- * @param {object} state - hass.states entry (attributes carry the data).
- * @param {object} [entry] - hass.entities registry entry (carries
- *   unique_id and translation_key; needed for v2.1.0 summary sensors
- *   which don't expose either via state.attributes).
+ * @param state - hass.states entry (attributes carry the data).
+ * @param entry - hass.entities registry entry (carries unique_id and
+ *   translation_key; needed for v2.1.0 summary sensors which don't expose
+ *   either via state.attributes).
  */
-export function classifySensor(state, entry) {
+export function classifySensor(
+  state: HassEntity | undefined,
+  entry?: EntityRegistryDisplayEntry | null,
+): string | null {
   const attrs = state?.attributes || {};
   // Plant sensors have a code attribute (always English, e.g. "birch").
   if (attrs.code) {
@@ -41,7 +58,8 @@ export function classifySensor(state, entry) {
   const uniqueId = entry?.unique_id;
   const translationKey = entry?.translation_key;
   if (
-    (typeof uniqueId === "string" && uniqueId.endsWith("_overall_pollen_risk_today")) ||
+    (typeof uniqueId === "string" &&
+      uniqueId.endsWith("_overall_pollen_risk_today")) ||
     translationKey === "overall_pollen_risk_today"
   ) {
     return "allergy_risk";
@@ -84,7 +102,7 @@ export function classifySensor(state, entry) {
 /**
  * Check if an entity is a GPL sensor (not a diagnostic/meta sensor).
  */
-export function isGplDataSensor(state) {
+export function isGplDataSensor(state: HassEntity | undefined): boolean {
   const attrs = state?.attributes || {};
   const dc = attrs.device_class;
   return dc !== "date" && dc !== "timestamp";
@@ -99,7 +117,10 @@ export function isGplDataSensor(state) {
  * Tier 2: entity registry scan filtering by entry.platform === "pollenlevels".
  * Tier 3: attribution scan -- filters states by GPL_ATTRIBUTION attribute.
  */
-export function discoverGplSensors(hass, debug = false) {
+export function discoverGplSensors(
+  hass: HomeAssistant,
+  debug = false,
+): GplDiscovery {
   if (!hass) return { locations: new Map() };
 
   const { locations } = discoverEntitiesByDevice(hass, {
@@ -109,25 +130,27 @@ export function discoverGplSensors(hass, debug = false) {
     // or icon, and falls through to the registry entry for v2.1.0 summary
     // sensors which only expose their identity via unique_id /
     // translation_key.
-    classify: (eid, { state, entry }) => {
+    classify: (_eid, { state, entry }) => {
       if (!isGplDataSensor(state)) return null;
       return classifySensor(state, entry);
     },
 
     // classifyRelaxed used in tier 1 -- same logic, no relaxation needed for GPL.
-    classifyRelaxed: (eid, { state, entry }) => {
+    classifyRelaxed: (_eid, { state, entry }) => {
       if (!isGplDataSensor(state)) return null;
       return classifySensor(state, entry);
     },
 
     // isRelevant: additional pre-classification filter (device_class check handled in classify)
-    isRelevant: (eid, { state }) => isGplDataSensor(state),
+    isRelevant: (_eid, { state }) => isGplDataSensor(state),
 
     // fallbackSelector: tier 3 uses attribution attribute instead of entity ID regex
     fallbackSelector: (h) =>
       Object.keys(h.states).filter((eid) => {
         const s = h.states[eid];
-        return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
+        return (
+          s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s)
+        );
       }),
 
     /**
@@ -142,7 +165,7 @@ export function discoverGplSensors(hass, debug = false) {
      */
     resolveLabel: (ctx) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
-      const cleaned = cleanDeviceLabel(ctx.device?.name);
+      const cleaned = cleanDeviceLabel(ctx.device?.name as string);
       if (typeof cleaned === "string" && cleaned.trim()) return cleaned;
       if (ctx.state?.attributes?.friendly_name) {
         return cleanDeviceLabel(ctx.state.attributes.friendly_name);
@@ -162,11 +185,15 @@ export function discoverGplSensors(hass, debug = false) {
  * If configEntryId is empty/null, uses the first discovered location.
  * Returns sorted array of allergen keys (e.g. ["grass_cat", "trees_cat", "birch", "oak"]).
  */
-export function discoverGplAllergens(hass, configEntryId, debug = false) {
+export function discoverGplAllergens(
+  hass: HomeAssistant,
+  configEntryId: string,
+  debug = false,
+): string[] {
   const discovery = discoverGplSensors(hass, debug);
   if (!discovery.locations.size) return [];
 
-  let location;
+  let location: DiscoveredLocation | undefined;
   if (configEntryId && discovery.locations.has(configEntryId)) {
     location = discovery.locations.get(configEntryId);
   } else {
@@ -187,26 +214,37 @@ export function discoverGplAllergens(hass, configEntryId, debug = false) {
  * Resolve entity ID for a given allergen and config, using discovery or manual mode.
  * Returns entity ID string or null.
  */
-function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
+function resolveEntityId(
+  allergen: string,
+  hass: HomeAssistant,
+  config: CardConfig,
+  discoveredEntities: Map<string, string> | null,
+  debug: boolean,
+): string | null {
   if (config.location === "manual") {
     // Manual mode: search by platform (primary) or attribution (fallback) + prefix/suffix filter
-    let prefix = config.entity_prefix || "";
+    let prefix = (config.entity_prefix as string) || "";
     // Remove 'sensor.' prefix if user included it
     if (prefix.startsWith("sensor.")) prefix = prefix.substring(7);
-    const suffix = config.entity_suffix || "";
+    const suffix = (config.entity_suffix as string) || "";
 
     // Collect candidate entity IDs: primary via hass.entities, fallback via attribution
-    let candidateIds = [];
+    let candidateIds: string[] = [];
     if (hass.entities) {
       candidateIds = Object.entries(hass.entities)
-        .filter(([, entry]) => entry.platform === "pollenlevels" && !entry.entity_category)
+        .filter(
+          ([, entry]) =>
+            entry.platform === "pollenlevels" && !entry.entity_category,
+        )
         .map(([eid]) => eid);
     }
     if (!candidateIds.length) {
       // Fallback: attribution scan
       candidateIds = Object.keys(hass.states || {}).filter((eid) => {
         const s = hass.states[eid];
-        return s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s);
+        return (
+          s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s)
+        );
       });
     }
 
@@ -227,25 +265,33 @@ function resolveEntityId(allergen, hass, config, discoveredEntities, debug) {
       if (key === allergen) return eid;
     }
 
-    if (debug) console.debug(`[GPL] Manual mode: no sensor found for allergen "${allergen}"`);
+    if (debug)
+      console.debug(
+        `[GPL] Manual mode: no sensor found for allergen "${allergen}"`,
+      );
     return null;
   }
 
   // Discovery-based lookup
   if (discoveredEntities && discoveredEntities.has(allergen)) {
-    return discoveredEntities.get(allergen);
+    return discoveredEntities.get(allergen) as string;
   }
 
-  if (debug) console.debug(`[GPL] Sensor not found for allergen "${allergen}"`);
+  if (debug)
+    console.debug(`[GPL] Sensor not found for allergen "${allergen}"`);
   return null;
 }
 
-export function resolveEntityIds(cfg, hass, debug = false) {
-  const map = new Map();
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): Map<string, string> {
+  const map = new Map<string, string>();
   const discovery = discoverGplSensors(hass, debug);
-  const configEntryId = cfg.location || "";
+  const configEntryId = (cfg.location as string) || "";
 
-  let discoveredEntities = null;
+  let discoveredEntities: Map<string, string> | null = null;
   if (configEntryId !== "manual") {
     let resolved = resolveLocationByKey(discovery, configEntryId);
     // Stale-config recovery: a saved ULID that no longer matches any
@@ -258,8 +304,14 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     if (resolved) discoveredEntities = resolved[1].entities;
   }
 
-  for (const allergen of cfg.allergens || []) {
-    const sensorId = resolveEntityId(allergen, hass, cfg, discoveredEntities, debug);
+  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
+    const sensorId = resolveEntityId(
+      allergen,
+      hass,
+      cfg,
+      discoveredEntities,
+      debug,
+    );
     if (sensorId && hass.states[sensorId]) {
       map.set(allergen, sensorId);
     }
