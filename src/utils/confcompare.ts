@@ -2,19 +2,22 @@
  * Returns true if a and b are deeply equal.
  * Arrays are compared unordered (["a","b"] == ["b","a"]).
  */
-export function deepEqual(a, b) {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false;
-  const aKeys = Object.keys(a),
-    bKeys = Object.keys(b);
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const aKeys = Object.keys(ao),
+    bKeys = Object.keys(bo);
   if (aKeys.length !== bKeys.length) return false;
-  for (let k of aKeys) {
-    if (!(k in b)) return false;
-    if (Array.isArray(a[k]) && Array.isArray(b[k])) {
-      if (!arraysEqualUnordered(a[k], b[k])) return false;
-    } else if (typeof a[k] === "object" && typeof b[k] === "object") {
-      if (!deepEqual(a[k], b[k])) return false;
-    } else if (a[k] !== b[k]) {
+  for (const k of aKeys) {
+    if (!(k in bo)) return false;
+    if (Array.isArray(ao[k]) && Array.isArray(bo[k])) {
+      if (!arraysEqualUnordered(ao[k] as unknown[], bo[k] as unknown[]))
+        return false;
+    } else if (typeof ao[k] === "object" && typeof bo[k] === "object") {
+      if (!deepEqual(ao[k], bo[k])) return false;
+    } else if (ao[k] !== bo[k]) {
       return false;
     }
   }
@@ -25,11 +28,11 @@ export function deepEqual(a, b) {
  * Unordered array comparison that handles primitives and objects.
  * Uses deepEqual for object elements instead of toString().
  */
-function arraysEqualUnordered(a, b) {
+function arraysEqualUnordered(a: unknown[], b: unknown[]): boolean {
   if (a.length !== b.length) return false;
   // Fast path: all primitives
   if (a.every((v) => typeof v !== "object" || v === null)) {
-    const sorted = (arr) => [...arr].sort().join("\0");
+    const sorted = (arr: unknown[]) => [...arr].sort().join("\0");
     return sorted(a) === sorted(b);
   }
   // Slow path: match each element in a to one in b

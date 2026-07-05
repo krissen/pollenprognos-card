@@ -1,4 +1,4 @@
-// src/utils/level-names.js
+// src/utils/level-names.ts
 // Helpers to merge user-provided level names with defaults.
 // Locales declare a default name per index for each scale we support:
 //   card.levels.0..6   - 7-level scale (PP / SILAM / Atmo, also the legacy
@@ -18,11 +18,14 @@ import { t } from "../i18n.js";
  * Atmo) and for adapters whose level-name lookup still spreads native to
  * 0-6 (DWD).
  *
- * @param {Array<string|null|undefined>|undefined} userLevels - per-index overrides
- * @param {string} lang - active language code
- * @returns {string[]} length-7 array of level names
+ * @param userLevels - per-index overrides
+ * @param lang - active language code
+ * @returns length-7 array of level names
  */
-export function buildLevelNames(userLevels, lang) {
+export function buildLevelNames(
+  userLevels: Array<string | null | undefined> | undefined,
+  lang: string,
+): string[] {
   return buildLevelNamesForScale(7, userLevels, lang);
 }
 
@@ -32,14 +35,18 @@ export function buildLevelNames(userLevels, lang) {
  * legacy `card.levels.{i}` when scale === 7. User-supplied entries at the
  * matching index override the default.
  *
- * @param {number} scale - native level count for this integration
- * @param {Array<string|null|undefined>|undefined} userLevels
- * @param {string} lang
- * @returns {string[]} length-`scale` array of level names
+ * @param scale - native level count for this integration
+ * @param userLevels
+ * @param lang
+ * @returns length-`scale` array of level names
  */
-export function buildLevelNamesForScale(scale, userLevels, lang) {
+export function buildLevelNamesForScale(
+  scale: number,
+  userLevels: Array<string | null | undefined> | undefined,
+  lang: string,
+): string[] {
   const keyPrefix = scale === 7 ? "card.levels" : `card.levels${scale}`;
-  const defaults = Array.from({ length: scale }, (_, i) =>
+  const defaults: string[] = Array.from({ length: scale }, (_, i) =>
     t(`${keyPrefix}.${i}`, lang),
   );
   if (!Array.isArray(userLevels)) return defaults;

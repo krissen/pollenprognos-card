@@ -17,7 +17,7 @@
  * @param {string} integration
  * @returns {number}
  */
-export function ringSegmentsForIntegration(integration) {
+export function ringSegmentsForIntegration(integration: string): number {
   switch (integration) {
     case "peu":
     case "kleenex":
@@ -46,7 +46,7 @@ export function ringSegmentsForIntegration(integration) {
  * @param {string} integration
  * @returns {number}
  */
-export function numLevelsForIntegration(integration) {
+export function numLevelsForIntegration(integration: string): number {
   if (integration === "dwd") return 4;
   return ringSegmentsForIntegration(integration) + 1;
 }

@@ -1,13 +1,22 @@
-// src/utils/sensors.js
+// src/utils/sensors.ts
 import { getAdapter } from "../adapter-registry.js";
+import type { AdapterModule } from "../types/adapter.js";
+import type { CardConfig } from "../types/config.js";
+import type { HomeAssistant } from "../types/home-assistant.js";
 
 /**
  * Detect available sensor entity IDs for the configured integration.
  * Delegates all resolution (including manual mode) to the adapter's
  * resolveEntityIds().
  */
-export function findAvailableSensors(cfg, hass, debug = false) {
-  const adapter = getAdapter(cfg.integration);
+export function findAvailableSensors(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): string[] {
+  // adapter-registry is still untyped JS; cast the returned module to the
+  // adapter contract until the adapters themselves migrate to TypeScript.
+  const adapter = getAdapter(cfg.integration) as AdapterModule | undefined;
   if (!adapter?.resolveEntityIds) return [];
 
   const map = adapter.resolveEntityIds(cfg, hass, debug);

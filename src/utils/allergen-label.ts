@@ -1,4 +1,4 @@
-// src/utils/allergen-label.js
+// src/utils/allergen-label.ts
 import { t } from "../i18n.js";
 
 /**
@@ -22,7 +22,11 @@ import { t } from "../i18n.js";
  * @param {string} [opts.lang] - locale code; passed through to t().
  * @returns {string}
  */
-export function resolveAllergenPhrase(canonical, raw, { short = false, lang } = {}) {
+export function resolveAllergenPhrase(
+  canonical: string,
+  raw: string,
+  { short = false, lang }: { short?: boolean; lang?: string } = {},
+): string {
   const editorKey = `editor.phrases_${short ? "short" : "full"}.${canonical}`;
   const editorVal = t(editorKey, lang);
   if (editorVal && editorVal !== editorKey) return editorVal;

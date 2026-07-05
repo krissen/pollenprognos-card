@@ -1,4 +1,4 @@
-// src/utils/no-data-pattern.js
+// src/utils/no-data-pattern.ts
 //
 // Noise-pattern generator for the "no data" visual treatment (level === -1).
 // Two output forms are provided so distinct textures can be applied to the
@@ -16,7 +16,7 @@ const ICON_DOT_DENSITY = 0.5;
 const ICON_DOT_TILE = 12;
 
 const RING_TILE = 32;
-const RING_PIX_DENSITY = 0.10;
+const RING_PIX_DENSITY = 0.1;
 const RING_SCRATCH_DENSITY_FACTOR = 0.25;
 const RING_MAX_PIX_SIZE = 2;
 
@@ -32,7 +32,7 @@ const DEFAULT_SEED = 13;
  * The order matters: `&` first, so we don't double-encode entity refs we
  * introduce in later replacements.
  */
-function escapeXmlAttr(value) {
+function escapeXmlAttr(value: unknown): string {
   return String(value)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
@@ -45,7 +45,7 @@ function escapeXmlAttr(value) {
  * Seedable PRNG. Stable output for a given seed so headless screenshots and
  * unit tests don't flake across runs.
  */
-function mulberry32(seed) {
+function mulberry32(seed: number): () => number {
   return function () {
     let t = (seed += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -60,7 +60,10 @@ function mulberry32(seed) {
  * SVG). Density defaults to 50% so the silhouette reads even against a
  * heavily-textured ring.
  */
-export function buildNoiseSvgUri(color = "#888888", opts = {}) {
+export function buildNoiseSvgUri(
+  color = "#888888",
+  opts: { density?: number; tile?: number; seed?: number } = {},
+): string {
   const density = opts.density ?? ICON_DOT_DENSITY;
   const tile = opts.tile ?? ICON_DOT_TILE;
   const seed = opts.seed ?? DEFAULT_SEED;
@@ -87,7 +90,16 @@ export function buildNoiseSvgUri(color = "#888888", opts = {}) {
  * offscreen canvas. Returns null when there's no `document` (Node test env);
  * production callers must fall back to an emptyColor fill in that case.
  */
-export function buildNoiseTileCanvas(color = "#888888", opts = {}) {
+export function buildNoiseTileCanvas(
+  color = "#888888",
+  opts: {
+    tile?: number;
+    seed?: number;
+    pixDensity?: number;
+    scratchDensity?: number;
+    maxPx?: number;
+  } = {},
+): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
   const tile = opts.tile ?? RING_TILE;
   const seed = opts.seed ?? DEFAULT_SEED;
@@ -146,7 +158,17 @@ export function buildNoiseTileCanvas(color = "#888888", opts = {}) {
  * destination chart's 2D context so the pattern is allocated in the right
  * rendering context.
  */
-export function buildNoiseCanvasPattern(ctx, color = "#888888", opts = {}) {
+export function buildNoiseCanvasPattern(
+  ctx: CanvasRenderingContext2D | null,
+  color = "#888888",
+  opts: {
+    tile?: number;
+    seed?: number;
+    pixDensity?: number;
+    scratchDensity?: number;
+    maxPx?: number;
+  } = {},
+): CanvasPattern | null {
   if (!ctx || typeof ctx.createPattern !== "function") return null;
   const tile = buildNoiseTileCanvas(color, opts);
   if (!tile) return null;
@@ -159,7 +181,7 @@ export function buildNoiseCanvasPattern(ctx, color = "#888888", opts = {}) {
  * its own seed so identical no-data layouts don't repeat across adjacent
  * allergen rows.
  */
-export function hashStringSeed(s) {
+export function hashStringSeed(s: string): number {
   let h = 5381;
   if (typeof s !== "string") s = String(s);
   // Math.imul keeps the multiplication in 32-bit integer space; plain
@@ -168,5 +190,5 @@ export function hashStringSeed(s) {
   for (let i = 0; i < s.length; i++) {
     h = Math.imul(h, 33) ^ s.charCodeAt(i);
   }
-  return (h >>> 0) || 1;
+  return h >>> 0 || 1;
 }

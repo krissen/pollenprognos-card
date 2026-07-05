@@ -1,14 +1,39 @@
-import silamAllergenMap from "../adapters/silam_allergen_map.json";
-import { discoverEntitiesByDevice, isConfigEntryId, deviceLocationKey } from "./adapter-helpers.js";
+import silamAllergenMapRaw from "../adapters/silam_allergen_map.json";
+import {
+  discoverEntitiesByDevice,
+  isConfigEntryId,
+  deviceLocationKey,
+} from "./adapter-helpers.js";
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { EntityRegistryDisplayEntry } from "../types/home-assistant.js";
+
+// The JSON import resolves to a type with literal per-language keys, which
+// blocks dynamic indexing (mapping[lang]). Re-type it with index signatures so
+// language/locale lookups by variable key type-check.
+interface SilamAllergenMap {
+  mapping: Record<string, Record<string, string>>;
+  weather_suffixes: Record<string, string[]>;
+}
+const silamAllergenMap = silamAllergenMapRaw as SilamAllergenMap;
+
+/** A discovered SILAM location, keyed by config-entry (or subentry) id. */
+interface SilamLocation {
+  label: string;
+  weatherEntity: string | null;
+  sensors: Map<string, string>;
+}
+interface SilamDiscovery {
+  locations: Map<string, SilamLocation>;
+}
 
 // Re-export so editor and other callers can keep their silam.js import path.
 export { isConfigEntryId };
 
 // Skapa dynamisk reverse-map: masterAllergen => slug för rätt språk
-export function getSilamReverseMap(lang) {
+export function getSilamReverseMap(lang: string): Record<string, string> {
   const mapping =
     silamAllergenMap.mapping?.[lang] || silamAllergenMap.mapping?.en || {};
-  const reverse = {};
+  const reverse: Record<string, string> = {};
   for (const [slug, master] of Object.entries(mapping)) {
     reverse[master] = slug;
   }
@@ -20,10 +45,14 @@ export function getSilamReverseMap(lang) {
  * Returns the canonical master allergen key, or null for non-allergen entities
  * (weather/forecast entities return null so they are excluded from sensors).
  */
-function classifySilamEntity(eid, { entry }) {
+function classifySilamEntity(
+  eid: string,
+  { entry }: { entry: EntityRegistryDisplayEntry | null | undefined },
+): string | null {
   if (!entry) return null;
   // Weather/forecast entities are handled as a separate postprocess step
-  if (eid.startsWith("weather.") || entry.translation_key === "forecast") return null;
+  if (eid.startsWith("weather.") || entry.translation_key === "forecast")
+    return null;
   const tk = entry.translation_key;
   if (!tk) return null;
   // Map through all language mappings to find the master allergen key
@@ -58,14 +87,19 @@ function classifySilamEntity(eid, { entry }) {
  * device name so downstream consumers (editor dropdown, card title) get a
  * clean location label like "Karis" rather than "SILAM Pollen - Karis".
  */
-function stripSilamPrefix(name) {
+function stripSilamPrefix(
+  name: string | null | undefined,
+): string | null | undefined {
   if (typeof name !== "string") return name;
   const stripped = name.replace(/^\s*silam\s*pollen\b[\s:\-–—]*/i, "").trim();
   return stripped || name;
 }
 
-export function discoverSilamSensors(hass, debug = false) {
-  const result = { locations: new Map() };
+export function discoverSilamSensors(
+  hass: HomeAssistant,
+  debug = false,
+): SilamDiscovery {
+  const result: SilamDiscovery = { locations: new Map() };
   if (!hass?.entities) return result;
 
   // Run shared discovery for allergen sensors (weather entities classified as null → skipped).
@@ -74,7 +108,7 @@ export function discoverSilamSensors(hass, debug = false) {
     platform: "silam_pollen",
     classify: classifySilamEntity,
     classifyRelaxed: classifySilamEntity,
-    resolveLabel: (ctx) => {
+    resolveLabel: (ctx: any) => {
       if (ctx.device?.name_by_user) return ctx.device.name_by_user;
       if (ctx.device?.name) return stripSilamPrefix(ctx.device.name);
       if (ctx.state?.attributes?.friendly_name) {
@@ -93,8 +127,11 @@ export function discoverSilamSensors(hass, debug = false) {
   //
   // Identifies weather entities by eid starting with "weather." OR by
   // translation_key === "forecast" (both are reliable in current HA versions).
-  const deviceWeatherMap = new Map(); // deviceId -> weatherEntityId
-  const deviceInfoMap = new Map();    // deviceId -> { configEntryId, label }
+  const deviceWeatherMap = new Map<string, string>(); // deviceId -> weatherEntityId
+  const deviceInfoMap = new Map<
+    string,
+    { configEntryId: string; label: string }
+  >(); // deviceId -> { configEntryId, label }
   for (const [eid, entry] of Object.entries(hass.entities)) {
     if (entry.platform !== "silam_pollen") continue;
     if (eid.startsWith("weather.") || entry.translation_key === "forecast") {
@@ -124,7 +161,7 @@ export function discoverSilamSensors(hass, debug = false) {
   //   { label, weatherEntity, sensors: Map<allergenKey, entityId> }
   for (const [locKey, loc] of rawLocations) {
     const weatherEntity = loc.deviceId
-      ? (deviceWeatherMap.get(loc.deviceId) || null)
+      ? deviceWeatherMap.get(loc.deviceId) || null
       : null;
     result.locations.set(locKey, {
       label: loc.label,
@@ -177,12 +214,19 @@ export function discoverSilamSensors(hass, debug = false) {
  * - Slug-style configLocation matching a label substring → that location.
  * - Otherwise → null.
  */
-export function resolveDiscoveredLocation(discovery, configLocation, debug = false) {
+export function resolveDiscoveredLocation(
+  discovery: SilamDiscovery | null | undefined,
+  configLocation: string | null | undefined,
+  debug = false,
+): SilamLocation | null {
   if (!discovery?.locations?.size) return null;
 
   if (isConfigEntryId(configLocation)) {
-    if (discovery.locations.has(configLocation)) {
-      return discovery.locations.get(configLocation);
+    // isConfigEntryId only returns true for a ULID string, so configLocation
+    // is a string here (the untyped helper isn't a TS narrowing guard).
+    const key = configLocation as string;
+    if (discovery.locations.has(key)) {
+      return discovery.locations.get(key) ?? null;
     }
     if (debug) {
       console.debug(
@@ -221,7 +265,13 @@ export function resolveDiscoveredLocation(discovery, configLocation, debug = fal
  * @param {boolean} debug
  * @param {object} [precomputedDiscovery] - pass to avoid redundant discoverSilamSensors call
  */
-export function findSilamWeatherEntity(hass, location, locale, debug = false, precomputedDiscovery = null) {
+export function findSilamWeatherEntity(
+  hass: HomeAssistant,
+  location: string,
+  locale: string,
+  debug = false,
+  precomputedDiscovery: SilamDiscovery | null = null,
+): string | null {
   if (!hass) return null;
 
   // Primärt: discovery-baserad lookup (config_entry_id eller slug-match)
@@ -232,7 +282,7 @@ export function findSilamWeatherEntity(hass, location, locale, debug = false, pr
   // Fallback: regex-baserad lookup (äldre HA utan hass.entities)
   if (!location || isConfigEntryId(location)) return null;
   const loc = location.toLowerCase();
-  let tried = new Set();
+  const tried = new Set<string>();
 
   // 1. Testa suffixar för aktuell locale
   const suffixesLocale =

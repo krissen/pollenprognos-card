@@ -1,13 +1,13 @@
-// src/utils/slugify.js
+// src/utils/slugify.ts
 // Matches Home Assistant frontend slugify (common/string/slugify.ts).
 // Uses character table for Latin diacritics + Cyrillic transliteration.
 // https://github.com/home-assistant/frontend/blob/dev/src/common/string/slugify.ts
-export const slugify = (value, delimiter = "_") => {
+export const slugify = (value: string, delimiter = "_"): string => {
   const a =
     "àáâäæãåāăąабçćčđďдèéêëēėęěеёэфğǵгḧхîïíīįìıİийкłлḿмñńǹňнôöòóœøōõőоṕпŕřрßśšşșсťțтûüùúūǘůűųувẃẍÿýыžźżз·";
   const b = `aaaaaaaaaaabcccdddeeeeeeeeeeefggghhiiiiiiiiijkllmmnnnnnoooooooooopprrrsssssstttuuuuuuuuuuvwxyyyzzzz${delimiter}`;
   const p = new RegExp(a.split("").join("|"), "g");
-  const complex_cyrillic = {
+  const complex_cyrillic: Record<string, string> = {
     ж: "zh",
     х: "kh",
     ц: "ts",
