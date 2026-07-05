@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # Bundled npm deps. Runtime deps ship inside dist/, so these bumps change
+  # shipped code -- now verified by the Test & Build PR workflow.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    target-branch: "dev"
+    commit-message:
+      prefix: "(deps)"
+    labels:
+      - "dependencies"
+    ignore:
+      # lit stays on 2.x until the 4.0.0 TS+Lit3 migration (#259).
+      - dependency-name: "lit"
+        update-types: ["version-update:semver-major"]
+    groups:
+      production:
+        dependency-type: "production"
+        patterns: ["*"]
+      dev:
+        dependency-type: "development"
+        patterns: ["*"]
+
+  # GitHub Actions -- keep checkout / upload-release-action current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    target-branch: "dev"
+    commit-message:
+      prefix: "(deps)"
+    labels:
+      - "dependencies"
+    groups:
+      actions:
+        patterns: ["*"]
