@@ -1,4 +1,4 @@
-import silamAllergenMap from "../adapters/silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "../adapters/silam_allergen_map.json";
 import { discoverEntitiesByDevice, isConfigEntryId, deviceLocationKey } from "./adapter-helpers.js";
 
 // Re-export so editor and other callers can keep their silam.js import path.

@@ -10,7 +10,7 @@ import {
   getAllergenNames,
 } from "../../src/adapters/silam.js";
 import { createHass, assertSensorShape } from "../helpers.js";
-import silamAllergenMap from "../../src/adapters/silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "../../src/adapters/silam_allergen_map.json";
 
 // ---------------------------------------------------------------------------
 // Helpers

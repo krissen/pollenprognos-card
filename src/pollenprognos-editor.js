@@ -43,7 +43,7 @@ import {
   DWD_REGIONS,
 } from "./constants.js";
 
-import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "./adapters/silam_allergen_map.json";
 
 class PollenPrognosCardEditor extends PollenEditorBase {
   // _resetAll is inherited from PollenEditorBase. The card editor overrides

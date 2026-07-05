@@ -42,7 +42,7 @@ import {
   DWD_REGIONS,
   PP_POSSIBLE_CITIES,
 } from "./constants.js";
-import silamAllergenMap from "./adapters/silam_allergen_map.json" assert { type: "json" };
+import silamAllergenMap from "./adapters/silam_allergen_map.json";
 import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 
