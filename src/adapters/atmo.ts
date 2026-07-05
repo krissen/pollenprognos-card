@@ -6,7 +6,6 @@ import type {
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { t } from "../i18n.js";
-import { toCanonicalAllergenKey } from "../constants.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import {
@@ -614,8 +613,6 @@ export async function fetchForecast(
   for (const allergen of (config.allergens as string[] | undefined) || []) {
     try {
       const dict = { days: [] as ForecastDay[] } as PollenSensor;
-      // canonKey is computed for parity with the original (unused downstream).
-      void toCanonicalAllergenKey(allergen);
       dict.allergenReplaced = allergen;
       // Group: allergy_risk belongs with pollen, qualite_globale with pollution
       dict.group =
