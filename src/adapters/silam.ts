@@ -1,4 +1,6 @@
-// src/adapters/silam.js
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { normalize } from "../utils/normalize.js";
 import {
   findSilamWeatherEntity,
@@ -9,13 +11,40 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
 import { toCanonicalAllergenKey } from "../constants.js";
 import { t } from "../i18n.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, sortSensors, meetsThreshold, normalizeManualPrefix, resolveManualEntity, coerceBool, resolvePhraseOverride } from "../utils/adapter-helpers.js";
+import {
+  getLangAndLocale,
+  mergePhrases,
+  buildDayLabel,
+  sortSensors,
+  meetsThreshold,
+  normalizeManualPrefix,
+  resolveManualEntity,
+  coerceBool,
+  resolvePhraseOverride,
+} from "../utils/adapter-helpers.js";
+import { SILAM_LEVEL_SPREAD_0_6 } from "./base.js";
 
 // Läs in mapping och namn för allergener
-import silamAllergenMap from "./silam_allergen_map.json";
+import silamAllergenMapRaw from "./silam_allergen_map.json";
+
+/**
+ * Shape of silam_allergen_map.json. Retyped with index signatures so lookups by
+ * variable key (mapping[lang], names[allergen][lang]) type-check.
+ */
+interface SilamAdapterAllergenMap {
+  mapping: Record<string, Record<string, string>>;
+  names: Record<string, Record<string, string>>;
+  weather_suffixes: Record<string, string[]>;
+}
+const silamAllergenMap = silamAllergenMapRaw as SilamAdapterAllergenMap;
+
+// Convenience alias for the discovery result shape returned by
+// discoverSilamSensors (the underlying interface is not exported from
+// utils/silam.ts).
+type SilamDiscovery = ReturnType<typeof discoverSilamSensors>;
 
 // Skapa stubConfigSILAM – allergener i master/engelsk slugform!
-export const stubConfigSILAM = {
+export const stubConfigSILAM: AdapterStubConfig = {
   integration: "silam",
   location: "",
   // Optional entity naming used when location is "manual".
@@ -71,9 +100,12 @@ export const stubConfigSILAM = {
 };
 
 // All possible allergens for the SILAM integration
-export const SILAM_ALLERGENS = [...stubConfigSILAM.allergens, "index"];
+export const SILAM_ALLERGENS = [
+  ...(stubConfigSILAM.allergens as string[]),
+  "index",
+];
 
-export const SILAM_THRESHOLDS = {
+export const SILAM_THRESHOLDS: Record<string, number[]> = {
   // birch: [5, 25, 50, 100, 500, 1000, 5000],
   // grass: [5, 25, 50, 100, 500, 1000, 5000],
   // hazel: [5, 25, 50, 100, 500, 1000, 5000],
@@ -90,7 +122,7 @@ export const SILAM_THRESHOLDS = {
   olive: [1, 10, 25, 50, 100, 500, 1000],
 };
 
-export function grainsToLevel(allergen, grains) {
+export function grainsToLevel(allergen: string, grains: number): number {
   const arr = SILAM_THRESHOLDS[allergen];
   if (!arr) return -1;
   if (isNaN(grains)) return -1;
@@ -106,7 +138,8 @@ export function grainsToLevel(allergen, grains) {
 /**
  * Map SILAM's `allergy_risk` categorical state (very_low / low / moderate /
  * high / very_high, plus their numeric forms 0-4) onto the 0-6 visual scale
- * the SILAM card renders against, using the [0, 1, 3, 5, 6] severity steps.
+ * the SILAM card renders against, using the [0, 1, 3, 5, 6] severity steps
+ * (SILAM_LEVEL_SPREAD_0_6 in base.ts).
  *
  * This deliberately keeps the runtime spread that PEU dropped in #215.
  * SILAM's case is structurally different from PEU's:
@@ -131,10 +164,10 @@ export function grainsToLevel(allergen, grains) {
  * drops `allergy_risk` from cards that also display per-allergen sensors, or
  * gains its own scale-specific chart geometry, this helper can be revisited.
  */
-export function indexToLevel(val) {
+export function indexToLevel(val: unknown): number {
   if (val == null) return -1;
-  const scale = [0, 1, 3, 5, 6];
-  const map = {
+  const scale = SILAM_LEVEL_SPREAD_0_6;
+  const map: Record<string, number> = {
     very_low: 0,
     low: 1,
     moderate: 2,
@@ -153,7 +186,12 @@ export function indexToLevel(val) {
   return -1;
 }
 
-export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
+export function getAllergenNames(
+  allergen: string,
+  fullPhrases: Record<string, string> | null | undefined,
+  shortPhrases: Record<string, string> | null | undefined,
+  lang: string,
+): { allergenCapitalized: string; allergenShort: string } {
   // Phrase overrides resolve through the shared canonical-aware helper so a
   // cross-integration override (e.g. PP phrases.full.Gräs) also applies here
   // (issue #253); SILAM keeps its own name-map / capitalize fallbacks below.
@@ -175,41 +213,64 @@ export function getAllergenNames(allergen, fullPhrases, shortPhrases, lang) {
   }
 
   // Short: phrases > capitalized
-  const allergenShort = resolvePhraseOverride(shortPhrases, allergen, canonKey) || allergenCapitalized;
+  const allergenShort =
+    resolvePhraseOverride(shortPhrases, allergen, canonKey) ||
+    allergenCapitalized;
 
   return { allergenCapitalized, allergenShort };
 }
 
-export function resolveEntityIds(cfg, hass, debug = false, precomputedDiscovery = null) {
-  const map = new Map();
-  const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+  precomputedDiscovery: SilamDiscovery | null = null,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  const configLocation =
+    cfg.location === "manual" ? "" : (cfg.location as string) || "";
   const locationSlug = configLocation.toLowerCase();
 
   const discovery = precomputedDiscovery || discoverSilamSensors(hass, debug);
-  const discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
+  const discoveredLoc = resolveDiscoveredLocation(
+    discovery,
+    configLocation,
+    debug,
+  );
 
   // Precompute inverse maps once (master -> HA slug) for all languages
-  const inverseMaps = Object.values(silamAllergenMap.mapping).map(
-    (mapping) => Object.entries(mapping).reduce(
-      (acc, [ha, master]) => { acc[master] = ha; return acc; }, {},
+  const inverseMaps: Record<string, string>[] = Object.values(
+    silamAllergenMap.mapping,
+  ).map((mapping) =>
+    Object.entries(mapping).reduce(
+      (acc: Record<string, string>, [ha, master]) => {
+        acc[master] = ha;
+        return acc;
+      },
+      {},
     ),
   );
 
-  for (const rawAllergen of cfg.allergens || []) {
+  for (const rawAllergen of (cfg.allergens as string[] | undefined) || []) {
     const norm = normalize(rawAllergen);
     const allergen = toCanonicalAllergenKey(norm);
 
-    let sensorId = null;
+    let sensorId: string | null = null;
     if (cfg.location === "manual") {
       const prefix = normalizeManualPrefix(cfg.entity_prefix);
-      const suffix = cfg.entity_suffix || "";
+      const suffix = (cfg.entity_suffix as string) || "";
       // Try canonical (English) slug first
       sensorId = resolveManualEntity(hass, prefix, allergen, suffix);
       // Fall back to localized HA slugs from the allergen map
       if (!sensorId) {
         for (const inverse of inverseMaps) {
           if (inverse[allergen] && inverse[allergen] !== allergen) {
-            sensorId = resolveManualEntity(hass, prefix, inverse[allergen], suffix);
+            sensorId = resolveManualEntity(
+              hass,
+              prefix,
+              inverse[allergen],
+              suffix,
+            );
             if (sensorId) break;
           }
         }
@@ -222,7 +283,10 @@ export function resolveEntityIds(cfg, hass, debug = false, precomputedDiscovery 
       for (const inverse of inverseMaps) {
         if (inverse[allergen]) {
           const candidate = `sensor.silam_pollen_${locationSlug}_${inverse[allergen]}`;
-          if (hass.states[candidate]) { sensorId = candidate; break; }
+          if (hass.states[candidate]) {
+            sensorId = candidate;
+            break;
+          }
         }
       }
       if (!sensorId) {
@@ -240,20 +304,38 @@ export function resolveEntityIds(cfg, hass, debug = false, precomputedDiscovery 
   return map;
 }
 
-export async function fetchForecast(hass, config, forecastEvent = null) {
+// SILAM keeps its own fetchForecast rather than runForecastScaffold: it resolves
+// levels from a weather.* forecast entity (not per-allergen sensors), transforms
+// the config allergen list (normalize + canonicalize) and may auto-append
+// allergy_risk, and computes weatherEntity / forecastArr / maxItems up front for
+// the whole loop. The scaffold's per-allergen buildDict model does not fit that
+// shape, so the opening block and loop stay adapter-local.
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+  forecastEvent: { forecast?: unknown } | null = null,
+): Promise<PollenSensor[]> {
   const debug = Boolean(config.debug);
   const t0 = debug ? performance.now() : 0;
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(hass, config);
 
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
-  const levelNames = buildLevelNames(userLevels, lang);
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+    mergePhrases(config, lang);
+  const levelNames = buildLevelNames(
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const days_to_show = config.days_to_show ?? stubConfigSILAM.days_to_show;
+  const days_to_show =
+    (config.days_to_show as number | undefined) ??
+    (stubConfigSILAM.days_to_show as number);
   const pollen_threshold =
-    config.pollen_threshold ?? stubConfigSILAM.pollen_threshold;
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigSILAM.pollen_threshold as number);
 
   // Hitta weather-entity och discovery-data.
   // Pick the location hint that drives discovery. In manual mode without an
@@ -263,7 +345,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   // naturally enter entity_prefix="silam_pollen_<loc>_"). Without this
   // strip, findSilamWeatherEntity would build
   // weather.silam_pollen_silam_pollen_<loc>_<suffix> and discovery fails.
-  let configLocation;
+  let configLocation: string;
   if (config.location === "manual" && config.entity_prefix) {
     configLocation = normalizeManualPrefix(config.entity_prefix)
       .replace(/_$/, "")
@@ -271,7 +353,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   } else if (config.location === "manual") {
     configLocation = "";
   } else {
-    configLocation = config.location || "";
+    configLocation = (config.location as string) || "";
   }
 
   // Normalize entity_weather once: must be a non-empty string. YAML can
@@ -289,22 +371,25 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   // manual branch via prefix/suffix) resolve without discovery, so the scan
   // would be pure overhead on every refresh.
   const skipDiscovery = config.location === "manual" && entityWeather !== null;
-  let discovery;
-  let discoveredLoc = null;
+  let discovery: SilamDiscovery;
+  let discoveredLoc: ReturnType<typeof resolveDiscoveredLocation> = null;
   if (skipDiscovery) {
     discovery = { locations: new Map() };
   } else {
     const tDisc = debug ? performance.now() : 0;
     discovery = discoverSilamSensors(hass, debug);
     discoveredLoc = resolveDiscoveredLocation(discovery, configLocation, debug);
-    if (debug) console.debug(`[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`);
+    if (debug)
+      console.debug(
+        `[SILAM] Discovery took ${(performance.now() - tDisc).toFixed(1)}ms, locations: ${discovery.locations.size}`,
+      );
   }
 
   // Manual mode honors an optional entity_weather override -- if set, it
   // bypasses discovery for the weather entity. Useful when the prefix-
   // based discovery hint doesn't find the right one (custom-renamed
   // entities, multiple SILAM instances, etc.).
-  let weatherEntity;
+  let weatherEntity: string | null;
   if (config.location === "manual" && entityWeather !== null) {
     if (!entityWeather.startsWith("weather.")) {
       console.warn(
@@ -324,8 +409,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     }
     weatherEntity = entityWeather;
   } else {
-    weatherEntity = discoveredLoc?.weatherEntity
-      || findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);
+    weatherEntity =
+      discoveredLoc?.weatherEntity ||
+      findSilamWeatherEntity(hass, configLocation, locale, debug, discovery);
 
     if (!weatherEntity || !hass.states[weatherEntity]) {
       if (config.location === "manual") {
@@ -342,7 +428,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   }
 
   const entity = hass.states[weatherEntity];
-  const rawAllergens = config.allergens || stubConfigSILAM.allergens;
+  const rawAllergens =
+    (config.allergens as string[] | undefined) ||
+    (stubConfigSILAM.allergens as string[]);
   const allergens = rawAllergens.map((raw) => {
     const norm = normalize(raw);
     // Translate user-facing slugs (e.g. 'index') to internal canonicals
@@ -350,7 +438,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
   });
 
   // Forecast-array: från forecastEvent om det finns, annars från entity
-  let forecastArr = [];
+  let forecastArr: Array<Record<string, unknown>> = [];
   if (
     forecastEvent &&
     forecastEvent.forecast &&
@@ -363,7 +451,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   // Hur många dagar/kolumner som ska visas
   // För daily används dag0 + första n forecast, för hourly/twice_daily används forecast direkt
-  let maxItems;
+  let maxItems: number;
   if (config.mode === "hourly" || config.mode === "twice_daily") {
     maxItems = Math.min(forecastArr.length, days_to_show);
   } else {
@@ -372,7 +460,10 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
   const tRes = debug ? performance.now() : 0;
   const entityMap = resolveEntityIds(config, hass, debug, discovery);
-  if (debug) console.debug(`[SILAM] resolveEntityIds took ${(performance.now() - tRes).toFixed(1)}ms, resolved: ${entityMap.size}/${allergens.length}`);
+  if (debug)
+    console.debug(
+      `[SILAM] resolveEntityIds took ${(performance.now() - tRes).toFixed(1)}ms, resolved: ${entityMap.size}/${allergens.length}`,
+    );
 
   // When entity-registry discovery found zero allergen sensors for this
   // location (i.e. the user did not enable any allergens in the SILAM
@@ -388,14 +479,15 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     allergens.push("allergy_risk");
     autoAddedAllergyRisk = true;
     if (debug)
-      console.debug("[SILAM] Discovery found 0 allergen sensors; auto-adding allergy_risk");
+      console.debug(
+        "[SILAM] Discovery found 0 allergen sensors; auto-adding allergy_risk",
+      );
   }
 
-  const sensors = [];
+  const sensors: PollenSensor[] = [];
   for (const allergen of allergens) {
     try {
-      const dict = {};
-      dict.days = [];
+      const dict = { days: [] as ForecastDay[] } as PollenSensor;
       dict.allergenReplaced = allergen;
 
       // Namn-uppslag
@@ -420,7 +512,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
 
       // Sensor lookup (delegated to resolveEntityIds)
       const sensorId = entityMap.get(allergen) || null;
-      dict.entity_id = sensorId;
+      dict.entity_id = sensorId as string;
 
       // Collect levels per day/column (different for daily vs other modes).
       //
@@ -430,13 +522,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // these two sources (e.g. entity.state="very_low" but forecast
       // pollen_index=1). This is an upstream data inconsistency; the card
       // faithfully displays whatever each source reports.
-      let stateList = [];
+      const stateList: number[] = [];
       // rawList mirrors stateList with the raw numeric measurement (the index
       // for allergy_risk, grains/m3 for the per-allergen sensors), kept so the
       // user can opt into showing it via numeric_value_raw. null where the
       // source value is not numeric.
-      let rawList = [];
-      const asRaw = (v) => {
+      const rawList: Array<number | null> = [];
+      const asRaw = (v: unknown): number | null => {
         // null/undefined/"" are missing data, not 0 (Number(null) === 0), so
         // they must stay null and let the display fall back to the level.
         if (v == null || v === "") return null;
@@ -448,7 +540,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           for (let i = 0; i < maxItems; ++i) {
             const forecast = forecastArr[i];
             const val = forecast
-              ? forecast.index ?? forecast.pollen_index
+              ? (forecast.index ?? forecast.pollen_index)
               : null;
             stateList.push(indexToLevel(val));
             rawList.push(asRaw(val));
@@ -463,7 +555,7 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           for (let i = 1; i < maxItems; ++i) {
             const forecast = forecastArr[i - 1];
             const val = forecast
-              ? forecast.index ?? forecast.pollen_index
+              ? (forecast.index ?? forecast.pollen_index)
               : null;
             stateList.push(indexToLevel(val));
             rawList.push(asRaw(val));
@@ -497,14 +589,13 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // Fyll dag-objekt för kortet
       for (let i = 0; i < maxItems; ++i) {
         const scaled = stateList[i];
-        let label, icon;
-        let d;
+        let label: string;
+        let icon: string | null;
+        let d: Date;
         if (config.mode === "hourly" || config.mode === "twice_daily") {
-          if (
-            forecastArr[i] &&
-            (forecastArr[i].datetime || forecastArr[i].time)
-          ) {
-            d = new Date(forecastArr[i].datetime || forecastArr[i].time);
+          const fc = forecastArr[i];
+          if (fc && (fc.datetime || fc.time)) {
+            d = new Date((fc.datetime || fc.time) as string);
           } else {
             d = new Date(today.getTime() + i * 3600000); // fallback
           }
@@ -524,7 +615,14 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
           }
         } else {
           d = new Date(today.getTime() + i * 86400000);
-          label = buildDayLabel(d, i, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
+          label = buildDayLabel(d, i, {
+            daysRelative,
+            dayAbbrev,
+            daysUppercase,
+            userDays,
+            lang,
+            locale,
+          });
           icon = null;
         }
 
@@ -533,19 +631,24 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
         // "very_low" (has no "none" state). Show that localized rather
         // than our level-0 label ("No pollen").
         const stateText =
-          (autoAddedAllergyRisk && allergen === "allergy_risk" && scaled === 0)
-            ? (t("card.index.very_low", lang) || levelNames[0])
-            : (scaled < 0 ? noInfoLabel : levelNames[lvlIndex] || String(scaled));
+          autoAddedAllergyRisk && allergen === "allergy_risk" && scaled === 0
+            ? t("card.index.very_low", lang) || levelNames[0]
+            : scaled < 0
+              ? noInfoLabel
+              : levelNames[lvlIndex] || String(scaled);
 
-        dict[`day${i}`] = {
+        // TODO(#259-normalize): SILAM day objects deliberately omit
+        // display_state (unlike dwd/peu); the card falls back to `state`.
+        const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,
           day: label,
-          icon: icon,
+          icon: icon as string,
           state: scaled,
           raw_value: rawList[i] ?? null,
           state_text: stateText,
         };
-        dict.days.push(dict[`day${i}`]);
+        dict[`day${i}`] = dayObj;
+        dict.days.push(dayObj);
       }
 
       // Auto-added allergy_risk bypasses the threshold: even "very_low" (level 0)
@@ -555,20 +658,23 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
       // existing row behaviour for 4000 configs is unchanged when it is off.
       const skipThreshold =
         (autoAddedAllergyRisk && allergen === "allergy_risk") ||
-        (allergen === "allergy_risk" && coerceBool(config.show_summary_block));
-      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
+        (allergen === "allergy_risk" &&
+          coerceBool(config.show_summary_block));
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold))
+        sensors.push(dict);
     } catch (e) {
       if (debug) console.warn(`[SILAM] Error for allergen ${allergen}:`, e);
     }
   }
 
   // Sortering
-  sortSensors(sensors, config.sort);
+  sortSensors(sensors, config.sort as string);
 
   if (config.index_top || config.allergy_risk_top) {
     const idx = sensors.findIndex(
       (s) =>
-        s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
+        s.allergenReplaced === "allergy_risk" ||
+        s.allergenReplaced === "index",
     );
     if (idx > 0) {
       const [special] = sensors.splice(idx, 1);
@@ -576,6 +682,9 @@ export async function fetchForecast(hass, config, forecastEvent = null) {
     }
   }
 
-  if (debug) console.debug(`[SILAM] fetchForecast done in ${(performance.now() - t0).toFixed(1)}ms, sensors: ${sensors.length}`);
+  if (debug)
+    console.debug(
+      `[SILAM] fetchForecast done in ${(performance.now() - t0).toFixed(1)}ms, sensors: ${sensors.length}`,
+    );
   return sensors;
 }
