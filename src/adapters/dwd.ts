@@ -1,17 +1,32 @@
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig } from "../types/config.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
-import { buildLevelNames } from "../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
+import {
+  buildDayLabel,
+  clampLevel,
+  resolveAllergenNames,
+  discoverEntitiesByDevice,
+  type DeviceDiscovery,
+} from "../utils/adapter-helpers.js";
+import {
+  createEntityResolver,
+  runForecastScaffold,
+  padDays,
+  DWD_LEVEL_MULTIPLIER,
+  type BuildDictArgs,
+} from "./base.js";
 import { DWD_REGIONS } from "../constants.js";
 
-const DOMAIN = "dwd_pollenflug";
 const ATTR_VAL_TOMORROW = "state_tomorrow";
 const ATTR_VAL_IN_2_DAYS = "state_in_2_days";
 const ATTR_DESC_TODAY = "state_today_desc";
 const ATTR_DESC_TOMORROW = "state_tomorrow_desc";
 const ATTR_DESC_IN_2_DAYS = "state_in_2_days_desc";
 
-export const stubConfigDWD = {
+export const stubConfigDWD: CardConfig = {
+  type: "custom:pollenprognos-card",
   integration: "dwd",
   region_id: "",
   // Optional entity naming used when region_id is "manual"
@@ -86,8 +101,7 @@ export const stubConfigDWD = {
  * occurrence even when the device-name prefix happens to repeat
  * "pollenflug" earlier in the string. (#217)
  */
-export const DWD_ENTITY_ID_RE =
-  /^sensor\.(?:\w+_)*pollenflug_([a-z]+)_(\d+)$/;
+export const DWD_ENTITY_ID_RE = /^sensor\.(?:\w+_)*pollenflug_([a-z]+)_(\d+)$/;
 
 /**
  * Extract the numeric region ID from a DWD entity ID, accepting both bare
@@ -95,11 +109,8 @@ export const DWD_ENTITY_ID_RE =
  *   "sensor.pollenflug_erle_50" -> "50"
  *   "sensor.pollenflug_gefahrenindex_pollenflug_erle_50" -> "50"
  * Returns null if the integration's pattern is not found.
- *
- * @param {string} entityId
- * @returns {string|null}
  */
-function extractRegionIdFromEntityId(entityId) {
+function extractRegionIdFromEntityId(entityId: string): string | null {
   return entityId.match(DWD_ENTITY_ID_RE)?.[2] || null;
 }
 
@@ -107,22 +118,16 @@ function extractRegionIdFromEntityId(entityId) {
  * Extract the integration's allergen segment from a DWD entity ID, accepting
  * both bare and HA-device-prefixed shapes. Returns null if the pattern is
  * not found.
- *
- * @param {string} entityId
- * @returns {string|null}
  */
-function extractAllergenFromEntityId(entityId) {
+function extractAllergenFromEntityId(entityId: string): string | null {
   return entityId.match(DWD_ENTITY_ID_RE)?.[1] || null;
 }
 
 /**
  * Extract a human-readable region label from a DWD entity ID by looking up
  * the region ID in DWD_REGIONS. Falls back to "Region {id}" for unknown IDs.
- *
- * @param {string} entityId
- * @returns {string|null}
  */
-function extractRegionLabel(entityId) {
+function extractRegionLabel(entityId: string): string | null {
   const regionId = extractRegionIdFromEntityId(entityId);
   if (regionId === null) return null;
   const name = DWD_REGIONS[Number(regionId)];
@@ -144,12 +149,11 @@ function extractRegionLabel(entityId) {
  *
  * In tier 3 the region ID (numeric suffix) is used as the location key so that
  * cfg.region_id = "50" matches entities like sensor.pollenflug_erle_50.
- *
- * @param {object}  hass
- * @param {boolean} [debug=false]
- * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
  */
-export function discoverDwdSensors(hass, debug = false) {
+export function discoverDwdSensors(
+  hass: HomeAssistant,
+  debug = false,
+): DeviceDiscovery {
   if (!hass) return { locations: new Map(), tierUsed: 0 };
 
   const { locations, tierUsed } = discoverEntitiesByDevice(hass, {
@@ -163,11 +167,11 @@ export function discoverDwdSensors(hass, debug = false) {
      * DWD_ENTITY_ID_RE prevents misclassification when the device-name
      * happens to repeat "pollenflug". (#217)
      */
-    classify: (eid) => {
+    classify: (eid: string) => {
       const allergen = extractAllergenFromEntityId(eid);
       return allergen ? normalizeDWD(allergen) : null;
     },
-    classifyRelaxed: (eid) => {
+    classifyRelaxed: (eid: string) => {
       const allergen = extractAllergenFromEntityId(eid);
       return allergen ? normalizeDWD(allergen) : null;
     },
@@ -177,7 +181,7 @@ export function discoverDwdSensors(hass, debug = false) {
      * in the entity ID after an optional device-name prefix, so check the
      * full pattern rather than just the entity-ID start.
      */
-    isRelevant: (eid) => DWD_ENTITY_ID_RE.test(eid),
+    isRelevant: (eid: string) => DWD_ENTITY_ID_RE.test(eid),
     /**
      * resolveLabel priority:
      *   1. device.name_by_user -- explicit user override always wins.
@@ -221,7 +225,7 @@ export function discoverDwdSensors(hass, debug = false) {
   // When discovery surfaces two or more locations with identical labels,
   // append the region ID in parens so the editor dropdown can distinguish
   // them. Unique labels stay clean ("Brandenburg und Berlin").
-  const labelCounts = new Map();
+  const labelCounts = new Map<string, number>();
   for (const loc of locations.values()) {
     labelCounts.set(loc.label, (labelCounts.get(loc.label) || 0) + 1);
   }
@@ -239,70 +243,28 @@ export function discoverDwdSensors(hass, debug = false) {
   return { locations, tierUsed };
 }
 
-export function resolveEntityIds(cfg, hass, debug = false) {
-  const map = new Map();
-
-  // --- Path 1: Manual mode ---
-  if (cfg.region_id === "manual") {
-    const prefix = normalizeManualPrefix(cfg.entity_prefix);
-    for (const allergen of cfg.allergens || []) {
-      const rawKey = normalizeDWD(allergen);
-      const sensorId = resolveManualEntity(hass, prefix, rawKey, cfg.entity_suffix || "");
-      if (!sensorId) continue;
-      if (debug) {
-        console.debug(
-          `[DWD:resolveEntityIds] manual allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${sensorId}'`,
-        );
-      }
-      map.set(rawKey, sensorId);
-    }
-    return map;
-  }
-
-  // --- Path 2: Device-based discovery (tier 1/2) or regex fallback (tier 3) ---
-  const discovery = discoverDwdSensors(hass, debug);
-
-  if (discovery.locations.size > 0) {
-    let match = resolveLocationByKey(discovery, cfg.region_id, {
-      slugExtractor: extractRegionIdFromEntityId,
-    });
-
-    // Stale-config recovery: a saved ULID region_id from a removed/renamed
-    // integration won't be in the discovered locations. Retry with autodetect
-    // semantics so the card still finds sensors instead of silently going
-    // empty and then template-falling back to "sensor.pollenflug_*_{ULID}".
-    if (!match && isConfigEntryId(cfg.region_id)) {
-      match = resolveLocationByKey(discovery, "");
-    }
-
-    if (match) {
-      const [, location] = match;
-      for (const allergen of cfg.allergens || []) {
-        const rawKey = normalizeDWD(allergen);
-        const eid = location.entities.get(rawKey);
-        if (!eid) continue;
-        if (debug) {
-          console.debug(
-            `[DWD:resolveEntityIds] discovery allergen: '${allergen}', rawKey: '${rawKey}', sensorId: '${eid}'`,
-          );
-        }
-        map.set(rawKey, eid);
-      }
-
-      if (map.size > 0) return map;
-    }
-  }
-
-  // --- Path 3: Template fallback (legacy / when discovery yields nothing) ---
-  // Rebuilt around DWD_ENTITY_ID_RE so it accepts the device-name-prefixed
-  // shape HA emits when the integration's device has a friendly name (#217).
-  // The bare-shape direct lookup is tried first as a fast path; the regex
-  // scan handles both shapes when that misses.
-  for (const allergen of cfg.allergens || []) {
+/**
+ * Path 3 template fallback. Rebuilt around DWD_ENTITY_ID_RE so it accepts the
+ * device-name-prefixed shape HA emits when the integration's device has a
+ * friendly name (#217). The bare-shape direct lookup is tried first as a fast
+ * path; the regex scan handles both shapes when that misses.
+ */
+function dwdTemplateFallback({
+  cfg,
+  hass,
+  debug,
+}: {
+  cfg: CardConfig;
+  hass: HomeAssistant;
+  debug: boolean;
+}): Map<string, string> {
+  const map = new Map<string, string>();
+  const regionId = cfg.region_id as string | undefined;
+  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
     const rawKey = normalizeDWD(allergen);
-    let sensorId = null;
-    if (cfg.region_id) {
-      const direct = `sensor.pollenflug_${rawKey}_${cfg.region_id}`;
+    let sensorId: string | null = null;
+    if (regionId) {
+      const direct = `sensor.pollenflug_${rawKey}_${regionId}`;
       if (hass.states[direct]) sensorId = direct;
     }
     if (!sensorId) {
@@ -310,7 +272,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
         const m = id.match(DWD_ENTITY_ID_RE);
         if (!m) return false;
         if (m[1] !== rawKey) return false;
-        return cfg.region_id ? m[2] === String(cfg.region_id) : true;
+        return regionId ? m[2] === String(regionId) : true;
       });
       if (candidates.length === 1) sensorId = candidates[0];
       else if (candidates.length > 1 && debug) {
@@ -330,108 +292,135 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   return map;
 }
 
-export async function fetchForecast(hass, config) {
-  const debug = Boolean(config.debug);
+export const resolveEntityIds = createEntityResolver({
+  locationKey: "region_id",
+  normalize: normalizeDWD,
+  discover: discoverDwdSensors,
+  slugExtractor: extractRegionIdFromEntityId,
+  logTag: "DWD",
+  // Stale-config recovery: a saved ULID region_id from a removed/renamed
+  // integration won't be in the discovered locations. Retry with autodetect
+  // semantics so the card still finds sensors instead of silently going empty
+  // and then template-falling back to "sensor.pollenflug_*_{ULID}".
+  recoverStaleConfig: true,
+  templateFallback: dwdTemplateFallback,
+});
 
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config, stubConfigDWD.date_locale);
+// DWD reports a coarse 0-3 index; NaN/negative collapses to the -1 sentinel and
+// there is no upper clamp (the 0-3 scale is doubled onto 0-6 during rendering).
+const testVal = (v: unknown): number => clampLevel(v, null, -1);
 
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
-  const levelNames = buildLevelNames(userLevels, lang);
-  const days_to_show = config.days_to_show ?? stubConfigDWD.days_to_show;
-  const pollen_threshold =
-    config.pollen_threshold ?? stubConfigDWD.pollen_threshold;
+interface DwdLevelDay {
+  date: Date;
+  level: number;
+}
 
-  if (debug)
-    console.debug("DWD adapter: start fetchForecast", { config, lang });
+function buildDwdDict({
+  allergen,
+  rawKey,
+  sensorId,
+  sensor,
+  config,
+  ctx,
+}: BuildDictArgs): PollenSensor {
+  // Preserve the original key-insertion order (allergen fields, entity_id, then
+  // days, then dayN) so the serialized sensor dict stays byte-identical.
+  const dict = {} as PollenSensor;
+  dict.allergenReplaced = rawKey;
 
-  const testVal = (v) => clampLevel(v, null, -1);
+  // Allergen name resolution
+  const { allergenCapitalized, allergenShort } = resolveAllergenNames(rawKey, {
+    fullPhrases: ctx.fullPhrases,
+    shortPhrases: ctx.shortPhrases,
+    abbreviated: config.allergens_abbreviated as boolean,
+    lang: ctx.lang,
+    configKey: allergen,
+  });
+  dict.allergenCapitalized = allergenCapitalized;
+  dict.allergenShort = allergenShort;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  dict.entity_id = sensorId;
+  const attrs = sensor!.attributes;
 
-  const sensors = [];
-  const entityMap = resolveEntityIds(config, hass, debug);
+  // Raw values (today / tomorrow / in 2 days).
+  const todayVal = testVal(sensor!.state);
+  const tomVal = testVal(attrs[ATTR_VAL_TOMORROW]);
+  const twoVal = testVal(attrs[ATTR_VAL_IN_2_DAYS]);
 
-  for (const allergen of config.allergens) {
-    try {
-      const dict = {};
-      const rawKey = normalizeDWD(allergen);
-      dict.allergenReplaced = rawKey;
-      // Allergen name resolution
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(rawKey, {
-        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang, configKey: allergen,
-      });
-      dict.allergenCapitalized = allergenCapitalized;
-      dict.allergenShort = allergenShort;
+  const today = ctx.today;
+  const levels: DwdLevelDay[] = [
+    { date: today, level: todayVal },
+    { date: new Date(today.getTime() + 86400000), level: tomVal },
+    { date: new Date(today.getTime() + 2 * 86400000), level: twoVal },
+  ];
+  padDays(levels, ctx.days_to_show, (idx) => ({
+    date: new Date(today.getTime() + idx * 86400000),
+    level: -1,
+  }));
 
-      // Sensor lookup (delegated to resolveEntityIds)
-      const sensorId = entityMap.get(rawKey);
-      if (!sensorId) continue;
-      const sensor = hass.states[sensorId];
-      dict.entity_id = sensorId;
-
-      // Råvärden
-      const todayVal = testVal(sensor.state);
-      const tomVal = testVal(sensor.attributes[ATTR_VAL_TOMORROW]);
-      const twoVal = testVal(sensor.attributes[ATTR_VAL_IN_2_DAYS]);
-
-      // Nivåer-datum
-      const levels = [
-        { date: today, level: todayVal },
-        { date: new Date(today.getTime() + 86400000), level: tomVal },
-        { date: new Date(today.getTime() + 2 * 86400000), level: twoVal },
-      ];
-      while (levels.length < days_to_show) {
-        const idx = levels.length;
-        levels.push({
-          date: new Date(today.getTime() + idx * 86400000),
-          level: -1,
-        });
-      }
-
-      // Bygg dict.dayN
-      dict.days = [];
-      // Bygg dict.dayN och dict.days[]
-      levels.forEach((entry, idx) => {
-        if (entry.level !== null && entry.level >= 0) {
-          const diff = Math.round((entry.date - today) / 86400000);
-          const dayLabel = buildDayLabel(entry.date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
-
-          const sensorDesc =
-            sensor.attributes[
-              idx === 0
-                ? ATTR_DESC_TODAY
-                : idx === 1
-                  ? ATTR_DESC_TOMORROW
-                  : ATTR_DESC_IN_2_DAYS
-            ] || "";
-
-          const scaled = entry.level * 2;
-          const lvlIndex = Math.min(Math.max(Math.round(scaled), 0), 6);
-          const stateText =
-            lvlIndex < 0 ? noInfoLabel : levelNames[lvlIndex] || sensorDesc;
-
-          dict[`day${idx}`] = {
-            name: dict.allergenCapitalized,
-            day: dayLabel,
-            state: entry.level,
-            display_state: scaled,
-            state_text: stateText,
-          };
-          dict.days.push(dict[`day${idx}`]);
-        }
+  dict.days = [];
+  // Build dict.dayN and dict.days[].
+  levels.forEach((entry, idx) => {
+    if (entry.level !== null && entry.level >= 0) {
+      const diff = Math.round((entry.date.getTime() - today.getTime()) / 86400000);
+      const dayLabel = buildDayLabel(entry.date, diff, {
+        daysRelative: ctx.daysRelative,
+        dayAbbrev: ctx.dayAbbrev,
+        daysUppercase: ctx.daysUppercase,
+        userDays: ctx.userDays,
+        lang: ctx.lang,
+        locale: ctx.locale,
       });
 
-      // Filtrera med tröskel
-      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
-    } catch (e) {
-      console.warn(`DWD adapter error for allergen ${allergen}:`, e);
+      const sensorDesc =
+        attrs[
+          idx === 0
+            ? ATTR_DESC_TODAY
+            : idx === 1
+              ? ATTR_DESC_TOMORROW
+              : ATTR_DESC_IN_2_DAYS
+        ] || "";
+
+      const scaled = entry.level * DWD_LEVEL_MULTIPLIER;
+      const lvlIndex = Math.min(Math.max(Math.round(scaled), 0), 6);
+      const stateText =
+        lvlIndex < 0 ? ctx.noInfoLabel : ctx.levelNames[lvlIndex] || sensorDesc;
+
+      const dayObj: ForecastDay = {
+        name: dict.allergenCapitalized,
+        day: dayLabel,
+        state: entry.level,
+        display_state: scaled,
+        state_text: stateText,
+      };
+      dict[`day${idx}`] = dayObj;
+      dict.days.push(dayObj);
     }
-  }
+  });
 
-  // Sortering
-  sortSensors(sensors, config.sort);
+  return dict;
+}
 
-  if (debug) console.debug("DWD adapter complete sensors:", sensors);
-  return sensors;
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  return runForecastScaffold(hass, config, {
+    stub: stubConfigDWD,
+    normalize: normalizeDWD,
+    resolveEntityIds,
+    buildDict: buildDwdDict,
+    useStubDateLocale: true,
+    warnPrefix: (allergen) => `DWD adapter error for allergen ${allergen}:`,
+    onStart: (cfg, ctx) => {
+      if (ctx.debug)
+        console.debug("DWD adapter: start fetchForecast", {
+          config: cfg,
+          lang: ctx.lang,
+        });
+    },
+    onDone: (sensors, ctx) => {
+      if (ctx.debug) console.debug("DWD adapter complete sensors:", sensors);
+    },
+  });
 }
