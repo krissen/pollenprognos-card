@@ -1,4 +1,4 @@
-// src/utils/device-label.js
+// src/utils/device-label.ts
 
 /**
  * Normalize an HA-derived device name for display as a location label.
@@ -29,7 +29,7 @@
  * inline cleanup logic in adapter discovery code keeps getting refactored
  * away. See issue #208 for the latest occurrence.
  */
-export function cleanDeviceLabel(raw) {
+export function cleanDeviceLabel(raw: string): string {
   if (typeof raw !== "string") return raw;
   const trimmed = raw.trim();
   if (!trimmed) return trimmed;
@@ -38,7 +38,8 @@ export function cleanDeviceLabel(raw) {
   // legitimate names like "Office (123)" or "Paris (2024)" aren't stripped.
   // Each value: optional sign, digits, optional decimal part. Whitespace
   // tolerated around values and the comma.
-  const COORD_PAREN = /\s*\(\s*[+\-]?\d+(?:\.\d+)?\s*,\s*[+\-]?\d+(?:\.\d+)?\s*\)\s*$/;
+  const COORD_PAREN =
+    /\s*\(\s*[+\-]?\d+(?:\.\d+)?\s*,\s*[+\-]?\d+(?:\.\d+)?\s*\)\s*$/;
   const stripped = trimmed.replace(COORD_PAREN, "").trim();
   if (stripped === trimmed) return trimmed;
 

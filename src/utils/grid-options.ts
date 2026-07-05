@@ -20,7 +20,12 @@
 // normal mode = a forecast table whose height varies (title on/off, icon_size,
 //   day-label header, one row per allergen, no-data / no-information states), so
 //   the height is likewise content-driven via rows:"auto".
-export function computeGridOptions(config = {}) {
+export function computeGridOptions(config: Record<string, unknown> = {}): {
+  rows: string;
+  columns: number;
+  min_rows: number;
+  min_columns: number;
+} {
   const configured = Array.isArray(config?.allergens)
     ? config.allergens.length
     : 0;

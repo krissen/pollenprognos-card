@@ -1,10 +1,10 @@
-// src/utils/normalize.js
+// src/utils/normalize.ts
 
 /**
  * Tar en text som kan innehålla diakritiska tecken,
  * tar bort dem och mappar allt till [a–z0–9_] för nycklar.
  */
-export function normalize(text) {
+export function normalize(text: string): string {
   return (
     text
       // Dela upp accent (NFD)
@@ -20,7 +20,7 @@ export function normalize(text) {
 }
 
 // Special-normalize för DWD-sensorer:
-export function normalizeDWD(text) {
+export function normalizeDWD(text: string): string {
   return (
     text
       .toLowerCase()
