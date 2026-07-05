@@ -1,0 +1,11 @@
+[
+  {
+    "days": [],
+    "allergenReplaced": "birch",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.polleninformation_amsterdam_birch",
+    "stale": true,
+    "staleSince": null
+  }
+]

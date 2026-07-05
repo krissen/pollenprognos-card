@@ -1,0 +1,76 @@
+[
+  {
+    "days": [
+      {
+        "name": "Bouleau",
+        "day": "Aujourd'hui",
+        "state": 3,
+        "display_state": 3,
+        "state_text": "Niveaux modérés"
+      },
+      {
+        "name": "Bouleau",
+        "day": "Demain",
+        "state": 2,
+        "display_state": 2,
+        "state_text": "Niveaux faibles à modérés"
+      }
+    ],
+    "allergenReplaced": "birch",
+    "group": "pollen",
+    "allergenCapitalized": "Bouleau",
+    "allergenShort": "Bouleau",
+    "entity_id": "sensor.niveau_bouleau_paris",
+    "day0": {
+      "name": "Bouleau",
+      "day": "Aujourd'hui",
+      "state": 3,
+      "display_state": 3,
+      "state_text": "Niveaux modérés"
+    },
+    "day1": {
+      "name": "Bouleau",
+      "day": "Demain",
+      "state": 2,
+      "display_state": 2,
+      "state_text": "Niveaux faibles à modérés"
+    }
+  },
+  {
+    "days": [
+      {
+        "name": "Graminées",
+        "day": "Aujourd'hui",
+        "state": 2,
+        "display_state": 2,
+        "state_text": "Niveaux faibles à modérés"
+      },
+      {
+        "name": "Graminées",
+        "day": "Demain",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Faibles niveaux"
+      }
+    ],
+    "allergenReplaced": "grass",
+    "group": "pollen",
+    "allergenCapitalized": "Graminées",
+    "allergenShort": "Graminées",
+    "entity_id": "sensor.niveau_gramine_paris",
+    "day0": {
+      "name": "Graminées",
+      "day": "Aujourd'hui",
+      "state": 2,
+      "display_state": 2,
+      "state_text": "Niveaux faibles à modérés"
+    },
+    "day1": {
+      "name": "Graminées",
+      "day": "Demain",
+      "state": 1,
+      "display_state": 1,
+      "state_text": "Faibles niveaux"
+    }
+  }
+]

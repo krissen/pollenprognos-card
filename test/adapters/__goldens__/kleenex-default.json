@@ -1,0 +1,323 @@
+[
+  {
+    "allergenReplaced": "trees_cat",
+    "entity_id": "sensor.kleenex_pollen_radar_amsterdam_trees",
+    "days": [
+      {
+        "name": "Trees",
+        "day": "Today",
+        "state": 2,
+        "state_text": "Moderate levels",
+        "value": 200,
+        "raw_value": 200,
+        "description": "Moderate levels"
+      },
+      {
+        "name": "Trees",
+        "day": "Tomorrow",
+        "state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Jun 18",
+        "state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      },
+      {
+        "name": "Trees",
+        "day": "Jun 19",
+        "state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      }
+    ],
+    "allergenCapitalized": "Trees",
+    "allergenShort": "Trees",
+    "levelNames": [
+      "No pollen",
+      "Low levels",
+      "Low–moderate levels",
+      "Moderate levels",
+      "Moderate–high levels",
+      "High levels",
+      "Very high levels"
+    ],
+    "day0": {
+      "name": "Trees",
+      "day": "Today",
+      "state": 2,
+      "state_text": "Moderate levels",
+      "value": 200,
+      "raw_value": 200,
+      "description": "Moderate levels"
+    },
+    "day1": {
+      "name": "Trees",
+      "day": "Tomorrow",
+      "state": 0,
+      "state_text": "No pollen",
+      "value": 0,
+      "raw_value": 0,
+      "description": "No pollen"
+    },
+    "day2": {
+      "name": "Trees",
+      "day": "Day after tomorrow",
+      "state": 0,
+      "state_text": "No pollen",
+      "value": 0,
+      "raw_value": 0,
+      "description": "No pollen"
+    },
+    "day3": {
+      "name": "Trees",
+      "day": "Jun 18",
+      "state": -1,
+      "state_text": "(No information)",
+      "value": -1,
+      "raw_value": -1,
+      "description": "(No information)"
+    },
+    "day4": {
+      "name": "Trees",
+      "day": "Jun 19",
+      "state": -1,
+      "state_text": "(No information)",
+      "value": -1,
+      "raw_value": -1,
+      "description": "(No information)"
+    }
+  },
+  {
+    "allergenReplaced": "birch",
+    "entity_id": "sensor.kleenex_pollen_radar_amsterdam_trees",
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 2,
+        "state_text": "Moderate levels",
+        "value": 150,
+        "raw_value": 150,
+        "description": "Moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 2,
+        "state_text": "Moderate levels",
+        "value": 120,
+        "raw_value": 120,
+        "description": "Moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "state_text": "Low levels",
+        "value": 10,
+        "raw_value": 10,
+        "description": "Low levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 18",
+        "state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 19",
+        "state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      }
+    ],
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "levelNames": [
+      "No pollen",
+      "Low levels",
+      "Low–moderate levels",
+      "Moderate levels",
+      "Moderate–high levels",
+      "High levels",
+      "Very high levels"
+    ],
+    "day0": {
+      "name": "Birch",
+      "day": "Today",
+      "state": 2,
+      "state_text": "Moderate levels",
+      "value": 150,
+      "raw_value": 150,
+      "description": "Moderate levels"
+    },
+    "day1": {
+      "name": "Birch",
+      "day": "Tomorrow",
+      "state": 2,
+      "state_text": "Moderate levels",
+      "value": 120,
+      "raw_value": 120,
+      "description": "Moderate levels"
+    },
+    "day2": {
+      "name": "Birch",
+      "day": "Day after tomorrow",
+      "state": 1,
+      "state_text": "Low levels",
+      "value": 10,
+      "raw_value": 10,
+      "description": "Low levels"
+    },
+    "day3": {
+      "name": "Birch",
+      "day": "Jun 18",
+      "state": -1,
+      "state_text": "(No information)",
+      "value": -1,
+      "raw_value": -1,
+      "description": "(No information)"
+    },
+    "day4": {
+      "name": "Birch",
+      "day": "Jun 19",
+      "state": -1,
+      "state_text": "(No information)",
+      "value": -1,
+      "raw_value": -1,
+      "description": "(No information)"
+    }
+  },
+  {
+    "allergenReplaced": "oak",
+    "entity_id": "sensor.kleenex_pollen_radar_amsterdam_trees",
+    "days": [
+      {
+        "name": "Oak",
+        "day": "Today",
+        "state": 1,
+        "state_text": "Low levels",
+        "value": 50,
+        "raw_value": 50,
+        "description": "Low levels"
+      },
+      {
+        "name": "Oak",
+        "day": "Tomorrow",
+        "state": 1,
+        "state_text": "Low levels",
+        "value": 40,
+        "raw_value": 40,
+        "description": "Low levels"
+      },
+      {
+        "name": "Oak",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "state_text": "Low levels",
+        "value": 5,
+        "raw_value": 5,
+        "description": "Low levels"
+      },
+      {
+        "name": "Oak",
+        "day": "Jun 18",
+        "state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      },
+      {
+        "name": "Oak",
+        "day": "Jun 19",
+        "state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      }
+    ],
+    "allergenCapitalized": "Oak",
+    "allergenShort": "Oak",
+    "levelNames": [
+      "No pollen",
+      "Low levels",
+      "Low–moderate levels",
+      "Moderate levels",
+      "Moderate–high levels",
+      "High levels",
+      "Very high levels"
+    ],
+    "day0": {
+      "name": "Oak",
+      "day": "Today",
+      "state": 1,
+      "state_text": "Low levels",
+      "value": 50,
+      "raw_value": 50,
+      "description": "Low levels"
+    },
+    "day1": {
+      "name": "Oak",
+      "day": "Tomorrow",
+      "state": 1,
+      "state_text": "Low levels",
+      "value": 40,
+      "raw_value": 40,
+      "description": "Low levels"
+    },
+    "day2": {
+      "name": "Oak",
+      "day": "Day after tomorrow",
+      "state": 1,
+      "state_text": "Low levels",
+      "value": 5,
+      "raw_value": 5,
+      "description": "Low levels"
+    },
+    "day3": {
+      "name": "Oak",
+      "day": "Jun 18",
+      "state": -1,
+      "state_text": "(No information)",
+      "value": -1,
+      "raw_value": -1,
+      "description": "(No information)"
+    },
+    "day4": {
+      "name": "Oak",
+      "day": "Jun 19",
+      "state": -1,
+      "state_text": "(No information)",
+      "value": -1,
+      "raw_value": -1,
+      "description": "(No information)"
+    }
+  }
+]

@@ -1,0 +1,102 @@
+[
+  {
+    "allergenReplaced": "birke",
+    "allergenCapitalized": "Birke",
+    "allergenShort": "Birke",
+    "entity_id": "sensor.pollenflug_birke_50",
+    "days": [
+      {
+        "name": "Birke",
+        "day": "Heute",
+        "state": 2,
+        "display_state": 4,
+        "state_text": "mittlere Belastung"
+      },
+      {
+        "name": "Birke",
+        "day": "Morgen",
+        "state": 1,
+        "display_state": 2,
+        "state_text": "geringe Belastung"
+      },
+      {
+        "name": "Birke",
+        "day": "Übermorgen",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "keine Belastung"
+      }
+    ],
+    "day0": {
+      "name": "Birke",
+      "day": "Heute",
+      "state": 2,
+      "display_state": 4,
+      "state_text": "mittlere Belastung"
+    },
+    "day1": {
+      "name": "Birke",
+      "day": "Morgen",
+      "state": 1,
+      "display_state": 2,
+      "state_text": "geringe Belastung"
+    },
+    "day2": {
+      "name": "Birke",
+      "day": "Übermorgen",
+      "state": 0,
+      "display_state": 0,
+      "state_text": "keine Belastung"
+    }
+  },
+  {
+    "allergenReplaced": "erle",
+    "allergenCapitalized": "Erle",
+    "allergenShort": "Erle",
+    "entity_id": "sensor.pollenflug_erle_50",
+    "days": [
+      {
+        "name": "Erle",
+        "day": "Heute",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "keine Belastung"
+      },
+      {
+        "name": "Erle",
+        "day": "Morgen",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "keine Belastung"
+      },
+      {
+        "name": "Erle",
+        "day": "Übermorgen",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "keine Belastung"
+      }
+    ],
+    "day0": {
+      "name": "Erle",
+      "day": "Heute",
+      "state": 0,
+      "display_state": 0,
+      "state_text": "keine Belastung"
+    },
+    "day1": {
+      "name": "Erle",
+      "day": "Morgen",
+      "state": 0,
+      "display_state": 0,
+      "state_text": "keine Belastung"
+    },
+    "day2": {
+      "name": "Erle",
+      "day": "Übermorgen",
+      "state": 0,
+      "display_state": 0,
+      "state_text": "keine Belastung"
+    }
+  }
+]
