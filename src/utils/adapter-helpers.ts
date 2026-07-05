@@ -1,8 +1,94 @@
-// src/utils/adapter-helpers.js
+// src/utils/adapter-helpers.ts
 // Shared pure helpers used by multiple adapters.
 import { t, detectLang } from "../i18n.js";
 import { toCanonicalAllergenKey, ALLERGEN_TRANSLATION } from "../constants.js";
 import { normalize, normalizeDWD } from "./normalize.js";
+import type {
+  HomeAssistant,
+  HassEntity,
+  DeviceRegistryEntry,
+  EntityRegistryDisplayEntry,
+} from "../types/home-assistant.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type { CardConfig } from "../types/config.js";
+import type { AdapterModule, ForecastEvent } from "../types/adapter.js";
+
+/** A user phrase-override map (config.phrases.full / .short): raw name -> text. */
+type PhraseMap = Record<string, string> | null | undefined;
+
+/**
+ * One location discovered by {@link discoverEntitiesByDevice}: a display label,
+ * an allergen-key -> entity-id map, and (when known) the backing device id.
+ */
+export interface DiscoveredLocation {
+  label: string;
+  entities: Map<string, string>;
+  deviceId?: string;
+}
+
+/**
+ * The return shape of {@link discoverEntitiesByDevice}: a per-location map plus
+ * the primary tier that produced it (1 device-based, 2 entity-registry, 3
+ * fallback, 0 nothing found). Consumed loosely by adapters and utils/silam.ts.
+ */
+export interface DeviceDiscovery {
+  locations: Map<string, DiscoveredLocation>;
+  tierUsed: 0 | 1 | 2 | 3;
+}
+
+/**
+ * Per-entity context passed to the discovery callbacks (classify, resolveLabel,
+ * resolveLocationKey, isRelevant, onCollision). `tier` reports which pass is
+ * handling the entity; `state`/`entry`/`device` are the registry lookups for it.
+ */
+export interface DiscoveryContext {
+  state: HassEntity | undefined;
+  entry: EntityRegistryDisplayEntry | null | undefined;
+  device: DeviceRegistryEntry | null | undefined;
+  deviceId?: string | null;
+  entityId: string;
+  tier: 1 | 2 | 3;
+  locationKey?: string;
+}
+
+/** Options accepted by {@link discoverEntitiesByDevice}. */
+export interface DiscoverEntitiesOpts {
+  platform?: string | string[];
+  classify?: (entityId: string, ctx: DiscoveryContext) => string | null;
+  classifyRelaxed?: (entityId: string, ctx: DiscoveryContext) => string | null;
+  isRelevant?: (entityId: string, ctx: DiscoveryContext) => boolean;
+  excludeEntry?: (
+    entry: EntityRegistryDisplayEntry | null | undefined,
+  ) => boolean;
+  resolveLabel?: (ctx: DiscoveryContext) => string | null | undefined;
+  resolveLocationKey?: (ctx: DiscoveryContext) => string;
+  onCollision?: (
+    ctx: DiscoveryContext,
+    info: {
+      existingKey: string;
+      existingEntityId: string | undefined;
+      locEntities: Map<string, string>;
+    },
+  ) => string | null;
+  fallbackRegex?: RegExp | null;
+  fallbackSelector?: (hass: HomeAssistant) => string[] | null | undefined;
+  debug?: boolean;
+  logTag?: string;
+}
+
+/** Fields returned by {@link mergePhrases}. */
+export interface MergedPhrases {
+  fullPhrases: Record<string, string>;
+  shortPhrases: Record<string, string>;
+  userLevels: unknown[];
+  userDays: Record<string, string>;
+  noInfoLabel: string;
+}
+
+/** Uppercase the first character of a string. */
+export function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 /**
  * Test if a value is a Home Assistant config_entry_id (ULID-format string,
@@ -20,8 +106,11 @@ import { normalize, normalizeDWD } from "./normalize.js";
  * @param {*} value
  * @returns {boolean}
  */
-export function isConfigEntryId(value) {
-  return typeof value === "string" && /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$/i.test(value);
+export function isConfigEntryId(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$/i.test(value)
+  );
 }
 
 /**
@@ -43,7 +132,9 @@ export function isConfigEntryId(value) {
  * @param {object|null|undefined} device - hass.devices entry.
  * @returns {string} location key, or "default" when no device/entry is present.
  */
-export function deviceLocationKey(device) {
+export function deviceLocationKey(
+  device: DeviceRegistryEntry | null | undefined,
+): string {
   if (device === null || device === undefined) return "default";
   const entries = device.config_entries;
   const primary =
@@ -52,7 +143,9 @@ export function deviceLocationKey(device) {
   if (!primary) return "default";
   const subentries = device.config_entries_subentries;
   const subs =
-    subentries !== null && subentries !== undefined ? subentries[primary] : undefined;
+    subentries !== null && subentries !== undefined
+      ? subentries[primary]
+      : undefined;
   if (Array.isArray(subs)) {
     const sub = subs.find((s) => s !== null && s !== undefined);
     if (sub) return sub; // subentry ULID -- one bucket per location
@@ -69,7 +162,7 @@ export function deviceLocationKey(device) {
  * @param {*} value
  * @returns {boolean}
  */
-export function coerceBool(value) {
+export function coerceBool(value: unknown): boolean {
   return value === true || value === "true";
 }
 
@@ -91,7 +184,10 @@ export function coerceBool(value) {
  * @param {object}   config  - card config.
  * @returns {object[]}
  */
-export function selectDisplaySensors(sensors, config) {
+export function selectDisplaySensors(
+  sensors: PollenSensor[],
+  config: CardConfig,
+): PollenSensor[] {
   if (!Array.isArray(sensors)) return [];
   const summary = sensors.find((s) => s && s.isSummary) || null;
   if (!coerceBool(config?.show_summary_block) || !summary) return sensors;
@@ -125,13 +221,19 @@ export function selectDisplaySensors(sensors, config) {
  * @param {string}   configKey - the user-facing allergen key to resolve.
  * @returns {object|null} the matching sensor, or null.
  */
-export function matchSensorByAllergenKey(sensors, configKey) {
+export function matchSensorByAllergenKey(
+  sensors: PollenSensor[],
+  configKey: unknown,
+): PollenSensor | null {
   if (!Array.isArray(sensors) || typeof configKey !== "string" || !configKey) {
     return null;
   }
   // Literal match first: an exact allergenReplaced wins over a normalized one.
   const literal = sensors.find(
-    (s) => s && typeof s.allergenReplaced === "string" && s.allergenReplaced === configKey,
+    (s) =>
+      s &&
+      typeof s.allergenReplaced === "string" &&
+      s.allergenReplaced === configKey,
   );
   if (literal) return literal;
   // Canonical candidates for the config key, via both the generic slug
@@ -178,7 +280,10 @@ export function matchSensorByAllergenKey(sensors, configKey) {
  * @param {object}   config  - card/badge config.
  * @returns {object[]} sensors to render (length 0 when nothing is available).
  */
-export function selectBadgeSensor(sensors, config) {
+export function selectBadgeSensor(
+  sensors: PollenSensor[],
+  config: CardConfig,
+): PollenSensor[] {
   if (!Array.isArray(sensors) || sensors.length === 0) return [];
 
   const mode =
@@ -191,7 +296,7 @@ export function selectBadgeSensor(sensors, config) {
   // sensor is a summary (so the aggregate can still surface as "worst").
   const worst = () => {
     const pool = perAllergen.length ? perAllergen : sensors;
-    const best = pool.reduce((acc, s) => {
+    const best = pool.reduce<PollenSensor | null>((acc, s) => {
       if (!acc) return s;
       const lvl = Number(s?.day0?.state);
       const accLvl = Number(acc?.day0?.state);
@@ -247,7 +352,10 @@ export function selectBadgeSensor(sensors, config) {
  * @param {string[]} stubAllergens - the adapter's stub allergens (native slugs).
  * @returns {object} the config, or a shallow copy with allergens/threshold pinned.
  */
-export function pinBadgeSingleAllergen(config, stubAllergens = []) {
+export function pinBadgeSingleAllergen(
+  config: CardConfig,
+  stubAllergens: string[] = [],
+): CardConfig {
   if (config?.badge_content !== "single") return config;
   const key = config.badge_single_allergen;
   if (typeof key !== "string" || !key) return config;
@@ -288,7 +396,7 @@ export function pinBadgeSingleAllergen(config, stubAllergens = []) {
  * @param {object|undefined} day0 - sensor.day0, may be undefined.
  * @returns {number} the level (>= 0), or -1 when there is no usable reading.
  */
-export function badgeRingLevel(day0) {
+export function badgeRingLevel(day0: ForecastDay | null | undefined): number {
   if (day0 == null) return -1;
   // No-data override: a negative display_state means "no information" even when
   // state is a non-negative placeholder (atmo unavailable = state 0).
@@ -316,14 +424,22 @@ export function badgeRingLevel(day0) {
  * @param {object|null} forecastEvent - silam forecast event, or null.
  * @returns {Promise<boolean>}
  */
-export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = null) {
+export async function hasValidPollenData(
+  adapter: AdapterModule,
+  hass: HomeAssistant,
+  cfg: CardConfig,
+  forecastEvent: ForecastEvent | null = null,
+): Promise<boolean> {
   try {
     const sensors = await adapter.fetchForecast(
       hass,
       { ...cfg, pollen_threshold: 0 },
       forecastEvent,
     );
-    return Array.isArray(sensors) && sensors.some((s) => badgeRingLevel(s?.day0) >= 0);
+    return (
+      Array.isArray(sensors) &&
+      sensors.some((s) => badgeRingLevel(s?.day0) >= 0)
+    );
   } catch {
     return false;
   }
@@ -348,11 +464,14 @@ export async function hasValidPollenData(adapter, hass, cfg, forecastEvent = nul
  * @param {object}   cfg     - Card config object.
  * @returns {number}
  */
-export function computeDisplayDays(sensors, cfg) {
+export function computeDisplayDays(
+  sensors: PollenSensor[],
+  cfg: CardConfig,
+): number {
   const effectiveDaysToShow =
     cfg.integration === "msw" || cfg.integration === "irmkmi"
       ? 1
-      : cfg.days_to_show;
+      : (cfg.days_to_show as number);
   if (cfg.show_empty_days) return effectiveDaysToShow;
   let daysCount = 0;
   for (const s of sensors) {
@@ -372,7 +491,11 @@ export function computeDisplayDays(sensors, cfg) {
  * @param {*}      nanResult - Value returned for NaN / negative input.
  * @returns {number|null}
  */
-export function clampLevel(v, maxLevel = 6, nanResult = -1) {
+export function clampLevel<N = number>(
+  v: unknown,
+  maxLevel: number | null = 6,
+  nanResult: N = -1 as N,
+): number | N {
   if (v === null || v === undefined) return nanResult;
   const n = Number(v);
   if (isNaN(n) || n < 0) return nanResult;
@@ -388,7 +511,7 @@ export function clampLevel(v, maxLevel = 6, nanResult = -1) {
  * @param {string} dateStr - "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm..." string.
  * @returns {Date|null} Local-midnight Date, or null for unparsable input.
  */
-export function parseLocalDate(dateStr) {
+export function parseLocalDate(dateStr: unknown): Date | null {
   if (typeof dateStr !== "string") return null;
   const [ymd] = dateStr.split("T");
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
@@ -412,7 +535,10 @@ export function parseLocalDate(dateStr) {
  *   coerces to 0.
  * @returns {number} The level to render the ring at.
  */
-export function scaleRingLevel(integration, normalizedLevel) {
+export function scaleRingLevel(
+  integration: string | undefined,
+  normalizedLevel: unknown,
+): number {
   const n = Number(normalizedLevel) || 0;
   return integration === "dwd" ? n * 2 : n;
 }
@@ -436,7 +562,10 @@ export function scaleRingLevel(integration, normalizedLevel) {
  * @param {object} config - The card/badge config.
  * @returns {*} The value to display (number, or display_state/state fallback).
  */
-export function resolveNumericValue(day, config) {
+export function resolveNumericValue(
+  day: ForecastDay | null | undefined,
+  config: CardConfig,
+): number | string | null {
   if (!day) return null;
   const level = day.display_state ?? day.state;
   const wantRaw =
@@ -444,8 +573,7 @@ export function resolveNumericValue(day, config) {
     // numeric_state_raw_risk is a PEU-specific legacy key; honour it only for
     // PEU so a stale value left after switching integrations cannot force raw
     // on another integration.
-    (config?.integration === "peu" &&
-      config?.numeric_state_raw_risk === true);
+    (config?.integration === "peu" && config?.numeric_state_raw_risk === true);
   if (wantRaw && day.raw_value != null) {
     const raw = Number(day.raw_value);
     if (Number.isFinite(raw) && raw >= 0) return raw;
@@ -461,16 +589,19 @@ export function resolveNumericValue(day, config) {
  * @param {string}   sortKey  - One of "value_ascending", "value_descending",
  *                              "name_ascending", "name_descending", or "none".
  */
-export function sortSensors(sensors, sortKey) {
+export function sortSensors(sensors: PollenSensor[], sortKey: string): void {
   if (sortKey === "none") return;
-  const sortFn = {
-    value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-    value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
-    name_ascending: (a, b) =>
-      a.allergenCapitalized.localeCompare(b.allergenCapitalized),
-    name_descending: (a, b) =>
-      b.allergenCapitalized.localeCompare(a.allergenCapitalized),
-  }[sortKey] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
+  const sortFns: Record<string, (a: PollenSensor, b: PollenSensor) => number> =
+    {
+      value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+      value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+      name_ascending: (a, b) =>
+        a.allergenCapitalized.localeCompare(b.allergenCapitalized),
+      name_descending: (a, b) =>
+        b.allergenCapitalized.localeCompare(a.allergenCapitalized),
+    };
+  const sortFn =
+    sortFns[sortKey] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
   sensors.sort(sortFn);
 }
 
@@ -483,7 +614,10 @@ export function sortSensors(sensors, sortKey) {
  * @param {number}   threshold  - Minimum state value to qualify.
  * @returns {boolean}
  */
-export function meetsThreshold(days, threshold) {
+export function meetsThreshold(
+  days: ForecastDay[],
+  threshold: number,
+): boolean {
   return threshold === 0 || days.some((d) => d.state >= threshold);
 }
 
@@ -501,8 +635,25 @@ export function meetsThreshold(days, threshold) {
  *                                       differs from allergenKey (e.g. PP/DWD raw names).
  * @returns {{ allergenCapitalized: string, allergenShort: string }}
  */
-export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, abbreviated, lang, capitalize: capFn, configKey }) {
-  const cap = capFn || ((s) => s.charAt(0).toUpperCase() + s.slice(1));
+export function resolveAllergenNames(
+  allergenKey: string,
+  {
+    fullPhrases,
+    shortPhrases,
+    abbreviated,
+    lang,
+    capitalize: capFn,
+    configKey,
+  }: {
+    fullPhrases: PhraseMap;
+    shortPhrases: PhraseMap;
+    abbreviated: boolean;
+    lang: string;
+    capitalize?: (s: string) => string;
+    configKey?: string;
+  },
+): { allergenCapitalized: string; allergenShort: string } {
+  const cap = capFn || ((s: string) => s.charAt(0).toUpperCase() + s.slice(1));
   const ck = configKey ?? allergenKey;
   const canonKey = toCanonicalAllergenKey(allergenKey);
 
@@ -520,9 +671,10 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
   if (abbreviated) {
     const shortKey = `editor.phrases_short.${canonKey}`;
     const i18nShort = t(shortKey, lang);
-    allergenShort = resolvePhraseOverride(shortPhrases, ck, canonKey)
-      || (i18nShort !== shortKey ? i18nShort : null)
-      || allergenCapitalized;
+    allergenShort =
+      resolvePhraseOverride(shortPhrases, ck, canonKey) ||
+      (i18nShort !== shortKey ? i18nShort : null) ||
+      allergenCapitalized;
   } else {
     allergenShort = allergenCapitalized;
   }
@@ -551,8 +703,13 @@ export function resolveAllergenNames(allergenKey, { fullPhrases, shortPhrases, a
  * @param {string} canonKey  - Canonical allergen key for the cross-integration fallback.
  * @returns {string|undefined} The override value, or undefined if none applies.
  */
-export function resolvePhraseOverride(phrases, configKey, canonKey) {
-  return phrases != null && Object.prototype.hasOwnProperty.call(phrases, configKey)
+export function resolvePhraseOverride(
+  phrases: PhraseMap,
+  configKey: string,
+  canonKey: string,
+): string | undefined {
+  return phrases != null &&
+    Object.prototype.hasOwnProperty.call(phrases, configKey)
     ? phrases[configKey]
     : getCanonicalPhraseIndex(phrases)[canonKey];
 }
@@ -586,13 +743,14 @@ export function resolvePhraseOverride(phrases, configKey, canonKey) {
  * @param {object} phrases - User phrase map keyed by raw allergen names.
  * @returns {Object<string,string>} Canonical-key → override-value lookup.
  */
-const _canonicalPhraseCache = new WeakMap();
+const _canonicalPhraseCache = new WeakMap<object, Record<string, string>>();
 
-function getCanonicalPhraseIndex(phrases) {
+function getCanonicalPhraseIndex(phrases: PhraseMap): Record<string, string> {
   // Arrays satisfy typeof === "object" but would index numeric keys into a
   // meaningless map; the editor type-guards phrases.full/short to non-array
   // objects, so mirror that and treat anything else as no overrides.
-  if (!phrases || typeof phrases !== "object" || Array.isArray(phrases)) return {};
+  if (!phrases || typeof phrases !== "object" || Array.isArray(phrases))
+    return {};
   let idx = _canonicalPhraseCache.get(phrases);
   if (idx) return idx;
   idx = {};
@@ -600,11 +758,13 @@ function getCanonicalPhraseIndex(phrases) {
   // "toString", …), through which toCanonicalAllergenKey can hand back a
   // non-string (a prototype function), so the string guard in addCanon backstops
   // it at the storage point too.
-  const isAlias = (k) => Object.prototype.hasOwnProperty.call(ALLERGEN_TRANSLATION, k);
+  const isAlias = (k: string) =>
+    Object.prototype.hasOwnProperty.call(ALLERGEN_TRANSLATION, k);
   for (const rawKey of Object.keys(phrases)) {
     const value = phrases[rawKey];
-    const addCanon = (canon) => {
-      if (typeof canon === "string" && canon && !(canon in idx)) idx[canon] = value;
+    const addCanon = (canon: unknown) => {
+      if (typeof canon === "string" && canon && !(canon in idx))
+        idx[canon] = value;
     };
     const n = normalize(rawKey);
     addCanon(toCanonicalAllergenKey(n));
@@ -629,17 +789,22 @@ function getCanonicalPhraseIndex(phrases) {
  * @param {string} lang   - Language code for the noInfoLabel fallback.
  * @returns {{ fullPhrases: object, shortPhrases: object, userLevels: Array, userDays: object, noInfoLabel: string }}
  */
-export function mergePhrases(config, lang) {
+export function mergePhrases(config: CardConfig, lang: string): MergedPhrases {
   const phrases = {
-    full: {}, short: {}, levels: [], days: {}, no_information: "",
-    ...(config.phrases || {}),
+    full: {},
+    short: {},
+    levels: [] as unknown[],
+    days: {},
+    no_information: "",
+    ...((config.phrases as Record<string, unknown>) || {}),
   };
   return {
-    fullPhrases: phrases.full,
-    shortPhrases: phrases.short,
-    userLevels: phrases.levels,
-    userDays: phrases.days,
-    noInfoLabel: phrases.no_information || t("card.no_information", lang),
+    fullPhrases: phrases.full as Record<string, string>,
+    shortPhrases: phrases.short as Record<string, string>,
+    userLevels: phrases.levels as unknown[],
+    userDays: phrases.days as Record<string, string>,
+    noInfoLabel:
+      (phrases.no_information as string) || t("card.no_information", lang),
   };
 }
 
@@ -653,11 +818,26 @@ export function mergePhrases(config, lang) {
  *   When a string is passed, it is used as the fallback locale.
  * @returns {{ lang: string, locale: string|undefined, daysRelative: boolean, dayAbbrev: boolean, daysUppercase: boolean }}
  */
-export function getLangAndLocale(hass, config, defaultLocale = null) {
-  const lang = detectLang(hass, config.date_locale);
-  const locale = defaultLocale != null
-    ? (config.date_locale || defaultLocale)
-    : (config.date_locale || hass.locale?.language || hass.language || `${lang}-${lang.toUpperCase()}`);
+export function getLangAndLocale(
+  hass: HomeAssistant,
+  config: CardConfig,
+  defaultLocale: string | null = null,
+): {
+  lang: string;
+  locale: string;
+  daysRelative: boolean;
+  dayAbbrev: boolean;
+  daysUppercase: boolean;
+} {
+  const dateLocale = config.date_locale as string | undefined;
+  const lang = detectLang(hass, dateLocale);
+  const locale =
+    defaultLocale != null
+      ? dateLocale || defaultLocale
+      : dateLocale ||
+        hass.locale?.language ||
+        hass.language ||
+        `${lang}-${lang.toUpperCase()}`;
   const daysRelative = config.days_relative !== false;
   const dayAbbrev = Boolean(config.days_abbreviated);
   const daysUppercase = Boolean(config.days_uppercase);
@@ -673,7 +853,7 @@ export function getLangAndLocale(hass, config, defaultLocale = null) {
  * @param {*} raw - The raw entity_prefix from config.
  * @returns {string}
  */
-export function normalizeManualPrefix(raw) {
+export function normalizeManualPrefix(raw: unknown): string {
   let p = typeof raw === "string" ? raw : "";
   if (p.startsWith("sensor.")) p = p.substring(7);
   if (p && !p.endsWith("_")) p = p + "_";
@@ -691,7 +871,12 @@ export function normalizeManualPrefix(raw) {
  * @param {string} suffix - Entity suffix from config.
  * @returns {string|null} - Matched entity ID or null.
  */
-export function resolveManualEntity(hass, prefix, slug, suffix) {
+export function resolveManualEntity(
+  hass: HomeAssistant,
+  prefix: string,
+  slug: string,
+  suffix: string,
+): string | null {
   const sensorId = `sensor.${prefix}${slug}${suffix}`;
   if (hass.states[sensorId]) return sensorId;
   if (suffix === "") {
@@ -718,7 +903,25 @@ export function resolveManualEntity(hass, prefix, slug, suffix) {
  * @param {string}  opts.locale        - Locale tag for date formatting.
  * @returns {string}
  */
-export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale }) {
+export function buildDayLabel(
+  date: Date,
+  diff: number,
+  {
+    daysRelative,
+    dayAbbrev,
+    daysUppercase,
+    userDays,
+    lang,
+    locale,
+  }: {
+    daysRelative: boolean;
+    dayAbbrev: boolean;
+    daysUppercase: boolean;
+    userDays: Record<string, string>;
+    lang: string;
+    locale: string;
+  },
+): string {
   let label;
   if (!daysRelative) {
     label = date.toLocaleDateString(locale, {
@@ -754,13 +957,19 @@ export function buildDayLabel(date, diff, { daysRelative, dayAbbrev, daysUpperca
  * @param {object}   silamMapping     - silamAllergenMap.mapping object.
  * @returns {object[]}
  */
-export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassStateKeys, silamMapping) {
+export function filterSensorsPostFetch(
+  sensors: PollenSensor[],
+  cfg: CardConfig,
+  availableSensors: string[],
+  hassStateKeys: string[],
+  silamMapping: Record<string, Record<string, string>>,
+): PollenSensor[] {
   // Precompute SILAM reverse mapping (master allergen -> HA slug) once,
   // rather than rebuilding it per sensor inside the filter callback.
-  let silamReverse = null;
-  let silamLoc = null;
+  let silamReverse: Record<string, string> | null = null;
+  let silamLoc: string | null = null;
   if (cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily")) {
-    const configLocation = (cfg.location || "").toLowerCase();
+    const configLocation = ((cfg.location as string) || "").toLowerCase();
     if (!isConfigEntryId(configLocation)) {
       silamLoc = configLocation;
       silamReverse = {};
@@ -798,9 +1007,13 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
     return true;
   });
 
-  if (Array.isArray(cfg.allergens) && cfg.allergens.length > 0 && cfg.integration !== "silam") {
-    let allowed;
-    let getKey;
+  if (
+    Array.isArray(cfg.allergens) &&
+    cfg.allergens.length > 0 &&
+    cfg.integration !== "silam"
+  ) {
+    let allowed: Set<string>;
+    let getKey: (s: PollenSensor) => string;
     if (cfg.integration === "dwd") {
       allowed = new Set(cfg.allergens.map((a) => normalizeDWD(a)));
       getKey = (s) => normalizeDWD(s.allergenReplaced || "");
@@ -872,7 +1085,10 @@ export function filterSensorsPostFetch(sensors, cfg, availableSensors, hassState
  * @param {string}  [opts.logTag]
  * @returns {{ locations: Map<string, { label: string, entities: Map<string, string>, deviceId?: string }>, tierUsed: 0|1|2|3 }}
  */
-export function discoverEntitiesByDevice(hass, opts = {}) {
+export function discoverEntitiesByDevice(
+  hass: HomeAssistant,
+  opts: DiscoverEntitiesOpts = {},
+): DeviceDiscovery {
   const {
     platform,
     classify,
@@ -887,32 +1103,47 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
     debug = false,
   } = opts;
 
-  const platforms = Array.isArray(platform) ? platform : (platform ? [platform] : []);
-  const logTag = opts.logTag || (platforms.length > 0 ? platforms[0] : "discovery");
+  const platforms = Array.isArray(platform)
+    ? platform
+    : platform
+      ? [platform]
+      : [];
+  const logTag =
+    opts.logTag || (platforms.length > 0 ? platforms[0] : "discovery");
   const classifyStrict = classify || (() => null);
   const classifyTier1 = classifyRelaxed || classifyStrict;
 
-  const defaultExcludeEntry = (entry) => !!(entry !== null && entry !== undefined && entry.entity_category);
+  const defaultExcludeEntry = (
+    entry: EntityRegistryDisplayEntry | null | undefined,
+  ) => !!(entry !== null && entry !== undefined && entry.entity_category);
   const shouldExclude = excludeEntry || defaultExcludeEntry;
 
   const defaultIsRelevant = () => true;
   const checkRelevant = isRelevant || defaultIsRelevant;
 
-  const defaultResolveLabel = (ctx) => {
+  const defaultResolveLabel = (ctx: DiscoveryContext) => {
     const { device, state } = ctx;
-    if (device !== null && device !== undefined && device.name_by_user) return device.name_by_user;
-    if (device !== null && device !== undefined && device.name) return device.name;
-    if (state !== null && state !== undefined && state.attributes !== null && state.attributes !== undefined) {
+    if (device !== null && device !== undefined && device.name_by_user)
+      return device.name_by_user;
+    if (device !== null && device !== undefined && device.name)
+      return device.name;
+    if (
+      state !== null &&
+      state !== undefined &&
+      state.attributes !== null &&
+      state.attributes !== undefined
+    ) {
       if (state.attributes.friendly_name) return state.attributes.friendly_name;
     }
     return "Auto";
   };
   const getLabel = resolveLabel || defaultResolveLabel;
 
-  const defaultResolveLocationKey = (ctx) => deviceLocationKey(ctx.device);
+  const defaultResolveLocationKey = (ctx: DiscoveryContext) =>
+    deviceLocationKey(ctx.device);
   const getLocationKey = resolveLocationKey || defaultResolveLocationKey;
 
-  const locations = new Map();
+  const locations = new Map<string, DiscoveredLocation>();
 
   /**
    * Add a single classified entity to locations.
@@ -920,18 +1151,22 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
    * @param {string|null} allergenKey
    * @param {object}      ctx          - { state, entry, device, entityId, tier }
    */
-  const addEntity = (eid, allergenKey, ctx) => {
+  const addEntity = (
+    eid: string,
+    allergenKey: string | null | undefined,
+    ctx: DiscoveryContext,
+  ) => {
     if (allergenKey === null || allergenKey === undefined) return;
 
     const locationKey = getLocationKey({ ...ctx, locationKey: undefined });
     const enrichedCtx = { ...ctx, locationKey };
 
     if (!locations.has(locationKey)) {
-      const label = getLabel(enrichedCtx);
+      const label = getLabel(enrichedCtx) as string;
       locations.set(locationKey, { label, entities: new Map() });
     }
 
-    const location = locations.get(locationKey);
+    const location = locations.get(locationKey)!;
 
     // Set/backfill deviceId whenever ctx provides one and the location is
     // still missing it. Backfill handles the case where the first entity in a
@@ -985,8 +1220,13 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
   // --- Tier 1 + Tier 2: Single-pass entity discovery ---
   // Find devices whose identifiers contain a matching platform as first element.
   // Used to decide tier-1 precedence per entity below.
-  const matchingDeviceIds = new Set();
-  if (hass !== null && hass !== undefined && hass.devices !== null && hass.devices !== undefined) {
+  const matchingDeviceIds = new Set<string>();
+  if (
+    hass !== null &&
+    hass !== undefined &&
+    hass.devices !== null &&
+    hass.devices !== undefined
+  ) {
     for (const [devId, dev] of Object.entries(hass.devices)) {
       if (dev === null || dev === undefined) continue;
       const identifiers = dev.identifiers;
@@ -1000,7 +1240,11 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
     }
   }
   if (debug && matchingDeviceIds.size > 0) {
-    console.debug(`[${logTag}] Discovery tier 1 (device-based): found`, matchingDeviceIds.size, "devices");
+    console.debug(
+      `[${logTag}] Discovery tier 1 (device-based): found`,
+      matchingDeviceIds.size,
+      "devices",
+    );
   }
 
   // Single walk over hass.entities. Tier 1 path handles entities whose device
@@ -1010,27 +1254,48 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
   // classifier never second-guesses the relaxed result on the same entity.
   let tier1Contributed = false;
   let tier2Contributed = false;
-  if (hass !== null && hass !== undefined && hass.entities !== null && hass.entities !== undefined) {
+  if (
+    hass !== null &&
+    hass !== undefined &&
+    hass.entities !== null &&
+    hass.entities !== undefined
+  ) {
     for (const [eid, entry] of Object.entries(hass.entities)) {
       if (entry === null || entry === undefined) continue;
-      const inTier1 = matchingDeviceIds.has(entry.device_id);
-      const platformMatch = platforms.includes(entry.platform);
+      const inTier1 = matchingDeviceIds.has(entry.device_id as string);
+      const platformMatch = platforms.includes(entry.platform as string);
       if (!inTier1 && !platformMatch) continue;
       if (shouldExclude(entry)) continue;
 
-      const state = hass.states !== null && hass.states !== undefined ? hass.states[eid] : undefined;
+      const state =
+        hass.states !== null && hass.states !== undefined
+          ? hass.states[eid]
+          : undefined;
       if (state === null || state === undefined) continue;
 
       const deviceId = entry.device_id;
-      const device = (deviceId !== null && deviceId !== undefined && hass.devices !== null && hass.devices !== undefined)
-        ? hass.devices[deviceId]
-        : undefined;
+      const device =
+        deviceId !== null &&
+        deviceId !== undefined &&
+        hass.devices !== null &&
+        hass.devices !== undefined
+          ? hass.devices[deviceId]
+          : undefined;
       const tier = inTier1 ? 1 : 2;
-      const ctx = { state, entry, device, deviceId, entityId: eid, tier };
+      const ctx: DiscoveryContext = {
+        state,
+        entry,
+        device,
+        deviceId,
+        entityId: eid,
+        tier,
+      };
 
       if (!checkRelevant(eid, ctx)) continue;
 
-      const allergenKey = inTier1 ? classifyTier1(eid, ctx) : classifyStrict(eid, ctx);
+      const allergenKey = inTier1
+        ? classifyTier1(eid, ctx)
+        : classifyStrict(eid, ctx);
       if (allergenKey === null || allergenKey === undefined) continue;
 
       addEntity(eid, allergenKey, ctx);
@@ -1042,14 +1307,28 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
       const tierUsed = tier1Contributed ? 1 : 2;
       if (debug) {
         if (tier1Contributed && tier2Contributed) {
-          console.debug(`[${logTag}] Discovery tier 1+2 result:`, locations.size, "locations (tier 1 + tier 2 top-up)");
+          console.debug(
+            `[${logTag}] Discovery tier 1+2 result:`,
+            locations.size,
+            "locations (tier 1 + tier 2 top-up)",
+          );
         } else if (tier1Contributed) {
-          console.debug(`[${logTag}] Discovery tier 1 result:`, locations.size, "locations");
+          console.debug(
+            `[${logTag}] Discovery tier 1 result:`,
+            locations.size,
+            "locations",
+          );
         } else {
-          console.debug(`[${logTag}] Discovery tier 2 result:`, locations.size, "locations");
+          console.debug(
+            `[${logTag}] Discovery tier 2 result:`,
+            locations.size,
+            "locations",
+          );
         }
         for (const [locId, loc] of locations) {
-          console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
+          console.debug(`  [${locId}] "${loc.label}":`, [
+            ...loc.entities.keys(),
+          ]);
         }
       }
       return { locations, tierUsed };
@@ -1057,8 +1336,13 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
   }
 
   // --- Tier 3: Fallback (selector or regex) ---
-  if (hass !== null && hass !== undefined && hass.states !== null && hass.states !== undefined) {
-    let candidates = null;
+  if (
+    hass !== null &&
+    hass !== undefined &&
+    hass.states !== null &&
+    hass.states !== undefined
+  ) {
+    let candidates: string[] | null = null;
 
     if (typeof fallbackSelector === "function") {
       const raw = fallbackSelector(hass);
@@ -1067,17 +1351,31 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
       // candidates.
       candidates = Array.isArray(raw) ? raw : null;
     } else if (fallbackRegex instanceof RegExp) {
-      candidates = Object.keys(hass.states).filter((eid) => fallbackRegex.test(eid));
+      candidates = Object.keys(hass.states).filter((eid) =>
+        fallbackRegex.test(eid),
+      );
     }
 
     if (candidates !== null && candidates.length > 0) {
-      if (debug) console.debug(`[${logTag}] Discovery tier 3 (fallback): found`, candidates.length, "candidates");
+      if (debug)
+        console.debug(
+          `[${logTag}] Discovery tier 3 (fallback): found`,
+          candidates.length,
+          "candidates",
+        );
 
       for (const eid of candidates) {
         const state = hass.states[eid];
         if (state === null || state === undefined) continue;
 
-        const ctx = { state, entry: undefined, device: undefined, deviceId: undefined, entityId: eid, tier: 3 };
+        const ctx: DiscoveryContext = {
+          state,
+          entry: undefined,
+          device: undefined,
+          deviceId: undefined,
+          entityId: eid,
+          tier: 3,
+        };
 
         if (!checkRelevant(eid, ctx)) continue;
 
@@ -1088,7 +1386,11 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
   }
 
   if (debug) {
-    console.debug(`[${logTag}] Discovery final result:`, locations.size, "locations");
+    console.debug(
+      `[${logTag}] Discovery final result:`,
+      locations.size,
+      "locations",
+    );
     for (const [locId, loc] of locations) {
       console.debug(`  [${locId}] "${loc.label}":`, [...loc.entities.keys()]);
     }
@@ -1110,9 +1412,17 @@ export function discoverEntitiesByDevice(hass, opts = {}) {
  * @param {string[]}           [opts.suffixExtras]  - Additional suffixes to test. Default: ["", "_j_1"].
  * @returns {[string, object]|null} - [locationKey, location] or null.
  */
-export function findLocationBySlug(discovery, slug, opts = {}) {
+export function findLocationBySlug(
+  discovery: { locations: Map<string, DiscoveredLocation> } | null | undefined,
+  slug: string | null | undefined,
+  opts: {
+    slugExtractor?: (entityId: string) => string | null | undefined;
+    suffixExtras?: string[];
+  } = {},
+): [string, DiscoveredLocation] | null {
   if (slug === null || slug === undefined || !slug) return null;
-  if (discovery === null || discovery === undefined || !discovery.locations) return null;
+  if (discovery === null || discovery === undefined || !discovery.locations)
+    return null;
 
   const { slugExtractor, suffixExtras = ["", "_j_1"] } = opts;
   const needle = String(slug).toLowerCase();
@@ -1125,7 +1435,11 @@ export function findLocationBySlug(discovery, slug, opts = {}) {
       // Custom extractor path
       if (typeof slugExtractor === "function") {
         const extracted = slugExtractor(eid);
-        if (extracted !== null && extracted !== undefined && String(extracted).toLowerCase() === needle) {
+        if (
+          extracted !== null &&
+          extracted !== undefined &&
+          String(extracted).toLowerCase() === needle
+        ) {
           return [key, loc];
         }
       }
@@ -1157,8 +1471,16 @@ export function findLocationBySlug(discovery, slug, opts = {}) {
  * @param {Function}           [opts.slugExtractor] - Passed to findLocationBySlug.
  * @returns {[string, object]|null} - [locationKey, location] or null.
  */
-export function resolveLocationByKey(discovery, cfgLocation, opts = {}) {
-  if (discovery === null || discovery === undefined || !discovery.locations) return null;
+export function resolveLocationByKey(
+  discovery: { locations: Map<string, DiscoveredLocation> } | null | undefined,
+  cfgLocation: string | null | undefined,
+  opts: {
+    slugExtractor?: (entityId: string) => string | null | undefined;
+    suffixExtras?: string[];
+  } = {},
+): [string, DiscoveredLocation] | null {
+  if (discovery === null || discovery === undefined || !discovery.locations)
+    return null;
   const locs = discovery.locations;
 
   // 1. Empty location -> pick first deterministically. Enumeration order of
@@ -1174,12 +1496,12 @@ export function resolveLocationByKey(discovery, cfgLocation, opts = {}) {
       ? keys.sort((a, b) => Number(a) - Number(b))
       : keys.sort();
     const key = sortedKeys[0];
-    return [key, locs.get(key)];
+    return [key, locs.get(key)!];
   }
 
   // 2. Exact key match.
   if (locs.has(cfgLocation)) {
-    return [cfgLocation, locs.get(cfgLocation)];
+    return [cfgLocation, locs.get(cfgLocation)!];
   }
 
   // 3. Exact case-insensitive label equality. Quick, precise path for user

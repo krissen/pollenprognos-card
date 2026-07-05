@@ -1,6 +1,6 @@
-// src/constants.js
+// src/constants.ts
 
-export const DWD_REGIONS = {
+export const DWD_REGIONS: Record<string, string> = {
   11: "Schleswig-Holstein und Hamburg",
   12: "Schleswig-Holstein und Hamburg",
   20: "Mecklenburg-Vorpommern",
@@ -540,7 +540,7 @@ const IRMKMI_ALIASES = {
 };
 
 // Merged map: computed from per-adapter aliases (order matches legacy map).
-export const ALLERGEN_TRANSLATION = {
+export const ALLERGEN_TRANSLATION: Record<string, string> = {
   ...PP_ALIASES,
   ...DWD_ALIASES,
   ...PEU_ALIASES,
@@ -557,12 +557,12 @@ export const ALLERGEN_TRANSLATION = {
  * Resolve a raw allergen slug to its canonical key.
  * Returns the canonical key if found, otherwise the input unchanged.
  */
-export function toCanonicalAllergenKey(raw) {
+export function toCanonicalAllergenKey(raw: string): string {
   return ALLERGEN_TRANSLATION[raw] || raw;
 }
 
 // Icon fallback mapping for allergens that don't have their own icons
-export const ALLERGEN_ICON_FALLBACK = {
+export const ALLERGEN_ICON_FALLBACK: Record<string, string> = {
   trees_cat: "birch", // Use birch icon for trees category
   grass_cat: "grass", // Use grass icon for grass category
   weeds_cat: "mugwort", // Use mugwort icon for weeds category
@@ -582,7 +582,7 @@ export const ALLERGEN_ICON_FALLBACK = {
 // Mapping of localized category name prefixes to canonical names for Kleenex integration
 // The Kleenex integration creates sensors with localized category names based on HA language
 // Using prefixes to handle both singular and plural forms (e.g., onkruid/onkruiden)
-export const KLEENEX_LOCALIZED_CATEGORY_NAMES = {
+export const KLEENEX_LOCALIZED_CATEGORY_NAMES: Record<string, string> = {
   // English
   tree: "trees", // matches trees
   grass: "grass",

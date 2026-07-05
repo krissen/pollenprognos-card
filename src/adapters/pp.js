@@ -297,7 +297,6 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 export async function fetchForecast(hass, config) {
   const sensors = [];
   const debug = Boolean(config.debug);
-  const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const parseLocal = (s) => {
     const [ymd] = s.split("T");
     const [y, m, d] = ymd.split("-").map(Number);
