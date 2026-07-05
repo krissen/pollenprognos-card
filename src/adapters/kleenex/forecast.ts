@@ -1,16 +1,45 @@
-// src/adapters/kleenex/forecast.js
+// src/adapters/kleenex/forecast.ts
+import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { CardConfig } from "../../types/config.js";
+import type { PollenSensor, ForecastDay } from "../../types/sensor.js";
 import { t } from "../../i18n.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
 import { buildLevelNames } from "../../utils/level-names.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix } from "../../utils/adapter-helpers.js";
+import {
+  getLangAndLocale,
+  mergePhrases,
+  buildDayLabel,
+  clampLevel,
+  sortSensors,
+  meetsThreshold,
+  resolveAllergenNames,
+  normalizeManualPrefix,
+} from "../../utils/adapter-helpers.js";
 import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
 import { ppmToLevel } from "./levels.js";
 
+// One collected day of data for an allergen (raw level 0-4 plus the ppm value).
+interface KleenexLevelDay {
+  date: Date;
+  level: number;
+  value: number;
+}
+
+// Per-allergen collection bucket accumulated across the sensor passes.
+interface KleenexAllergenEntry {
+  levels: KleenexLevelDay[];
+  entity_id: string;
+  source: string;
+}
+
+// A forecast/detail item as reported by the integration (loosely shaped).
+type KleenexItem = Record<string, unknown>;
+
 // Static lookup: slugified alias key -> canonical allergen name. Built once
 // from KLEENEX_ALLERGEN_MAP since the map is module-level constant data.
-const SLUGIFIED_ALIAS_MAP = (() => {
-  const m = new Map();
+const SLUGIFIED_ALIAS_MAP: Map<string, string> = (() => {
+  const m = new Map<string, string>();
   for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
     const slug = slugify(alias);
     if (!m.has(slug)) m.set(slug, canonical);
@@ -20,29 +49,46 @@ const SLUGIFIED_ALIAS_MAP = (() => {
 
 // Diagnostic suffixes that are not allergen names — skip them in Pass 2.
 const DIAGNOSTIC_SUFFIXES = new Set([
-  "level", "date", "last_updated", "latitude", "longitude",
-  "city", "region", "error",
+  "level",
+  "date",
+  "last_updated",
+  "latitude",
+  "longitude",
+  "city",
+  "region",
+  "error",
 ]);
 
 // Track which (location, entity_prefix) combinations have already received the
 // NA-zone warning so it isn't re-emitted on every HA state update.
-const NA_WARNED_KEYS = new Set();
+const NA_WARNED_KEYS = new Set<string>();
 
 // Test-only hook to clear the dedup state between cases.
-export function _resetNaWarningsForTest() {
+export function _resetNaWarningsForTest(): void {
   NA_WARNED_KEYS.clear();
 }
 
-export async function fetchForecast(hass, config) {
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(hass, config);
   const debug = config.debug;
-  const days_to_show = config.days_to_show || stubConfigKleenex.days_to_show;
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
+  const days_to_show =
+    (config.days_to_show as number) ||
+    (stubConfigKleenex.days_to_show as number);
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+    mergePhrases(config, lang);
   const pollen_threshold =
-    config.pollen_threshold ?? stubConfigKleenex.pollen_threshold;
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigKleenex.pollen_threshold as number);
+  const allergens = config.allergens as string[];
 
-  // Kleenex uses 5-level system (0-4), validate and clamp level values
-  const testVal = (v) => clampLevel(v, 4, -1);
+  // Kleenex uses 5-level system (0-4), validate and clamp level values.
+  // TODO(#259-normalize): preserve the native 0-4 scale (scaled to 0-6 only for
+  // the level-name lookup below, mirroring PEU).
+  const testVal = (v: unknown): number => clampLevel(v, 4, -1);
 
   if (debug)
     console.debug("[Kleenex] Adapter: start fetchForecast", { config, lang });
@@ -57,7 +103,7 @@ export async function fetchForecast(hass, config) {
 
   // Filter by location if specified (and not manual mode)
   if (config.location && config.location !== "manual") {
-    const wantedLocation = slugify(config.location);
+    const wantedLocation = slugify(config.location as string);
 
     if (debug) {
       console.debug(
@@ -86,7 +132,7 @@ export async function fetchForecast(hass, config) {
     }
   } else if (config.location === "manual") {
     // Manual mode: filter by entity_prefix
-    let prefix = config.entity_prefix || "";
+    let prefix = (config.entity_prefix as string) || "";
     // Remove 'sensor.' prefix if user included it
     if (prefix.startsWith("sensor.")) {
       prefix = prefix.substring(7); // Remove 'sensor.'
@@ -97,9 +143,7 @@ export async function fetchForecast(hass, config) {
     }
 
     if (debug) {
-      console.debug(
-        `[Kleenex] Manual mode filtering with prefix: '${prefix}'`,
-      );
+      console.debug(`[Kleenex] Manual mode filtering with prefix: '${prefix}'`);
     }
 
     if (prefix) {
@@ -108,9 +152,7 @@ export async function fetchForecast(hass, config) {
         const matches = entity.entity_id.startsWith(expectedPrefix);
 
         if (debug && matches) {
-          console.debug(
-            `[Kleenex] Manual mode match: ${entity.entity_id}`,
-          );
+          console.debug(`[Kleenex] Manual mode match: ${entity.entity_id}`);
         }
 
         return matches;
@@ -131,8 +173,8 @@ export async function fetchForecast(hass, config) {
     );
   }
 
-  let sensors = [];
-  const allergenData = new Map(); // Map to collect data by allergen name
+  let sensors: PollenSensor[] = [];
+  const allergenData = new Map<string, KleenexAllergenEntry>(); // Map to collect data by allergen name
 
   if (debug) {
     console.debug(
@@ -148,13 +190,15 @@ export async function fetchForecast(hass, config) {
     }
 
     const attributes = sensor.attributes || {};
-    const details = attributes.details || [];
-    const forecastData = attributes.forecast || [];
+    const details: KleenexItem[] = attributes.details || [];
+    const forecastData: KleenexItem[] = attributes.forecast || [];
 
     // Determine sensor category from entity_id by checking all localized name prefixes
-    let sensorCategory = null;
-    const entitySuffix = sensor.entity_id.split('_').pop();
-    for (const [localizedPrefix, canonicalCategory] of Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
+    let sensorCategory: string | null = null;
+    const entitySuffix = sensor.entity_id.split("_").pop() as string;
+    for (const [localizedPrefix, canonicalCategory] of Object.entries(
+      KLEENEX_LOCALIZED_CATEGORY_NAMES,
+    )) {
       if (entitySuffix.startsWith(localizedPrefix)) {
         sensorCategory = canonicalCategory;
         break;
@@ -171,31 +215,28 @@ export async function fetchForecast(hass, config) {
     if (sensorCategory) {
       // Map sensor category to config allergen name
       let configAllergenName = sensorCategory;
-      if (
-        sensorCategory === "trees" &&
-        config.allergens.includes("trees_cat")
-      ) {
+      if (sensorCategory === "trees" && allergens.includes("trees_cat")) {
         configAllergenName = "trees_cat";
       } else if (
         sensorCategory === "grass" &&
-        config.allergens.includes("grass_cat")
+        allergens.includes("grass_cat")
       ) {
         configAllergenName = "grass_cat";
       } else if (
         sensorCategory === "weeds" &&
-        config.allergens.includes("weeds_cat")
+        allergens.includes("weeds_cat")
       ) {
         configAllergenName = "weeds_cat";
       }
 
       if (debug) {
         console.debug(
-          `[Kleenex] Category sensor mapping: ${sensorCategory} -> ${configAllergenName}, included in config: ${config.allergens.includes(configAllergenName)}`,
+          `[Kleenex] Category sensor mapping: ${sensorCategory} -> ${configAllergenName}, included in config: ${allergens.includes(configAllergenName)}`,
         );
       }
 
       // Only process if the config allergen name is requested
-      if (config.allergens.includes(configAllergenName)) {
+      if (allergens.includes(configAllergenName)) {
         if (debug) {
           console.debug(
             `[Kleenex] Processing CATEGORY sensor for: ${sensorCategory} -> ${configAllergenName}`,
@@ -210,11 +251,13 @@ export async function fetchForecast(hass, config) {
           });
 
           if (debug) {
-            console.debug(`[Kleenex] CREATED allergenData entry for category: ${configAllergenName}`);
+            console.debug(
+              `[Kleenex] CREATED allergenData entry for category: ${configAllergenName}`,
+            );
           }
         }
 
-        const allergenEntry = allergenData.get(configAllergenName);
+        const allergenEntry = allergenData.get(configAllergenName)!;
 
         // Today's data from sensor state - prioritize numeric value over level text
         const sensorValue = Number(sensor.state) || 0;
@@ -234,7 +277,9 @@ export async function fetchForecast(hass, config) {
         };
 
         if (debug) {
-          console.debug(`[Kleenex] CATEGORY ${configAllergenName} TODAY DATA SET: level=${currentLevel}, value=${sensorValue}`);
+          console.debug(
+            `[Kleenex] CATEGORY ${configAllergenName} TODAY DATA SET: level=${currentLevel}, value=${sensorValue}`,
+          );
         }
 
         // Forecast data for categories
@@ -256,13 +301,15 @@ export async function fetchForecast(hass, config) {
           };
 
           if (debug) {
-            console.debug(`[Kleenex] CATEGORY ${configAllergenName} FORECAST DAY ${dayIndex + 1} DATA SET: level=${forecastLevel}, value=${forecastValue}`);
+            console.debug(
+              `[Kleenex] CATEGORY ${configAllergenName} FORECAST DAY ${dayIndex + 1} DATA SET: level=${forecastLevel}, value=${forecastValue}`,
+            );
           }
         });
       } else {
         if (debug) {
           console.debug(
-            `[Kleenex] SKIPPING category sensor ${sensorCategory} -> ${configAllergenName}: not in config.allergens [${config.allergens.join(', ')}]`,
+            `[Kleenex] SKIPPING category sensor ${sensorCategory} -> ${configAllergenName}: not in config.allergens [${allergens.join(", ")}]`,
           );
         }
       }
@@ -270,18 +317,21 @@ export async function fetchForecast(hass, config) {
 
     // Extract individual allergens from current details - only if specific allergen is requested
     if (debug) {
-      console.debug(`[Kleenex] Processing ${details.length} individual allergen details for sensor: ${sensor.entity_id}`);
+      console.debug(
+        `[Kleenex] Processing ${details.length} individual allergen details for sensor: ${sensor.entity_id}`,
+      );
     }
 
     try {
       for (const detail of details) {
-        const allergenName = detail.name?.toLowerCase();
+        const allergenName = (detail.name as string)?.toLowerCase();
         if (!allergenName) continue;
 
-        const canonicalName = KLEENEX_ALLERGEN_MAP[allergenName] || allergenName;
+        const canonicalName =
+          KLEENEX_ALLERGEN_MAP[allergenName] || allergenName;
 
         // Skip if this allergen is not in the config
-        if (!config.allergens.includes(canonicalName)) {
+        if (!allergens.includes(canonicalName)) {
           if (debug && detail.value !== undefined) {
             console.debug(
               `[Kleenex] SKIPPING individual allergen ${canonicalName} (${allergenName}): not in config allergens`,
@@ -304,7 +354,7 @@ export async function fetchForecast(hass, config) {
           });
         }
 
-        const allergenEntry = allergenData.get(canonicalName);
+        const allergenEntry = allergenData.get(canonicalName)!;
 
         // Today's data - prioritize numeric value over level text
         const detailValue = Number(detail.value) || 0;
@@ -331,7 +381,10 @@ export async function fetchForecast(hass, config) {
       }
     } catch (error) {
       if (debug) {
-        console.warn(`[Kleenex] Error processing individual allergens for sensor ${sensor.entity_id}:`, error);
+        console.warn(
+          `[Kleenex] Error processing individual allergens for sensor ${sensor.entity_id}:`,
+          error,
+        );
       }
     }
 
@@ -341,7 +394,8 @@ export async function fetchForecast(hass, config) {
         const forecastDate = new Date(
           today.getTime() + (dayIndex + 1) * 86400000,
         );
-        const forecastDetails = forecastItem.details || [];
+        const forecastDetails: KleenexItem[] =
+          (forecastItem.details as KleenexItem[]) || [];
 
         if (debug && forecastDetails.length > 0) {
           console.debug(
@@ -350,14 +404,14 @@ export async function fetchForecast(hass, config) {
         }
 
         for (const detail of forecastDetails) {
-          const allergenName = detail.name?.toLowerCase();
+          const allergenName = (detail.name as string)?.toLowerCase();
           if (!allergenName) continue;
 
           const canonicalName =
             KLEENEX_ALLERGEN_MAP[allergenName] || allergenName;
 
           // Skip if this allergen is not in the config
-          if (!config.allergens.includes(canonicalName)) continue;
+          if (!allergens.includes(canonicalName)) continue;
 
           if (!allergenData.has(canonicalName)) {
             allergenData.set(canonicalName, {
@@ -367,7 +421,7 @@ export async function fetchForecast(hass, config) {
             });
           }
 
-          const allergenEntry = allergenData.get(canonicalName);
+          const allergenEntry = allergenData.get(canonicalName)!;
           const forecastValue = Number(detail.value) || 0;
           const rawLevel = ppmToLevel(forecastValue, canonicalName); // Calculate raw level (0-4)
           const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
@@ -395,7 +449,10 @@ export async function fetchForecast(hass, config) {
       });
     } catch (error) {
       if (debug) {
-        console.warn(`[Kleenex] Error processing forecast data for sensor ${sensor.entity_id}:`, error);
+        console.warn(
+          `[Kleenex] Error processing forecast data for sensor ${sensor.entity_id}:`,
+          error,
+        );
       }
     }
   }
@@ -407,23 +464,22 @@ export async function fetchForecast(hass, config) {
 
   // Effective last token of an entity_id, accounting for manual-mode
   // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`).
-  const effectiveLastToken = (entityId) => {
+  const effectiveLastToken = (entityId: string): string => {
     let id = entityId;
-    if (
-      config.location === "manual" &&
-      config.entity_suffix &&
-      id.endsWith(config.entity_suffix)
-    ) {
-      id = id.slice(0, -config.entity_suffix.length);
+    const entitySuffix = config.entity_suffix as string | undefined;
+    if (config.location === "manual" && entitySuffix && id.endsWith(entitySuffix)) {
+      id = id.slice(0, -entitySuffix.length);
     }
-    return id.split("_").pop();
+    return id.split("_").pop() as string;
   };
 
   for (const sensor of kleenexSensors) {
     // Only consider sensors that were NOT identified as category sensors.
     const lastToken = effectiveLastToken(sensor.entity_id);
     let isCategorySensor = false;
-    for (const localizedPrefix of Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES)) {
+    for (const localizedPrefix of Object.keys(
+      KLEENEX_LOCALIZED_CATEGORY_NAMES,
+    )) {
       if (lastToken.startsWith(localizedPrefix)) {
         isCategorySensor = true;
         break;
@@ -432,7 +488,7 @@ export async function fetchForecast(hass, config) {
     if (isCategorySensor) continue;
 
     // Derive the allergen suffix from the entity_id.
-    let allergenSuffix;
+    let allergenSuffix: string;
     if (config.location === "manual" && config.entity_prefix) {
       // Manual mode: user-supplied entity_prefix already covers the whole prefix
       // up to <allergen>; strip it from the full entity_id.
@@ -441,8 +497,9 @@ export async function fetchForecast(hass, config) {
       allergenSuffix = sensor.entity_id.slice(fullPrefix.length);
       // Discovery builds entity_ids as `${prefix}${aliasSlug}${entity_suffix}` —
       // strip the same trailing suffix here so the alias lookup matches.
-      if (config.entity_suffix && allergenSuffix.endsWith(config.entity_suffix)) {
-        allergenSuffix = allergenSuffix.slice(0, -config.entity_suffix.length);
+      const entitySuffix = config.entity_suffix as string | undefined;
+      if (entitySuffix && allergenSuffix.endsWith(entitySuffix)) {
+        allergenSuffix = allergenSuffix.slice(0, -entitySuffix.length);
       }
     } else {
       // Standard mode: strip domain prefix, then the configured location slug.
@@ -451,7 +508,7 @@ export async function fetchForecast(hass, config) {
         ? sensor.entity_id.slice(domainPrefix.length)
         : sensor.entity_id;
       if (config.location && config.location !== "manual") {
-        const locationSlug = slugify(config.location);
+        const locationSlug = slugify(config.location as string);
         if (allergenSuffix.startsWith(locationSlug + "_")) {
           allergenSuffix = allergenSuffix.slice(locationSlug.length + 1);
         }
@@ -481,7 +538,7 @@ export async function fetchForecast(hass, config) {
     if (!canonicalName) continue;
 
     // Skip allergens not requested in config.
-    if (!config.allergens.includes(canonicalName)) continue;
+    if (!allergens.includes(canonicalName)) continue;
 
     // Only fill slots not already populated by category-sensor pass.
     if (allergenData.has(canonicalName)) continue;
@@ -504,7 +561,7 @@ export async function fetchForecast(hass, config) {
       source: "detail_sensor",
     });
 
-    const allergenEntry = allergenData.get(canonicalName);
+    const allergenEntry = allergenData.get(canonicalName)!;
     const rawLevel = ppmToLevel(parsedState, canonicalName);
     const currentLevel = testVal(rawLevel);
 
@@ -516,13 +573,14 @@ export async function fetchForecast(hass, config) {
 
     // DetailSensor forecast: [{date, value}] — no per-allergen level field.
     // Non-numeric forecast values are treated as missing-day sentinels (-1).
-    const detailForecast = sensor.attributes?.forecast || [];
+    const detailForecast: KleenexItem[] = sensor.attributes?.forecast || [];
     detailForecast.forEach((forecastItem, dayIndex) => {
       const parsedForecast = Number(forecastItem.value);
-      const forecastValue = Number.isFinite(parsedForecast) ? parsedForecast : -1;
-      const fRawLevel = forecastValue < 0
-        ? -1
-        : ppmToLevel(forecastValue, canonicalName);
+      const forecastValue = Number.isFinite(parsedForecast)
+        ? parsedForecast
+        : -1;
+      const fRawLevel =
+        forecastValue < 0 ? -1 : ppmToLevel(forecastValue, canonicalName);
       const forecastLevel = testVal(fRawLevel);
       allergenEntry.levels[dayIndex + 1] = {
         date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
@@ -540,13 +598,17 @@ export async function fetchForecast(hass, config) {
   // adapter — exclude both shapes from the "individual" set so a config like
   // ["trees", "birch"] doesn't treat raw `trees` as individual.
   const categoryAllergenKeys = [
-    "trees_cat", "grass_cat", "weeds_cat",
-    "trees", "grass", "weeds",
+    "trees_cat",
+    "grass_cat",
+    "weeds_cat",
+    "trees",
+    "grass",
+    "weeds",
   ];
   // The recommended set for the warning's suggested fix (NA users should
   // switch to *_cat, not raw category names).
   const recommendedCategoryKeys = ["trees_cat", "grass_cat", "weeds_cat"];
-  const requestedIndividual = (config.allergens || []).filter(
+  const requestedIndividual = (allergens || []).filter(
     (a) => !categoryAllergenKeys.includes(a),
   );
   // Only evaluate when at least one category sensor was actually found (guards
@@ -567,18 +629,18 @@ export async function fetchForecast(hass, config) {
       // Require non-empty forecast to avoid false positives on synthetic/empty fixtures.
       const allDetailsEmpty = categorySensorsFound.every((sensor) => {
         const attrs = sensor.attributes || {};
-        const forecast = attrs.forecast || [];
+        const forecast: KleenexItem[] = attrs.forecast || [];
         if (forecast.length === 0) return false;
         const detailsEmpty = (attrs.details || []).length === 0;
         const forecastDetailsEmpty = forecast.every(
-          (f) => (f.details || []).length === 0,
+          (f) => ((f.details as KleenexItem[]) || []).length === 0,
         );
         return detailsEmpty && forecastDetailsEmpty;
       });
       // Only emit the warning when the user hasn't already configured a recommended
       // category allergen (if they have *_cat, they are already on the right path).
       const hasAnyCategoryConfigured = recommendedCategoryKeys.some((k) =>
-        (config.allergens || []).includes(k),
+        (allergens || []).includes(k),
       );
       if (allDetailsEmpty && !hasAnyCategoryConfigured) {
         const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
@@ -593,55 +655,76 @@ export async function fetchForecast(hass, config) {
   }
 
   if (debug) {
-    console.debug(
-      `[Kleenex] === ALLERGEN DATA COLLECTION COMPLETE ===`,
-    );
+    console.debug(`[Kleenex] === ALLERGEN DATA COLLECTION COMPLETE ===`);
     console.debug(
       `[Kleenex] Collected data for ${allergenData.size} allergens:`,
       Array.from(allergenData.keys()),
     );
 
     if (allergenData.size === 0) {
-      console.debug("[Kleenex] WARNING: No allergen data collected! This will result in empty sensors array.");
+      console.debug(
+        "[Kleenex] WARNING: No allergen data collected! This will result in empty sensors array.",
+      );
       console.debug("[Kleenex] Checking config:", {
         allergens: config.allergens,
         location: config.location,
-        filteredSensorCount: kleenexSensors.length
+        filteredSensorCount: kleenexSensors.length,
       });
-      console.debug("[Kleenex] Sensor entity IDs processed:", kleenexSensors.map(s => s.entity_id));
-      console.debug("[Kleenex] Was any category sensor found that matches config allergens?");
+      console.debug(
+        "[Kleenex] Sensor entity IDs processed:",
+        kleenexSensors.map((s) => s.entity_id),
+      );
+      console.debug(
+        "[Kleenex] Was any category sensor found that matches config allergens?",
+      );
     } else {
       console.debug("[Kleenex] DETAILED ALLERGEN DATA ANALYSIS:");
       allergenData.forEach((data, allergen) => {
-        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(allergen);
-        console.debug(`[Kleenex] === ${allergen.toUpperCase()} (${isCategory ? 'CATEGORY' : 'INDIVIDUAL'}) ===`);
+        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(
+          allergen,
+        );
+        console.debug(
+          `[Kleenex] === ${allergen.toUpperCase()} (${isCategory ? "CATEGORY" : "INDIVIDUAL"}) ===`,
+        );
         console.debug(`[Kleenex] Source: ${data.source}`);
         console.debug(`[Kleenex] Entity: ${data.entity_id}`);
         console.debug(`[Kleenex] Levels array length: ${data.levels.length}`);
-        console.debug(`[Kleenex] Valid levels count (>= 0): ${data.levels.filter(l => l.level >= 0).length}`);
+        console.debug(
+          `[Kleenex] Valid levels count (>= 0): ${data.levels.filter((l) => l.level >= 0).length}`,
+        );
 
         // Show detailed day-by-day data
         data.levels.forEach((level, i) => {
-          const dayName = i === 0 ? 'TODAY' : `DAY+${i}`;
-          console.debug(`[Kleenex] ${allergen} ${dayName}: date=${level.date?.toISOString().split('T')[0]}, level=${level.level}, value=${level.value}`);
+          const dayName = i === 0 ? "TODAY" : `DAY+${i}`;
+          console.debug(
+            `[Kleenex] ${allergen} ${dayName}: date=${level.date?.toISOString().split("T")[0]}, level=${level.level}, value=${level.value}`,
+          );
         });
 
         // Check if today has valid data
         const todayLevel = data.levels[0]?.level;
         const hasValidToday = todayLevel !== undefined && todayLevel >= 0;
-        console.debug(`[Kleenex] ${allergen} TODAY DATA CHECK: hasValidToday=${hasValidToday}, todayLevel=${todayLevel}`);
+        console.debug(
+          `[Kleenex] ${allergen} TODAY DATA CHECK: hasValidToday=${hasValidToday}, todayLevel=${todayLevel}`,
+        );
       });
     }
   }
 
   // Build sensor data for each allergen
   if (debug) {
-    console.debug(`[Kleenex] === BUILDING SENSORS FROM ${allergenData.size} COLLECTED ALLERGENS ===`);
+    console.debug(
+      `[Kleenex] === BUILDING SENSORS FROM ${allergenData.size} COLLECTED ALLERGENS ===`,
+    );
     console.debug(`[Kleenex] pollen_threshold = ${pollen_threshold}`);
     allergenData.forEach((data, allergen) => {
-      console.debug(`[Kleenex] Building sensor for: ${allergen}, source: ${data.source}, levels_count: ${data.levels.length}`);
+      console.debug(
+        `[Kleenex] Building sensor for: ${allergen}, source: ${data.source}, levels_count: ${data.levels.length}`,
+      );
       if (data.levels[0]) {
-        console.debug(`[Kleenex] ${allergen} today data: level=${data.levels[0].level}, value=${data.levels[0].value}`);
+        console.debug(
+          `[Kleenex] ${allergen} today data: level=${data.levels[0].level}, value=${data.levels[0].value}`,
+        );
       } else {
         console.debug(`[Kleenex] ${allergen} WARNING: No today data found!`);
       }
@@ -649,14 +732,15 @@ export async function fetchForecast(hass, config) {
   }
 
   // Build sensors array in the correct order
-  const allergenKeys = config.sort === "none"
-    ? config.allergens.filter(allergen => allergenData.has(allergen))
-    : Array.from(allergenData.keys());
+  const allergenKeys =
+    config.sort === "none"
+      ? allergens.filter((allergen) => allergenData.has(allergen))
+      : Array.from(allergenData.keys());
 
   if (debug) {
     console.debug(
       `[Kleenex] Building sensors array ${config.sort === "none" ? "in config order" : "in discovery order"}:`,
-      allergenKeys
+      allergenKeys,
     );
   }
 
@@ -665,15 +749,21 @@ export async function fetchForecast(hass, config) {
     if (!allergenInfo) continue;
 
     try {
-      const dict = {};
+      const dict = {} as PollenSensor;
       dict.allergenReplaced = allergenKey;
       dict.entity_id = allergenInfo.entity_id;
       dict.days = []; // Initialize days array
 
       // Allergen name resolution
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergenKey, {
-        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
-      });
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+        allergenKey,
+        {
+          fullPhrases,
+          shortPhrases,
+          abbreviated: config.allergens_abbreviated as boolean,
+          lang,
+        },
+      );
       dict.allergenCapitalized = allergenCapitalized;
       dict.allergenShort = allergenShort;
 
@@ -708,12 +798,15 @@ export async function fetchForecast(hass, config) {
       let levelNames = levelNamesDefault.slice();
       if (Array.isArray(userLevels)) {
         if (userLevels.length === 7) {
-          levelNames = buildLevelNames(userLevels, lang);
+          levelNames = buildLevelNames(
+            userLevels as Array<string | null | undefined>,
+            lang,
+          );
         } else if (userLevels.length === defaultNumLevels) {
           const map = [0, 1, 3, 5, 6];
           map.forEach((lvl, idx) => {
             const val = userLevels[idx];
-            if (val != null && val !== "") levelNames[lvl] = val;
+            if (val != null && val !== "") levelNames[lvl] = val as string;
           });
         }
       }
@@ -723,14 +816,21 @@ export async function fetchForecast(hass, config) {
       for (let i = 0; i < days_to_show; i++) {
         const dayData = levels[i];
         const d = dayData.date;
-        const diff = Math.round((d - today) / 86400000);
+        const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
 
-        const dayLabel = buildDayLabel(d, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
+        const dayLabel = buildDayLabel(d, diff, {
+          daysRelative,
+          dayAbbrev,
+          daysUppercase,
+          userDays,
+          lang,
+          locale,
+        });
 
         // Scale level for display (keep raw 0-4 for state, but scale for level names like PEU)
         const level = dayData.level; // Raw level (0-4)
         // Calculate scaled level for level names (like PEU does)
-        let scaledLevel;
+        let scaledLevel: number;
         if (level < 0) {
           scaledLevel = level; // Keep -1 as is
         } else if (level < 2) {
@@ -739,15 +839,14 @@ export async function fetchForecast(hass, config) {
           scaledLevel = Math.ceil((level * 6) / 4);
         }
 
-        const dayObj = {
+        const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,
           day: dayLabel,
           state: level, // Raw level for sorting and threshold checking
           state_text:
             scaledLevel < 0
               ? noInfoLabel
-              : levelNames[scaledLevel] ||
-                t(`card.levels.${scaledLevel}`, lang),
+              : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
           value: dayData.value,
           // Raw ppm measurement, surfaced only when the user opts into
           // numeric_value_raw (resolveNumericValue). state stays the level.
@@ -758,8 +857,7 @@ export async function fetchForecast(hass, config) {
           description:
             scaledLevel < 0
               ? noInfoLabel
-              : levelNames[scaledLevel] ||
-                t(`card.levels.${scaledLevel}`, lang),
+              : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
         };
 
         dict[`day${i}`] = dayObj;
@@ -770,25 +868,37 @@ export async function fetchForecast(hass, config) {
       const shouldAdd = meetsThreshold(dict.days, pollen_threshold);
 
       if (debug) {
-        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(allergenKey);
+        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(
+          allergenKey,
+        );
         console.debug(
-          `[Kleenex] === THRESHOLD CHECK for ${allergenKey} (${isCategory ? 'CATEGORY' : 'INDIVIDUAL'}) ===`,
+          `[Kleenex] === THRESHOLD CHECK for ${allergenKey} (${isCategory ? "CATEGORY" : "INDIVIDUAL"}) ===`,
         );
         console.debug(`[Kleenex] pollen_threshold = ${pollen_threshold}`);
         console.debug(`[Kleenex] days.length = ${dict.days.length}`);
 
         // Show detailed level values for debugging
         dict.days.forEach((day, i) => {
-          console.debug(`[Kleenex] ${allergenKey} day${i}: state=${day.state}, value=${day.value}, day=${day.day}, meets_threshold=${day.state >= pollen_threshold}`);
+          console.debug(
+            `[Kleenex] ${allergenKey} day${i}: state=${day.state}, value=${day.value}, day=${day.day}, meets_threshold=${day.state >= pollen_threshold}`,
+          );
         });
 
-        console.debug(`[Kleenex] shouldAdd = ${shouldAdd} (any day >= ${pollen_threshold}, or threshold===0)`);
+        console.debug(
+          `[Kleenex] shouldAdd = ${shouldAdd} (any day >= ${pollen_threshold}, or threshold===0)`,
+        );
 
         if (isCategory && !shouldAdd) {
-          console.debug(`[Kleenex] ❌ CATEGORY ALLERGEN ${allergenKey} FILTERED OUT BY THRESHOLD!`);
-          console.debug(`[Kleenex] Highest level found: ${Math.max(...dict.days.map(d => d.state))}`);
+          console.debug(
+            `[Kleenex] ❌ CATEGORY ALLERGEN ${allergenKey} FILTERED OUT BY THRESHOLD!`,
+          );
+          console.debug(
+            `[Kleenex] Highest level found: ${Math.max(...dict.days.map((d) => d.state))}`,
+          );
         } else if (isCategory && shouldAdd) {
-          console.debug(`[Kleenex] ✅ CATEGORY ALLERGEN ${allergenKey} PASSES THRESHOLD CHECK`);
+          console.debug(
+            `[Kleenex] ✅ CATEGORY ALLERGEN ${allergenKey} PASSES THRESHOLD CHECK`,
+          );
         }
       }
 
@@ -802,7 +912,7 @@ export async function fetchForecast(hass, config) {
       } else {
         if (debug) {
           console.debug(
-            `[Kleenex] SENSOR FILTERED OUT for ${allergenKey}: threshold not met (highest level: ${Math.max(...dict.days.map(d => d.state))})`,
+            `[Kleenex] SENSOR FILTERED OUT for ${allergenKey}: threshold not met (highest level: ${Math.max(...dict.days.map((d) => d.state))})`,
           );
         }
       }
@@ -821,8 +931,8 @@ export async function fetchForecast(hass, config) {
         (s) =>
           !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
       );
-      sortSensors(categoryAllergens, config.sort);
-      sortSensors(individualAllergens, config.sort);
+      sortSensors(categoryAllergens, config.sort as string);
+      sortSensors(individualAllergens, config.sort as string);
       sensors = [...categoryAllergens, ...individualAllergens];
 
       if (debug) {
@@ -831,7 +941,7 @@ export async function fetchForecast(hass, config) {
         );
       }
     } else {
-      sortSensors(sensors, config.sort);
+      sortSensors(sensors, config.sort as string);
 
       if (debug) {
         console.debug(
@@ -853,24 +963,33 @@ export async function fetchForecast(hass, config) {
       console.debug("[Kleenex] ❌ NO SENSORS RETURNED! Checking why:");
       console.debug(`[Kleenex] - allergenData.size: ${allergenData.size}`);
       console.debug(`[Kleenex] - pollen_threshold: ${pollen_threshold}`);
-      console.debug(`[Kleenex] - config.allergens: [${config.allergens.join(', ')}]`);
+      console.debug(`[Kleenex] - config.allergens: [${allergens.join(", ")}]`);
 
       // Check if any allergens were filtered by threshold
       let thresholdFiltered = 0;
       allergenData.forEach((data, allergen) => {
-        const hasValidLevel = data.levels.some(l => l.level >= pollen_threshold);
+        const hasValidLevel = data.levels.some(
+          (l) => l.level >= pollen_threshold,
+        );
         if (!hasValidLevel) {
           thresholdFiltered++;
-          console.debug(`[Kleenex] - ${allergen} filtered by threshold (max level: ${Math.max(...data.levels.map(l => l.level))})`);
+          console.debug(
+            `[Kleenex] - ${allergen} filtered by threshold (max level: ${Math.max(...data.levels.map((l) => l.level))})`,
+          );
         }
       });
-      console.debug(`[Kleenex] - allergens filtered by threshold: ${thresholdFiltered}`);
-
+      console.debug(
+        `[Kleenex] - allergens filtered by threshold: ${thresholdFiltered}`,
+      );
     } else {
       console.debug("[Kleenex] ✅ SENSORS FOUND:");
       sensors.forEach((sensor, i) => {
-        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(sensor.allergenReplaced);
-        console.debug(`[Kleenex] ${i+1}. ${sensor.allergenReplaced} (${isCategory ? 'CATEGORY' : 'INDIVIDUAL'}): day0_state=${sensor.day0?.state}, entity_id=${sensor.entity_id}`);
+        const isCategory = ["trees_cat", "grass_cat", "weeds_cat"].includes(
+          sensor.allergenReplaced,
+        );
+        console.debug(
+          `[Kleenex] ${i + 1}. ${sensor.allergenReplaced} (${isCategory ? "CATEGORY" : "INDIVIDUAL"}): day0_state=${sensor.day0?.state}, entity_id=${sensor.entity_id}`,
+        );
       });
     }
 

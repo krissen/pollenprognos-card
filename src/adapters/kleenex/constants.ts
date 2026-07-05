@@ -1,10 +1,11 @@
-// src/adapters/kleenex/constants.js
+// src/adapters/kleenex/constants.ts
+import type { AdapterStubConfig } from "../../types/config.js";
 import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 
 export const DOMAIN = "kleenex_pollen_radar";
 
 // Map kleenex allergen names to our canonical names (supports all regional language variations)
-export const KLEENEX_ALLERGEN_MAP = {
+export const KLEENEX_ALLERGEN_MAP: Record<string, string> = {
   // Trees - English (EN/US)
   hazel: "hazel",
   elm: "elm",
@@ -80,7 +81,7 @@ export const KLEENEX_ALLERGEN_MAP = {
   brandnetel: "nettle",
 };
 
-export const stubConfigKleenex = {
+export const stubConfigKleenex: AdapterStubConfig = {
   integration: "kleenex",
   location: "",
   // Optional entity naming used when location is "manual"
@@ -137,7 +138,7 @@ export const stubConfigKleenex = {
 };
 
 // Category-specific allergen mapping for kleenex integration
-export const KLEENEX_ALLERGEN_CATEGORIES = {
+export const KLEENEX_ALLERGEN_CATEGORIES: Record<string, string> = {
   // Trees category
   trees_cat: "trees",
   trees: "trees", // Keep compatibility for sensor mapping
@@ -166,11 +167,21 @@ export const KLEENEX_ALLERGEN_CATEGORIES = {
 };
 
 // Map allergens to the kleenex category they belong to
-export const INDIVIDUAL_TO_CATEGORY = {
-  alder: "trees", birch: "trees", cypress: "trees", elm: "trees",
-  hazel: "trees", oak: "trees", pine: "trees", plane: "trees", poplar: "trees",
+export const INDIVIDUAL_TO_CATEGORY: Record<string, string> = {
+  alder: "trees",
+  birch: "trees",
+  cypress: "trees",
+  elm: "trees",
+  hazel: "trees",
+  oak: "trees",
+  pine: "trees",
+  plane: "trees",
+  poplar: "trees",
   poaceae: "grass",
-  mugwort: "weeds", ragweed: "weeds", chenopod: "weeds", nettle: "weeds",
+  mugwort: "weeds",
+  ragweed: "weeds",
+  chenopod: "weeds",
+  nettle: "weeds",
 };
 
 // Re-exported from the shared helper so the three adapter constants modules

@@ -33,6 +33,10 @@ export interface ForecastDay {
   raw_value?: number | string | null;
   /** Per-day icon key: peu, silam. */
   icon?: string;
+  /** kleenex-specific: raw ppm measurement carried alongside the level. */
+  value?: number | string;
+  /** kleenex-specific: localized level description (mirrors state_text). */
+  description?: string;
   /** plu-specific: category thresholds carried through for display. */
   thresholds?: unknown;
   /** plu-specific: raw level string from the source. */
@@ -81,6 +85,8 @@ export interface PollenSensor {
   topPollen?: unknown;
   /** In-season plant list: gpl. */
   plantsInSeasonList?: unknown;
+  /** kleenex-specific: per-sensor 0-6 level-name array carried to the render path. */
+  levelNames?: string[];
   /** Raw entity attributes carried through: plu. */
   attributes?: Record<string, any>;
 }

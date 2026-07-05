@@ -1,4 +1,4 @@
-// src/adapters/msw.js
+// src/adapters/msw.ts
 // MeteoSwiss / hass-swissweather adapter.
 //
 // Reads current pollen level from SwissPollenLevelSensor entities created by
@@ -13,7 +13,17 @@
 //     (sensor.<device-slug>_pollen_<allergen>_level_at_<station>) is handled.
 //   - Stale config_entry_id values fall back to the first discovered location,
 //     mirroring DWD/GPL/GP/SILAM/Atmo recovery behavior.
+//
+// MSW keeps its own resolveEntityIds and fetchForecast rather than the shared
+// base helpers: its discovery-only resolveEntityIds falls back to the first
+// location for ANY unmatched key (not just config-entry ids as
+// createEntityResolver's recoverStaleConfig does) and has no manual/template
+// path, and its fetchForecast emits a single current-day row rather than the
+// multi-day window runForecastScaffold is built around.
 
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import {
@@ -25,11 +35,16 @@ import {
   resolveAllergenNames,
   discoverEntitiesByDevice,
   resolveLocationByKey,
+  type DiscoveryContext,
+  type DiscoveredLocation,
 } from "../utils/adapter-helpers.js";
+
+// The subset of the discovery result msw uses (config-entry keyed locations).
+type MswDiscovery = { locations: Map<string, DiscoveredLocation> };
 
 // hass-swissweather entity slug -> canonical allergen key.
 // "grasses" is the slug used in entity IDs by hass-swissweather.
-const MSW_POLLEN_TYPES = {
+const MSW_POLLEN_TYPES: Record<string, string> = {
   birch: "birch",
   grasses: "grass",
   alder: "alder",
@@ -44,7 +59,8 @@ const MSW_POLLEN_TYPES = {
 // level count for editor phrases, level circles, and color mapping; we do
 // not stretch native counts onto a shared 0-6 gradient. Same shape as
 // DWD (0-3, four levels) and GPL/GP (0-5, six levels).
-const MSW_LEVEL_MAP = {
+// TODO(#259-normalize): preserve this native 0-4 scale.
+const MSW_LEVEL_MAP: Record<string, number> = {
   none: 0,
   low: 1,
   medium: 2,
@@ -59,14 +75,14 @@ const MSW_LEVEL_MAP = {
 const MSW_LEVEL_RE =
   /(?:^sensor\.|_)pollen_(birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
 
-function classifyMswEntity(eid) {
+function classifyMswEntity(eid: string): string | null {
   if (typeof eid !== "string") return null;
   const m = MSW_LEVEL_RE.exec(eid);
   if (!m) return null;
   return MSW_POLLEN_TYPES[m[1]] || null;
 }
 
-export const stubConfigMSW = {
+export const stubConfigMSW: AdapterStubConfig = {
   integration: "msw",
   location: "",
   allergens: ["birch", "grass", "alder", "hazel", "beech", "ash", "oak"],
@@ -122,18 +138,16 @@ export const stubConfigMSW = {
  *   "MeteoSwiss at 8000-KLO" -> "8000-KLO"
  *   "Bern"                   -> "Bern"   (user-renamed via name_by_user)
  *   "Zürich"                 -> "Zürich" (custom device.name set elsewhere)
- *
- * @param {{ device?: { name?: string, name_by_user?: string }, state?: { attributes?: { friendly_name?: string } } }} ctx
- * @returns {string}
  */
-function resolveMswLabel(ctx) {
+function resolveMswLabel(ctx: DiscoveryContext): string {
   const device = ctx?.device;
   if (device?.name_by_user) return device.name_by_user;
   if (device?.name) {
     const stripped = device.name.replace(/^MeteoSwiss at\s+/i, "");
     return stripped || device.name;
   }
-  if (ctx?.state?.attributes?.friendly_name) return ctx.state.attributes.friendly_name;
+  if (ctx?.state?.attributes?.friendly_name)
+    return ctx.state.attributes.friendly_name;
   return "Auto";
 }
 
@@ -144,17 +158,17 @@ function resolveMswLabel(ctx) {
  *   1. Device registry: hass.devices with identifiers ["swissweather", ...].
  *   2. Entity registry: hass.entities filtered by platform === "swissweather".
  *   3. Regex fallback: hass.states scanned for the level-entity pattern.
- *
- * @param {Object} hass
- * @param {boolean} [debug]
- * @returns {{ locations: Map<string, { label: string, entities: Map<string, string>, deviceId?: string }> }}
  */
-export function discoverMswSensors(hass, debug = false) {
+export function discoverMswSensors(
+  hass: HomeAssistant,
+  debug = false,
+): MswDiscovery {
   if (!hass) return { locations: new Map() };
 
   // Tier 3 fallback: device-name prefix (\w+_)* covers slugified
   // "meteoswiss_at_8000_klo_" and friendly renames like "bern_".
-  const fallbackRe = /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+  const fallbackRe =
+    /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
 
   const { locations } = discoverEntitiesByDevice(hass, {
     platform: "swissweather",
@@ -173,13 +187,12 @@ export function discoverMswSensors(hass, debug = false) {
  * resolved location. Falls back to the first discovered location when the
  * configured location key does not match (auto-recovery from stale
  * config_entry_id).
- *
- * @param {Object} cfg
- * @param {Object} hass
- * @param {boolean} [debug]
- * @returns {Map<string, string>} allergen -> entity_id
  */
-export function resolveEntityIds(cfg, hass, debug = false) {
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): Map<string, string> {
   if (!hass?.states) return new Map();
 
   const discovery = discoverMswSensors(hass, debug);
@@ -188,7 +201,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
     return new Map();
   }
 
-  let resolved = resolveLocationByKey(discovery, cfg?.location);
+  let resolved = resolveLocationByKey(discovery, cfg?.location as string);
   if (!resolved) {
     // Stale or unknown location key: fall back to first discovered location
     // (sorted lex/numeric inside resolveLocationByKey when cfgLocation empty).
@@ -202,14 +215,16 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   if (!resolved) return new Map();
 
   const [, location] = resolved;
-  const map = new Map();
-  for (const allergen of cfg?.allergens || []) {
+  const map = new Map<string, string>();
+  for (const allergen of (cfg?.allergens as string[] | undefined) || []) {
     const eid = location.entities.get(allergen);
     if (eid) {
       map.set(allergen, eid);
       if (debug) console.debug(`[MSW:resolveEntityIds] ${allergen} -> ${eid}`);
     } else if (debug) {
-      console.debug(`[MSW:resolveEntityIds] No entity for '${allergen}' in resolved location`);
+      console.debug(
+        `[MSW:resolveEntityIds] No entity for '${allergen}' in resolved location`,
+      );
     }
   }
   return map;
@@ -218,26 +233,39 @@ export function resolveEntityIds(cfg, hass, debug = false) {
 /**
  * Fetch current pollen levels from hass-swissweather entities.
  * Returns one day (today) per allergen.
- *
- * @param {Object} hass
- * @param {Object} config
- * @returns {Promise<Array>} Sensor dicts compatible with pollenprognos-card renderer
  */
-export async function fetchForecast(hass, config) {
-  if (!hass?.states || !config.allergens?.length) return [];
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  if (!hass?.states || !(config.allergens as string[] | undefined)?.length)
+    return [];
   const debug = Boolean(config.debug);
 
   const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
-    getLangAndLocale(hass, config, stubConfigMSW.date_locale);
-  const { fullPhrases, shortPhrases, userLevels, userDays } =
-    mergePhrases(config, lang);
+    getLangAndLocale(
+      hass,
+      config,
+      stubConfigMSW.date_locale as string | undefined,
+    );
+  const { fullPhrases, shortPhrases, userLevels, userDays } = mergePhrases(
+    config,
+    lang,
+  );
   // Five-level scale: defaults from card.levels5.0..4, native-indexed.
-  const levelNames = buildLevelNamesForScale(5, userLevels, lang);
-  const pollen_threshold = config.pollen_threshold ?? stubConfigMSW.pollen_threshold;
+  const levelNames = buildLevelNamesForScale(
+    5,
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
+  const pollen_threshold =
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigMSW.pollen_threshold as number);
 
-  if (debug) console.debug("MSW adapter: start fetchForecast", { config, lang });
+  if (debug)
+    console.debug("MSW adapter: start fetchForecast", { config, lang });
 
-  const sensors = [];
+  const sensors: PollenSensor[] = [];
   const entityMap = resolveEntityIds(config, hass, debug);
 
   const today = new Date();
@@ -251,7 +279,7 @@ export async function fetchForecast(hass, config) {
     locale,
   });
 
-  for (const allergen of config.allergens) {
+  for (const allergen of config.allergens as string[]) {
     try {
       const entityId = entityMap.get(allergen);
       if (!entityId) continue;
@@ -259,23 +287,25 @@ export async function fetchForecast(hass, config) {
       const stateObj = hass.states[entityId];
       if (!stateObj) continue;
 
-      const rawState = typeof stateObj.state === "string"
-        ? stateObj.state.toLowerCase()
-        : "";
+      const rawState =
+        typeof stateObj.state === "string" ? stateObj.state.toLowerCase() : "";
       const level = MSW_LEVEL_MAP[rawState];
       if (level === undefined) continue; // unavailable / unknown / unexpected value
 
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergen, {
-        fullPhrases,
-        shortPhrases,
-        abbreviated: config.allergens_abbreviated,
-        lang,
-        configKey: allergen,
-      });
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+        allergen,
+        {
+          fullPhrases,
+          shortPhrases,
+          abbreviated: config.allergens_abbreviated as boolean,
+          lang,
+          configKey: allergen,
+        },
+      );
 
       const stateText = levelNames[level] ?? rawState;
 
-      const day0 = {
+      const day0: ForecastDay = {
         name: allergenCapitalized,
         day: dayLabel,
         state: level,
@@ -283,7 +313,7 @@ export async function fetchForecast(hass, config) {
         state_text: stateText,
       };
 
-      const dict = {
+      const dict: PollenSensor = {
         allergenReplaced: allergen,
         allergenCapitalized,
         allergenShort,
@@ -298,7 +328,7 @@ export async function fetchForecast(hass, config) {
     }
   }
 
-  sortSensors(sensors, config.sort);
+  sortSensors(sensors, config.sort as string);
 
   if (debug) console.debug("MSW adapter complete sensors:", sensors);
   return sensors;

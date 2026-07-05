@@ -1,9 +1,9 @@
-// src/adapters/kleenex/levels.js
+// src/adapters/kleenex/levels.ts
 import { KLEENEX_ALLERGEN_CATEGORIES } from "./constants.js";
 
 // Convert numeric ppm values to level (0-4) using category-specific thresholds
 // Based on kleenex integration thresholds: trees [95, 207, 703], weeds [20, 77, 266], grass [29, 60, 341]
-export function ppmToLevel(value, allergenName) {
+export function ppmToLevel(value: unknown, allergenName: string): number {
   const numVal = Number(value);
   if (isNaN(numVal) || numVal < 0) return -1;
   if (numVal === 0) return 0;
@@ -12,7 +12,7 @@ export function ppmToLevel(value, allergenName) {
   const category = KLEENEX_ALLERGEN_CATEGORIES[allergenName] || "trees"; // Default to trees
 
   // Category-specific thresholds: [low, moderate, high] -> levels 1, 2, 3, with 4 being very-high
-  let thresholds;
+  let thresholds: number[];
   switch (category) {
     case "trees":
       thresholds = [95, 207, 703];
