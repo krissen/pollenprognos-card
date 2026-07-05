@@ -1,11 +1,27 @@
-// src/adapters/peu.js
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig, AdapterStubConfig } from "../types/config.js";
+import type { PollenSensor, ForecastDay } from "../types/sensor.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
-import { getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames, normalizeManualPrefix, resolveManualEntity, discoverEntitiesByDevice, resolveLocationByKey, isConfigEntryId } from "../utils/adapter-helpers.js";
+import {
+  buildDayLabel,
+  clampLevel,
+  resolveAllergenNames,
+  discoverEntitiesByDevice,
+  isConfigEntryId,
+  type DeviceDiscovery,
+} from "../utils/adapter-helpers.js";
+import {
+  createEntityResolver,
+  runForecastScaffold,
+  padForecastDates,
+  PEU_LEGACY_PHRASE_INDICES,
+  type BuildDictArgs,
+} from "./base.js";
 
 // Skapa stubConfigPEU – allergener enligt din sensor.py, i engelsk slugform!
-export const stubConfigPEU = {
+export const stubConfigPEU: AdapterStubConfig = {
   integration: "peu",
   location: "",
   // Optional entity naming used when location is "manual"
@@ -62,9 +78,36 @@ export const stubConfigPEU = {
 };
 
 // All possible allergens for the PEU integration
-export const PEU_ALLERGENS = ["allergy_risk", ...stubConfigPEU.allergens];
+export const PEU_ALLERGENS = [
+  "allergy_risk",
+  ...(stubConfigPEU.allergens as string[]),
+];
 
 const PEU_PREFIX = "sensor.polleninformation_";
+
+/**
+ * Hourly-mode step map. Each PEU display mode slices the hourly forecast array
+ * at a fixed stride (e.g. hourly_third takes every third entry). twice_daily
+ * takes every 12th (morning/evening columns). Unknown modes fall back to 1.
+ */
+const PEU_STEP_MAP: Record<string, number> = {
+  hourly: 1,
+  hourly_second: 2,
+  hourly_third: 3,
+  hourly_fourth: 4,
+  hourly_sixth: 6,
+  hourly_eighth: 8,
+  twice_daily: 12,
+};
+
+// PEU allergen keys are already slugs (the integration exposes English slugs),
+// so the shared scaffold's normalize step is identity here.
+const identity = (allergen: string): string => allergen;
+
+/** Read the effective display mode, defaulting to the stub's "daily". */
+function peuMode(cfg: CardConfig): string {
+  return (cfg.mode as string) || (stubConfigPEU.mode as string);
+}
 
 /**
  * Classify a PEU entity ID using a whitelist of known allergen keys.
@@ -75,16 +118,15 @@ const PEU_PREFIX = "sensor.polleninformation_";
  *
  * Returns the allergen key string, or null if the entity ID does not match
  * any known PEU allergen pattern.
- *
- * @param {string} eid
- * @returns {string|null}
  */
 // Precomputed longest-first whitelist. Sorting once at module load avoids
 // reallocating and re-sorting on every classifier invocation during discovery.
-const PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST = [...PEU_ALLERGENS, "allergy_risk_hourly"]
-  .sort((a, b) => b.length - a.length);
+const PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST = [
+  ...PEU_ALLERGENS,
+  "allergy_risk_hourly",
+].sort((a, b) => b.length - a.length);
 
-function classifyPeuEntity(eid) {
+function classifyPeuEntity(eid: string): string | null {
   if (!eid.startsWith(PEU_PREFIX)) return null;
   const rest = eid.substring(PEU_PREFIX.length);
   for (const allergen of PEU_ALLERGEN_SUFFIXES_LONGEST_FIRST) {
@@ -101,12 +143,11 @@ function classifyPeuEntity(eid) {
  * "sensor.polleninformation_wien_birch" + "birch" -> "wien"
  *
  * Returns null if the entity ID does not follow the expected pattern.
- *
- * @param {string} eid
- * @param {string} allergenKey
- * @returns {string|null}
  */
-function extractPeuLocationSlug(eid, allergenKey) {
+function extractPeuLocationSlug(
+  eid: string,
+  allergenKey: string,
+): string | null {
   if (!eid.startsWith(PEU_PREFIX)) return null;
   const rest = eid.substring(PEU_PREFIX.length);
   const suffix = `_${allergenKey}`;
@@ -119,11 +160,8 @@ function extractPeuLocationSlug(eid, allergenKey) {
  * to discover the allergen key, then stripping it from the tail.
  *
  * Returns null if the entity ID cannot be classified.
- *
- * @param {string} eid
- * @returns {string|null}
  */
-export function extractPeuLocationSlugFromEntityId(eid) {
+export function extractPeuLocationSlugFromEntityId(eid: string): string | null {
   const allergen = classifyPeuEntity(eid);
   if (!allergen) return null;
   return extractPeuLocationSlug(eid, allergen);
@@ -134,11 +172,8 @@ export function extractPeuLocationSlugFromEntityId(eid) {
  * "wien" -> "Wien", "new_york" -> "New_york"
  *
  * Returns null when no slug can be extracted.
- *
- * @param {string} eid
- * @returns {string|null}
  */
-function extractPeuLocationLabel(eid) {
+function extractPeuLocationLabel(eid: string): string | null {
   const slug = extractPeuLocationSlugFromEntityId(eid);
   if (!slug) return null;
   return slug.charAt(0).toUpperCase() + slug.slice(1);
@@ -156,12 +191,11 @@ function extractPeuLocationLabel(eid) {
  * by probing allergen suffixes from longest to shortest. allergy_risk_hourly
  * is stored under its own key so that mode-mapping in resolveEntityIds can
  * look it up directly.
- *
- * @param {object}  hass
- * @param {boolean} [debug=false]
- * @returns {{ locations: Map<string, { label: string, entities: Map<string, string> }>, tierUsed: number }}
  */
-export function discoverPeuSensors(hass, debug = false) {
+export function discoverPeuSensors(
+  hass: HomeAssistant,
+  debug = false,
+): DeviceDiscovery {
   if (!hass) return { locations: new Map(), tierUsed: 0 };
 
   const { locations, tierUsed } = discoverEntitiesByDevice(hass, {
@@ -170,12 +204,12 @@ export function discoverPeuSensors(hass, debug = false) {
      * Strict classifier: use the whitelist to extract the allergen key.
      * Returns null for entity IDs that do not match any known allergen.
      */
-    classify: (eid) => classifyPeuEntity(eid),
-    classifyRelaxed: (eid) => classifyPeuEntity(eid),
+    classify: (eid: string) => classifyPeuEntity(eid),
+    classifyRelaxed: (eid: string) => classifyPeuEntity(eid),
     /**
      * isRelevant: quick pre-filter before classify runs.
      */
-    isRelevant: (eid) => eid.startsWith(PEU_PREFIX),
+    isRelevant: (eid: string) => eid.startsWith(PEU_PREFIX),
     /**
      * resolveLabel priority:
      *   1. device.name_by_user -- explicit user override.
@@ -235,90 +269,52 @@ export function discoverPeuSensors(hass, debug = false) {
   return { locations, tierUsed };
 }
 
-function detectLocation(cfg, hass) {
+function detectLocation(cfg: CardConfig, hass: HomeAssistant): string {
   if (cfg.location === "manual") return "";
   // Treat a config_entry_id as autodetect: slugify() would otherwise produce
   // a non-empty locationSlug from the ULID, blocking the entity-id scan below
   // when tier 1/2 discovery has already failed (e.g. unknown platform slug).
-  const locCfg = isConfigEntryId(cfg.location) ? "" : cfg.location;
+  const locCfg = isConfigEntryId(cfg.location) ? "" : (cfg.location as string);
   let locationSlug = slugify(locCfg || "");
   if (!locationSlug) {
     const peuStates = Object.keys(hass.states).filter((id) =>
       id.startsWith("sensor.polleninformation_"),
     );
     if (peuStates.length) {
-      const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+      const match = peuStates[0].match(
+        /^sensor\.polleninformation_(.+)_[^_]+$/,
+      );
       locationSlug = match ? match[1] : "";
     }
   }
   return locationSlug;
 }
 
-export function resolveEntityIds(cfg, hass, debug = false) {
-  const map = new Map();
-  const mode = cfg.mode || stubConfigPEU.mode;
-
-  // --- Path 1: Manual mode ---
-  if (cfg.location === "manual") {
-    const prefix = normalizeManualPrefix(cfg.entity_prefix);
-    for (const allergen of cfg.allergens || []) {
-      const allergenSlug = allergen;
-      const coreSlug =
-        mode !== "daily" && allergenSlug === "allergy_risk"
-          ? "allergy_risk_hourly"
-          : allergenSlug;
-      const sensorId = resolveManualEntity(hass, prefix, coreSlug, cfg.entity_suffix || "");
-      if (!sensorId) continue;
-      if (debug) {
-        console.debug(
-          `[PEU:resolveEntityIds] manual allergen: '${allergen}', coreSlug: '${coreSlug}', sensorId: '${sensorId}'`,
-        );
-      }
-      map.set(allergenSlug, sensorId);
-    }
-    return map;
-  }
-
-  // --- Path 2: Device-based discovery (tier 1/2) or state fallback (tier 3) ---
-  const discovery = discoverPeuSensors(hass, debug);
-
-  if (discovery.locations.size > 0) {
-    const match = resolveLocationByKey(discovery, cfg.location, {
-      slugExtractor: extractPeuLocationSlugFromEntityId,
-    });
-
-    if (match) {
-      const [, location] = match;
-      for (const allergen of cfg.allergens || []) {
-        const allergenSlug = allergen;
-        // Mode mapping: in non-daily modes, allergy_risk sensor is the hourly variant.
-        const lookupKey =
-          mode !== "daily" && allergenSlug === "allergy_risk"
-            ? "allergy_risk_hourly"
-            : allergenSlug;
-        const eid = location.entities.get(lookupKey);
-        if (!eid) continue;
-        if (debug) {
-          console.debug(
-            `[PEU:resolveEntityIds] discovery allergen: '${allergen}', lookupKey: '${lookupKey}', sensorId: '${eid}'`,
-          );
-        }
-        map.set(allergenSlug, eid);
-      }
-
-      if (map.size > 0) return map;
-    }
-  }
-
-  // --- Path 3: Template fallback (legacy / when discovery yields nothing) ---
+/**
+ * Path 3 template fallback: build the allergen -> entity map from the legacy
+ * `sensor.polleninformation_{location}_{allergen}` naming when discovery yields
+ * nothing. In non-daily modes, allergy_risk maps to the hourly variant. Each
+ * allergen is resolved by direct id or a single-candidate scan.
+ */
+function peuTemplateFallback({
+  cfg,
+  hass,
+  debug,
+}: {
+  cfg: CardConfig;
+  hass: HomeAssistant;
+  debug: boolean;
+}): Map<string, string> {
+  const map = new Map<string, string>();
+  const mode = peuMode(cfg);
   const locationSlug = detectLocation(cfg, hass);
   const peuStates = Object.keys(hass.states).filter((id) =>
     id.startsWith(PEU_PREFIX),
   );
 
-  for (const allergen of cfg.allergens || []) {
+  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
     const allergenSlug = allergen;
-    let sensorId;
+    let sensorId: string | null;
     if (mode !== "daily" && allergenSlug === "allergy_risk") {
       sensorId = locationSlug
         ? `${PEU_PREFIX}${locationSlug}_allergy_risk_hourly`
@@ -340,10 +336,7 @@ export function resolveEntityIds(cfg, hass, debug = false) {
             allg === "allergy_risk_hourly"
           );
         }
-        return (
-          (!locationSlug || loc === locationSlug) &&
-          allg === allergenSlug
-        );
+        return (!locationSlug || loc === locationSlug) && allg === allergenSlug;
       });
       if (cands.length === 1) sensorId = cands[0];
       else continue;
@@ -358,242 +351,281 @@ export function resolveEntityIds(cfg, hass, debug = false) {
   return map;
 }
 
-export async function fetchForecast(hass, config) {
-  const debug = Boolean(config.debug);
-  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } = getLangAndLocale(hass, config);
+// Mode mapping: in non-daily modes, allergy_risk resolves to the hourly variant
+// sensor. Shared by the manual-mode slug hook and the discovery-lookup hook so
+// both paths agree with the template fallback above.
+const peuModeSlug = (rawKey: string, cfg: CardConfig): string =>
+  peuMode(cfg) !== "daily" && rawKey === "allergy_risk"
+    ? "allergy_risk_hourly"
+    : rawKey;
 
-  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } = mergePhrases(config, lang);
-  // PEU is natively a five-level integration (0-4: None/Low/Medium/High/Very High).
-  // Earlier versions stretched native states onto the seven-bucket card.levels
-  // palette via a [0, 1, 3, 5, 6] runtime spread to compensate for the lack of
-  // five-level locale strings. Now that card.levels5.0..4 exists in every
-  // locale (added in 3.2.0 for MSW), look names up at native indices instead.
-  // Backwards compat: legacy configs that supplied seven custom phrases
-  // (`phrases.levels` length 7) had their entries placed at indices 0,1,3,5,6
-  // of the seven-bucket array under the spread. Extracting those positions
-  // preserves the user-visible labels exactly: a length-7 input becomes a
-  // length-5 input with the same chosen strings at the same severity steps.
-  let normalizedUserLevels = userLevels;
-  if (Array.isArray(userLevels) && userLevels.length === 7) {
-    normalizedUserLevels = [0, 1, 3, 5, 6].map((i) => userLevels[i]);
-  }
-  const levelNames = buildLevelNamesForScale(5, normalizedUserLevels, lang);
+export const resolveEntityIds = createEntityResolver({
+  locationKey: "location",
+  normalize: identity,
+  discover: discoverPeuSensors,
+  slugExtractor: extractPeuLocationSlugFromEntityId,
+  logTag: "PEU",
+  manualSlug: peuModeSlug,
+  discoveryLookupKey: peuModeSlug,
+  templateFallback: peuTemplateFallback,
+});
 
-  // Clamp a native-scale level value to an integer 0-4 lookup index.
-  // Rounds first so float inputs (e.g. raw.level = 2.7 in hourly forecast
-  // entries) still bucket into a valid severity label instead of returning
-  // a fractional index that would resolve to undefined and fall back to
-  // noInfoLabel. Returns -1 for non-finite inputs (NaN / null / undefined)
-  // so callers can show the no-info label. Negative finite values clamp to
-  // 0, matching the legacy behavior where indexToLevel(-1) resolved to
-  // scale[0] = 0.
-  const lookupIndex = (level) =>
-    Number.isFinite(level)
-      ? Math.max(0, Math.min(Math.round(level), 4))
-      : -1;
+// PEU is natively a five-level integration; clamp raw states to the 0-4 lookup
+// range. -1 marks a missing/invalid reading (the day loop then drops it).
+const testVal = (v: unknown): number => clampLevel(v, 4, -1);
 
-  const testVal = (v) => clampLevel(v, 4, -1);
+// Clamp a native-scale level value to an integer 0-4 lookup index.
+// Rounds first so float inputs (e.g. raw.level = 2.7 in hourly forecast
+// entries) still bucket into a valid severity label instead of returning
+// a fractional index that would resolve to undefined and fall back to
+// noInfoLabel. Returns -1 for non-finite inputs (NaN / null / undefined)
+// so callers can show the no-info label. Negative finite values clamp to
+// 0, matching the legacy behavior where indexToLevel(-1) resolved to
+// scale[0] = 0.
+const lookupIndex = (level: number): number =>
+  Number.isFinite(level) ? Math.max(0, Math.min(Math.round(level), 4)) : -1;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days_to_show = config.days_to_show ?? stubConfigPEU.days_to_show;
-  const pollen_threshold =
-    config.pollen_threshold ?? stubConfigPEU.pollen_threshold;
-  const mode = config.mode || stubConfigPEU.mode;
-  const stepMap = {
-    hourly: 1,
-    hourly_second: 2,
-    hourly_third: 3,
-    hourly_fourth: 4,
-    hourly_sixth: 6,
-    hourly_eighth: 8,
-    twice_daily: 12,
-  };
+/**
+ * Extract the raw risk value (allergy_risk only) from a forecast entry. The raw
+ * risk may exceed the normalized 0-4 scale; the user opts into displaying it via
+ * numeric_value_raw. Guards null/"" so a missing field stays null (Number(null)
+ * is 0) and the display falls back to the level. A real 0 is kept.
+ */
+function extractRawValue(
+  allergenSlug: string,
+  src: unknown,
+): number | null {
+  if (allergenSlug !== "allergy_risk") return null;
+  if (src == null || src === "") return null;
+  const r = Number(src);
+  return Number.isFinite(r) ? r : null;
+}
 
-  const entityMap = resolveEntityIds(config, hass, debug);
+function buildPeuDict({
+  rawKey,
+  sensorId,
+  sensor,
+  config,
+  ctx,
+}: BuildDictArgs): PollenSensor {
+  // allergenSlug is already a slug in PEU (identity normalize); the original
+  // code called this variable allergenSlug.
+  const allergenSlug = rawKey;
+  // Preserve the original key-insertion order (days first, then allergen
+  // fields, entity_id, then stale/staleSince or dayN) so the serialized sensor
+  // dict stays byte-identical.
+  const dict = { days: [] as ForecastDay[] } as PollenSensor;
+  dict.allergenReplaced = allergenSlug;
 
-  const sensors = [];
-  for (const allergen of config.allergens) {
-    try {
-      const dict = {};
-      dict.days = [];
-      const allergenSlug = allergen; // redan slugifierat i peu
-      dict.allergenReplaced = allergenSlug;
+  // Allergen name resolution
+  const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+    allergenSlug,
+    {
+      fullPhrases: ctx.fullPhrases,
+      shortPhrases: ctx.shortPhrases,
+      abbreviated: config.allergens_abbreviated as boolean,
+      lang: ctx.lang,
+    },
+  );
+  dict.allergenCapitalized = allergenCapitalized;
+  dict.allergenShort = allergenShort;
 
-      // Allergen name resolution
-      const { allergenCapitalized, allergenShort } = resolveAllergenNames(allergenSlug, {
-        fullPhrases, shortPhrases, abbreviated: config.allergens_abbreviated, lang,
-      });
-      dict.allergenCapitalized = allergenCapitalized;
-      dict.allergenShort = allergenShort;
+  dict.entity_id = sensorId;
 
-      // Sensor lookup (delegated to resolveEntityIds)
-      const sensorId = entityMap.get(allergenSlug);
-      if (!sensorId) continue;
-      const sensor = hass.states[sensorId];
-      dict.entity_id = sensorId;
+  const attrs = sensor?.attributes;
+  const isStale = attrs?.data_stale === true;
+  const hasForecast =
+    Array.isArray(attrs?.forecast) && attrs.forecast.length > 0;
 
-      const isStale = sensor?.attributes?.data_stale === true;
-      const hasForecast = Array.isArray(sensor?.attributes?.forecast) && 
-                          sensor?.attributes?.forecast?.length > 0;
-
-      if (isStale || !hasForecast) {
-        dict.stale = true;
-        dict.staleSince = sensor?.attributes?.stale_since || null;
-        dict.days = [];
-        sensors.push(dict);
-        continue;
-      }
-
-      const rawForecast = sensor.attributes.forecast;
-
-      if (mode !== "daily" && allergenSlug === "allergy_risk") {
-        const step = stepMap[mode] || 1;
-        const maxItems = Math.min(
-          Math.floor(rawForecast.length / step),
-          days_to_show,
-        );
-        for (let i = 0; i < maxItems; ++i) {
-          const entry = rawForecast[i * step] || {};
-          const d = entry.time
-            ? new Date(entry.time)
-            : entry.datetime
-              ? new Date(entry.datetime)
-              : new Date(today.getTime() + i * step * 3600000);
-          let label;
-          let icon = null;
-          if (mode === "twice_daily") {
-            label = d
-              .toLocaleDateString(locale, { weekday: "short" })
-              .replace(/^./, (c) => c.toUpperCase());
-            if (daysUppercase) label = label.toUpperCase();
-            icon =
-              i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
-          } else {
-            label =
-              d.toLocaleTimeString(locale, {
-                hour: "2-digit",
-                minute: "2-digit",
-              }) || "";
-          }
-          // Use the normalized value for state so icons and circles are correct.
-          let state = Number(entry.numeric_state ?? entry.level ?? -1);
-          // display_state shows the normalized level. The raw risk value is kept
-          // in raw_value (allergy_risk only) so the user can opt into showing it
-          // via numeric_value_raw; resolveNumericValue picks level or raw.
-          let rawValue = null;
-          if (allergenSlug === "allergy_risk") {
-            const src = entry.numeric_state_raw ?? entry.level_raw;
-            // Guard null/"" so a missing raw field stays null (Number(null) is
-            // 0) and the display falls back to the level. A real 0 is kept.
-            if (src != null && src !== "") {
-              const r = Number(src);
-              if (Number.isFinite(r)) rawValue = r;
-            }
-          }
-          const levelIdx = lookupIndex(state);
-          const dayObj = {
-            name: dict.allergenCapitalized,
-            day: label,
-            icon,
-            state,
-            display_state: state,
-            raw_value: rawValue,
-            state_text: levelIdx < 0 ? noInfoLabel : levelNames[levelIdx] || noInfoLabel,
-          };
-          dict[`day${i}`] = dayObj;
-          dict.days.push(dayObj);
-        }
-      } else {
-        // Create index for quick lookup of dates
-        const forecastMap = rawForecast.reduce((o, entry) => {
-          const key = entry.time || entry.datetime;
-          o[key] = entry;
-          return o;
-        }, {});
-
-        const rawDates = Object.keys(forecastMap).sort(
-          (a, b) => new Date(a) - new Date(b),
-        );
-        const upcoming = rawDates.filter((d) => new Date(d) >= today);
-
-        let forecastDates = [];
-        if (upcoming.length >= days_to_show) {
-          forecastDates = upcoming.slice(0, days_to_show);
-        } else {
-          forecastDates = upcoming.slice();
-          let lastDate =
-            upcoming.length > 0
-              ? new Date(upcoming[upcoming.length - 1])
-              : today;
-          while (forecastDates.length < days_to_show) {
-            lastDate = new Date(lastDate.getTime() + 86400000);
-            const yyyy = lastDate.getFullYear();
-            const mm = String(lastDate.getMonth() + 1).padStart(2, "0");
-            const dd = String(lastDate.getDate()).padStart(2, "0");
-            forecastDates.push(`${yyyy}-${mm}-${dd}T00:00:00`);
-          }
-        }
-
-        forecastDates.forEach((dateStr, idx) => {
-          const raw = forecastMap[dateStr] || {};
-          // Normalized level is always used for rendering and sorting.
-          let level = testVal(raw.level);
-          // raw_value holds the raw risk value (allergy_risk only), which may
-          // exceed the normalized 0-4 scale; the user opts into displaying it
-          // via numeric_value_raw. display_state stays the normalized level.
-          let rawValue = null;
-          if (allergenSlug === "allergy_risk") {
-            const src = raw.numeric_state_raw ?? raw.level_raw;
-            // Guard null/"" so a missing raw field stays null (Number(null) is
-            // 0) and the display falls back to the level. A real 0 is kept.
-            if (src != null && src !== "") {
-              const r = Number(src);
-              if (Number.isFinite(r)) rawValue = r;
-            }
-          }
-          if (level !== null && level >= 0) {
-            const d = new Date(dateStr);
-            const diff = Math.round((d - today) / 86400000);
-            const label = buildDayLabel(d, diff, { daysRelative, dayAbbrev, daysUppercase, userDays, lang, locale });
-
-            const levelIdx = lookupIndex(level);
-            const dayObj = {
-              name: dict.allergenCapitalized,
-              day: label,
-              state: level,
-              display_state: level,
-              raw_value: rawValue,
-              state_text: levelIdx < 0 ? noInfoLabel : levelNames[levelIdx] || noInfoLabel,
-            };
-
-            dict[`day${idx}`] = dayObj;
-            dict.days.push(dayObj);
-          }
-        });
-      }
-
-      // Threshold-filter
-      if (meetsThreshold(dict.days, pollen_threshold)) sensors.push(dict);
-    } catch (e) {
-      if (debug) console.warn(`[PEU] Error for allergen ${allergen}:`, e);
-    }
+  // TODO(#259-normalize): the stale/staleSince fields are a PEU-only contract
+  // quirk. A stale sensor is emitted with an empty days array and always kept
+  // (see shouldInclude below), bypassing the pollen threshold.
+  if (isStale || !hasForecast) {
+    dict.stale = true;
+    dict.staleSince = (attrs?.stale_since as string) || null;
+    dict.days = [];
+    return dict;
   }
 
-  // Sortera
-  sortSensors(sensors, config.sort);
+  const rawForecast = attrs.forecast as Array<Record<string, unknown>>;
+  const mode = peuMode(config);
 
-  if (config.allergy_risk_top) {
-    const idx = sensors.findIndex(
-      (s) =>
-        s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
+  if (mode !== "daily" && allergenSlug === "allergy_risk") {
+    const step = PEU_STEP_MAP[mode] || 1;
+    const maxItems = Math.min(
+      Math.floor(rawForecast.length / step),
+      ctx.days_to_show,
     );
-    if (idx > 0) {
-      const [special] = sensors.splice(idx, 1);
-      sensors.unshift(special);
+    for (let i = 0; i < maxItems; ++i) {
+      const entry = rawForecast[i * step] || {};
+      let label: string;
+      let icon: string | null = null;
+      const d = entry.time
+        ? new Date(entry.time as string)
+        : entry.datetime
+          ? new Date(entry.datetime as string)
+          : new Date(ctx.today.getTime() + i * step * 3600000);
+      if (mode === "twice_daily") {
+        label = d
+          .toLocaleDateString(ctx.locale, { weekday: "short" })
+          .replace(/^./, (c) => c.toUpperCase());
+        if (ctx.daysUppercase) label = label.toUpperCase();
+        icon =
+          i % 2 === 0 ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down";
+      } else {
+        label =
+          d.toLocaleTimeString(ctx.locale, {
+            hour: "2-digit",
+            minute: "2-digit",
+          }) || "";
+      }
+      // Use the normalized value for state so icons and circles are correct.
+      const state = Number(entry.numeric_state ?? entry.level ?? -1);
+      // display_state shows the normalized level. The raw risk value is kept
+      // in raw_value (allergy_risk only) so the user can opt into showing it
+      // via numeric_value_raw; resolveNumericValue picks level or raw.
+      const rawValue = extractRawValue(
+        allergenSlug,
+        entry.numeric_state_raw ?? entry.level_raw,
+      );
+      const levelIdx = lookupIndex(state);
+      const dayObj: ForecastDay = {
+        name: dict.allergenCapitalized,
+        day: label,
+        icon: icon as string,
+        state,
+        display_state: state,
+        raw_value: rawValue,
+        state_text:
+          levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
+      };
+      dict[`day${i}`] = dayObj;
+      dict.days.push(dayObj);
     }
+    return dict;
   }
 
-  if (debug) console.debug("PEU.fetchForecast — done", sensors);
-  return sensors;
+  // Daily (and per-allergen non-daily) path: index forecast by date, take the
+  // upcoming window, pad out to days_to_show.
+  const forecastMap = rawForecast.reduce(
+    (o: Record<string, Record<string, unknown>>, entry) => {
+      const key = (entry.time || entry.datetime) as string;
+      o[key] = entry;
+      return o;
+    },
+    {},
+  );
+
+  // PEU forecast keys are full ISO datetime strings; keep the original
+  // permissive new Date() parsing rather than the strict shared
+  // parseLocalDate (which only accepts zero-padded YYYY-MM-DD).
+  const parseDate = (s: string): Date => new Date(s);
+  const rawDates = Object.keys(forecastMap).sort(
+    (a, b) => parseDate(a).getTime() - parseDate(b).getTime(),
+  );
+  const upcoming = rawDates.filter(
+    (d) => parseDate(d).getTime() >= ctx.today.getTime(),
+  );
+
+  const forecastDates = padForecastDates(
+    upcoming,
+    ctx.days_to_show,
+    ctx.today,
+    parseDate,
+  );
+
+  forecastDates.forEach((dateStr, idx) => {
+    const raw = forecastMap[dateStr] || {};
+    // Normalized level is always used for rendering and sorting.
+    const level = testVal(raw.level);
+    const rawValue = extractRawValue(
+      allergenSlug,
+      raw.numeric_state_raw ?? raw.level_raw,
+    );
+    if (level !== null && level >= 0) {
+      const d = parseDate(dateStr);
+      const diff = Math.round((d.getTime() - ctx.today.getTime()) / 86400000);
+      const label = buildDayLabel(d, diff, {
+        daysRelative: ctx.daysRelative,
+        dayAbbrev: ctx.dayAbbrev,
+        daysUppercase: ctx.daysUppercase,
+        userDays: ctx.userDays,
+        lang: ctx.lang,
+        locale: ctx.locale,
+      });
+
+      const levelIdx = lookupIndex(level);
+      const dayObj: ForecastDay = {
+        name: dict.allergenCapitalized,
+        day: label,
+        state: level,
+        display_state: level,
+        raw_value: rawValue,
+        state_text:
+          levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
+      };
+
+      dict[`day${idx}`] = dayObj;
+      dict.days.push(dayObj);
+    }
+  });
+
+  return dict;
+}
+
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  return runForecastScaffold(hass, config, {
+    stub: stubConfigPEU,
+    normalize: identity,
+    resolveEntityIds,
+    buildDict: buildPeuDict,
+    warnPrefix: (allergen) => `[PEU] Error for allergen ${allergen}:`,
+    warnOnlyWhenDebug: true,
+    // PEU is natively five-level (0-4: None/Low/Medium/High/Very High). Earlier
+    // versions stretched native states onto the seven-bucket card.levels palette
+    // via a [0,1,3,5,6] runtime spread. Now that card.levels5.0..4 exists in
+    // every locale (added in 3.2.0 for MSW), names are looked up at native
+    // indices instead.
+    // Backwards compat: legacy configs that supplied seven custom phrases
+    // (phrases.levels length 7) had their entries placed at indices 0,1,3,5,6
+    // of the seven-bucket array under the spread. Extracting those positions
+    // (PEU_LEGACY_PHRASE_INDICES) preserves the user-visible labels exactly.
+    // TODO(#259-normalize): retire the length-7 remap once no legacy configs
+    // carry seven-entry phrases.levels.
+    levelNamesBuilder: (userLevels, lang) => {
+      let normalizedUserLevels = userLevels as Array<
+        string | null | undefined
+      >;
+      if (Array.isArray(userLevels) && userLevels.length === 7) {
+        normalizedUserLevels = PEU_LEGACY_PHRASE_INDICES.map(
+          (i) => userLevels[i] as string | null | undefined,
+        );
+      }
+      return buildLevelNamesForScale(5, normalizedUserLevels, lang);
+    },
+    // Stale PEU sensors carry no days but must always be shown; otherwise apply
+    // the standard threshold filter.
+    shouldInclude: (dict, pollen_threshold) =>
+      dict.stale === true ||
+      pollen_threshold === 0 ||
+      dict.days.some((d) => d.state >= pollen_threshold),
+    onDone: (sensors, ctx) => {
+      // Pin the allergy_risk / index aggregate to the top when configured.
+      if (config.allergy_risk_top) {
+        const idx = sensors.findIndex(
+          (s) =>
+            s.allergenReplaced === "allergy_risk" ||
+            s.allergenReplaced === "index",
+        );
+        if (idx > 0) {
+          const [special] = sensors.splice(idx, 1);
+          sensors.unshift(special);
+        }
+      }
+      if (ctx.debug) console.debug("PEU.fetchForecast — done", sensors);
+    },
+  });
 }
