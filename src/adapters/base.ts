@@ -226,6 +226,13 @@ export interface ForecastScaffoldOptions {
   /** console.warn prefix used in the per-allergen catch. */
   warnPrefix: (allergen: string) => string;
   /**
+   * Only emit the per-allergen catch warning when config.debug is set. Some
+   * adapters (peu, silam) gate their error log behind debug rather than
+   * always warning like pp/dwd; set this to preserve that. Default: false
+   * (always warn).
+   */
+  warnOnlyWhenDebug?: boolean;
+  /**
    * Level-name builder. Default: shared buildLevelNames(userLevels, lang).
    * (PEU/PLU pass scale-specific builders.)
    */
@@ -263,6 +270,7 @@ export function runForecastScaffold(
     shouldInclude,
     onStart,
     onDone,
+    warnOnlyWhenDebug,
   } = opts;
 
   const debug = Boolean(config.debug);
@@ -334,7 +342,7 @@ export function runForecastScaffold(
       });
       if (dict && include(dict, pollen_threshold)) sensors.push(dict);
     } catch (e) {
-      console.warn(warnPrefix(allergen), e);
+      if (!warnOnlyWhenDebug || debug) console.warn(warnPrefix(allergen), e);
     }
   }
 
