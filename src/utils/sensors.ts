@@ -1,6 +1,5 @@
 // src/utils/sensors.ts
 import { getAdapter } from "../adapter-registry.js";
-import type { AdapterModule } from "../types/adapter.js";
 import type { CardConfig } from "../types/config.js";
 import type { HomeAssistant } from "../types/home-assistant.js";
 
@@ -14,9 +13,7 @@ export function findAvailableSensors(
   hass: HomeAssistant,
   debug = false,
 ): string[] {
-  // adapter-registry is still untyped JS; cast the returned module to the
-  // adapter contract until the adapters themselves migrate to TypeScript.
-  const adapter = getAdapter(cfg.integration) as AdapterModule | undefined;
+  const adapter = getAdapter(cfg.integration);
   if (!adapter?.resolveEntityIds) return [];
 
   const map = adapter.resolveEntityIds(cfg, hass, debug);
