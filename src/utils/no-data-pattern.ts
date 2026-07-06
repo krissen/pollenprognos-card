@@ -32,7 +32,7 @@ const DEFAULT_SEED = 13;
  * The order matters: `&` first, so we don't double-encode entity refs we
  * introduce in later replacements.
  */
-function escapeXmlAttr(value: unknown): string {
+export function escapeXmlAttr(value: unknown): string {
   return String(value)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")

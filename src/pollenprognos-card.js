@@ -72,17 +72,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this._subscribeForecastIfNeeded();
     }
 
-    // Chart lifecycle delegated to LevelCircleMixin via super.updated().
     super.updated(changedProps);
   }
 
-  // Recreate charts when element is connected, useful after DOM cloning.
   connectedCallback() {
-    // Chart rebuild delegated to LevelCircleMixin via super.connectedCallback().
     super.connectedCallback();
   }
 
-  // Clean up forecast subscription and charts when component is disconnected.
+  // Clean up forecast subscription when component is disconnected.
   disconnectedCallback() {
     // Clean up forecast subscription
     if (this._forecastUnsub) {
@@ -94,7 +91,6 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this._forecastSubType = null;
     }
 
-    // Chart cache destruction delegated to LevelCircleMixin via super.disconnectedCallback().
     super.disconnectedCallback();
   }
 
@@ -745,8 +741,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // Only update reactive properties when values actually changed.
     // Lit's auto-generated accessor triggers requestUpdate on every
     // assignment (new object ref ≠ old ref), which causes a full render
-    // cycle including _rebuildCharts() DOM mutations on every HA state
-    // change — the root cause of iOS scroll position jumps.
+    // cycle with DOM mutations on every HA state change — the root cause
+    // of iOS scroll position jumps.
     if (!deepEqual(this.config, cfg)) {
       this.config = cfg;
     }

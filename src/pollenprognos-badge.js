@@ -714,9 +714,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       /*
        * .ring-icon, .ring-icon svg, .level-value-text and the no-data icon
        * rules live in the shared ringIconStyles fragment (spliced above), so
-       * they stay byte-identical to the card. _rebuildCharts injects
-       * .ring-icon / .level-value-text into this element's renderRoot, which
-       * the fragment covers. The rules below are badge-specific and
+       * they stay byte-identical to the card; the ring markup rendered by
+       * the mixin's declarative template is covered by the fragment. The rules below are badge-specific and
        * intentionally differ from the card.
        */
 

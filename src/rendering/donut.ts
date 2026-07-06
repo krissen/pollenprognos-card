@@ -22,7 +22,10 @@
 // report; the dominant visual (band width, segment count, colors, gap) is
 // reproduced exactly.
 
-import { buildRingNoiseSvgPattern } from "../utils/no-data-pattern.js";
+import {
+  buildRingNoiseSvgPattern,
+  escapeXmlAttr,
+} from "../utils/no-data-pattern.js";
 
 export interface DonutParams {
   /** Number of filled segments (clamped to [0, segments]). */
@@ -122,6 +125,9 @@ export function buildDonutSvg(params: DonutParams): string {
   const seg = 360 / segments;
   const safeLevel = Math.max(0, Math.min(level, segments));
 
+  // noiseSeed is a 32-bit hash of the cell id; a cross-cell collision would
+  // make two no-data patterns share one <def>. With tens of cells per view
+  // the birthday odds are negligible -- accepted.
   const patternId = `ppd-noise-${noiseSeed}`;
   let paths = "";
   for (let i = 0; i < segments; i++) {
@@ -134,7 +140,10 @@ export function buildDonutSvg(params: DonutParams): string {
     // fill via style, not the presentation attribute: colors may be CSS
     // custom-property references (var(--divider-color)), and style="" is the
     // only placement where var() is guaranteed to resolve in every engine.
-    paths += `<path d="${d}" style="fill:${fill}"/>`;
+    // Colors are user-editable YAML strings rendered through unsafeSVG, so
+    // they MUST be attribute-escaped to keep them from breaking out of the
+    // style attribute (SVG is script-capable).
+    paths += `<path d="${d}" style="fill:${escapeXmlAttr(fill)}"/>`;
   }
 
   // Gap: one stroked outline layer over the fills (drawn once per segment path
@@ -145,7 +154,7 @@ export function buildDonutSvg(params: DonutParams): string {
     for (let i = 0; i < segments; i++) {
       const d = sectorPath(cx, cy, ri, ro, i * seg, (i + 1) * seg);
       strokes +=
-        `<path d="${d}" style="fill:none;stroke:${gapColor};` +
+        `<path d="${d}" style="fill:none;stroke:${escapeXmlAttr(gapColor)};` +
         `stroke-width:${n(gap)}"/>`;
     }
   }
