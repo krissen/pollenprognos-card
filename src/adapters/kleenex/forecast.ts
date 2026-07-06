@@ -843,6 +843,9 @@ export async function fetchForecast(
           name: dict.allergenCapitalized,
           day: dayLabel,
           state: level, // Raw level for sorting and threshold checking
+          // display_state mirrors state: kleenex has no separate display value,
+          // so the contract's always-present display_state carries the level.
+          display_state: level,
           state_text:
             scaledLevel < 0
               ? noInfoLabel

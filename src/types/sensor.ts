@@ -23,11 +23,12 @@ export interface ForecastDay {
   /** Localized level name for `state`. */
   state_text: string;
   /**
-   * Alternate display value distinct from the clamped `state`. Absent in
-   * pp + silam today; present where the adapter shows something other than the
-   * bare level.
+   * Display value used by the render path (ring level, numeric value). Always
+   * set: it equals `state` for adapters with no separate display value (pp,
+   * silam, kleenex) and diverges where the adapter shows something other than
+   * the bare level (e.g. dwd scaled, atmo's -1 "unavailable" over state 0).
    */
-  display_state?: number | string;
+  display_state: number | string;
   /** Raw underlying measurement (concentration/index): peu, silam, plu. */
   raw_value?: number | string | null;
   /** Per-day icon key: peu, silam. */

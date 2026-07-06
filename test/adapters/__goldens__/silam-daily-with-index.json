@@ -6,6 +6,7 @@
         "day": "Today",
         "icon": null,
         "state": 3,
+        "display_state": 3,
         "raw_value": 2,
         "state_text": "Moderate levels"
       },
@@ -14,6 +15,7 @@
         "day": "Tomorrow",
         "icon": null,
         "state": 5,
+        "display_state": 5,
         "raw_value": 3,
         "state_text": "High levels"
       },
@@ -22,6 +24,7 @@
         "day": "Day after tomorrow",
         "icon": null,
         "state": 1,
+        "display_state": 1,
         "raw_value": 1,
         "state_text": "Low levels"
       },
@@ -30,6 +33,7 @@
         "day": "Jun 18",
         "icon": null,
         "state": 6,
+        "display_state": 6,
         "raw_value": 4,
         "state_text": "Very high levels"
       }
@@ -47,6 +51,7 @@
         "day": "Today",
         "icon": null,
         "state": 2,
+        "display_state": 2,
         "raw_value": 30,
         "state_text": "Low–moderate levels"
       },
@@ -55,6 +60,7 @@
         "day": "Tomorrow",
         "icon": null,
         "state": 2,
+        "display_state": 2,
         "raw_value": 40,
         "state_text": "Low–moderate levels"
       },
@@ -63,6 +69,7 @@
         "day": "Day after tomorrow",
         "icon": null,
         "state": 1,
+        "display_state": 1,
         "raw_value": 20,
         "state_text": "Low levels"
       },
@@ -71,6 +78,7 @@
         "day": "Jun 18",
         "icon": null,
         "state": 3,
+        "display_state": 3,
         "raw_value": 60,
         "state_text": "Moderate levels"
       }
