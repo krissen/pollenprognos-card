@@ -436,6 +436,25 @@ export function buildGoldenFixtures() {
       pollen_threshold: 0,
     }),
   );
+  // Atmo's two special raw levels: 0 = "Indisponible" (no data) and 7 =
+  // "Événement". birch's tomorrow is raw 0; grass's today is raw 7. Captures
+  // how mapAtmoLevel maps these onto state/display_state, so the Step-3
+  // state-normalization diff (raw 0 -> state -1, raw 7 -> state 6, both
+  // matching display_state) is visible and reviewable. Committed before that
+  // change with the old shape (state 0 / state 7).
+  add(
+    "atmo",
+    "unavailable-and-event",
+    atmoHass("paris", [
+      ["birch", 3, 0],
+      ["grass", 7, 5],
+    ]),
+    cfg(stubConfigATMO, {
+      location: "paris",
+      allergens: ["birch", "grass"],
+      pollen_threshold: 0,
+    }),
+  );
 
   // -- PLU ----------------------------------------------------------------
   add(
