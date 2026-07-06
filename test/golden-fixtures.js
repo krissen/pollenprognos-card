@@ -310,6 +310,24 @@ export function buildGoldenFixtures() {
       pollen_threshold: 1,
     }),
   );
+  // Mid-sequence gap: the middle forecast day has no reading (level null) and
+  // pollen_threshold > 0, so pp skips it. Under the old day0..dayN contract this
+  // produced a SPARSE key set (day0, day2, day3 with no day1) alongside a
+  // COMPACT days[] ([today, day2, day3]). Locks that divergence before the
+  // days[] migration so the Step-1 diff shows exactly what the sparse dayN
+  // keys carried; after the swap only the dayN keys disappear and readers move
+  // to the compact days[] (deliberate consistency correction, not a regression).
+  add(
+    "pp",
+    "mid-sequence-gap",
+    ppHass("stockholm", { bjork: [3, null, 2, 1] }),
+    cfg(stubConfigPP, {
+      city: "Stockholm",
+      allergens: ["Björk"],
+      days_to_show: 4,
+      pollen_threshold: 1,
+    }),
+  );
 
   // -- DWD ----------------------------------------------------------------
   add(
