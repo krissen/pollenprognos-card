@@ -1,0 +1,1465 @@
+import { describe, it, expect, vi } from "vitest";
+import {
+  fetchForecast,
+  resolveEntityIds,
+  stubConfigSILAM,
+  SILAM_ALLERGENS,
+  SILAM_THRESHOLDS,
+  grainsToLevel,
+  indexToLevel,
+  getAllergenNames,
+} from "../../src/adapters/silam.js";
+import { createHass, assertSensorShape } from "../helpers.js";
+import silamAllergenMap from "../../src/adapters/silam_allergen_map.json";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeConfig(overrides: any = {}): any {
+  return { ...stubConfigSILAM, ...overrides };
+}
+
+/**
+ * Build a minimal hass mock for SILAM integration tests.
+ *
+ * The regex fallback path in findSilamWeatherEntity iterates all known
+ * weather_suffixes. The Swedish "sv" locale adds "pollenprognos_beta" as a
+ * suffix, and "en" locale adds "forecast". We use "forecast" (in English
+ * states) so the test works regardless of locale order.
+ *
+ * Setting hass.entities to an empty object ensures discovery is skipped and
+ * the regex fallback runs against hass.states.
+ */
+function makeHass(location: any, weatherAttrs: any = {}, extraStates: any = {}): any {
+  // Use "forecast" suffix — present in every locale's weather_suffixes list
+  const weatherEntityId = `weather.silam_pollen_${location.toLowerCase()}_forecast`;
+  const states = {
+    [weatherEntityId]: {
+      state: "sunny",
+      attributes: {
+        pollen_birch: 30,
+        pollen_alder: 5,
+        index: 2,
+        forecast: [
+          {
+            datetime: "2025-06-16T00:00:00",
+            pollen_birch: 40,
+            pollen_alder: 10,
+            index: 3,
+          },
+          {
+            datetime: "2025-06-17T00:00:00",
+            pollen_birch: 20,
+            pollen_alder: 2,
+            index: 1,
+          },
+        ],
+        ...weatherAttrs,
+      },
+    },
+    ...extraStates,
+  };
+  // Empty hass.entities forces the regex fallback path
+  return createHass(states, { entities: {}, language: "en" });
+}
+
+// ---------------------------------------------------------------------------
+// grainsToLevel
+// ---------------------------------------------------------------------------
+
+describe("grainsToLevel", () => {
+  it("returns -1 for unknown allergen", () => {
+    expect(grainsToLevel("unknown_plant", 100)).toBe(-1);
+  });
+
+  it("returns -1 for NaN grains", () => {
+    expect(grainsToLevel("birch", NaN)).toBe(-1);
+  });
+
+  describe("birch thresholds [1, 25, 50, 100, 500, 1000, 5000]", () => {
+    it("grains=0 -> level 0 (below first threshold)", () => {
+      expect(grainsToLevel("birch", 0)).toBe(0);
+    });
+
+    it("grains=1 -> level 1 (at first threshold)", () => {
+      expect(grainsToLevel("birch", 1)).toBe(1);
+    });
+
+    it("grains=24 -> level 1 (below second threshold)", () => {
+      expect(grainsToLevel("birch", 24)).toBe(1);
+    });
+
+    it("grains=25 -> level 2 (at second threshold)", () => {
+      expect(grainsToLevel("birch", 25)).toBe(2);
+    });
+
+    it("grains=49 -> level 2 (below third threshold)", () => {
+      expect(grainsToLevel("birch", 49)).toBe(2);
+    });
+
+    it("grains=50 -> level 3 (at third threshold)", () => {
+      expect(grainsToLevel("birch", 50)).toBe(3);
+    });
+
+    it("grains=100 -> level 4 (at fourth threshold)", () => {
+      expect(grainsToLevel("birch", 100)).toBe(4);
+    });
+
+    it("grains=500 -> level 5 (at fifth threshold)", () => {
+      expect(grainsToLevel("birch", 500)).toBe(5);
+    });
+
+    it("grains=1000 -> level 6 (at sixth threshold)", () => {
+      expect(grainsToLevel("birch", 1000)).toBe(6);
+    });
+
+    it("grains=5000 -> level 6 (at or above max threshold)", () => {
+      expect(grainsToLevel("birch", 5000)).toBe(6);
+    });
+
+    it("grains=9999 -> level 6 (above all thresholds)", () => {
+      expect(grainsToLevel("birch", 9999)).toBe(6);
+    });
+  });
+
+  describe("alder thresholds [1, 10, 25, 50, 100, 500, 1000]", () => {
+    it("grains=0 -> level 0", () => {
+      expect(grainsToLevel("alder", 0)).toBe(0);
+    });
+
+    it("grains=1 -> level 1", () => {
+      expect(grainsToLevel("alder", 1)).toBe(1);
+    });
+
+    it("grains=10 -> level 2", () => {
+      expect(grainsToLevel("alder", 10)).toBe(2);
+    });
+
+    it("grains=1000 -> level 6", () => {
+      expect(grainsToLevel("alder", 1000)).toBe(6);
+    });
+  });
+
+  it("grass uses same thresholds as birch", () => {
+    expect(SILAM_THRESHOLDS.grass).toEqual(SILAM_THRESHOLDS.birch);
+    expect(grainsToLevel("grass", 50)).toBe(3);
+  });
+
+  it("hazel uses same thresholds as birch", () => {
+    expect(SILAM_THRESHOLDS.hazel).toEqual(SILAM_THRESHOLDS.birch);
+    expect(grainsToLevel("hazel", 1)).toBe(1);
+  });
+
+  it("ragweed uses same thresholds as alder", () => {
+    expect(SILAM_THRESHOLDS.ragweed).toEqual(SILAM_THRESHOLDS.alder);
+    expect(grainsToLevel("ragweed", 10)).toBe(2);
+  });
+
+  it("mugwort uses same thresholds as alder", () => {
+    expect(SILAM_THRESHOLDS.mugwort).toEqual(SILAM_THRESHOLDS.alder);
+    expect(grainsToLevel("mugwort", 25)).toBe(3);
+  });
+
+  it("olive uses same thresholds as alder", () => {
+    expect(SILAM_THRESHOLDS.olive).toEqual(SILAM_THRESHOLDS.alder);
+    expect(grainsToLevel("olive", 100)).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// indexToLevel
+// ---------------------------------------------------------------------------
+
+describe("indexToLevel", () => {
+  describe("numeric input", () => {
+    it("0 -> 0", () => {
+      expect(indexToLevel(0)).toBe(0);
+    });
+
+    it("1 -> 1", () => {
+      expect(indexToLevel(1)).toBe(1);
+    });
+
+    it("2 -> 3", () => {
+      expect(indexToLevel(2)).toBe(3);
+    });
+
+    it("3 -> 5", () => {
+      expect(indexToLevel(3)).toBe(5);
+    });
+
+    it("4 -> 6", () => {
+      expect(indexToLevel(4)).toBe(6);
+    });
+
+    it("clamps values below 0 to scale[0]=0", () => {
+      expect(indexToLevel(-1)).toBe(0);
+    });
+
+    it("clamps values above 4 to scale[4]=6", () => {
+      expect(indexToLevel(5)).toBe(6);
+    });
+
+    it("rounds non-integer numeric input: 2.6 -> round(2.6)=3 -> scale[3]=5", () => {
+      expect(indexToLevel(2.6)).toBe(5);
+    });
+
+    it("rounds non-integer: 1.4 -> round(1.4)=1 -> scale[1]=1", () => {
+      expect(indexToLevel(1.4)).toBe(1);
+    });
+  });
+
+  describe("string input", () => {
+    it("'very_low' -> 0", () => {
+      expect(indexToLevel("very_low")).toBe(0);
+    });
+
+    it("'low' -> 1", () => {
+      expect(indexToLevel("low")).toBe(1);
+    });
+
+    it("'moderate' -> 3", () => {
+      expect(indexToLevel("moderate")).toBe(3);
+    });
+
+    it("'high' -> 5", () => {
+      expect(indexToLevel("high")).toBe(5);
+    });
+
+    it("'very_high' -> 6", () => {
+      expect(indexToLevel("very_high")).toBe(6);
+    });
+
+    it("unknown string -> -1", () => {
+      expect(indexToLevel("unknown")).toBe(-1);
+    });
+
+    it("empty string -> -1", () => {
+      expect(indexToLevel("")).toBe(-1);
+    });
+
+    it("case-insensitive: 'VERY_LOW' -> 0", () => {
+      expect(indexToLevel("VERY_LOW")).toBe(0);
+    });
+
+    it("case-insensitive: 'High' -> 5", () => {
+      expect(indexToLevel("High")).toBe(5);
+    });
+  });
+
+  describe("null / undefined / non-parseable", () => {
+    it("null -> -1", () => {
+      expect(indexToLevel(null)).toBe(-1);
+    });
+
+    it("undefined -> -1", () => {
+      expect(indexToLevel(undefined)).toBe(-1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SILAM_ALLERGENS and stubConfigSILAM
+// ---------------------------------------------------------------------------
+
+describe("SILAM_ALLERGENS", () => {
+  it("includes all stub allergens plus 'index'", () => {
+    for (const allergen of (stubConfigSILAM.allergens as string[])) {
+      expect(SILAM_ALLERGENS).toContain(allergen);
+    }
+    expect(SILAM_ALLERGENS).toContain("index");
+  });
+
+  it("has exactly one more entry than (stubConfigSILAM.allergens as string[])", () => {
+    expect(SILAM_ALLERGENS.length).toBe((stubConfigSILAM.allergens as string[]).length + 1);
+  });
+});
+
+describe("stubConfigSILAM", () => {
+  it("has integration field set to 'silam'", () => {
+    expect(stubConfigSILAM.integration).toBe("silam");
+  });
+
+  it("has index_top defaulting to true", () => {
+    expect(stubConfigSILAM.index_top).toBe(true);
+  });
+
+  it("has mode defaulting to 'daily'", () => {
+    expect(stubConfigSILAM.mode).toBe("daily");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: weather entity discovery via regex fallback
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: basic shape", () => {
+  it("returns empty array when weather entity is missing", async () => {
+    const hass = createHass({}, { entities: {} });
+    const config = makeConfig({ location: "stockholm", allergens: ["birch"] });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+
+  it("returns array of sensor dicts with correct shape", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(2);
+    for (const sensor of result) {
+      assertSensorShape(sensor);
+    }
+  });
+
+  it("each day object has required properties", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+    const day = result[0].days[0];
+
+    expect(day).toHaveProperty("name");
+    expect(day).toHaveProperty("day");
+    expect(day).toHaveProperty("state");
+    expect(day).toHaveProperty("state_text");
+    expect(typeof day.name).toBe("string");
+    expect(typeof day.day).toBe("string");
+    expect(typeof day.state).toBe("number");
+    expect(typeof day.state_text).toBe("string");
+  });
+
+  it("allergenReplaced is the canonical allergen key", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].allergenReplaced).toBe("birch");
+  });
+
+  it("allergenCapitalized is a non-empty string", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].allergenCapitalized).toBeTruthy();
+    expect(typeof result[0].allergenCapitalized).toBe("string");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: grain count -> level conversion
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: level computation from grain counts", () => {
+  it("converts pollen_birch=30 to level 2 (between thresholds 25 and 50)", async () => {
+    const hass = makeHass("stockholm", { pollen_birch: 30, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].days[0].state).toBe(2);
+    // The raw grains/m3 measurement is kept for numeric_value_raw.
+    expect(result[0].days[0].raw_value).toBe(30);
+  });
+
+  it("converts pollen_alder=5 to level 1 (between thresholds 1 and 10)", async () => {
+    const hass = makeHass("stockholm", { pollen_alder: 5, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["alder"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].days[0].state).toBe(1);
+  });
+
+  it("converts index=2 attribute to level 3 via indexToLevel", async () => {
+    const hass = makeHass("stockholm", { index: 2, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // allergens: ["index"] normalizes to "allergy_risk" internally
+    expect(result[0].days[0].state).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: forecast array (entity.attributes.forecast)
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: daily forecast from entity.attributes.forecast", () => {
+  it("uses forecast items for subsequent days beyond today", async () => {
+    const hass = makeHass("stockholm");
+    // Default weather entity has pollen_birch=30 (current) and
+    // forecast[0].pollen_birch=40, forecast[1].pollen_birch=20
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      days_to_show: 3,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // day0: current value 30 -> level 2
+    expect(result[0].days[0].state).toBe(2);
+    // day1: forecast[0] pollen_birch=40 -> level 2
+    expect(result[0].days[1].state).toBe(2);
+    // day2: forecast[1] pollen_birch=20 -> level 1
+    expect(result[0].days[2].state).toBe(1);
+  });
+
+  it("limits forecast to days_to_show", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result[0].days.length).toBe(2);
+    expect(result[0].days[2]).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: forecastEvent third parameter
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: forecastEvent parameter", () => {
+  it("uses forecastEvent.forecast instead of entity.attributes.forecast", async () => {
+    const hass = makeHass("stockholm", {
+      // entity.attributes.forecast has pollen_birch=40 for day1
+      forecast: [
+        { datetime: "2025-06-16T00:00:00", pollen_birch: 40, index: 3 },
+        { datetime: "2025-06-17T00:00:00", pollen_birch: 20, index: 1 },
+      ],
+    });
+
+    // forecastEvent overrides with different values
+    const forecastEvent = {
+      forecast: [
+        { datetime: "2025-06-16T00:00:00", pollen_birch: 600, index: 4 },
+        { datetime: "2025-06-17T00:00:00", pollen_birch: 1200, index: 4 },
+      ],
+    };
+
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      days_to_show: 3,
+    });
+
+    const result = await fetchForecast(hass, config, forecastEvent as any);
+
+    // day1 comes from forecastEvent.forecast[0]: pollen_birch=600 -> level 5
+    expect(result[0].days[1].state).toBe(5);
+    // day2 comes from forecastEvent.forecast[1]: pollen_birch=1200 -> level 6
+    expect(result[0].days[2].state).toBe(6);
+  });
+
+  it("ignores forecastEvent when forecast array is absent", async () => {
+    const hass = makeHass("stockholm");
+    const forecastEvent = { type: "weather/subscribe_forecast", message_id: 1 };
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    });
+
+    // Should not throw and should fall back to entity.attributes.forecast
+    const result = await fetchForecast(hass, config, forecastEvent as any);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].days.length).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: pollen_threshold filtering
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: pollen_threshold filtering", () => {
+  it("excludes allergens whose max level is below threshold", async () => {
+    // pollen_olive=0 everywhere -> level 0 < threshold 1
+    const hass = makeHass("stockholm", {
+      pollen_birch: 30,
+      pollen_olive: 0,
+      forecast: [
+        { datetime: "2025-06-16T00:00:00", pollen_birch: 40, pollen_olive: 0 },
+      ],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "olive"],
+      pollen_threshold: 1,
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const allergens = result.map((s) => s.allergenReplaced);
+    expect(allergens).toContain("birch");
+    expect(allergens).not.toContain("olive");
+  });
+
+  it("includes all allergens when pollen_threshold is 0", async () => {
+    const hass = makeHass("stockholm", {
+      pollen_birch: 0,
+      pollen_alder: 0,
+      forecast: [],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: sorting
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: sorting", () => {
+  it("sorts by value_descending by default", async () => {
+    // birch=5 (level 1), alder=30 (level 3 with alder thresholds: 25<30<50)
+    const hass = makeHass("stockholm", {
+      pollen_birch: 5,
+      pollen_alder: 30,
+      forecast: [],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder"],
+      pollen_threshold: 0,
+      sort: "value_descending",
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(2);
+    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
+  });
+
+  it("sorts by value_ascending", async () => {
+    const hass = makeHass("stockholm", {
+      pollen_birch: 5,
+      pollen_alder: 30,
+      forecast: [],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder"],
+      pollen_threshold: 0,
+      sort: "value_ascending",
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(2);
+    expect(result[0].days[0].state).toBeLessThanOrEqual(result[1].days[0].state);
+  });
+
+  it("sort: 'none' preserves allergen order", async () => {
+    const hass = makeHass("stockholm", {
+      pollen_birch: 50,
+      pollen_alder: 0,
+      forecast: [],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder"],
+      pollen_threshold: 0,
+      sort: "none",
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(2);
+    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[1].allergenReplaced).toBe("alder");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: index_top pinning
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: index_top pinning", () => {
+  it("moves allergy_risk/index to front when index_top is true", async () => {
+    const hass = makeHass("stockholm", {
+      pollen_birch: 500,
+      pollen_alder: 100,
+      index: 3,
+      forecast: [],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder", "index"],
+      pollen_threshold: 0,
+      sort: "value_descending",
+      index_top: true,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // allergy_risk (index) must appear first regardless of sort order
+    expect(result[0].allergenReplaced).toBe("allergy_risk");
+  });
+
+  it("does not rearrange when index_top is false", async () => {
+    const hass = makeHass("stockholm", {
+      pollen_birch: 500,
+      pollen_alder: 100,
+      index: 3,
+      forecast: [],
+    });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch", "alder", "index"],
+      pollen_threshold: 0,
+      sort: "value_descending",
+      index_top: false,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // With index_top false and value_descending, birch (level 5) or alder (level 5)
+    // should come first, not index
+    expect(result[0].allergenReplaced).not.toBe("allergy_risk");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: hourly / twice_daily mode
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: hourly mode", () => {
+  it("uses only forecast items (no current-entity day) in hourly mode", async () => {
+    const hass = makeHass("stockholm");
+    // Default weather entity has 2 forecast items
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      mode: "hourly",
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // In hourly mode maxItems = min(forecastArr.length, days_to_show) = min(2, 2) = 2
+    expect(result[0].days.length).toBe(2);
+  });
+
+  it("uses datetime from forecast items for day labels in hourly mode", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      mode: "hourly",
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // Hourly label should be a time string (HH:MM format), not a weekday name
+    const label: any = result[0].days[0].day;
+    expect(typeof label).toBe("string");
+    expect(label.length).toBeGreaterThan(0);
+  });
+});
+
+describe("fetchForecast: twice_daily mode", () => {
+  it("sets icon for morning/evening slots", async () => {
+    const hass = makeHass("stockholm");
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+      mode: "twice_daily",
+      days_to_show: 2,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // Even index = morning, odd = evening
+    expect(result[0].days[0].icon).toBe("mdi:weather-sunset-up");
+    expect(result[0].days[1].icon).toBe("mdi:weather-sunset-down");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: manual mode entity resolution
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: manual mode", () => {
+  /**
+   * In manual mode, entity_prefix is used both for sensor resolution and as a
+   * location hint for weather entity discovery. The prefix (minus trailing _)
+   * is matched against discovered location labels.
+   */
+  it("resolves sensor via canonical slug and matches weather entity via prefix", async () => {
+    const weatherEntityId = "weather.custom_forecast";
+    const states = {
+      [weatherEntityId]: {
+        state: "sunny",
+        attributes: {
+          pollen_birch: 30,
+          forecast: [],
+        },
+      },
+      "sensor.custom_birch_end": {
+        state: "30",
+        attributes: {},
+      },
+    };
+    const deviceId = "dev_custom";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+      },
+    };
+    const devices = {
+      [deviceId]: {
+        name: "Custom Location",
+        config_entries: ["entry_custom"],
+      },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+    const config = makeConfig({
+      location: "manual",
+      allergens: ["birch"],
+      entity_prefix: "custom_",
+      entity_suffix: "_end",
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.custom_birch_end");
+  });
+
+  it("falls back to localized slug when canonical slug has no match", async () => {
+    const weatherEntityId = "weather.custom_forecast";
+    const states = {
+      [weatherEntityId]: {
+        state: "sunny",
+        attributes: {
+          pollen_birch: 30,
+          forecast: [],
+        },
+      },
+      // Only the Dutch slug "berk" exists, not the canonical "birch"
+      "sensor.custom_berk_end": {
+        state: "30",
+        attributes: {},
+      },
+    };
+    const deviceId = "dev_custom";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+      },
+    };
+    const devices = {
+      [deviceId]: {
+        name: "Custom Location",
+        config_entries: ["entry_custom"],
+      },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+    const config = makeConfig({
+      location: "manual",
+      allergens: ["birch"],
+      entity_prefix: "custom_",
+      entity_suffix: "_end",
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.custom_berk_end");
+  });
+
+  describe("entity_weather override (#231)", () => {
+    /**
+     * Manual mode users who can't get the prefix-based discovery hint to
+     * find the right weather entity (multiple SILAM instances, renamed
+     * entities, etc.) can name the weather entity explicitly via
+     * config.entity_weather. It bypasses discovery for the weather entity
+     * but keeps per-allergen prefix resolution.
+     */
+    it("uses entity_weather as the weather entity when set", async () => {
+      const states = {
+        "weather.custom_alt_name": {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.custom_birch": { state: "30", attributes: {} },
+      };
+      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "custom_",
+        entity_weather: "weather.custom_alt_name",
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0].days[0].state).toBe(2); // birch=30 -> level 2
+    });
+
+    it("returns [] with a clear warning when entity_weather points at a missing entity", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const hass = createHass(
+          { "sensor.custom_birch": { state: "30", attributes: {} } },
+          { entities: {}, devices: {} },
+        );
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          entity_weather: "weather.nonexistent",
+          pollen_threshold: 0,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result).toEqual([]);
+        // The warning is the visible signal to the user (in console), so
+        // verify it explicitly references the missing entity ID.
+        expect(warnSpy).toHaveBeenCalled();
+        const msgs = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).toContain("weather.nonexistent");
+        expect(msgs).toContain("not found");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("falls back to prefix-based discovery when entity_weather is unset (existing behavior)", async () => {
+      // Same setup as the canonical-slug test above: no entity_weather, so
+      // discovery via entity_prefix should still find weather.custom_forecast.
+      const weatherEntityId = "weather.custom_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.custom_birch": { state: "30", attributes: {} },
+      };
+      const deviceId = "dev_custom";
+      const entities = {
+        [weatherEntityId]: {
+          entity_id: weatherEntityId,
+          platform: "silam_pollen",
+          device_id: deviceId,
+          entity_category: null,
+        },
+      };
+      const devices = {
+        [deviceId]: { name: "Custom Location", config_entries: ["entry_custom"] },
+      };
+      const hass = createHass(states, { entities, devices, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "custom_",
+        // entity_weather intentionally unset
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0].entity_id).toBe("sensor.custom_birch");
+    });
+
+    it("warns when manual mode has neither entity_weather nor a discoverable weather entity", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const hass = createHass(
+          { "sensor.custom_birch": { state: "30", attributes: {} } },
+          { entities: {}, devices: {} },
+        );
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          pollen_threshold: 0,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result).toEqual([]);
+        const msgs = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        // The improved message should mention the entity_weather option.
+        expect(msgs).toContain("entity_weather");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("ignores entity_weather in non-manual mode (discovery wins)", async () => {
+      const weatherEntityId = "weather.custom_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.silam_pollen_custom_birch": { state: "30", attributes: {} },
+      };
+      const deviceId = "dev_custom";
+      const entities = {
+        [weatherEntityId]: {
+          entity_id: weatherEntityId,
+          platform: "silam_pollen",
+          device_id: deviceId,
+          entity_category: null,
+        },
+      };
+      const devices = {
+        [deviceId]: { name: "custom", config_entries: ["entry_custom"] },
+      };
+      const hass = createHass(states, { entities, devices, language: "en" });
+      const config = makeConfig({
+        location: "custom",
+        allergens: ["birch"],
+        // entity_weather is set but should be ignored since location != manual
+        entity_weather: "weather.this_should_be_ignored",
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      // Discovery finds weather.custom_forecast; entity_weather override
+      // doesn't apply outside manual mode. Result may include an auto-
+      // added allergy_risk row (SILAM's empty-discovery fallback), so
+      // verify birch is present rather than asserting an exact count.
+      const allergens = result.map((s) => s.allergenReplaced);
+      expect(allergens).toContain("birch");
+    });
+
+    it("skips weather-entity discovery when entity_weather is set (perf)", async () => {
+      // When manual mode is fully self-sufficient (entity_weather + sensors
+      // resolvable via entity_prefix), discoverSilamSensors() is wasted work
+      // on every refresh. The optimization has no behavioral side effect --
+      // the output is identical whether discovery ran or was skipped -- so a
+      // behavioral assertion can't distinguish the two paths. Mocking the
+      // imported util via vi.mock requires module hoisting that would
+      // affect every other test in this file. The "Discovery took" debug
+      // log is the only visible signal; if its wording ever changes, this
+      // assertion and the paired "still runs discovery" assertion below
+      // both fail in lockstep, which makes the brittleness explicit and
+      // contained rather than silent.
+      const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+      try {
+        const states = {
+          "weather.custom_alt_name": {
+            state: "sunny",
+            attributes: { pollen_birch: 30, forecast: [] },
+          },
+          "sensor.custom_birch": { state: "30", attributes: {} },
+        };
+        const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          entity_weather: "weather.custom_alt_name",
+          pollen_threshold: 0,
+          days_to_show: 1,
+          debug: true,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result.length).toBe(1);
+        const msgs = debugSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).not.toContain("Discovery took");
+      } finally {
+        debugSpy.mockRestore();
+      }
+    });
+
+    it("treats non-string entity_weather as unset (no crash, falls back to discovery)", async () => {
+      // YAML can surface entity_weather as a number/array/object on
+      // misconfiguration. The code uses it both as a truthy flag (for the
+      // skipDiscovery branch) AND as a string (.startsWith), so an unguarded
+      // non-string value would crash SILAM rendering. Verify graceful
+      // fallback to discovery instead.
+      const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.silam_pollen_stockholm_birch": { state: "30", attributes: {} },
+      };
+      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "silam_pollen_stockholm_",
+        // Pathological YAML value; previously would crash on .startsWith
+        entity_weather: 123,
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      // Must not throw
+      const result = await fetchForecast(hass, config);
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it("returns [] with a clear warning when entity_weather is not a weather.* entity", async () => {
+      // entity_weather must point at the weather.* domain because the
+      // forecast subscription only works against weather entities. A
+      // sensor.* id would silently succeed past hass.states existence check
+      // and fail later in the subscription, producing a misleading
+      // "location not found" error. Validate up-front instead.
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const hass = createHass(
+          {
+            "sensor.custom_alt_name": { state: "30", attributes: {} },
+            "sensor.custom_birch": { state: "30", attributes: {} },
+          },
+          { entities: {}, devices: {} },
+        );
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          entity_weather: "sensor.custom_alt_name",
+          pollen_threshold: 0,
+        });
+
+        const result = await fetchForecast(hass, config);
+
+        expect(result).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
+        const msgs = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).toContain("sensor.custom_alt_name");
+        expect(msgs).toContain("weather.*");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("strips leading 'silam_pollen_' from entity_prefix when deriving the weather-discovery hint", async () => {
+      // Users with default SILAM naming (sensor.silam_pollen_<loc>_<allergen>)
+      // naturally type entity_prefix="silam_pollen_<loc>_". Without stripping
+      // the doubled prefix, findSilamWeatherEntity builds
+      // weather.silam_pollen_silam_pollen_<loc>_<suffix> and finds nothing,
+      // even though weather.silam_pollen_<loc>_forecast exists. Verify the
+      // strip happens by ensuring data is rendered with full default-naming.
+      const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+      const states = {
+        [weatherEntityId]: {
+          state: "sunny",
+          attributes: { pollen_birch: 30, forecast: [] },
+        },
+        "sensor.silam_pollen_stockholm_birch": {
+          state: "30",
+          attributes: {},
+        },
+      };
+      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const config = makeConfig({
+        location: "manual",
+        allergens: ["birch"],
+        entity_prefix: "silam_pollen_stockholm_",
+        pollen_threshold: 0,
+        days_to_show: 1,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0].days[0].state).toBe(2);
+    });
+
+    it("still runs discovery when manual mode lacks entity_weather", async () => {
+      // Without entity_weather, weather-entity discovery is the only way to
+      // find the forecast source, so the skip path must NOT trigger.
+      const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+      try {
+        const states = {
+          "weather.silam_pollen_custom_forecast": {
+            state: "sunny",
+            attributes: { pollen_birch: 30, forecast: [] },
+          },
+          "sensor.custom_birch": { state: "30", attributes: {} },
+        };
+        const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+        const config = makeConfig({
+          location: "manual",
+          allergens: ["birch"],
+          entity_prefix: "custom_",
+          // entity_weather intentionally unset
+          pollen_threshold: 0,
+          days_to_show: 1,
+          debug: true,
+        });
+
+        await fetchForecast(hass, config);
+
+        const msgs = debugSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(msgs).toContain("Discovery took");
+      } finally {
+        debugSpy.mockRestore();
+      }
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: index allergen via 'index' config key
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: 'index' allergen alias", () => {
+  it("normalizes 'index' in config to 'allergy_risk' internally", async () => {
+    const hass = makeHass("stockholm", { index: 2, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].allergenReplaced).toBe("allergy_risk");
+  });
+
+  it("uses pollen_index attribute as fallback when index is absent", async () => {
+    const hass = makeHass("stockholm", {
+      pollen_index: 3,
+      forecast: [],
+    });
+    // Explicitly remove the 'index' attribute from the weather entity
+    const weatherEntity =
+      hass.states["weather.silam_pollen_stockholm_forecast"];
+    delete weatherEntity.attributes.index;
+
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    // index=3 via indexToLevel(3) -> scale[3] = 5
+    expect(result[0].days[0].state).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchForecast: unavailable / missing entity scenarios
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: unavailable entity scenarios", () => {
+  it("returns empty array when weather entity exists but is unavailable", async () => {
+    const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+    const states = {
+      [weatherEntityId]: {
+        state: "unavailable",
+        attributes: {},
+      },
+    };
+    const hass = createHass(states, { entities: {}, language: "en" });
+    const config = makeConfig({ location: "stockholm", allergens: ["birch"] });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+
+  it("returns empty array when no SILAM entities exist at all", async () => {
+    const hass = createHass({}, { entities: {}, language: "en" });
+    const config = makeConfig({ location: "stockholm", allergens: ["birch"] });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveEntityIds: precomputed discovery
+// ---------------------------------------------------------------------------
+
+describe("resolveEntityIds", () => {
+  it("accepts precomputed discovery to avoid redundant calls", async () => {
+    const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+    const sensorId = "sensor.silam_pollen_stockholm_birch";
+    const states = {
+      [weatherEntityId]: { state: "sunny", attributes: {} },
+      [sensorId]: { state: "30", attributes: {} },
+    };
+    const deviceId = "dev_sthlm";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "forecast",
+      },
+      [sensorId]: {
+        entity_id: sensorId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "birch",
+      },
+    };
+    const devices = {
+      [deviceId]: { name: "Stockholm", config_entries: ["entry_sthlm"] },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+
+    // Build discovery once
+    const { discoverSilamSensors } = await import("../../src/utils/silam.js");
+    const discovery = discoverSilamSensors(hass);
+
+    // Pass precomputed discovery
+    const cfg = makeConfig({ location: "stockholm", allergens: ["birch"] });
+    const result = resolveEntityIds(cfg, hass, false, discovery);
+
+    expect(result.get("birch")).toBe(sensorId);
+  });
+
+  it("recovers when location is a stale config_entry_id", () => {
+    // 26-char Crockford-base32 ULIDs — isConfigEntryId() detects this format.
+    const realEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ01";
+    const staleEntryId = "01ZZZZZZZZZZZZZZZZZZZZZZZZ";
+    const weatherEntityId = "weather.silam_pollen_stockholm_forecast";
+    const sensorId = "sensor.silam_pollen_stockholm_birch";
+    const states = {
+      [weatherEntityId]: { state: "sunny", attributes: {} },
+      [sensorId]: { state: "30", attributes: {} },
+    };
+    const deviceId = "dev_sthlm";
+    const entities = {
+      [weatherEntityId]: {
+        entity_id: weatherEntityId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "forecast",
+      },
+      [sensorId]: {
+        entity_id: sensorId,
+        platform: "silam_pollen",
+        device_id: deviceId,
+        entity_category: null,
+        translation_key: "birch",
+      },
+    };
+    const devices = {
+      [deviceId]: { name: "Stockholm", config_entries: [realEntryId] },
+    };
+    const hass = createHass(states, { entities, devices, language: "en" });
+
+    // Saved config_entry_id no longer matches (integration removed/reinstalled).
+    // Adapter should fall back to first discovered location instead of returning empty.
+    const cfg = makeConfig({ location: staleEntryId, allergens: ["birch"] });
+    const result = resolveEntityIds(cfg, hass);
+
+    expect(result.get("birch")).toBe(sensorId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// silam_allergen_map.json: data integrity
+// ---------------------------------------------------------------------------
+
+describe("silam_allergen_map.json integrity", () => {
+  it("has no empty keys in any mapping", () => {
+    for (const [lang, mapping] of Object.entries(silamAllergenMap.mapping)) {
+      for (const key of Object.keys(mapping)) {
+        expect(key, `empty key in mapping.${lang}`).not.toBe("");
+      }
+    }
+  });
+
+  it("has no empty values in any mapping", () => {
+    for (const [lang, mapping] of Object.entries(silamAllergenMap.mapping)) {
+      for (const [key, value] of Object.entries(mapping)) {
+        expect(value, `empty value for mapping.${lang}.${key}`).not.toBe("");
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Summary block: isSummary tag + threshold bypass (#222)
+// ---------------------------------------------------------------------------
+
+describe("fetchForecast: summary block (#222)", () => {
+  it("tags the index/allergy_risk aggregate with isSummary: true", async () => {
+    const hass = makeHass("stockholm", { index: 2, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index", "birch"],
+      pollen_threshold: 0,
+      days_to_show: 1,
+    });
+    const result = await fetchForecast(hass, config);
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
+    expect(ar).toBeDefined();
+    expect(ar.isSummary).toBe(true);
+    const birch = result.find((s) => s.allergenReplaced === "birch")!;
+    expect(birch.isSummary).toBeUndefined();
+  });
+
+  it("retains the aggregate below threshold when show_summary_block is on", async () => {
+    const hass = makeHass("stockholm", { index: 1, forecast: [] });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index"],
+      pollen_threshold: 3, // level 1 < 3
+      days_to_show: 1,
+      show_summary_block: true,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+  });
+
+  it("still drops the below-threshold aggregate when the block is off", async () => {
+    const hass = makeHass("stockholm", { index: 1, forecast: [], pollen_birch: 500 });
+    const config = makeConfig({
+      location: "stockholm",
+      allergens: ["index", "birch"], // birch keeps the result non-empty
+      pollen_threshold: 3,
+      days_to_show: 1,
+      show_summary_block: false,
+    });
+    const result = await fetchForecast(hass, config);
+    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+  });
+});
+
+describe("getAllergenNames: phrase overrides (issue #253)", () => {
+  it("applies an exact SILAM-keyed phrase override", () => {
+    const { allergenCapitalized } = getAllergenNames(
+      "grass",
+      { grass: "MY GRASS" },
+      {},
+      "en",
+    );
+    expect(allergenCapitalized).toBe("MY GRASS");
+  });
+
+  it("carries a PP-keyed override (Gräs) to SILAM grass via canonical key", () => {
+    // Core #253 case for SILAM: an override keyed by PollenPrognos's "Gräs"
+    // must apply when SILAM names the same allergen "grass".
+    const { allergenCapitalized, allergenShort } = getAllergenNames(
+      "grass",
+      { "Gräs": "MITT GRÄS!" },
+      { "Gräs": "G!" },
+      "en",
+    );
+    expect(allergenCapitalized).toBe("MITT GRÄS!");
+    expect(allergenShort).toBe("G!");
+  });
+
+  it("a cleared exact key opts out and falls back to the SILAM name map", () => {
+    const expected = silamAllergenMap.names?.grass?.en;
+    const { allergenCapitalized } = getAllergenNames(
+      "grass",
+      { "Gräs": "OLD", grass: "" },
+      {},
+      "en",
+    );
+    expect(allergenCapitalized).not.toBe("OLD");
+    if (expected) expect(allergenCapitalized).toBe(expected);
+  });
+
+  it("no override: uses the SILAM localized name map", () => {
+    const expected = silamAllergenMap.names?.grass?.en;
+    const { allergenCapitalized } = getAllergenNames("grass", {}, {}, "en");
+    if (expected) expect(allergenCapitalized).toBe(expected);
+  });
+});
