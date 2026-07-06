@@ -1,13 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-// Tests run in the project's default node env (no jsdom). The canvas helpers
-// are guarded with `typeof document === "undefined" -> null` for exactly this
-// reason; we assert the SSR/test fallback here, and rely on the headless
-// browser smoke test for the real-canvas path.
 import {
   buildNoiseSvgUri,
-  buildNoiseTileCanvas,
-  buildNoiseCanvasPattern,
   hashStringSeed,
 } from "../../src/utils/no-data-pattern.js";
 
@@ -64,32 +58,6 @@ describe("no-data-pattern", () => {
       const countSparse = (sparse.match(/circle/g) || []).length;
       const countDense = (dense.match(/circle/g) || []).length;
       expect(countDense).toBeGreaterThan(countSparse);
-    });
-  });
-
-  describe("buildNoiseTileCanvas", () => {
-    it("returns null when document is unavailable (server-side / node test env)", () => {
-      // Asserts the SSR guard (typeof document === "undefined" -> null) so the
-      // chart renderer's fall-through to emptyColor is exercised in tests too.
-      expect(buildNoiseTileCanvas("#888")).toBeNull();
-    });
-  });
-
-  describe("buildNoiseCanvasPattern", () => {
-    it("returns null when given a null context", () => {
-      expect(buildNoiseCanvasPattern(null)).toBeNull();
-    });
-
-    it("returns null when given a context-shaped object missing createPattern", () => {
-      expect(buildNoiseCanvasPattern({})).toBeNull();
-    });
-
-    it("returns null when document is unavailable, even with a valid-shaped context", () => {
-      // The guard order is: createPattern check -> tile build (which needs
-      // document). Pass a stub ctx with createPattern so we reach the tile
-      // step and exercise its SSR-null branch.
-      const stubCtx = { createPattern: () => "should not get here" };
-      expect(buildNoiseCanvasPattern(stubCtx, "#888")).toBeNull();
     });
   });
 

@@ -46,7 +46,7 @@ import so2Svg from "./images/so2.svg?raw";
 import airQualitySvg from "./images/air_quality.svg?raw";
 
 // Export SVG map - all SVGs are available immediately, no async loading needed
-export const svgs = {
+export const svgs: Record<string, string> = {
   alder: alderSvg,
   allergy_risk: allergyRiskSvg,
   allergy_risk_1: allergyRisk1Svg,
@@ -92,10 +92,10 @@ export const svgs = {
 
 /**
  * Get SVG content for a given key
- * @param {string} key - The allergen key
- * @returns {string|null} SVG content or null if not found
+ * @param key - The allergen key
+ * @returns SVG content or null if not found
  */
-export function getSvgContent(key) {
+export function getSvgContent(key: unknown): string | null {
   if (!key || typeof key !== 'string') {
     return null;
   }

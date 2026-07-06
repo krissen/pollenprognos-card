@@ -2,15 +2,15 @@
 //
 // Noise-pattern generator for the "no data" visual treatment (level === -1).
 // Two output forms are provided so distinct textures can be applied to the
-// allergen icon (CSS mask + background) and the level circle ring
-// (Chart.js doughnut via CanvasPattern):
+// allergen icon (CSS mask + background) and the level circle ring (SVG
+// `<pattern>`):
 //
 //   - Icon background: tile of small round dots. The CSS rule layers this on
 //     top of a solid translucent fill so the icon silhouette stays readable
-//     even when the doughnut ring behind it is heavily textured.
-//   - Ring (doughnut): mixed 1-2px pixels with a sparse short-stroke
-//     "scratches" pass. Per-circle seed lets adjacent circles look different,
-//     avoiding visible identical clumps.
+//     even when the ring behind it is heavily textured.
+//   - Ring: mixed 1-2px pixels with a sparse short-stroke "scratches" pass,
+//     emitted as an SVG `<pattern>`. Per-circle seed lets adjacent circles
+//     look different, avoiding visible identical clumps.
 
 const ICON_DOT_DENSITY = 0.5;
 const ICON_DOT_TILE = 12;
@@ -86,81 +86,11 @@ export function buildNoiseSvgUri(
 }
 
 /**
- * Draw the ring noise tile (pixel-static + sparse scratches) into an
- * offscreen canvas. Returns null when there's no `document` (Node test env);
- * production callers must fall back to an emptyColor fill in that case.
- */
-export function buildNoiseTileCanvas(
-  color = "#888888",
-  opts: {
-    tile?: number;
-    seed?: number;
-    pixDensity?: number;
-    scratchDensity?: number;
-    maxPx?: number;
-  } = {},
-): HTMLCanvasElement | null {
-  if (typeof document === "undefined") return null;
-  const tile = opts.tile ?? RING_TILE;
-  const seed = opts.seed ?? DEFAULT_SEED;
-  const pixDensity = opts.pixDensity ?? RING_PIX_DENSITY;
-  const scratchFactor = opts.scratchDensity ?? RING_SCRATCH_DENSITY_FACTOR;
-  const maxPx = opts.maxPx ?? RING_MAX_PIX_SIZE;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = tile;
-  canvas.height = tile;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  const rng = mulberry32(seed);
-
-  // Layer 1: pixel static. Mostly 1px squares, ~15% 2px. The bigger squares
-  // get dimmer so they don't visually clump.
-  ctx.fillStyle = color;
-  const pixArea = tile * tile;
-  const pixCount = Math.round(pixArea * pixDensity);
-  for (let i = 0; i < pixCount; i++) {
-    const x = Math.floor(rng() * tile);
-    const y = Math.floor(rng() * tile);
-    const r = rng();
-    let dotSz;
-    if (maxPx === 2) dotSz = r < 0.85 ? 1 : 2;
-    else dotSz = r < 0.7 ? 1 : r < 0.96 ? 2 : 3;
-    const opBase = 0.35 + rng() * 0.55;
-    ctx.globalAlpha = dotSz === 1 ? opBase : opBase * 0.6;
-    ctx.fillRect(x, y, dotSz, dotSz);
-  }
-
-  // Layer 2: sparse short scratches. Thin, dim, short — directional accent
-  // without competing with the pixel field.
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 0.6;
-  ctx.lineCap = "round";
-  const scratchCount = Math.round(pixArea * 0.06 * scratchFactor);
-  for (let i = 0; i < scratchCount; i++) {
-    const x = rng() * tile;
-    const y = rng() * tile;
-    const angle = rng() * Math.PI;
-    const len = 1.5 + rng() * 2.5;
-    ctx.globalAlpha = 0.25 + rng() * 0.35;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-    ctx.stroke();
-  }
-
-  ctx.globalAlpha = 1;
-  return canvas;
-}
-
-/**
  * Build the inner markup of an SVG `<pattern>` reproducing the ring noise tile
- * (pixel static + sparse scratches) as vector shapes instead of a canvas tile.
- * Mirrors buildNoiseTileCanvas element-for-element and consumes the seeded RNG
- * in the same order, so a given seed yields the same visual density. Returns a
+ * (pixel static + sparse scratches) as vector shapes. Consumes the seeded RNG
+ * in a fixed order, so a given seed yields the same visual density. Returns a
  * full `<pattern id="...">...</pattern>` string ready to drop into an SVG
- * `<defs>`; pure string building, so it works in headless/Node contexts where
- * the canvas variant returns null.
+ * `<defs>`; pure string building, so it works in headless/Node contexts.
  *
  * @param id      DOM id for the pattern (referenced via url(#id))
  * @param color   dot/scratch color
@@ -188,7 +118,7 @@ export function buildRingNoiseSvgPattern(
   let body = "";
 
   // Layer 1: pixel static. Mostly 1px squares, ~15% 2px; the bigger squares
-  // get dimmer so they don't visually clump. (Mirror of buildNoiseTileCanvas.)
+  // get dimmer so they don't visually clump.
   const pixCount = Math.round(pixArea * pixDensity);
   for (let i = 0; i < pixCount; i++) {
     const x = Math.floor(rng() * tile);
@@ -225,28 +155,6 @@ export function buildRingNoiseSvgPattern(
     `<pattern id="${escapeXmlAttr(id)}" patternUnits="userSpaceOnUse" ` +
     `width="${tile}" height="${tile}">${body}</pattern>`
   );
-}
-
-/**
- * Build a Chart.js-compatible CanvasPattern for the ring. Pass the
- * destination chart's 2D context so the pattern is allocated in the right
- * rendering context.
- */
-export function buildNoiseCanvasPattern(
-  ctx: CanvasRenderingContext2D | null,
-  color = "#888888",
-  opts: {
-    tile?: number;
-    seed?: number;
-    pixDensity?: number;
-    scratchDensity?: number;
-    maxPx?: number;
-  } = {},
-): CanvasPattern | null {
-  if (!ctx || typeof ctx.createPattern !== "function") return null;
-  const tile = buildNoiseTileCanvas(color, opts);
-  if (!tile) return null;
-  return ctx.createPattern(tile, "repeat");
 }
 
 /**
