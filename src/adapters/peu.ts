@@ -538,7 +538,7 @@ function buildPeuDict({
     parseDate,
   );
 
-  forecastDates.forEach((dateStr, idx) => {
+  forecastDates.forEach((dateStr) => {
     const raw = forecastMap[dateStr] || {};
     // Normalized level is always used for rendering and sorting.
     const level = testVal(raw.level);

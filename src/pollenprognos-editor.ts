@@ -31,10 +31,7 @@ import { GPL_BASE_ALLERGENS, discoverGplSensors, discoverGplAllergens } from "./
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import { discoverMswSensors } from "./adapters/msw.js";
 import { discoverIrmkmiSensors } from "./adapters/irmkmi.js";
-import {
-  discoverSilamSensors,
-  resolveDiscoveredLocation,
-} from "./utils/silam.js";
+import { discoverSilamSensors } from "./utils/silam.js";
 import {
   findLocationBySlug,
   type DeviceDiscovery,
@@ -1450,8 +1447,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // Compute locals needed by the inline sections (§3, §4, §7, §8, §9, §10, §11).
     // Sections §1, §2, §5 are rendered via inherited base methods.
     const c = this._editorConfig();
-    const allergens = this._currentAllergens();
-    const numLevels = this._currentNumLevels();
 
     if (this.debug) {
       console.debug("[Editor] Current language (lang):", this._lang);

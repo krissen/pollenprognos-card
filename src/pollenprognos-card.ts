@@ -3,7 +3,6 @@ import { LitElement, html, css } from "lit";
 import type { TemplateResult, PropertyValues } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { slugify } from "./utils/slugify.js";
-import { getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
@@ -711,12 +710,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const detection = detectIntegrationStates(hass, {
       debug: this.debug,
     });
-    // peuStates + the discovery objects/getters below are consumed by the
-    // header label-resolution block further down; the per-integration state
-    // lists used only for the pick/location are handled inside the shared
-    // module, so they are not destructured here.
+    // The discovery objects/getters below are consumed by the header
+    // label-resolution block further down; the per-integration state lists
+    // used only for the pick/location are handled inside the shared module,
+    // so they are not destructured here.
     const {
-      states: { peu: peuStates },
       discovery: {
         silam: silamDiscovery,
         atmo: atmoDiscovery,
@@ -1401,9 +1399,6 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   }
 
   _renderNoAllergensHtml() {
-    const imgSize =
-      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
-
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">

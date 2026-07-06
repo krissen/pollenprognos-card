@@ -13,7 +13,7 @@ function getVersion() {
       .trim();
     // Remove leading 'v' and any suffix like '-beta1'
     return tag.replace(/^v/, "").replace(/-.*/, "");
-  } catch (e) {
+  } catch {
     // No tag found; keep existing version
     return null;
   }
