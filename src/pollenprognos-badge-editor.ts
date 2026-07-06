@@ -23,11 +23,7 @@ import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./
 import type { HomeAssistant } from "./types/home-assistant.js";
 import type { CardConfig, RawCardConfig } from "./types/config.js";
 import type { InstalledLocation } from "./editor/types.js";
-
-// The autodetect module (src/utils/autodetect.js) is still untyped JS; its
-// return shape (memoized discovery getters, state buckets) is typed properly in
-// a later PR. Until then the detection object crosses this boundary as `any`.
-type DetectionResult = any;
+import type { DetectionResult } from "./utils/autodetect.js";
 
 class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //

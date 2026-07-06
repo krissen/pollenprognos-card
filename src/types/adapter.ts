@@ -60,7 +60,7 @@ export interface AutodetectDiscovery {
   locations: Map<
     string,
     {
-      label?: string;
+      label: string;
       entities?: Map<string, string>;
       sensors?: Map<string, string>;
       weatherEntity?: string;

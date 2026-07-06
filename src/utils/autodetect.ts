@@ -41,10 +41,12 @@ export type LocationResult = { key: string; value: unknown } | null;
 export interface DetectionResult {
   stateIds: string[];
   states: Record<string, string[]>;
+  // silam/atmo/gp run their discovery eagerly during detection (their
+  // descriptors always return it), so these are always present.
   discovery: {
-    silam?: AutodetectDiscovery;
-    atmo?: AutodetectDiscovery;
-    gp?: AutodetectDiscovery;
+    silam: AutodetectDiscovery;
+    atmo: AutodetectDiscovery;
+    gp: AutodetectDiscovery;
   };
   getPpDiscovery: () => AutodetectDiscovery;
   getDwdDiscovery: () => AutodetectDiscovery;
@@ -128,10 +130,12 @@ export function detectIntegrationStates(
   }
 
   // Preserve the { silam, atmo, gp } discovery shape consumers read directly.
+  // These descriptors always run discovery eagerly, so the entries are present.
+  const emptyDiscovery: AutodetectDiscovery = { locations: new Map() };
   const discovery: DetectionResult["discovery"] = {
-    silam: eagerDiscovery.silam,
-    atmo: eagerDiscovery.atmo,
-    gp: eagerDiscovery.gp,
+    silam: eagerDiscovery.silam ?? emptyDiscovery,
+    atmo: eagerDiscovery.atmo ?? emptyDiscovery,
+    gp: eagerDiscovery.gp ?? emptyDiscovery,
   };
 
   // Lazy/memoized discoveries for adapters whose header label / location
