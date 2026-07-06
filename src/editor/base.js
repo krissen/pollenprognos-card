@@ -37,7 +37,6 @@
 
 import { LitElement, html } from "lit";
 import { t, detectLang } from "../i18n.js";
-import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import {
   LEVELS_DEFAULTS,
@@ -102,7 +101,7 @@ import { renderAppearanceSection } from "./sections/appearance.js";
 import { renderAllergenIconsSection } from "./sections/allergen-icons.js";
 import { renderLevelCirclesSection } from "./sections/level-circles.js";
 import { renderIconInRingSection } from "./sections/icon-in-ring.js";
-import { renderPhrasesSection } from "./sections/phrases.js";
+import { renderPhrasesSection, resetPhrases } from "./sections/phrases.js";
 import { renderAdvancedSection } from "./sections/advanced.js";
 import { renderInteractionSection } from "./sections/interactions.js";
 import {
@@ -532,60 +531,8 @@ export class PollenEditorBase extends LitElement {
     return true;
   }
 
-  /**
-   * Seed config.phrases with the localized default names for the chosen
-   * language (the "Apply translations" action), and set date_locale to it.
-   * Shared by the card and badge editors. Uses _currentAllergens() so the
-   * GPL/GP installed plants are included via the editor's discovered list.
-   */
   _resetPhrases(lang) {
-    if (this.debug) console.debug("[Editor] resetPhrases - lang:", lang);
-    this._updateConfig("date_locale", lang);
-
-    const integration = this._config?.integration;
-    const rawKeys = this._currentAllergens();
-
-    const full = {};
-    const short = {};
-    rawKeys.forEach((raw) => {
-      const normKey = normalize(raw);
-      const canonKey = toCanonicalAllergenKey(normKey);
-      // SILAM's aggregate uses the user-facing 'index' name, not 'allergy_risk'.
-      const transKey = normKey === "index" ? "index" : canonKey;
-      // Use the shared resolver so a missing editor phrase falls back to the
-      // card allergen name / capitalized term instead of storing the raw i18n
-      // key as the phrase default (issue #262 follow-up: `graminales`).
-      full[raw] = this._resolveAllergenPhrase(transKey, raw, { lang });
-      short[raw] = this._resolveAllergenPhrase(transKey, raw, { short: true, lang });
-    });
-
-    const numLevels = this._currentNumLevels();
-    // 5-level integrations (MSW, PEU, Kleenex) use the scale-specific severity
-    // labels rather than the first five of the 7-level palette.
-    const levelKeyPrefix =
-      integration === "msw" ||
-      integration === "irmkmi" ||
-      integration === "peu" ||
-      integration === "kleenex"
-        ? "editor.phrases_levels5"
-        : "editor.phrases_levels";
-    const levels = Array.from({ length: numLevels }, (_, i) =>
-      t(`${levelKeyPrefix}.${i}`, lang),
-    );
-
-    const days = {
-      0: t(`editor.phrases_days.0`, lang),
-      1: t(`editor.phrases_days.1`, lang),
-      2: t(`editor.phrases_days.2`, lang),
-    };
-
-    this._updateConfig("phrases", {
-      full,
-      short,
-      levels,
-      days,
-      no_information: t("editor.no_information", lang),
-    });
+    return resetPhrases(this, lang);
   }
 
   /**
