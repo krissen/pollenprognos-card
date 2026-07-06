@@ -1,6 +1,12 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+  AutodetectDiscovery,
+} from "../types/adapter.js";
 import { normalize } from "../utils/normalize.js";
 import {
   findSilamWeatherEntity,
@@ -688,3 +694,46 @@ export async function fetchForecast(
     );
   return sensors;
 }
+
+/**
+ * Autodetect descriptor. Detection is discovery-primary (device/registry via
+ * discoverSilamSensors) with a `sensor.silam_pollen_` prefix fallback. A
+ * weather-only install (no allergen sensors) still counts as evidence via the
+ * location's weatherEntity. The eagerly-computed discovery is returned so
+ * autoSelectLocation reuses it. `extractLocationSlug` is the regex fallback used
+ * when discovery yields no location.
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 4,
+  detectStates(
+    hass: HomeAssistant,
+    ctx: AutodetectContext,
+    debug = false,
+  ): AutodetectDetectResult {
+    const discovery = discoverSilamSensors(hass, debug) as AutodetectDiscovery;
+    const ids: string[] = [];
+    if (discovery.locations.size > 0) {
+      for (const [, loc] of discovery.locations) {
+        if (loc.sensors) {
+          for (const eid of loc.sensors.values()) ids.push(eid);
+        }
+        // A SILAM install can enable only the weather entity (no allergen
+        // sensors) and still expose the allergy_risk index; count the weather
+        // entity as evidence so weather-only installs are detected too.
+        if (loc.weatherEntity) ids.push(loc.weatherEntity);
+      }
+    }
+    if (!ids.length) {
+      for (const id of ctx.stateIds) {
+        if (typeof id === "string" && id.startsWith("sensor.silam_pollen_")) {
+          ids.push(id);
+        }
+      }
+    }
+    return { ids, discovery };
+  },
+  discover: (hass, debug) =>
+    discoverSilamSensors(hass, debug) as AutodetectDiscovery,
+  extractLocationSlug: (entityId: string) =>
+    entityId.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/)?.[1] || null,
+};

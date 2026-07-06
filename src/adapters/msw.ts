@@ -24,6 +24,12 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+  AutodetectDiscovery,
+} from "../types/adapter.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import {
@@ -332,3 +338,44 @@ export async function fetchForecast(
   if (debug) console.debug("MSW adapter complete sensors:", sensors);
   return sensors;
 }
+
+/**
+ * Autodetect descriptor. MSW entity ids follow
+ * sensor.<device-slug>_pollen_<allergen>_level_at_<station>; the device-slug
+ * prefix is added by HA and varies per install. Detection uses the
+ * `swissweather` platform in hass.entities (primary) with a regex fallback for
+ * older registries. Discovery is lazy (used only by autoSelectLocation).
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 9,
+  detectStates(
+    hass: HomeAssistant,
+    ctx: AutodetectContext,
+  ): AutodetectDetectResult {
+    const mswLevelRe =
+      /(?:^|_)pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+    let ids: string[] = [];
+    if (hass && hass.entities) {
+      ids = Object.entries(hass.entities)
+        .filter(
+          ([eid, entry]) =>
+            (entry as { platform?: string }).platform === "swissweather" &&
+            !(entry as { entity_category?: string }).entity_category &&
+            mswLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!ids.length) {
+      ids = ctx.stateIds.filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(
+            id,
+          ),
+      );
+    }
+    return { ids };
+  },
+  discover: (hass, debug) =>
+    discoverMswSensors(hass, debug) as AutodetectDiscovery,
+};

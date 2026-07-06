@@ -1,6 +1,11 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+} from "../types/adapter.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
@@ -415,3 +420,39 @@ export async function fetchForecast(
     },
   });
 }
+
+/**
+ * Autodetect descriptor. Detection matches `sensor.pollen_<allergen>[_<city>]`
+ * while excluding DWD (`sensor.pollenflug_`) and MSW (`_level_at_`) shapes, and
+ * disambiguating against PLU: a single-underscore id whose allergen slug is a
+ * known PLU allergen is treated as PLU, not PP.
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 0,
+  detectStates(
+    _hass: HomeAssistant,
+    ctx: AutodetectContext,
+  ): AutodetectDetectResult {
+    const ids = ctx.stateIds.filter((id) => {
+      if (typeof id !== "string") return false;
+      if (!id.startsWith("sensor.pollen_")) return false;
+      if (id.startsWith("sensor.pollenflug_")) return false;
+      // Exclude MSW (hass-swissweather): sensor.pollen_<allergen>_level_at_<station>
+      if (id.includes("_level_at_")) return false;
+
+      // Match manual mode (sensor.pollen_<allergen>) and city mode
+      // (sensor.pollen_<allergen>_<city>).
+      const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
+      if (!match) return false;
+
+      const allergenSlug = match[1];
+      // Single underscore AND a known PLU allergen -> likely PLU, not PP.
+      if (!match[2] && ctx.pluAllergenSlugs.has(allergenSlug)) return false;
+
+      return true;
+    });
+    return { ids };
+  },
+  discover: discoverPpSensors,
+  extractLocationSlug: extractCitySlugFromEntityId,
+};

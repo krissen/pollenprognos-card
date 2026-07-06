@@ -29,6 +29,12 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+  AutodetectDiscovery,
+} from "../types/adapter.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import {
@@ -364,3 +370,42 @@ export async function fetchForecast(
   if (debug) console.debug("IRMKMI adapter complete sensors:", sensors);
   return sensors;
 }
+
+/**
+ * Autodetect descriptor. IRM KMI entity ids follow
+ * sensor.<location-slug>_<allergen>_level. Detection uses the `irm_kmi`
+ * platform in hass.entities (primary) with a regex fallback for older
+ * registries. Discovery is lazy (used only by autoSelectLocation).
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 10,
+  detectStates(
+    hass: HomeAssistant,
+    ctx: AutodetectContext,
+  ): AutodetectDetectResult {
+    const irmkmiLevelRe = /_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
+    let ids: string[] = [];
+    if (hass && hass.entities) {
+      ids = Object.entries(hass.entities)
+        .filter(
+          ([eid, entry]) =>
+            (entry as { platform?: string }).platform === "irm_kmi" &&
+            !(entry as { entity_category?: string }).entity_category &&
+            irmkmiLevelRe.test(eid),
+        )
+        .map(([eid]) => eid);
+    }
+    if (!ids.length) {
+      ids = ctx.stateIds.filter(
+        (id) =>
+          typeof id === "string" &&
+          /^sensor\.\w+_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/.test(
+            id,
+          ),
+      );
+    }
+    return { ids };
+  },
+  discover: (hass, debug) =>
+    discoverIrmkmiSensors(hass, debug) as AutodetectDiscovery,
+};

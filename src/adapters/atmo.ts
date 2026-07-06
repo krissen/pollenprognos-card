@@ -5,6 +5,12 @@ import type {
 } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+  AutodetectDiscovery,
+} from "../types/adapter.js";
 import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
@@ -793,3 +799,50 @@ export async function fetchForecast(
   if (debug) console.debug("ATMO adapter complete sensors:", sensors);
   return sensors;
 }
+
+/**
+ * Autodetect descriptor. Detection is discovery-primary (device/registry via
+ * discoverAtmoSensors) with a legacy regex fallback for older HA registries.
+ * The fallback matches current `niveau_<allergen>` and legacy
+ * `niveau_alerte_<allergen>` pollen sensors plus the pollution/summary sensors,
+ * excluding forecast-day entities (`_j_<n>` suffix). The eagerly-computed
+ * discovery is returned so autoSelectLocation reuses it. Location extraction
+ * from the entity id stays in the shared autodetect module (the auto-select and
+ * per-entity paths use subtly different niveau regexes).
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 6,
+  detectStates(
+    hass: HomeAssistant,
+    ctx: AutodetectContext,
+    debug = false,
+  ): AutodetectDetectResult {
+    const discovery = discoverAtmoSensors(hass, debug) as AutodetectDiscovery;
+    const ids: string[] = [];
+    if (discovery.locations.size > 0) {
+      for (const [, loc] of discovery.locations) {
+        if (loc.entities) {
+          for (const eid of loc.entities.values()) ids.push(eid);
+        }
+      }
+    }
+    if (!ids.length) {
+      // Legacy fallback. Matches current niveau_{slug} and legacy
+      // niveau_alerte_{slug}.
+      for (const id of ctx.stateIds) {
+        if (
+          typeof id === "string" &&
+          /^sensor\.(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/.test(
+            id,
+          ) &&
+          !/_j_\d+$/.test(id)
+        ) {
+          ids.push(id);
+        }
+      }
+    }
+    return { ids, discovery };
+  },
+  discover: (hass, debug) =>
+    discoverAtmoSensors(hass, debug) as AutodetectDiscovery,
+};
