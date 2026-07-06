@@ -32,7 +32,7 @@ const DEFAULT_SEED = 13;
  * The order matters: `&` first, so we don't double-encode entity refs we
  * introduce in later replacements.
  */
-function escapeXmlAttr(value: unknown): string {
+export function escapeXmlAttr(value: unknown): string {
   return String(value)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
@@ -151,6 +151,80 @@ export function buildNoiseTileCanvas(
 
   ctx.globalAlpha = 1;
   return canvas;
+}
+
+/**
+ * Build the inner markup of an SVG `<pattern>` reproducing the ring noise tile
+ * (pixel static + sparse scratches) as vector shapes instead of a canvas tile.
+ * Mirrors buildNoiseTileCanvas element-for-element and consumes the seeded RNG
+ * in the same order, so a given seed yields the same visual density. Returns a
+ * full `<pattern id="...">...</pattern>` string ready to drop into an SVG
+ * `<defs>`; pure string building, so it works in headless/Node contexts where
+ * the canvas variant returns null.
+ *
+ * @param id      DOM id for the pattern (referenced via url(#id))
+ * @param color   dot/scratch color
+ */
+export function buildRingNoiseSvgPattern(
+  id: string,
+  color = "#888888",
+  opts: {
+    tile?: number;
+    seed?: number;
+    pixDensity?: number;
+    scratchDensity?: number;
+    maxPx?: number;
+  } = {},
+): string {
+  const tile = opts.tile ?? RING_TILE;
+  const seed = opts.seed ?? DEFAULT_SEED;
+  const pixDensity = opts.pixDensity ?? RING_PIX_DENSITY;
+  const scratchFactor = opts.scratchDensity ?? RING_SCRATCH_DENSITY_FACTOR;
+  const maxPx = opts.maxPx ?? RING_MAX_PIX_SIZE;
+  const rng = mulberry32(seed);
+  const safeColor = escapeXmlAttr(color);
+  const pixArea = tile * tile;
+
+  let body = "";
+
+  // Layer 1: pixel static. Mostly 1px squares, ~15% 2px; the bigger squares
+  // get dimmer so they don't visually clump. (Mirror of buildNoiseTileCanvas.)
+  const pixCount = Math.round(pixArea * pixDensity);
+  for (let i = 0; i < pixCount; i++) {
+    const x = Math.floor(rng() * tile);
+    const y = Math.floor(rng() * tile);
+    const r = rng();
+    let dotSz;
+    if (maxPx === 2) dotSz = r < 0.85 ? 1 : 2;
+    else dotSz = r < 0.7 ? 1 : r < 0.96 ? 2 : 3;
+    const opBase = 0.35 + rng() * 0.55;
+    const alpha = dotSz === 1 ? opBase : opBase * 0.6;
+    body +=
+      `<rect x="${x}" y="${y}" width="${dotSz}" height="${dotSz}" ` +
+      `fill="${safeColor}" fill-opacity="${alpha.toFixed(2)}"/>`;
+  }
+
+  // Layer 2: sparse short scratches — thin, dim, short directional accents.
+  const scratchCount = Math.round(pixArea * 0.06 * scratchFactor);
+  for (let i = 0; i < scratchCount; i++) {
+    const x = rng() * tile;
+    const y = rng() * tile;
+    const angle = rng() * Math.PI;
+    const len = 1.5 + rng() * 2.5;
+    const alpha = 0.25 + rng() * 0.35;
+    const x2 = x + Math.cos(angle) * len;
+    const y2 = y + Math.sin(angle) * len;
+    body +=
+      `<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" ` +
+      `x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" ` +
+      `stroke="${safeColor}" stroke-width="0.6" stroke-linecap="round" ` +
+      `stroke-opacity="${alpha.toFixed(2)}"/>`;
+  }
+
+  return (
+    `<pattern id="${escapeXmlAttr(id)}" patternUnits="userSpaceOnUse" ` +
+    `width="${tile}" height="${tile}">${body}</pattern>`
+  );
 }
 
 /**
