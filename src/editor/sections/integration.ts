@@ -3,9 +3,12 @@
 // Extracted verbatim from PollenEditorBase._renderIntegrationSection; `this` -> `editor`.
 // ------------------------------------------------------------------ //
 
-import { html } from "lit";
+import { html, type TemplateResult } from "lit";
+import type { PollenEditorLike } from "../types.js";
 
-export function renderIntegrationSection(editor) {
+export function renderIntegrationSection(
+  editor: PollenEditorLike,
+): TemplateResult {
   const c = editor._editorConfig();
   return html`
     <!-- §1 Integration & Location -->
@@ -28,7 +31,7 @@ export function renderIntegrationSection(editor) {
             },
           }}
           .value=${c.integration}
-          @value-changed=${(e) => {
+          @value-changed=${(e: CustomEvent) => {
             const v = e.detail?.value;
             if (v !== undefined) editor._updateConfig("integration", v);
           }}
@@ -59,7 +62,7 @@ export function renderIntegrationSection(editor) {
                   },
                 }}
                 .value=${c.city || ""}
-                @value-changed=${(e) => {
+                @value-changed=${(e: CustomEvent) => {
                   const v = e.detail?.value;
                   if (v !== undefined) editor._updateConfig("city", v);
                 }}
@@ -91,7 +94,7 @@ export function renderIntegrationSection(editor) {
                     },
                   }}
                   .value=${c.location || ""}
-                  @value-changed=${(e) => {
+                  @value-changed=${(e: CustomEvent) => {
                     const v = e.detail?.value;
                     if (v !== undefined) editor._updateConfig("location", v);
                   }}
@@ -123,7 +126,7 @@ export function renderIntegrationSection(editor) {
                       },
                     }}
                     .value=${c.location || ""}
-                    @value-changed=${(e) => {
+                    @value-changed=${(e: CustomEvent) => {
                       const v = e.detail?.value;
                       if (v !== undefined) editor._updateConfig("location", v);
                     }}
@@ -155,7 +158,7 @@ export function renderIntegrationSection(editor) {
                         },
                       }}
                       .value=${c.location || ""}
-                      @value-changed=${(e) => {
+                      @value-changed=${(e: CustomEvent) => {
                         const v = e.detail?.value;
                         if (v !== undefined) editor._updateConfig("location", v);
                       }}
@@ -187,7 +190,7 @@ export function renderIntegrationSection(editor) {
                           },
                         }}
                         .value=${c.location || ""}
-                        @value-changed=${(e) => {
+                        @value-changed=${(e: CustomEvent) => {
                           const v = e.detail?.value;
                           if (v !== undefined) editor._updateConfig("location", v);
                         }}
@@ -229,7 +232,7 @@ export function renderIntegrationSection(editor) {
                           },
                         }}
                         .value=${c.location || ""}
-                        @value-changed=${(e) => {
+                        @value-changed=${(e: CustomEvent) => {
                           const v = e.detail?.value;
                           if (v !== undefined) editor._updateConfig("location", v);
                         }}
@@ -257,7 +260,7 @@ export function renderIntegrationSection(editor) {
                           },
                         }}
                         .value=${c.location === "manual" ? "manual" : ""}
-                        @value-changed=${(e) => {
+                        @value-changed=${(e: CustomEvent) => {
                           const v = e.detail?.value;
                           if (v !== undefined) editor._updateConfig("location", v);
                         }}
@@ -288,7 +291,7 @@ export function renderIntegrationSection(editor) {
                         },
                       }}
                       .value=${c.region_id || ""}
-                      @value-changed=${(e) => {
+                      @value-changed=${(e: CustomEvent) => {
                         const v = e.detail?.value;
                         if (v !== undefined) editor._updateConfig("region_id", v);
                       }}
@@ -297,7 +300,11 @@ export function renderIntegrationSection(editor) {
                 `}
       ${!editor._showModeSelector()
         ? ""
-        : c.integration === "silam" && editor._hasSilamWeatherEntity(c.location, c.entity_weather)
+        : c.integration === "silam" &&
+          editor._hasSilamWeatherEntity(
+            c.location as string,
+            c.entity_weather as string,
+          )
         ? html`
             <ha-formfield label="${editor._t("mode")}">
               <ha-selector
@@ -313,7 +320,7 @@ export function renderIntegrationSection(editor) {
                   },
                 }}
                 .value=${c.mode || "daily"}
-                @value-changed=${(e) => {
+                @value-changed=${(e: CustomEvent) => {
                   const v = e.detail?.value;
                   if (v !== undefined) editor._updateConfig("mode", v);
                 }}
@@ -341,7 +348,7 @@ export function renderIntegrationSection(editor) {
                     },
                   }}
                   .value=${c.mode || "daily"}
-                  @value-changed=${(e) => {
+                  @value-changed=${(e: CustomEvent) => {
                     const v = e.detail?.value;
                     if (v !== undefined) editor._updateConfig("mode", v);
                   }}
@@ -359,14 +366,14 @@ export function renderIntegrationSection(editor) {
               <summary>${editor._t("summary_entity_prefix_suffix")}</summary>
               <ha-formfield label="${editor._t("entity_prefix")}">
                 ${editor._renderTextField({
-                  value: c.entity_prefix || "",
+                  value: (c.entity_prefix as string) || "",
                   placeholder: editor._t("entity_prefix_placeholder"),
                   onInput: (v) => editor._updateConfig("entity_prefix", v),
                 })}
               </ha-formfield>
               <ha-formfield label="${editor._t("entity_suffix")}">
                 ${editor._renderTextField({
-                  value: c.entity_suffix || "",
+                  value: (c.entity_suffix as string) || "",
                   placeholder: editor._t("entity_suffix_placeholder"),
                   onInput: (v) => editor._updateConfig("entity_suffix", v),
                 })}
@@ -375,7 +382,7 @@ export function renderIntegrationSection(editor) {
                 ? html`
                     <ha-formfield label="${editor._t("entity_weather")}">
                       ${editor._renderTextField({
-                        value: c.entity_weather || "",
+                        value: (c.entity_weather as string) || "",
                         placeholder: editor._t("entity_weather_placeholder"),
                         onInput: (v) =>
                           editor._updateConfig("entity_weather", v),
@@ -395,8 +402,8 @@ export function renderIntegrationSection(editor) {
               <ha-formfield label="${editor._t("title_hide")}">
                 <ha-checkbox
                   .checked=${c.title === false}
-                  @change=${(e) => {
-                    if (e.target.checked) {
+                  @change=${(e: Event) => {
+                    if ((e.target as HTMLInputElement).checked) {
                       editor._updateConfig("title", false);
                     } else {
                       editor._updateConfig("title", true);
@@ -407,8 +414,8 @@ export function renderIntegrationSection(editor) {
               <ha-formfield label="${editor._t("title_automatic")}">
                 <ha-checkbox
                   .checked=${c.title === true || c.title === undefined}
-                  @change=${(e) => {
-                    if (e.target.checked) {
+                  @change=${(e: Event) => {
+                    if ((e.target as HTMLInputElement).checked) {
                       editor._updateConfig("title", true);
                     } else {
                       editor._updateConfig("title", "");
