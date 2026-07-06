@@ -34,6 +34,12 @@ import {
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
+import {
+  normalizeCardConfig,
+  mergeCardConfig,
+  finalizeCardConfig,
+  cardAllowedFields,
+} from "./utils/config-normalize.js";
 import { computeGridOptions } from "./utils/grid-options.js";
 import {
   detectIntegrationStates,
@@ -641,40 +647,21 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // this.config.integration is never undefined.
     if (!integration) integration = stub.integration as string | undefined;
 
-    // Only keep allowed fields from user config
-    const allowedFields = Object.keys(stub).concat([
-      "type",
-      "card_mod",
-      "allergens",
-      "icon_size",
-      "icon_color_mode",
-      "icon_color",
-      "city",
-      "location",
-      "region_id",
-      "tap_action",
-      "debug",
-      "show_version",
-      "title",
-      "days_to_show",
-      "date_locale",
-    ]);
-    const cleanedUserConfig: Record<string, unknown> = {};
-    for (const k of allowedFields) {
-      if (k in config) cleanedUserConfig[k] = config[k];
-    }
-
-    // Build final config from stub + cleaned user params
-    const nextConfig = {
-      ...stub,
-      ...cleanedUserConfig,
+    // Single validation/coercion boundary: keep allowed fields, merge onto the
+    // stub, coerce known-typed YAML fields, freeze (see config-normalize.ts).
+    const nextConfig = normalizeCardConfig(config, stub, {
       integration,
-    } as CardConfig;
+      filter: true,
+    });
 
     // --- Detect cosmetic-only updates (e.g. icon_size, text_size_ratio) ---
+    // Compare the *coerced* next values against the (also coerced) current
+    // config over exactly the user-provided allowed fields, so a value that
+    // only re-canonicalises (e.g. "4" -> 4) is not mistaken for a change.
     const prevConfig = this.config || {};
-    const changedKeys = Object.keys(cleanedUserConfig).filter(
-      (k) => !deepEqual(cleanedUserConfig[k], prevConfig[k]),
+    const userKeys = cardAllowedFields(stub).filter((k) => k in config);
+    const changedKeys = userKeys.filter(
+      (k) => !deepEqual(nextConfig[k], prevConfig[k]),
     );
     const onlyCosmetic =
       changedKeys.length > 0 &&
@@ -767,24 +754,29 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       baseStub = getStubConfig("pp");
     }
 
-    // Sätt config rätt — utan allergens
+    // Build config mutation-free through the shared boundary. set hass keeps
+    // the historical full-spread merge (filter:false) — unlike setConfig it does
+    // NOT strip unknown keys — then layers the hass-driven derivations
+    // (PLU location stripping, allergens, date_locale, autodetected location) by
+    // constructing new objects, never mutating in place. The coerce+freeze tail
+    // is shared via finalizeCardConfig, so the final cfg is frozen like
+    // setConfig's nextConfig.
     const { allergens, ...userConfigWithoutAllergens } = this._userConfig;
-    const cfg = {
-      ...baseStub,
-      ...userConfigWithoutAllergens,
-      integration, // Use the normalized integration value
-    } as CardConfig;
+    let assembled = mergeCardConfig(userConfigWithoutAllergens, baseStub!, {
+      integration,
+      filter: false,
+    });
 
     if (integration === "plu") {
-      // cfg keys come from CardConfig's (non-optional) index signature, so the
-      // delete operand isn't statically optional; cast for the delete. The
-      // mutation itself is unchanged and slated for cleanup in the config
-      // boundary work.
-      delete (cfg as Record<string, unknown>).city;
-      delete (cfg as Record<string, unknown>).region_id;
-      // Preserve cfg.location: "manual" is a meaningful value that signals
-      // the adapter's manual-mode branch (entity_prefix-based lookup).
-      // Dropping it silently disabled PLU manual mode entirely.
+      // PLU always reports Luxembourg: drop city/region_id so they can't leak
+      // into the adapter. location is preserved ("manual" is a meaningful value
+      // that signals the adapter's manual-mode branch, entity_prefix lookup);
+      // dropping it silently disabled PLU manual mode entirely.
+      assembled = Object.fromEntries(
+        Object.entries(assembled).filter(
+          ([k]) => k !== "city" && k !== "region_id",
+        ),
+      );
     }
 
     if (
@@ -801,7 +793,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           allergens,
         );
       }
-      cfg.allergens = allergens;
+      assembled = { ...assembled, allergens };
     } else {
       if (this.debug) {
         console.debug(
@@ -810,34 +802,48 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         );
       }
       // Om integrationen INTE är explicit (autodetect): använd stubben
-      cfg.allergens = (getStubConfig(integration) ||
-        getStubConfig("pp"))!.allergens;
+      assembled = {
+        ...assembled,
+        allergens: (getStubConfig(integration) || getStubConfig("pp"))!
+          .allergens,
+      };
     }
 
-    // Fyll date_locale
-    if (!cfg.hasOwnProperty("date_locale")) {
+    // Fyll date_locale. Every stub carries a date_locale key (value undefined),
+    // so this branch is inert today; kept faithful in case a stub ever omits it.
+    if (!Object.prototype.hasOwnProperty.call(assembled, "date_locale")) {
       const detectedLangCode = detectLang(hass, null as unknown as string);
       const localeTag =
         this._hass?.locale?.language ||
         this._hass?.language ||
         `${detectedLangCode}-${detectedLangCode.toUpperCase()}`;
-      cfg.date_locale = localeTag;
+      assembled = { ...assembled, date_locale: localeTag };
       if (this.debug) {
-        console.debug("[Card] auto-filling date_locale:", cfg.date_locale);
+        console.debug(
+          "[Card] auto-filling date_locale:",
+          assembled.date_locale,
+        );
       }
     }
 
     // Automatic region/city/location detection unless manual mode is selected.
     // Shared autoSelectLocation() returns { key, value } for the integration;
     // the "manual"/already-set guard stays here so PLU's earlier city/region
-    // deletion and explicit "manual" mode keep their meaning. (The card element
+    // stripping and explicit "manual" mode keep their meaning. (The card element
     // now also auto-selects GP/MSW locations, matching the editor.)
-    const autoLoc = autoSelectLocation(integration, cfg, hass, detection);
-    if (autoLoc && cfg[autoLoc.key] !== "manual" && !cfg[autoLoc.key]) {
-      cfg[autoLoc.key] = autoLoc.value;
+    const autoLoc = autoSelectLocation(integration, assembled, hass, detection);
+    if (
+      autoLoc &&
+      assembled[autoLoc.key] !== "manual" &&
+      !assembled[autoLoc.key]
+    ) {
+      assembled = { ...assembled, [autoLoc.key]: autoLoc.value };
       if (this.debug)
         console.debug(`[Card] Auto-set ${autoLoc.key}:`, autoLoc.value);
     }
+
+    // Coerce known-typed fields and freeze (shared boundary tail).
+    const cfg = finalizeCardConfig(assembled, baseStub!);
 
     // Only update reactive properties when values actually changed.
     // Lit's auto-generated accessor triggers requestUpdate on every
@@ -880,9 +886,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // the cached discovery from set hass() to avoid a second registry scan.
         const dwdDiscovery = getDwdDiscovery();
         const wantedLocation =
-          cfg.region_id && cfg.region_id !== "manual"
-            ? (cfg.region_id as string)
-            : "";
+          cfg.region_id && cfg.region_id !== "manual" ? cfg.region_id : "";
         const match = resolveLocationByKey(dwdDiscovery, wantedLocation, {
           slugExtractor: (eid) => {
             const m = eid.match(/_(\d+)$/);
@@ -900,9 +904,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // Reuses cached discovery from set hass() to avoid a second scan.
         const peuDiscovery = getPeuDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? (cfg.location as string)
-            : "";
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const peuMatch = resolveLocationByKey(peuDiscovery, wantedLocation, {
           slugExtractor: extractPeuLocationSlugFromEntityId,
         });
@@ -967,13 +969,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
               "";
           }
-          loc = wantedSlug ? title || (cfg.location as string) || "" : title;
+          loc = wantedSlug ? title || cfg.location || "" : title;
         }
       } else if (integration === "silam") {
         // Primärt: discovery-baserad title
         let title = "";
         const configLocation =
-          cfg.location === "manual" ? "" : (cfg.location as string) || "";
+          cfg.location === "manual" ? "" : cfg.location || "";
         if (cfg.location !== "manual") {
           const discoveredLoc = resolveDiscoveredLocation(
             silamDiscovery,
@@ -1046,7 +1048,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
         loc =
           cfg.location && cfg.location !== "manual"
-            ? title || (cfg.location as string) || ""
+            ? title || cfg.location || ""
             : title;
       } else if (integration === "kleenex") {
         // Kleenex pollen radar: extract location from sensor attributes
@@ -1070,7 +1072,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         let match = null;
         if (cfg.location === "manual") {
           // In manual mode, use entity_prefix to find matching sensor
-          let prefix = (cfg.entity_prefix as string) || "";
+          let prefix = cfg.entity_prefix || "";
           // Remove 'sensor.' prefix if user included it
           if (prefix.startsWith("sensor.")) {
             prefix = prefix.substring(7);
@@ -1112,19 +1114,17 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               )
               .trim() ||
             (cfg.location
-              ? (cfg.location as string).charAt(0).toUpperCase() +
+              ? cfg.location.charAt(0).toUpperCase() +
                 (cfg.location as string).slice(1)
               : "");
         }
 
-        loc = title || (cfg.location as string) || "";
+        loc = title || cfg.location || "";
       } else if (integration === "atmo") {
         // Atmo France: reuse the discovery result computed earlier in set hass()
         // for sensor detection, to avoid a second registry/regex scan.
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? (cfg.location as string)
-            : "";
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
 
         let title = "";
         if (wantedLocation) {
@@ -1147,7 +1147,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           title = title.charAt(0).toUpperCase() + title.slice(1);
         }
 
-        loc = title || (cfg.location as string) || "";
+        loc = title || cfg.location || "";
       } else if (integration === "gpl") {
         // Google Pollen Levels: resolve via shared discovery so config_entry_id
         // keys and legacy label slugs both produce the friendly location name.
@@ -1161,7 +1161,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // adapter would discard, mislabeling the rendered data.
           const rawPrefix = String(cfg.entity_prefix).replace(/^sensor\./, "");
           const wantedPrefix = `sensor.${rawPrefix}`;
-          const wantedSuffix = (cfg.entity_suffix as string) || "";
+          const wantedSuffix = cfg.entity_suffix || "";
           for (const [key, loc2] of gplDiscovery?.locations || []) {
             const entities = loc2?.entities;
             if (!entities) continue;
@@ -1183,9 +1183,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // Non-manual (or manual with no prefix / no match): fall back to
           // key-based lookup. Empty key picks first deterministically.
           const wantedLocation =
-            cfg.location && cfg.location !== "manual"
-              ? (cfg.location as string)
-              : "";
+            cfg.location && cfg.location !== "manual" ? cfg.location : "";
           gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
         }
         // Defensive: discovery already calls cleanDeviceLabel, but apply again
@@ -1194,41 +1192,35 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         let title = gplMatch ? cleanDeviceLabel(gplMatch[1].label) : "";
         if (title) title = title.charAt(0).toUpperCase() + title.slice(1);
 
-        loc = title || (cfg.location as string) || "";
+        loc = title || cfg.location || "";
       } else if (integration === "gp") {
         // Google Pollen (svenove): resolve via shared discovery so
         // config_entry_id keys and legacy label slugs both produce the
         // friendly location name. Reuses gpDiscovery computed in set hass().
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? (cfg.location as string)
-            : "";
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const gpMatch = resolveLocationByKey(gpDiscovery, wantedLocation);
         // Defensive: same rationale as the GPL branch above.
         const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
-        loc = title || (cfg.location as string) || "";
+        loc = title || cfg.location || "";
       } else if (integration === "msw") {
         // MeteoSwiss / hass-swissweather: resolve via shared device discovery
         // so config_entry_id keys, friendly device names, and renamed devices
         // (name_by_user) all surface the right station label in the header.
         const mswDiscovery = getMswDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? (cfg.location as string)
-            : "";
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
         const title = mswMatch ? mswMatch[1].label : "";
-        loc = title || (cfg.location as string) || "";
+        loc = title || cfg.location || "";
       } else if (integration === "irmkmi") {
         // IRM KMI / meteo.be: resolve via shared device discovery so
         // config_entry_id keys, device names (the location), and renamed
         // devices (name_by_user) all surface the right location label.
         const irmkmiDiscovery = getIrmkmiDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual"
-            ? (cfg.location as string)
-            : "";
+          cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const irmkmiMatch = resolveLocationByKey(
           irmkmiDiscovery,
           wantedLocation,
@@ -1237,7 +1229,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           },
         );
         const title = irmkmiMatch ? irmkmiMatch[1].label : "";
-        loc = title || (cfg.location as string) || "";
+        loc = title || cfg.location || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location
         const translated = this._t("card.location.plu");
@@ -1249,7 +1241,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // from set hass() to avoid a second scan.
         const ppDiscovery = getPpDiscovery();
         const wantedLocation =
-          cfg.city && cfg.city !== "manual" ? (cfg.city as string) : "";
+          cfg.city && cfg.city !== "manual" ? cfg.city : "";
         const ppMatch = resolveLocationByKey(ppDiscovery, wantedLocation, {
           slugExtractor: extractPpCitySlugFromEntityId,
         });
@@ -1457,7 +1449,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   }
 
   _renderMinimalHtml(): TemplateResult {
-    const textSizeRatio = (this.config?.text_size_ratio as number) ?? 1;
+    const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const iconInRing = this.config?.icon_in_ring === true;
     const ringConfig = iconInRing ? this._buildLevelRingConfig() : null;
     const ringIconRatio =
@@ -1645,7 +1637,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       );
     }
 
-    const textSizeRatio = (this.config?.text_size_ratio as number) ?? 1;
+    const textSizeRatio = this.config?.text_size_ratio ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     // Compute column count from the displayed row set, not the full sensor list.
     // When standalone summary mode is active (show_summary_block on,
@@ -1975,8 +1967,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 sIdx > 0 &&
                 rowSensors[sIdx - 1]?.isSummary &&
                 !sensor.isSummary &&
-                this.config.show_summary_separator !== false &&
-                this.config.show_summary_separator !== "false"
+                this.config.show_summary_separator !== false
                   ? html`<tr class="block-separator-row">
                       <td colspan="${totalCols}">
                         <hr class="block-separator" />
@@ -2045,7 +2036,6 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
     if (
       this.config.show_summary_top_types !== false &&
-      this.config.show_summary_top_types !== "false" &&
       Array.isArray(sensor.topPollen) &&
       sensor.topPollen.length > 0
     ) {
@@ -2056,7 +2046,6 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
     if (
       this.config.show_summary_plants_in_season !== false &&
-      this.config.show_summary_plants_in_season !== "false" &&
       Array.isArray(sensor.plantsInSeasonList) &&
       sensor.plantsInSeasonList.length > 0
     ) {
