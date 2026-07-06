@@ -12,18 +12,9 @@ import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { getSvgContent } from "../pollenprognos-svgs.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { ringSegmentsForIntegration } from "../utils/level-counts.js";
-import { buildNoiseCanvasPattern, buildNoiseSvgUri, hashStringSeed } from "../utils/no-data-pattern.js";
+import { buildNoiseSvgUri, hashStringSeed } from "../utils/no-data-pattern.js";
+import { buildDonutSvg } from "./donut.js";
 import { ALLERGEN_ICON_FALLBACK, toCanonicalAllergenKey } from "../constants.js";
-import {
-  Chart,
-  ArcElement,
-  DoughnutController,
-  Tooltip,
-  Legend,
-} from "chart.js/auto";
-
-// Register Chart.js components once at module load time.
-Chart.register(ArcElement, DoughnutController, Tooltip, Legend);
 
 // The tap_action types the shared handler knows how to perform.
 const TAP_ACTION_TYPES = ["more-info", "navigate", "call-service"];
@@ -87,23 +78,22 @@ export function resolveTapActionType(tapAction) {
  * LevelCircleMixin — adds the level-circle / icon-in-ring rendering engine
  * to any LitElement subclass.
  *
+ * The level ring is rendered declaratively as an inline SVG (see donut.js), so
+ * there is no chart cache, no destroy/recreate lifecycle, and no post-render
+ * DOM patching: the whole circle (ring + centered icon + numeric value) comes
+ * out of _renderLevelCircle in one lit template.
+ *
  * Contributes:
- *   - _chartCache field
  *   - _noDataDotColor(), _getSvgKey(), _colorForLevel(), _levelColorForLevel(),
  *     _getGapColor(), _getEffectiveSvgKey(), _iconInRingColor()
  *   - _renderLevelCircle(), _buildLevelRingConfig()
  *   - _openEntity()
- *   - _rebuildCharts()
- *   - Lifecycle hooks: updated(), connectedCallback(), disconnectedCallback()
- *     (all call super so the chain reaches LitElement).
  *
  * @param {typeof LitElement} Base
  * @returns {typeof LitElement}
  */
 export const LevelCircleMixin = (Base) =>
   class extends Base {
-    _chartCache = new Map();
-
     // ---------------------------------------------------------------------------
     // Color helpers
     // ---------------------------------------------------------------------------
@@ -268,21 +258,75 @@ export const LevelCircleMixin = (Base) =>
       entityId = null,
       clickable = true,
     ) {
-      // Create a unique key for this chart configuration. `size` is part of the
-      // key so a size change (e.g. the badge's badge_scale live-preview) forces
-      // a fresh canvas at the new dimensions instead of reusing a cached Chart
-      // whose canvas width/height was fixed at the old size.
-      const chartId = `chart-${allergen}-${dayIndex}-${level}-${size}`;
+      // Stable id per cell (allergen + day + level + size). Kept for theme /
+      // card-mod targeting and as the no-data noise seed source, so adjacent
+      // no-data rings get distinct textures.
+      const circleId = `chart-${allergen}-${dayIndex}-${level}-${size}`;
 
-      // Use attributes instead of properties so values persist if DOM is cloned
       const noDataDistinct = this.config?.show_no_data_distinct !== false;
       // `level < 0` rather than `=== -1` so per-integration scaling doesn't
       // hide the no-data sentinel. E.g. DWD scales raw state by 2 in the
       // daily-row path, so an adapter-emitted -1 reaches here as -2.
-      const stateAttr = noDataDistinct && level < 0 ? "no_data" : "ok";
+      const isNoData = noDataDistinct && level < 0;
+      const stateAttr = isNoData ? "no_data" : "ok";
+
+      const numSegments = colors.length;
+      const donutSvg = buildDonutSvg({
+        level,
+        segments: numSegments,
+        colors,
+        emptyColor,
+        gapColor,
+        thickness,
+        gap,
+        size,
+        noData: isNoData,
+        noiseColor: isNoData ? this._noDataDotColor() : undefined,
+        noiseSeed: hashStringSeed(circleId),
+      });
+
+      // Centered ring icon (#227): only when a key is set and its SVG exists.
+      const svgForIcon = iconKey ? getSvgContent(iconKey) : null;
+      const hasRingIcon = !!svgForIcon;
+      let ringIcon = "";
+      if (hasRingIcon) {
+        const innerHole = size * (1 - thickness / 100);
+        const iconDiameter = Math.max(1, Math.round(innerHole * iconSizeRatio));
+        // aria-hidden: the numeric level (data-display-level) is the SR signal.
+        ringIcon = html`
+          <div
+            class="ring-icon"
+            aria-hidden="true"
+            style="width: ${iconDiameter}px; height: ${iconDiameter}px; color: ${iconColor};"
+          >
+            ${unsafeSVG(svgForIcon)}
+          </div>
+        `;
+      }
+
+      // Numeric value overlay: suppressed when a ring icon occupies the hole
+      // (they'd collide) and for negative/no-data values.
+      const showValue = !!this.config?.show_value_numeric_in_circle;
+      const fontWeight = this.config?.levels_text_weight || "normal";
+      const fontSizeRatio = this.config?.levels_text_size || 0.2;
+      const textColor =
+        this.config?.levels_text_color || "var(--primary-text-color)";
+      let valueText = "";
+      if (showValue && displayLevel >= 0 && !hasRingIcon) {
+        valueText = html`
+          <div
+            class="level-value-text"
+            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; line-height: 1; font-size: ${size *
+            fontSizeRatio}px; font-weight: ${fontWeight}; color: ${textColor};"
+          >
+            ${displayLevel}
+          </div>
+        `;
+      }
+
       return html`
         <div
-          id="${chartId}"
+          id="${circleId}"
           class="level-circle"
           style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
           entityId
@@ -291,28 +335,15 @@ export const LevelCircleMixin = (Base) =>
           data-level="${level}"
           data-display-level="${displayLevel}"
           data-state="${stateAttr}"
-          data-colors="${JSON.stringify(colors)}"
-          data-empty-color="${emptyColor}"
-          data-gap-color="${gapColor}"
-          data-thickness="${thickness}"
-          data-gap="${gap}"
-          data-size="${size}"
-          data-show-value="${this.config &&
-          this.config.show_value_numeric_in_circle}"
-          data-font-weight="${this.config?.levels_text_weight || "normal"}"
-          data-font-size-ratio="${this.config?.levels_text_size || 0.2}"
-          data-text-color="${this.config?.levels_text_color ||
-          "var(--primary-text-color)"}"
-          data-icon-key="${iconKey}"
-          data-icon-color="${iconColor}"
-          data-icon-size-ratio="${iconSizeRatio}"
           @click=${(e) => {
             if (clickable && entityId) {
               e.stopPropagation();
               this._openEntity(entityId);
             }
           }}
-        ></div>
+        >
+          ${unsafeSVG(donutSvg)}${ringIcon}${valueText}
+        </div>
       `;
     }
 
@@ -549,316 +580,15 @@ export const LevelCircleMixin = (Base) =>
     }
 
     // ---------------------------------------------------------------------------
-    // Chart lifecycle
+    // Chart lifecycle (removed)
     // ---------------------------------------------------------------------------
-
-    /**
-     * Build or refresh all level-circle charts in the current DOM.
-     * Chart options are stored as data attributes so charts can be
-     * reconstructed after the DOM is cloned or replaced.
-     */
-    _rebuildCharts() {
-      const containers = this.renderRoot?.querySelectorAll(".level-circle") || [];
-      const activeIds = new Set();
-
-      // Resolve the no-data dot color once per rebuild. _noDataDotColor() reads
-      // getComputedStyle which is non-trivial; caching here both saves work
-      // when many circles are no-data AND lets the update branch detect a
-      // theme-color change (chart._noDataColor !== noDataColor) so stale
-      // patterns get rebuilt instead of reused indefinitely.
-      const noDataColor = this._noDataDotColor();
-
-      containers.forEach((container) => {
-        activeIds.add(container.id);
-
-        // Extract values from data attributes
-        const level = Number(container.dataset.level || 0);
-        const displayLevel = Number(container.dataset.displayLevel ?? level);
-        const colors = JSON.parse(container.dataset.colors || "[]");
-        const numSegments = colors.length;
-        const safeLevel = Math.min(level, numSegments);
-        const emptyColor = container.dataset.emptyColor;
-        const gapColor = container.dataset.gapColor;
-        const thickness = Number(container.dataset.thickness);
-        const gap = Number(container.dataset.gap);
-        const size = Number(container.dataset.size);
-        const showValue = container.dataset.showValue === "true";
-        const isNoData = container.dataset.state === "no_data";
-
-        // Get custom styling from data attributes
-        const fontWeight = container.dataset.fontWeight || "normal";
-        const fontSizeRatio = parseFloat(container.dataset.fontSizeRatio) || 0.2;
-        const textColor =
-          container.dataset.textColor || "var(--primary-text-color)";
-
-        // Retrieve existing chart if it exists
-        let chart = this._chartCache.get(container.id);
-
-        // Recreate chart if missing or detached
-        if (!chart || !container.contains(chart.canvas)) {
-          if (chart) chart.destroy();
-          container.innerHTML = "";
-          const canvas = document.createElement("canvas");
-          canvas.width = size;
-          canvas.height = size;
-          container.appendChild(canvas);
-
-          const canvasCtx = canvas.getContext("2d");
-          // No-data: fill every segment with the noise tile pattern so the
-          // ring looks visibly distinct from a real "level 0" (which is just
-          // the empty color repeated). Each chart gets its own seed derived
-          // from the container id (allergen+dayIndex+level) so adjacent
-          // no-data circles don't display identical clumps. Falls back to
-          // emptyColor if pattern creation fails (e.g. headless ctx with no
-          // createPattern).
-          const noisePattern = isNoData
-            ? buildNoiseCanvasPattern(canvasCtx, noDataColor, {
-                seed: hashStringSeed(container.id),
-              })
-            : null;
-          const fill = noisePattern ?? emptyColor;
-          const data = Array(numSegments).fill(1);
-          const bg = isNoData
-            ? Array(numSegments).fill(fill)
-            : Array(numSegments)
-                .fill(emptyColor)
-                .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-          const bc = Array(numSegments).fill(gapColor);
-
-          chart = new Chart(canvasCtx, {
-            type: "doughnut",
-            data: {
-              labels: Array(numSegments).fill(""),
-              datasets: [
-                {
-                  data,
-                  backgroundColor: bg,
-                  borderColor: bc,
-                  borderWidth: gap,
-                },
-              ],
-            },
-            options: {
-              rotation: -Math.PI / 2,
-              cutout: `${100 - thickness}%`,
-              responsive: false,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 0,
-                animateRotate: false,
-                animateScale: false,
-                easing: "linear",
-              },
-              transitions: {
-                active: {
-                  animation: {
-                    duration: 0,
-                    animateRotate: false,
-                    animateScale: false,
-                    easing: "linear",
-                  },
-                },
-                show: {
-                  animations: {
-                    numbers: { duration: 0, easing: "linear" },
-                    colors: { duration: 0, easing: "linear" },
-                  },
-                },
-                hide: {
-                  animations: {
-                    numbers: { duration: 0, easing: "linear" },
-                    colors: { duration: 0, easing: "linear" },
-                  },
-                },
-              },
-              plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false },
-              },
-            },
-          });
-
-          // Tag the chart with the dot color used to build this pattern so
-          // a later theme-color change can invalidate the cached pattern.
-          if (isNoData) chart._noDataColor = noDataColor;
-          // Cache the geometry that the chart was actually built with so
-          // the update branch can detect when thickness/gap change (e.g.
-          // the icon_in_ring auto-toggle swaps thickness 60 ↔ 35).
-          chart._thicknessApplied = thickness;
-          chart._gapApplied = gap;
-
-          this._chartCache.set(container.id, chart);
-        } else {
-          // Update existing chart only if colors actually changed
-          const datasets = chart.data.datasets;
-          if (datasets && datasets[0]) {
-            // Geometry change (thickness/gap) doesn't show up under the
-            // colors-only update path. The chartId is keyed by allergen +
-            // dayIndex + level, so a thickness flip on toggle keeps the
-            // same id and the cached Chart instance survives. Detect and
-            // propagate before computing colors so cutout matches.
-            const geometryChanged =
-              chart._thicknessApplied !== thickness ||
-              chart._gapApplied !== gap;
-            if (geometryChanged) {
-              chart.options.cutout = `${100 - thickness}%`;
-              datasets[0].borderWidth = gap;
-              chart._thicknessApplied = thickness;
-              chart._gapApplied = gap;
-            }
-            const oldBg = datasets[0].backgroundColor;
-            let bg;
-            if (isNoData) {
-              // Reuse the cached pattern if the chart already has one in oldBg
-              // AND the theme dot color hasn't changed since it was built.
-              // Otherwise rebuild so a theme switch propagates through.
-              const existingPattern = oldBg.find(
-                (c) => typeof c === "object" && c !== null,
-              );
-              const colorChanged = chart._noDataColor !== noDataColor;
-              let pattern;
-              if (existingPattern && !colorChanged) {
-                pattern = existingPattern;
-              } else {
-                pattern =
-                  buildNoiseCanvasPattern(
-                    chart.canvas.getContext("2d"),
-                    noDataColor,
-                    { seed: hashStringSeed(container.id) },
-                  ) ?? emptyColor;
-                chart._noDataColor = noDataColor;
-              }
-              bg = Array(oldBg.length).fill(pattern);
-            } else {
-              bg = Array(oldBg.length)
-                .fill(emptyColor)
-                .map((c, i) => (i < safeLevel ? colors[i] : emptyColor));
-            }
-
-            const colorsChanged =
-              bg.length !== oldBg.length || bg.some((c, i) => c !== oldBg[i]);
-            if (colorsChanged || geometryChanged) {
-              datasets[0].backgroundColor = bg;
-              chart.update("none");
-            }
-          }
-        }
-
-        // Add or update the centered allergen icon (#227 icon-in-ring).
-        // Data attributes drive everything; the chart canvas was just
-        // (re)created above so we always re-append at the end if needed.
-        const iconKey = container.dataset.iconKey || "";
-        const iconColor = container.dataset.iconColor || "";
-        const iconSizeRatio =
-          parseFloat(container.dataset.iconSizeRatio) ||
-          LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-        let ringIcon = container.querySelector(".ring-icon");
-        // Resolve the SVG once; if missing, fall back to the no-icon
-        // path so the numeric overlay below can render instead of an
-        // empty .ring-icon shell.
-        const svgForIcon =
-          iconKey && ringIcon?.dataset.iconKey === iconKey
-            ? null // already mounted with this key; skip refetch
-            : iconKey
-              ? getSvgContent(iconKey)
-              : null;
-        const hasRenderableIcon =
-          iconKey &&
-          (ringIcon?.dataset.iconKey === iconKey || svgForIcon !== null);
-        if (hasRenderableIcon) {
-          const innerHole = size * (1 - thickness / 100);
-          const iconDiameter = Math.max(1, Math.round(innerHole * iconSizeRatio));
-          if (!ringIcon) {
-            ringIcon = document.createElement("div");
-            ringIcon.className = "ring-icon";
-            // Mark as decorative — the level value (data-display-level on
-            // the parent .level-circle) is the screen-reader signal; the
-            // centered SVG is duplicate visual information.
-            ringIcon.setAttribute("aria-hidden", "true");
-            container.appendChild(ringIcon);
-          }
-          ringIcon.style.width = `${iconDiameter}px`;
-          ringIcon.style.height = `${iconDiameter}px`;
-          ringIcon.style.color = iconColor;
-          if (svgForIcon !== null && ringIcon.dataset.iconKey !== iconKey) {
-            ringIcon.innerHTML = svgForIcon;
-            ringIcon.dataset.iconKey = iconKey;
-          }
-        } else if (ringIcon) {
-          ringIcon.remove();
-          ringIcon = null;
-        }
-
-        // Add or update numeric text overlay (suppress negative values).
-        // Only mutate DOM when the displayed value actually changed.
-        // Suppressed when a renderable ring-icon occupies the donut hole,
-        // to avoid the icon and the number colliding. When iconKey is
-        // set but the SVG is missing, hasRenderableIcon is false above
-        // and we fall back to the numeric overlay.
-        const existingText = container.querySelector(".level-value-text");
-        if (showValue && displayLevel >= 0 && !hasRenderableIcon) {
-          if (existingText && existingText.textContent === String(displayLevel)) {
-            // Value unchanged — skip DOM mutation.
-          } else {
-            if (existingText) existingText.remove();
-            const valueText = document.createElement("div");
-            valueText.className = "level-value-text";
-            valueText.textContent = displayLevel;
-            // Fill the ring box and flex-centre the digit, so it is centred
-            // optically rather than anchored to the text baseline (which made
-            // the number read slightly high). line-height:1 keeps the line box
-            // tight; explicit edges (not the `inset` shorthand) for the legacy
-            // browser build.
-            valueText.style.position = "absolute";
-            valueText.style.top = "0";
-            valueText.style.left = "0";
-            valueText.style.right = "0";
-            valueText.style.bottom = "0";
-            valueText.style.display = "flex";
-            valueText.style.alignItems = "center";
-            valueText.style.justifyContent = "center";
-            valueText.style.lineHeight = "1";
-            valueText.style.fontSize = `${size * fontSizeRatio}px`;
-            valueText.style.fontWeight = fontWeight;
-            valueText.style.color = textColor;
-            container.appendChild(valueText);
-          }
-        } else if (existingText) {
-          existingText.remove();
-        }
-      });
-
-      // Remove charts whose containers disappeared
-      this._chartCache.forEach((cachedChart, id) => {
-        if (!activeIds.has(id)) {
-          cachedChart.destroy();
-          this._chartCache.delete(id);
-        }
-      });
-    }
-
-    // ---------------------------------------------------------------------------
-    // Lifecycle hooks (chart subset only — card-specific logic stays on card)
-    // ---------------------------------------------------------------------------
-
-    updated(changedProps) {
-      if (super.updated) super.updated(changedProps);
-      // After rendering, ensure all charts exist.
-      this.updateComplete.then(() => this._rebuildCharts());
-    }
-
-    // Recreate charts when element is connected, useful after DOM cloning.
-    connectedCallback() {
-      super.connectedCallback();
-      Promise.resolve().then(() => this._rebuildCharts());
-    }
-
-    // Clean up charts when component is disconnected.
-    disconnectedCallback() {
-      this._chartCache.forEach((chart) => {
-        chart.destroy();
-      });
-      this._chartCache.clear();
-      super.disconnectedCallback();
-    }
+    //
+    // The level ring is now inline SVG rendered declaratively in
+    // _renderLevelCircle, so the former _rebuildCharts() / _chartCache /
+    // destroy-recreate lifecycle and the updated()/connectedCallback()/
+    // disconnectedCallback() overrides are gone: lit re-renders the ring, the
+    // centered icon and the numeric value together on every update, and there
+    // is nothing imperative left to tear down. The card and badge keep their
+    // own lifecycle hooks (subscriptions etc.) untouched.
   };
+
