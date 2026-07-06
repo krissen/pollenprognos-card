@@ -37,7 +37,7 @@ complete). Every change must keep these green:
   - `test/adapters/` - Contract tests for each adapter (fetchForecast, resolveEntityIds, stubConfig)
   - `test/utils/` - Unit tests for utility modules
   - `test/card/` - Card-level logic tests
-  - `test/adapter-registry.test.js` - Registry integration tests
+  - `test/adapter-registry.test.ts` - Registry integration tests
 - Manual testing is also done by loading the card in Home Assistant
 
 ## Project Architecture
@@ -87,20 +87,20 @@ tracker #259). Patterns to follow when editing:
 
 ### Core Components
 
-**Main Card** (`src/pollenprognos-card.js`)
+**Main Card** (`src/pollenprognos-card.ts`)
 - LitElement-based custom element (`<pollenprognos-card>`)
-- Renders pollen forecasts with SVG icons and Chart.js doughnut charts
+- Renders pollen forecasts with SVG icons and SVG donut level rings (`src/rendering/donut.ts`)
 - Handles real-time updates via Home Assistant state subscriptions
 - Manages display modes: minimal, daily, hourly, twice_daily
 - Uses adapter pattern to normalize data from different integrations
 
-**Visual Editor** (`src/pollenprognos-editor.js`)
+**Visual Editor** (`src/pollenprognos-editor.ts`)
 - LitElement-based configuration UI for Home Assistant's visual editor
 - Auto-generates forms based on adapter stub configs
 - Provides integration-specific options (cities, regions, locations)
 - Live preview updates as user changes settings
 
-**Entry Point** (`src/index.js`)
+**Entry Point** (`src/index.ts`)
 - Imports and registers card and editor as custom elements
 - Registers with HACS custom card picker
 
@@ -189,15 +189,14 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - Icons use both fill and stroke for visual depth
 - Rendered via Lit's `unsafeSVG` directive
 
-**Chart.js Integration**
-- Doughnut charts for pollen level circles
-- Lazy canvas creation on first render
-- Chart instances cached in `_chartCache` Map
-- Custom colors, gaps, and thickness via config
+**SVG Donut Rings** (`src/rendering/donut.ts`)
+- Pure `buildDonutSvg()` renders the level circles declaratively in the lit template
+- Colors arrive resolved from the mixin; user-influenced strings are attribute-escaped (`escapeXmlAttr`)
+- No-data state uses a seeded SVG noise `<pattern>`; custom colors, gaps and thickness via config
 
 ### Configuration
 
-**Constants** (`src/constants.js`)
+**Constants** (`src/constants.ts`)
 - `ALLERGEN_TRANSLATION` - Allergen name normalization map (computed from per-adapter alias groups: PP_ALIASES, DWD_ALIASES, etc.)
 - `toCanonicalAllergenKey(raw)` - Single lookup function for allergen normalization
 - `DWD_REGIONS` - German region code to name mapping
@@ -303,9 +302,9 @@ the files are `.ts` (see TypeScript Conventions).
 9. Run the full gate: `npm run typecheck && npm run lint && npm test && npm run build && npm run check-dist-size`
 
 ### Modifying Display Layout
-- Lit template is in `render()` method of `src/pollenprognos-card.js`
+- Lit template is in `render()` method of `src/pollenprognos-card.ts`
 - CSS is in static `styles` getter using Lit's `css` tagged template
-- Level circles rendered by `_renderLevelCircle()` which creates Chart.js canvas
+- Level circles rendered by `_renderLevelCircle()` (SVG donut via `buildDonutSvg`)
 - Icon + data rows built in `_renderAllergenRows()`
 
 ### Debugging
@@ -324,7 +323,7 @@ This project uses Claude Code's built-in subagent system. Agents are defined in
 | Role | File | Responsibility |
 |------|------|----------------|
 | HR | `.claude/agents/hr.md` | Team composition, role profiles |
-| Frontend Developer | `.claude/agents/frontend-developer.md` | Card UI, editor, SVG icons, Chart.js |
+| Frontend Developer | `.claude/agents/frontend-developer.md` | Card UI, editor, SVG icons, SVG donut rings |
 | Integration Developer | `.claude/agents/integration-developer.md` | Adapter system, entity discovery |
 | i18n Specialist | `.claude/agents/i18n-specialist.md` | Translations, locale files |
 | QA Tester | `.claude/agents/qa-tester.md` | Testing, contract validation |
