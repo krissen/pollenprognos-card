@@ -5,6 +5,6 @@ export default defineConfig({
     __VERSION__: JSON.stringify("test"),
   },
   test: {
-    include: ["test/**/*.test.js"],
+    include: ["test/**/*.test.{js,ts}"],
   },
 });

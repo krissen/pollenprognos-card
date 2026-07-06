@@ -2,29 +2,39 @@
  * Shared test helpers for mocking Home Assistant state objects.
  */
 
+import type { HomeAssistant } from "../src/types/home-assistant.js";
+
 /**
  * Create a minimal hass mock with the given entity states.
- * @param {Object} states - Map of entity_id to state object
- * @param {Object} [opts] - Additional hass properties
- * @returns {Object} hass mock
+ *
+ * The mock is deliberately partial: it only wires the properties adapters and
+ * card logic actually read. The build result is cast to HomeAssistant so tests
+ * can pass it to typed signatures without fabricating every field.
+ *
+ * @param states - Map of entity_id to state object
+ * @param opts - Additional hass properties
+ * @returns hass mock
  */
-export function createHass(states = {}, opts = {}) {
+export function createHass(
+  states: Record<string, any> = {},
+  opts: Record<string, any> = {},
+): HomeAssistant {
   return {
     states,
     locale: { language: opts.language || "en" },
     language: opts.language || "en",
     entities: opts.entities || {},
     ...opts,
-  };
+  } as unknown as HomeAssistant;
 }
 
 /**
  * Create a sensor state object with forecast data (PP style).
- * @param {number[]} levels - Array of level values per day
- * @param {Object} [opts] - Override attributes
- * @returns {Object} sensor state
+ * @param levels - Array of level values per day
+ * @param opts - Override attributes
+ * @returns sensor state
  */
-export function createPPSensor(levels, opts = {}) {
+export function createPPSensor(levels: Array<number | null>, opts: Record<string, any> = {}) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const forecast = levels.map((level, i) => {
@@ -42,13 +52,18 @@ export function createPPSensor(levels, opts = {}) {
 
 /**
  * Create a sensor state object for DWD.
- * @param {number} todayVal - Today's level (0-3 scale)
- * @param {number} tomorrowVal - Tomorrow's level
- * @param {number} twoDaysVal - Day after tomorrow's level
- * @param {Object} [opts] - Override attributes
- * @returns {Object} sensor state
+ * @param todayVal - Today's level (0-3 scale)
+ * @param tomorrowVal - Tomorrow's level
+ * @param twoDaysVal - Day after tomorrow's level
+ * @param opts - Override attributes
+ * @returns sensor state
  */
-export function createDWDSensor(todayVal, tomorrowVal, twoDaysVal, opts = {}) {
+export function createDWDSensor(
+  todayVal: number,
+  tomorrowVal: number,
+  twoDaysVal: number,
+  opts: Record<string, any> = {},
+) {
   return {
     state: String(todayVal),
     attributes: {
@@ -64,11 +79,11 @@ export function createDWDSensor(todayVal, tomorrowVal, twoDaysVal, opts = {}) {
 
 /**
  * Create a sensor state object for PLU.
- * @param {number} value - Raw grain count value
- * @param {Object} [attrOverrides] - Override attributes
- * @returns {Object} sensor state
+ * @param value - Raw grain count value
+ * @param attrOverrides - Override attributes
+ * @returns sensor state
  */
-export function createPLUSensor(value, attrOverrides = {}) {
+export function createPLUSensor(value: number, attrOverrides: Record<string, any> = {}) {
   return {
     state: String(value),
     attributes: {
@@ -80,12 +95,16 @@ export function createPLUSensor(value, attrOverrides = {}) {
 
 /**
  * Create a sensor state object for PEU.
- * @param {number} level - Level value (0-4 scale for daily)
- * @param {number[]} forecastLevels - Additional forecast day levels
- * @param {Object} [opts] - Override attributes
- * @returns {Object} sensor state
+ * @param level - Level value (0-4 scale for daily)
+ * @param forecastLevels - Additional forecast day levels
+ * @param opts - Override attributes
+ * @returns sensor state
  */
-export function createPEUSensor(level, forecastLevels = [], opts = {}) {
+export function createPEUSensor(
+  level: number,
+  forecastLevels: number[] = [],
+  opts: Record<string, any> = {},
+) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const forecast = [level, ...forecastLevels].map((lv, i) => {
@@ -107,11 +126,11 @@ export function createPEUSensor(level, forecastLevels = [], opts = {}) {
 
 /**
  * Create a sensor state object for MSW (hass-swissweather SwissPollenLevelSensor).
- * @param {string} levelStr - One of "None","Low","Medium","Strong","Very Strong"
- * @param {Object} [attrOverrides] - Override attributes
- * @returns {Object} sensor state
+ * @param levelStr - One of "None","Low","Medium","Strong","Very Strong"
+ * @param attrOverrides - Override attributes
+ * @returns sensor state
  */
-export function createMSWSensor(levelStr, attrOverrides = {}) {
+export function createMSWSensor(levelStr: string, attrOverrides: Record<string, any> = {}) {
   return {
     state: levelStr,
     attributes: {
@@ -121,18 +140,30 @@ export function createMSWSensor(levelStr, attrOverrides = {}) {
   };
 }
 
+interface MakeDeviceOpts {
+  deviceId?: string;
+  identifiers?: Array<[string, string]>;
+  configEntries?: string[];
+  name?: string;
+  nameByUser?: string;
+}
+
 /**
  * Create a minimal device registry entry.
  *
- * @param {object} opts
- * @param {string}   opts.deviceId      - Device ID (required, must be explicit).
- * @param {Array[]}  opts.identifiers   - Array of [domain, unique_id] tuples.
- * @param {string[]} [opts.configEntries] - Config entry IDs. Default: ["cfg_default"].
- * @param {string}   [opts.name]        - Device name.
- * @param {string}   [opts.nameByUser]  - User-assigned device name.
- * @returns {object}
+ * @param opts.deviceId      - Device ID (required, must be explicit).
+ * @param opts.identifiers   - Array of [domain, unique_id] tuples.
+ * @param opts.configEntries - Config entry IDs. Default: ["cfg_default"].
+ * @param opts.name          - Device name.
+ * @param opts.nameByUser    - User-assigned device name.
  */
-export function makeDevice({ deviceId, identifiers, configEntries = ["cfg_default"], name, nameByUser } = {}) {
+export function makeDevice({
+  deviceId,
+  identifiers,
+  configEntries = ["cfg_default"],
+  name,
+  nameByUser,
+}: MakeDeviceOpts = {}) {
   if (!deviceId) {
     throw new Error("makeDevice: deviceId is required");
   }
@@ -145,18 +176,30 @@ export function makeDevice({ deviceId, identifiers, configEntries = ["cfg_defaul
   };
 }
 
+interface MakeEntityEntryOpts {
+  deviceId?: string | null;
+  platform?: string | null;
+  translationKey?: string | null;
+  uniqueId?: string | null;
+  entityCategory?: string | null;
+}
+
 /**
  * Create a minimal entity registry entry.
  *
- * @param {object} opts
- * @param {string} [opts.deviceId]        - Device ID the entity belongs to.
- * @param {string} [opts.platform]        - Integration platform name.
- * @param {string} [opts.translationKey]  - Translation key.
- * @param {string} [opts.uniqueId]        - Unique ID.
- * @param {string|null} [opts.entityCategory] - Entity category (e.g. "diagnostic"). Default: null.
- * @returns {object}
+ * @param opts.deviceId        - Device ID the entity belongs to.
+ * @param opts.platform        - Integration platform name.
+ * @param opts.translationKey  - Translation key.
+ * @param opts.uniqueId        - Unique ID.
+ * @param opts.entityCategory  - Entity category (e.g. "diagnostic"). Default: null.
  */
-export function makeEntityEntry({ deviceId, platform, translationKey, uniqueId, entityCategory = null } = {}) {
+export function makeEntityEntry({
+  deviceId,
+  platform,
+  translationKey,
+  uniqueId,
+  entityCategory = null,
+}: MakeEntityEntryOpts = {}) {
   return {
     device_id: deviceId || null,
     platform: platform || null,
@@ -166,20 +209,34 @@ export function makeEntityEntry({ deviceId, platform, translationKey, uniqueId, 
   };
 }
 
+interface RegistryEntry {
+  entityId: string;
+  state?: string | number;
+  attributes?: Record<string, any>;
+  deviceId?: string | null;
+  platform?: string | null;
+  translationKey?: string | null;
+  uniqueId?: string | null;
+  entityCategory?: string | null;
+  deviceMeta?: Omit<MakeDeviceOpts, "deviceId">;
+}
+
 /**
  * Create a hass mock with wired states, entities, and devices registries.
  *
- * @param {Array} entries - Array of entity descriptors:
+ * @param entries - Array of entity descriptors:
  *   { entityId, state, attributes, deviceId, platform, translationKey, uniqueId, entityCategory, deviceMeta }
  *   deviceMeta is passed to makeDevice() (keyed by deviceId, first occurrence wins).
- * @param {object} [opts]
- * @param {object} [opts.locale] - Default: { language: "en" }.
- * @returns {object} hass mock
+ * @param opts.locale - Default: { language: "en" }.
+ * @returns hass mock
  */
-export function createHassWithRegistry(entries, { locale = { language: "en" } } = {}) {
-  const states = {};
-  const entities = {};
-  const devices = {};
+export function createHassWithRegistry(
+  entries: RegistryEntry[],
+  { locale = { language: "en" } }: { locale?: { language: string } } = {},
+): HomeAssistant {
+  const states: Record<string, any> = {};
+  const entities: Record<string, any> = {};
+  const devices: Record<string, any> = {};
   const seenDevices = new Set();
   // Per-call counter so any auto-assigned device IDs are deterministic and
   // independent of test execution order. Earlier versions used a module-level
@@ -241,15 +298,13 @@ export function createHassWithRegistry(entries, { locale = { language: "en" } } 
     devices,
     locale,
     language: locale.language,
-  };
+  } as unknown as HomeAssistant;
 }
 
 /**
  * Assert the structural contract of a discoverEntitiesByDevice() result.
- *
- * @param {{ locations: Map, tierUsed: number }} discovery
  */
-export function assertDiscoveryShape(discovery) {
+export function assertDiscoveryShape(discovery: any) {
   if (!discovery || typeof discovery !== "object") {
     throw new Error("discovery must be an object");
   }
@@ -282,10 +337,10 @@ export function assertDiscoveryShape(discovery) {
 
 /**
  * Assert the contract shape of a sensor dict returned by any adapter's fetchForecast().
- * @param {Object} sensor - A single sensor dict from fetchForecast result
- * @param {Object} [opts] - Optional expectations
+ * @param sensor - A single sensor dict from fetchForecast result
+ * @param opts - Optional expectations
  */
-export function assertSensorShape(sensor, opts = {}) {
+export function assertSensorShape(sensor: any, opts: { minDays?: number } = {}) {
   const { minDays = 1 } = opts;
   if (typeof sensor.allergenReplaced !== "string") {
     throw new Error(`allergenReplaced should be string, got ${typeof sensor.allergenReplaced}`);

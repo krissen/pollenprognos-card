@@ -43,8 +43,8 @@ import { stubConfigGPL, GPL_ATTRIBUTION } from "../src/adapters/gpl/index.js";
 // ---------------------------------------------------------------------------
 
 // -- PP -------------------------------------------------------------------
-function ppHass(cityKey, allergenMap) {
-  const states = {};
+function ppHass(cityKey: string, allergenMap: Record<string, Array<number | null>>) {
+  const states: Record<string, any> = {};
   for (const [allergen, levels] of Object.entries(allergenMap)) {
     states[`sensor.pollen_${cityKey}_${allergen}`] = createPPSensor(levels);
   }
@@ -52,8 +52,8 @@ function ppHass(cityKey, allergenMap) {
 }
 
 // -- DWD ------------------------------------------------------------------
-function dwdHass(regionId, allergenMap) {
-  const states = {};
+function dwdHass(regionId: string, allergenMap: Record<string, number[]>) {
+  const states: Record<string, any> = {};
   for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap)) {
     states[`sensor.pollenflug_${allergen}_${regionId}`] = createDWDSensor(
       today,
@@ -65,7 +65,7 @@ function dwdHass(regionId, allergenMap) {
 }
 
 // -- PEU ------------------------------------------------------------------
-function peuSensor(levelValues, opts = {}) {
+function peuSensor(levelValues: number[], opts: Record<string, any> = {}) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const forecast = levelValues.map((lv, i) => {
@@ -81,8 +81,8 @@ function peuSensor(levelValues, opts = {}) {
   };
 }
 
-function peuHass(location, allergenMap, opts = {}) {
-  const states = {};
+function peuHass(location: string, allergenMap: Record<string, number[]>, opts: Record<string, any> = {}) {
+  const states: Record<string, any> = {};
   for (const [allergen, levels] of Object.entries(allergenMap)) {
     states[`sensor.polleninformation_${location}_${allergen}`] = peuSensor(levels, opts);
   }
@@ -90,7 +90,7 @@ function peuHass(location, allergenMap, opts = {}) {
 }
 
 // -- SILAM ----------------------------------------------------------------
-function silamHass(location, weatherAttrs = {}) {
+function silamHass(location: string, weatherAttrs: Record<string, any> = {}) {
   const weatherEntityId = `weather.silam_pollen_${location.toLowerCase()}_forecast`;
   const states = {
     [weatherEntityId]: {
@@ -113,8 +113,8 @@ function silamHass(location, weatherAttrs = {}) {
 }
 
 // -- ATMO -----------------------------------------------------------------
-function atmoHass(location, allergenStates) {
-  const states = {};
+function atmoHass(location: string, allergenStates: Array<[string, number, number?]>) {
+  const states: Record<string, any> = {};
   for (const [allergen, todayVal, tomorrowVal] of allergenStates) {
     const frSlug = ATMO_ALLERGEN_MAP[allergen];
     let todayId;
@@ -137,8 +137,8 @@ function atmoHass(location, allergenStates) {
 }
 
 // -- PLU ------------------------------------------------------------------
-function pluHass(allergenMap) {
-  const states = {};
+function pluHass(allergenMap: Record<string, number>) {
+  const states: Record<string, any> = {};
   for (const [allergen, value] of Object.entries(allergenMap)) {
     states[`sensor.pollen_${allergen}`] = createPLUSensor(value);
   }
@@ -146,8 +146,8 @@ function pluHass(allergenMap) {
 }
 
 // -- MSW ------------------------------------------------------------------
-function mswHass(allergenMap) {
-  const states = {};
+function mswHass(allergenMap: Record<string, [string, string]>) {
+  const states: Record<string, any> = {};
   for (const [, [mswSlug, levelStr]] of Object.entries(allergenMap)) {
     states[`sensor.pollen_${mswSlug}_level_at_8000_za`] = createMSWSensor(levelStr);
   }
@@ -155,7 +155,7 @@ function mswHass(allergenMap) {
 }
 
 // -- IRMKMI ---------------------------------------------------------------
-function irmkmiSensor(colorState, attrOverrides = {}) {
+function irmkmiSensor(colorState: string, attrOverrides: Record<string, any> = {}) {
   return {
     state: colorState,
     attributes: {
@@ -167,8 +167,8 @@ function irmkmiSensor(colorState, attrOverrides = {}) {
   };
 }
 
-function irmkmiHass(allergenMap, location = "home") {
-  const states = {};
+function irmkmiHass(allergenMap: Record<string, [string, string]>, location = "home") {
+  const states: Record<string, any> = {};
   for (const [, [slug, colorState]] of Object.entries(allergenMap)) {
     states[`sensor.${location}_${slug}_level`] = irmkmiSensor(colorState);
   }
@@ -176,7 +176,13 @@ function irmkmiHass(allergenMap, location = "home") {
 }
 
 // -- Kleenex --------------------------------------------------------------
-function kleenexEntity(location, category, ppmValue, details = [], forecast = []) {
+function kleenexEntity(
+  location: string,
+  category: string,
+  ppmValue: number,
+  details: Array<{ name: string; value: number }> = [],
+  forecast: Array<{ level: number; details?: any[] }> = [],
+) {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
     state: String(ppmValue),
@@ -191,8 +197,8 @@ function kleenexEntity(location, category, ppmValue, details = [], forecast = []
   };
 }
 
-function kleenexHass(entities) {
-  const states = {};
+function kleenexHass(entities: Array<{ entity_id: string; [key: string]: any }>) {
+  const states: Record<string, any> = {};
   for (const entity of entities) {
     states[entity.entity_id] = entity;
   }
@@ -200,7 +206,12 @@ function kleenexHass(entities) {
 }
 
 // -- GP -------------------------------------------------------------------
-function gpSensor(displayName, indexValue, forecast = {}, attrOverrides = {}) {
+function gpSensor(
+  displayName: string,
+  indexValue: number,
+  forecast: Record<string, any> = {},
+  attrOverrides: Record<string, any> = {},
+) {
   return {
     state: indexValue >= 0 ? "Moderate" : "No data",
     attributes: {
@@ -216,12 +227,17 @@ function gpSensor(displayName, indexValue, forecast = {}, attrOverrides = {}) {
   };
 }
 
-function gpHass(statesMap) {
+function gpHass(statesMap: Record<string, any>) {
   return createHass(statesMap, { entities: undefined });
 }
 
 // -- GPL ------------------------------------------------------------------
-function gplTypeSensor(icon, stateValue, forecastItems = [], attrOverrides = {}) {
+function gplTypeSensor(
+  icon: string,
+  stateValue: number,
+  forecastItems: any[] = [],
+  attrOverrides: Record<string, any> = {},
+) {
   return {
     state: String(stateValue),
     attributes: {
@@ -233,7 +249,12 @@ function gplTypeSensor(icon, stateValue, forecastItems = [], attrOverrides = {})
   };
 }
 
-function gplPlantSensor(code, stateValue, forecastItems = [], attrOverrides = {}) {
+function gplPlantSensor(
+  code: string,
+  stateValue: number,
+  forecastItems: any[] = [],
+  attrOverrides: Record<string, any> = {},
+) {
   return {
     state: String(stateValue),
     attributes: {
@@ -245,7 +266,7 @@ function gplPlantSensor(code, stateValue, forecastItems = [], attrOverrides = {}
   };
 }
 
-function gplForecastItem(offset, value, hasIndex = true) {
+function gplForecastItem(offset: number, value: number, hasIndex = true) {
   const base = new Date();
   base.setHours(0, 0, 0, 0);
   const d = new Date(base.getTime() + offset * 86400000);
@@ -263,7 +284,7 @@ function gplForecastItem(offset, value, hasIndex = true) {
 
 // Attribution-fallback discovery: no hass.entities, GPL sensors identified by
 // their GPL_ATTRIBUTION attribute.
-function gplAttr(states) {
+function gplAttr(states: Record<string, any>) {
   return createHass(states, { entities: undefined });
 }
 
@@ -271,12 +292,25 @@ function gplAttr(states) {
 // Fixture assembly
 // ---------------------------------------------------------------------------
 
-export function buildGoldenFixtures() {
-  const cases = [];
-  const add = (adapter, variant, hass, config, forecastEvent = null) =>
-    cases.push({ adapter, variant, hass, config, forecastEvent });
+interface GoldenCase {
+  adapter: string;
+  variant: string;
+  hass: any;
+  config: any;
+  forecastEvent: any;
+}
 
-  const cfg = (stub, overrides) => ({ ...stub, ...overrides });
+export function buildGoldenFixtures(): GoldenCase[] {
+  const cases: GoldenCase[] = [];
+  const add = (
+    adapter: string,
+    variant: string,
+    hass: any,
+    config: any,
+    forecastEvent: any = null,
+  ) => cases.push({ adapter, variant, hass, config, forecastEvent });
+
+  const cfg = (stub: any, overrides: Record<string, any>) => ({ ...stub, ...overrides });
 
   // -- PP -----------------------------------------------------------------
   add(
