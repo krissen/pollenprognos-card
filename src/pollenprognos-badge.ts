@@ -1,4 +1,4 @@
-// src/pollenprognos-badge.js
+// src/pollenprognos-badge.ts
 //
 // Compact HA badge element that renders one or more pollen level rings.
 // Visually identical to the minimal-mode icon-in-ring cells of the main card,
@@ -14,6 +14,8 @@
 // getConfigElement points at that tag so HA can lazy-load it when ready.
 
 import { LitElement, html, css } from "lit";
+import type { TemplateResult } from "lit";
+import type { PrimitiveType } from "intl-messageformat";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
@@ -32,7 +34,10 @@ import {
   NORMAL_DEFAULT_THICKNESS,
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
-import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
+import {
+  LevelCircleMixin,
+  resolveTapActionType,
+} from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -42,24 +47,48 @@ import {
   normalizeIntegration,
 } from "./utils/autodetect.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json";
+import type { HomeAssistant } from "./types/home-assistant.js";
+import type { CardConfig, RawCardConfig } from "./types/config.js";
+import type { PollenSensor } from "./types/sensor.js";
 
 class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // ---------------------------------------------------------------------- //
   // Instance fields                                                          //
   // ---------------------------------------------------------------------- //
 
-  _hass = null;
-  _userConfig = null;
-  sensors = [];
+  // _hass is declared as HomeAssistant | undefined by the mixin; the badge
+  // initializes it to null at runtime (the mixin only reads it via truthiness /
+  // reference-equality, so null and undefined behave identically here). Cast via
+  // unknown so the field keeps the mixin's declared type while preserving the
+  // null runtime seed.
+  override _hass = null as unknown as HomeAssistant | undefined;
+  // Narrow the mixin's optional `config` to non-optional here: the badge always
+  // has a config in its render / fetch paths, matching the original JS which
+  // read `this.config.x` directly. `declare` keeps Lit's reactive accessor.
+  declare config: CardConfig;
+  _userConfig: RawCardConfig | null = null;
+  // sensors/_noPollen/_noData are reactive AND field-initialised on purpose:
+  // the class-field initializer shadows Lit's accessor (useDefineForClassFields
+  // is off), so assigning them does not schedule an update by itself. The fetch
+  // path calls requestUpdate() explicitly to repaint (see _fetchSensors). Kept
+  // as initialised fields to preserve that documented behaviour.
+  sensors: PollenSensor[] = [];
   _versionLogged = false;
   _noPollen = false;
   _noData = false;
+  _integrationExplicit = false;
+  // Reactive props that keep Lit's accessor (no field initializer): declare so
+  // TS types them without emitting a runtime field that would clobber it.
+  declare _isLoaded?: boolean;
+  declare _error?: string | null;
+  // Monotonic fetch token; starts undefined and is read via `|| 0`.
+  declare _fetchSeq?: number;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
   // ---------------------------------------------------------------------- //
 
-  static get properties() {
+  static override get properties() {
     return {
       hass: { state: true },
       config: {},
@@ -75,15 +104,24 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // Helpers                                                                  //
   // ---------------------------------------------------------------------- //
 
-  get debug() {
+  // The mixin declares `debug` as a (declare) property so it can read it; the
+  // concrete badge implements it as a computed getter. TS flags the
+  // property→accessor shape mismatch (TS2611), which is inherent to this split
+  // and cannot be resolved without changing the mixin. Suppress the single
+  // shape error; the runtime contract (mixin reads this.debug) is unchanged.
+  // @ts-expect-error property-in-base vs accessor-in-derived (see above)
+  override get debug(): boolean {
     return Boolean(this.config && this.config.debug);
   }
 
-  get _lang() {
-    return detectLang(this._hass, this.config?.date_locale);
+  get _lang(): string {
+    return detectLang(
+      this._hass,
+      this.config?.date_locale as string | undefined,
+    );
   }
 
-  _t(key, vars = {}) {
+  _t(key: string, vars: Record<string, PrimitiveType> = {}): string {
     return t(key, this._lang, vars);
   }
 
@@ -93,7 +131,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // HA card protocol                                                         //
   // ---------------------------------------------------------------------- //
 
-  static async getConfigElement() {
+  static async getConfigElement(): Promise<HTMLElement> {
     await customElements.whenDefined("pollenprognos-badge-editor");
     return document.createElement("pollenprognos-badge-editor");
   }
@@ -110,7 +148,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    * autodetect on a DWD/PEU-only install. Without it, autodetect runs once hass
    * is available.
    */
-  static getStubConfig(hass, _entities, _entitiesFallback) {
+  static getStubConfig(
+    hass?: HomeAssistant,
+    _entities?: unknown,
+    _entitiesFallback?: unknown,
+  ): RawCardConfig {
     const base = { badge_content: "worst", icon_in_ring: true };
     if (hass) {
       const integration = pickIntegration(detectIntegrationStates(hass), {
@@ -125,7 +167,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // setConfig                                                                //
   // ---------------------------------------------------------------------- //
 
-  setConfig(config) {
+  setConfig(config: RawCardConfig): void {
     this._userConfig = { ...config };
     // Whether the user pinned an integration. When they didn't, set hass()
     // re-resolves integration + location from hass so a no-config badge shows
@@ -161,26 +203,31 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    * @param {object|null} hass
    * @returns {object}
    */
-  _buildConfig(config, hass) {
-    const explicit = Object.prototype.hasOwnProperty.call(config, "integration");
+  _buildConfig(
+    config: RawCardConfig,
+    hass: HomeAssistant | null | undefined,
+  ): CardConfig {
+    const explicit = Object.prototype.hasOwnProperty.call(
+      config,
+      "integration",
+    );
     let integration = normalizeIntegration(config.integration);
 
     // Autodetect integration when the user didn't pin one.
     let detection = null;
     if (!explicit && hass) {
       detection = detectIntegrationStates(hass);
-      integration = pickIntegration(detection, { explicit: false }) || integration;
+      integration =
+        pickIntegration(detection, { explicit: false }) || integration;
     }
 
-    const stub = getStubConfig(integration) || getStubConfig("pp");
+    const stub = (getStubConfig(integration) || getStubConfig("pp"))!;
     if (!integration) integration = stub.integration;
 
     // Defensive typeguards (repo policy): coerce YAML-sourced fields that the
     // badge adds so mis-typed values can't cause silent misbehaviour.
     const badgeContent =
-      typeof config.badge_content === "string"
-        ? config.badge_content
-        : "worst";
+      typeof config.badge_content === "string" ? config.badge_content : "worst";
     const badgeSingleAllergen =
       typeof config.badge_single_allergen === "string"
         ? config.badge_single_allergen
@@ -188,8 +235,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     const badgeShowLabel = coerceBool(config.badge_show_label);
     // Visual mode: icon_in_ring (default) | ring_value | ring_empty | icon_only.
     const VISUALS = ["icon_in_ring", "ring_value", "ring_empty", "icon_only"];
-    const badgeVisual = VISUALS.includes(config.badge_visual)
-      ? config.badge_visual
+    const badgeVisual = VISUALS.includes(config.badge_visual as string)
+      ? (config.badge_visual as string)
       : "icon_in_ring";
     // Scale: whole-badge multiplier; default 1 = standard HA badge size.
     // Clamp to a sane ceiling so a typo (e.g. 100 typed into the editor field)
@@ -254,10 +301,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // Merge order: stub → badge-oriented defaults → user config, so user
     // always wins for plain keys. The badge-derived engine flags are applied
     // AFTER the spread so badge_visual stays the single source of truth.
-    const built = {
+    const built: Record<string, unknown> = {
       ...stub,
-      badge_content: "worst",
-      badge_show_label: false,
+      // badge_content / badge_show_label previously also appeared as literal
+      // defaults before `...config`; those were dead (last-wins identical) since
+      // the coerced badgeContent / badgeShowLabel below always override them, and
+      // duplicate literal keys are a TS error. Dropped the pre-spread copies.
       ...config,
       integration,
       // Re-apply coerced fields after spread so they override raw values.
@@ -294,14 +343,17 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       }
     }
 
-    return pinBadgeSingleAllergen(built, stub.allergens);
+    return pinBadgeSingleAllergen(
+      built as CardConfig,
+      stub.allergens as string[],
+    );
   }
 
   // ---------------------------------------------------------------------- //
   // hass setter                                                              //
   // ---------------------------------------------------------------------- //
 
-  set hass(hass) {
+  set hass(hass: HomeAssistant | undefined) {
     if (this._hass === hass) return;
     this._hass = hass;
     // When the integration is not explicit, re-resolve integration + location
@@ -311,10 +363,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       const next = this._buildConfig(this._userConfig, hass);
       if (!deepEqual(this.config, next)) this.config = next;
     }
-    this._fetchSensors(hass);
+    // HA always sets a defined hass on the element; the setter's param stays
+    // optional to match the editor's contract. Cast for the fetch call, which
+    // dereferences hass (unchanged from the original unguarded JS call).
+    this._fetchSensors(hass as HomeAssistant);
   }
 
-  get hass() {
+  get hass(): HomeAssistant | undefined {
     return this._hass;
   }
 
@@ -327,11 +382,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    *
    * @param {object} hass
    */
-  _fetchSensors(hass) {
+  _fetchSensors(hass: HomeAssistant): void {
     const cfg = this.config;
     if (!cfg) return;
 
-    const adapter = getAdapter(cfg.integration) || getAdapter("pp");
+    const adapter = (getAdapter(cfg.integration) || getAdapter("pp"))!;
 
     // Monotonic token: the editor preview reuses one badge element and refetches
     // on every config + hass change, so several fetches can be in flight. Each
@@ -351,8 +406,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         // For silam daily, pass the full state-key list + allergen map so
         // filterSensorsPostFetch can do the same discovery the card does.
         const isSilamDaily =
-          cfg.integration === "silam" &&
-          (!cfg.mode || cfg.mode === "daily");
+          cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily");
 
         const filtered = filterSensorsPostFetch(
           sensors,
@@ -426,7 +480,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    *
    * @returns {number}
    */
-  _badgeBaseSize() {
+  _badgeBaseSize(): number {
     // Native HA badge height; kept local to avoid module-scope minification
     // quirks. badge_scale multiplies it.
     const HA_BADGE_SIZE = 36;
@@ -434,7 +488,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     return Math.round(HA_BADGE_SIZE * scale);
   }
 
-  render() {
+  override render(): TemplateResult {
     // Pill height follows the HA badge convention; the ring sits inside it.
     const height = this._badgeBaseSize();
     const ring = Math.round(height * 0.78);
@@ -453,7 +507,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // A configured background_color sets --ppb-bg (consumed by the .ppb rule,
     // which otherwise falls back to the themed background). Same ?.trim?.()
     // guard the card uses, so non-string YAML values can't throw.
-    const bg = this.config?.background_color?.trim?.();
+    const bg = (this.config?.background_color as string | undefined)?.trim?.();
     const hostStyle =
       `--ppb-size: ${height}px; --pollen-icon-size: ${visualSize}px;` +
       (bg ? ` --ppb-bg: ${bg};` : "");
@@ -463,12 +517,16 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // height/padding across states instead of jumping between ppb--right and
     // ppb--below when data appears or disappears.
     const wrapClass =
-      this.config?.badge_label_position === "below" ? "ppb--below" : "ppb--right";
+      this.config?.badge_label_position === "below"
+        ? "ppb--below"
+        : "ppb--right";
 
     // Not yet loaded: render an empty pill placeholder so the badge slot
     // doesn't jump when data arrives. It carries the same size base.
     if (!this._isLoaded) {
-      return html`<div class="ppb ${wrapClass}" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
+        <div class="ppb-empty"></div>
+      </div>`;
     }
 
     // Error or no sensors: render a tiny empty pill; do NOT render a big
@@ -503,7 +561,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           </div>
         </div>`;
       }
-      return html`<div class="ppb ${wrapClass}" style="${hostStyle}"><div class="ppb-empty"></div></div>`;
+      return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
+        <div class="ppb-empty"></div>
+      </div>`;
     }
 
     const ringConfig = this._buildLevelRingConfig();
@@ -511,7 +571,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
 
-    const visualMode = this.config?.badge_visual || "icon_in_ring";
+    const visualMode = (this.config?.badge_visual as string) || "icon_in_ring";
     const showLabel = this.config.badge_show_label === true;
 
     // Badge-level tap_action (shared with the card). Bind only when the action
@@ -539,27 +599,40 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
             normalizedLevel,
           );
           const svgKey = this._getSvgKey(sensor.allergenReplaced);
-          const rawNum = resolveNumericValue(sensor.days?.[0], this.config) ?? ringLevel;
-          const displayLevel = rawNum != null && rawNum >= 0 ? rawNum : ringLevel;
+          const rawNum =
+            resolveNumericValue(sensor.days?.[0], this.config) ?? ringLevel;
+          // rawNum may be a numeric string (display_state); the `>= 0` guard
+          // relies on JS string→number coercion, so cast for the comparison
+          // without changing the runtime value carried into displayLevel.
+          const displayLevel =
+            rawNum != null && (rawNum as number) >= 0 ? rawNum : ringLevel;
           const clickable =
             this.config.link_to_sensors !== false && !!sensor.entity_id;
 
-          const visual = this._renderBadgeVisual(
-            visualMode,
-            sensor,
-            { ringConfig, base: visualSize, ringIconRatio, ringLevel, svgKey, displayLevel, clickable },
-          );
+          const visual = this._renderBadgeVisual(visualMode, sensor, {
+            ringConfig,
+            base: visualSize,
+            ringIconRatio,
+            ringLevel,
+            svgKey,
+            displayLevel,
+            clickable,
+          });
+
+          // Hoisted out of the template: the long inline `??` chain formatted
+          // non-idempotently under Prettier. Referencing a short local keeps the
+          // span's inner whitespace byte-identical to the original.
+          const labelText =
+            sensor.allergenShort ?? sensor.allergenCapitalized ?? "";
 
           return html`
             <div class="ppb-item">
               ${visual}
-              ${showLabel
-                ? html`<span class="ppb-label">
-                    ${sensor.allergenShort ??
-                    sensor.allergenCapitalized ??
-                    ""}
-                  </span>`
-                : ""}
+              ${
+                showLabel
+                  ? html`<span class="ppb-label"> ${labelText} </span>`
+                  : ""
+              }
             </div>
           `;
         })}
@@ -584,25 +657,47 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    * @param {object} ctx
    * @returns {import("lit").TemplateResult}
    */
-  _renderBadgeVisual(mode, sensor, ctx) {
-    const { ringConfig, base, ringIconRatio, ringLevel, svgKey, displayLevel, clickable } = ctx;
+  _renderBadgeVisual(
+    mode: string,
+    sensor: PollenSensor,
+    ctx: {
+      ringConfig: ReturnType<PollenPrognosBadge["_buildLevelRingConfig"]>;
+      base: number;
+      ringIconRatio: number;
+      ringLevel: number;
+      svgKey: string | null;
+      displayLevel: number | string;
+      clickable: boolean;
+    },
+  ): TemplateResult {
+    const {
+      ringConfig,
+      base,
+      ringIconRatio,
+      ringLevel,
+      svgKey,
+      displayLevel,
+      clickable,
+    } = ctx;
 
     if (mode === "icon_only") {
-      const onClick = (e) => {
+      const onClick = (e: Event) => {
         if (clickable) {
           e.stopPropagation();
           this._openEntity(sensor.entity_id);
         }
       };
       return this._renderAllergenSvg(
-        this._getEffectiveSvgKey(svgKey, ringLevel),
+        this._getEffectiveSvgKey(svgKey as string, ringLevel),
         ringLevel,
         { clickable, onClick, stale: sensor.stale },
       );
     }
 
     const iconKey =
-      mode === "icon_in_ring" ? this._getEffectiveSvgKey(svgKey, ringLevel) : "";
+      mode === "icon_in_ring"
+        ? this._getEffectiveSvgKey(svgKey as string, ringLevel)
+        : "";
 
     return this._renderLevelCircle(
       ringLevel,
@@ -619,7 +714,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       },
       sensor.allergenReplaced,
       0,
-      displayLevel,
+      displayLevel as number,
       sensor.entity_id,
       clickable,
     );
@@ -629,7 +724,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   // Styles                                                                   //
   // ---------------------------------------------------------------------- //
 
-  static get styles() {
+  static override get styles() {
     return css`
       ${ringIconStyles}
       :host {
