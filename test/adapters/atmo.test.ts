@@ -12,15 +12,15 @@ import {
 } from "../../src/adapters/atmo.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigATMO, ...overrides };
 }
 
-function makeHass(location, allergenStates) {
-  const states = {};
+function makeHass(location: any, allergenStates: any): any {
+  const states: Record<string, any> = {};
   for (const [allergen, todayVal, tomorrowVal] of allergenStates) {
     const frSlug = ATMO_ALLERGEN_MAP[allergen];
-    let todayId, j1Id;
+    let todayId;
     if (allergen === "allergy_risk") {
       todayId = `sensor.qualite_globale_pollen_${location}`;
     } else if (allergen === "qualite_globale") {
@@ -30,7 +30,7 @@ function makeHass(location, allergenStates) {
     } else {
       todayId = `sensor.niveau_${frSlug}_${location}`;
     }
-    j1Id = `${todayId}_j_1`;
+    const j1Id = `${todayId}_j_1`;
     states[todayId] = { state: String(todayVal), attributes: { "Libellé": "" } };
     if (tomorrowVal !== undefined) {
       states[j1Id] = { state: String(tomorrowVal), attributes: { "Libellé": "" } };
@@ -399,7 +399,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const pollenResults = result.filter((s) => s.group === "pollen");
       for (let i = 0; i < pollenResults.length - 1; i++) {
         expect(pollenResults[i].days[0].display_state).toBeGreaterThanOrEqual(
-          pollenResults[i + 1].days[0].display_state,
+          pollenResults[i + 1].days[0].display_state as number,
         );
       }
     });
@@ -423,7 +423,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const pollutionResults = result.filter((s) => s.group === "pollution");
       for (let i = 0; i < pollutionResults.length - 1; i++) {
         expect(pollutionResults[i].days[0].display_state).toBeGreaterThanOrEqual(
-          pollutionResults[i + 1].days[0].display_state,
+          pollutionResults[i + 1].days[0].display_state as number,
         );
       }
     });
@@ -833,7 +833,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result[0].days[0].display_state).toBeGreaterThanOrEqual(
-        result[1].days[0].display_state,
+        result[1].days[0].display_state as number,
       );
     });
 
@@ -853,7 +853,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result[0].days[0].display_state).toBeLessThanOrEqual(
-        result[1].days[0].display_state,
+        result[1].days[0].display_state as number,
       );
     });
 
@@ -963,9 +963,9 @@ describe("ATMO adapter: fetchForecast", () => {
 });
 
 // Helper: create a hass mock with prefixed entity IDs (multi-instance pattern)
-function makePrefixedHass(prefix, location, allergenStates, configEntryId) {
-  const states = {};
-  const entities = {};
+function makePrefixedHass(prefix: any, location: any, allergenStates: any, configEntryId: any): any {
+  const states: Record<string, any> = {};
+  const entities: Record<string, any> = {};
   const deviceId = `device_${location}`;
   for (const [allergen, todayVal, tomorrowVal] of allergenStates) {
     const frSlug = ATMO_ALLERGEN_MAP[allergen];
@@ -1009,7 +1009,7 @@ describe("discoverAtmoSensors", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("entry_toulouse")).toBe(true);
-    const loc = result.locations.get("entry_toulouse");
+    const loc = result.locations.get("entry_toulouse")!;
     expect(loc.entities.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
     expect(loc.entities.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
   });
@@ -1059,7 +1059,7 @@ describe("discoverAtmoSensors", () => {
     ], "entry_city");
 
     const result = discoverAtmoSensors(hass);
-    const entities = result.locations.get("entry_city").entities;
+    const entities = result.locations.get("entry_city")!.entities;
 
     expect(entities.size).toBe(13);
     expect(entities.get("birch")).toContain("niveau_bouleau");
@@ -1085,8 +1085,7 @@ describe("discoverAtmoSensors", () => {
     });
 
     const result = discoverAtmoSensors(hass);
-    const loc = result.locations.get("e1");
-
+    const loc = result.locations.get("e1")!;
     expect(loc.entities.has("birch")).toBe(true);
     // concentration entity should not produce a ragweed entry
     expect(loc.entities.has("ragweed")).toBe(false);
@@ -1104,7 +1103,7 @@ describe("discoverAtmoSensors", () => {
     // Falls back to "default" grouping (no config_entry_id)
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("default")).toBe(true);
-    expect(result.locations.get("default").entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+    expect(result.locations.get("default")!.entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
   });
 });
 
@@ -1284,7 +1283,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("entry_toulouse")).toBe(true);
-    const loc = result.locations.get("entry_toulouse");
+    const loc = result.locations.get("entry_toulouse")!;
     expect(loc.entities.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
     expect(loc.entities.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
   });
@@ -1301,7 +1300,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
         state: "4", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
       },
     };
-    const entities = {};
+    const entities: Record<string, any> = {};
     for (const eid of Object.keys(states)) {
       entities[eid] = { platform: "atmofrance", device_id: "dev_chambray" };
     }
@@ -1318,7 +1317,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("entry_chambray")).toBe(true);
-    const loc = result.locations.get("entry_chambray");
+    const loc = result.locations.get("entry_chambray")!;
     expect(loc.entities.get("ragweed")).toBe("sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours");
     expect(loc.entities.get("birch")).toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
     expect(loc.entities.get("allergy_risk")).toBe("sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours");
@@ -1342,7 +1341,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     const result = discoverAtmoSensors(hass);
     // Identifier city takes precedence over "Nom de la zone"
-    expect(result.locations.get("e1").label).toBe("Plouha");
+    expect(result.locations.get("e1")!.label).toBe("Plouha");
   });
 
   it("resolves label from device name_by_user (highest priority)", () => {
@@ -1364,7 +1363,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     const result = discoverAtmoSensors(hass);
     // name_by_user wins over identifier and zone name
-    expect(result.locations.get("e1").label).toBe("Mon Emplacement");
+    expect(result.locations.get("e1")!.label).toBe("Mon Emplacement");
   });
 
   it("falls back to Nom de la zone when no device info", () => {
@@ -1375,7 +1374,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
     const hass = createHass(states, { language: "fr", entities: undefined });
 
     const result = discoverAtmoSensors(hass);
-    expect(result.locations.get("default").label).toBe("Nice");
+    expect(result.locations.get("default")!.label).toBe("Nice");
   });
 
   it("falls back to tier 2 when no devices have atmofrance identifiers", () => {
@@ -1394,7 +1393,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("e1")).toBe(true);
-    expect(result.locations.get("e1").entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+    expect(result.locations.get("e1")!.entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
   });
 
   it("falls back to tier 3 (regex) when hass.entities is unavailable", () => {
@@ -1408,7 +1407,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("default")).toBe(true);
-    expect(result.locations.get("default").entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+    expect(result.locations.get("default")!.entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
   });
 
   it("regex fallback handles multi-word prefix", () => {
@@ -1422,7 +1421,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
     const result = discoverAtmoSensors(hass);
 
     expect(result.locations.size).toBe(1);
-    expect(result.locations.get("default").entities.get("birch"))
+    expect(result.locations.get("default")!.entities.get("birch"))
       .toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
   });
 
@@ -1436,9 +1435,9 @@ describe("discoverAtmoSensors: device-based discovery", () => {
     const result = discoverAtmoSensors(hass);
 
     expect(result.locations.size).toBe(1);
-    expect(result.locations.get("default").entities.get("birch"))
+    expect(result.locations.get("default")!.entities.get("birch"))
       .toBe("sensor.niveau_alerte_bouleau_nice");
-    expect(result.locations.get("default").entities.get("ragweed"))
+    expect(result.locations.get("default")!.entities.get("ragweed"))
       .toBe("sensor.niveau_alerte_ambroisie_nice");
   });
 });
@@ -1469,7 +1468,7 @@ describe("findAtmoLocationBySlug", () => {
     const discovery = discoverAtmoSensors(hass);
     expect(findAtmoLocationBySlug(discovery, "marseille")).toBeNull();
     expect(findAtmoLocationBySlug(discovery, "")).toBeNull();
-    expect(findAtmoLocationBySlug(discovery, null)).toBeNull();
+    expect(findAtmoLocationBySlug(discovery, null as any)).toBeNull();
   });
 
   it("lets resolveEntityIds serve prefixed entities when config carries a legacy slug", () => {
@@ -1500,8 +1499,8 @@ describe("ATMO summary block (#222)", () => {
       pollen_threshold: 0,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
-    const qg = result.find((s) => s.allergenReplaced === "qualite_globale");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
+    const qg = result.find((s) => s.allergenReplaced === "qualite_globale")!;
     expect(ar.isSummary).toBe(true);
     // qualite_globale is air quality, NOT the pollen summary block.
     expect(qg.isSummary).toBeUndefined();

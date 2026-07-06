@@ -9,13 +9,13 @@ describe("adapter-registry", () => {
   });
 
   it.each(EXPECTED_IDS)("getStubConfig('%s') returns an object with integration field", (id) => {
-    const stub = getStubConfig(id);
+    const stub = getStubConfig(id)!;
     expect(stub).toBeDefined();
     expect(stub.integration).toBe(id);
   });
 
   it.each(EXPECTED_IDS)("getAdapter('%s') returns a module with fetchForecast", (id) => {
-    const adapter = getAdapter(id);
+    const adapter = getAdapter(id)!;
     expect(adapter).toBeDefined();
     expect(typeof adapter.fetchForecast).toBe("function");
   });

@@ -12,14 +12,14 @@ import {
   assertSensorShape,
 } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigMSW, ...overrides };
 }
 
-function makeHass(allergenMap) {
+function makeHass(allergenMap: any): any {
   // allergenMap: { canonical_allergen: [mswSlug, levelStr, postcode?, station?] }
-  const states = {};
-  for (const [canonical, [mswSlug, levelStr, postcode, station]] of Object.entries(allergenMap)) {
+  const states: Record<string, any> = {};
+  for (const [canonical, [mswSlug, levelStr, postcode, station]] of Object.entries(allergenMap) as [string, any][]) {
     const pc = postcode ?? "8000";
     const st = station ?? "za";
     states[`sensor.pollen_${mswSlug}_level_at_${pc}_${st}`] = createMSWSensor(levelStr);
@@ -267,7 +267,7 @@ describe("MSW adapter: fetchForecast", () => {
 const ZURICH_ENTRY = "01KQVM6J4DC3BB3S3E9WC2DF5H";
 const BERN_ENTRY = "01KQVM8D770Q9DJZMJKWCND1YJ";
 
-function buildMultiStationEntries() {
+function buildMultiStationEntries(): any {
   const allergens = ["birch", "grasses", "alder", "hazel", "beech", "ash", "oak"];
   const entries = [];
   for (const slug of allergens) {
@@ -314,30 +314,30 @@ describe("MSW adapter: discoverMswSensors (device-based)", () => {
   it("uses name_by_user as label when present, falling back to stripped device.name", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const discovery = discoverMswSensors(hass);
-    expect(discovery.locations.get(BERN_ENTRY).label).toBe("Bern");
+    expect(discovery.locations.get(BERN_ENTRY)!.label).toBe("Bern");
     // Zurich device was not renamed; the redundant "MeteoSwiss at " prefix
     // is stripped (parallel to DWD region-ID-prefix and GPL/GP coord-suffix
     // cleanups), so the dropdown shows "8000-KLO" rather than the verbose
     // upstream default. Users can set a friendlier label via name_by_user.
-    expect(discovery.locations.get(ZURICH_ENTRY).label).toBe("8000-KLO");
+    expect(discovery.locations.get(ZURICH_ENTRY)!.label).toBe("8000-KLO");
   });
 
   it("preserves device.name when there is no MeteoSwiss prefix", () => {
     // Custom device.name without the integration prefix is left intact.
-    const entries = buildMultiStationEntries().map((e) =>
+    const entries = buildMultiStationEntries().map((e: any) =>
       e.deviceId === "dev_zurich"
         ? { ...e, deviceMeta: { ...e.deviceMeta, name: "Zürich Kloten" } }
         : e,
     );
     const hass = createHassWithRegistry(entries);
     const discovery = discoverMswSensors(hass);
-    expect(discovery.locations.get(ZURICH_ENTRY).label).toBe("Zürich Kloten");
+    expect(discovery.locations.get(ZURICH_ENTRY)!.label).toBe("Zürich Kloten");
   });
 
   it("classifies prefixed entity_ids correctly (grasses -> grass)", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const discovery = discoverMswSensors(hass);
-    const zurich = discovery.locations.get(ZURICH_ENTRY);
+    const zurich = discovery.locations.get(ZURICH_ENTRY)!;
     expect(zurich.entities.get("grass")).toBe(
       "sensor.meteoswiss_at_8000_klo_pollen_grasses_level_at_8000_pzh",
     );
@@ -357,7 +357,7 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
   it("respects cfg.location to pick the Bern station", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const map = resolveEntityIds(
-      { allergens: ["birch"], location: BERN_ENTRY },
+      { allergens: ["birch"], location: BERN_ENTRY } as any,
       hass,
     );
     expect(map.get("birch")).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
@@ -366,7 +366,7 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
   it("respects cfg.location to pick the Zurich station", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const map = resolveEntityIds(
-      { allergens: ["birch"], location: ZURICH_ENTRY },
+      { allergens: ["birch"], location: ZURICH_ENTRY } as any,
       hass,
     );
     expect(map.get("birch")).toBe(
@@ -377,7 +377,7 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
   it("matches by case-insensitive label when location is a friendly name", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const map = resolveEntityIds(
-      { allergens: ["birch"], location: "bern" },
+      { allergens: ["birch"], location: "bern" } as any,
       hass,
     );
     expect(map.get("birch")).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
@@ -387,7 +387,7 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const map = resolveEntityIds(
       // Valid Crockford-base32 ULID shape but does not match any discovered entry.
-      { allergens: ["birch"], location: "01XXXXXXXXXXXXXXXXXXXXXXXX" },
+      { allergens: ["birch"], location: "01XXXXXXXXXXXXXXXXXXXXXXXX" } as any,
       hass,
     );
     // resolveLocationByKey sorts keys lex when not all-numeric; the smaller
@@ -401,7 +401,7 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
   it("falls back to first discovered location when cfg.location is empty", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const map = resolveEntityIds(
-      { allergens: ["birch"], location: "" },
+      { allergens: ["birch"], location: "" } as any,
       hass,
     );
     expect(map.get("birch")).toBe(
@@ -412,7 +412,7 @@ describe("MSW adapter: resolveEntityIds (multi-station)", () => {
   it("does not mix allergens across stations (Copilot review fynd)", () => {
     const hass = createHassWithRegistry(buildMultiStationEntries());
     const map = resolveEntityIds(
-      { allergens: ["birch", "oak"], location: BERN_ENTRY },
+      { allergens: ["birch", "oak"], location: BERN_ENTRY } as any,
       hass,
     );
     expect(map.get("birch")).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
@@ -433,7 +433,7 @@ describe("MSW adapter: fetchForecast (multi-station)", () => {
       ...stubConfigMSW,
       allergens: ["birch"],
       location: BERN_ENTRY,
-    });
+    } as any);
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
     expect(result[0].days[0].state).toBe(3);

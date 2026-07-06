@@ -3,7 +3,7 @@ import { fetchForecast, stubConfigKleenex, resolveEntityIds } from "../../src/ad
 import { _resetNaWarningsForTest } from "../../src/adapters/kleenex/forecast.js";
 import { createHass, assertSensorShape } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigKleenex, ...overrides };
 }
 
@@ -17,13 +17,13 @@ function makeConfig(overrides = {}) {
  * @param {Array}  forecast  - [{level, details}] per future day
  * @returns {Object} sensor state object with entity_id set
  */
-function makeKleenexEntity(location, category, ppmValue, details = [], forecast = []) {
+function makeKleenexEntity(location: any, category: any, ppmValue: any, details: any = [], forecast: any = []): any {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
     state: String(ppmValue),
     attributes: {
-      details: details.map((d) => ({ name: d.name, value: d.value })),
-      forecast: forecast.map((f, i) => ({
+      details: details.map((d: any) => ({ name: d.name, value: d.value })),
+      forecast: forecast.map((f: any, i: number) => ({
         datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
         level: f.level,
         details: f.details || [],
@@ -35,8 +35,8 @@ function makeKleenexEntity(location, category, ppmValue, details = [], forecast 
 /**
  * Build a hass mock from an array of entity objects that already have entity_id.
  */
-function makeHassFromEntities(entities) {
-  const states = {};
+function makeHassFromEntities(entities: any): any {
+  const states: Record<string, any> = {};
   for (const entity of entities) {
     states[entity.entity_id] = entity;
   }
@@ -296,7 +296,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
     // The adapter uses: Number(sensor.state) || 0
     // Number("unavailable") = NaN; NaN || 0 = 0; ppmToLevel(0) = 0.
     // This means "unavailable" is treated as zero pollen, not -1.
-    const entity = {
+    const entity: any = {
       entity_id: "sensor.kleenex_pollen_radar_amsterdam_trees",
       state: "unavailable",
       attributes: {
@@ -935,12 +935,12 @@ describe("stubConfigKleenex", () => {
 // Helper: build a DetailSensor-shaped entity.
 // DetailSensors have state = ppm string and attributes.forecast = [{date, value}].
 // ---------------------------------------------------------------------------
-function makeDetailSensorEntity(location, allergenSlug, ppmToday, forecastItems = []) {
+function makeDetailSensorEntity(location: any, allergenSlug: any, ppmToday: any, forecastItems: any = []): any {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${allergenSlug}`,
     state: String(ppmToday),
     attributes: {
-      forecast: forecastItems.map((item, i) => ({
+      forecast: forecastItems.map((item: any, i: number) => ({
         date: new Date(Date.now() + (i + 1) * 86400000).toISOString().split("T")[0],
         value: item.value,
       })),
@@ -953,7 +953,7 @@ function makeDetailSensorEntity(location, allergenSlug, ppmToday, forecastItems 
 // NA API returns non-empty forecast but every details[] and forecast[i].details[]
 // is an empty array (that is the fingerprint).
 // ---------------------------------------------------------------------------
-function makeNACategory(location, category, ppmToday, forecastDays = 4) {
+function makeNACategory(location: any, category: any, ppmToday: any, forecastDays: any = 4): any {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
     state: String(ppmToday),

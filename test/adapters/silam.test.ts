@@ -16,7 +16,7 @@ import silamAllergenMap from "../../src/adapters/silam_allergen_map.json";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigSILAM, ...overrides };
 }
 
@@ -31,7 +31,7 @@ function makeConfig(overrides = {}) {
  * Setting hass.entities to an empty object ensures discovery is skipped and
  * the regex fallback runs against hass.states.
  */
-function makeHass(location, weatherAttrs = {}, extraStates = {}) {
+function makeHass(location: any, weatherAttrs: any = {}, extraStates: any = {}): any {
   // Use "forecast" suffix — present in every locale's weather_suffixes list
   const weatherEntityId = `weather.silam_pollen_${location.toLowerCase()}_forecast`;
   const states = {
@@ -265,14 +265,14 @@ describe("indexToLevel", () => {
 
 describe("SILAM_ALLERGENS", () => {
   it("includes all stub allergens plus 'index'", () => {
-    for (const allergen of stubConfigSILAM.allergens) {
+    for (const allergen of (stubConfigSILAM.allergens as string[])) {
       expect(SILAM_ALLERGENS).toContain(allergen);
     }
     expect(SILAM_ALLERGENS).toContain("index");
   });
 
-  it("has exactly one more entry than stubConfigSILAM.allergens", () => {
-    expect(SILAM_ALLERGENS.length).toBe(stubConfigSILAM.allergens.length + 1);
+  it("has exactly one more entry than (stubConfigSILAM.allergens as string[])", () => {
+    expect(SILAM_ALLERGENS.length).toBe((stubConfigSILAM.allergens as string[]).length + 1);
   });
 });
 
@@ -493,7 +493,7 @@ describe("fetchForecast: forecastEvent parameter", () => {
       days_to_show: 3,
     });
 
-    const result = await fetchForecast(hass, config, forecastEvent);
+    const result = await fetchForecast(hass, config, forecastEvent as any);
 
     // day1 comes from forecastEvent.forecast[0]: pollen_birch=600 -> level 5
     expect(result[0].days[1].state).toBe(5);
@@ -512,7 +512,7 @@ describe("fetchForecast: forecastEvent parameter", () => {
     });
 
     // Should not throw and should fall back to entity.attributes.forecast
-    const result = await fetchForecast(hass, config, forecastEvent);
+    const result = await fetchForecast(hass, config, forecastEvent as any);
 
     expect(Array.isArray(result)).toBe(true);
     expect(result[0].days.length).toBe(2);
@@ -720,7 +720,7 @@ describe("fetchForecast: hourly mode", () => {
     const result = await fetchForecast(hass, config);
 
     // Hourly label should be a time string (HH:MM format), not a weekday name
-    const label = result[0].days[0].day;
+    const label: any = result[0].days[0].day;
     expect(typeof label).toBe("string");
     expect(label.length).toBeGreaterThan(0);
   });
@@ -1387,10 +1387,10 @@ describe("fetchForecast: summary block (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar).toBeDefined();
     expect(ar.isSummary).toBe(true);
-    const birch = result.find((s) => s.allergenReplaced === "birch");
+    const birch = result.find((s) => s.allergenReplaced === "birch")!;
     expect(birch.isSummary).toBeUndefined();
   });
 

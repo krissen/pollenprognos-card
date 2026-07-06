@@ -25,12 +25,12 @@ const FROZEN_NOW = new Date("2026-06-15T12:00:00");
  * Deterministic serializer: JSON with 2-space indentation. Array order is
  * preserved (never sorted) -- ordering is part of the adapter output contract.
  */
-function serialize(value) {
+function serialize(value: any): any {
   return JSON.stringify(value, null, 2);
 }
 
 describe("adapter fetchForecast goldens", () => {
-  let fixtures;
+  let fixtures: any;
 
   beforeAll(() => {
     vi.useFakeTimers();
@@ -45,7 +45,7 @@ describe("adapter fetchForecast goldens", () => {
   });
 
   it("covers every registered adapter", () => {
-    const covered = new Set(buildGoldenFixtures().map((f) => f.adapter));
+    const covered = new Set(buildGoldenFixtures().map((f: any) => f.adapter));
     // 11 registered adapters; each must have at least one golden case.
     for (const id of ["pp", "dwd", "peu", "silam", "atmo", "plu", "msw", "irmkmi", "kleenex", "gp", "gpl"]) {
       expect(covered.has(id)).toBe(true);
@@ -65,11 +65,11 @@ describe("adapter fetchForecast goldens", () => {
   for (const { adapter, variant } of buildGoldenFixtures()) {
     it(`${adapter} / ${variant}`, async () => {
       const fixture = fixtures.find(
-        (f) => f.adapter === adapter && f.variant === variant,
-      );
+        (f: any) => f.adapter === adapter && f.variant === variant,
+      )!;
       expect(fixture).toBeDefined();
 
-      const mod = getAdapter(fixture.adapter);
+      const mod = getAdapter(fixture.adapter)!;
       expect(mod).toBeDefined();
 
       const result = await mod.fetchForecast(

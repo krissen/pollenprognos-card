@@ -12,7 +12,7 @@ import { createHass, assertSensorShape } from "../helpers.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigGP, ...overrides };
 }
 
@@ -23,7 +23,7 @@ function makeConfig(overrides = {}) {
  * @param {Object} forecast - { tomorrow, "day 3", "day 4" } numeric values
  * @param {Object} attrOverrides - Additional attribute overrides
  */
-function makeSensor(displayName, indexValue, forecast = {}, attrOverrides = {}) {
+function makeSensor(displayName: any, indexValue: any, forecast: any = {}, attrOverrides: any = {}): any {
   return {
     state: indexValue >= 0 ? "Moderate" : "No data",
     attributes: {
@@ -42,20 +42,20 @@ function makeSensor(displayName, indexValue, forecast = {}, attrOverrides = {}) 
 /**
  * Build a hass mock using entity prefix fallback (no hass.entities).
  */
-function makeHassFallback(statesMap) {
+function makeHassFallback(statesMap: any): any {
   return createHass(statesMap, { entities: undefined });
 }
 
 /**
  * Build a hass mock with hass.entities (primary path).
  */
-function makeHassPrimary(statesMap, entitiesMap, devicesMap = {}) {
-  const entities = {};
+function makeHassPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {}): any {
+  const entities: Record<string, any> = {};
   for (const [eid, info] of Object.entries(entitiesMap)) {
     entities[eid] = {
       entity_id: eid,
       platform: GP_DOMAIN,
-      device_id: info.device_id || null,
+      device_id: (info as any).device_id || null,
       entity_category: null,
     };
   }
@@ -102,7 +102,7 @@ describe("stubConfigGP", () => {
 
 describe("discoverGpSensors: prefix fallback path", () => {
   it("returns empty locations when hass is null", () => {
-    const result = discoverGpSensors(null);
+    const result = discoverGpSensors(null as any);
     expect(result.locations.size).toBe(0);
   });
 
@@ -221,7 +221,7 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
     const result = discoverGpSensors(hass);
 
     expect(result.locations.has("entry-gp-123")).toBe(true);
-    expect(result.locations.get("entry-gp-123").label).toBe("Google Pollen");
+    expect(result.locations.get("entry-gp-123")!.label).toBe("Google Pollen");
   });
 
   it("excludes entities with entity_category set", () => {
@@ -243,7 +243,7 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
         entity_category: "diagnostic",
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     expect(loc.entities.size).toBe(1);
@@ -270,7 +270,7 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
       };
       const hass = makeHassPrimary(statesMap, entitiesMap, devicesMap);
       const result = discoverGpSensors(hass);
-      expect(result.locations.get("entry-gp-xyz").label).toBe(expected);
+      expect(result.locations.get("entry-gp-xyz")!.label).toBe(expected);
     }
   });
 
@@ -290,7 +290,7 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
     };
     const hass = makeHassPrimary(statesMap, entitiesMap, devicesMap);
     const result = discoverGpSensors(hass);
-    expect(result.locations.get("entry-gp-user").label).toBe("Min trädgård");
+    expect(result.locations.get("entry-gp-user")!.label).toBe("Min trädgård");
   });
 });
 
@@ -328,7 +328,7 @@ describe("discoverGpSensors: unique_id classification", () => {
         unique_id: "google_pollen_weed_59.3773_13.5313",
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     expect(loc.entities.has("birch")).toBe(true);
@@ -357,7 +357,7 @@ describe("discoverGpSensors: unique_id classification", () => {
         unique_id: "google_pollen_grass_59.3773_13.5313",
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     expect(loc.entities.has("graminales")).toBe(true);
@@ -378,7 +378,7 @@ describe("discoverGpSensors: unique_id classification", () => {
         unique_id: "google_pollen_cypress_pine_59.3773_13.5313",
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     expect(loc.entities.has("cypress_pine")).toBe(true);
@@ -397,7 +397,7 @@ describe("discoverGpSensors: unique_id classification", () => {
         unique_id: "google_pollen_birch_-33.8688_151.2093",
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     expect(loc.entities.has("birch")).toBe(true);
@@ -416,7 +416,7 @@ describe("discoverGpSensors: unique_id classification", () => {
         // no unique_id
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     // classifySensor lowercases display_name and looks it up directly in

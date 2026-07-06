@@ -13,7 +13,7 @@ import { createHass, assertSensorShape } from "../helpers.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigGPL, ...overrides };
 }
 
@@ -21,7 +21,7 @@ function makeConfig(overrides = {}) {
  * Build a minimal GPL type sensor (grass_cat, trees_cat, weeds_cat).
  * Type sensors are identified by their icon attribute.
  */
-function makeTypeSensor(icon, stateValue, forecastItems = [], attrOverrides = {}) {
+function makeTypeSensor(icon: any, stateValue: any, forecastItems: any = [], attrOverrides: any = {}): any {
   return {
     state: String(stateValue),
     attributes: {
@@ -37,7 +37,7 @@ function makeTypeSensor(icon, stateValue, forecastItems = [], attrOverrides = {}
  * Build a minimal GPL plant sensor (e.g. birch, oak, ragweed).
  * Plant sensors are identified by their code attribute.
  */
-function makePlantSensor(code, stateValue, forecastItems = [], attrOverrides = {}) {
+function makePlantSensor(code: any, stateValue: any, forecastItems: any = [], attrOverrides: any = {}): any {
   return {
     state: String(stateValue),
     attributes: {
@@ -53,7 +53,7 @@ function makePlantSensor(code, stateValue, forecastItems = [], attrOverrides = {
  * Build a forecast item in the GPL/pollenlevels format.
  * offset=1 means tomorrow, etc.
  */
-function makeForecastItem(offset, value, hasIndex = true) {
+function makeForecastItem(offset: any, value: any, hasIndex: any = true): any {
   const base = new Date();
   base.setHours(0, 0, 0, 0);
   const d = new Date(base.getTime() + offset * 86400000);
@@ -73,7 +73,7 @@ function makeForecastItem(offset, value, hasIndex = true) {
  * Build a hass mock with GPL sensors identified by attribution (fallback path).
  * States are keyed by entity_id.
  */
-function makeHassAttribution(statesMap) {
+function makeHassAttribution(statesMap: any): any {
   // Attribution fallback: no hass.entities, just states
   return createHass(statesMap, { entities: undefined });
 }
@@ -83,13 +83,13 @@ function makeHassAttribution(statesMap) {
  * Each entry in entitiesMap should have { entity_id, device_id, config_entry_id }
  * and a corresponding state object.
  */
-function makeHassPrimary(statesMap, entitiesMap, devicesMap = {}) {
-  const entities = {};
+function makeHassPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {}): any {
+  const entities: Record<string, any> = {};
   for (const [eid, info] of Object.entries(entitiesMap)) {
     entities[eid] = {
       entity_id: eid,
       platform: "pollenlevels",
-      device_id: info.device_id || null,
+      device_id: (info as any).device_id || null,
       entity_category: null,
     };
   }
@@ -147,7 +147,7 @@ describe("stubConfigGPL", () => {
 
 describe("discoverGplSensors: attribution fallback path", () => {
   it("returns empty locations when hass is null", () => {
-    const result = discoverGplSensors(null);
+    const result = discoverGplSensors(null as any);
     expect(result.locations.size).toBe(0);
   });
 
@@ -264,7 +264,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     const result = discoverGplSensors(hass);
 
     expect(result.locations.has("entry-abc-123")).toBe(true);
-    expect(result.locations.get("entry-abc-123").label).toBe("My Location");
+    expect(result.locations.get("entry-abc-123")!.label).toBe("My Location");
   });
 
   it("strips ' - Pollentyper (lat, lon)' suffix from device name label", () => {
@@ -286,7 +286,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
     const result = discoverGplSensors(hass);
 
-    expect(result.locations.get("entry-abc-123").label).toBe("Hem");
+    expect(result.locations.get("entry-abc-123")!.label).toBe("Hem");
   });
 
   it("strips device-name suffix in a locale-agnostic way (English/German/French/Italian/Japanese)", () => {
@@ -312,7 +312,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
       };
       const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
       const result = discoverGplSensors(hass);
-      expect(result.locations.get("entry-xyz").label).toBe(expected);
+      expect(result.locations.get("entry-xyz")!.label).toBe(expected);
     }
   });
 
@@ -331,7 +331,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     };
     const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
     const result = discoverGplSensors(hass);
-    expect(result.locations.get("entry-sc").label).toBe("Saint-Cloud");
+    expect(result.locations.get("entry-sc")!.label).toBe("Saint-Cloud");
   });
 
   it("name_by_user wins over device.name stripping", () => {
@@ -350,7 +350,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     };
     const hass = makeHasPrimary(statesMap, entitiesMap, devicesMap);
     const result = discoverGplSensors(hass);
-    expect(result.locations.get("entry-abc-123").label).toBe("Min plats");
+    expect(result.locations.get("entry-abc-123")!.label).toBe("Min plats");
   });
 
   it("excludes entities with entity_category set (diagnostic sensors)", () => {
@@ -372,7 +372,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
         entity_category: "diagnostic",
       },
     };
-    const hass = { ...createHass(statesMap), entities, devices: {} };
+    const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGplSensors(hass);
     const [, loc] = [...result.locations.entries()][0];
     expect(loc.entities.size).toBe(1);
@@ -381,7 +381,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
 });
 
 // Helper alias used in primary-path tests above
-function makeHasPrimary(statesMap, entitiesMap, devicesMap = {}) {
+function makeHasPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {}): any {
   return makeHassPrimary(statesMap, entitiesMap, devicesMap);
 }
 
@@ -431,13 +431,13 @@ describe("discoverGplSensors: v3 config subentries", () => {
     expect(result.locations.size).toBe(2);
     expect(result.locations.has(SUB_A)).toBe(true);
     expect(result.locations.has(SUB_B)).toBe(true);
-    expect(result.locations.get(SUB_A).label).toBe("Home");
-    expect(result.locations.get(SUB_B).label).toBe("Work");
+    expect(result.locations.get(SUB_A)!.label).toBe("Home");
+    expect(result.locations.get(SUB_B)!.label).toBe("Work");
     // Each location keeps its own grass + birch (no collision drop).
-    expect(result.locations.get(SUB_A).entities.get("grass_cat")).toBe("sensor.home_grass");
-    expect(result.locations.get(SUB_A).entities.get("birch")).toBe("sensor.home_birch");
-    expect(result.locations.get(SUB_B).entities.get("grass_cat")).toBe("sensor.work_grass");
-    expect(result.locations.get(SUB_B).entities.get("birch")).toBe("sensor.work_birch");
+    expect(result.locations.get(SUB_A)!.entities.get("grass_cat")).toBe("sensor.home_grass");
+    expect(result.locations.get(SUB_A)!.entities.get("birch")).toBe("sensor.home_birch");
+    expect(result.locations.get(SUB_B)!.entities.get("grass_cat")).toBe("sensor.work_grass");
+    expect(result.locations.get(SUB_B)!.entities.get("birch")).toBe("sensor.work_birch");
   });
 
   it("keys a legacy device (subentry list [null]) by its config entry id, not 'default'", () => {
@@ -1200,37 +1200,37 @@ describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
     // so we have to detect via the registry entry. unique_id is the
     // language-independent signal -- always English even when the friendly
     // name is translated by HA.
-    const state = { state: "3", attributes: {} };
-    const entry = { unique_id: "abc123_overall_pollen_risk_today" };
+    const state: any = { state: "3", attributes: {} };
+    const entry: any = { unique_id: "abc123_overall_pollen_risk_today" };
     expect(classifySensor(state, entry)).toBe("allergy_risk");
   });
 
   it("returns 'allergy_risk' via translation_key fallback when unique_id is missing", () => {
-    const state = { state: "3", attributes: {} };
-    const entry = { translation_key: "overall_pollen_risk_today" };
+    const state: any = { state: "3", attributes: {} };
+    const entry: any = { translation_key: "overall_pollen_risk_today" };
     expect(classifySensor(state, entry)).toBe("allergy_risk");
   });
 
   it("returns null for the other v2.1.0 summary sensors (out of scope for #221, tracked in #222)", () => {
-    const state = { state: "Tree", attributes: {} };
+    const state: any = { state: "Tree", attributes: {} };
     expect(
-      classifySensor(state, { unique_id: "abc_top_pollen_types_today" }),
+      classifySensor(state, { unique_id: "abc_top_pollen_types_today" } as any),
     ).toBeNull();
     expect(
-      classifySensor(state, { unique_id: "abc_plants_in_season_today" }),
+      classifySensor(state, { unique_id: "abc_plants_in_season_today" } as any),
     ).toBeNull();
   });
 
   it("still returns the plant code when both code and unique_id are present", () => {
     // Per-allergen sensors keep their attributes.code path; the summary
     // branch is only hit when no code and no icon match.
-    const state = { state: "2", attributes: { code: "birch" } };
-    const entry = { unique_id: "abc_birch" };
+    const state: any = { state: "2", attributes: { code: "birch" } };
+    const entry: any = { unique_id: "abc_birch" };
     expect(classifySensor(state, entry)).toBe("birch");
   });
 
   it("is safe when entry is missing AND no summary attributes are present", () => {
-    const state = { state: "3", attributes: {} };
+    const state: any = { state: "3", attributes: {} };
     expect(classifySensor(state)).toBeNull();
     expect(classifySensor(state, null)).toBeNull();
   });
@@ -1241,7 +1241,7 @@ describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
     // there. The summary entity ships a `top_pollen_codes` array (only
     // it does -- per-allergen sensors don't), which is a reliable
     // state-only signal.
-    const state = {
+    const state: any = {
       state: "3",
       attributes: { top_pollen_codes: ["TREE"] },
     };
@@ -1253,7 +1253,7 @@ describe("classifySensor: overall_pollen_risk_today summary (#221)", () => {
     // For locations the upstream Google API has no data on, the summary
     // entity still exists with state="unknown" but top_pollen_codes is
     // an empty array. It's still the summary; detect it.
-    const state = {
+    const state: any = {
       state: "unknown",
       attributes: { top_pollen_codes: [] },
     };
@@ -1270,7 +1270,7 @@ describe("classifySensor: v3 top_pollen_types_today no longer collides (#262)", 
   // Real v3-beta3 shape: a text sensor whose state is a category name, with
   // top_pollen_codes AND a top_value, identified by translation_key (the
   // reduced frontend hass.entities exposes no unique_id).
-  const topTypesState = {
+  const topTypesState: any = {
     state: "Трава",
     attributes: {
       attribution: GPL_ATTRIBUTION,
@@ -1283,7 +1283,7 @@ describe("classifySensor: v3 top_pollen_types_today no longer collides (#262)", 
   };
   // Real v3-beta3 overall-risk shape: numeric state, top_pollen_codes but
   // NO top_value, plus a daily forecast/trend.
-  const overallRiskState = {
+  const overallRiskState: any = {
     state: "3",
     attributes: {
       attribution: GPL_ATTRIBUTION,
@@ -1295,18 +1295,18 @@ describe("classifySensor: v3 top_pollen_types_today no longer collides (#262)", 
   };
 
   it("returns null for top_pollen_types_today identified by translation_key", () => {
-    const entry = { translation_key: "top_pollen_types_today" };
+    const entry: any = { translation_key: "top_pollen_types_today" };
     expect(classifySensor(topTypesState, entry)).toBeNull();
   });
 
   it("returns null for plants_in_season_today identified by translation_key", () => {
-    const entry = { translation_key: "plants_in_season_today" };
-    const state = { state: "5", attributes: { plant_codes: ["BIRCH"] } };
+    const entry: any = { translation_key: "plants_in_season_today" };
+    const state: any = { state: "5", attributes: { plant_codes: ["BIRCH"] } };
     expect(classifySensor(state, entry)).toBeNull();
   });
 
   it("still classifies the v3 overall-risk sensor as allergy_risk", () => {
-    const entry = { translation_key: "overall_pollen_risk_today" };
+    const entry: any = { translation_key: "overall_pollen_risk_today" };
     expect(classifySensor(overallRiskState, entry)).toBe("allergy_risk");
   });
 
@@ -1354,7 +1354,7 @@ describe("discoverGplSensors: v3 summary siblings don't collide on allergy_risk 
       "top_pollen_types_today";
 
     const result = discoverGplSensors(hass);
-    const loc = result.locations.get("entry_v3");
+    const loc = result.locations.get("entry_v3")!;
     expect(loc).toBeDefined();
     expect(loc.entities.get("allergy_risk")).toBe("sensor.home_overall");
     // The text "top types" sensor must not appear under any allergen key.
@@ -1391,7 +1391,7 @@ describe("discoverGplSensors: summary sensor flows through to allergy_risk key",
     })();
 
     const result = discoverGplSensors(hass);
-    const loc = result.locations.get("entry-summary-1");
+    const loc = result.locations.get("entry-summary-1")!;
     expect(loc).toBeDefined();
     expect(loc.entities.has("allergy_risk")).toBe(true);
     expect(loc.entities.get("allergy_risk")).toBe(
@@ -1408,8 +1408,8 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     summaryState = "3",
     grassState = 2,
     pinTopUnique = "entry_a_overall_pollen_risk_today",
-  } = {}) {
-    const statesMap = {
+  }: any = {}) {
+    const statesMap: Record<string, any> = {
       "sensor.home_overall_pollen_risk_today": {
         state: String(summaryState),
         attributes: { attribution: GPL_ATTRIBUTION },
@@ -1438,7 +1438,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar).toBeDefined();
     expect(ar.days[0].state).toBe(3);
   });
@@ -1453,7 +1453,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.days[0].state).toBe(2);
     // The card treats level=-1 as the fuzzy no-data variant (#228); padding
     // future days as -1 is what keeps the row from inventing fake values.
@@ -1523,15 +1523,15 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     summaryAttrs = {},
     plants = null, // { state, plant_codes, plant_names } -> sibling entity
     language = "en",
-  } = {}) {
-    const statesMap = {
+  }: any = {}) {
+    const statesMap: Record<string, any> = {
       "sensor.home_overall_pollen_risk_today": {
         state: String(summaryState),
         attributes: { attribution: GPL_ATTRIBUTION, ...summaryAttrs },
       },
       "sensor.home_grass": makeTypeSensor("mdi:grass", grassState),
     };
-    const entitiesMap = {
+    const entitiesMap: Record<string, any> = {
       "sensor.home_overall_pollen_risk_today": { device_id: "dev1" },
       "sensor.home_grass": { device_id: "dev1" },
     };
@@ -1571,10 +1571,10 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.isSummary).toBe(true);
     // Per-allergen rows are never tagged as summary.
-    const grass = result.find((s) => s.allergenReplaced === "grass_cat");
+    const grass = result.find((s) => s.allergenReplaced === "grass_cat")!;
     expect(grass.isSummary).toBeUndefined();
   });
 
@@ -1589,7 +1589,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.topPollen).toEqual(["Träd", "Gräsarter"]);
   });
 
@@ -1607,7 +1607,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.topPollen).toEqual(["Träd"]);
   });
 
@@ -1628,7 +1628,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
         days_to_show: 1,
       });
       const result = await fetchForecast(hass, config);
-      const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+      const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
       expect(ar.topPollen, `lang=${language}`).toEqual(expected);
     }
   });
@@ -1642,7 +1642,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
         days_to_show: 1,
       });
       const result = await fetchForecast(hass, config);
-      const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+      const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
       expect(ar.topPollen).toBeUndefined();
     }
   });
@@ -1662,7 +1662,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
         days_to_show: 1,
       });
       const result = await fetchForecast(hass, config);
-      const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+      const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
       expect(ar.plantsInSeasonList, `lang=${language}`).toEqual(expected);
     }
   });
@@ -1681,7 +1681,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
   });
 
@@ -1719,7 +1719,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
   });
 
@@ -1771,7 +1771,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
   });
 
@@ -1834,7 +1834,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     // Home's summary must list Home's plants (Björk/Tall), not Work's (Ek).
     expect(ar.plantsInSeasonList).toEqual(["Björk", "Tall"]);
   });
@@ -1847,7 +1847,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.plantsInSeasonList).toBeUndefined();
   });
 
@@ -1859,7 +1859,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       days_to_show: 1,
     });
     const result = await fetchForecast(hass, config);
-    const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
+    const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar.plantsInSeasonList).toBeUndefined();
   });
 

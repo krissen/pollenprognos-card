@@ -2,13 +2,13 @@ import { describe, it, expect } from "vitest";
 import { fetchForecast, stubConfigDWD, discoverDwdSensors, resolveEntityIds } from "../../src/adapters/dwd.js";
 import { createHass, createDWDSensor, assertSensorShape, assertDiscoveryShape, createHassWithRegistry } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigDWD, ...overrides };
 }
 
-function makeHass(regionId, allergenMap) {
-  const states = {};
-  for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap)) {
+function makeHass(regionId: any, allergenMap: any): any {
+  const states: Record<string, any> = {};
+  for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap) as [string, any][]) {
     states[`sensor.pollenflug_${allergen}_${regionId}`] = createDWDSensor(
       today, tomorrow, twoDays,
     );
@@ -191,7 +191,7 @@ describe("DWD adapter: fetchForecast", () => {
 
 describe("DWD adapter: discoverDwdSensors", () => {
   it("returns empty discovery for null hass", () => {
-    const result = discoverDwdSensors(null);
+    const result = discoverDwdSensors(null as any);
     assertDiscoveryShape(result);
     expect(result.locations.size).toBe(0);
     expect(result.tierUsed).toBe(0);
@@ -323,7 +323,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
     // The DWD integration sets device.name = "Pollenflug Gefahrenindex" for
     // every region, which is useless as a card title. Region-derived label
     // from entity_id must outrank the generic device name.
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.pollenflug_erle_50": { state: "1", attributes: {} },
       },
@@ -354,7 +354,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
   it("duplicate region labels get disambiguated with region ID suffix", () => {
     // Regions 121-124 all map to "Bayern" in DWD_REGIONS. When multiple
     // appear in discovery, editor/card must be able to distinguish them.
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.pollenflug_erle_121": { state: "1", attributes: {} },
         "sensor.pollenflug_erle_122": { state: "0", attributes: {} },
@@ -401,7 +401,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
   });
 
   it("user-customized device name wins over region-derived label", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.pollenflug_erle_50": { state: "1", attributes: {} },
       },
@@ -445,9 +445,9 @@ describe("DWD adapter: discoverDwdSensors", () => {
 const PREFIXED_ZONE = "92"; // Hessen, the region in the bug report
 
 describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
-  function makePrefixedHass(prefix, regionId, allergenMap) {
-    const states = {};
-    for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap)) {
+  function makePrefixedHass(prefix: any, regionId: any, allergenMap: any): any {
+    const states: Record<string, any> = {};
+    for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap) as [string, any][]) {
       states[`sensor.${prefix}_pollenflug_${allergen}_${regionId}`] =
         createDWDSensor(today, tomorrow, twoDays);
     }

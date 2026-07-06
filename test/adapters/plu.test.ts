@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { fetchForecast, stubConfigPLU, PLU_SUPPORTED_ALLERGENS, discoverPluSensors, resolveEntityIds } from "../../src/adapters/plu.js";
 import { createHass, createPLUSensor, assertSensorShape, assertDiscoveryShape, createHassWithRegistry } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigPLU, ...overrides };
 }
 
@@ -10,9 +10,9 @@ function makeConfig(overrides = {}) {
  * Create hass mock with PLU sensors using canonical allergen names as entity IDs.
  * PLU has no location component: entity pattern is sensor.pollen_{alias}.
  */
-function makeHass(allergenMap) {
-  const states = {};
-  for (const [allergen, value] of Object.entries(allergenMap)) {
+function makeHass(allergenMap: any): any {
+  const states: Record<string, any> = {};
+  for (const [allergen, value] of Object.entries(allergenMap) as [string, any][]) {
     states[`sensor.pollen_${allergen}`] = createPLUSensor(value);
   }
   return createHass(states);
@@ -167,7 +167,7 @@ describe("PLU adapter: fetchForecast", () => {
 
   describe("manual mode (location = 'manual')", () => {
     it("resolves sensors via entity_prefix + alias map", () => {
-      const hass = {
+      const hass: any = {
         states: {
           "sensor.custom_betula": { state: "12" },
           "sensor.custom_alnus": { state: "0" },
@@ -187,7 +187,7 @@ describe("PLU adapter: fetchForecast", () => {
     });
 
     it("strips a leading 'sensor.' from entity_prefix and adds the trailing underscore", () => {
-      const hass = {
+      const hass: any = {
         states: { "sensor.pollen_betula": { state: "5" } },
       };
       const result = resolveEntityIds(
@@ -207,7 +207,7 @@ describe("PLU adapter: fetchForecast", () => {
       // without entity_prefix. Returning an empty map would silently break
       // previously-working cards; instead, fall through to discovery so the
       // standard sensor.pollen_* layout still resolves.
-      const hass = {
+      const hass: any = {
         states: { "sensor.pollen_betula": { state: "5" } },
       };
       const result = resolveEntityIds(
@@ -226,7 +226,7 @@ describe("PLU adapter: fetchForecast", () => {
       // but manual mode is supposed to trust the user's prefix and ignore
       // everything else. With prefix=custom, sensor.pollen_betula must NOT
       // resolve birch.
-      const hass = {
+      const hass: any = {
         states: {
           "sensor.pollen_betula": { state: "5" },   // discovery would catch this
           "sensor.custom_betula": { state: "12" },  // manual prefix targets this
@@ -244,7 +244,7 @@ describe("PLU adapter: fetchForecast", () => {
     });
 
     it("ignores unsupported allergens in manual mode (same filter as discovery path)", () => {
-      const hass = {
+      const hass: any = {
         states: { "sensor.custom_betula": { state: "5" } },
       };
       const result = resolveEntityIds(
@@ -260,7 +260,7 @@ describe("PLU adapter: fetchForecast", () => {
     });
 
     it("honors cfg.entity_suffix and combines it with prefix + alias", () => {
-      const hass = {
+      const hass: any = {
         states: {
           "sensor.custom_betula_amount": { state: "12" },
           "sensor.custom_alnus_amount": { state: "0" },
@@ -282,7 +282,7 @@ describe("PLU adapter: fetchForecast", () => {
     });
 
     it("returns no match when entity_suffix is set but the suffixed sensor is missing", () => {
-      const hass = {
+      const hass: any = {
         states: { "sensor.custom_betula": { state: "5" } },
       };
       const result = resolveEntityIds(
@@ -303,7 +303,7 @@ describe("PLU adapter: fetchForecast", () => {
       // layout it matches nothing. Before this PR, PLU ignored cfg.location
       // and would still auto-discover sensor.pollen_*. The card must keep
       // doing so instead of silently rendering an empty allergen list.
-      const hass = {
+      const hass: any = {
         states: { "sensor.pollen_betula": { state: "5" } },
       };
       const result = resolveEntityIds(
@@ -397,7 +397,7 @@ describe("PLU adapter: discoverPluSensors (tier 2 via entity registry)", () => {
     expect(discovery.tierUsed).toBeGreaterThanOrEqual(1);
     expect(discovery.locations.size).toBe(1);
 
-    const [, location] = discovery.locations.entries().next().value;
+    const [, location] = discovery.locations.entries().next().value!;
     // sensor.pollen_birch -> canonical "birch"
     expect(location.entities.get("birch")).toBe("sensor.pollen_birch");
     // sensor.pollen_betula -> also canonical "birch" (Latin alias)
@@ -432,7 +432,7 @@ describe("PLU adapter: discoverPluSensors (tier 2 via entity registry)", () => {
       },
     ]);
 
-    const cfg = { ...stubConfigPLU, allergens: ["birch", "alder", "hazel"] };
+    const cfg: any = { ...stubConfigPLU, allergens: ["birch", "alder", "hazel"] };
     const result = resolveEntityIds(cfg, hass);
 
     // birch and alder are in entity registry -> discovery path
@@ -451,7 +451,7 @@ describe("PLU adapter: resolveEntityIds alias-probe fallback", () => {
       "sensor.pollen_alder": createPLUSensor(5),
     };
     const hass = createHass(states);
-    const cfg = { ...stubConfigPLU, allergens: ["birch", "alder"] };
+    const cfg: any = { ...stubConfigPLU, allergens: ["birch", "alder"] };
 
     const result = resolveEntityIds(cfg, hass);
 
@@ -468,7 +468,7 @@ describe("PLU adapter: resolveEntityIds alias-probe fallback", () => {
       "sensor.pollen_mugwort": createPLUSensor(3),   // English canonical
     };
     const hass = createHass(states);
-    const cfg = { ...stubConfigPLU, allergens: ["birch", "hazel", "mugwort"] };
+    const cfg: any = { ...stubConfigPLU, allergens: ["birch", "hazel", "mugwort"] };
 
     const result = resolveEntityIds(cfg, hass);
 

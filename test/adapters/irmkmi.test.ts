@@ -11,14 +11,14 @@ import {
   assertSensorShape,
 } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigIRMKMI, ...overrides };
 }
 
 // irm-kmi-ha exposes pollen as enum sensors whose state is one of the meteo.be
 // colours (green/yellow/orange/red/purple) plus the non-measurement states
 // `none` and the legacy `active`.
-function createIrmkmiSensor(colorState, attrOverrides = {}) {
+function createIrmkmiSensor(colorState: any, attrOverrides: any = {}): any {
   return {
     state: colorState,
     attributes: {
@@ -31,10 +31,10 @@ function createIrmkmiSensor(colorState, attrOverrides = {}) {
   };
 }
 
-function makeHass(allergenMap, location = "home") {
+function makeHass(allergenMap: any, location: any = "home"): any {
   // allergenMap: { canonical_allergen: [irmkmiSlug, colorState] }
-  const states = {};
-  for (const [, [slug, colorState]] of Object.entries(allergenMap)) {
+  const states: Record<string, any> = {};
+  for (const [, [slug, colorState]] of Object.entries(allergenMap) as [string, any][]) {
     states[`sensor.${location}_${slug}_level`] = createIrmkmiSensor(colorState);
   }
   return createHass(states, { language: "en" });
@@ -293,7 +293,7 @@ describe("IRMKMI adapter: fetchForecast", () => {
 const ANTWERP_ENTRY = "01KQVM6J4DC3BB3S3E9WC2DF5H";
 const SAINT_GHISLAIN_ENTRY = "01KQVM8D770Q9DJZMJKWCND1YJ";
 
-function buildMultiLocationEntries() {
+function buildMultiLocationEntries(): any {
   const slugs = ["alder", "ash", "birch", "grasses", "hazel", "mugwort", "oak"];
   const entries = [];
   for (const slug of slugs) {
@@ -339,27 +339,27 @@ describe("IRMKMI adapter: discoverIrmkmiSensors (device-based)", () => {
   it("uses the device name (location) as label", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const discovery = discoverIrmkmiSensors(hass);
-    expect(discovery.locations.get(ANTWERP_ENTRY).label).toBe("Antwerp");
-    expect(discovery.locations.get(SAINT_GHISLAIN_ENTRY).label).toBe(
+    expect(discovery.locations.get(ANTWERP_ENTRY)!.label).toBe("Antwerp");
+    expect(discovery.locations.get(SAINT_GHISLAIN_ENTRY)!.label).toBe(
       "Saint-Ghislain",
     );
   });
 
   it("prefers name_by_user when present", () => {
-    const entries = buildMultiLocationEntries().map((e) =>
+    const entries = buildMultiLocationEntries().map((e: any) =>
       e.deviceId === "dev_antwerp"
         ? { ...e, deviceMeta: { ...e.deviceMeta, nameByUser: "Home" } }
         : e,
     );
     const hass = createHassWithRegistry(entries);
     const discovery = discoverIrmkmiSensors(hass);
-    expect(discovery.locations.get(ANTWERP_ENTRY).label).toBe("Home");
+    expect(discovery.locations.get(ANTWERP_ENTRY)!.label).toBe("Home");
   });
 
   it("classifies entity_ids correctly, incl. grasses -> grass and multi-word slug", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const discovery = discoverIrmkmiSensors(hass);
-    const sg = discovery.locations.get(SAINT_GHISLAIN_ENTRY);
+    const sg = discovery.locations.get(SAINT_GHISLAIN_ENTRY)!;
     expect(sg.entities.get("grass")).toBe("sensor.saint_ghislain_grasses_level");
     expect(sg.entities.get("birch")).toBe("sensor.saint_ghislain_birch_level");
   });
@@ -375,7 +375,7 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
   it("respects cfg.location to pick Saint-Ghislain", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
-      { allergens: ["grass"], location: SAINT_GHISLAIN_ENTRY },
+      { allergens: ["grass"], location: SAINT_GHISLAIN_ENTRY } as any,
       hass,
     );
     expect(map.get("grass")).toBe("sensor.saint_ghislain_grasses_level");
@@ -384,7 +384,7 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
   it("matches by case-insensitive label when location is a friendly name", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
-      { allergens: ["grass"], location: "antwerp" },
+      { allergens: ["grass"], location: "antwerp" } as any,
       hass,
     );
     expect(map.get("grass")).toBe("sensor.antwerp_grasses_level");
@@ -397,7 +397,7 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
     // falling back to the first (Antwerp) location.
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
-      { allergens: ["grass"], location: "saint_ghislain" },
+      { allergens: ["grass"], location: "saint_ghislain" } as any,
       hass,
     );
     expect(map.get("grass")).toBe("sensor.saint_ghislain_grasses_level");
@@ -406,7 +406,7 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
   it("falls back to first discovered location for stale config_entry_id", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
-      { allergens: ["grass"], location: "01XXXXXXXXXXXXXXXXXXXXXXXX" },
+      { allergens: ["grass"], location: "01XXXXXXXXXXXXXXXXXXXXXXXX" } as any,
       hass,
     );
     // resolveLocationByKey sorts keys lex; Antwerp (01KQVM6...) sorts before
@@ -420,7 +420,7 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
     // the first discovered location) rather than rendering arbitrary data.
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
-      { allergens: ["grass"], location: "manual" },
+      { allergens: ["grass"], location: "manual" } as any,
       hass,
     );
     expect(map.get("grass")).toBe("sensor.antwerp_grasses_level");
@@ -429,7 +429,7 @@ describe("IRMKMI adapter: resolveEntityIds (multi-location)", () => {
   it("does not mix allergens across locations", () => {
     const hass = createHassWithRegistry(buildMultiLocationEntries());
     const map = resolveEntityIds(
-      { allergens: ["grass", "birch"], location: SAINT_GHISLAIN_ENTRY },
+      { allergens: ["grass", "birch"], location: SAINT_GHISLAIN_ENTRY } as any,
       hass,
     );
     for (const eid of map.values()) {
@@ -442,8 +442,8 @@ describe("IRMKMI adapter: registryless (tier-3) multi-location", () => {
   // When hass has no entity/device registry, discovery falls back to scanning
   // hass.states. Without a per-location key the two locations would collapse
   // into one "default" bucket and the second grass entity would be dropped.
-  function makeStatesOnlyTwoLocations() {
-    const states = {};
+  function makeStatesOnlyTwoLocations(): any {
+    const states: Record<string, any> = {};
     for (const slug of ["alder", "ash", "birch", "grasses", "hazel", "mugwort", "oak"]) {
       states[`sensor.antwerp_${slug}_level`] = createIrmkmiSensor(
         slug === "grasses" ? "purple" : "none",
@@ -461,7 +461,7 @@ describe("IRMKMI adapter: registryless (tier-3) multi-location", () => {
     expect(discovery.locations.size).toBe(2);
     expect(discovery.locations.has("antwerp")).toBe(true);
     expect(discovery.locations.has("saint_ghislain")).toBe(true);
-    expect(discovery.locations.get("saint_ghislain").entities.get("grass")).toBe(
+    expect(discovery.locations.get("saint_ghislain")!.entities.get("grass")).toBe(
       "sensor.saint_ghislain_grasses_level",
     );
   });
@@ -472,7 +472,7 @@ describe("IRMKMI adapter: registryless (tier-3) multi-location", () => {
       ...stubConfigIRMKMI,
       allergens: ["grass"],
       location: "saint_ghislain",
-    });
+    } as any);
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.saint_ghislain_grasses_level");
     expect(result[0].days[0].state).toBe(3); // red
@@ -487,7 +487,7 @@ describe("IRMKMI adapter: fetchForecast (multi-location)", () => {
       ...stubConfigIRMKMI,
       allergens: ["grass"],
       location: SAINT_GHISLAIN_ENTRY,
-    });
+    } as any);
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.saint_ghislain_grasses_level");
     expect(result[0].days[0].state).toBe(3);
@@ -498,7 +498,7 @@ describe("IRMKMI adapter: fetchForecast (multi-location)", () => {
     const result = await fetchForecast(hass, {
       ...stubConfigIRMKMI,
       location: ANTWERP_ENTRY,
-    });
+    } as any);
     expect(result.length).toBe(1);
     expect(result[0].allergenReplaced).toBe("grass");
     expect(result[0].days[0].state).toBe(4); // purple

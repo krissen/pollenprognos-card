@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { fetchForecast, stubConfigPEU, PEU_ALLERGENS, discoverPeuSensors, resolveEntityIds } from "../../src/adapters/peu.js";
 import { createHass, createHassWithRegistry, createPEUSensor, assertSensorShape } from "../helpers.js";
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigPEU, ...overrides };
 }
 
@@ -12,10 +12,10 @@ function makeConfig(overrides = {}) {
  * under `native_value`; this helper maps them to `level` so that the
  * level-scaling and filtering logic is exercised.
  */
-function makePEUSensor(levelValues, opts = {}) {
+function makePEUSensor(levelValues: any, opts: any = {}): any {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const forecast = levelValues.map((lv, i) => {
+  const forecast = levelValues.map((lv: any, i: number) => {
     const d = new Date(today.getTime() + i * 86400000);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -36,9 +36,9 @@ function makePEUSensor(levelValues, opts = {}) {
  * Populate hass.states with PEU sensors for the given location and allergen
  * map. Each value in allergenMap is an array of daily level values.
  */
-function makeHass(location, allergenMap) {
-  const states = {};
-  for (const [allergen, levels] of Object.entries(allergenMap)) {
+function makeHass(location: any, allergenMap: any): any {
+  const states: Record<string, any> = {};
+  for (const [allergen, levels] of Object.entries(allergenMap) as [string, any][]) {
     states[`sensor.polleninformation_${location}_${allergen}`] = makePEUSensor(
       levels,
     );
@@ -448,18 +448,18 @@ describe("PEU adapter: fetchForecast", () => {
       expect(PEU_ALLERGENS[0]).toBe("allergy_risk");
     });
 
-    it("contains all allergens from stubConfigPEU.allergens", () => {
-      for (const allergen of stubConfigPEU.allergens) {
+    it("contains all allergens from (stubConfigPEU.allergens as string[])", () => {
+      for (const allergen of (stubConfigPEU.allergens as string[])) {
         expect(PEU_ALLERGENS).toContain(allergen);
       }
     });
 
-    it("has length equal to stubConfigPEU.allergens.length + 1", () => {
-      expect(PEU_ALLERGENS.length).toBe(stubConfigPEU.allergens.length + 1);
+    it("has length equal to (stubConfigPEU.allergens as string[]).length + 1", () => {
+      expect(PEU_ALLERGENS.length).toBe((stubConfigPEU.allergens as string[]).length + 1);
     });
 
-    it("matches the exact shape: ['allergy_risk', ...stubConfigPEU.allergens]", () => {
-      expect(PEU_ALLERGENS).toEqual(["allergy_risk", ...stubConfigPEU.allergens]);
+    it("matches the exact shape: ['allergy_risk', ...(stubConfigPEU.allergens as string[])]", () => {
+      expect(PEU_ALLERGENS).toEqual(["allergy_risk", ...(stubConfigPEU.allergens as string[])]);
     });
   });
 
@@ -963,7 +963,7 @@ describe("PEU adapter: fetchForecast", () => {
         },
       ]);
 
-      const cfg = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
+      const cfg: any = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
       const map = resolveEntityIds(cfg, hass);
 
       expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
@@ -978,7 +978,7 @@ describe("PEU adapter: fetchForecast", () => {
       };
       const hass = createHass(states);
 
-      const cfg = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
+      const cfg: any = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
       const map = resolveEntityIds(cfg, hass);
 
       expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
@@ -994,7 +994,7 @@ describe("PEU adapter: fetchForecast", () => {
       };
       const hass = createHass(states);
 
-      const cfg = { ...stubConfigPEU, location: "wien", mode: "hourly", allergens: ["allergy_risk"] };
+      const cfg: any = { ...stubConfigPEU, location: "wien", mode: "hourly", allergens: ["allergy_risk"] };
       const map = resolveEntityIds(cfg, hass);
 
       expect(map.get("allergy_risk")).toBe(
@@ -1059,8 +1059,7 @@ describe("PEU adapter: fetchForecast", () => {
       const hass = createHass(states);
 
       const discovery = discoverPeuSensors(hass);
-      const loc = discovery.locations.get("amsterdam");
-
+      const loc = discovery.locations.get("amsterdam")!;
       expect(loc).toBeDefined();
       // Both keys must be separately registered
       expect(loc.entities.get("allergy_risk")).toBe(

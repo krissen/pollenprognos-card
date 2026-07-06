@@ -7,13 +7,13 @@ const { stubConfigPP } = PP;
 // (adapter.fetchForecast(hass, config) where `this` is the module object)
 const fetchForecast = PP.fetchForecast.bind(PP);
 
-function makeConfig(overrides = {}) {
+function makeConfig(overrides: any = {}): any {
   return { ...stubConfigPP, ...overrides };
 }
 
-function makeHass(cityKey, allergenMap) {
-  const states = {};
-  for (const [allergen, levels] of Object.entries(allergenMap)) {
+function makeHass(cityKey: any, allergenMap: any): any {
+  const states: Record<string, any> = {};
+  for (const [allergen, levels] of Object.entries(allergenMap) as [string, any][]) {
     states[`sensor.pollen_${cityKey}_${allergen}`] = createPPSensor(levels);
   }
   return createHass(states);
@@ -280,7 +280,7 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
       },
     ]);
 
-    const cfg = {
+    const cfg: any = {
       city: "Stockholm",
       allergens: ["Björk", "Al"],
     };
@@ -310,11 +310,11 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
       },
     ]);
 
-    const cfgGbg = { city: "goteborg", allergens: ["Björk"] };
+    const cfgGbg: any = { city: "goteborg", allergens: ["Björk"] };
     const resultGbg = resolveEntityIds(cfgGbg, hass, false);
     expect(resultGbg.get("bjork")).toBe("sensor.pollen_goteborg_bjork");
 
-    const cfgSthlm = { city: "stockholm", allergens: ["Björk"] };
+    const cfgSthlm: any = { city: "stockholm", allergens: ["Björk"] };
     const resultSthlm = resolveEntityIds(cfgSthlm, hass, false);
     expect(resultSthlm.get("bjork")).toBe("sensor.pollen_stockholm_bjork");
   });
@@ -327,7 +327,7 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
       "sensor.pollen_stockholm_al": createPPSensor([1, 0, 0, 0]),
     });
 
-    const cfg = { city: "stockholm", allergens: ["Björk", "Al"] };
+    const cfg: any = { city: "stockholm", allergens: ["Björk", "Al"] };
     const result = resolveEntityIds(cfg, hass, false);
 
     expect(result.get("bjork")).toBe("sensor.pollen_stockholm_bjork");
