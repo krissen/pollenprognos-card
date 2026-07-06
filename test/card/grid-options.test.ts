@@ -3,7 +3,7 @@ import { computeGridOptions } from "../../src/utils/grid-options.js";
 
 // Helper: a config carrying N configured allergens (the stable, sync source the
 // width is derived from — not the async-fetched sensor list).
-const withAllergens = (n, extra = {}) => ({
+const withAllergens = (n: any, extra: any = {}) => ({
   allergens: Array.from({ length: n }, (_, i) => `a${i}`),
   ...extra,
 });
@@ -36,7 +36,7 @@ describe("computeGridOptions", () => {
     });
 
     it("scales columns with the allergen count (floor 3, ~2 cols each, cap 12)", () => {
-      const cols = (n) =>
+      const cols = (n: any) =>
         computeGridOptions(withAllergens(n, { minimal: true })).columns;
       expect(cols(1)).toBe(3); // floored
       expect(cols(2)).toBe(4);

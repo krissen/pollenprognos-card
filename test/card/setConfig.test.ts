@@ -42,16 +42,16 @@ const STUBS = {
 
 // ── Replicate the core filtering logic from setConfig() ────────────────
 
-function simulateSetConfig(config) {
+function simulateSetConfig(config: any) {
   let integration = config.integration;
   if (integration && typeof integration === "string") {
     integration = integration.trim().toLowerCase();
   }
 
-  const stub = STUBS[integration] || stubConfigPP;
+  const stub = (STUBS as any)[integration] || stubConfigPP;
   const allowedFields = Object.keys(stub).concat(HARDCODED_EXTRAS);
 
-  const cleanedUserConfig = {};
+  const cleanedUserConfig: Record<string, any> = {};
   for (const k of allowedFields) {
     if (k in config) cleanedUserConfig[k] = config[k];
   }
@@ -321,7 +321,7 @@ describe("setConfig: hardcoded extras pass through", () => {
 
     for (const key of HARDCODED_EXTRAS) {
       expect(result).toHaveProperty(key);
-      expect(result[key]).toEqual(config[key]);
+      expect(result[key]).toEqual((config as any)[key]);
     }
   });
 });
@@ -513,7 +513,7 @@ describe("setConfig: cosmetic-only update detection", () => {
         integrationAllowed.has(f),
       );
 
-      const config = { integration: name };
+      const config: any = { integration: name };
       for (const field of cosmeticForIntegration) {
         config[field] = "test_value";
       }

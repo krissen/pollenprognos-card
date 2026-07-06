@@ -11,16 +11,17 @@ import {
 // this.config.tap_action — the handler must resolve from either.
 
 class FakeBase {
+  dispatched: any[];
   constructor() {
     this.dispatched = [];
   }
-  dispatchEvent(ev) {
+  dispatchEvent(ev: any) {
     this.dispatched.push(ev);
     return true;
   }
 }
 
-class TapElement extends LevelCircleMixin(FakeBase) {}
+class TapElement extends LevelCircleMixin(FakeBase as any) {}
 
 function makeEvent() {
   return {
@@ -34,7 +35,7 @@ function makeHass() {
 }
 
 describe("LevelCircleMixin._handleTapAction", () => {
-  let el;
+  let el: any;
   beforeEach(() => {
     el = new TapElement();
     el._hass = makeHass();
@@ -90,7 +91,7 @@ describe("LevelCircleMixin._handleTapAction", () => {
 
   it("honours the Lovelace-standard `action` key (navigate)", () => {
     const prev = globalThis.window;
-    globalThis.window = { history: { pushState: vi.fn() } };
+    globalThis.window = { history: { pushState: vi.fn() } } as any;
     el.tapAction = { action: "navigate", navigation_path: "/lovelace/2" };
     el._handleTapAction(makeEvent());
     expect(window.history.pushState).toHaveBeenCalledWith(null, "", "/lovelace/2");
@@ -194,10 +195,10 @@ describe("LevelCircleMixin._handleTapAction", () => {
   });
 
   describe("navigate", () => {
-    let prevWindow;
+    let prevWindow: any;
     beforeEach(() => {
       prevWindow = globalThis.window;
-      globalThis.window = { history: { pushState: vi.fn() } };
+      globalThis.window = { history: { pushState: vi.fn() } } as any;
     });
     afterEach(() => {
       globalThis.window = prevWindow;

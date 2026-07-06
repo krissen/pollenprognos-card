@@ -29,13 +29,13 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Run the real shared autodetect and return the picked integration id. */
-function detect(hass) {
+function detect(hass: any) {
   return pickIntegration(detectIntegrationStates(hass));
 }
 
 /** Minimal hass mock. */
-function mkHass(entityIds, opts = {}) {
-  const states = {};
+function mkHass(entityIds: any, opts: any = {}): any {
+  const states: Record<string, any> = {};
   for (const id of entityIds) {
     states[id] = opts.stateObj?.[id] ?? { state: "0", attributes: {} };
   }
@@ -88,13 +88,13 @@ const ENTITY_FIXTURES = {
 };
 
 /** Build a hass mock with sensors from the given integration keys. */
-function hassWithIntegrations(...keys) {
+function hassWithIntegrations(...keys: any[]): any {
   const entityIds = [];
-  const stateObj = {};
-  let entities = {};
+  const stateObj: Record<string, any> = {};
+  let entities: Record<string, any> = {};
 
   for (const key of keys) {
-    const ids = FIXTURES[key];
+    const ids = (FIXTURES as any)[key];
     if (!ids) throw new Error(`Unknown fixture key: ${key}`);
     entityIds.push(...ids);
     for (const id of ids) {
@@ -606,7 +606,7 @@ describe("ATMO detection", () => {
 // ---------------------------------------------------------------------------
 
 describe("badge picker integration choice (getStubConfig logic)", () => {
-  const pickStub = (hass) =>
+  const pickStub = (hass: any) =>
     pickIntegration(detectIntegrationStates(hass), { explicit: false });
 
   it("pins the detected integration (e.g. DWD), not always pp", () => {

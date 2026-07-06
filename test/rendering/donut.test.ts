@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDonutSvg } from "../../src/rendering/donut.ts";
+import { buildDonutSvg } from "../../src/rendering/donut.js";
 
 const base = {
   level: 3,
@@ -14,7 +14,7 @@ const base = {
 
 // Fill layer only: stroke paths carry `fill:none;stroke:...` in the same
 // style attribute, so require the style to be a single fill declaration.
-const fillPaths = (svg) =>
+const fillPaths = (svg: any) =>
   [...svg.matchAll(/<path d="[^"]*" style="fill:([^";]*)"\/>/g)].map(
     (m) => m[1],
   );
