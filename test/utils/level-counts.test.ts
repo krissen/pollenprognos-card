@@ -9,7 +9,7 @@ import {
 // must match each adapter's native level scale; the table below is the contract.
 
 // [integration, ringSegments, numLevels]
-const EXPECTED = [
+const EXPECTED: Array<[string, number, number]> = [
   ["pp", 6, 7],
   ["silam", 6, 7],
   ["atmo", 6, 7],
@@ -32,7 +32,7 @@ describe("ringSegmentsForIntegration", () => {
 
   it("defaults unknown integrations to 6", () => {
     expect(ringSegmentsForIntegration("something-new")).toBe(6);
-    expect(ringSegmentsForIntegration(undefined)).toBe(6);
+    expect(ringSegmentsForIntegration(undefined as any)).toBe(6);
   });
 });
 

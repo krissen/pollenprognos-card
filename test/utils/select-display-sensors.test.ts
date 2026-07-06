@@ -10,9 +10,9 @@ import {
 // the same list simply becomes the icon row, the aggregate being the first
 // icon.
 
-const summary = { allergenReplaced: "allergy_risk", isSummary: true };
-const birch = { allergenReplaced: "birch" };
-const grass = { allergenReplaced: "grass" };
+const summary: any = { allergenReplaced: "allergy_risk", isSummary: true };
+const birch: any = { allergenReplaced: "birch" };
+const grass: any = { allergenReplaced: "grass" };
 
 describe("coerceBool", () => {
   it("treats true and the string 'true' as true", () => {
@@ -30,15 +30,15 @@ describe("coerceBool", () => {
 describe("selectDisplaySensors", () => {
   it("returns the sensors unchanged when the block is off (default)", () => {
     const sensors = [birch, summary, grass];
-    expect(selectDisplaySensors(sensors, {})).toBe(sensors);
-    expect(selectDisplaySensors(sensors, { show_summary_block: false })).toBe(
+    expect(selectDisplaySensors(sensors, {} as any)).toBe(sensors);
+    expect(selectDisplaySensors(sensors, { show_summary_block: false } as any)).toBe(
       sensors,
     );
   });
 
   it("returns only the aggregate when block on and detail rows off (standalone)", () => {
     const sensors = [birch, summary, grass];
-    const out = selectDisplaySensors(sensors, { show_summary_block: true });
+    const out = selectDisplaySensors(sensors, { show_summary_block: true } as any);
     expect(out).toEqual([summary]);
   });
 
@@ -47,13 +47,13 @@ describe("selectDisplaySensors", () => {
     const out = selectDisplaySensors(sensors, {
       show_summary_block: true,
       show_summary_row: true,
-    });
+    } as any);
     expect(out).toEqual([summary, birch, grass]);
   });
 
   it("leaves the list unchanged when block on but no aggregate is present", () => {
     const sensors = [birch, grass];
-    expect(selectDisplaySensors(sensors, { show_summary_block: true })).toBe(
+    expect(selectDisplaySensors(sensors, { show_summary_block: true } as any)).toBe(
       sensors,
     );
   });
@@ -61,18 +61,18 @@ describe("selectDisplaySensors", () => {
   it("honors string flags from YAML ('true')", () => {
     const sensors = [birch, summary, grass];
     expect(
-      selectDisplaySensors(sensors, { show_summary_block: "true" }),
+      selectDisplaySensors(sensors, { show_summary_block: "true" } as any),
     ).toEqual([summary]);
     expect(
       selectDisplaySensors(sensors, {
         show_summary_block: "true",
         show_summary_row: "true",
-      }),
+      } as any),
     ).toEqual([summary, birch, grass]);
   });
 
   it("is null-safe on non-array input", () => {
-    expect(selectDisplaySensors(null, { show_summary_block: true })).toEqual([]);
-    expect(selectDisplaySensors(undefined, {})).toEqual([]);
+    expect(selectDisplaySensors(null as any, { show_summary_block: true } as any)).toEqual([]);
+    expect(selectDisplaySensors(undefined as any, {} as any)).toEqual([]);
   });
 });

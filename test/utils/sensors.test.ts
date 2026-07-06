@@ -7,7 +7,7 @@ import { createHass } from "../helpers.js";
 // ---------------------------------------------------------------------------
 
 /** Minimal sensor state object. */
-function s(state = "3", attrs = {}) {
+function s(state: any = "3", attrs: Record<string, any> = {}) {
   return { state, attributes: attrs };
 }
 
@@ -28,7 +28,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "grass"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.pollen_stockholm_birch",
@@ -47,7 +47,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_goteborg_birch"]);
     });
@@ -60,7 +60,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -76,7 +76,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_brakne_hoby_birch"]);
     });
@@ -103,7 +103,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birke", "graeser"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.pollenflug_birke_50",
@@ -122,7 +122,7 @@ describe("findAvailableSensors", () => {
         allergens: ["gräser"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollenflug_graeser_50"]);
     });
@@ -137,7 +137,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birke"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       // Falls back to unique candidate starting with sensor.pollenflug_birke_
       expect(result).toEqual(["sensor.pollenflug_birke_50"]);
@@ -154,7 +154,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birke"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       // Discovery groups by region; when region_id is empty, location keys
       // are sorted deterministically (numerically for all-digit DWD region IDs)
@@ -179,7 +179,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "grasses"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.polleninformation_wien_birch",
@@ -198,7 +198,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.polleninformation_munchen_birch"]);
     });
@@ -213,7 +213,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.polleninformation_wien_birch"]);
     });
@@ -226,7 +226,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -276,7 +276,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch", "grass"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toContain("sensor.silam_pollen_london_birch_pollen");
         expect(result).toContain("sensor.silam_pollen_london_grass_pollen");
@@ -314,7 +314,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"], // master key
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.silam_pollen_amsterdam_berk"]);
       });
@@ -337,7 +337,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.silam_pollen_london_birch"]);
       });
@@ -358,7 +358,7 @@ describe("findAvailableSensors", () => {
           allergens: ["alder"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.silam_pollen_amsterdam_els"]);
       });
@@ -371,7 +371,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual([]);
       });
@@ -394,7 +394,7 @@ describe("findAvailableSensors", () => {
         allergens: ["trees", "grass"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toContain("sensor.kleenex_pollen_radar_amsterdam_trees");
       expect(result).toContain("sensor.kleenex_pollen_radar_amsterdam_grass");
@@ -411,7 +411,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.kleenex_pollen_radar_amsterdam_trees"]);
     });
@@ -426,7 +426,7 @@ describe("findAvailableSensors", () => {
         allergens: ["ragweed"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.kleenex_pollen_radar_amsterdam_weeds"]);
     });
@@ -441,7 +441,7 @@ describe("findAvailableSensors", () => {
         allergens: ["poaceae"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.kleenex_pollen_radar_amsterdam_grass"]);
     });
@@ -456,7 +456,7 @@ describe("findAvailableSensors", () => {
         allergens: ["trees_cat"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.kleenex_pollen_radar_amsterdam_trees"]);
     });
@@ -471,7 +471,7 @@ describe("findAvailableSensors", () => {
         allergens: ["trees", "birch", "oak"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       // "trees", "birch", "oak" all map to trees category.
       // needsCategories is a Set, so only one "trees" entry.
@@ -489,7 +489,7 @@ describe("findAvailableSensors", () => {
         allergens: ["trees"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.kleenex_pollen_radar_amsterdam_bomen"]);
     });
@@ -504,7 +504,7 @@ describe("findAvailableSensors", () => {
         allergens: ["unknown_allergen"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -524,7 +524,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_birch"]);
     });
@@ -541,7 +541,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_betula"]);
     });
@@ -557,7 +557,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "hazel", "poaceae"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.pollen_birch",
@@ -573,7 +573,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -589,7 +589,7 @@ describe("findAvailableSensors", () => {
         allergens: ["sorrel"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_rumex"]);
     });
@@ -611,7 +611,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "mugwort"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.niveau_bouleau_paris",
@@ -629,7 +629,7 @@ describe("findAvailableSensors", () => {
         allergens: ["allergy_risk"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.qualite_globale_pollen_paris"]);
     });
@@ -644,7 +644,7 @@ describe("findAvailableSensors", () => {
         allergens: ["qualite_globale"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.qualite_globale_paris"]);
     });
@@ -661,7 +661,7 @@ describe("findAvailableSensors", () => {
         allergens: ["pm25", "ozone", "no2"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.pm25_paris",
@@ -678,7 +678,7 @@ describe("findAvailableSensors", () => {
         allergens: ["unknown_pollen"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -693,7 +693,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       // Unique candidate search: prefix = sensor.niveau_bouleau_
       expect(result).toEqual(["sensor.niveau_bouleau_lyon"]);
@@ -710,7 +710,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -726,7 +726,7 @@ describe("findAvailableSensors", () => {
         allergens: ["qualite_globale"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       // Should NOT match qualite_globale_pollen_paris
       expect(result).toEqual([]);
@@ -779,7 +779,7 @@ describe("findAvailableSensors", () => {
         allergens: ["grass_cat", "trees_cat"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toContain("sensor.pollen_grass");
       expect(result).toContain("sensor.pollen_tree");
@@ -818,7 +818,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_birch_level"]);
     });
@@ -842,7 +842,7 @@ describe("findAvailableSensors", () => {
         allergens: ["grass_cat"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_grass"]);
     });
@@ -855,7 +855,7 @@ describe("findAvailableSensors", () => {
         allergens: ["grass_cat"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -879,7 +879,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_prefix_birch"]);
       });
@@ -896,7 +896,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_prefix_birch"]);
       });
@@ -913,7 +913,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         // "custom" -> "custom_", so sensor.custom_birch
         expect(result).toEqual(["sensor.custom_birch"]);
@@ -931,7 +931,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_birch"]);
       });
@@ -948,7 +948,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.birch"]);
       });
@@ -965,7 +965,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_birch_end"]);
       });
@@ -982,7 +982,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         // sensor.custom_birch not found, but sensor.custom_birch_extra starts
         // with "sensor.custom_birch" and is the unique candidate
@@ -1002,7 +1002,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual([]);
       });
@@ -1020,7 +1020,7 @@ describe("findAvailableSensors", () => {
           allergens: ["gräser"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_graeser"]);
       });
@@ -1037,7 +1037,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_birch"]);
       });
@@ -1056,7 +1056,7 @@ describe("findAvailableSensors", () => {
           allergens: ["trees"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_prefix_trees"]);
       });
@@ -1073,7 +1073,7 @@ describe("findAvailableSensors", () => {
           allergens: ["trees"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_prefix_trees"]);
       });
@@ -1091,7 +1091,7 @@ describe("findAvailableSensors", () => {
           allergens: ["trees"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_prefix_bomen"]);
       });
@@ -1108,7 +1108,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_prefix_trees"]);
       });
@@ -1164,7 +1164,7 @@ describe("findAvailableSensors", () => {
           allergens: ["grass_cat"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.my_grass_sensor"]);
       });
@@ -1203,7 +1203,7 @@ describe("findAvailableSensors", () => {
           allergens: ["grass_cat"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual([]);
       });
@@ -1228,7 +1228,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_berk"]);
       });
@@ -1248,7 +1248,7 @@ describe("findAvailableSensors", () => {
           allergens: ["unknown_plant"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_unknown_plant"]);
       });
@@ -1268,7 +1268,7 @@ describe("findAvailableSensors", () => {
           allergens: ["birch"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         expect(result).toEqual(["sensor.custom_niveau_bouleau"]);
       });
@@ -1285,7 +1285,7 @@ describe("findAvailableSensors", () => {
           allergens: ["something"],
         };
 
-        const result = findAvailableSensors(cfg, hass);
+        const result = findAvailableSensors(cfg as any, hass);
 
         // ATMO adapter skips allergens without a mapping in ATMO_ALLERGEN_MAP
         expect(result).toEqual([]);
@@ -1308,7 +1308,7 @@ describe("findAvailableSensors", () => {
         allergens: [],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -1322,7 +1322,7 @@ describe("findAvailableSensors", () => {
         city: "stockholm",
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -1335,7 +1335,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -1347,7 +1347,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "hazel"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -1365,7 +1365,7 @@ describe("findAvailableSensors", () => {
         entity_suffix: "",
         allergens: ["birch"],
       };
-      const result1 = findAvailableSensors(cfg1, hass);
+      const result1 = findAvailableSensors(cfg1 as any, hass);
 
       // Without sensor. prefix
       const cfg2 = {
@@ -1375,7 +1375,7 @@ describe("findAvailableSensors", () => {
         entity_suffix: "",
         allergens: ["birch"],
       };
-      const result2 = findAvailableSensors(cfg2, hass);
+      const result2 = findAvailableSensors(cfg2 as any, hass);
 
       expect(result1).toEqual(result2);
       expect(result1).toEqual(["sensor.myprefix_birch"]);
@@ -1393,7 +1393,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pf_birch_sf"]);
     });
@@ -1409,7 +1409,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "grass"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_stockholm_birch"]);
     });
@@ -1424,8 +1424,8 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const withDebug = findAvailableSensors(cfg, hass, true);
-      const withoutDebug = findAvailableSensors(cfg, hass, false);
+      const withDebug = findAvailableSensors(cfg as any, hass, true);
+      const withoutDebug = findAvailableSensors(cfg as any, hass, false);
 
       expect(withDebug).toEqual(withoutDebug);
     });
@@ -1450,7 +1450,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_stockholm_birch"]);
     });
@@ -1465,7 +1465,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -1480,7 +1480,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([]);
     });
@@ -1497,7 +1497,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "grass", "alder"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.pollen_stockholm_birch",
@@ -1516,7 +1516,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch", "grass"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual([
         "sensor.pollen_stockholm_birch",
@@ -1539,7 +1539,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.silam_pollen_london_birch"]);
     });
@@ -1557,7 +1557,7 @@ describe("findAvailableSensors", () => {
         allergens: ["birch"],
       };
 
-      const result = findAvailableSensors(cfg, hass);
+      const result = findAvailableSensors(cfg as any, hass);
 
       expect(result).toEqual(["sensor.pollen_birch_level_at_8000_za"]);
     });

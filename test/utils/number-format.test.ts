@@ -5,7 +5,7 @@ import {
   parseLocaleNumber,
 } from "../../src/utils/number-format.js";
 
-const hassWith = (locale) => ({ locale });
+const hassWith = (locale: any): any => ({ locale });
 
 describe("number-format", () => {
   describe("getDecimalSeparator", () => {
@@ -30,7 +30,7 @@ describe("number-format", () => {
 
     it("falls back to '.' for missing hass/locale", () => {
       expect(getDecimalSeparator(undefined)).toBe(".");
-      expect(getDecimalSeparator({})).toBe(".");
+      expect(getDecimalSeparator({} as any)).toBe(".");
       expect(getDecimalSeparator(hassWith({}))).toBe(".");
     });
   });
@@ -78,8 +78,8 @@ describe("number-format", () => {
       expect(parseLocaleNumber("")).toBeNull();
       expect(parseLocaleNumber("   ")).toBeNull();
       expect(parseLocaleNumber("abc")).toBeNull();
-      expect(parseLocaleNumber(null)).toBeNull();
-      expect(parseLocaleNumber(undefined)).toBeNull();
+      expect(parseLocaleNumber(null as any)).toBeNull();
+      expect(parseLocaleNumber(undefined as any)).toBeNull();
     });
 
     it("parses integers", () => {

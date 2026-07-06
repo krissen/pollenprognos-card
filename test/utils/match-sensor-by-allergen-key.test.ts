@@ -7,10 +7,10 @@ import { matchSensorByAllergenKey } from "../../src/utils/adapter-helpers.js";
 // a key resolves regardless of the integration's key style, with a literal
 // match taking priority.
 
-const pp = { allergenReplaced: "bjork" }; // normalize("Björk")
-const dwd = { allergenReplaced: "graeser" }; // normalizeDWD("gräser")
-const silamIndex = { allergenReplaced: "allergy_risk" }; // SILAM index canonical
-const english = { allergenReplaced: "birch" };
+const pp: any = { allergenReplaced: "bjork" }; // normalize("Björk")
+const dwd: any = { allergenReplaced: "graeser" }; // normalizeDWD("gräser")
+const silamIndex: any = { allergenReplaced: "allergy_risk" }; // SILAM index canonical
+const english: any = { allergenReplaced: "birch" };
 
 describe("matchSensorByAllergenKey", () => {
   it("matches a PP localized key (Björk -> bjork)", () => {
@@ -45,8 +45,8 @@ describe("matchSensorByAllergenKey", () => {
 
   it("prefers a literal allergenReplaced match over a canonical-equal one", () => {
     // Both reduce to canonical "birch"; the literal "birch" sensor must win.
-    const literal = { allergenReplaced: "birch" };
-    const localized = { allergenReplaced: "bjork" };
+    const literal: any = { allergenReplaced: "birch" };
+    const localized: any = { allergenReplaced: "bjork" };
     expect(matchSensorByAllergenKey([localized, literal], "birch")).toBe(
       literal,
     );
@@ -60,7 +60,7 @@ describe("matchSensorByAllergenKey", () => {
     expect(matchSensorByAllergenKey([english], 3)).toBeNull();
     expect(matchSensorByAllergenKey([english], null)).toBeNull();
     expect(matchSensorByAllergenKey([english], "")).toBeNull();
-    expect(matchSensorByAllergenKey(null, "birch")).toBeNull();
+    expect(matchSensorByAllergenKey(null as any, "birch")).toBeNull();
     // A sensor without a string allergenReplaced is skipped, not thrown on.
     expect(matchSensorByAllergenKey([{ allergenReplaced: 5 }, english], "birch")).toBe(
       english,
@@ -72,9 +72,9 @@ describe("matchSensorByAllergenKey", () => {
     // holds the original PP key as the user/editor wrote it (e.g. "Al", "Hassel",
     // "Ek"). The matcher must bridge the case difference via normalization so
     // single mode works for PP without requiring the user to know the slug.
-    const al = { allergenReplaced: "al", days: [{ state: 2 }] };
-    const hassel = { allergenReplaced: "hassel", days: [{ state: 1 }] };
-    const ek = { allergenReplaced: "ek", days: [{ state: 4 }] };
+    const al: any = { allergenReplaced: "al", days: [{ state: 2 }] };
+    const hassel: any = { allergenReplaced: "hassel", days: [{ state: 1 }] };
+    const ek: any = { allergenReplaced: "ek", days: [{ state: 4 }] };
     const sensors = [al, hassel, ek];
 
     expect(matchSensorByAllergenKey(sensors, "Al")).toBe(al);

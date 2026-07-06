@@ -18,7 +18,7 @@ const GPL_STUB = ["allergy_risk", "grass_cat", "trees_cat", "weeds_cat"];
 
 describe("pinBadgeSingleAllergen", () => {
   it("narrows to the native stub slug for a canonical key and drops the threshold", () => {
-    const input = {
+    const input: any = {
       integration: "pp",
       badge_content: "single",
       badge_single_allergen: "birch",
@@ -41,7 +41,7 @@ describe("pinBadgeSingleAllergen", () => {
   });
 
   it("matches a stub slug case-insensitively without duplicating it", () => {
-    const input = {
+    const input: any = {
       badge_content: "single",
       badge_single_allergen: "al", // lowercase variant of stub "Al"
     };
@@ -51,7 +51,7 @@ describe("pinBadgeSingleAllergen", () => {
   });
 
   it("falls back to the named key when no stub allergen canonically matches", () => {
-    const input = {
+    const input: any = {
       integration: "gpl",
       badge_content: "single",
       badge_single_allergen: "birch",
@@ -62,7 +62,7 @@ describe("pinBadgeSingleAllergen", () => {
   });
 
   it("falls back to just the named key when no stub allergens are provided", () => {
-    const input = {
+    const input: any = {
       badge_content: "single",
       badge_single_allergen: "birch",
     };
@@ -72,17 +72,17 @@ describe("pinBadgeSingleAllergen", () => {
   });
 
   it("returns the same reference when badge_single_allergen is absent", () => {
-    const input = { badge_content: "single", allergens: ["grass"] };
+    const input: any = { badge_content: "single", allergens: ["grass"] };
     expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
   it("returns the same reference when badge_single_allergen is an empty string", () => {
-    const input = { badge_content: "single", badge_single_allergen: "" };
+    const input: any = { badge_content: "single", badge_single_allergen: "" };
     expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
   it("returns the same reference when badge_content is not 'single'", () => {
-    const input = {
+    const input: any = {
       badge_content: "worst",
       badge_single_allergen: "birch",
       allergens: ["grass", "birch"],
@@ -91,12 +91,12 @@ describe("pinBadgeSingleAllergen", () => {
   });
 
   it("returns the same reference when badge_content is 'aggregate'", () => {
-    const input = { badge_content: "aggregate", badge_single_allergen: "birch" };
+    const input: any = { badge_content: "aggregate", badge_single_allergen: "birch" };
     expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 
   it("returns the same reference when badge_content is absent", () => {
-    const input = { badge_single_allergen: "birch", allergens: ["grass"] };
+    const input: any = { badge_single_allergen: "birch", allergens: ["grass"] };
     expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 });

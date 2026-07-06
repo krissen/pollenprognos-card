@@ -86,8 +86,8 @@ describe("no-data-pattern", () => {
     });
 
     it("coerces non-string input rather than throwing", () => {
-      expect(() => hashStringSeed(42)).not.toThrow();
-      expect(hashStringSeed(42)).toBeGreaterThan(0);
+      expect(() => hashStringSeed(42 as any)).not.toThrow();
+      expect(hashStringSeed(42 as any)).toBeGreaterThan(0);
     });
 
     it("never returns 0 (would degenerate the PRNG)", () => {

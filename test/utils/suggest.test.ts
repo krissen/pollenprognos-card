@@ -18,8 +18,8 @@ describe("suggestEntityConfig", () => {
   describe("guards", () => {
     it("returns null for a non-string entity id", () => {
       const hass = createHass({});
-      expect(suggestEntityConfig(hass, undefined)).toBeNull();
-      expect(suggestEntityConfig(hass, 42)).toBeNull();
+      expect(suggestEntityConfig(hass, undefined as any)).toBeNull();
+      expect(suggestEntityConfig(hass, 42 as any)).toBeNull();
     });
 
     it("returns null for non-sensor entities", () => {
@@ -28,8 +28,8 @@ describe("suggestEntityConfig", () => {
     });
 
     it("returns null when hass has no states", () => {
-      expect(suggestEntityConfig(null, "sensor.pollen_stockholm_bjork")).toBeNull();
-      expect(suggestEntityConfig({}, "sensor.pollen_stockholm_bjork")).toBeNull();
+      expect(suggestEntityConfig(null as any, "sensor.pollen_stockholm_bjork")).toBeNull();
+      expect(suggestEntityConfig({} as any, "sensor.pollen_stockholm_bjork")).toBeNull();
     });
 
     it("returns null for an unrecognised sensor", () => {
@@ -356,19 +356,19 @@ describe("suggestEntityConfig", () => {
 // deterministically without depending on each adapter's discovery internals.
 describe("deriveLocationForEntity", () => {
   // Build a minimal discovery: Map<locationKey, { entities | sensors | weatherEntity }>.
-  function disc(entries) {
+  function disc(entries: any) {
     return { locations: new Map(entries) };
   }
 
   it("PP: city from the entity id", () => {
     expect(
-      deriveLocationForEntity("pp", "sensor.pollen_goteborg_bjork", {}, {}),
+      deriveLocationForEntity("pp", "sensor.pollen_goteborg_bjork", {}, {} as any),
     ).toEqual({ key: "city", value: "goteborg" });
   });
 
   it("DWD: region_id from the entity id", () => {
     expect(
-      deriveLocationForEntity("dwd", "sensor.pollenflug_erle_91", {}, {}),
+      deriveLocationForEntity("dwd", "sensor.pollenflug_erle_91", {}, {} as any),
     ).toEqual({ key: "region_id", value: "91" });
   });
 
@@ -379,7 +379,7 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("peu", "sensor.polleninformation_x", hass, {}),
+      deriveLocationForEntity("peu", "sensor.polleninformation_x", hass, {} as any),
     ).toEqual({ key: "location", value: "wien" });
   });
 
@@ -390,7 +390,7 @@ describe("deriveLocationForEntity", () => {
         "peu",
         "sensor.polleninformation_wien_birch",
         hass,
-        {},
+        {} as any,
       ),
     ).toEqual({ key: "location", value: "wien" });
   });
@@ -398,7 +398,7 @@ describe("deriveLocationForEntity", () => {
   it("ATMO: niveau entity yields the precise slug via regex, even with discovery present", () => {
     // Regex-first: the per-entity slug wins over the discovery config-entry key
     // so multi-location and no-registry setups stay precise. (Codex #258)
-    const detection = {
+    const detection: any = {
       discovery: {
         atmo: disc([
           [
@@ -419,7 +419,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("ATMO: legacy niveau_ regex when discovery is empty", () => {
-    const detection = { discovery: { atmo: disc([]) } };
+    const detection: any = { discovery: { atmo: disc([]) } };
     expect(
       deriveLocationForEntity(
         "atmo",
@@ -431,7 +431,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("ATMO: a non-niveau entity resolves via a real discovery config entry", () => {
-    const detection = {
+    const detection: any = {
       discovery: {
         atmo: disc([
           ["entry_atmo", { entities: new Map([["pm25", "sensor.pm25_paris"]]) }],
@@ -444,7 +444,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("ATMO: never pins a non-niveau entity to the tier-3 'default' bucket", () => {
-    const detection = {
+    const detection: any = {
       discovery: {
         atmo: disc([
           ["default", { entities: new Map([["pm25", "sensor.pm25_paris"]]) }],
@@ -457,7 +457,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("SILAM: weatherEntity match in discovery", () => {
-    const detection = {
+    const detection: any = {
       discovery: {
         silam: disc([
           [
@@ -478,7 +478,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("SILAM: regex fallback when discovery is empty", () => {
-    const detection = { discovery: { silam: disc([]) } };
+    const detection: any = { discovery: { silam: disc([]) } };
     expect(
       deriveLocationForEntity(
         "silam",
@@ -490,7 +490,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("Kleenex: longest matching location prefix wins", () => {
-    const detection = {
+    const detection: any = {
       stateIds: [
         "sensor.kleenex_pollen_radar_noord_date",
         "sensor.kleenex_pollen_radar_noord_holland_date",
@@ -507,7 +507,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("Kleenex: rejects diagnostic helper suffixes (date/last_updated/region)", () => {
-    const detection = {
+    const detection: any = {
       stateIds: ["sensor.kleenex_pollen_radar_amsterdam_date"],
     };
     for (const suffix of ["date", "last_updated", "region"]) {
@@ -532,7 +532,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("GP: location from the discovery entities map", () => {
-    const detection = {
+    const detection: any = {
       discovery: {
         gp: disc([
           ["entry_gp", { entities: new Map([["grass", "sensor.gp_grass"]]) }],
@@ -545,7 +545,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("GPL: location from the lazy discovery getter", () => {
-    const detection = {
+    const detection: any = {
       getGplDiscovery: () =>
         disc([
           ["entry_gpl", { entities: new Map([["tree", "sensor.gpl_tree"]]) }],
@@ -557,7 +557,7 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("MSW: location from the lazy discovery getter", () => {
-    const detection = {
+    const detection: any = {
       getMswDiscovery: () =>
         disc([
           [
@@ -581,6 +581,6 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("returns null for an unknown integration", () => {
-    expect(deriveLocationForEntity("nope", "sensor.x", {}, {})).toBeNull();
+    expect(deriveLocationForEntity("nope", "sensor.x", {}, {} as any)).toBeNull();
   });
 });

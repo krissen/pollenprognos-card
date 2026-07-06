@@ -44,8 +44,8 @@ describe("resolveAllergenPhrase", () => {
 
   it("handles null/empty canonical and raw without throwing", () => {
     expect(resolveAllergenPhrase("", "", { lang: "en" })).toBe("");
-    expect(resolveAllergenPhrase(undefined, undefined, { lang: "en" })).toBe("");
-    expect(resolveAllergenPhrase("foo", null, { lang: "en" })).toBe("Foo");
+    expect(resolveAllergenPhrase(undefined as any, undefined as any, { lang: "en" })).toBe("");
+    expect(resolveAllergenPhrase("foo", null as any, { lang: "en" })).toBe("Foo");
   });
 
   it("falls back to English locale data for an unknown language", () => {

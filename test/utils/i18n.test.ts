@@ -16,22 +16,22 @@ describe("i18n", () => {
 
   describe("detectLang", () => {
     it("returns exact match from hass locale", () => {
-      const hass = { locale: { language: "sv" }, language: "sv" };
+      const hass: any = { locale: { language: "sv" }, language: "sv" };
       expect(detectLang(hass)).toBe("sv");
     });
 
     it("returns short code when full tag has no exact match", () => {
-      const hass = { locale: { language: "de-AT" }, language: "de-AT" };
+      const hass: any = { locale: { language: "de-AT" }, language: "de-AT" };
       expect(detectLang(hass)).toBe("de");
     });
 
     it("falls back to 'en' for unsupported language", () => {
-      const hass = { locale: { language: "zh" }, language: "zh" };
+      const hass: any = { locale: { language: "zh" }, language: "zh" };
       expect(detectLang(hass)).toBe("en");
     });
 
     it("respects userLocale override over hass", () => {
-      const hass = { locale: { language: "sv" }, language: "sv" };
+      const hass: any = { locale: { language: "sv" }, language: "sv" };
       expect(detectLang(hass, "de")).toBe("de");
     });
 
@@ -44,7 +44,7 @@ describe("i18n", () => {
     });
 
     it("uses hass.language when locale object is missing", () => {
-      const hass = { language: "fr" };
+      const hass: any = { language: "fr" };
       expect(detectLang(hass)).toBe("fr");
     });
   });
@@ -107,7 +107,7 @@ describe("i18n", () => {
           expect(typeof val).toBe("string");
           expect(val.length).toBeGreaterThan(0);
           // matches the sourced Google displayName for this locale
-          expect(val).toBe(EXPECTED[lang]);
+          expect(val).toBe((EXPECTED as Record<string, string>)[lang]);
         }
       });
     }

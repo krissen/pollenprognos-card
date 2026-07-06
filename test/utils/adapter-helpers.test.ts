@@ -20,8 +20,8 @@ import {
  * Build a simple classify function that maps entity IDs to allergen keys
  * based on a lookup map.
  */
-function makeClassifier(mapping) {
-  return (eid) => {
+function makeClassifier(mapping: Record<string, string>) {
+  return (eid: string) => {
     for (const [pattern, key] of Object.entries(mapping)) {
       if (eid.includes(pattern)) return key;
     }
@@ -38,17 +38,17 @@ describe("deviceLocationKey", () => {
   const SUB = "01SUBENTRYAAAAAAAAAAAAAAAA";
 
   it("returns 'default' when device is null/undefined", () => {
-    expect(deviceLocationKey(null)).toBe("default");
-    expect(deviceLocationKey(undefined)).toBe("default");
+    expect(deviceLocationKey(null as any)).toBe("default");
+    expect(deviceLocationKey(undefined as any)).toBe("default");
   });
 
   it("returns 'default' when no config entry is present", () => {
-    expect(deviceLocationKey({})).toBe("default");
-    expect(deviceLocationKey({ config_entries: [] })).toBe("default");
+    expect(deviceLocationKey({} as any)).toBe("default");
+    expect(deviceLocationKey({ config_entries: [] } as any)).toBe("default");
   });
 
   it("keys by config entry id for a legacy device (no subentries map)", () => {
-    expect(deviceLocationKey({ config_entries: [ENTRY] })).toBe(ENTRY);
+    expect(deviceLocationKey({ config_entries: [ENTRY] } as any)).toBe(ENTRY);
   });
 
   it("keys by config entry id when the subentry list is [null]", () => {
@@ -57,7 +57,7 @@ describe("deviceLocationKey", () => {
         config_entries: [ENTRY],
         primary_config_entry: ENTRY,
         config_entries_subentries: { [ENTRY]: [null] },
-      }),
+      } as any),
     ).toBe(ENTRY);
   });
 
@@ -67,7 +67,7 @@ describe("deviceLocationKey", () => {
         config_entries: [ENTRY],
         primary_config_entry: ENTRY,
         config_entries_subentries: { [ENTRY]: [SUB] },
-      }),
+      } as any),
     ).toBe(SUB);
   });
 
@@ -78,7 +78,7 @@ describe("deviceLocationKey", () => {
         config_entries: [OTHER, ENTRY],
         primary_config_entry: ENTRY,
         config_entries_subentries: { [ENTRY]: [SUB], [OTHER]: [null] },
-      }),
+      } as any),
     ).toBe(SUB);
   });
 
@@ -87,7 +87,7 @@ describe("deviceLocationKey", () => {
       deviceLocationKey({
         config_entries: [ENTRY],
         config_entries_subentries: { [ENTRY]: [SUB] },
-      }),
+      } as any),
     ).toBe(SUB);
   });
 
@@ -97,7 +97,7 @@ describe("deviceLocationKey", () => {
         config_entries: [ENTRY],
         primary_config_entry: ENTRY,
         config_entries_subentries: { [ENTRY]: [null, SUB] },
-      }),
+      } as any),
     ).toBe(SUB);
   });
 });
@@ -138,7 +138,7 @@ describe("discoverEntitiesByDevice", () => {
     assertDiscoveryShape(discovery);
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(1);
-    const loc = discovery.locations.get("cfg_loc1");
+    const loc = discovery.locations.get("cfg_loc1")!;
     expect(loc).toBeDefined();
     expect(loc.entities.get("birch")).toBe("sensor.testint_birch_loc1");
     expect(loc.entities.get("grass")).toBe("sensor.testint_grass_loc1");
@@ -165,7 +165,7 @@ describe("discoverEntitiesByDevice", () => {
     });
 
     expect(discovery.tierUsed).toBe(1);
-    expect(discovery.locations.get("cfg_loc1").label).toBe("MyCity");
+    expect(discovery.locations.get("cfg_loc1")!.label).toBe("MyCity");
   });
 
   it("isRelevant blocking all entities yields tierUsed 0 in every tier", () => {
@@ -228,7 +228,7 @@ describe("discoverEntitiesByDevice", () => {
     // Tier 2: platform match, birch still blocked, grass passes -> tier 2 fires
     expect(discovery.tierUsed).toBe(2);
     expect(discovery.locations.size).toBe(1);
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.has("grass")).toBe(true);
     expect(loc.entities.has("birch")).toBe(false);
   });
@@ -236,7 +236,7 @@ describe("discoverEntitiesByDevice", () => {
   // --- Tier 2 ---
 
   it("tier 2 hit: no devices, entities with matching platform", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.myint_birch": { state: "2", attributes: { friendly_name: "Birch" } },
       },
@@ -256,12 +256,12 @@ describe("discoverEntitiesByDevice", () => {
     assertDiscoveryShape(discovery);
     expect(discovery.tierUsed).toBe(2);
     expect(discovery.locations.size).toBe(1);
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.get("birch")).toBe("sensor.myint_birch");
   });
 
   it("tier 2: location key defaults to 'default' when no device config_entries", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.myint_birch": { state: "2", attributes: {} },
       },
@@ -284,7 +284,7 @@ describe("discoverEntitiesByDevice", () => {
   // --- Tier 3 ---
 
   it("tier 3 regex hit: no entities registry, fallback regex matches states", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.abc_birch_stadtx": { state: "1", attributes: {} },
         "sensor.abc_grass_stadtx": { state: "2", attributes: {} },
@@ -303,13 +303,13 @@ describe("discoverEntitiesByDevice", () => {
     assertDiscoveryShape(discovery);
     expect(discovery.tierUsed).toBe(3);
     expect(discovery.locations.size).toBe(1);
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.get("birch")).toBe("sensor.abc_birch_stadtx");
     expect(loc.entities.get("grass")).toBe("sensor.abc_grass_stadtx");
   });
 
   it("tier 3 selector hit: fallbackSelector overrides regex", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.selected_birch": { state: "3", attributes: {} },
         "sensor.not_selected": { state: "1", attributes: {} },
@@ -328,14 +328,14 @@ describe("discoverEntitiesByDevice", () => {
     assertDiscoveryShape(discovery);
     expect(discovery.tierUsed).toBe(3);
     expect(discovery.locations.size).toBe(1);
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.get("birch")).toBe("sensor.selected_birch");
   });
 
   // --- No match ---
 
   it("no match in any tier: returns empty locations with tierUsed 0", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.unrelated": { state: "0", attributes: {} },
       },
@@ -382,11 +382,11 @@ describe("discoverEntitiesByDevice", () => {
     // Tier 1 uses relaxed -> succeeds
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(1);
-    expect(discovery.locations.values().next().value.entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(discovery.locations.values().next().value!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
   });
 
   it("classifyRelaxed irrelevant when no device: tier 2 uses strict (which returns null) -> no results", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.testint_birch": { state: "2", attributes: {} },
       },
@@ -437,7 +437,7 @@ describe("discoverEntitiesByDevice", () => {
     });
 
     expect(discovery.tierUsed).toBe(1);
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.has("diag")).toBe(false);
     expect(loc.entities.has("birch")).toBe(true);
   });
@@ -476,7 +476,7 @@ describe("discoverEntitiesByDevice", () => {
 
     expect(discovery.tierUsed).toBe(1);
     expect(collisionCtx.length).toBe(1);
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.has("birch")).toBe(true);
     expect(loc.entities.has("birch_alt")).toBe(true);
   });
@@ -521,7 +521,7 @@ describe("discoverEntitiesByDevice", () => {
       onCollision: () => "graminales",
     });
 
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.get("grass_cat")).toBe("sensor.testint_grass_cat");
     expect(loc.entities.get("graminales")).toBe("sensor.testint_graminales");
     expect(loc.entities.size).toBe(2);
@@ -553,7 +553,7 @@ describe("discoverEntitiesByDevice", () => {
       onCollision: () => null, // skip
     });
 
-    const loc = discovery.locations.values().next().value;
+    const loc = discovery.locations.values().next().value!;
     expect(loc.entities.size).toBe(1); // only the first one kept
   });
 
@@ -585,7 +585,7 @@ describe("discoverEntitiesByDevice", () => {
   // --- Missing hass sub-objects ---
 
   it("hass.entities missing: tier 1 and tier 2 skipped, tier 3 (regex) used", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.abc_birch": { state: "1", attributes: {} },
       },
@@ -605,7 +605,7 @@ describe("discoverEntitiesByDevice", () => {
   });
 
   it("hass.devices missing but hass.entities present: tier 1 skipped, tier 2 activated", () => {
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.abc_birch": { state: "1", attributes: {} },
       },
@@ -630,7 +630,7 @@ describe("discoverEntitiesByDevice", () => {
     // First entity has no device_id (tier 3 fallback match), second entity in
     // the same location has a device_id. Earlier code only set deviceId on
     // bucket creation, which silently lost it.
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.abc_alder": { state: "0", attributes: {} },
         "sensor.abc_birch": { state: "1", attributes: {} },
@@ -655,7 +655,7 @@ describe("discoverEntitiesByDevice", () => {
       resolveLocationKey: () => "shared",
     });
 
-    const loc = discovery.locations.get("shared");
+    const loc = discovery.locations.get("shared")!;
     expect(loc).toBeDefined();
     expect(loc.deviceId).toBe("dev_later");
     expect(loc.entities.size).toBe(2);
@@ -664,7 +664,7 @@ describe("discoverEntitiesByDevice", () => {
   it("label is upgraded when device context first becomes available for a bucket", () => {
     // First entity has no device → label falls back to friendly_name.
     // Second entity provides a device with name_by_user → label must upgrade.
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.abc_alder": { state: "0", attributes: { friendly_name: "Fallback name" } },
         "sensor.abc_birch": { state: "1", attributes: {} },
@@ -695,7 +695,7 @@ describe("discoverEntitiesByDevice", () => {
       resolveLocationKey: () => "shared",
     });
 
-    const loc = discovery.locations.get("shared");
+    const loc = discovery.locations.get("shared")!;
     expect(loc.label).toBe("User Label");
     expect(loc.deviceId).toBe("dev_rich");
   });
@@ -705,7 +705,7 @@ describe("discoverEntitiesByDevice", () => {
     // non-null, which meant tier 2 without hass.devices lost deviceId even
     // though entry.device_id was available. SILAM weather postprocess relies
     // on this.
-    const hass = {
+    const hass: any = {
       states: {
         "sensor.abc_birch": { state: "1", attributes: {} },
       },
@@ -727,7 +727,7 @@ describe("discoverEntitiesByDevice", () => {
     });
 
     expect(discovery.tierUsed).toBe(2);
-    const [, location] = discovery.locations.entries().next().value;
+    const [, location] = discovery.locations.entries().next().value!;
     expect(location.deviceId).toBe("dev_known");
   });
 
@@ -769,8 +769,8 @@ describe("discoverEntitiesByDevice", () => {
     expect(discovery.locations.size).toBe(2);
     expect(discovery.locations.has("cfg_loc1")).toBe(true);
     expect(discovery.locations.has("cfg_loc2")).toBe(true);
-    expect(discovery.locations.get("cfg_loc1").entities.get("birch")).toBe("sensor.testint_birch_loc1");
-    expect(discovery.locations.get("cfg_loc2").entities.get("birch")).toBe("sensor.testint_birch_loc2");
+    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(discovery.locations.get("cfg_loc2")!.entities.get("birch")).toBe("sensor.testint_birch_loc2");
   });
 
   // --- Tier 1 + Tier 2 cooperation (mixed-registry top-up) ---
@@ -814,8 +814,8 @@ describe("discoverEntitiesByDevice", () => {
     // tierUsed reflects tier 1 since tier 1 contributed; tier 2 topped up.
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(2);
-    expect(discovery.locations.get("cfg_loc1").entities.get("birch")).toBe("sensor.testint_birch_loc1");
-    expect(discovery.locations.get("cfg_loc2").entities.get("birch")).toBe("sensor.testint_birch_loc2");
+    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(discovery.locations.get("cfg_loc2")!.entities.get("birch")).toBe("sensor.testint_birch_loc2");
   });
 
   it("mixed registry: tier 2 top-up does not reclassify tier-1 entities", () => {
@@ -864,8 +864,8 @@ describe("discoverEntitiesByDevice", () => {
     expect(strictCallsForBirch).toBe(0); // tier 2 skipped the tier-1 device
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(2);
-    expect(discovery.locations.get("cfg_loc1").entities.get("birch")).toBe("sensor.testint_birch_loc1");
-    expect(discovery.locations.get("cfg_loc2").entities.get("grass")).toBe("sensor.testint_grass_loc2");
+    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(discovery.locations.get("cfg_loc2")!.entities.get("grass")).toBe("sensor.testint_grass_loc2");
   });
 
   it("mixed registry: tier 2 top-up merges into same location when config_entry_id matches", () => {
@@ -903,7 +903,7 @@ describe("discoverEntitiesByDevice", () => {
 
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(1);
-    const loc = discovery.locations.get("cfg_shared");
+    const loc = discovery.locations.get("cfg_shared")!;
     expect(loc).toBeDefined();
     expect(loc.entities.get("birch")).toBe("sensor.testint_birch_shared");
     expect(loc.entities.get("grass")).toBe("sensor.testint_grass_shared");
@@ -915,7 +915,7 @@ describe("discoverEntitiesByDevice", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveLocationByKey", () => {
-  function makeDiscovery(entries) {
+  function makeDiscovery(entries: any) {
     const locations = new Map();
     for (const [key, label, entities] of entries) {
       const entMap = new Map(Object.entries(entities));
@@ -930,14 +930,14 @@ describe("resolveLocationByKey", () => {
       ["cfg_xyz", "City X", { grass: "sensor.grass_x" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "");
+    const result = resolveLocationByKey(discovery, "")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
 
   it("empty cfgLocation with empty map returns null", () => {
     const discovery = { locations: new Map(), tierUsed: 0 };
-    const result = resolveLocationByKey(discovery, "");
+    const result = resolveLocationByKey(discovery, "")!;
     expect(result).toBeNull();
   });
 
@@ -949,7 +949,7 @@ describe("resolveLocationByKey", () => {
       ["cfg_abc", "City A", { birch: "sensor.birch_a" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "");
+    const result = resolveLocationByKey(discovery, "")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -962,7 +962,7 @@ describe("resolveLocationByKey", () => {
       ["50", "50 Brandenburg", { birke: "sensor.pollenflug_birke_50" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "");
+    const result = resolveLocationByKey(discovery, "")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("50");
   });
@@ -972,7 +972,7 @@ describe("resolveLocationByKey", () => {
       ["cfg_abc", "City A", { birch: "sensor.birch_a" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "cfg_abc");
+    const result = resolveLocationByKey(discovery, "cfg_abc")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -982,7 +982,7 @@ describe("resolveLocationByKey", () => {
       ["cfg_abc", "City of Nice", { birch: "sensor.birch_nice" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "Nice");
+    const result = resolveLocationByKey(discovery, "Nice")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -993,7 +993,7 @@ describe("resolveLocationByKey", () => {
     ]);
 
     // "paris" matches because "sensor.niveau_bouleau_paris" ends with "_paris"
-    const result = resolveLocationByKey(discovery, "paris");
+    const result = resolveLocationByKey(discovery, "paris")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -1008,11 +1008,11 @@ describe("resolveLocationByKey", () => {
     ]);
 
     const result = resolveLocationByKey(discovery, "50", {
-      slugExtractor: (eid) => {
+      slugExtractor: (eid: string) => {
         const m = eid.match(/_(\d+)$/);
         return m ? m[1] : null;
       },
-    });
+    })!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_right");
   });
@@ -1023,7 +1023,7 @@ describe("resolveLocationByKey", () => {
       ["cfg_exact",  "Hamburg",          { birch: "sensor.y_birch" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "hamburg");
+    const result = resolveLocationByKey(discovery, "hamburg")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_exact");
   });
@@ -1033,7 +1033,7 @@ describe("resolveLocationByKey", () => {
       ["cfg_abc", "City A", { birch: "sensor.birch_a" }],
     ]);
 
-    const result = resolveLocationByKey(discovery, "completely_unknown_xyz");
+    const result = resolveLocationByKey(discovery, "completely_unknown_xyz")!;
     expect(result).toBeNull();
   });
 
@@ -1047,7 +1047,7 @@ describe("resolveLocationByKey", () => {
 // ---------------------------------------------------------------------------
 
 describe("findLocationBySlug", () => {
-  function makeDiscovery(entries) {
+  function makeDiscovery(entries: any) {
     const locations = new Map();
     for (const [key, label, entities] of entries) {
       const entMap = new Map(Object.entries(entities));
@@ -1061,7 +1061,7 @@ describe("findLocationBySlug", () => {
       ["cfg_paris", "Auto", { birch: "sensor.niveau_bouleau_paris" }],
     ]);
 
-    const result = findLocationBySlug(discovery, "paris");
+    const result = findLocationBySlug(discovery, "paris")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_paris");
   });
@@ -1071,7 +1071,7 @@ describe("findLocationBySlug", () => {
       ["cfg_paris", "Auto", { birch: "sensor.niveau_bouleau_paris_j_1" }],
     ]);
 
-    const result = findLocationBySlug(discovery, "paris");
+    const result = findLocationBySlug(discovery, "paris")!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_paris");
   });
@@ -1081,7 +1081,7 @@ describe("findLocationBySlug", () => {
       ["cfg_abc", "Auto", { birch: "sensor.birch_cityname_v2" }],
     ]);
 
-    const result = findLocationBySlug(discovery, "cityname", { suffixExtras: ["", "_v2"] });
+    const result = findLocationBySlug(discovery, "cityname", { suffixExtras: ["", "_v2"] })!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -1092,7 +1092,7 @@ describe("findLocationBySlug", () => {
     ]);
 
     // Without "_j_1" in suffixExtras, only plain suffix matches
-    const result = findLocationBySlug(discovery, "paris", { suffixExtras: [] });
+    const result = findLocationBySlug(discovery, "paris", { suffixExtras: [] })!;
     expect(result).toBeNull();
   });
 
@@ -1119,12 +1119,12 @@ describe("findLocationBySlug", () => {
     ]);
 
     // Extractor pulls out the city name from a known position
-    const slugExtractor = (eid) => {
+    const slugExtractor = (eid: string) => {
       const m = eid.match(/_([A-Z]+)_extra$/);
       return m ? m[1].toLowerCase() : null;
     };
 
-    const result = findLocationBySlug(discovery, "nice", { slugExtractor });
+    const result = findLocationBySlug(discovery, "nice", { slugExtractor })!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -1172,16 +1172,16 @@ describe("resolveAllergenNames", () => {
   //   pp : ("gras",  configKey "Gräs")
   //   msw: ("grass", configKey "grass")
   //   dwd: ("graeser", configKey "Gräser")
-  const callPP = (opts) =>
+  const callPP = (opts: any) =>
     resolveAllergenNames("gras", { configKey: "Gräs", lang: "en", ...opts });
-  const callMSW = (opts) =>
+  const callMSW = (opts: any) =>
     resolveAllergenNames("grass", { configKey: "grass", lang: "en", ...opts });
 
   it("backward compat: exact raw config key still wins (pp Gräs)", () => {
     const { allergenCapitalized } = callPP({
       fullPhrases: { "Gräs": "MITT GRÄS!" },
       shortPhrases: {},
-    });
+    } as any);
     expect(allergenCapitalized).toBe("MITT GRÄS!");
   });
 
@@ -1190,7 +1190,7 @@ describe("resolveAllergenNames", () => {
     const { allergenCapitalized } = callMSW({
       fullPhrases: { "Gräs": "MITT GRÄS!" },
       shortPhrases: {},
-    });
+    } as any);
     expect(allergenCapitalized).toBe("MITT GRÄS!");
   });
 
@@ -1220,7 +1220,7 @@ describe("resolveAllergenNames", () => {
       lang: "en",
       fullPhrases: { "Beifuß": "MUGGA" },
       shortPhrases: {},
-    });
+    } as any);
     expect(allergenCapitalized).toBe("MUGGA");
   });
 
@@ -1233,7 +1233,7 @@ describe("resolveAllergenNames", () => {
       lang: "en",
       fullPhrases: { "Gräs": "MITT GRÄS!" },
       shortPhrases: {},
-    });
+    } as any);
     expect(allergenCapitalized).not.toBe("MITT GRÄS!");
     // graminales keeps its own i18n name (Google's en displayName "Grasses",
     // issue #262 follow-up), never the carried-over grass override.
@@ -1269,7 +1269,7 @@ describe("resolveAllergenNames", () => {
   });
 
   it("tolerates null phrase maps (phrases: { full: null }) without throwing", () => {
-    let res;
+    let res: any;
     expect(() => {
       res = callMSW({ fullPhrases: null, shortPhrases: null, abbreviated: true });
     }).not.toThrow();

@@ -105,10 +105,10 @@ describe("cleanDeviceLabel: coordinate-paren variants", () => {
 
 describe("cleanDeviceLabel: defensive input handling", () => {
   it("returns the input as-is when not a string", () => {
-    expect(cleanDeviceLabel(null)).toBe(null);
-    expect(cleanDeviceLabel(undefined)).toBe(undefined);
-    expect(cleanDeviceLabel(42)).toBe(42);
-    expect(cleanDeviceLabel({})).toEqual({});
+    expect(cleanDeviceLabel(null as any)).toBe(null);
+    expect(cleanDeviceLabel(undefined as any)).toBe(undefined);
+    expect(cleanDeviceLabel(42 as any)).toBe(42);
+    expect(cleanDeviceLabel({} as any)).toEqual({});
   });
 
   it("returns empty string for empty/whitespace-only input", () => {
