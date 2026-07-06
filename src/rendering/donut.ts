@@ -131,7 +131,10 @@ export function buildDonutSvg(params: DonutParams): string {
         ? (colors[i] ?? emptyColor)
         : emptyColor;
     const d = sectorPath(cx, cy, ri, ro, i * seg, (i + 1) * seg);
-    paths += `<path d="${d}" fill="${fill}"/>`;
+    // fill via style, not the presentation attribute: colors may be CSS
+    // custom-property references (var(--divider-color)), and style="" is the
+    // only placement where var() is guaranteed to resolve in every engine.
+    paths += `<path d="${d}" style="fill:${fill}"/>`;
   }
 
   // Gap: one stroked outline layer over the fills (drawn once per segment path
@@ -142,8 +145,8 @@ export function buildDonutSvg(params: DonutParams): string {
     for (let i = 0; i < segments; i++) {
       const d = sectorPath(cx, cy, ri, ro, i * seg, (i + 1) * seg);
       strokes +=
-        `<path d="${d}" fill="none" stroke="${gapColor}" ` +
-        `stroke-width="${n(gap)}"/>`;
+        `<path d="${d}" style="fill:none;stroke:${gapColor};` +
+        `stroke-width:${n(gap)}"/>`;
     }
   }
 
