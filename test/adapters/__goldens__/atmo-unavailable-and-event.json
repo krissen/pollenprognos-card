@@ -4,7 +4,7 @@
       {
         "name": "Graminées",
         "day": "Aujourd'hui",
-        "state": 7,
+        "state": 6,
         "display_state": 6,
         "state_text": "Événement"
       },
@@ -34,7 +34,7 @@
       {
         "name": "Bouleau",
         "day": "Demain",
-        "state": 0,
+        "state": -1,
         "display_state": -1,
         "state_text": "Indisponible"
       }

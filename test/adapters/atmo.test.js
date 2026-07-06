@@ -126,7 +126,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
   // 2. ATMO level mapping
   describe("ATMO level mapping", () => {
-    it("maps level 0 (indisponible) to state=0 and display_state=-1", async () => {
+    it("maps level 0 (indisponible) to state=-1 and display_state=-1", async () => {
       const hass = makeHass("paris", [["birch", 0, 0]]);
       const config = makeConfig({
         location: "paris",
@@ -136,7 +136,10 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state).toBe(0);
+      // state normalized to the no-data sentinel (matches display_state) so the
+      // ring, which reads state, renders the no-data pattern rather than a
+      // misleading green level-0 ring for "Indisponible".
+      expect(result[0].days[0].state).toBe(-1);
       expect(result[0].days[0].display_state).toBe(-1);
     });
 
@@ -156,7 +159,7 @@ describe("ATMO adapter: fetchForecast", () => {
       }
     });
 
-    it("maps level 7 (evenement) to state=7 and display_state=6 (capped)", async () => {
+    it("maps level 7 (evenement) to state=6 and display_state=6 (capped)", async () => {
       const hass = makeHass("paris", [["birch", 7, 7]]);
       const config = makeConfig({
         location: "paris",
@@ -166,7 +169,9 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state).toBe(7);
+      // Événement (raw 7) is capped to 6 on both state and display_state so the
+      // raw event code never leaves the adapter.
+      expect(result[0].days[0].state).toBe(6);
       expect(result[0].days[0].display_state).toBe(6);
     });
 

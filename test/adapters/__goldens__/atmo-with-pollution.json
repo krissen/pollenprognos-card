@@ -57,7 +57,7 @@
       {
         "name": "PM10",
         "day": "Demain",
-        "state": 0,
+        "state": -1,
         "display_state": -1,
         "state_text": "Indisponible"
       }
