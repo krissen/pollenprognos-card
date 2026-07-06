@@ -46,32 +46,9 @@ import {
 } from "../utils/levels-defaults.js";
 import { getAllAdapterIds } from "../adapter-registry.js";
 import {
-  discoverDwdSensors,
-  DWD_ENTITY_ID_RE,
-} from "../adapters/dwd.js";
-import {
-  discoverPeuSensors,
-  extractPeuLocationSlugFromEntityId,
-} from "../adapters/peu.js";
-import {
-  discoverAtmoSensors,
-  findAtmoLocationBySlug,
-} from "../adapters/atmo.js";
-import {
-  discoverGplSensors,
-  discoverGplAllergens,
-} from "../adapters/gpl/index.js";
-import {
-  discoverGpSensors,
-  discoverGpAllergens,
-} from "../adapters/gp/index.js";
-import { discoverMswSensors } from "../adapters/msw.js";
-import { discoverIrmkmiSensors } from "../adapters/irmkmi.js";
-import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
 } from "../utils/silam.js";
-import { findLocationBySlug } from "../utils/adapter-helpers.js";
 import { resolveAllergenPhrase } from "../utils/allergen-label.js";
 import { numLevelsForIntegration } from "../utils/level-counts.js";
 import { allergenListForIntegration } from "./integration-allergens.js";
@@ -84,15 +61,7 @@ import {
   ALLERGENS_RESET_KEYS,
   PHRASES_RESET_KEYS,
 } from "./reset-registry.js";
-import {
-  PP_POSSIBLE_CITIES,
-  DWD_REGIONS,
-  toCanonicalAllergenKey,
-} from "../constants.js";
-import {
-  discoverPpSensors,
-  extractCitySlugFromEntityId as extractPpCitySlugFromEntityId,
-} from "../adapters/pp.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 
 import silamAllergenMap from "../adapters/silam_allergen_map.json";
 import { renderIntegrationSection } from "./sections/integration.js";
