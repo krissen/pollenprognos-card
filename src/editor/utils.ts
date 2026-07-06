@@ -8,8 +8,11 @@ import { css } from "lit";
 // Recursive merge utility — shared by both editors.                   //
 // ------------------------------------------------------------------ //
 
-export const deepMerge = (target, source) => {
-  const out = { ...target };
+export const deepMerge = (
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> => {
+  const out: Record<string, unknown> = { ...target };
   for (const key of Object.keys(source)) {
     const val = source[key];
     if (
@@ -19,7 +22,10 @@ export const deepMerge = (target, source) => {
       typeof target[key] === "object" &&
       target[key] !== null
     ) {
-      out[key] = deepMerge(target[key], val);
+      out[key] = deepMerge(
+        target[key] as Record<string, unknown>,
+        val as Record<string, unknown>,
+      );
     } else {
       out[key] = val;
     }
