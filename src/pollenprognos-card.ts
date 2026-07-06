@@ -1,5 +1,7 @@
-// src/pollenprognos-card.js
+// src/pollenprognos-card.ts
 import { LitElement, html, css } from "lit";
+import type { TemplateResult, PropertyValues } from "lit";
+import type { PrimitiveType } from "intl-messageformat";
 import { slugify } from "./utils/slugify.js";
 import { getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
@@ -38,23 +40,61 @@ import {
   pickIntegration,
   autoSelectLocation,
 } from "./utils/autodetect.js";
-import {
-  DWD_REGIONS,
-  PP_POSSIBLE_CITIES,
-} from "./constants.js";
+import { DWD_REGIONS, PP_POSSIBLE_CITIES } from "./constants.js";
 import silamAllergenMap from "./adapters/silam_allergen_map.json";
-import { LevelCircleMixin, resolveTapActionType } from "./rendering/level-circle-mixin.js";
+import {
+  LevelCircleMixin,
+  resolveTapActionType,
+} from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import type { HomeAssistant, UnsubscribeFunc } from "./types/home-assistant.js";
+import type { CardConfig, RawCardConfig } from "./types/config.js";
+import type { PollenSensor } from "./types/sensor.js";
+import type { ForecastEvent } from "./types/adapter.js";
 
 class PollenPrognosCard extends LevelCircleMixin(LitElement) {
-  _forecastUnsub = null; // Unsubscribe-funktion
-  _forecastEvent = null; // Forecast-event (ex. hourly forecast från subscribe)
+  // Unsubscribe handle: the subscribeMessage promise while pending, then the
+  // resolved unsubscribe fn; null when not subscribed.
+  _forecastUnsub: Promise<UnsubscribeFunc> | UnsubscribeFunc | null = null;
+  _forecastEvent: ForecastEvent | null = null; // Forecast-event (ex. hourly forecast från subscribe)
 
   _versionLogged = false;
-  _error = null; // Holds error translation key when something goes wrong
-  _skipIntegrations = new Set(); // Integrations that failed during autodetect
+  _error: string | null = null; // Holds error translation key when something goes wrong
+  _skipIntegrations = new Set<string>(); // Integrations that failed during autodetect
 
-  updated(changedProps) {
+  // Narrow the mixin's optional `config` to non-optional: the card guards
+  // `if (!this.config) return` in render and otherwise reads `this.config.x`
+  // directly, matching the original JS. `declare` keeps Lit's reactive accessor.
+  declare config: CardConfig;
+  // tap_action is loosely-typed YAML; the mixin's own TapActionConfig type is
+  // not exported, and the card stores `null` (not undefined) when unset, which
+  // that optional type disallows. `any` is the only redeclaration compatible
+  // with the mixin's optional property (null-vs-undefined). Reads go through
+  // resolveTapActionType (unknown-tolerant) / _hasTapAction.
+  declare tapAction: any;
+
+  // Reactive state and plain instance fields set in the constructor / set hass.
+  declare sensors: PollenSensor[];
+  declare days_to_show: number;
+  declare displayCols: number[];
+  declare header: string;
+  declare _isLoaded?: boolean;
+  declare _noPollenData: boolean;
+  declare _initDone: boolean;
+  declare _userConfig: RawCardConfig;
+  declare _integrationExplicit: boolean;
+  declare _availableSensorCount?: number;
+  declare _explicitLocationNoSensors?: boolean;
+  declare _forecastSubEntity: string | null;
+  declare _forecastSubType: string | null;
+  declare _fetchSeq?: number;
+  // Cached SILAM discovery from set hass (autodetect is still JS/untyped).
+  declare _silamDiscovery?: any;
+  // Debug-only snapshots, assigned when this.debug is on.
+  declare d_sensors?: PollenSensor[];
+  declare d_availableSensors?: string[];
+
+  override updated(changedProps: PropertyValues) {
     // Handle forecast subscription.
     // The config check covers initial setup and editor changes.
     // The fallback covers the race where the first update cycle (from
@@ -75,12 +115,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     super.updated(changedProps);
   }
 
-  connectedCallback() {
+  override connectedCallback() {
     super.connectedCallback();
   }
 
   // Clean up forecast subscription when component is disconnected.
-  disconnectedCallback() {
+  override disconnectedCallback() {
     // Clean up forecast subscription
     if (this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub).then((fn) => {
@@ -94,7 +134,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     super.disconnectedCallback();
   }
 
-  _updateSensorsAndColumns(filtered, availableSensors, cfg) {
+  _updateSensorsAndColumns(
+    filtered: PollenSensor[],
+    availableSensors: string[],
+    cfg: CardConfig,
+  ) {
     if (this.debug) {
       this.d_sensors = filtered;
       this.d_availableSensors = availableSensors;
@@ -169,9 +213,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       return { hasStale: false, allStale: false, staleSince: null };
     }
 
-    let targetLocation = this.config.location === "manual" ? "" : this.config.location;
+    let targetLocation =
+      this.config.location === "manual" ? "" : this.config.location;
     if (!targetLocation && this.config.location !== "manual") {
-      const match = peuStates[0].match(/^sensor\.polleninformation_(.+)_[^_]+$/);
+      const match = peuStates[0].match(
+        /^sensor\.polleninformation_(.+)_[^_]+$/,
+      );
       targetLocation = match ? match[1] : "";
     }
 
@@ -213,7 +260,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // Cancel stale subscription when switching away from SILAM
     if (this.config.integration !== "silam" && this._forecastUnsub) {
       Promise.resolve(this._forecastUnsub)
-        .then((fn) => { if (typeof fn === "function") fn(); })
+        .then((fn) => {
+          if (typeof fn === "function") fn();
+        })
         .catch(() => {});
       this._forecastUnsub = null;
       this._forecastSubEntity = null;
@@ -233,7 +282,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       // naming enter entity_prefix="silam_pollen_<loc>_", which would
       // otherwise double up against findSilamWeatherEntity's own
       // weather.silam_pollen_${loc}_${suffix} template.
-      let configLocation;
+      let configLocation: string;
       if (isManual && this.config.entity_prefix) {
         configLocation = normalizeManualPrefix(this.config.entity_prefix)
           .replace(/_$/, "")
@@ -241,9 +290,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       } else if (isManual) {
         configLocation = "";
       } else {
-        configLocation = this.config.location || "";
+        configLocation = (this.config.location as string) || "";
       }
-      const lang = this.config?.date_locale?.split("-")[0] || "en";
+      const lang =
+        (this.config?.date_locale as string | undefined)?.split("-")[0] || "en";
       if (this.debug) {
         console.debug("[Card][Debug] SILAM location:", configLocation);
       }
@@ -286,7 +336,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           entityId = null;
         }
       } else {
-        entityId = findSilamWeatherEntity(this._hass, configLocation, lang, this.debug, this._silamDiscovery);
+        entityId = findSilamWeatherEntity(
+          this._hass,
+          configLocation,
+          lang,
+          this.debug,
+          this._silamDiscovery,
+        );
       }
       let forecastType = "daily";
       if (this.config && this.config.mode === "twice_daily") {
@@ -320,7 +376,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       if (entityId) {
         // Check entity state — don't subscribe to unavailable/unknown entities
         const entityState = this._hass.states[entityId];
-        if (!entityState || entityState.state === "unavailable" || entityState.state === "unknown") {
+        if (
+          !entityState ||
+          entityState.state === "unavailable" ||
+          entityState.state === "unknown"
+        ) {
           if (this.debug) {
             console.debug(
               "[Card][subscribeForecast] Entity unavailable/unknown, skipping:",
@@ -328,7 +388,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             );
           }
           this._forecastEvent = null;
-          const alreadyShowingError = this._error === "card.error_entity_unavailable";
+          const alreadyShowingError =
+            this._error === "card.error_entity_unavailable";
           // Only assign reactive properties when values actually change,
           // otherwise each assignment triggers requestUpdate() -> updated()
           // -> _subscribeForecastIfNeeded() in an infinite microtask loop.
@@ -347,23 +408,24 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         this._forecastSubEntity = entityId;
         this._forecastSubType = forecastType;
 
-        const subPromise = this._hass.connection.subscribeMessage(
-          (event) => {
-            if (this.debug) {
-              console.debug(
-                "[Card][subscribeForecast] forecastEvent RECEIVED:",
-                event,
-              );
-            }
-            this._forecastEvent = event;
-            this._updateSensorsAfterForecastEvent();
-          },
-          {
-            type: "weather/subscribe_forecast",
-            entity_id: entityId,
-            forecast_type: forecastType,
-          },
-        );
+        const subPromise =
+          this._hass.connection.subscribeMessage<ForecastEvent>(
+            (event) => {
+              if (this.debug) {
+                console.debug(
+                  "[Card][subscribeForecast] forecastEvent RECEIVED:",
+                  event,
+                );
+              }
+              this._forecastEvent = event;
+              this._updateSensorsAfterForecastEvent();
+            },
+            {
+              type: "weather/subscribe_forecast",
+              entity_id: entityId,
+              forecast_type: forecastType,
+            },
+          );
         subPromise.catch((err) => {
           console.warn(
             "[Card][subscribeForecast] Subscription failed for",
@@ -376,7 +438,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           this._forecastEvent = null;
           if (!this._integrationExplicit) {
             // Autodetect: skip this integration and re-run detection
-            this._skipIntegrations.add(this.config.integration);
+            this._skipIntegrations.add(this.config.integration!);
             if (this.debug) {
               console.debug(
                 "[Card] Autodetect: skipping",
@@ -384,13 +446,16 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 "- will try next integration",
               );
             }
-            // Force re-evaluation by bypassing the reference equality check
+            // Force re-evaluation by bypassing the reference equality check.
+            // The null seed is intentional (defeats set hass's === guard); cast
+            // for the field's HomeAssistant | undefined type.
             const hass = this._hass;
-            this._hass = null;
-            this.hass = hass;
+            this._hass = null as unknown as HomeAssistant | undefined;
+            this.hass = hass as HomeAssistant;
           } else {
             if (this.sensors?.length !== 0) this.sensors = [];
-            if (this._availableSensorCount !== 0) this._availableSensorCount = 0;
+            if (this._availableSensorCount !== 0)
+              this._availableSensorCount = 0;
             if (!this._isLoaded) this._isLoaded = true;
             if (this._error !== "card.error_location_not_found") {
               this._error = "card.error_location_not_found";
@@ -401,8 +466,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         this._forecastUnsub = subPromise;
         if (this.debug) {
           console.debug(
-            "[Card][subscribeForecast] Subscribed for", entityId,
-            "forecast_type:", forecastType,
+            "[Card][subscribeForecast] Subscribed for",
+            entityId,
+            "forecast_type:",
+            forecastType,
           );
         }
       } else {
@@ -431,22 +498,28 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this.config.integration === "silam" &&
       this._forecastEvent
     ) {
-      const adapter = getAdapter(this.config.integration) || getAdapter("pp");
+      const adapter = (getAdapter(this.config.integration) ||
+        getAdapter("pp"))!;
+      // The subscribe callback that calls this method only runs once hass is set.
+      const hass = this._hass!;
       // Out-of-order guard shared with the main fetch (see set hass): only the
       // latest fetch may apply, so a slow SILAM event fetch cannot clobber a
       // newer result with stale sensors.
       const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
       adapter
-        .fetchForecast(this._hass, this.config, this._forecastEvent)
+        .fetchForecast(hass, this.config, this._forecastEvent)
         .then(async (sensors) => {
           const availableSensors = findAvailableSensors(
             this.config,
-            this._hass,
+            hass,
             this.debug,
           );
           const filtered = filterSensorsPostFetch(
-            sensors, this.config, availableSensors,
-            Object.keys(this._hass.states), silamAllergenMap.mapping,
+            sensors,
+            this.config,
+            availableSensors,
+            Object.keys(hass.states),
+            silamAllergenMap.mapping,
           );
           // Recompute the no-pollen-vs-no-data classification here too: a live
           // SILAM forecast event refetches without going through set hass, so a
@@ -456,14 +529,18 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             filtered.length === 0 && availableSensors.length > 0
               ? await hasValidPollenData(
                   adapter,
-                  this._hass,
+                  hass,
                   this.config,
                   this._forecastEvent,
                 )
               : false;
           if (fetchId !== this._fetchSeq) return;
           this._noPollenData = noPollenData;
-          this._updateSensorsAndColumns(filtered, availableSensors, this.config);
+          this._updateSensorsAndColumns(
+            filtered,
+            availableSensors,
+            this.config,
+          );
           // this.sensors = sensors;
           // this.requestUpdate();
         })
@@ -476,25 +553,34 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     }
   }
 
-  get debug() {
+  // The mixin declares `debug` as a (declare) property so it can read it; the
+  // concrete card implements it as a computed getter. TS flags the
+  // property→accessor shape mismatch (TS2611), inherent to this split and not
+  // resolvable without changing the mixin. Suppress the single shape error; the
+  // runtime contract (mixin reads this.debug) is unchanged.
+  // @ts-expect-error property-in-base vs accessor-in-derived (see above)
+  override get debug(): boolean {
     // return true;
     return Boolean(this.config && this.config.debug);
   }
 
-  get _lang() {
-    return detectLang(this._hass, this.config?.date_locale);
+  get _lang(): string {
+    return detectLang(
+      this._hass,
+      this.config?.date_locale as string | undefined,
+    );
   }
 
-  _t(key, vars = {}) {
+  _t(key: string, vars: Record<string, PrimitiveType> = {}): string {
     return t(key, this._lang, vars);
   }
 
-  _hasTapAction() {
+  _hasTapAction(): boolean {
     const ta = this.tapAction;
     return ta && ta.type && ta.type !== "none";
   }
 
-  static get properties() {
+  static override get properties() {
     return {
       hass: { state: true },
       config: {},
@@ -513,8 +599,6 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
    * _renderAllergenSvg is inherited from LevelCircleMixin.
    */
 
-
-
   constructor() {
     super();
     this.days_to_show = 4;
@@ -529,12 +613,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     this._noPollenData = false;
   }
 
-  static async getConfigElement() {
+  static async getConfigElement(): Promise<HTMLElement> {
     await customElements.whenDefined("pollenprognos-card-editor");
     return document.createElement("pollenprognos-card-editor");
   }
 
-  setConfig(config) {
+  setConfig(config: RawCardConfig): void {
     // Skip update if config is unchanged
     if (deepEqual(this._userConfig, config)) return;
 
@@ -544,7 +628,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     this.tapAction = config.tap_action || null;
 
     // Select relevant stub for integration
-    let integration = config.integration;
+    let integration = config.integration as string | undefined;
 
     // Normalize integration name to handle case sensitivity and whitespace
     if (integration && typeof integration === "string") {
@@ -552,10 +636,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       // Note: Don't modify the original config object as it may be read-only
     }
 
-    const stub = getStubConfig(integration) || getStubConfig("pp");
+    const stub = (getStubConfig(integration) || getStubConfig("pp"))!;
     // Default to stub's integration when user didn't set one, so
     // this.config.integration is never undefined.
-    if (!integration) integration = stub.integration;
+    if (!integration) integration = stub.integration as string | undefined;
 
     // Only keep allowed fields from user config
     const allowedFields = Object.keys(stub).concat([
@@ -575,13 +659,17 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       "days_to_show",
       "date_locale",
     ]);
-    let cleanedUserConfig = {};
+    const cleanedUserConfig: Record<string, unknown> = {};
     for (const k of allowedFields) {
       if (k in config) cleanedUserConfig[k] = config[k];
     }
 
     // Build final config from stub + cleaned user params
-    const nextConfig = { ...stub, ...cleanedUserConfig, integration };
+    const nextConfig = {
+      ...stub,
+      ...cleanedUserConfig,
+      integration,
+    } as CardConfig;
 
     // --- Detect cosmetic-only updates (e.g. icon_size, text_size_ratio) ---
     const prevConfig = this.config || {};
@@ -615,7 +703,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this.hass = this._hass;
     }
   }
-  set hass(hass) {
+  set hass(hass: HomeAssistant) {
     if (this._hass === hass) return;
     this._hass = hass;
     const explicit = !!this._integrationExplicit;
@@ -627,7 +715,15 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // already uses, so only the scan/pick/location logic moves to the shared
     // module while the rest of set hass() is untouched. The lazy discovery
     // getters preserve the per-tick discovery call count on large installs.
-    const detection = detectIntegrationStates(hass, { debug: this.debug });
+    // detectIntegrationStates lives in the still-JS autodetect module; its
+    // JSDoc @returns typedef is incomplete (e.g. omits getIrmkmiDiscovery) and
+    // types every discovery object as the opaque `object`, so the destructured
+    // getters/discoveries would not typecheck against the helpers that consume
+    // them. Cast at this JS boundary; the shapes are exercised by the adapter
+    // contract tests. (Latent: the autodetect JSDoc should be completed.)
+    const detection = detectIntegrationStates(hass, {
+      debug: this.debug,
+    }) as any;
     // peuStates + the discovery objects/getters below are consumed by the
     // header label-resolution block further down; the per-integration state
     // lists used only for the pick/location are handled inside the shared
@@ -677,11 +773,15 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       ...baseStub,
       ...userConfigWithoutAllergens,
       integration, // Use the normalized integration value
-    };
+    } as CardConfig;
 
     if (integration === "plu") {
-      delete cfg.city;
-      delete cfg.region_id;
+      // cfg keys come from CardConfig's (non-optional) index signature, so the
+      // delete operand isn't statically optional; cast for the delete. The
+      // mutation itself is unchanged and slated for cleanup in the config
+      // boundary work.
+      delete (cfg as Record<string, unknown>).city;
+      delete (cfg as Record<string, unknown>).region_id;
       // Preserve cfg.location: "manual" is a meaningful value that signals
       // the adapter's manual-mode branch (entity_prefix-based lookup).
       // Dropping it silently disabled PLU manual mode entirely.
@@ -710,12 +810,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         );
       }
       // Om integrationen INTE är explicit (autodetect): använd stubben
-      cfg.allergens = (getStubConfig(integration) || getStubConfig("pp")).allergens;
+      cfg.allergens = (getStubConfig(integration) ||
+        getStubConfig("pp"))!.allergens;
     }
 
     // Fyll date_locale
     if (!cfg.hasOwnProperty("date_locale")) {
-      const detectedLangCode = detectLang(hass, null);
+      const detectedLangCode = detectLang(hass, null as unknown as string);
       const localeTag =
         this._hass?.locale?.language ||
         this._hass?.language ||
@@ -779,7 +880,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // the cached discovery from set hass() to avoid a second registry scan.
         const dwdDiscovery = getDwdDiscovery();
         const wantedLocation =
-          cfg.region_id && cfg.region_id !== "manual" ? cfg.region_id : "";
+          cfg.region_id && cfg.region_id !== "manual"
+            ? (cfg.region_id as string)
+            : "";
         const match = resolveLocationByKey(dwdDiscovery, wantedLocation, {
           slugExtractor: (eid) => {
             const m = eid.match(/_(\d+)$/);
@@ -797,7 +900,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // Reuses cached discovery from set hass() to avoid a second scan.
         const peuDiscovery = getPeuDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+          cfg.location && cfg.location !== "manual"
+            ? (cfg.location as string)
+            : "";
         const peuMatch = resolveLocationByKey(peuDiscovery, wantedLocation, {
           slugExtractor: extractPeuLocationSlugFromEntityId,
         });
@@ -815,7 +920,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           );
           const wantedSlug =
             cfg.location && cfg.location !== "manual"
-              ? slugify(cfg.location)
+              ? slugify(cfg.location as string)
               : "";
           let title = "";
           let match = null;
@@ -862,15 +967,18 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               attr.friendly_name?.match(/\((.*?)\)/)?.[1] ||
               "";
           }
-          loc = wantedSlug ? title || cfg.location || "" : title;
+          loc = wantedSlug ? title || (cfg.location as string) || "" : title;
         }
       } else if (integration === "silam") {
         // Primärt: discovery-baserad title
         let title = "";
-        const configLocation = cfg.location === "manual" ? "" : (cfg.location || "");
+        const configLocation =
+          cfg.location === "manual" ? "" : (cfg.location as string) || "";
         if (cfg.location !== "manual") {
           const discoveredLoc = resolveDiscoveredLocation(
-            silamDiscovery, configLocation, this.debug,
+            silamDiscovery,
+            configLocation,
+            this.debug,
           );
           if (discoveredLoc) {
             title = discoveredLoc.label
@@ -882,7 +990,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // Fallback: regex-baserad title
         if (!title && cfg.location && cfg.location !== "manual") {
           const pollenAllergens = [
-            "alder", "birch", "grass", "hazel", "mugwort", "olive", "ragweed",
+            "alder",
+            "birch",
+            "grass",
+            "hazel",
+            "mugwort",
+            "olive",
+            "ragweed",
           ];
           const SilamValidAllergenSlugs = new Set(
             Object.values(silamAllergenMap.mapping).flatMap((langMap) =>
@@ -907,7 +1021,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             if (!match) return false;
             return SilamValidAllergenSlugs.has(match[2]);
           });
-          const wantedSlug = slugify(cfg.location);
+          const wantedSlug = slugify(cfg.location as string);
           const match = wantedSlug
             ? silamEntities.find((s) => {
                 const eid = s.entity_id.replace("sensor.silam_pollen_", "");
@@ -925,14 +1039,15 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 ?.replace(/^SILAM Pollen\s*-?\s*/i, "")
                 .replace(/\s+\p{L}+$/u, "")
                 .trim() ||
-              cfg.location;
+              (cfg.location as string);
             title = title.replace(/^[-\s]+/, "");
           }
         }
 
-        loc = cfg.location && cfg.location !== "manual"
-          ? title || cfg.location || ""
-          : title;
+        loc =
+          cfg.location && cfg.location !== "manual"
+            ? title || (cfg.location as string) || ""
+            : title;
       } else if (integration === "kleenex") {
         // Kleenex pollen radar: extract location from sensor attributes
         const kleenexEntities = Object.values(hass.states).filter((s) => {
@@ -948,14 +1063,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
-            ? slugify(cfg.location)
+            ? slugify(cfg.location as string)
             : "";
 
         // Find first entity with matching location
         let match = null;
         if (cfg.location === "manual") {
           // In manual mode, use entity_prefix to find matching sensor
-          let prefix = cfg.entity_prefix || "";
+          let prefix = (cfg.entity_prefix as string) || "";
           // Remove 'sensor.' prefix if user included it
           if (prefix.startsWith("sensor.")) {
             prefix = prefix.substring(7);
@@ -966,15 +1081,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           }
           if (prefix) {
             match = kleenexEntities.find((s) =>
-              s.entity_id.startsWith(`sensor.${prefix}`)
+              s.entity_id.startsWith(`sensor.${prefix}`),
             );
           }
         } else if (wantedLocation) {
           match = kleenexEntities.find((s) => {
-            const eid = s.entity_id.replace(
-              "sensor.kleenex_pollen_radar_",
-              "",
-            );
+            const eid = s.entity_id.replace("sensor.kleenex_pollen_radar_", "");
             const locPart = eid.replace(/_[^_]+$/, "");
             return locPart === wantedLocation;
           });
@@ -990,19 +1102,28 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             attr.friendly_name?.match(/\(([^)]+)\)/)?.[1] ||
             attr.friendly_name
               ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
-              .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
-              .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
+              .replace(
+                /[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
+                "",
+              )
+              .replace(
+                /^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i,
+                "",
+              )
               .trim() ||
-            (cfg.location ? cfg.location.charAt(0).toUpperCase() + cfg.location.slice(1) : "");
+            (cfg.location
+              ? (cfg.location as string).charAt(0).toUpperCase() +
+                (cfg.location as string).slice(1)
+              : "");
         }
 
-        loc = title || cfg.location || "";
+        loc = title || (cfg.location as string) || "";
       } else if (integration === "atmo") {
         // Atmo France: reuse the discovery result computed earlier in set hass()
         // for sensor detection, to avoid a second registry/regex scan.
         const wantedLocation =
           cfg.location && cfg.location !== "manual"
-            ? cfg.location
+            ? (cfg.location as string)
             : "";
 
         let title = "";
@@ -1011,7 +1132,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             title = atmoDiscovery.locations.get(wantedLocation).label;
           } else {
             // Legacy slug configs ("nice"): map slug -> config_entry_id via discovery
-            const entryId = findAtmoLocationBySlug(atmoDiscovery, wantedLocation);
+            const entryId = findAtmoLocationBySlug(
+              atmoDiscovery,
+              wantedLocation,
+            );
             if (entryId) title = atmoDiscovery.locations.get(entryId).label;
           }
         } else if (atmoDiscovery.locations.size) {
@@ -1023,7 +1147,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           title = title.charAt(0).toUpperCase() + title.slice(1);
         }
 
-        loc = title || cfg.location || "";
+        loc = title || (cfg.location as string) || "";
       } else if (integration === "gpl") {
         // Google Pollen Levels: resolve via shared discovery so config_entry_id
         // keys and legacy label slugs both produce the friendly location name.
@@ -1037,7 +1161,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // adapter would discard, mislabeling the rendered data.
           const rawPrefix = String(cfg.entity_prefix).replace(/^sensor\./, "");
           const wantedPrefix = `sensor.${rawPrefix}`;
-          const wantedSuffix = cfg.entity_suffix || "";
+          const wantedSuffix = (cfg.entity_suffix as string) || "";
           for (const [key, loc2] of gplDiscovery?.locations || []) {
             const entities = loc2?.entities;
             if (!entities) continue;
@@ -1059,7 +1183,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // Non-manual (or manual with no prefix / no match): fall back to
           // key-based lookup. Empty key picks first deterministically.
           const wantedLocation =
-            cfg.location && cfg.location !== "manual" ? cfg.location : "";
+            cfg.location && cfg.location !== "manual"
+              ? (cfg.location as string)
+              : "";
           gplMatch = resolveLocationByKey(gplDiscovery, wantedLocation);
         }
         // Defensive: discovery already calls cleanDeviceLabel, but apply again
@@ -1068,40 +1194,50 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         let title = gplMatch ? cleanDeviceLabel(gplMatch[1].label) : "";
         if (title) title = title.charAt(0).toUpperCase() + title.slice(1);
 
-        loc = title || cfg.location || "";
+        loc = title || (cfg.location as string) || "";
       } else if (integration === "gp") {
         // Google Pollen (svenove): resolve via shared discovery so
         // config_entry_id keys and legacy label slugs both produce the
         // friendly location name. Reuses gpDiscovery computed in set hass().
         const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+          cfg.location && cfg.location !== "manual"
+            ? (cfg.location as string)
+            : "";
         const gpMatch = resolveLocationByKey(gpDiscovery, wantedLocation);
         // Defensive: same rationale as the GPL branch above.
         const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
-        loc = title || cfg.location || "";
+        loc = title || (cfg.location as string) || "";
       } else if (integration === "msw") {
         // MeteoSwiss / hass-swissweather: resolve via shared device discovery
         // so config_entry_id keys, friendly device names, and renamed devices
         // (name_by_user) all surface the right station label in the header.
         const mswDiscovery = getMswDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
+          cfg.location && cfg.location !== "manual"
+            ? (cfg.location as string)
+            : "";
         const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
         const title = mswMatch ? mswMatch[1].label : "";
-        loc = title || cfg.location || "";
+        loc = title || (cfg.location as string) || "";
       } else if (integration === "irmkmi") {
         // IRM KMI / meteo.be: resolve via shared device discovery so
         // config_entry_id keys, device names (the location), and renamed
         // devices (name_by_user) all surface the right location label.
         const irmkmiDiscovery = getIrmkmiDiscovery();
         const wantedLocation =
-          cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const irmkmiMatch = resolveLocationByKey(irmkmiDiscovery, wantedLocation, {
-          slugExtractor: extractIrmkmiLocationSlugFromEntityId,
-        });
+          cfg.location && cfg.location !== "manual"
+            ? (cfg.location as string)
+            : "";
+        const irmkmiMatch = resolveLocationByKey(
+          irmkmiDiscovery,
+          wantedLocation,
+          {
+            slugExtractor: extractIrmkmiLocationSlugFromEntityId,
+          },
+        );
         const title = irmkmiMatch ? irmkmiMatch[1].label : "";
-        loc = title || cfg.location || "";
+        loc = title || (cfg.location as string) || "";
       } else if (integration === "plu") {
         // Pollen.lu always reports Luxembourg as its location
         const translated = this._t("card.location.plu");
@@ -1113,7 +1249,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // from set hass() to avoid a second scan.
         const ppDiscovery = getPpDiscovery();
         const wantedLocation =
-          cfg.city && cfg.city !== "manual" ? cfg.city : "";
+          cfg.city && cfg.city !== "manual" ? (cfg.city as string) : "";
         const ppMatch = resolveLocationByKey(ppDiscovery, wantedLocation, {
           slugExtractor: extractPpCitySlugFromEntityId,
         });
@@ -1121,14 +1257,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           loc = ppMatch[1].label;
         } else if (wantedLocation) {
           // Fallback: legacy slug → canonical city name lookup.
-          const matchCity = (slug) =>
+          const matchCity = (slug: string) =>
             PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
           loc = matchCity(wantedLocation);
         } else {
           // No city configured and no discovery: legacy state-scan fallback.
           // Use the allergen-suffix whitelist so multi-word slugs like
           // "salg_och_viden" don't truncate the city.
-          const matchCity = (slug) =>
+          const matchCity = (slug: string) =>
             PP_POSSIBLE_CITIES.find((n) => slugify(n) === slug) || slug;
           const cities = Array.from(
             new Set(
@@ -1137,7 +1273,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 .filter(Boolean),
             ),
           );
-          loc = cities.length === 1 ? matchCity(cities[0]) : "";
+          loc = cities.length === 1 ? matchCity(cities[0] as string) : "";
         }
       }
       nextHeader = loc
@@ -1150,12 +1286,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     }
 
     // Hämta prognos via rätt adapter
-    const adapter = getAdapter(cfg.integration) || getAdapter("pp");
+    const adapter = (getAdapter(cfg.integration) || getAdapter("pp"))!;
     // Out-of-order guard (shared with the SILAM forecast-event fetch): only the
     // latest fetch may apply its result, so a slower earlier fetch cannot
     // overwrite newer sensors with stale data on rapid config/hass changes.
     const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
-    let fetchPromise = null;
+    let fetchPromise: Promise<PollenSensor[]> | null = null;
     if (cfg.integration === "silam") {
       // Pass forecastEvent when available; fetchForecast falls back to
       // entity.attributes.forecast when forecastEvent is null (daily mode
@@ -1165,7 +1301,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       fetchPromise = adapter.fetchForecast(hass, cfg);
     }
     if (fetchPromise) {
-      return fetchPromise
+      // A setter cannot return a value; the returned promise was never used by
+      // callers. `void` keeps the fire-and-forget chain (order/throws intact).
+      void fetchPromise
         .then(async (sensors) => {
           if (this.debug) {
             console.debug("[Card][Debug] Sensors before filtering:", sensors);
@@ -1192,10 +1330,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             //   Object.keys(hass.states),
             // );
             console.debug("[Card] User selected city:", cfg.city);
-            console.debug(
-              "[Card] User selected allergens:",
-              cfg.allergens,
-            );
+            console.debug("[Card] User selected allergens:", cfg.allergens);
             console.debug("[Card] User selected location:", cfg.location);
           }
 
@@ -1203,9 +1338,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           const availableSensorCount = availableSensors.length;
 
           // Filter adapter sensors against availableSensors and allergen config
-          const isSilamDaily = cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily");
+          const isSilamDaily =
+            cfg.integration === "silam" && (!cfg.mode || cfg.mode === "daily");
           const filtered = filterSensorsPostFetch(
-            sensors, cfg, availableSensors,
+            sensors,
+            cfg,
+            availableSensors,
             isSilamDaily ? Object.keys(hass.states) : [],
             isSilamDaily ? silamAllergenMap.mapping : {},
           );
@@ -1229,7 +1367,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // breezy no_allergens image is shown only for the former.
           const noPollenData =
             filtered.length === 0 && availableSensorCount > 0
-              ? await hasValidPollenData(adapter, hass, cfg, this._forecastEvent)
+              ? await hasValidPollenData(
+                  adapter,
+                  hass,
+                  cfg,
+                  this._forecastEvent,
+                )
               : false;
 
           // Drop a superseded fetch before mutating any state.
@@ -1290,7 +1433,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       <div class="card-content">
         <div class="no-allergens-container">
           ${this._renderAllergenSvg("no_allergens", -1)}
-          <span class="no-allergens-text">${this._t("card.no_information")}</span>
+          <span class="no-allergens-text"
+            >${this._t("card.no_information")}</span
+          >
         </div>
       </div>
     `;
@@ -1311,8 +1456,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     `;
   }
 
-  _renderMinimalHtml() {
-    const textSizeRatio = this.config?.text_size_ratio ?? 1;
+  _renderMinimalHtml(): TemplateResult {
+    const textSizeRatio = (this.config?.text_size_ratio as number) ?? 1;
     const iconInRing = this.config?.icon_in_ring === true;
     const ringConfig = iconInRing ? this._buildLevelRingConfig() : null;
     const ringIconRatio =
@@ -1331,17 +1476,22 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             if (sensor.stale) {
               const staleLabel = this.config?.show_text_allergen
                 ? (this.config?.allergens_abbreviated
-                    ? sensor.allergenShort ?? ""
-                    : sensor.allergenCapitalized ?? "") + ": " + this._t("card.stale_allergen")
+                    ? (sensor.allergenShort ?? "")
+                    : (sensor.allergenCapitalized ?? "")) +
+                  ": " +
+                  this._t("card.stale_allergen")
                 : this._t("card.stale_allergen");
               return html`
                 <div class="sensor minimal stale">
                   ${this._renderAllergenSvg(
                     this._getSvgKey(sensor.allergenReplaced),
                     0,
-                    { stale: true }
+                    { stale: true },
                   )}
-                  <span class="short-text stale-allergen-text" style="font-size: ${1.0 * textSizeRatio}em;">
+                  <span
+                    class="short-text stale-allergen-text"
+                    style="font-size: ${1.0 * textSizeRatio}em;"
+                  >
                     ${staleLabel}
                   </span>
                 </div>
@@ -1349,12 +1499,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             }
             const txt = sensor.days?.[0]?.state_text ?? "";
             const rawNum = resolveNumericValue(sensor.days?.[0], this.config);
-            const num = rawNum != null && rawNum >= 0 ? rawNum : "";
+            // rawNum may be a numeric string; `>= 0` relies on JS coercion.
+            const num = rawNum != null && (rawNum as number) >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
               label += this.config?.allergens_abbreviated
-                ? sensor.allergenShort ?? ""
-                : sensor.allergenCapitalized ?? "";
+                ? (sensor.allergenShort ?? "")
+                : (sensor.allergenCapitalized ?? "");
             }
             if (
               this.config?.show_value_text &&
@@ -1373,10 +1524,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             }
             const levelForColor =
               this.config.integration === "plu"
-                ? sensor.days?.[0]?.state ?? 0
-                : sensor.days?.[0]?.display_state ??
+                ? (sensor.days?.[0]?.state ?? 0)
+                : (sensor.days?.[0]?.display_state ??
                   sensor.days?.[0]?.state ??
-                  0;
+                  0);
             // For ring rendering, use the *normalized* state (not
             // display_state), so PEU's numeric_state_raw_risk doesn't
             // saturate the ring at high raw-risk values. Mirrors what
@@ -1388,7 +1539,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             );
             const clickable =
               this.config.link_to_sensors !== false && !!sensor.entity_id;
-            const onClickEntity = (e) => {
+            const onClickEntity = (e: Event) => {
               if (this.config.link_to_sensors !== false && sensor.entity_id) {
                 e.stopPropagation();
                 this._openEntity(sensor.entity_id);
@@ -1402,7 +1553,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                     ...ringConfig,
                     size: iconSize,
                     iconKey: this._getEffectiveSvgKey(
-                      allergenSvgKey,
+                      allergenSvgKey as string,
                       ringLevel,
                     ),
                     iconColor: this._iconInRingColor(
@@ -1413,24 +1564,30 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                   },
                   sensor.allergenReplaced,
                   0,
-                  rawNum !== "" ? rawNum : levelForColor,
+                  (rawNum !== "" ? rawNum : levelForColor) as number,
                   sensor.entity_id,
                   clickable,
                 )
-              : this._renderAllergenSvg(allergenSvgKey, levelForColor, {
-                  clickable,
-                  onClick: onClickEntity,
-                });
+              : this._renderAllergenSvg(
+                  allergenSvgKey,
+                  levelForColor as number,
+                  {
+                    clickable,
+                    onClick: onClickEntity,
+                  },
+                );
             return html`
               <div class="sensor minimal">
                 ${visual}
-                ${label
-                  ? html`<span
-                      class="short-text"
-                      style="font-size: ${1.0 * textSizeRatio}em;"
-                      >${label}</span
-                    >`
-                  : ""}
+                ${
+                  label
+                    ? html`<span
+                        class="short-text"
+                        style="font-size: ${1.0 * textSizeRatio}em;"
+                        >${label}</span
+                      >`
+                    : ""
+                }
               </div>
             `;
           })}
@@ -1439,7 +1596,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     `;
   }
 
-  _renderNormalHtml() {
+  _renderNormalHtml(): TemplateResult {
     // Safety check to prevent rendering before sensors are properly initialized
     if (!this.sensors || this.sensors.length === 0) {
       if (this.debug) {
@@ -1488,7 +1645,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       );
     }
 
-    const textSizeRatio = this.config?.text_size_ratio ?? 1;
+    const textSizeRatio = (this.config?.text_size_ratio as number) ?? 1;
     const daysBold = Boolean(this.config.days_boldfaced);
     // Compute column count from the displayed row set, not the full sensor list.
     // When standalone summary mode is active (show_summary_block on,
@@ -1500,7 +1657,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       { length: computeDisplayDays(rowSensors, this.config) },
       (_, i) => i,
     );
-    
+
     // Ring geometry/colors come from the shared mixin helper
     // (_buildLevelRingConfig): segment count per integration (PEU/Kleenex/MSW
     // 4, GPL/GP 5, PLU 3, others 6), the level-color array, empty/gap colors,
@@ -1527,9 +1684,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       const staleOnly = rowSensors.filter((s) => s.stale === true);
       if (staleOnly.length === 0) return html``;
       return html`
-        ${this.header
-          ? html`<div class="card-header">${this.header}</div>`
-          : ""}
+        ${
+          this.header ? html`<div class="card-header">${this.header}</div>` : ""
+        }
         <div class="card-content">
           <div class="stale-only-list">
             ${staleOnly.map(
@@ -1544,9 +1701,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                     class="short-text stale-allergen-text"
                     style="font-size: ${1.0 * textSizeRatio}em;"
                   >
-                    ${this.config.allergens_abbreviated
-                      ? sensor.allergenShort
-                      : sensor.allergenCapitalized}:
+                    ${
+                      this.config.allergens_abbreviated
+                        ? sensor.allergenShort
+                        : sensor.allergenCapitalized
+                    }:
                     ${this._t("card.stale_allergen")}
                   </span>
                 </div>
@@ -1578,9 +1737,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 ${cols.map(
                   (i) => html`
                     <th
-                      style="font-weight: ${daysBold
-                        ? "bold"
-                        : "normal"}; text-align: center;"
+                      style="font-weight: ${
+                        daysBold ? "bold" : "normal"
+                      }; text-align: center;"
                     >
                       <div
                         style="display: flex; flex-direction: column; align-items: center;"
@@ -1591,219 +1750,249 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                         >
                           ${rowSensors?.[0]?.days?.[i]?.day || ""}
                         </span>
-                        ${this.config.mode === "twice_daily" &&
-                        rowSensors?.[0]?.days?.[i]?.icon
-                          ? html`<ha-icon
-                              icon="${rowSensors[0].days[i].icon}"
-                              style="margin-top: 2px;"
-                            ></ha-icon>`
-                          : ""}
+                        ${
+                          this.config.mode === "twice_daily" &&
+                          rowSensors?.[0]?.days?.[i]?.icon
+                            ? html`<ha-icon
+                                icon="${rowSensors[0].days[i].icon}"
+                                style="margin-top: 2px;"
+                              ></ha-icon>`
+                            : ""
+                        }
                       </div>
                     </th>
                   `,
                 )}
               </tr>
             </thead>
-            ${rowSensors.flatMap(
-              (sensor, sIdx) => {
-                const separator =
-                  this.config.show_block_separator &&
-                  sIdx > 0 &&
-                  sensor.group &&
-                  rowSensors[sIdx - 1].group &&
-                  sensor.group !== rowSensors[sIdx - 1].group
-                    ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
-                    : "";
-                const row = sensor.stale
-                ? html`
-                  <tr class="allergen-icon-row allergen-stale-row" valign="top">
-                    ${showAllergenColumn
-                      ? html`<td>
-                          ${this._renderAllergenSvg(
-                            this._getSvgKey(sensor.allergenReplaced),
-                            0,
-                            { stale: true }
-                          )}
-                        </td>`
-                      : ""}
-                    <td colspan="${cols.length}" class="stale-cell">
-                      <span class="stale-allergen-text">
-                        ${showAllergenColumn
-                          ? this._t("card.stale_allergen")
-                          : `${
-                              this.config.allergens_abbreviated
-                                ? sensor.allergenShort
-                                : sensor.allergenCapitalized
-                            }: ${this._t("card.stale_allergen")}`}
-                      </span>
-                    </td>
-                  </tr>
-                  ${this.config.show_text_allergen
-                    ? html`
-                        <tr class="allergen-text-row allergen-stale-row">
-                          ${showAllergenColumn
-                            ? html`<td>
-                                <span class="stale-allergen-name" style="font-size: ${1.0 * textSizeRatio}em;">
-                                  ${this.config.allergens_abbreviated
-                                    ? sensor.allergenShort
-                                    : sensor.allergenCapitalized}
-                                </span>
-                              </td>`
-                            : ""}
-                          <td colspan="${cols.length}"></td>
-                        </tr>
-                      `
-                    : ""}
-                `
-                : html`
-                <tr class="allergen-icon-row" valign="top">
-                  ${showAllergenColumn
-                    ? html`<td>
-                        ${this._renderAllergenSvg(
-                          this._getSvgKey(sensor.allergenReplaced),
-                          this.config.integration === "plu"
-                            ? sensor.days[0]?.state ?? 0
-                            : sensor.days[0]?.display_state ?? sensor.days[0]?.state ?? 0,
-                          {
-                            clickable: this.config.link_to_sensors !== false && sensor.entity_id,
-                            onClick: (e) => {
-                              if (this.config.link_to_sensors !== false && sensor.entity_id) {
-                                e.stopPropagation();
-                                this._openEntity(sensor.entity_id);
-                              }
-                            }
-                          }
-                        )}
-                      </td>`
-                    : ""}
-                  ${cols.map((i) => {
-                    // Summary aggregate is today-only (its sensor carries no
-                    // forecast), so suppress the no-data future cells rather
-                    // than showing no-data circles next to the multi-day detail
-                    // rows (issue #222). Render an empty cell instead.
-                    if (sensor.isSummary) {
-                      const st = sensor.days[i]?.state;
-                      if (st == null || Number(st) < 0) return html`<td></td>`;
-                    }
-                    return html`
-                      <td>
-                        ${(() => {
-                          const normalized = Number(sensor.days[i]?.state) || 0;
-                          const displayVal = Number(
-                            resolveNumericValue(sensor.days[i], this.config) ??
-                              normalized,
-                          );
-                          const levelVal = scaleRingLevel(
-                            this.config.integration,
-                            normalized,
-                          );
-                          const ringOpts = {
-                            colors,
-                            emptyColor,
-                            gapColor,
-                            thickness,
-                            gap,
-                            size,
-                          };
-                          if (iconInRing) {
-                            ringOpts.iconKey = this._getEffectiveSvgKey(
-                              this._getSvgKey(sensor.allergenReplaced),
-                              levelVal,
-                            );
-                            ringOpts.iconColor = this._iconInRingColor(
-                              levelVal,
-                              sensor.allergenReplaced,
-                            );
-                            ringOpts.iconSizeRatio = ringIconRatio;
-                          }
-                          return this._renderLevelCircle(
-                            levelVal,
-                            ringOpts,
-                            sensor.allergenReplaced,
-                            i,
-                            displayVal,
-                            sensor.entity_id,
-                            this.config.link_to_sensors !== false,
-                          );
-                        })()}
+            ${rowSensors.flatMap((sensor, sIdx) => {
+              const separator =
+                this.config.show_block_separator &&
+                sIdx > 0 &&
+                sensor.group &&
+                rowSensors[sIdx - 1].group &&
+                sensor.group !== rowSensors[sIdx - 1].group
+                  ? html`<tr class="block-separator-row">
+                      <td colspan="${totalCols}">
+                        <hr class="block-separator" />
                       </td>
-                    `;
-                  })}
-                </tr>
-                ${this.config.show_text_allergen ||
+                    </tr>`
+                  : "";
+              // Cells hoisted out of the row template: deeply-nested
+              // `${... ? html`<td>...` : ""}` interpolations formatted
+              // non-idempotently under Prettier. Whitespace between/inside table
+              // cells is insignificant to lit, so this is formatting-only.
+              const staleIconCell = showAllergenColumn
+                ? html`<td>
+                    ${this._renderAllergenSvg(
+                      this._getSvgKey(sensor.allergenReplaced),
+                      0,
+                      { stale: true },
+                    )}
+                  </td>`
+                : "";
+              const staleText = showAllergenColumn
+                ? this._t("card.stale_allergen")
+                : `${
+                    this.config.allergens_abbreviated
+                      ? sensor.allergenShort
+                      : sensor.allergenCapitalized
+                  }: ${this._t("card.stale_allergen")}`;
+              const staleNameCell = showAllergenColumn
+                ? html`<td>
+                    <span
+                      class="stale-allergen-name"
+                      style="font-size: ${1.0 * textSizeRatio}em;"
+                    >
+                      ${
+                        this.config.allergens_abbreviated
+                          ? sensor.allergenShort
+                          : sensor.allergenCapitalized
+                      }
+                    </span>
+                  </td>`
+                : "";
+              const staleTextRow = this.config.show_text_allergen
+                ? html`<tr class="allergen-text-row allergen-stale-row">
+                    ${staleNameCell}
+                    <td colspan="${cols.length}"></td>
+                  </tr>`
+                : "";
+              const normalLevel = (
+                this.config.integration === "plu"
+                  ? (sensor.days[0]?.state ?? 0)
+                  : (sensor.days[0]?.display_state ??
+                    sensor.days[0]?.state ??
+                    0)
+              ) as number;
+              const normalIconCell = showAllergenColumn
+                ? html`<td>
+                    ${this._renderAllergenSvg(
+                      this._getSvgKey(sensor.allergenReplaced),
+                      normalLevel,
+                      {
+                        clickable:
+                          this.config.link_to_sensors !== false &&
+                          !!sensor.entity_id,
+                        onClick: (e: Event) => {
+                          if (
+                            this.config.link_to_sensors !== false &&
+                            sensor.entity_id
+                          ) {
+                            e.stopPropagation();
+                            this._openEntity(sensor.entity_id);
+                          }
+                        },
+                      },
+                    )}
+                  </td>`
+                : "";
+              const dayCells = cols.map((i) => {
+                // Summary aggregate is today-only (its sensor carries no
+                // forecast), so suppress the no-data future cells rather than
+                // showing no-data circles next to the multi-day detail rows
+                // (issue #222). Render an empty cell instead.
+                if (sensor.isSummary) {
+                  const st = sensor.days[i]?.state;
+                  if (st == null || Number(st) < 0) return html`<td></td>`;
+                }
+                const normalized = Number(sensor.days[i]?.state) || 0;
+                const displayVal = Number(
+                  resolveNumericValue(sensor.days[i], this.config) ??
+                    normalized,
+                );
+                const levelVal = scaleRingLevel(
+                  this.config.integration,
+                  normalized,
+                );
+                const ringOpts: {
+                  colors: string[];
+                  emptyColor: string;
+                  gapColor: string;
+                  thickness: number;
+                  gap: number;
+                  size: number;
+                  iconKey?: string;
+                  iconColor?: string;
+                  iconSizeRatio?: number;
+                } = { colors, emptyColor, gapColor, thickness, gap, size };
+                if (iconInRing) {
+                  ringOpts.iconKey = this._getEffectiveSvgKey(
+                    this._getSvgKey(sensor.allergenReplaced) as string,
+                    levelVal,
+                  );
+                  ringOpts.iconColor = this._iconInRingColor(
+                    levelVal,
+                    sensor.allergenReplaced,
+                  );
+                  ringOpts.iconSizeRatio = ringIconRatio;
+                }
+                const circle = this._renderLevelCircle(
+                  levelVal,
+                  ringOpts,
+                  sensor.allergenReplaced,
+                  i,
+                  displayVal,
+                  sensor.entity_id,
+                  this.config.link_to_sensors !== false,
+                );
+                return html`<td>${circle}</td>`;
+              });
+              const normalNameCell = showAllergenColumn
+                ? html`<td>
+                    <span style="font-size: ${1.0 * textSizeRatio}em;">
+                      ${
+                        this.config.show_text_allergen
+                          ? this.config.allergens_abbreviated
+                            ? sensor.allergenShort
+                            : sensor.allergenCapitalized
+                          : ""
+                      }
+                    </span>
+                  </td>`
+                : "";
+              const textCells = cols.map((i) => {
+                // Suppress the summary aggregate's no-data future cells
+                // (today-only), matching the icon row above.
+                if (sensor.isSummary) {
+                  const st = sensor.days[i]?.state;
+                  if (st == null || Number(st) < 0) return html`<td></td>`;
+                }
+                const txt = sensor.days[i]?.state_text || "";
+                const rawNum = resolveNumericValue(sensor.days[i], this.config);
+                const num =
+                  rawNum != null && (rawNum as number) >= 0 ? rawNum : "";
+                let content = "";
+                if (
+                  this.config.show_value_text &&
+                  this.config.show_value_numeric
+                ) {
+                  content = num !== "" ? `${txt} (${num})` : txt;
+                } else if (this.config.show_value_text) {
+                  content = txt;
+                } else if (this.config.show_value_numeric) {
+                  content = num !== "" ? String(num) : "";
+                }
+                return html`<td>
+                  <span style="font-size: ${1.0 * textSizeRatio}em;"
+                    >${content}</span
+                  >
+                </td>`;
+              });
+              const normalTextRow =
+                this.config.show_text_allergen ||
                 this.config.show_value_text ||
                 this.config.show_value_numeric
-                  ? html`
-                      <tr class="allergen-text-row">
-                        ${showAllergenColumn
-                          ? html`<td>
-                              <span style="font-size: ${1.0 * textSizeRatio}em;">
-                                ${this.config.show_text_allergen
-                                  ? this.config.allergens_abbreviated
-                                    ? sensor.allergenShort
-                                    : sensor.allergenCapitalized
-                                  : ""}
-                              </span>
-                            </td>`
-                          : ""}
-                        ${cols.map((i) => {
-                          // Suppress the summary aggregate's no-data future
-                          // cells (today-only), matching the icon row above.
-                          if (sensor.isSummary) {
-                            const st = sensor.days[i]?.state;
-                            if (st == null || Number(st) < 0)
-                              return html`<td></td>`;
-                          }
-                          const txt = sensor.days[i]?.state_text || "";
-                          const rawNum = resolveNumericValue(
-                            sensor.days[i],
-                            this.config,
-                          );
-                          const num = rawNum != null && rawNum >= 0 ? rawNum : "";
-                          let content = "";
-                          if (
-                            this.config.show_value_text &&
-                            this.config.show_value_numeric
-                          ) {
-                            content = num !== "" ? `${txt} (${num})` : txt;
-                          } else if (this.config.show_value_text) {
-                            content = txt;
-                          } else if (this.config.show_value_numeric) {
-                            content = num !== "" ? String(num) : "";
-                          }
-                          return html`<td>
-                            <span style="font-size: ${1.0 * textSizeRatio}em;"
-                              >${content}</span
-                            >
-                          </td>`;
-                        })}
-                      </tr>
-                    `
-                  : ""}
-              `;
-                // Divider between the summary group (aggregate + its extras)
-                // and the detail rows below, shown only when both are present
-                // (issue #222) and not disabled via show_summary_separator
-                // (default on). Reuses the block-separator style.
-                const summarySeparator =
-                  coerceBool(this.config.show_summary_block) &&
-                  sIdx > 0 &&
-                  rowSensors[sIdx - 1]?.isSummary &&
-                  !sensor.isSummary &&
-                  this.config.show_summary_separator !== false &&
-                  this.config.show_summary_separator !== "false"
-                    ? html`<tr class="block-separator-row"><td colspan="${totalCols}"><hr class="block-separator" /></td></tr>`
-                    : "";
-                const extras = sensor.isSummary
-                  ? this._renderSummaryExtrasRows(
-                      sensor,
-                      totalCols,
-                      textSizeRatio,
-                      showAllergenColumn,
-                    )
-                  : [];
-                return [separator, summarySeparator, row, ...extras];
-              })}
+                  ? html`<tr class="allergen-text-row">
+                      ${normalNameCell}${textCells}
+                    </tr>`
+                  : "";
+              const row = sensor.stale
+                ? html`
+                    <tr
+                      class="allergen-icon-row allergen-stale-row"
+                      valign="top"
+                    >
+                      ${staleIconCell}
+                      <td colspan="${cols.length}" class="stale-cell">
+                        <span class="stale-allergen-text"> ${staleText} </span>
+                      </td>
+                    </tr>
+                    ${staleTextRow}
+                  `
+                : html`
+                    <tr class="allergen-icon-row" valign="top">
+                      ${normalIconCell}${dayCells}
+                    </tr>
+                    ${normalTextRow}
+                  `;
+              // Divider between the summary group (aggregate + its extras)
+              // and the detail rows below, shown only when both are present
+              // (issue #222) and not disabled via show_summary_separator
+              // (default on). Reuses the block-separator style.
+              const summarySeparator =
+                coerceBool(this.config.show_summary_block) &&
+                sIdx > 0 &&
+                rowSensors[sIdx - 1]?.isSummary &&
+                !sensor.isSummary &&
+                this.config.show_summary_separator !== false &&
+                this.config.show_summary_separator !== "false"
+                  ? html`<tr class="block-separator-row">
+                      <td colspan="${totalCols}">
+                        <hr class="block-separator" />
+                      </td>
+                    </tr>`
+                  : "";
+              const extras = sensor.isSummary
+                ? this._renderSummaryExtrasRows(
+                    sensor,
+                    totalCols,
+                    textSizeRatio,
+                    showAllergenColumn,
+                  )
+                : [];
+              return [separator, summarySeparator, row, ...extras];
+            })}
           </table>
         </div>
       </div>
@@ -1820,15 +2009,20 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
    * SILAM/Atmo (which never set these fields) render nothing. Returns an array
    * of <tr> so the caller can spread into flatMap.
    */
-  _renderSummaryExtrasRows(sensor, totalCols, textSizeRatio, showAllergenColumn) {
+  _renderSummaryExtrasRows(
+    sensor: PollenSensor,
+    totalCols: number,
+    textSizeRatio: number,
+    showAllergenColumn: boolean,
+  ): TemplateResult[] {
     if (!coerceBool(this.config.show_summary_block)) return [];
-    const rows = [];
+    const rows: TemplateResult[] = [];
     const valueColspan = showAllergenColumn ? totalCols - 1 : totalCols;
     // Match the regular allergen text rows (same size/colour), not a dimmed
     // footnote — the product owner wants these to look like the other rows.
     const fs = `font-size: ${1.0 * textSizeRatio}em;`;
 
-    const makeRow = (label, list) =>
+    const makeRow = (label: string, list: string) =>
       showAllergenColumn
         ? html`
             <tr class="allergen-text-row summary-qualifier-row">
@@ -1877,7 +2071,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return rows;
   }
 
-  render() {
+  override render(): TemplateResult {
     if (!this.config) return html``;
 
     // Visa laddningsruta endast om vi INTE är laddade och saknar sensorer
@@ -1906,11 +2100,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       } else if (this._availableSensorCount === 0) {
         const staleStatus = this._getStaleStatus();
         if (staleStatus.hasStale) {
-          return html`
-            <ha-card>
-              ${this._renderStaleDataHtml()}
-            </ha-card>
-          `;
+          return html` <ha-card> ${this._renderStaleDataHtml()} </ha-card> `;
         }
         errorMsg = this._t("card.error_no_sensors");
         return html`
@@ -1921,33 +2111,23 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       } else if (this._noPollenData) {
         // Entities exist and at least one has a real reading, all below
         // threshold: genuine no pollen.
-        return html`
-          <ha-card>
-            ${this._renderNoAllergensHtml()}
-          </ha-card>
-        `;
+        return html` <ha-card> ${this._renderNoAllergensHtml()} </ha-card> `;
       } else {
         // Entities exist but none have usable forecast data: a data problem,
         // not "no pollen". Show the no-info visual (the no_allergens silhouette
         // filled with the no-data noise pattern) instead of the breezy image.
         if (this.debug) {
-          console.debug(`[PollenPrognosCard] no usable forecast data (${name})`);
+          console.debug(
+            `[PollenPrognosCard] no usable forecast data (${name})`,
+          );
         }
-        return html`
-          <ha-card>
-            ${this._renderNoInformationHtml()}
-          </ha-card>
-        `;
+        return html` <ha-card> ${this._renderNoInformationHtml()} </ha-card> `;
       }
     }
 
     const staleStatus = this._getStaleStatus();
     if (staleStatus.allStale) {
-      return html`
-        <ha-card>
-          ${this._renderStaleDataHtml()}
-        </ha-card>
-      `;
+      return html` <ha-card> ${this._renderStaleDataHtml()} </ha-card> `;
     }
 
     // Every remaining sensor is no-data (e.g. a threshold-0 config where each
@@ -1956,11 +2136,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // Surface the no-information state instead. Mixed data/no-data keeps
     // rendering normally (the no-data rows show the noise pattern).
     if (this.sensors.length && this.days_to_show === 0) {
-      return html`
-        <ha-card>
-          ${this._renderNoInformationHtml()}
-        </ha-card>
-      `;
+      return html` <ha-card> ${this._renderNoInformationHtml()} </ha-card> `;
     }
 
     const cardContent = this.config.minimal
@@ -1971,9 +2147,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // tap_action doesn't make the card clickable-but-dead (predicate shared
     // with the badge in LevelCircleMixin).
     const hasTap = resolveTapActionType(this.config.tap_action) !== null;
-    const bgStyle = this.config.background_color?.trim?.()
-      ? `background-color: ${this.config.background_color.trim()};`
-      : "";
+    const bg = (this.config.background_color as string | undefined)?.trim?.();
+    const bgStyle = bg ? `background-color: ${bg};` : "";
     const cursorStyle = hasTap ? "pointer" : "auto";
     const imgSize =
       Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
@@ -2003,8 +2178,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   // _handleTapAction is inherited from LevelCircleMixin (shared with the badge).
   // It resolves the action from this.tapAction, which setConfig keeps in sync.
 
-  _fire(type, detail, options) {
-    const event = new Event(type, {
+  _fire(type: string, detail: unknown, options?: EventInit): Event {
+    const event: Event & { detail?: unknown } = new Event(type, {
       bubbles: true,
       cancelable: false,
       composed: true,
@@ -2015,7 +2190,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return event;
   }
 
-  static get styles() {
+  static override get styles() {
     return css`
       ${ringIconStyles}
       /* normalhtml */
@@ -2132,7 +2307,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       }
 
       @keyframes pp-spin {
-        to { transform: rotate(360deg); }
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .level-circle {
