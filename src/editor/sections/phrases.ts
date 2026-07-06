@@ -3,23 +3,38 @@
 // Extracted verbatim from PollenEditorBase._renderPhrasesSection; `this` -> `editor`.
 // ------------------------------------------------------------------ //
 
-import { html } from "lit";
+import { html, type TemplateResult } from "lit";
 import { t, detectLang, SUPPORTED_LOCALES } from "../../i18n.js";
 import { normalize } from "../../utils/normalize.js";
 import { toCanonicalAllergenKey } from "../../constants.js";
+import type { PollenEditorLike } from "../types.js";
 
-export function renderPhrasesSection(editor) {
+export function renderPhrasesSection(
+  editor: PollenEditorLike,
+): TemplateResult {
   const c = editor._editorConfig();
   const allergens = editor._currentAllergens();
   const numLevels = editor._currentNumLevels();
   // Type-guard every phrases subfield: YAML can supply a wrong type (e.g.
   // phrases.levels as an object), which would otherwise break rendering.
-  const isObj = (v) => v != null && typeof v === "object" && !Array.isArray(v);
+  const isObj = (v: unknown): v is Record<string, unknown> =>
+    v != null && typeof v === "object" && !Array.isArray(v);
   const phrases = isObj(c.phrases) ? c.phrases : {};
-  const full = isObj(phrases.full) ? phrases.full : {};
-  const short = isObj(phrases.short) ? phrases.short : {};
-  const levels = Array.isArray(phrases.levels) ? phrases.levels : [];
-  const days = isObj(phrases.days) ? phrases.days : {};
+  const full = (isObj(phrases.full) ? phrases.full : {}) as Record<
+    string,
+    string
+  >;
+  const short = (isObj(phrases.short) ? phrases.short : {}) as Record<
+    string,
+    string
+  >;
+  const levels = (
+    Array.isArray(phrases.levels) ? phrases.levels : []
+  ) as string[];
+  const days = (isObj(phrases.days) ? phrases.days : {}) as Record<
+    string,
+    string
+  >;
   // Default the language selector from the config's date_locale (not just the
   // HA language) so an existing per-locale override is reflected before the
   // user touches the dropdown. Guard date_locale to a string: detectLang
@@ -62,9 +77,9 @@ export function renderPhrasesSection(editor) {
               },
             }}
             .value=${selectedLang}
-            @value-changed=${(e) => {
+            @value-changed=${(e: CustomEvent) => {
               const v = e.detail?.value;
-              if (v !== undefined) editor._selectedPhraseLang = v;
+              if (v !== undefined) editor._selectedPhraseLang = v as string;
             }}
           ></ha-selector>
         </ha-formfield>
@@ -165,7 +180,7 @@ export function renderPhrasesSection(editor) {
         : ""}
       <ha-formfield label="${editor._t("no_information")}">
         ${editor._renderTextField({
-          value: phrases.no_information || "",
+          value: (phrases.no_information as string) || "",
           onInput: (v) =>
             editor._updateConfig("phrases", {
               ...phrases,
@@ -183,15 +198,15 @@ export function renderPhrasesSection(editor) {
  * Shared by the card and badge editors. Uses _currentAllergens() so the
  * GPL/GP installed plants are included via the editor's discovered list.
  */
-export function resetPhrases(editor, lang) {
+export function resetPhrases(editor: PollenEditorLike, lang: string): void {
   if (editor.debug) console.debug("[Editor] resetPhrases - lang:", lang);
   editor._updateConfig("date_locale", lang);
 
   const integration = editor._config?.integration;
   const rawKeys = editor._currentAllergens();
 
-  const full = {};
-  const short = {};
+  const full: Record<string, string> = {};
+  const short: Record<string, string> = {};
   rawKeys.forEach((raw) => {
     const normKey = normalize(raw);
     const canonKey = toCanonicalAllergenKey(normKey);
