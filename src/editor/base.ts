@@ -1,4 +1,4 @@
-// src/editor/base.js
+// src/editor/base.ts
 //
 // Shared base class for pollenprognos editors (card + badge).
 //
@@ -35,8 +35,16 @@
 //   - The icon_in_ring branch needs the session flag this._thicknessAutoShifted;
 //     the caller must maintain that flag based on the returned state.
 
-import { LitElement, html } from "lit";
+import { LitElement, html, type TemplateResult } from "lit";
 import { t, detectLang } from "../i18n.js";
+import type { HomeAssistant } from "../types/home-assistant.js";
+import type { CardConfig, RawCardConfig } from "../types/config.js";
+import type {
+  InstalledLocation,
+  IntegrationOption,
+  ThresholdParams,
+  InheritState,
+} from "./types.js";
 import { slugify } from "../utils/slugify.js";
 import {
   LEVELS_DEFAULTS,
@@ -78,16 +86,16 @@ import {
   renderTextField,
   renderResetButton,
   renderTextButton,
+  type NumberFieldOptions,
+  type TextFieldOptions,
+  type ResetButtonOptions,
+  type TextButtonOptions,
 } from "./field-renderers.js";
 
 // deepMerge and the shared style blocks live in ./utils.js; re-exported here so
 // the subclasses' `import { deepMerge, sectionResetStyles, editorControlStyles }
 // from "./editor/base.js"` keeps working unchanged.
-export {
-  deepMerge,
-  sectionResetStyles,
-  editorControlStyles,
-} from "./utils.js";
+export { deepMerge, sectionResetStyles, editorControlStyles } from "./utils.js";
 
 // ------------------------------------------------------------------ //
 // Base class                                                           //
@@ -108,6 +116,41 @@ export {
  * card-only controls (the badge editor returns false for both).
  */
 export class PollenEditorBase extends LitElement {
+  // Reactive state and mutators provided by the concrete editor subclasses
+  // (PollenPrognosCardEditor / PollenPrognosBadgeEditor). They are declared
+  // here so the shared base methods (and the section renderers this class
+  // hands `this` to) can read them without the base re-declaring the reactive
+  // properties. `declare` emits no field initializer, preserving the runtime
+  // behaviour (LitElement owns the accessors).
+  declare _hass?: HomeAssistant;
+  declare _config?: CardConfig;
+  declare _userConfig?: Record<string, unknown>;
+  declare _selectedPhraseLang?: string;
+  declare _thicknessAutoShifted?: boolean;
+  declare _detectedIntegrations?: Set<string>;
+  declare _tapType?: string;
+  declare _tapEntity?: string;
+  declare _tapNavigation?: string;
+  declare _tapService?: string;
+  declare _tapServiceData?: string;
+  declare installedGplPlants?: string[];
+  declare installedGpPlants?: string[];
+  declare installedPpLocations: InstalledLocation[];
+  declare installedDwdLocations: InstalledLocation[];
+  declare installedPeuLocations: InstalledLocation[];
+  declare installedSilamLocations: InstalledLocation[];
+  declare installedKleenexLocations: InstalledLocation[];
+  declare installedAtmoLocations: InstalledLocation[];
+  declare installedMswLocations: InstalledLocation[];
+  declare installedIrmkmiLocations: InstalledLocation[];
+  declare installedGplLocations: InstalledLocation[];
+  declare installedGpLocations: InstalledLocation[];
+  declare setConfig: (config: RawCardConfig) => void;
+  declare _updateConfig: (prop: string, value: unknown) => void;
+  declare _onAllergenToggle: (allergen: string, checked: boolean) => void;
+  declare _toggleSelectAllAllergens: (allergens: string[]) => void;
+  declare _toggleAllergenSubset: (subset: string[]) => void;
+
   // ------------------------------------------------------------------
   // Presentation hooks (overridable by subclasses)
   // ------------------------------------------------------------------
@@ -140,7 +183,7 @@ export class PollenEditorBase extends LitElement {
     return detectLang(this._hass);
   }
 
-  _t(key) {
+  _t(key: string): string {
     return t(`editor.${key}`, this._lang);
   }
 
@@ -148,7 +191,10 @@ export class PollenEditorBase extends LitElement {
   // Integration detection helper (SILAM weather entity check)
   // ------------------------------------------------------------------
 
-  _hasSilamWeatherEntity(location, entityWeather = null) {
+  _hasSilamWeatherEntity(
+    location: string,
+    entityWeather: string | null = null,
+  ): boolean {
     if (
       !this._hass ||
       !this._hass.states ||
@@ -176,7 +222,11 @@ export class PollenEditorBase extends LitElement {
     // Primärt: discovery-baserad check
     const discovery = discoverSilamSensors(this._hass, this.debug);
     if (discovery.locations.size > 0) {
-      const resolved = resolveDiscoveredLocation(discovery, location || "", this.debug);
+      const resolved = resolveDiscoveredLocation(
+        discovery,
+        location || "",
+        this.debug,
+      );
       if (resolved) return !!resolved.weatherEntity;
       // Discovery had data but location didn't match — still try regex fallback
     }
@@ -202,10 +252,11 @@ export class PollenEditorBase extends LitElement {
       return candidates.length > 0;
     }
     const lang = detectLang(this._hass);
-    const suffixes =
-      silamAllergenMap.weather_suffixes?.[lang] ||
-      silamAllergenMap.weather_suffixes?.en ||
-      [];
+    const weatherSuffixes = silamAllergenMap.weather_suffixes as Record<
+      string,
+      string[]
+    >;
+    const suffixes = weatherSuffixes?.[lang] || weatherSuffixes?.en || [];
     const loc = location.toLowerCase();
     for (const suffix of suffixes) {
       const entityId = `weather.silam_pollen_${loc}_${suffix}`;
@@ -233,11 +284,12 @@ export class PollenEditorBase extends LitElement {
    * dropdown falls back to a single alphabetically-sorted list of all
    * registered adapters.
    */
-  _buildIntegrationOptions() {
-    const detected = this._detectedIntegrations || new Set();
+  _buildIntegrationOptions(): IntegrationOption[] {
+    const detected = this._detectedIntegrations || new Set<string>();
     const ids = getAllAdapterIds();
-    const labelOf = (id) => this._t(`integration.${id}`);
-    const byLabel = (a, b) => labelOf(a).localeCompare(labelOf(b), this._lang);
+    const labelOf = (id: string) => this._t(`integration.${id}`);
+    const byLabel = (a: string, b: string) =>
+      labelOf(a).localeCompare(labelOf(b), this._lang);
     const installed = ids.filter((id) => detected.has(id)).sort(byLabel);
     const rest = ids.filter((id) => !detected.has(id)).sort(byLabel);
     return [...installed, ...rest].map((id) => ({
@@ -256,13 +308,21 @@ export class PollenEditorBase extends LitElement {
    * (editor.phrases -> card.allergen -> humanized fallback) lives in the pure,
    * unit-tested `resolveAllergenPhrase` util. Issue #262 follow-up.
    */
-  _resolveAllergenPhrase(canonical, raw, { short = false, lang = this._lang } = {}) {
-    return resolveAllergenPhrase(canonical, raw, { short, lang });
+  _resolveAllergenPhrase(
+    canonical: string,
+    raw: unknown,
+    {
+      short = false,
+      lang = this._lang,
+    }: { short?: boolean; lang?: string } = {},
+  ): string {
+    return resolveAllergenPhrase(canonical, raw as string, { short, lang });
   }
 
-  _getAllergenDisplayName(allergenKey) {
+  _getAllergenDisplayName(allergenKey: unknown): string {
     if (allergenKey === undefined || allergenKey === null) return "";
-    const raw = typeof allergenKey === "string" ? allergenKey : String(allergenKey);
+    const raw =
+      typeof allergenKey === "string" ? allergenKey : String(allergenKey);
     const slug = slugify(raw);
     const canonical = toCanonicalAllergenKey(slug);
     return this._resolveAllergenPhrase(canonical, raw);
@@ -276,7 +336,7 @@ export class PollenEditorBase extends LitElement {
    * Returns the merged "c" config object that section templates read from.
    * Equivalent to the render()-local `c` variable in the card editor.
    */
-  _editorConfig() {
+  _editorConfig(): CardConfig {
     return {
       phrases: {
         full: {},
@@ -287,7 +347,7 @@ export class PollenEditorBase extends LitElement {
       },
       ...LEVELS_DEFAULTS,
       ...this._config,
-    };
+    } as CardConfig;
   }
 
   /**
@@ -310,7 +370,8 @@ export class PollenEditorBase extends LitElement {
     // `${lang}-${LANG}` ("en-EN") that no locale actually uses.
     this._config = {
       ...this._config,
-      date_locale: this._hass?.locale?.language || detectLang(this._hass, null),
+      date_locale:
+        this._hass?.locale?.language || detectLang(this._hass, undefined),
     };
   }
 
@@ -318,7 +379,7 @@ export class PollenEditorBase extends LitElement {
    * Returns the allergen list for the current integration.
    * Equivalent to the render()-local `allergens` variable in the card editor.
    */
-  _currentAllergens() {
+  _currentAllergens(): string[] {
     const c = this._editorConfig();
     return allergenListForIntegration(c.integration, {
       installedGplPlants: this.installedGplPlants || [],
@@ -330,9 +391,9 @@ export class PollenEditorBase extends LitElement {
    * Returns the number of pollen levels for the current integration.
    * Equivalent to the render()-local `numLevels` variable in the card editor.
    */
-  _currentNumLevels() {
+  _currentNumLevels(): number {
     const c = this._editorConfig();
-    return numLevelsForIntegration(c.integration);
+    return numLevelsForIntegration(c.integration as string);
   }
 
   /**
@@ -341,15 +402,15 @@ export class PollenEditorBase extends LitElement {
    * level-vs-raw toggle is meaningful. PP/DWD/Atmo/GPL/GP/MSW have no distinct
    * raw value. Mirrors the resolveNumericValue contract.
    */
-  _integrationHasRawValue(integration) {
-    return ["plu", "peu", "silam", "kleenex"].includes(integration);
+  _integrationHasRawValue(integration: string | undefined): boolean {
+    return ["plu", "peu", "silam", "kleenex"].includes(integration ?? "");
   }
 
   /**
    * Returns the slider parameters for the pollen_threshold control.
    * Equivalent to the render()-local `thresholdParams` variable in the card editor.
    */
-  _thresholdParams() {
+  _thresholdParams(): ThresholdParams {
     const c = this._editorConfig();
     return c.integration === "dwd"
       ? { min: 0, max: 3, step: 0.5 }
@@ -364,19 +425,19 @@ export class PollenEditorBase extends LitElement {
             : { min: 0, max: 6, step: 1 };
   }
 
-  _renderNumberField(opts) {
+  _renderNumberField(opts: NumberFieldOptions): TemplateResult {
     return renderNumberField(this, opts);
   }
 
-  _renderTextField(opts) {
+  _renderTextField(opts: TextFieldOptions): TemplateResult {
     return renderTextField(opts);
   }
 
-  _renderResetButton(opts) {
+  _renderResetButton(opts: ResetButtonOptions): TemplateResult {
     return renderResetButton(opts);
   }
 
-  _renderTextButton(opts) {
+  _renderTextButton(opts: TextButtonOptions): TemplateResult {
     return renderTextButton(opts);
   }
 
@@ -406,10 +467,10 @@ export class PollenEditorBase extends LitElement {
    *
    * @returns {{ inheritMode: string, gapSynced: boolean, gapDisabled: boolean }}
    */
-  _inheritState() {
+  _inheritState(): InheritState {
     const c = this._editorConfig();
-    const inheritMode = c.levels_inherit_mode || "inherit_allergen";
-    const gapSynced = c.allergen_levels_gap_synced ?? true;
+    const inheritMode = (c.levels_inherit_mode as string) || "inherit_allergen";
+    const gapSynced = (c.allergen_levels_gap_synced as boolean) ?? true;
     const gapDisabled = inheritMode === "inherit_allergen" && gapSynced;
     return { inheritMode, gapSynced, gapDisabled };
   }
@@ -500,7 +561,7 @@ export class PollenEditorBase extends LitElement {
     return true;
   }
 
-  _resetPhrases(lang) {
+  _resetPhrases(lang: string): void {
     return resetPhrases(this, lang);
   }
 
@@ -546,12 +607,13 @@ export class PollenEditorBase extends LitElement {
    * Both editors call this from setConfig once _config is assembled, so the
    * tap_action sub-form opens reflecting the saved action (or "none").
    */
-  _initInteractionState() {
+  _initInteractionState(): void {
     const ta = this._config?.tap_action;
     if (ta && typeof ta === "object" && !Array.isArray(ta)) {
+      const action = ta as Record<string, unknown>;
       // Honour both the Lovelace-standard `action` key and this card's `type`
       // key; map HA's renamed "perform-action" back to our "call-service".
-      const raw = ta.action || ta.type || "more-info";
+      const raw = (action.action || action.type || "more-info") as string;
       const mapped = raw === "perform-action" ? "call-service" : raw;
       // Coerce an unknown keyword (e.g. a YAML typo) to "none" so the enable
       // switch and the type dropdown stay consistent: the dropdown only offers
@@ -560,11 +622,12 @@ export class PollenEditorBase extends LitElement {
       this._tapType = ["more-info", "navigate", "call-service"].includes(mapped)
         ? mapped
         : "none";
-      this._tapEntity = ta.entity || "";
-      this._tapNavigation = ta.navigation_path || "";
-      this._tapService = ta.service || ta.perform_action || "";
+      this._tapEntity = (action.entity as string) || "";
+      this._tapNavigation = (action.navigation_path as string) || "";
+      this._tapService =
+        (action.service as string) || (action.perform_action as string) || "";
       this._tapServiceData = JSON.stringify(
-        ta.service_data || ta.data || {},
+        action.service_data || action.data || {},
         null,
         2,
       );
@@ -610,7 +673,15 @@ export class PollenEditorBase extends LitElement {
    *   thicknessAutoShifted is non-null only when the icon_in_ring branch fires;
    *   null means leave this._thicknessAutoShifted unchanged.
    */
-  _applyVisualConfigSideEffects(prop, value, config) {
+  _applyVisualConfigSideEffects(
+    prop: string,
+    value: unknown,
+    config: CardConfig,
+  ): {
+    config: CardConfig;
+    handled: boolean;
+    thicknessAutoShifted: boolean | null;
+  } {
     // icon_in_ring auto-toggle for levels_thickness.
     if (prop === "icon_in_ring") {
       const prev = config.icon_in_ring === true;
@@ -618,7 +689,7 @@ export class PollenEditorBase extends LitElement {
       if (prev !== next) {
         const currentThickness =
           config.levels_thickness ?? LEVELS_DEFAULTS.levels_thickness;
-        const newConfig = { ...config, icon_in_ring: next };
+        const newConfig: CardConfig = { ...config, icon_in_ring: next };
         let thicknessAutoShifted = this._thicknessAutoShifted || false;
         if (next && currentThickness === NORMAL_DEFAULT_THICKNESS) {
           newConfig.levels_thickness = ICON_IN_RING_DEFAULT_THICKNESS;
@@ -638,7 +709,7 @@ export class PollenEditorBase extends LitElement {
     // levels_inherit_mode: reset/sync related color properties.
     if (prop === "levels_inherit_mode") {
       if (value === "custom" && config.levels_inherit_mode !== "custom") {
-        const newConfig = {
+        const newConfig: CardConfig = {
           ...config,
           levels_inherit_mode: value,
           levels_gap: LEVELS_DEFAULTS.levels_gap,
@@ -652,13 +723,15 @@ export class PollenEditorBase extends LitElement {
         config.levels_inherit_mode === "custom"
       ) {
         const currentStrokeWidth =
-          config.allergen_stroke_width || LEVELS_DEFAULTS.allergen_stroke_width;
+          (config.allergen_stroke_width as number) ||
+          LEVELS_DEFAULTS.allergen_stroke_width;
         const syncedGap = convertStrokeWidthToGap(currentStrokeWidth);
         const currentAllergenColors =
-          config.allergen_colors || LEVELS_DEFAULTS.allergen_colors;
+          (config.allergen_colors as string[]) ||
+          LEVELS_DEFAULTS.allergen_colors;
         const syncedEmptyColor =
           currentAllergenColors[0] || LEVELS_DEFAULTS.levels_empty_color;
-        const newConfig = {
+        const newConfig: CardConfig = {
           ...config,
           levels_inherit_mode: value,
           levels_gap: syncedGap,
@@ -671,9 +744,10 @@ export class PollenEditorBase extends LitElement {
 
     // allergen_colors: sync levels_empty_color when in inherit mode.
     if (prop === "allergen_colors" && Array.isArray(value)) {
-      const newConfig = { ...config, allergen_colors: value };
+      const newConfig: CardConfig = { ...config, allergen_colors: value };
       if (
-        (config.levels_inherit_mode || "inherit_allergen") === "inherit_allergen"
+        (config.levels_inherit_mode || "inherit_allergen") ===
+        "inherit_allergen"
       ) {
         if (value[0]) {
           newConfig.levels_empty_color = value[0];
@@ -687,7 +761,7 @@ export class PollenEditorBase extends LitElement {
       prop === "allergen_stroke_width" &&
       value === LEVELS_DEFAULTS.allergen_stroke_width
     ) {
-      const newConfig = { ...config, allergen_stroke_width: value };
+      const newConfig: CardConfig = { ...config, allergen_stroke_width: value };
       if (
         (config.levels_inherit_mode || "inherit_allergen") ===
           "inherit_allergen" &&
@@ -706,9 +780,9 @@ export class PollenEditorBase extends LitElement {
         prop === "levels_colors" ||
         prop === "levels_empty_color" ||
         prop === "levels_gap_color") &&
-      value === LEVELS_DEFAULTS[prop]
+      value === LEVELS_DEFAULTS[prop as keyof typeof LEVELS_DEFAULTS]
     ) {
-      const newConfig = { ...config, [prop]: value };
+      const newConfig: CardConfig = { ...config, [prop]: value };
       return { config: newConfig, handled: true, thicknessAutoShifted: null };
     }
 
@@ -718,7 +792,7 @@ export class PollenEditorBase extends LitElement {
       value === "default_colors" &&
       config.allergen_color_mode === "custom"
     ) {
-      const newConfig = {
+      const newConfig: CardConfig = {
         ...config,
         allergen_color_mode: value,
         allergen_colors: LEVELS_DEFAULTS.allergen_colors,
@@ -747,14 +821,18 @@ export class PollenEditorBase extends LitElement {
    * correctly because badge_* keys are absent from the stub and will revert
    * to undefined (the badge element re-applies its own defaults on setConfig).
    */
-  _resetAll() {
+  _resetAll(): void {
     const KEEP = [
-      "city", "location", "region_id",
-      "entity_prefix", "entity_suffix", "entity_weather",
+      "city",
+      "location",
+      "region_id",
+      "entity_prefix",
+      "entity_suffix",
+      "entity_weather",
       "type",
     ];
     const integration = this._config?.integration ?? "pp";
-    const preserved = {};
+    const preserved: Record<string, unknown> = {};
     for (const k of KEEP) {
       if (this._config?.[k] !== undefined) preserved[k] = this._config[k];
     }
@@ -791,9 +869,9 @@ export class PollenEditorBase extends LitElement {
    *
    * @param {string[]} keys
    */
-  _resetSection(keys) {
+  _resetSection(keys: string[]): void {
     if (!Array.isArray(keys) || !keys.length) return;
-    const base = { ...(this._userConfig || {}) };
+    const base: Record<string, unknown> = { ...(this._userConfig || {}) };
     for (const k of keys) delete base[k];
     // Preserve the HA `type` key (as _resetAll does): _userConfig may lack it
     // even when _config carries it, and dispatching a config without `type`
@@ -831,7 +909,7 @@ export class PollenEditorBase extends LitElement {
    * @param {string[]} keys
    * @returns {import("lit").TemplateResult}
    */
-  _renderSectionReset(keys) {
+  _renderSectionReset(keys: string[]): TemplateResult {
     const label = this._t("preset_reset_section") || "Reset section";
     // Compact icon button absolutely positioned + vertically centred in the
     // section header (.section-reset CSS lives in each editor's styles). A
@@ -843,7 +921,7 @@ export class PollenEditorBase extends LitElement {
         class="section-reset"
         title="${label}"
         aria-label="${label}"
-        @click=${(e) => {
+        @click=${(e: Event) => {
           e.preventDefault();
           e.stopPropagation();
           this._resetSection(keys);
