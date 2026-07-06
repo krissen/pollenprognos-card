@@ -9,6 +9,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run build` - Build production bundle to `dist/pollenprognos-card.js`
 - `npm run preview` - Preview production build locally
 
+### Quality Gates
+The `src/` and `test/` trees are 100% TypeScript (the #259 migration is
+complete). Every change must keep these green:
+- `npm run typecheck` - `tsc --noEmit` in `strict` mode. Scope is `src` + `test`
+  only; `scripts/*.js` and `vite.config.js`/`vitest.config.js` are plain Node ESM
+  and deliberately outside the type-check surface.
+- `npm run lint` - ESLint (flat config, typescript-eslint). Must be 0 errors and
+  0 warnings; the legacy-tolerance downgrades were promoted back to `error` in the
+  close-out. `no-explicit-any` stays off (see the `any` note under TS Conventions).
+- `npm run lint:fix` - ESLint autofix.
+- `npm run build` && `npm run check-dist-size` - Build, then assert the gzipped
+  bundle is under `size-budget.json` (`gzipBudgetBytes`).
+- `npm run format` / `npm run format:check` - Prettier. NOTE: Prettier is
+  non-idempotent on the editor lit-templates that embed TS casts
+  (`${(e.target as HTMLInputElement)...}`), so `format:check` is intentionally
+  NOT part of CI. Format the files you touch and eyeball template regions; don't
+  run a repo-wide `format --write` expecting convergence.
+
 ### Version Management
 - `npm run update-version` - Sync version from git tags to package.json (runs automatically before build)
 - Version is embedded in the build via Vite's `__VERSION__` define
@@ -25,7 +43,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Architecture
 
 ### Overview
-A Lovelace custom card for Home Assistant that displays pollen forecasts from multiple integrations. Built with Lit web components, Vite bundling, and Chart.js for visualizations.
+A Lovelace custom card for Home Assistant that displays pollen forecasts from multiple integrations. Built with Lit 3 web components, TypeScript, and Vite bundling. Level circles are drawn by an in-house SVG donut (`src/rendering/donut.ts`); Chart.js was removed during the TS migration.
+
+### TypeScript Conventions
+The whole of `src/` and `test/` is TypeScript (`strict`, `noEmit`; migration
+tracker #259). Patterns to follow when editing:
+
+- **`.js` import specifiers, `.ts` files.** Imports keep the `.js` extension
+  (`import { x } from "./foo.js"`) even though the file on disk is `foo.ts`. This
+  is required by `moduleResolution: "bundler"` + `isolatedModules` and matches how
+  Vite/HA load the emitted ESM. Never write `.ts` in an import path.
+- **`declare` for Lit reactive fields.** LitElement declares reactive properties
+  via `static properties`/decorators; the class field is re-declared with
+  `declare field: Type;` (no initializer) so TS knows the type without emitting a
+  field that would shadow Lit's accessor. `useDefineForClassFields` is `false` for
+  the same reason. See the block of `declare` lines at the top of
+  `pollenprognos-card.ts`.
+- **`AdapterStubConfig`** (`src/types/config.ts`) is the shared shape every
+  adapter's `stubConfig*` must satisfy (`export const stubConfigX: AdapterStubConfig
+  = {...}`). The adapter descriptor/registry types live in `src/types/adapter.ts`.
+- **Config boundary.** Raw YAML (`RawCardConfig`) is validated and coerced into a
+  well-formed `CardConfig` exactly once, in `setConfig` (card) / the editors'
+  `setConfig`. `set hass` must not mutate config. String-typed YAML fields get
+  `typeof === "string"` / `coerceBool` / `Number()` guards at that boundary.
+- **The `any` surface is enumerated, not open.** `no-explicit-any` is off because
+  `hass` exposes an HA-idiomatic `Record<string, any>` attributes bag
+  (`types/home-assistant.ts`, `types/sensor.ts`). Every other explicit `any` /
+  `@ts-expect-error` in `src/` carries an inline justification (the mixin
+  base-vs-accessor `@ts-expect-error` in card/badge, the standard `...args: any[]`
+  mixin constructor in `level-circle-mixin.ts`, the `_silamDiscovery` bridge). Add
+  a justifying comment rather than introducing an unexplained `any`.
+- **Adapter descriptor surface.** Adapters expose their autodetect logic as data
+  descriptors consumed by `src/utils/autodetect.ts` via the registry
+  (`getAutodetect`/`getAllAutodetect`); card/badge/editor reach adapters only
+  through `src/adapter-registry.ts`, never by importing an adapter module directly.
+- **Golden characterization tests.** `test/adapters/goldens.test.ts` freezes each
+  adapter's `fetchForecast` output (built by `test/golden-fixtures.ts`, clock
+  pinned to 2026-06-15) as JSON snapshots under `test/adapters/__goldens__/`. A
+  golden diff means behaviour changed -- investigate the adapter, do not hand-edit
+  a snapshot to make it pass. When a change is intentional, update the snapshots
+  with `vitest -u` and commit the fixture change alongside the code so the diff is
+  reviewable.
 
 ### Core Components
 
@@ -226,20 +284,23 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 ## Common Patterns
 
 ### Adding a New Allergen
-1. Add alias to the appropriate adapter's alias group (e.g. `PP_ALIASES`) in `src/constants.js`
-2. Add SVG icon to `svgs` object in `src/pollenprognos-svgs.js`
+1. Add alias to the appropriate adapter's alias group (e.g. `PP_ALIASES`) in `src/constants.ts`
+2. Add SVG icon to `svgs` object in `src/pollenprognos-svgs.ts`
 3. Update locale files in `src/locales/*.json` with full/short names
 4. Add to the adapter's stub config `allergens` array
 
 ### Adding a New Integration
-1. Create `src/adapters/newintegration.js` (or a subdirectory with `index.js` for larger adapters)
-2. Export: `stubConfig*`, `fetchForecast(hass, config)`, `resolveEntityIds(cfg, hass, debug?)`
+Adapters are TypeScript. Import specifiers keep the `.js` extension even though
+the files are `.ts` (see TypeScript Conventions).
+1. Create `src/adapters/newintegration.ts` (or a subdirectory with `index.ts` for larger adapters)
+2. Export: `stubConfigX: AdapterStubConfig`, `fetchForecast(hass, config)`, `resolveEntityIds(cfg, hass, debug?)`. Type the module against `src/types/adapter.ts` and `src/types/sensor.ts` (`PollenSensor`, `ForecastDay`); `fetchForecast` returns normalized sensors carrying a `days[]` array.
 3. Use shared helpers from `src/utils/adapter-helpers.js` (getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames)
-4. For entity discovery, prefer `discoverEntitiesByDevice(hass, opts)` from `src/utils/adapter-helpers.js`. It runs a three-tier cascade (device identifiers → platform scan → regex/selector fallback) and returns `{ locations: Map<locationKey, { label, entities: Map }>, tierUsed }`. Pair with `resolveLocationByKey(discovery, cfgLocation, { slugExtractor })` and `findLocationBySlug(...)` for backward-compatible config resolution. See `src/adapters/atmo.js` or `src/adapters/pp.js` for reference wrappers.
-5. Register in `src/adapter-registry.js`
-6. Add adapter-specific allergen aliases to `src/constants.js` (e.g. `NEW_ALIASES`) and include in `ALLERGEN_TRANSLATION` spread
-7. Update editor (`src/pollenprognos-editor.js`) to handle integration-specific config fields
-8. Add contract tests in `test/adapters/newintegration.test.js`
+4. For entity discovery, prefer `discoverEntitiesByDevice(hass, opts)` from `src/utils/adapter-helpers.js`. It runs a three-tier cascade (device identifiers → platform scan → regex/selector fallback) and returns `{ locations: Map<locationKey, { label, entities: Map }>, tierUsed }`. Pair with `resolveLocationByKey(discovery, cfgLocation, { slugExtractor })` and `findLocationBySlug(...)` for backward-compatible config resolution. See `src/adapters/atmo.ts` or `src/adapters/pp.ts` for reference wrappers.
+5. Add an autodetect descriptor for the adapter and register it in `src/adapter-registry.ts` (the registry exposes `getAdapter`/`getStubConfig`/`getAutodetect`; `src/utils/autodetect.ts` consumes the descriptors). Card/badge/editor must reach the adapter only through the registry, never by importing the module directly.
+6. Add adapter-specific allergen aliases to `src/constants.ts` (e.g. `NEW_ALIASES`) and include in the `ALLERGEN_TRANSLATION` spread
+7. Update editor (`src/pollenprognos-editor.ts`) to handle integration-specific config fields
+8. Add contract tests in `test/adapters/newintegration.test.ts`, and add a golden fixture variant in `test/golden-fixtures.ts` so `test/adapters/goldens.test.ts` snapshots the new adapter's `fetchForecast` output under `test/adapters/__goldens__/` (run `vitest -u` to record the initial snapshot, then eyeball it)
+9. Run the full gate: `npm run typecheck && npm run lint && npm test && npm run build && npm run check-dist-size`
 
 ### Modifying Display Layout
 - Lit template is in `render()` method of `src/pollenprognos-card.js`
