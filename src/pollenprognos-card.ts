@@ -1283,7 +1283,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // latest fetch may apply its result, so a slower earlier fetch cannot
     // overwrite newer sensors with stale data on rapid config/hass changes.
     const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
-    let fetchPromise: Promise<PollenSensor[]> | null = null;
+    let fetchPromise: Promise<PollenSensor[]> | null;
     if (cfg.integration === "silam") {
       // Pass forecastEvent when available; fetchForecast falls back to
       // entity.attributes.forecast when forecastEvent is null (daily mode
@@ -2078,7 +2078,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     if (this._isLoaded && (!this.sensors || !this.sensors.length)) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
-      let errorMsg = "";
+      let errorMsg: string;
       if (this._error) {
         errorMsg = this._t(this._error);
         return html`

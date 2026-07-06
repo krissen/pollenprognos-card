@@ -64,8 +64,8 @@ export default tseslint.config(
       "no-prototype-builtins": "error",
       // Over-escaped characters inside regex character classes were cleaned up.
       "no-useless-escape": "error",
-      // Newer stylistic rule; hits dead assignments before early returns.
-      "no-useless-assignment": "warn",
+      // Dead initializers before an unconditional reassignment were removed.
+      "no-useless-assignment": "error",
       // Deliberate default-then-override-after-spread object literals in the
       // badge config builders (the later key intentionally wins).
       "no-dupe-keys": "warn",
