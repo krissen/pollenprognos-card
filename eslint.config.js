@@ -56,8 +56,9 @@ export default tseslint.config(
       // convert to TypeScript they should be cleaned up and the rules promoted
       // back to `error`.
 
-      // Intentional empty blocks (e.g. empty catch swallowing optional lookups).
-      "no-empty": "warn",
+      // Dead empty `else` branches were removed; the only empty blocks left are
+      // intentional `catch {}` swallowing optional JSON.parse lookups.
+      "no-empty": ["error", { allowEmptyCatch: true }],
       // Direct `obj.hasOwnProperty(k)` calls were migrated to `Object.hasOwn`
       // (plain-config sites) or `Object.prototype.hasOwnProperty.call`.
       "no-prototype-builtins": "error",

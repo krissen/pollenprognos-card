@@ -218,7 +218,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             "[Editor] saved user-chosen allergens:",
             this._userConfig.allergens,
           );
-      } else {
       }
 
       // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
@@ -309,9 +308,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
               "[Editor] dropping incoming allergens (matches stub, keeping explicit)",
             );
           delete incoming.allergens;
-        } else {
         }
-      } else {
       }
 
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
@@ -1099,7 +1096,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           composed: true,
         }),
       );
-    } else {
     }
 
     this.requestUpdate();
