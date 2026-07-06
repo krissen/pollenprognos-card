@@ -277,7 +277,7 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
 
   it("silam -> first discovery location key (eager discovery)", () => {
     const detection = withDiscovery("silam", disc("entry_s"));
-    expect(autoSelectLocation("silam", {}, {}, detection)).toEqual({
+    expect(autoSelectLocation("silam", {}, {} as any, detection)).toEqual({
       key: "location",
       value: "entry_s",
     });
@@ -285,7 +285,7 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
 
   it("gp -> first discovery location key (eager discovery)", () => {
     const detection = withDiscovery("gp", disc("entry_gp"));
-    expect(autoSelectLocation("gp", {}, {}, detection)).toEqual({
+    expect(autoSelectLocation("gp", {}, {} as any, detection)).toEqual({
       key: "location",
       value: "entry_gp",
     });
@@ -293,7 +293,7 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
 
   it("gpl -> first discovery location key (lazy getter)", () => {
     const detection = withDiscovery("gpl", disc("entry_gpl"), true);
-    expect(autoSelectLocation("gpl", {}, {}, detection)).toEqual({
+    expect(autoSelectLocation("gpl", {}, {} as any, detection)).toEqual({
       key: "location",
       value: "entry_gpl",
     });
@@ -301,7 +301,7 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
 
   it("msw -> first discovery location key (lazy getter)", () => {
     const detection = withDiscovery("msw", disc("entry_msw"), true);
-    expect(autoSelectLocation("msw", {}, {}, detection)).toEqual({
+    expect(autoSelectLocation("msw", {}, {} as any, detection)).toEqual({
       key: "location",
       value: "entry_msw",
     });
@@ -309,7 +309,7 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
 
   it("irmkmi -> first discovery location key (lazy getter)", () => {
     const detection = withDiscovery("irmkmi", disc("entry_irm"), true);
-    expect(autoSelectLocation("irmkmi", {}, {}, detection)).toEqual({
+    expect(autoSelectLocation("irmkmi", {}, {} as any, detection)).toEqual({
       key: "location",
       value: "entry_irm",
     });
@@ -321,7 +321,7 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
       discovery: { silam: { locations: new Map() } },
     };
     expect(
-      autoSelectLocation("silam", {}, {}, detection),
+      autoSelectLocation("silam", {}, {} as any, detection),
     ).toEqual({ key: "location", value: "helsinki" });
   });
 });
