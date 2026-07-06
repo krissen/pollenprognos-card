@@ -323,7 +323,7 @@ function buildDwdDict({
   ctx,
 }: BuildDictArgs): PollenSensor {
   // Preserve the original key-insertion order (allergen fields, entity_id, then
-  // days, then dayN) so the serialized sensor dict stays byte-identical.
+  // days) so the serialized sensor dict stays byte-identical.
   const dict = {} as PollenSensor;
   dict.allergenReplaced = rawKey;
 
@@ -358,7 +358,7 @@ function buildDwdDict({
   }));
 
   dict.days = [];
-  // Build dict.dayN and dict.days[].
+  // Build dict.days[].
   levels.forEach((entry, idx) => {
     if (entry.level !== null && entry.level >= 0) {
       const diff = Math.round((entry.date.getTime() - today.getTime()) / 86400000);

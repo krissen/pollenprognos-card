@@ -412,7 +412,7 @@ function buildPeuDict({
   // code called this variable allergenSlug.
   const allergenSlug = rawKey;
   // Preserve the original key-insertion order (days first, then allergen
-  // fields, entity_id, then stale/staleSince or dayN) so the serialized sensor
+  // fields, entity_id, then stale/staleSince) so the serialized sensor
   // dict stays byte-identical.
   const dict = { days: [] as ForecastDay[] } as PollenSensor;
   dict.allergenReplaced = allergenSlug;
