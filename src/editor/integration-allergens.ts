@@ -16,6 +16,12 @@ import { stubConfigMSW } from "../adapters/msw.js";
 import { stubConfigIRMKMI } from "../adapters/irmkmi.js";
 import { stubConfigPP } from "../adapters/pp.js";
 
+/** Extra plant lists appended to GPL/GP base allergens for the current location. */
+export interface AllergenListOptions {
+  installedGplPlants?: string[];
+  installedGpPlants?: string[];
+}
+
 /**
  * The raw allergen keys for an integration, in editor-display order.
  *
@@ -23,24 +29,23 @@ import { stubConfigPP } from "../adapters/pp.js";
  * caller passes them in via opts (the base editor uses its stored
  * installedGplPlants/installedGpPlants; the card editor passes a fresh
  * discovery). Everything else returns its static stub list.
- *
- * @param {string} integration
- * @param {{installedGplPlants?: string[], installedGpPlants?: string[]}} [opts]
- * @returns {string[]}
  */
-export function allergenListForIntegration(integration, opts = {}) {
+export function allergenListForIntegration(
+  integration: string | undefined,
+  opts: AllergenListOptions = {},
+): string[] {
   const { installedGplPlants = [], installedGpPlants = [] } = opts;
   switch (integration) {
     case "dwd":
-      return stubConfigDWD.allergens;
+      return stubConfigDWD.allergens as string[];
     case "peu":
       return PEU_ALLERGENS;
     case "silam":
       return SILAM_ALLERGENS;
     case "kleenex":
-      return stubConfigKleenex.allergens;
+      return stubConfigKleenex.allergens as string[];
     case "plu":
-      return stubConfigPLU.allergens;
+      return stubConfigPLU.allergens as string[];
     case "gpl":
       return [...GPL_BASE_ALLERGENS, ...installedGplPlants];
     case "gp":
@@ -48,10 +53,10 @@ export function allergenListForIntegration(integration, opts = {}) {
     case "atmo":
       return ATMO_ALLERGENS;
     case "msw":
-      return stubConfigMSW.allergens;
+      return stubConfigMSW.allergens as string[];
     case "irmkmi":
-      return stubConfigIRMKMI.allergens;
+      return stubConfigIRMKMI.allergens as string[];
     default:
-      return stubConfigPP.allergens;
+      return stubConfigPP.allergens as string[];
   }
 }

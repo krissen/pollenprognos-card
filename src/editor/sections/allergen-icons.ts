@@ -3,11 +3,20 @@
 // Extracted verbatim from PollenEditorBase._renderAllergenIconsSection; `this` -> `editor`.
 // ------------------------------------------------------------------ //
 
-import { html } from "lit";
+import { html, type TemplateResult } from "lit";
 import { LEVELS_DEFAULTS, convertStrokeWidthToGap } from "../../utils/levels-defaults.js";
+import type { PollenEditorLike } from "../types.js";
 
-export function renderAllergenIconsSection(editor) {
+export function renderAllergenIconsSection(
+  editor: PollenEditorLike,
+): TemplateResult {
   const c = editor._editorConfig();
+  const noAllergensColor =
+    (c.no_allergens_color as string) || LEVELS_DEFAULTS.no_allergens_color;
+  const outlineColor =
+    (c.allergen_outline_color as string) || LEVELS_DEFAULTS.levels_gap_color;
+  const strokeWidth =
+    (c.allergen_stroke_width as number) ?? LEVELS_DEFAULTS.allergen_stroke_width;
   return html`
     <!-- §6 Allergen icons -->
     <details>
@@ -41,7 +50,7 @@ export function renderAllergenIconsSection(editor) {
             },
           }}
           .value=${c.allergen_color_mode || "default_colors"}
-          @value-changed=${(e) => {
+          @value-changed=${(e: CustomEvent) => {
             const v = e.detail?.value;
             if (v !== undefined)
               editor._updateConfig("allergen_color_mode", v);
@@ -62,10 +71,11 @@ export function renderAllergenIconsSection(editor) {
                       const defaultAllergenColors =
                         LEVELS_DEFAULTS.allergen_colors;
                       const allergenColors =
-                        c.allergen_colors || defaultAllergenColors;
+                        (c.allergen_colors as string[]) ||
+                        defaultAllergenColors;
 
                       return allergenColors.map(
-                        (col, i) => html`
+                        (col: string, i: number) => html`
                           <div
                             style="display: flex; align-items: center; gap: 8px;"
                           >
@@ -84,9 +94,11 @@ export function renderAllergenIconsSection(editor) {
                                   ? col
                                   : "#000000";
                               })()}
-                              @input=${(e) => {
+                              @input=${(e: Event) => {
                                 const newColors = [...allergenColors];
-                                newColors[i] = e.target.value;
+                                newColors[i] = (
+                                  e.target as HTMLInputElement
+                                ).value;
                                 editor._updateConfig(
                                   "allergen_colors",
                                   newColors,
@@ -143,23 +155,19 @@ export function renderAllergenIconsSection(editor) {
                     <input
                       type="color"
                       .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(
-                        c.no_allergens_color ||
-                          LEVELS_DEFAULTS.no_allergens_color,
+                        noAllergensColor,
                       )
-                        ? c.no_allergens_color ||
-                          LEVELS_DEFAULTS.no_allergens_color
+                        ? noAllergensColor
                         : "#a9cfe0"}
-                      @input=${(e) =>
+                      @input=${(e: Event) =>
                         editor._updateConfig(
                           "no_allergens_color",
-                          e.target.value,
+                          (e.target as HTMLInputElement).value,
                         )}
                       style="width: 28px; height: 28px; border: none; background: none;"
                     />
                     ${editor._renderTextField({
-                      value:
-                        c.no_allergens_color ||
-                        LEVELS_DEFAULTS.no_allergens_color,
+                      value: noAllergensColor,
                       placeholder:
                         editor._t("no_allergens_color_placeholder") ||
                         "#a9cfe0",
@@ -188,9 +196,7 @@ export function renderAllergenIconsSection(editor) {
           <input
             type="color"
             .value=${(() => {
-              const color =
-                c.allergen_outline_color ||
-                LEVELS_DEFAULTS.levels_gap_color;
+              const color = outlineColor;
               if (color.includes("rgba")) {
                 return "#c8c8c8";
               }
@@ -198,16 +204,15 @@ export function renderAllergenIconsSection(editor) {
                 ? color
                 : "#c8c8c8";
             })()}
-            @input=${(e) =>
+            @input=${(e: Event) =>
               editor._updateConfig(
                 "allergen_outline_color",
-                e.target.value,
+                (e.target as HTMLInputElement).value,
               )}
             style="width: 28px; height: 28px; border: none; background: none;"
           />
           ${editor._renderTextField({
-            value:
-              c.allergen_outline_color || LEVELS_DEFAULTS.levels_gap_color,
+            value: outlineColor,
             placeholder:
               editor._t("allergen_outline_placeholder") || "rgba(200,200,200,1)",
             width: "100px",
@@ -230,10 +235,10 @@ export function renderAllergenIconsSection(editor) {
       >
         <ha-checkbox
           .checked=${c.allergen_stroke_color_synced ?? true}
-          @change=${(e) =>
+          @change=${(e: Event) =>
             editor._updateConfig(
               "allergen_stroke_color_synced",
-              e.target.checked,
+              (e.target as HTMLInputElement).checked,
             )}
         ></ha-checkbox>
       </ha-formfield>
@@ -244,9 +249,9 @@ export function renderAllergenIconsSection(editor) {
           min="0"
           max="150"
           step="5"
-          .value=${c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width}
-          @input=${(e) => {
-            const value = Number(e.target.value);
+          .value=${strokeWidth}
+          @input=${(e: Event) => {
+            const value = Number((e.target as HTMLInputElement).value);
             editor._updateConfig("allergen_stroke_width", value);
             const { inheritMode, gapSynced } = editor._inheritState();
             if (inheritMode === "inherit_allergen" && gapSynced) {
@@ -257,7 +262,7 @@ export function renderAllergenIconsSection(editor) {
           style="width: 120px;"
         ></ha-slider>
         ${editor._renderNumberField({
-          value: c.allergen_stroke_width ?? LEVELS_DEFAULTS.allergen_stroke_width,
+          value: strokeWidth,
           min: 0,
           max: 150,
           step: 5,

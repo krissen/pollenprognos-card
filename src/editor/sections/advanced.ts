@@ -3,9 +3,12 @@
 // Extracted verbatim from PollenEditorBase._renderAdvancedSection; `this` -> `editor`.
 // ------------------------------------------------------------------ //
 
-import { html } from "lit";
+import { html, type TemplateResult } from "lit";
+import type { PollenEditorLike } from "../types.js";
 
-export function renderAdvancedSection(editor) {
+export function renderAdvancedSection(
+  editor: PollenEditorLike,
+): TemplateResult {
   const c = editor._editorConfig();
   return html`
     <details>
@@ -17,14 +20,18 @@ export function renderAdvancedSection(editor) {
       <ha-formfield label="${editor._t("debug")}">
         <ha-switch
           .checked=${c.debug}
-          @change=${(e) => editor._updateConfig("debug", e.target.checked)}
+          @change=${(e: Event) =>
+            editor._updateConfig("debug", (e.target as HTMLInputElement).checked)}
         ></ha-switch>
       </ha-formfield>
       <ha-formfield label="${editor._t("show_version")}">
         <ha-switch
           .checked=${c.show_version !== false}
-          @change=${(e) =>
-            editor._updateConfig("show_version", e.target.checked)}
+          @change=${(e: Event) =>
+            editor._updateConfig(
+              "show_version",
+              (e.target as HTMLInputElement).checked,
+            )}
         ></ha-switch>
       </ha-formfield>
       <div class="version-info">

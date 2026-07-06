@@ -8,11 +8,49 @@
 // code and subclasses call editor._renderNumberField(...) unchanged.  //
 // ------------------------------------------------------------------ //
 
-import { html } from "lit";
+import { html, type TemplateResult } from "lit";
 import {
   formatNumberForInput,
   parseLocaleNumber,
 } from "../utils/number-format.js";
+import type { HomeAssistant } from "../types/home-assistant.js";
+
+/** Options for {@link renderNumberField}. */
+export interface NumberFieldOptions {
+  value: number | string | null | undefined;
+  min?: number;
+  max?: number;
+  step?: number;
+  onValue: (n: number) => void;
+  width?: string;
+  disabled?: boolean;
+}
+
+/** Options for {@link renderTextField}. */
+export interface TextFieldOptions {
+  value?: string | null;
+  onInput: (value: string) => void;
+  placeholder?: string;
+  width?: string;
+  type?: string;
+  disabled?: boolean;
+}
+
+/** Options for {@link renderResetButton}. */
+export interface ResetButtonOptions {
+  title?: string;
+  onClick: (e: Event) => void;
+  style?: string;
+  disabled?: boolean;
+}
+
+/** Options for {@link renderTextButton}. */
+export interface TextButtonOptions {
+  label: unknown;
+  onClick: (e: Event) => void;
+  style?: string;
+  disabled?: boolean;
+}
 
 /**
  * Render a locale-aware numeric input. Uses our own native `<input>` (HA
@@ -23,9 +61,9 @@ import {
  * live preview while dragging.
  */
 export function renderNumberField(
-  editor,
-  { value, min, max, step, onValue, width = "80px", disabled = false },
-) {
+  editor: { _hass?: HomeAssistant },
+  { value, min, max, step, onValue, width = "80px", disabled = false }: NumberFieldOptions,
+): TemplateResult {
   const isInt = Number.isInteger(step ?? 1);
   return html`
     <input
@@ -35,14 +73,15 @@ export function renderNumberField(
       .value=${formatNumberForInput(value, editor._hass)}
       ?disabled=${disabled}
       style="width: ${width};"
-      @change=${(e) => {
-        let n = parseLocaleNumber(e.target.value, editor._hass);
+      @change=${(e: Event) => {
+        const target = e.target as HTMLInputElement;
+        let n = parseLocaleNumber(target.value, editor._hass);
         if (n === null) {
           // Invalid/empty input: restore the displayed value from config.
           // Assigning .value directly is required because Lit dirty-checks the
           // bound .value expression: when the config is unchanged a re-render
           // won't write back, so the invalid text would otherwise persist.
-          e.target.value = formatNumberForInput(value, editor._hass);
+          target.value = formatNumberForInput(value, editor._hass);
           return;
         }
         if (typeof min === "number") n = Math.max(min, n);
@@ -52,7 +91,7 @@ export function renderNumberField(
         // clamped/reformatted input (e.g. "999" -> "3", a different
         // separator, trailing zeros) is reflected even when the resulting
         // config value is unchanged (same Lit dirty-check caveat).
-        e.target.value = formatNumberForInput(n, editor._hass);
+        target.value = formatNumberForInput(n, editor._hass);
         onValue(n);
       }}
     />
@@ -71,7 +110,7 @@ export function renderTextField({
   width = "",
   type = "text",
   disabled = false,
-}) {
+}: TextFieldOptions): TemplateResult {
   return html`
     <input
       class="pp-input"
@@ -80,7 +119,7 @@ export function renderTextField({
       placeholder=${placeholder}
       ?disabled=${disabled}
       style=${width ? `width: ${width};` : ""}
-      @input=${(e) => onInput(e.target.value)}
+      @input=${(e: Event) => onInput((e.target as HTMLInputElement).value)}
     />
   `;
 }
@@ -94,7 +133,7 @@ export function renderResetButton({
   onClick,
   style = "",
   disabled = false,
-}) {
+}: ResetButtonOptions): TemplateResult {
   return html`
     <button
       class="pp-icon-button"
@@ -118,7 +157,7 @@ export function renderTextButton({
   onClick,
   style = "",
   disabled = false,
-}) {
+}: TextButtonOptions): TemplateResult {
   return html`
     <button
       class="pp-button"
