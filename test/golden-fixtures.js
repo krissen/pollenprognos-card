@@ -489,6 +489,26 @@ export function buildGoldenFixtures() {
       days_to_show: 2,
     }),
   );
+  // Collision path: three sensors share the localized display_name "Gräs" and
+  // carry no unique_id (entities undefined -> tier-3 prefix scan). The first
+  // classifies to the grass category; the second collides and is reclassified
+  // as the graminales plant via GP_COLLISION_PLANTS; the third collides again
+  // but graminales is already taken, so the `!locEntities.has(alt)` guard drops
+  // it (both branches of the onCollision guard exercised -- PR8 near-miss).
+  add(
+    "gp",
+    "collision",
+    gpHass({
+      "sensor.google_pollen_gras": gpSensor("Gräs", 3, { tomorrow: 2 }),
+      "sensor.google_pollen_gras_2": gpSensor("Gräs", 2, { tomorrow: 1 }),
+      "sensor.google_pollen_gras_3": gpSensor("Gräs", 1, { tomorrow: 0 }),
+    }),
+    cfg(stubConfigGP, {
+      allergens: ["grass_cat", "graminales"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    }),
+  );
 
   // -- GPL (type + plant sensors, forecast, summary block) ----------------
   add(
