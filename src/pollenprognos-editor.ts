@@ -1,5 +1,10 @@
-// src/pollenprognos-editor.js
-import { html, css } from "lit";
+// src/pollenprognos-editor.ts
+import {
+  html,
+  css,
+  type TemplateResult,
+  type PropertyDeclarations,
+} from "lit";
 import { detectLang } from "./i18n.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -31,6 +36,7 @@ import {
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { findLocationBySlug } from "./utils/adapter-helpers.js";
+import { slugify } from "./utils/slugify.js";
 import { formatNumberForInput } from "./utils/number-format.js";
 import {
   detectIntegrationStates,
@@ -44,18 +50,69 @@ import {
 } from "./constants.js";
 
 import silamAllergenMap from "./adapters/silam_allergen_map.json";
+import type { HomeAssistant } from "./types/home-assistant.js";
+import type { CardConfig, RawCardConfig } from "./types/config.js";
+import type { InstalledLocation } from "./editor/types.js";
+
+// The autodetect module (src/utils/autodetect.js) is still untyped JS; its
+// memoized-discovery return shape is typed in a later PR. Until then the
+// detection object crosses this boundary as `any`.
+type DetectionResult = any;
+
+/**
+ * Map a discovery result's `locations` Map into the editor's `[key, label]`
+ * installed-location list. Extracted so the (many) discovery blocks below share
+ * one typed conversion instead of repeating an inline `.map` whose element type
+ * is lost when the discovery object arrives from the still-untyped autodetect
+ * module. Output is identical to the previous inline expression.
+ */
+function discoveryToLocations(discovery: {
+  locations: Map<string, { label: string }>;
+}): InstalledLocation[] {
+  return Array.from(discovery.locations.entries()).map(
+    ([key, loc]) => [key, loc.label] as InstalledLocation,
+  );
+}
 
 class PollenPrognosCardEditor extends PollenEditorBase {
+  // The base declares `_config`/`_userConfig` as optional (subclasses provide
+  // them). The card editor initializes both in its constructor and treats them
+  // as always-present, so narrow them to required here to match that invariant
+  // and avoid threading `?.`/`!` through the (very config-heavy) methods.
+  override _config!: CardConfig;
+  override _userConfig!: Record<string, unknown>;
+
+  // Card-editor-only reactive/working state. Fields the base already owns
+  // (hass/_tapType/installed*Locations/...) are NOT re-declared here; only this
+  // subclass's own members are.
+  declare installedCities: string[];
+  declare installedRegionIds: string[];
+  // NOTE: `installedLocations` is read once in setConfig's SILAM auto-select
+  // branch but is never assigned anywhere (a latent bug preserved verbatim in
+  // this conversion). Declared optional so the read type-checks; the access
+  // site keeps the original throw-on-undefined behaviour via a non-null
+  // assertion.
+  declare installedLocations?: InstalledLocation[];
+  declare _integrationExplicit: boolean;
+  declare _thresholdExplicit: boolean;
+  declare _prevIntegration?: string;
+  declare _initDone: boolean;
+  declare _allergensExplicit: boolean;
+  declare _origAllergensSet: boolean;
+  declare _userAllergens: string[] | null;
+  declare _daysExplicit?: boolean;
+  declare _localeExplicit?: boolean;
+
   // _resetAll is inherited from PollenEditorBase. The card editor overrides
   // to also clear _userConfig before delegating to the base implementation.
-  _resetAll() {
+  override _resetAll(): void {
     if (this.debug) console.debug("[Editor] resetAll");
     this._userConfig = {};
     super._resetAll();
   }
 
 
-  static get properties() {
+  static override get properties(): PropertyDeclarations {
     return {
       _config: { type: Object },
       hass: { type: Object },
@@ -84,7 +141,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // user's pre-shift value safely, without snapping a value the user
     // happened to set manually to match a default.
     this._thicknessAutoShifted = false;
-    this._config = {}; // Tomt – blir ändå satt av setConfig eller set hass
+    this._config = {} as CardConfig; // Tomt – blir ändå satt av setConfig eller set hass
     this.installedCities = [];
     this.installedPeuLocations = [];
     this.installedSilamLocations = [];
@@ -110,7 +167,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this._tapServiceData = "";
   }
 
-  setConfig(config) {
+  override setConfig = (config: RawCardConfig): void => {
     try {
 
       if (this.debug) console.debug("[Editor] ▶️ setConfig INCOMING:", config);
@@ -133,11 +190,11 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 1. Identify stub values and clone incoming config
       // Normalize integration to lowercase (user may type "SILAM" in YAML)
-      const incoming = { ...config };
+      const incoming = { ...config } as CardConfig;
       if (typeof incoming.integration === "string") {
         incoming.integration = incoming.integration.toLowerCase();
       }
-      const baseDefaults = getStubConfig(incoming.integration || "pp") || getStubConfig("pp");
+      const baseDefaults = getStubConfig(incoming.integration || "pp") || getStubConfig("pp")!;
       const stubAllergens = baseDefaults.allergens;
       
 
@@ -178,7 +235,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // }
 
       // 4. Släpp aldrig in stub-pollen_threshold
-      const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")).pollen_threshold;
+      const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")!).pollen_threshold;
       if (
         incoming.hasOwnProperty("pollen_threshold") &&
         !this._thresholdExplicit &&
@@ -193,7 +250,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       // 5. Om integration byts, nollställ allergens/relaterade explicit-val
-      const incomingInt = config.integration;
+      const incomingInt = config.integration as string | undefined;
       if (
         this._prevIntegration !== undefined &&
         incomingInt !== this._prevIntegration
@@ -219,7 +276,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         if (this.debug) console.debug("[Editor] dropped stub days_to_show");
         delete incoming.days_to_show;
       }
-      const stubLocale = (getStubConfig(incoming.integration) || getStubConfig("pp")).date_locale;
+      const stubLocale = (getStubConfig(incoming.integration) || getStubConfig("pp")!).date_locale;
       if (!this._localeExplicit && incoming.date_locale === stubLocale) {
         if (this.debug) console.debug("[Editor] dropped stub date_locale");
         delete incoming.date_locale;
@@ -244,7 +301,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         // Only overwrite if incoming explicitly differs from stub (is a user choice)
         const stubAllergens = (getStubConfig(
           incoming.integration || this._config.integration || "pp",
-        ) || getStubConfig("pp")).allergens;
+        ) || getStubConfig("pp")!).allergens;
         
         if (deepEqual(incoming.allergens, stubAllergens)) {
           // Incoming matches stub, so it's not a user choice - keep our explicit allergens
@@ -277,13 +334,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // Autodetect uses the shared module (src/utils/autodetect.js), so this
       // path now matches the card and detects PLU + Kleenex too (it previously
       // missed PLU).
-      let integration =
+      let integration: string | undefined =
         this._userConfig.integration !== undefined
-          ? this._userConfig.integration
+          ? (this._userConfig.integration as string)
           : this._config.integration;
 
       if (!this._integrationExplicit && this._hass) {
-        const detection = detectIntegrationStates(this._hass, {
+        const detection: DetectionResult = detectIntegrationStates(this._hass, {
           debug: this.debug,
         });
         const picked = pickIntegration(detection, { explicit: false });
@@ -305,8 +362,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       // 10. Bygg config från stub + userConfig (bara EN gång!)
-      const baseStub = getStubConfig(integration) || getStubConfig("pp");
-      let merged = deepMerge(baseStub, this._userConfig);
+      const baseStub = getStubConfig(integration) || getStubConfig("pp")!;
+      const merged = deepMerge(baseStub, this._userConfig) as CardConfig;
 
       // Default for levels_* if not set
       Object.entries(LEVELS_DEFAULTS).forEach(([key, val]) => {
@@ -361,7 +418,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 15. Autofyll date_locale om inte explicit, baserat på HA language
       if (!this._localeExplicit) {
-        const detected = detectLang(this._hass, null);
+        const detected = detectLang(this._hass, undefined);
         const locale =
           this._hass?.locale?.language ||
           `${detected}-${detected.toUpperCase()}`;
@@ -386,7 +443,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         const ppDiscovery = discoverPpSensors(this._hass, false);
         if (ppDiscovery.locations.size > 0) {
           this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
-            .map(([key, loc]) => [key, loc.label])
+            .map(([key, loc]) => [key, loc.label] as InstalledLocation)
             .sort(([, a], [, b]) =>
               String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
             );
@@ -420,7 +477,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         const dwdDiscovery = discoverDwdSensors(this._hass, false);
         if (dwdDiscovery.locations.size > 0) {
           const entries = Array.from(dwdDiscovery.locations.entries())
-            .map(([key, loc]) => [key, loc.label]);
+            .map(([key, loc]) => [key, loc.label] as InstalledLocation);
           const allNumeric = entries.every(([k]) => /^\d+$/.test(String(k)));
           this.installedDwdLocations = allNumeric
             ? entries.sort(([a], [b]) => Number(a) - Number(b))
@@ -443,13 +500,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                     ? id.match(DWD_ENTITY_ID_RE)?.[2]
                     : null,
                 )
-                .filter(Boolean),
+                .filter((v): v is string => Boolean(v)),
             ),
           ).sort((a, b) => Number(a) - Number(b));
-          this.installedDwdLocations = this.installedRegionIds.map((id) => [
-            id,
-            `${id} — ${DWD_REGIONS[id] || id}`,
-          ]);
+          this.installedDwdLocations = this.installedRegionIds.map(
+            (id) => [id, `${id} — ${DWD_REGIONS[id] || id}`] as InstalledLocation,
+          );
         }
       }
       // 17. Auto-välj city/region om inte explicit
@@ -471,9 +527,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         if (
           integration === "silam" &&
           !this._userConfig.location &&
-          this.installedLocations.length
+          this.installedLocations!.length
         ) {
-          this._config.location = this.installedLocations[0];
+          this._config.location = this.installedLocations![0];
         }
       }
 
@@ -514,51 +570,46 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // and auto-detect the wrong integration (e.g., SILAM) if multiple integrations are installed.
       if (this._config.integration === "gpl" && this._hass) {
         const gplDiscovery = discoverGplSensors(this._hass, false);
-        this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
-          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        this.installedGplLocations = discoveryToLocations(gplDiscovery);
         const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
-        const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId, false);
-        this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+        const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId as string, false);
+        this.installedGplPlants = allGplAllergens.filter((k: string) => !GPL_BASE_ALLERGENS.includes(k));
       }
       // GP discovery
       if (this._config.integration === "gp" && this._hass) {
         const gpDiscovery = discoverGpSensors(this._hass, false);
-        this.installedGpLocations = Array.from(gpDiscovery.locations.entries())
-          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        this.installedGpLocations = discoveryToLocations(gpDiscovery);
         const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
-        const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId, false);
-        this.installedGpPlants = allGpAllergens.filter((k) => !GP_BASE_ALLERGENS.includes(k));
+        const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId as string, false);
+        this.installedGpPlants = allGpAllergens.filter((k: string) => !GP_BASE_ALLERGENS.includes(k));
       }
       // MSW discovery (same rationale as GPL/GP).
       if (this._config.integration === "msw" && this._hass) {
         const md = discoverMswSensors(this._hass, false);
-        this.installedMswLocations = Array.from(md.locations.entries())
-          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        this.installedMswLocations = discoveryToLocations(md);
       }
 
       // IRM KMI discovery (same rationale as GPL/GP/MSW).
       if (this._config.integration === "irmkmi" && this._hass) {
         const id = discoverIrmkmiSensors(this._hass, false);
-        this.installedIrmkmiLocations = Array.from(id.locations.entries())
-          .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        this.installedIrmkmiLocations = discoveryToLocations(id);
       }
 
       // SILAM discovery: run here too for same reason as GPL above
       if (this._config.integration === "silam" && this._hass) {
         const sd = discoverSilamSensors(this._hass, false);
         if (sd.locations.size > 0) {
-          this.installedSilamLocations = Array.from(sd.locations.entries())
-            .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+          this.installedSilamLocations = discoveryToLocations(sd);
         }
       }
     } catch (e) {
       console.error("pollenprognos-card-editor: Fel i setConfig:", e, config);
       throw e;
     }
-  }
+  };
 
-  set hass(hass) {
-    
+  set hass(hass: HomeAssistant) {
+
     if (this._hass === hass) return; // Avoid unnecessary work
     this._hass = hass;
     const explicit = this._integrationExplicit;
@@ -567,7 +618,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // card element and badge use. Destructure local aliases the rest of
     // set hass() already references; the lazy getters feed the installed-
     // location lists below without re-scanning the registry.
-    const detection = detectIntegrationStates(hass, { debug: this.debug });
+    const detection: DetectionResult = detectIntegrationStates(hass, {
+      debug: this.debug,
+    });
     // ppStates/dwdStates feed the regex fallbacks for the PP/DWD location
     // lists; the discovery objects/getters feed the installed-location lists.
     // Other per-integration state lists are only needed for the pick, which is
@@ -597,7 +650,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // Fall back to "pp" so a no-sensors hass never yields an undefined
     // integration (which would override the stub during merges and leave an
     // invalid id).
-    let integration =
+    const integration =
       pickIntegration(detection, {
         explicit,
         userIntegration: this._userConfig.integration,
@@ -611,26 +664,24 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // 1.1) GPL discovery — always run so render() and auto-select have data
     // (memoized via the shared detection result; no extra registry scan).
     const gplDiscovery = getGplDiscovery();
-    this.installedGplLocations = Array.from(gplDiscovery.locations.entries())
-      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+    this.installedGplLocations = discoveryToLocations(gplDiscovery);
 
     if (integration === "gpl") {
       const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
-      const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId, false);
-      this.installedGplPlants = allGplAllergens.filter((k) => !GPL_BASE_ALLERGENS.includes(k));
+      const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId as string, false);
+      this.installedGplPlants = allGplAllergens.filter((k: string) => !GPL_BASE_ALLERGENS.includes(k));
     } else {
       this.installedGplPlants = [];
     }
 
     // 1.2) GP discovery (gpDiscovery already resolved eagerly by the shared
     // detection above and destructured into scope).
-    this.installedGpLocations = Array.from(gpDiscovery.locations.entries())
-      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+    this.installedGpLocations = discoveryToLocations(gpDiscovery);
 
     if (integration === "gp") {
       const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
-      const allGpAllergens = discoverGpAllergens(hass, gpConfigEntryId, false);
-      this.installedGpPlants = allGpAllergens.filter((k) => !GP_BASE_ALLERGENS.includes(k));
+      const allGpAllergens = discoverGpAllergens(hass, gpConfigEntryId as string, false);
+      this.installedGpPlants = allGpAllergens.filter((k: string) => !GP_BASE_ALLERGENS.includes(k));
     } else {
       this.installedGpPlants = [];
     }
@@ -638,15 +689,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // 1.3) MSW discovery (always run so the editor dropdown is populated even
     // when MSW is not the active integration, mirroring GPL/GP).
     const mswDiscovery = getMswDiscovery();
-    this.installedMswLocations = Array.from(mswDiscovery.locations.entries())
-      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+    this.installedMswLocations = discoveryToLocations(mswDiscovery);
 
     // 1.3b) IRM KMI discovery (always run, same rationale as MSW). Without this,
     // when setConfig() runs before hass is assigned the location dropdown stays
     // empty and the auto-select branch never picks the detected location.
     const irmkmiDiscovery = getIrmkmiDiscovery();
-    this.installedIrmkmiLocations = Array.from(irmkmiDiscovery.locations.entries())
-      .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+    this.installedIrmkmiLocations = discoveryToLocations(irmkmiDiscovery);
 
     // 1.2) Set default mode for SILAM and PEU if not specified
     if (
@@ -657,12 +706,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     }
 
     // 2) Slå ihop stub + användar-config
-    const base = getStubConfig(integration) || getStubConfig("pp");
+    const base = getStubConfig(integration) || getStubConfig("pp")!;
 
     // Bygg merged-objekt (det är denna rad som saknas)
     
-    let merged = deepMerge(base, this._userConfig);
-    
+    const merged = deepMerge(base, this._userConfig) as CardConfig;
+
 
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
     if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
@@ -692,18 +741,17 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // PP: device-based discovery with legacy slug fallback (memoized).
       const ppDiscovery = getPpDiscovery();
       if (ppDiscovery.locations.size > 0) {
-        this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
-          .map(([key, loc]) => [key, loc.label]);
+        this.installedPpLocations = discoveryToLocations(ppDiscovery);
         // Legacy compatibility: if config.city is a slug not present as a key,
         // check if it matches via slug extractor and expose it as an extra entry.
-        const cfgCity = this._config?.city;
+        const cfgCity = this._config?.city as string | undefined;
         if (cfgCity && cfgCity !== "manual" && !ppDiscovery.locations.has(cfgCity)) {
           const match = findLocationBySlug(ppDiscovery, cfgCity, {
             slugExtractor: extractPpCitySlugFromEntityId,
           });
           if (match) {
             const [, loc] = match;
-            this.installedPpLocations.push([cfgCity, loc.label]);
+            this.installedPpLocations.push([cfgCity, loc.label] as InstalledLocation);
           }
         }
         // Sort by label so dropdown order stays stable across HA restarts
@@ -719,7 +767,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         // "salg_och_viden" don't truncate the city.
         const uniqKeys = Array.from(
           new Set(
-            ppStates.map((id) => extractPpCitySlugFromEntityId(id)).filter(Boolean),
+            ppStates
+              .map((id: string) => extractPpCitySlugFromEntityId(id))
+              .filter(Boolean),
           ),
         );
         this.installedCities = PP_POSSIBLE_CITIES.filter((city) =>
@@ -737,18 +787,17 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // DWD: device-based discovery with legacy region_id fallback (memoized).
       const dwdDiscovery = getDwdDiscovery();
       if (dwdDiscovery.locations.size > 0) {
-        this.installedDwdLocations = Array.from(dwdDiscovery.locations.entries())
-          .map(([key, loc]) => [key, loc.label]);
+        this.installedDwdLocations = discoveryToLocations(dwdDiscovery);
         // Legacy compatibility: if config.region_id is a numeric ID not present as a key,
         // expose it as an extra entry so the saved config remains visible.
-        const cfgRegion = this._config?.region_id;
+        const cfgRegion = this._config?.region_id as string | undefined;
         if (cfgRegion && cfgRegion !== "manual" && !dwdDiscovery.locations.has(cfgRegion)) {
           const match = findLocationBySlug(dwdDiscovery, cfgRegion, {
-            slugExtractor: (eid) => eid.match(/_(\d+)$/)?.[1] || null,
+            slugExtractor: (eid: string) => eid.match(/_(\d+)$/)?.[1] || null,
           });
           if (match) {
             const [, loc] = match;
-            this.installedDwdLocations.push([cfgRegion, loc.label]);
+            this.installedDwdLocations.push([cfgRegion, loc.label] as InstalledLocation);
           }
         }
         // Sort numerically when all keys are digit strings (legacy region IDs),
@@ -767,26 +816,24 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       } else {
         // Fallback to regex-based region ID extraction
         this.installedRegionIds = Array.from(
-          new Set(dwdStates.map((id) => id.split("_").pop())),
-        ).sort((a, b) => Number(a) - Number(b));
-        this.installedDwdLocations = this.installedRegionIds.map((id) => [
-          id,
-          `${id} — ${DWD_REGIONS[id] || id}`,
-        ]);
+          new Set(dwdStates.map((id: string) => id.split("_").pop())),
+        ).sort((a, b) => Number(a) - Number(b)) as string[];
+        this.installedDwdLocations = this.installedRegionIds.map(
+          (id) => [id, `${id} — ${DWD_REGIONS[id] || id}`] as InstalledLocation,
+        );
       }
 
       // PEU: device-based discovery with legacy location slug fallback.
       // Sort by label so the dropdown stays stable across HA restarts (memoized).
       const peuDiscovery = getPeuDiscovery();
       if (peuDiscovery.locations.size > 0) {
-        this.installedPeuLocations = Array.from(peuDiscovery.locations.entries())
-          .map(([key, loc]) => [key, loc.label])
-          .sort(([, a], [, b]) =>
+        this.installedPeuLocations = discoveryToLocations(peuDiscovery).sort(
+          ([, a], [, b]) =>
             String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
-          );
+        );
         // Legacy compatibility: if config.location is a slug not present as a key,
         // expose it as an extra entry so the saved config remains visible.
-        const cfgPeuLoc = this._config?.location;
+        const cfgPeuLoc = this._config?.location as string | undefined;
         if (
           cfgPeuLoc &&
           cfgPeuLoc !== "manual" &&
@@ -798,7 +845,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           });
           if (match) {
             const [, loc] = match;
-            this.installedPeuLocations.push([cfgPeuLoc, loc.label]);
+            this.installedPeuLocations.push([cfgPeuLoc, loc.label] as InstalledLocation);
           }
         }
       } else {
@@ -832,9 +879,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
       // Primärt: discovery-baserad SILAM location list
       if (silamDiscovery.locations.size > 0) {
-        this.installedSilamLocations = Array.from(
-          silamDiscovery.locations.entries(),
-        ).map(([configEntryId, loc]) => [configEntryId, loc.label]);
+        this.installedSilamLocations = discoveryToLocations(silamDiscovery);
 
         if (this.debug) {
           console.debug(
@@ -905,7 +950,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                 title = title.replace(/^[-\s]+/, "");
                 title = title.charAt(0).toUpperCase() + title.slice(1);
 
-                return [locationSlug, title];
+                return [locationSlug, title] as InstalledLocation;
               }),
           ),
         );
@@ -947,21 +992,20 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
               }
 
-              return [locationSlug, title];
+              return [locationSlug, title] as InstalledLocation;
             })
-            .filter((entry) => entry !== null),
+            .filter((entry): entry is InstalledLocation => entry !== null),
         ),
       );
 
       // Collect Atmo France locations (reuse discovery from autodetect above)
-      this.installedAtmoLocations = Array.from(atmoDiscovery.locations.entries())
-        .map(([configEntryId, loc]) => [configEntryId, loc.label]);
+      this.installedAtmoLocations = discoveryToLocations(atmoDiscovery);
 
       // Compatibility: if the config carries a legacy slug location
       // (e.g. "nice") that matches a discovered instance, expose the slug
       // as an extra dropdown entry so existing configs stay visible and
       // editable. Users can re-select the config_entry_id option to migrate.
-      const cfgLoc = this._config?.location;
+      const cfgLoc = this._config?.location as string | undefined;
       if (
         cfgLoc &&
         cfgLoc !== "manual" &&
@@ -970,7 +1014,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         const matchEntryId = findAtmoLocationBySlug(atmoDiscovery, cfgLoc);
         if (matchEntryId) {
           const label = atmoDiscovery.locations.get(matchEntryId).label;
-          this.installedAtmoLocations.push([cfgLoc, label]);
+          this.installedAtmoLocations.push([cfgLoc, label] as InstalledLocation);
         }
       }
 
@@ -1056,43 +1100,43 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this._initDone = true;
   }
 
-  _onAllergenToggle(allergen, checked) {
-    
+  override _onAllergenToggle = (allergen: string, checked: boolean): void => {
+
     if (
-      this._config.integration === "peu" &&
-      this._config.mode !== "daily" &&
+      this._config?.integration === "peu" &&
+      this._config?.mode !== "daily" &&
       allergen !== "allergy_risk" &&
       checked
     ) {
       this._updateConfig("mode", "daily");
     }
-    const set = new Set(this._config.allergens);
+    const set = new Set(this._config?.allergens as string[]);
     checked ? set.add(allergen) : set.delete(allergen);
-    
-    this._updateConfig("allergens", [...set]);
-  }
 
-  _toggleSelectAllAllergens(allergens) {
-    const current = new Set(this._config.allergens);
+    this._updateConfig("allergens", [...set]);
+  };
+
+  override _toggleSelectAllAllergens = (allergens: string[]): void => {
+    const current = new Set(this._config?.allergens as string[]);
     const allSelected = allergens.every((a) => current.has(a));
     if (
-      this._config.integration === "peu" &&
-      this._config.mode !== "daily" &&
+      this._config?.integration === "peu" &&
+      this._config?.mode !== "daily" &&
       !allSelected
     ) {
       this._updateConfig("mode", "daily");
     }
     const newSet = allSelected ? [] : allergens;
     this._updateConfig("allergens", [...newSet]);
-  }
+  };
 
   /**
    * Toggle a subset of allergens without affecting other selections.
    * If all subset items are selected → remove only those.
    * Otherwise → add all subset items (keeping existing selections).
    */
-  _toggleAllergenSubset(subset) {
-    const current = new Set(this._config.allergens);
+  override _toggleAllergenSubset = (subset: string[]): void => {
+    const current = new Set(this._config?.allergens as string[]);
     const allSelected = subset.every((a) => current.has(a));
     if (allSelected) {
       subset.forEach((a) => current.delete(a));
@@ -1100,15 +1144,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       subset.forEach((a) => current.add(a));
     }
     this._updateConfig("allergens", [...current]);
-  }
+  };
 
-  _updateConfig(prop, value) {
+  override _updateConfig = (prop: string, value: unknown): void => {
     if (this.debug)
       console.debug("[Editor] _updateConfig – prop:", prop, "value:", value);
 
     // Handle sort changes - uncheck special sort options when sort is set to 'none'
     if (prop === "sort" && value === "none") {
-      const newConfig = { ...this._config, sort: value };
+      const newConfig: CardConfig = { ...this._config, sort: value };
 
       // Uncheck incompatible special sort options
       if (
@@ -1229,10 +1273,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       return;
     }
     const newUser = { ...this._userConfig };
-    let cfg;
+    let cfg: CardConfig;
 
     if (prop === "integration") {
-      const newInt = value;
+      const newInt = value as string | undefined;
       const oldInt = this._config.integration;
       if (newInt !== oldInt) {
         delete newUser.city;
@@ -1260,9 +1304,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         delete newUser.show_summary_plants_in_season;
         this._allergensExplicit = false;
       }
-      const base = getStubConfig(newInt) || getStubConfig("pp");
+      const base = getStubConfig(newInt) || getStubConfig("pp")!;
 
-      cfg = deepMerge(base, newUser);
+      cfg = deepMerge(base, newUser) as CardConfig;
       cfg.integration = newInt;
 
       // _userConfig becomes the pruned user-origin config (location/allergen
@@ -1274,7 +1318,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this._userConfig = newUser;
       this._integrationExplicit = true;
     } else {
-      cfg = { ...this._config, [prop]: value };
+      cfg = { ...this._config, [prop]: value } as CardConfig;
 
       // _userConfig is synced to the full set of changed keys below (after all
       // side-effects are applied), so it stays a faithful user-origin view even
@@ -1322,9 +1366,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           cfg.days_to_show = this._config.integration === "silam" ? 5 : 4;
           if (this._config.integration === "peu") {
             // Check if we're switching from non-daily mode (which only has allergy_risk)
-            const currentAllergens = this._config.allergens || [];
-            const isComingFromNonDaily = 
-              currentAllergens.length === 1 && 
+            const currentAllergens = (this._config.allergens as string[]) || [];
+            const isComingFromNonDaily =
+              currentAllergens.length === 1 &&
               currentAllergens[0] === "allergy_risk";
             
             // Reset allergens to defaults when:
@@ -1356,7 +1400,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
       // Tvinga mode till daily om location saknar weather-entity
       if (this._config.integration === "silam" && prop === "location") {
-        if (!this._hasSilamWeatherEntity(value, cfg.entity_weather)) {
+        if (
+          !this._hasSilamWeatherEntity(
+            value as string,
+            cfg.entity_weather as string,
+          )
+        ) {
           cfg.mode = "daily";
           cfg.days_to_show = 2;
         }
@@ -1392,9 +1441,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     } else {
       this._config = cfg;
     }
-  }
+  };
 
-  render() {
+  override render(): TemplateResult {
     // Compute locals needed by the inline sections (§3, §4, §7, §8, §9, §10, §11).
     // Sections §1, §2, §5 are rendered via inherited base methods.
     const c = this._editorConfig();
@@ -1436,8 +1485,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           <ha-formfield label="${this._t("minimal")}">
             <ha-switch
               .checked=${c.minimal}
-              @change=${(e) =>
-                this._updateConfig("minimal", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("minimal", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <div class="field-helper">${this._t("helper_minimal")}</div>
@@ -1449,12 +1498,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                     max="100"
                     step="1"
                     .value=${c.minimal_gap ?? 35}
-                    @input=${(e) =>
-                      this._updateConfig("minimal_gap", Number(e.target.value))}
+                    @input=${(e: Event) =>
+                      this._updateConfig("minimal_gap", Number((e.target as HTMLInputElement).value))}
                     style="width: 120px;"
                   ></ha-slider>
                   ${this._renderNumberField({
-                    value: c.minimal_gap ?? 35,
+                    value: (c.minimal_gap as number) ?? 35,
                     min: 0,
                     max: 100,
                     step: 1,
@@ -1469,10 +1518,10 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           >
             <ha-checkbox
               .checked=${c.show_allergen_column !== false}
-              @change=${(e) =>
+              @change=${(e: Event) =>
                 this._updateConfig(
                   "show_allergen_column",
-                  e.target.checked,
+                  (e.target as HTMLInputElement).checked,
                 )}
             ></ha-checkbox>
           </ha-formfield>
@@ -1480,15 +1529,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           <ha-formfield label="${this._t("show_text_allergen")}">
             <ha-switch
               .checked=${c.show_text_allergen}
-              @change=${(e) =>
-                this._updateConfig("show_text_allergen", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("show_text_allergen", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("allergens_abbreviated")}">
             <ha-switch
               .checked=${c.allergens_abbreviated}
-              @change=${(e) =>
-                this._updateConfig("allergens_abbreviated", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("allergens_abbreviated", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
         </details>
@@ -1515,29 +1564,29 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           <ha-formfield label="${this._t("show_value_text")}">
             <ha-switch
               .checked=${c.show_value_text}
-              @change=${(e) =>
-                this._updateConfig("show_value_text", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("show_value_text", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("show_value_numeric")}">
             <ha-switch
               .checked=${c.show_value_numeric}
-              @change=${(e) =>
-                this._updateConfig("show_value_numeric", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("show_value_numeric", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("show_empty_days")}">
             <ha-switch
               .checked=${c.show_empty_days}
-              @change=${(e) =>
-                this._updateConfig("show_empty_days", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("show_empty_days", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("show_no_data_distinct")}">
             <ha-switch
               .checked=${c.show_no_data_distinct !== false}
-              @change=${(e) =>
-                this._updateConfig("show_no_data_distinct", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("show_no_data_distinct", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <!-- The level/raw numeric toggle (numeric_value_raw) lives in the
@@ -1549,29 +1598,29 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           <ha-formfield label="${this._t("days_relative")}">
             <ha-switch
               .checked=${c.days_relative}
-              @change=${(e) =>
-                this._updateConfig("days_relative", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("days_relative", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("days_abbreviated")}">
             <ha-switch
               .checked=${c.days_abbreviated}
-              @change=${(e) =>
-                this._updateConfig("days_abbreviated", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("days_abbreviated", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("days_uppercase")}">
             <ha-switch
               .checked=${c.days_uppercase}
-              @change=${(e) =>
-                this._updateConfig("days_uppercase", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("days_uppercase", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="${this._t("days_boldfaced")}">
             <ha-switch
               .checked=${c.days_boldfaced}
-              @change=${(e) =>
-                this._updateConfig("days_boldfaced", e.target.checked)}
+              @change=${(e: Event) =>
+                this._updateConfig("days_boldfaced", (e.target as HTMLInputElement).checked)}
             ></ha-switch>
           </ha-formfield>
           <div class="slider-row">
@@ -1584,7 +1633,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   ? this._t("to_show_hours")
                   : this._t("to_show_days")}
             </div>
-            <div class="slider-value">${formatNumberForInput(c.days_to_show, this._hass)}</div>
+            <div class="slider-value">${formatNumberForInput(c.days_to_show as number, this._hass)}</div>
             <ha-slider
               min="0"
               max="${(c.integration === "silam" || c.integration === "peu") &&
@@ -1593,8 +1642,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                 : 6}"
               step="1"
               .value=${c.days_to_show}
-              @input=${(e) =>
-                this._updateConfig("days_to_show", Number(e.target.value))}
+              @input=${(e: Event) =>
+                this._updateConfig("days_to_show", Number((e.target as HTMLInputElement).value))}
             ></ha-slider>
           </div>
         </details>
@@ -1620,7 +1669,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     `;
   }
 
-  static get styles() {
+  static override get styles() {
     return css`
       /* pollenprognos-card-editor styles */
 

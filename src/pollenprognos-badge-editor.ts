@@ -3,7 +3,7 @@
 // Visual editor for the pollenprognos-badge element.
 // Extends PollenEditorBase to share integration/location and allergen sections.
 
-import { html, css } from "lit";
+import { html, css, type TemplateResult, type PropertyDeclarations } from "lit";
 import { getStubConfig } from "./adapter-registry.js";
 import {
   PollenEditorBase,
@@ -11,7 +11,6 @@ import {
   sectionResetStyles,
   editorControlStyles,
 } from "./editor/base.js";
-import { LEVELS_DEFAULTS } from "./utils/levels-defaults.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -21,13 +20,21 @@ import {
   autoSelectLocation,
 } from "./utils/autodetect.js";
 import { extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
+import type { HomeAssistant } from "./types/home-assistant.js";
+import type { CardConfig, RawCardConfig } from "./types/config.js";
+import type { InstalledLocation } from "./editor/types.js";
+
+// The autodetect module (src/utils/autodetect.js) is still untyped JS; its
+// return shape (memoized discovery getters, state buckets) is typed properly in
+// a later PR. Until then the detection object crosses this boundary as `any`.
+type DetectionResult = any;
 
 class PollenPrognosBadgeEditor extends PollenEditorBase {
   // ------------------------------------------------------------------ //
   // Reactive properties                                                  //
   // ------------------------------------------------------------------ //
 
-  static get properties() {
+  static override get properties(): PropertyDeclarations {
     return {
       _config: { type: Object },
       hass: { type: Object },
@@ -46,15 +53,17 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    *
    * @param {object} config
    */
-  setConfig(config) {
+  override setConfig = (config: RawCardConfig): void => {
     // Normalize integration (trim + lowercase) to match badge element behaviour.
-    let integration = config.integration;
+    let integration: unknown = config.integration;
     if (integration && typeof integration === "string") {
       integration = integration.trim().toLowerCase();
     }
 
-    const stub = getStubConfig(integration) || getStubConfig("pp");
-    if (!integration) integration = stub.integration;
+    const stub =
+      getStubConfig(typeof integration === "string" ? integration : undefined) ||
+      getStubConfig("pp");
+    if (!integration) integration = stub?.integration;
 
     // Defensive type-guards (repo policy) on badge-specific fields.
     const badgeContent =
@@ -73,13 +82,15 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ? config.badge_label_position
         : undefined;
 
+    // The pre-spread badge_content/badge_show_label defaults the JS version set
+    // before `...config` are unconditionally re-set after the spread (badgeContent
+    // always resolves to a string, badgeShowLabel to a boolean), so they are
+    // dropped here to avoid a duplicate-key literal; the result is identical.
     this._config = {
       ...stub,
       icon_in_ring: true,
-      badge_content: "worst",
-      badge_show_label: false,
       ...config,
-      integration,
+      integration: integration as string,
       badge_content: badgeContent,
       badge_show_label: badgeShowLabel,
       ...(badgeSingleAllergen !== undefined
@@ -90,7 +101,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       ...(badgeLabelPosition !== undefined
         ? { badge_label_position: badgeLabelPosition }
         : {}),
-    };
+    } as unknown as CardConfig;
 
     // Persist only what the user actually set. _config above is the stub-merged
     // view used for rendering the editor; _userConfig is the raw incoming
@@ -113,7 +124,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // intentionally NOT seeded; the shared phrases section derives the shown
     // language at render time.
     this._autofillDateLocale();
-  }
+  };
 
   // ------------------------------------------------------------------ //
   // hass setter                                                          //
@@ -128,7 +139,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    *
    * @param {object} hass
    */
-  set hass(hass) {
+  set hass(hass: HomeAssistant | undefined) {
     const changed = this._hass !== hass;
     this._hass = hass;
 
@@ -145,7 +156,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.requestUpdate();
   }
 
-  get hass() {
+  get hass(): HomeAssistant | undefined {
     return this._hass;
   }
 
@@ -168,8 +179,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return { pp: "city", dwd: "region_id" };
   }
 
-  _locationKeyFor(integration) {
-    return PollenPrognosBadgeEditor._LOCATION_KEYS[integration] || "location";
+  _locationKeyFor(integration: string | undefined): string {
+    const keys = PollenPrognosBadgeEditor._LOCATION_KEYS as Record<
+      string,
+      string
+    >;
+    return keys[integration ?? ""] || "location";
   }
 
   /**
@@ -182,12 +197,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    * @param {ReturnType<typeof detectIntegrationStates>} detection
    * @param {object} hass
    */
-  _populateInstalledLocations(detection, hass) {
-    const toList = (discovery) =>
-      Array.from(discovery.locations.entries()).map(([key, loc]) => [
-        key,
-        loc.label,
-      ]);
+  _populateInstalledLocations(detection: DetectionResult, hass: HomeAssistant): void {
+    const toList = (discovery: {
+      locations: Map<string, { label: string }>;
+    }): InstalledLocation[] =>
+      Array.from(discovery.locations.entries()).map(
+        ([key, loc]) => [key, loc.label] as InstalledLocation,
+      );
 
     // PP / DWD / PEU via memoized discovery getters.
     const ppDiscovery = detection.getPpDiscovery();
@@ -196,19 +212,19 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       : Array.from(
           new Set(
             detection.states.pp
-              .map((id) => extractPpCitySlugFromEntityId(id))
+              .map((id: string) => extractPpCitySlugFromEntityId(id))
               .filter(Boolean),
           ),
-        ).map((slug) => [slug, slug]);
+        ).map((slug) => [slug, slug] as InstalledLocation);
 
     const dwdDiscovery = detection.getDwdDiscovery();
     this.installedDwdLocations = dwdDiscovery.locations.size
       ? toList(dwdDiscovery)
       : Array.from(
-          new Set(detection.states.dwd.map((id) => id.split("_").pop())),
+          new Set(detection.states.dwd.map((id: string) => id.split("_").pop())),
         )
           .sort((a, b) => Number(a) - Number(b))
-          .map((id) => [id, id]);
+          .map((id) => [id, id] as InstalledLocation);
 
     const peuDiscovery = detection.getPeuDiscovery();
     this.installedPeuLocations = peuDiscovery.locations.size
@@ -216,10 +232,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       : Array.from(
           new Set(
             detection.states.peu
-              .map((eid) => hass.states[eid]?.attributes?.location_slug || null)
+              .map(
+                (eid: string) =>
+                  hass.states[eid]?.attributes?.location_slug || null,
+              )
               .filter(Boolean),
           ),
-        ).map((slug) => [slug, slug]);
+        ).map((slug) => [slug, slug] as InstalledLocation);
 
     // SILAM / Atmo / GP via eager discovery; GPL / MSW via memoized getters.
     this.installedSilamLocations = toList(detection.discovery.silam);
@@ -233,7 +252,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.installedKleenexLocations = Array.from(
       new Set(
         detection.stateIds
-          .map((id) => {
+          .map((id: string) => {
             const m =
               typeof id === "string" &&
               id.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
@@ -241,7 +260,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           })
           .filter(Boolean),
       ),
-    ).map((slug) => [slug, slug]);
+    ).map((slug) => [slug, slug] as InstalledLocation);
   }
 
   /**
@@ -253,13 +272,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    * @param {ReturnType<typeof detectIntegrationStates>} detection
    * @param {object} hass
    */
-  _maybeAutofill(detection, hass) {
+  _maybeAutofill(detection: DetectionResult, hass: HomeAssistant): void {
     const userSetIntegration = Object.prototype.hasOwnProperty.call(
       this._userConfig || {},
       "integration",
     );
 
-    const next = { ...this._config };
+    const next = { ...this._config } as CardConfig;
 
     if (!userSetIntegration) {
       const picked = pickIntegration(detection, { explicit: false });
@@ -275,7 +294,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       locKey,
     );
     if (!userSetLocation && next[locKey] !== "manual" && !next[locKey]) {
-      const sel = autoSelectLocation(integration, next, hass, detection);
+      const sel = autoSelectLocation(integration as string, next, hass, detection);
       if (sel) next[sel.key] = sel.value;
     }
 
@@ -308,7 +327,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    * @param {string} prop
    * @param {*} value
    */
-  _updateConfig(prop, value) {
+  override _updateConfig = (prop: string, value: unknown): void => {
     if (!this._config) return;
 
     // Integration change: drop the previous integration's location and
@@ -329,8 +348,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       this._userConfig = this._userConfig || {};
       for (const k of INTEGRATION_SCOPED) delete this._userConfig[k];
       this._userConfig.integration = value;
-      const stub = getStubConfig(value) || getStubConfig("pp");
-      this._config = deepMerge(stub, this._userConfig);
+      const stub =
+        getStubConfig(value as string | undefined) || getStubConfig("pp");
+      this._config = deepMerge(
+        (stub ?? {}) as Record<string, unknown>,
+        this._userConfig,
+      ) as CardConfig;
       // In single mode the cleared badge_single_allergen would leave the badge
       // with no named allergen on the new integration, so the preview falls back
       // to "worst" while the picker shows the new integration's first allergen.
@@ -342,7 +365,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           this._userConfig.badge_single_allergen = first;
           this._config = deepMerge(this._config, {
             badge_single_allergen: first,
-          });
+          }) as CardConfig;
         }
       }
       this.dispatchEvent(
@@ -365,9 +388,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     if (result.thicknessAutoShifted !== null) {
       this._thicknessAutoShifted = result.thicknessAutoShifted;
     }
-    const after = result.handled
-      ? result.config
-      : deepMerge(before, { [prop]: value });
+    const after = (
+      result.handled
+        ? result.config
+        : deepMerge(before, { [prop]: value })
+    ) as CardConfig;
 
     // Persist only user-origin keys: the edited prop plus any key the
     // side-effects actually changed (diffed against the pre-edit config). This
@@ -389,22 +414,22 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         composed: true,
       }),
     );
-  }
+  };
 
   // A badge has no ha-card chrome and shows today's value only, so the shared
   // Integration/Location section must not offer the card-only Title controls or
   // the forecast-mode selector (the badge element forces mode to "daily").
-  _showTitleSection() {
+  override _showTitleSection(): boolean {
     return false;
   }
 
-  _showModeSelector() {
+  override _showModeSelector(): boolean {
     return false;
   }
 
   // The numeric-value-in-circle switch is driven by badge_visual (ring_value)
   // on the badge, so the §7 toggle would be a false affordance — hide it.
-  _showNumericInCircleToggle() {
+  override _showNumericInCircleToggle(): boolean {
     return false;
   }
 
@@ -412,7 +437,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // for whether the icon sits in the ring, so the §8 on/off checkbox would be
   // a false affordance here — hide it. The ring sub-fields (size ratio, colour)
   // remain available for tuning the icon_in_ring visual mode.
-  _showIconInRingToggle() {
+  override _showIconInRingToggle(): boolean {
     return false;
   }
 
@@ -422,15 +447,15 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // set; the badge editor has no abbreviated toggle, but a YAML config can set
   // it, in which case the short names DO show -- so expose the short-name fields
   // only when allergens_abbreviated is enabled.
-  _showPhraseShort() {
+  override _showPhraseShort(): boolean {
     return this._editorConfig()?.allergens_abbreviated === true;
   }
 
-  _showPhraseLevels() {
+  override _showPhraseLevels(): boolean {
     return false;
   }
 
-  _showPhraseDays() {
+  override _showPhraseDays(): boolean {
     return false;
   }
 
@@ -438,20 +463,20 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // Allergen toggle helpers (required by _renderAllergensSection)        //
   // ------------------------------------------------------------------ //
 
-  _onAllergenToggle(allergen, checked) {
-    const set = new Set(this._config.allergens || []);
+  override _onAllergenToggle = (allergen: string, checked: boolean): void => {
+    const set = new Set((this._config?.allergens as string[]) || []);
     checked ? set.add(allergen) : set.delete(allergen);
     this._updateConfig("allergens", [...set]);
-  }
+  };
 
-  _toggleSelectAllAllergens(allergens) {
-    const current = new Set(this._config.allergens || []);
+  override _toggleSelectAllAllergens = (allergens: string[]): void => {
+    const current = new Set((this._config?.allergens as string[]) || []);
     const allSelected = allergens.every((a) => current.has(a));
     this._updateConfig("allergens", allSelected ? [] : [...allergens]);
-  }
+  };
 
-  _toggleAllergenSubset(subset) {
-    const current = new Set(this._config.allergens || []);
+  override _toggleAllergenSubset = (subset: string[]): void => {
+    const current = new Set((this._config?.allergens as string[]) || []);
     const allSelected = subset.every((a) => current.has(a));
     if (allSelected) {
       subset.forEach((a) => current.delete(a));
@@ -459,13 +484,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       subset.forEach((a) => current.add(a));
     }
     this._updateConfig("allergens", [...current]);
-  }
+  };
 
   // ------------------------------------------------------------------ //
   // Badge content section (badge-editor only — not shared)              //
   // ------------------------------------------------------------------ //
 
-  _renderBadgeContentSection() {
+  _renderBadgeContentSection(): TemplateResult {
     const c = this._editorConfig();
     const allergens = this._currentAllergens();
 
@@ -498,7 +523,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               },
             }}
             .value=${typeof c.badge_visual === "string" ? c.badge_visual : "icon_in_ring"}
-            @value-changed=${(e) => {
+            @value-changed=${(e: CustomEvent) => {
               const v = e.detail?.value;
               if (v !== undefined) this._updateConfig("badge_visual", v);
             }}
@@ -521,7 +546,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               },
             }}
             .value=${c.badge_content || "worst"}
-            @value-changed=${(e) => {
+            @value-changed=${(e: CustomEvent) => {
               const v = e.detail?.value;
               if (v === undefined) return;
               // Switching to "single" commits the default allergen the dropdown
@@ -555,7 +580,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                     },
                   }}
                   .value=${c.badge_single_allergen || allergens[0] || ""}
-                  @value-changed=${(e) => {
+                  @value-changed=${(e: CustomEvent) => {
                     const v = e.detail?.value;
                     if (v !== undefined)
                       this._updateConfig("badge_single_allergen", v);
@@ -570,31 +595,31 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   // Hide the card-only size controls (icon_size / text_size_ratio) in the
   // shared Card appearance section; the badge uses badge_scale instead.
-  _showCardSizeControls() {
+  override _showCardSizeControls(): boolean {
     return false;
   }
 
   // A badge is not a card: rename the shared appearance section accordingly.
   // The size controls (badge_scale, badge_icon_scale) stay here, so the helper
   // mentions size rather than just background/label.
-  _appearanceSectionTitle() {
+  override _appearanceSectionTitle(): string {
     return this._t("summary_badge_appearance");
   }
-  _appearanceSectionHelper() {
+  override _appearanceSectionHelper(): string {
     return this._t("helper_badge_appearance");
   }
 
   // The Advanced section's version string should read "Badge", not "Card".
-  _versionLabel() {
+  override _versionLabel(): string {
     return this._t("badge_version");
   }
 
   // A badge is not a card: override the shared interactions section title and
   // helper with badge-specific keys so both speak of tapping the badge.
-  _interactivitySectionTitle() {
+  override _interactivitySectionTitle(): string {
     return this._t("summary_badge_interactivity");
   }
-  _interactivitySectionHelper() {
+  override _interactivitySectionHelper(): string {
     return this._t("helper_badge_interactivity");
   }
 
@@ -602,7 +627,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // live in this section via _renderAppearanceExtras. Includes badge_icon_scale
   // (rendered in every visual mode), so resetting the section clears every
   // control it shows.
-  _appearanceResetKeys() {
+  override _appearanceResetKeys(): string[] {
     return [
       ...super._appearanceResetKeys(),
       "badge_scale",
@@ -615,7 +640,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // Badge size + label controls, rendered inside the shared Card appearance
   // section so badge size lives where card size lives (recognisable to users
   // of the card editor).
-  _renderAppearanceExtras() {
+  override _renderAppearanceExtras() {
     const c = this._editorConfig();
     return html`
       <!-- badge_scale: overall badge size multiplier -->
@@ -625,8 +650,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           max="3"
           step="0.1"
           .value=${typeof c.badge_scale === "number" ? c.badge_scale : 1}
-          @input=${(e) =>
-            this._updateConfig("badge_scale", Number(e.target.value))}
+          @input=${(e: Event) =>
+            this._updateConfig(
+              "badge_scale",
+              Number((e.target as HTMLInputElement).value),
+            )}
           style="width: 120px;"
         ></ha-slider>
         ${this._renderNumberField({
@@ -650,8 +678,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           .value=${typeof c.badge_icon_scale === "number"
             ? c.badge_icon_scale
             : 1}
-          @input=${(e) =>
-            this._updateConfig("badge_icon_scale", Number(e.target.value))}
+          @input=${(e: Event) =>
+            this._updateConfig(
+              "badge_icon_scale",
+              Number((e.target as HTMLInputElement).value),
+            )}
           style="width: 120px;"
         ></ha-slider>
         ${this._renderNumberField({
@@ -667,8 +698,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       <ha-formfield label="${this._t("badge_show_label")}">
         <ha-switch
           .checked=${c.badge_show_label === true}
-          @change=${(e) =>
-            this._updateConfig("badge_show_label", e.target.checked)}
+          @change=${(e: Event) =>
+            this._updateConfig(
+              "badge_show_label",
+              (e.target as HTMLInputElement).checked,
+            )}
         ></ha-switch>
       </ha-formfield>
 
@@ -687,7 +721,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                   },
                 }}
                 .value=${typeof c.badge_label_position === "string" ? c.badge_label_position : "right"}
-                @value-changed=${(e) => {
+                @value-changed=${(e: CustomEvent) => {
                   const v = e.detail?.value;
                   if (v !== undefined) this._updateConfig("badge_label_position", v);
                 }}
@@ -702,7 +736,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // Render                                                               //
   // ------------------------------------------------------------------ //
 
-  render() {
+  override render(): TemplateResult {
     if (!this._config) return html``;
 
     return html`
@@ -731,7 +765,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // Styles                                                               //
   // ------------------------------------------------------------------ //
 
-  static get styles() {
+  static override get styles() {
     return css`
       .card-config {
         display: flex;
