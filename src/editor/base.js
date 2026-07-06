@@ -81,6 +81,15 @@ import { resolveAllergenPhrase } from "../utils/allergen-label.js";
 import { numLevelsForIntegration } from "../utils/level-counts.js";
 import { allergenListForIntegration } from "./integration-allergens.js";
 import {
+  APPEARANCE_RESET_KEYS,
+  ALLERGEN_ICONS_RESET_KEYS,
+  LEVEL_CIRCLES_RESET_KEYS,
+  ICON_IN_RING_RESET_KEYS,
+  INTEGRATION_RESET_KEYS,
+  ALLERGENS_RESET_KEYS,
+  PHRASES_RESET_KEYS,
+} from "./reset-registry.js";
+import {
   PP_POSSIBLE_CITIES,
   DWD_REGIONS,
   toCanonicalAllergenKey,
@@ -3245,7 +3254,7 @@ export class PollenEditorBase extends LitElement {
   // Keys reset by the Card appearance (§5) section button. The badge editor
   // overrides this to add its badge_* size/label keys.
   _appearanceResetKeys() {
-    return ["background_color", "icon_size", "text_size_ratio"];
+    return [...APPEARANCE_RESET_KEYS];
   }
 
   // Keys reset by the Allergen icons (§6) section button. levels_gap is
@@ -3254,14 +3263,7 @@ export class PollenEditorBase extends LitElement {
   // unsynced the gap or picked custom mode, levels_gap is owned by the §7 Level
   // circles section and an icon reset must not clear it.
   _allergenIconsResetKeys() {
-    const keys = [
-      "allergen_color_mode",
-      "allergen_colors",
-      "allergen_outline_color",
-      "allergen_stroke_color_synced",
-      "allergen_stroke_width",
-      "no_allergens_color",
-    ];
+    const keys = [...ALLERGEN_ICONS_RESET_KEYS];
     const { inheritMode, gapDisabled } = this._inheritState();
     // In inherit_allergen mode the allergen settings DERIVE level keys via
     // _applyVisualConfigSideEffects: allergen_stroke_width -> levels_gap (when
@@ -3274,22 +3276,7 @@ export class PollenEditorBase extends LitElement {
 
   // Keys reset by the Level circles (§7) section button.
   _levelCirclesResetKeys() {
-    return [
-      "levels_inherit_mode",
-      "levels_colors",
-      "levels_empty_color",
-      "levels_thickness",
-      "levels_gap",
-      "levels_gap_color",
-      "levels_icon_ratio",
-      "levels_text_size",
-      "levels_text_color",
-      "levels_text_weight",
-      "allergen_levels_gap_synced",
-      "numeric_value_raw",
-      "numeric_state_raw_risk",
-      "show_value_numeric_in_circle",
-    ];
+    return [...LEVEL_CIRCLES_RESET_KEYS];
   }
 
   // Keys reset by the Icon in ring (§8) section button. levels_thickness is
@@ -3298,12 +3285,7 @@ export class PollenEditorBase extends LitElement {
   // feature off via reset would leave the rings unexpectedly thin. A
   // user-customized thickness is owned by §7 and left untouched.
   _iconInRingResetKeys() {
-    const keys = [
-      "icon_in_ring",
-      "icon_in_ring_color_mode",
-      "icon_in_ring_size_ratio",
-      "icon_in_ring_static_color",
-    ];
+    const keys = [...ICON_IN_RING_RESET_KEYS];
     if (this._thicknessAutoShifted) keys.push("levels_thickness");
     return keys;
   }
@@ -3318,15 +3300,7 @@ export class PollenEditorBase extends LitElement {
   // defaults. Other integrations have no mode control here, so those keys are
   // left to the Day display (§4) reset.
   _integrationResetKeys() {
-    const keys = [
-      "city",
-      "region_id",
-      "location",
-      "entity_prefix",
-      "entity_suffix",
-      "entity_weather",
-      "title",
-    ];
+    const keys = [...INTEGRATION_RESET_KEYS];
     const integration = this._config?.integration;
     if (integration === "silam" || integration === "peu") {
       keys.push("mode", "days_to_show", "show_empty_days");
@@ -3337,28 +3311,13 @@ export class PollenEditorBase extends LitElement {
   // Keys reset by the Allergens (§2) section button: selection, threshold,
   // sort, pin-to-top, and the summary/pollution-block toggles.
   _allergensResetKeys() {
-    return [
-      "allergens",
-      "pollen_threshold",
-      "sort",
-      "sort_category_allergens_first",
-      "sort_pollution_block",
-      "pollution_block_position",
-      "show_block_separator",
-      "show_summary_block",
-      "show_summary_row",
-      "show_summary_separator",
-      "show_summary_top_types",
-      "show_summary_plants_in_season",
-      "allergy_risk_top",
-      "index_top",
-    ];
+    return [...ALLERGENS_RESET_KEYS];
   }
 
   // Keys reset by the Translations & strings (§9) section button: custom
   // allergen/level/day phrase overrides and the date locale (which re-autofills
   // from the HA locale afterwards).
   _phrasesResetKeys() {
-    return ["phrases", "date_locale"];
+    return [...PHRASES_RESET_KEYS];
   }
 }
