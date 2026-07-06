@@ -40,10 +40,6 @@ import { t, detectLang } from "../i18n.js";
 import { normalize } from "../utils/normalize.js";
 import { slugify } from "../utils/slugify.js";
 import {
-  formatNumberForInput,
-  parseLocaleNumber,
-} from "../utils/number-format.js";
-import {
   LEVELS_DEFAULTS,
   convertStrokeWidthToGap,
   NORMAL_DEFAULT_THICKNESS,
@@ -109,6 +105,12 @@ import { renderIconInRingSection } from "./sections/icon-in-ring.js";
 import { renderPhrasesSection } from "./sections/phrases.js";
 import { renderAdvancedSection } from "./sections/advanced.js";
 import { renderInteractionSection } from "./sections/interactions.js";
+import {
+  renderNumberField,
+  renderTextField,
+  renderResetButton,
+  renderTextButton,
+} from "./field-renderers.js";
 
 // deepMerge and the shared style blocks live in ./utils.js; re-exported here so
 // the subclasses' `import { deepMerge, sectionResetStyles, editorControlStyles }
@@ -394,117 +396,20 @@ export class PollenEditorBase extends LitElement {
             : { min: 0, max: 6, step: 1 };
   }
 
-  /**
-   * Render a locale-aware numeric input. Uses our own native `<input>` (HA
-   * removed `ha-textfield` in 2026.6) styled via `.pp-input`. Honours the HA
-   * profile's number_format instead of the browser/OS locale and accepts either
-   * decimal separator. Commits on `change` (blur/enter) so a config-driven
-   * re-render doesn't reset the box mid-typing; the paired `<ha-slider>` keeps
-   * live preview while dragging.
-   */
-  _renderNumberField({
-    value,
-    min,
-    max,
-    step,
-    onValue,
-    width = "80px",
-    disabled = false,
-  }) {
-    const isInt = Number.isInteger(step ?? 1);
-    return html`
-      <input
-        class="pp-input num-field"
-        type="text"
-        inputmode=${isInt ? "numeric" : "decimal"}
-        .value=${formatNumberForInput(value, this._hass)}
-        ?disabled=${disabled}
-        style="width: ${width};"
-        @change=${(e) => {
-          let n = parseLocaleNumber(e.target.value, this._hass);
-          if (n === null) {
-            // Invalid/empty input: restore the displayed value from config.
-            // Assigning .value directly is required because Lit dirty-checks the
-            // bound .value expression: when the config is unchanged a re-render
-            // won't write back, so the invalid text would otherwise persist.
-            e.target.value = formatNumberForInput(value, this._hass);
-            return;
-          }
-          if (typeof min === "number") n = Math.max(min, n);
-          if (typeof max === "number") n = Math.min(max, n);
-          if (isInt) n = Math.round(n);
-          // Normalise the displayed text to the canonical formatted value so
-          // clamped/reformatted input (e.g. "999" -> "3", a different
-          // separator, trailing zeros) is reflected even when the resulting
-          // config value is unchanged (same Lit dirty-check caveat).
-          e.target.value = formatNumberForInput(n, this._hass);
-          onValue(n);
-        }}
-      />
-    `;
+  _renderNumberField(opts) {
+    return renderNumberField(this, opts);
   }
 
-  /**
-   * Render a text input using our own native `<input>` (`.pp-input`), replacing
-   * HA's removed `ha-textfield`. Commits live on `input`, mirroring the previous
-   * `ha-textfield @input` behaviour. `onInput` receives the raw string value.
-   */
-  _renderTextField({
-    value,
-    onInput,
-    placeholder = "",
-    width = "",
-    type = "text",
-    disabled = false,
-  }) {
-    return html`
-      <input
-        class="pp-input"
-        type=${type}
-        .value=${value ?? ""}
-        placeholder=${placeholder}
-        ?disabled=${disabled}
-        style=${width ? `width: ${width};` : ""}
-        @input=${(e) => onInput(e.target.value)}
-      />
-    `;
+  _renderTextField(opts) {
+    return renderTextField(opts);
   }
 
-  /**
-   * Render the round reset (↺) button using a native `<button>`
-   * (`.pp-icon-button`), replacing HA's migrated `ha-button`.
-   */
-  _renderResetButton({ title = "", onClick, style = "", disabled = false }) {
-    return html`
-      <button
-        class="pp-icon-button"
-        type="button"
-        title=${title}
-        style=${style}
-        ?disabled=${disabled}
-        @click=${onClick}
-      >
-        ↺
-      </button>
-    `;
+  _renderResetButton(opts) {
+    return renderResetButton(opts);
   }
 
-  /**
-   * Render a text button (select-all, apply, reset-all) using a native
-   * `<button>` (`.pp-button`), replacing HA's migrated `ha-button`.
-   */
-  _renderTextButton({ label, onClick, style = "", disabled = false }) {
-    return html`
-      <button
-        class="pp-button"
-        type="button"
-        style=${style}
-        ?disabled=${disabled}
-        @click=${onClick}
-      >
-        ${label}
-      </button>
-    `;
+  _renderTextButton(opts) {
+    return renderTextButton(opts);
   }
 
   // ------------------------------------------------------------------
