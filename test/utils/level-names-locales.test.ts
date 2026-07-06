@@ -28,12 +28,15 @@ describe("card.levels5 locale ladders", () => {
     ]);
   });
 
-  it("no locale flattens the top of the five-step scale onto its 'high' step", () => {
+  it("every locale has five distinct steps on the five-step scale", () => {
+    // Note: this cheap invariant would NOT have caught #277 (the flattened
+    // German ladder had five literally-distinct strings; the defect was that
+    // the top step carried the SEVEN-scale's "high" wording). The exact-match
+    // ladder assertions above are the real regression net; this guard only
+    // catches literal duplicates from future copy-paste mistakes.
     for (const locale of SUPPORTED_LOCALES) {
       const ladder = buildLevelNamesForScale(5, [], locale);
       expect(ladder, locale).toHaveLength(5);
-      // A flattened ladder repeats its "high" wording at the top (the #277
-      // failure mode). Every step must be distinct.
       expect(new Set(ladder).size, `${locale}: ${ladder.join(" / ")}`).toBe(5);
     }
   });
