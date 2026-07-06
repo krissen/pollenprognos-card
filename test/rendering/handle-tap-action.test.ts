@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   LevelCircleMixin,
   resolveTapActionType,
+  iconMoreInfoEnabled,
 } from "../../src/rendering/level-circle-mixin.js";
 
 // The shared element-level tap_action handler lives in LevelCircleMixin so the
@@ -230,6 +231,24 @@ describe("LevelCircleMixin._handleTapAction", () => {
         "/lovelace/1",
       );
     });
+  });
+});
+
+describe("iconMoreInfoEnabled", () => {
+  // Without a tap_action, per-icon more-info is the default (on unless
+  // link_to_sensors is explicitly false).
+  it("defaults on with no tap_action", () => {
+    expect(iconMoreInfoEnabled(undefined, false)).toBe(true);
+    expect(iconMoreInfoEnabled(true, false)).toBe(true);
+    expect(iconMoreInfoEnabled(false, false)).toBe(false);
+  });
+
+  // With a tap_action, the element runs it and per-icon more-info is suppressed
+  // unless the user explicitly opted in with link_to_sensors: true (#279).
+  it("yields to a configured tap_action unless explicitly opted in", () => {
+    expect(iconMoreInfoEnabled(undefined, true)).toBe(false);
+    expect(iconMoreInfoEnabled(false, true)).toBe(false);
+    expect(iconMoreInfoEnabled(true, true)).toBe(true);
   });
 });
 

@@ -52,6 +52,7 @@ import silamAllergenMap from "./adapters/silam_allergen_map.json";
 import {
   LevelCircleMixin,
   resolveTapActionType,
+  iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import type { HomeAssistant, UnsubscribeFunc } from "./types/home-assistant.js";
@@ -1451,6 +1452,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
     const iconSize = Number(this.config?.icon_size) || 48;
+    // A configured element-level tap_action takes precedence over per-icon
+    // more-info unless link_to_sensors is explicitly true (#279).
+    const hasTap = resolveTapActionType(this.tapAction) !== null;
 
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
@@ -1525,9 +1529,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               normalizedLevel,
             );
             const clickable =
-              this.config.link_to_sensors !== false && !!sensor.entity_id;
+              iconMoreInfoEnabled(this.config.link_to_sensors, hasTap) &&
+              !!sensor.entity_id;
             const onClickEntity = (e: Event) => {
-              if (this.config.link_to_sensors !== false && sensor.entity_id) {
+              if (clickable) {
                 e.stopPropagation();
                 this._openEntity(sensor.entity_id);
               }
@@ -1661,6 +1666,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
+    // A configured element-level tap_action takes precedence over per-icon
+    // more-info unless link_to_sensors is explicitly true (#279).
+    const hasTap = resolveTapActionType(this.tapAction) !== null;
+    const iconMoreInfo = iconMoreInfoEnabled(
+      this.config?.link_to_sensors,
+      hasTap,
+    );
 
     // Degenerate config: no day columns at all (e.g. every sensor
     // stale plus show_empty_days=false). The forecast table can't
@@ -1818,14 +1830,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                       this._getSvgKey(sensor.allergenReplaced),
                       normalLevel,
                       {
-                        clickable:
-                          this.config.link_to_sensors !== false &&
-                          !!sensor.entity_id,
+                        clickable: iconMoreInfo && !!sensor.entity_id,
                         onClick: (e: Event) => {
-                          if (
-                            this.config.link_to_sensors !== false &&
-                            sensor.entity_id
-                          ) {
+                          if (iconMoreInfo && sensor.entity_id) {
                             e.stopPropagation();
                             this._openEntity(sensor.entity_id);
                           }
@@ -1881,7 +1888,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                   i,
                   displayVal,
                   sensor.entity_id,
-                  this.config.link_to_sensors !== false,
+                  iconMoreInfo,
                 );
                 return html`<td>${circle}</td>`;
               });

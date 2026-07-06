@@ -37,6 +37,7 @@ import {
 import {
   LevelCircleMixin,
   resolveTapActionType,
+  iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -583,9 +584,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     // Badge-level tap_action (shared with the card). Bind only when the action
     // resolves to a supported type (so an inert/unknown action doesn't make the
-    // badge clickable-but-dead); per-icon link_to_sensors clicks stopPropagation,
-    // so the two coexist without double-firing, exactly like the card. Handler
-    // and predicate live in LevelCircleMixin.
+    // badge clickable-but-dead). A configured tap_action takes precedence over
+    // per-icon more-info: iconMoreInfoEnabled suppresses the ring/icon click
+    // (which would otherwise stopPropagation and shadow the tap_action) unless
+    // link_to_sensors is explicitly true (#279). Handler and predicate live in
+    // LevelCircleMixin.
     const hasTap = resolveTapActionType(this.config?.tap_action) !== null;
 
     return html`
@@ -614,7 +617,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           const displayLevel =
             rawNum != null && (rawNum as number) >= 0 ? rawNum : ringLevel;
           const clickable =
-            this.config.link_to_sensors !== false && !!sensor.entity_id;
+            iconMoreInfoEnabled(this.config.link_to_sensors, hasTap) &&
+            !!sensor.entity_id;
 
           const visual = this._renderBadgeVisual(visualMode, sensor, {
             ringConfig,
