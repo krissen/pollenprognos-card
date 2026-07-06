@@ -1113,7 +1113,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this._updateConfig("mode", "daily");
     }
     const set = new Set(this._config?.allergens as string[]);
-    checked ? set.add(allergen) : set.delete(allergen);
+    if (checked) set.add(allergen);
+    else set.delete(allergen);
 
     this._updateConfig("allergens", [...set]);
   };

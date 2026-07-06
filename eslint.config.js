@@ -71,8 +71,8 @@ export default tseslint.config(
       "no-dupe-keys": "warn",
       // A setter returns a promise value (ignored by JS at runtime, harmless).
       "no-setter-return": "warn",
-      // Short-circuit expression statements used for their side effects.
-      "@typescript-eslint/no-unused-expressions": "warn",
+      // The ternary-as-statement side effects were rewritten to if/else.
+      "@typescript-eslint/no-unused-expressions": "error",
     },
   },
   {

@@ -461,7 +461,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   override _onAllergenToggle = (allergen: string, checked: boolean): void => {
     const set = new Set((this._config?.allergens as string[]) || []);
-    checked ? set.add(allergen) : set.delete(allergen);
+    if (checked) set.add(allergen);
+    else set.delete(allergen);
     this._updateConfig("allergens", [...set]);
   };
 
