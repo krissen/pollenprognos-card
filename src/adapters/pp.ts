@@ -368,7 +368,6 @@ function buildPpDict({
         state: level,
         state_text: ctx.levelNames[level],
       };
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     } else if (ctx.pollen_threshold === 0) {
       // When threshold is 0, show all allergens even with no data. Emit the
@@ -383,7 +382,6 @@ function buildPpDict({
         state: -1,
         state_text: ctx.noInfoLabel,
       };
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     }
   });

@@ -23,24 +23,6 @@
     "allergenReplaced": "bjork",
     "allergenCapitalized": "Birch",
     "allergenShort": "Birch",
-    "entity_id": "sensor.pollen_stockholm_bjork",
-    "day0": {
-      "name": "Birch",
-      "day": "Today",
-      "state": 3,
-      "state_text": "Moderate levels"
-    },
-    "day2": {
-      "name": "Birch",
-      "day": "Day after tomorrow",
-      "state": 2,
-      "state_text": "Low–moderate levels"
-    },
-    "day3": {
-      "name": "Birch",
-      "day": "Jun 18",
-      "state": 1,
-      "state_text": "Low levels"
-    }
+    "entity_id": "sensor.pollen_stockholm_bjork"
   }
 ]

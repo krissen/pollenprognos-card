@@ -647,7 +647,6 @@ export async function fetchForecast(
           raw_value: rawList[i] ?? null,
           state_text: stateText,
         };
-        dict[`day${i}`] = dayObj;
         dict.days.push(dayObj);
       }
 

@@ -21,21 +21,6 @@
     "allergenCapitalized": "Birch",
     "allergenShort": "Birch",
     "entity_id": "sensor.pollen_birch",
-    "attributes": {},
-    "day0": {
-      "name": "Birch",
-      "day": "Today",
-      "state": -1,
-      "display_state": -1,
-      "raw_value": null,
-      "state_text": "(No information)",
-      "thresholds": {
-        "moderate": 11,
-        "high": 51
-      },
-      "level_string": null,
-      "last_update": null,
-      "next_poll": null
-    }
+    "attributes": {}
   }
 ]

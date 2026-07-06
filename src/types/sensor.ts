@@ -1,8 +1,7 @@
 // The normalized sensor contract every adapter's `fetchForecast` returns, and
 // which the card/badge render paths consume. Fields are documented per their
-// current, empirically-verified usage across all 11 adapters. This type mirrors
-// the present state of the contract; a later PR normalizes the day-key / day0
-// divergence noted below. Do not change adapter behaviour to fit the type.
+// current, empirically-verified usage across all 11 adapters. Do not change
+// adapter behaviour to fit the type.
 
 /**
  * One forecast day within a sensor's `days` array.
@@ -50,12 +49,11 @@ export interface ForecastDay {
 /**
  * A normalized pollen (or, for atmo, pollution) sensor.
  *
- * `day0`..`dayN` are dynamic per-day keys mirroring `days[i]`. NOTE: `day0` is
- * currently set in two different ways across adapters and is sometimes
- * `undefined`; this divergence is intentional-for-now and normalized in a later
- * PR, so the type reflects the present reality (optional, possibly undefined)
- * rather than an idealized contract. The template-literal index signature admits
- * arbitrary `dayN` keys with the same optionality.
+ * The ordered forecast lives in `days[]`; readers index it directly (`days[0]`
+ * is the representative/today row). The old per-day `day0`..`dayN` keys were
+ * dropped in the days[] migration -- they were a loop-index artifact, not a
+ * designed contract, and diverged from `days[]` when an adapter skipped a
+ * mid-sequence day (sparse dayN vs compact days[]).
  */
 export interface PollenSensor {
   /** Adapter-normalized allergen slug (e.g. "birch", "graeser"). */
@@ -68,11 +66,6 @@ export interface PollenSensor {
   entity_id: string;
   /** Ordered forecast days. */
   days: ForecastDay[];
-
-  /** First forecast day; see the note above on its provisional shape. */
-  day0?: ForecastDay;
-  /** Dynamic per-day columns (day0, day1, ...); may be undefined per above. */
-  [day: `day${number}`]: ForecastDay | undefined;
 
   /** Aggregate/overview row rather than a single allergen: atmo, silam, gpl. */
   isSummary?: boolean;

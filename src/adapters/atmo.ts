@@ -697,7 +697,6 @@ export async function fetchForecast(
           display_state: mapped.display_state,
           state_text: mapped.state_text,
         };
-        dict[`day${idx}`] = dayObj;
         dict.days.push(dayObj);
       });
 
@@ -721,13 +720,13 @@ export async function fetchForecast(
       (a: PollenSensor, b: PollenSensor) => number
     > = {
       value_ascending: (a, b) =>
-        ((a.day0?.display_state as number) ?? 0) -
-          ((b.day0?.display_state as number) ?? 0) ||
-        (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+        ((a.days?.[0]?.display_state as number) ?? 0) -
+          ((b.days?.[0]?.display_state as number) ?? 0) ||
+        (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0),
       value_descending: (a, b) =>
-        ((b.day0?.display_state as number) ?? 0) -
-          ((a.day0?.display_state as number) ?? 0) ||
-        (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+        ((b.days?.[0]?.display_state as number) ?? 0) -
+          ((a.days?.[0]?.display_state as number) ?? 0) ||
+        (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0),
       name_ascending: (a, b) =>
         a.allergenCapitalized.localeCompare(b.allergenCapitalized),
       name_descending: (a, b) =>
@@ -736,9 +735,9 @@ export async function fetchForecast(
     const sortFn =
       sortFns[config.sort as string] ||
       ((a: PollenSensor, b: PollenSensor) =>
-        ((b.day0?.display_state as number) ?? 0) -
-          ((a.day0?.display_state as number) ?? 0) ||
-        (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
+        ((b.days?.[0]?.display_state as number) ?? 0) -
+          ((a.days?.[0]?.display_state as number) ?? 0) ||
+        (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0));
 
     if (config.sort_pollution_block) {
       // Separate into pollen and pollution by group property

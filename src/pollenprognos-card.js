@@ -141,7 +141,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           has_days: !!s.days,
           days_length: s.days?.length,
           entity_id: s.entity_id,
-          day0_state: s.day0?.state,
+          day0_state: s.days?.[0]?.state,
         })),
       );
     }
@@ -1180,8 +1180,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 entity_id: s.entity_id,
                 has_days: !!s.days,
                 days_length: s.days?.length,
-                day0_state: s.day0?.state,
-                day0_value: s.day0?.value,
+                day0_state: s.days?.[0]?.state,
+                day0_value: s.days?.[0]?.value,
               })),
             );
             console.debug(
@@ -1222,7 +1222,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 entity_id: s.entity_id,
                 has_days: !!s.days,
                 days_length: s.days?.length,
-                day0_state: s.day0?.state,
+                day0_state: s.days?.[0]?.state,
               })),
             );
           }
@@ -1351,8 +1351,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 </div>
               `;
             }
-            const txt = sensor.day0?.state_text ?? "";
-            const rawNum = resolveNumericValue(sensor.day0, this.config);
+            const txt = sensor.days?.[0]?.state_text ?? "";
+            const rawNum = resolveNumericValue(sensor.days?.[0], this.config);
             const num = rawNum != null && rawNum >= 0 ? rawNum : "";
             let label = "";
             if (this.config?.show_text_allergen) {
@@ -1377,13 +1377,15 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             }
             const levelForColor =
               this.config.integration === "plu"
-                ? sensor.day0?.state ?? 0
-                : sensor.day0?.display_state ?? sensor.day0?.state ?? 0;
+                ? sensor.days?.[0]?.state ?? 0
+                : sensor.days?.[0]?.display_state ??
+                  sensor.days?.[0]?.state ??
+                  0;
             // For ring rendering, use the *normalized* state (not
             // display_state), so PEU's numeric_state_raw_risk doesn't
             // saturate the ring at high raw-risk values. Mirrors what
             // _renderNormalHtml does per-cell.
-            const normalizedLevel = Number(sensor.day0?.state) || 0;
+            const normalizedLevel = Number(sensor.days?.[0]?.state) || 0;
             const ringLevel = scaleRingLevel(
               this.config.integration,
               normalizedLevel,
@@ -1477,7 +1479,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         );
         this.sensors.forEach((sensor, i) => {
           console.debug(
-            `[Card] _renderNormalHtml: sensor[${i}] ${sensor.allergenReplaced}: has_days=${!!sensor.days}, days_length=${sensor.days?.length}, day0_state=${sensor.day0?.state}`,
+            `[Card] _renderNormalHtml: sensor[${i}] ${sensor.allergenReplaced}: has_days=${!!sensor.days}, days_length=${sensor.days?.length}, day0_state=${sensor.days?.[0]?.state}`,
           );
         });
       }

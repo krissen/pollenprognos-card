@@ -19,21 +19,7 @@
     "allergenReplaced": "grass_cat",
     "allergenCapitalized": "Grasses",
     "allergenShort": "Grasses",
-    "entity_id": "sensor.google_pollen_gras",
-    "day0": {
-      "name": "Grasses",
-      "day": "Today",
-      "state": 3,
-      "display_state": 3,
-      "state_text": "Moderate–high levels"
-    },
-    "day1": {
-      "name": "Grasses",
-      "day": "Tomorrow",
-      "state": 2,
-      "display_state": 2,
-      "state_text": "Moderate levels"
-    }
+    "entity_id": "sensor.google_pollen_gras"
   },
   {
     "days": [
@@ -55,20 +41,6 @@
     "allergenReplaced": "graminales",
     "allergenCapitalized": "Grasses",
     "allergenShort": "Grasses",
-    "entity_id": "sensor.google_pollen_gras_2",
-    "day0": {
-      "name": "Grasses",
-      "day": "Today",
-      "state": 2,
-      "display_state": 2,
-      "state_text": "Moderate levels"
-    },
-    "day1": {
-      "name": "Grasses",
-      "day": "Tomorrow",
-      "state": 1,
-      "display_state": 1,
-      "state_text": "Low levels"
-    }
+    "entity_id": "sensor.google_pollen_gras_2"
   }
 ]

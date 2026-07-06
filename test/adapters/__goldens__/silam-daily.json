@@ -37,39 +37,7 @@
     "allergenReplaced": "birch",
     "allergenCapitalized": "Birch",
     "allergenShort": "Birch",
-    "entity_id": null,
-    "day0": {
-      "name": "Birch",
-      "day": "Today",
-      "icon": null,
-      "state": 2,
-      "raw_value": 30,
-      "state_text": "Low–moderate levels"
-    },
-    "day1": {
-      "name": "Birch",
-      "day": "Tomorrow",
-      "icon": null,
-      "state": 2,
-      "raw_value": 40,
-      "state_text": "Low–moderate levels"
-    },
-    "day2": {
-      "name": "Birch",
-      "day": "Day after tomorrow",
-      "icon": null,
-      "state": 1,
-      "raw_value": 20,
-      "state_text": "Low levels"
-    },
-    "day3": {
-      "name": "Birch",
-      "day": "Jun 18",
-      "icon": null,
-      "state": 3,
-      "raw_value": 60,
-      "state_text": "Moderate levels"
-    }
+    "entity_id": null
   },
   {
     "days": [
@@ -109,39 +77,7 @@
     "allergenReplaced": "alder",
     "allergenCapitalized": "Alder",
     "allergenShort": "Alder",
-    "entity_id": null,
-    "day0": {
-      "name": "Alder",
-      "day": "Today",
-      "icon": null,
-      "state": 1,
-      "raw_value": 5,
-      "state_text": "Low levels"
-    },
-    "day1": {
-      "name": "Alder",
-      "day": "Tomorrow",
-      "icon": null,
-      "state": 2,
-      "raw_value": 10,
-      "state_text": "Low–moderate levels"
-    },
-    "day2": {
-      "name": "Alder",
-      "day": "Day after tomorrow",
-      "icon": null,
-      "state": 1,
-      "raw_value": 2,
-      "state_text": "Low levels"
-    },
-    "day3": {
-      "name": "Alder",
-      "day": "Jun 18",
-      "icon": null,
-      "state": 1,
-      "raw_value": 1,
-      "state_text": "Low levels"
-    }
+    "entity_id": null
   },
   {
     "days": [
@@ -181,38 +117,6 @@
     "allergenReplaced": "grass",
     "allergenCapitalized": "Grass",
     "allergenShort": "Grass",
-    "entity_id": null,
-    "day0": {
-      "name": "Grass",
-      "day": "Today",
-      "icon": null,
-      "state": 1,
-      "raw_value": 12,
-      "state_text": "Low levels"
-    },
-    "day1": {
-      "name": "Grass",
-      "day": "Tomorrow",
-      "icon": null,
-      "state": 1,
-      "raw_value": 20,
-      "state_text": "Low levels"
-    },
-    "day2": {
-      "name": "Grass",
-      "day": "Day after tomorrow",
-      "icon": null,
-      "state": 1,
-      "raw_value": 8,
-      "state_text": "Low levels"
-    },
-    "day3": {
-      "name": "Grass",
-      "day": "Jun 18",
-      "icon": null,
-      "state": 2,
-      "raw_value": 30,
-      "state_text": "Low–moderate levels"
-    }
+    "entity_id": null
   }
 ]

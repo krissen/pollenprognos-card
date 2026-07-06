@@ -556,8 +556,8 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0).toBeDefined();
-    expect(result[0].day0).toBe(result[0].days[0]);
+    expect(result[0].days[0]).toBeDefined();
+    expect(result[0].days[0]).toBe(result[0].days[0]);
   });
 
   it("each day object has required properties", async () => {
@@ -571,7 +571,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].day0;
+    const day = result[0].days[0];
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
@@ -617,10 +617,10 @@ describe("fetchForecast: basic shape", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].days.length).toBe(3);
-    expect(result[0].day0).toBeDefined();
-    expect(result[0].day1).toBeDefined();
-    expect(result[0].day2).toBeDefined();
-    expect(result[0].day3).toBeUndefined();
+    expect(result[0].days[0]).toBeDefined();
+    expect(result[0].days[1]).toBeDefined();
+    expect(result[0].days[2]).toBeDefined();
+    expect(result[0].days[3]).toBeUndefined();
   });
 
   it("returns empty array when no matching sensors exist", async () => {
@@ -672,10 +672,10 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
       const result = await fetchForecast(hass, config);
 
       // state stores the raw (0-5) value
-      expect(result[0].day0.state).toBe(nativeLevel);
+      expect(result[0].days[0].state).toBe(nativeLevel);
       // state_text should be a non-empty string (scaled level label)
-      expect(typeof result[0].day0.state_text).toBe("string");
-      expect(result[0].day0.state_text.length).toBeGreaterThan(0);
+      expect(typeof result[0].days[0].state_text).toBe("string");
+      expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
     });
   }
 
@@ -695,7 +695,7 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0].day0.state_text).not.toBe(resultLow[0].day0.state_text);
+    expect(resultHigh[0].days[0].state_text).not.toBe(resultLow[0].days[0].state_text);
   });
 });
 
@@ -716,7 +716,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(-1);
   });
 
   it("returns state=-1 for negative sensor state", async () => {
@@ -731,7 +731,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(-1);
   });
 
   it("clamps sensor state above 5 to 5", async () => {
@@ -746,7 +746,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(5);
+    expect(result[0].days[0].state).toBe(5);
   });
 
   it("returns state=-1 for forecast item with has_index=false", async () => {
@@ -764,8 +764,8 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     const result = await fetchForecast(hass, config);
 
     // day0 has valid state=3, day1 has has_index=false -> state=-1
-    expect(result[0].day0.state).toBe(3);
-    expect(result[0].day1.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(3);
+    expect(result[0].days[1].state).toBe(-1);
   });
 });
 
@@ -789,9 +789,9 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(2);
-    expect(result[0].day1.state).toBe(4);
-    expect(result[0].day2.state).toBe(1);
+    expect(result[0].days[0].state).toBe(2);
+    expect(result[0].days[1].state).toBe(4);
+    expect(result[0].days[2].state).toBe(1);
   });
 
   it("pads missing forecast days with state=-1", async () => {
@@ -808,9 +808,9 @@ describe("fetchForecast: forecast data", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].days.length).toBe(3);
-    expect(result[0].day0.state).toBe(3);
-    expect(result[0].day1.state).toBe(-1);
-    expect(result[0].day2.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(3);
+    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0].days[2].state).toBe(-1);
   });
 
   it("uses date field from forecast item when provided", async () => {
@@ -828,7 +828,7 @@ describe("fetchForecast: forecast data", () => {
     const result = await fetchForecast(hass, config);
 
     // day1's label is derived from the forecast date: offset 1 -> "Tomorrow"
-    expect(result[0].day1.day).toBe("Tomorrow");
+    expect(result[0].days[1].day).toBe("Tomorrow");
   });
 
   // Issue #271: the sensor state is the value for the integration's last
@@ -850,11 +850,11 @@ describe("fetchForecast: forecast data", () => {
     const result = await fetchForecast(hass, config);
 
     // Today shows the item's value; the state belongs to yesterday
-    expect(result[0].day0.day).toBe("Today");
-    expect(result[0].day0.state).toBe(3);
+    expect(result[0].days[0].day).toBe("Today");
+    expect(result[0].days[0].state).toBe(3);
     // Second column is a padded empty tomorrow, not a duplicate today
-    expect(result[0].day1.day).toBe("Tomorrow");
-    expect(result[0].day1.state).toBe(-1);
+    expect(result[0].days[1].day).toBe("Tomorrow");
+    expect(result[0].days[1].state).toBe(-1);
   });
 
   it("places a forecast item by its date and drops the day-old state (offset lag)", async () => {
@@ -872,10 +872,10 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.day).toBe("Today");
-    expect(result[0].day0.state).toBe(-1);
-    expect(result[0].day1.day).toBe("Tomorrow");
-    expect(result[0].day1.state).toBe(4);
+    expect(result[0].days[0].day).toBe("Today");
+    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0].days[1].day).toBe("Tomorrow");
+    expect(result[0].days[1].state).toBe(4);
   });
 
   it("uses the today-dated forecast item when the state is unavailable", async () => {
@@ -891,10 +891,10 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.day).toBe("Today");
-    expect(result[0].day0.state).toBe(2);
-    expect(result[0].day1.day).toBe("Tomorrow");
-    expect(result[0].day1.state).toBe(-1);
+    expect(result[0].days[0].day).toBe("Today");
+    expect(result[0].days[0].state).toBe(2);
+    expect(result[0].days[1].day).toBe("Tomorrow");
+    expect(result[0].days[1].state).toBe(-1);
   });
 
   it("keeps the state as today and items on their dates when the data is fresh", async () => {
@@ -913,11 +913,11 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.day).toBe("Today");
-    expect(result[0].day0.state).toBe(2);
-    expect(result[0].day1.day).toBe("Tomorrow");
-    expect(result[0].day1.state).toBe(4);
-    expect(result[0].day2.state).toBe(1);
+    expect(result[0].days[0].day).toBe("Today");
+    expect(result[0].days[0].state).toBe(2);
+    expect(result[0].days[1].day).toBe("Tomorrow");
+    expect(result[0].days[1].state).toBe(4);
+    expect(result[0].days[2].state).toBe(1);
   });
 
   it("day0 state_text is the no_information label when level is -1", async () => {
@@ -939,7 +939,7 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state_text).toBe("N/A");
+    expect(result[0].days[0].state_text).toBe("N/A");
   });
 });
 
@@ -1115,7 +1115,7 @@ describe("fetchForecast: sorting modes", () => {
     const result = await fetchForecast(hass, config);
 
     for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i].day0.state).toBeLessThanOrEqual(result[i + 1].day0.state);
+      expect(result[i].days[0].state).toBeLessThanOrEqual(result[i + 1].days[0].state);
     }
   });
 
@@ -1440,7 +1440,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
     expect(ar).toBeDefined();
-    expect(ar.day0.state).toBe(3);
+    expect(ar.days[0].state).toBe(3);
   });
 
   it("renders day1..N as no-data sentinels (-1) since the summary has no forecast", async () => {
@@ -1454,12 +1454,12 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
 
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk");
-    expect(ar.day0.state).toBe(2);
+    expect(ar.days[0].state).toBe(2);
     // The card treats level=-1 as the fuzzy no-data variant (#228); padding
     // future days as -1 is what keeps the row from inventing fake values.
-    expect(ar.day1.state).toBe(-1);
-    expect(ar.day2.state).toBe(-1);
-    expect(ar.day3.state).toBe(-1);
+    expect(ar.days[1].state).toBe(-1);
+    expect(ar.days[2].state).toBe(-1);
+    expect(ar.days[3].state).toBe(-1);
   });
 
   it("pins allergy_risk to position 0 when allergy_risk_top: true", async () => {

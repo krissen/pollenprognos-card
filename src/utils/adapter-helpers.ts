@@ -261,7 +261,7 @@ export function matchSensorByAllergenKey(
  *
  * Modes (config.badge_content), defaulting to "worst":
  * - "worst"     — the single per-allergen sensor with the highest current
- *                 (day0) level. The universal default: works for every adapter,
+ *                 (days[0]) level. The universal default: works for every adapter,
  *                 since no integration-specific aggregate is required.
  * - "aggregate" — the adapter's overall-risk sensor (isSummary, e.g. GPL/Atmo
  *                 allergy_risk). Falls back to "worst" for adapters that expose
@@ -273,7 +273,7 @@ export function matchSensorByAllergenKey(
  * - "row"       — all sensors, in their existing order, for a compact multi-ring
  *                 badge.
  *
- * No-data sensors (day0.state < 0) rank below a real level 0 in the "worst"
+ * No-data sensors (days[0].state < 0) rank below a real level 0 in the "worst"
  * comparison, so a badge prefers a sensor that actually has data.
  *
  * @param {object[]} sensors - normalized sensor array from the adapter.
@@ -298,8 +298,8 @@ export function selectBadgeSensor(
     const pool = perAllergen.length ? perAllergen : sensors;
     const best = pool.reduce<PollenSensor | null>((acc, s) => {
       if (!acc) return s;
-      const lvl = Number(s?.day0?.state);
-      const accLvl = Number(acc?.day0?.state);
+      const lvl = Number(s?.days?.[0]?.state);
+      const accLvl = Number(acc?.days?.[0]?.state);
       const safeLvl = Number.isNaN(lvl) ? -Infinity : lvl;
       const safeAcc = Number.isNaN(accLvl) ? -Infinity : accLvl;
       return safeLvl > safeAcc ? s : acc;
@@ -393,23 +393,23 @@ export function pinBadgeSingleAllergen(
  * is NOT used as the level itself, because for DWD `display_state` is already
  * the SCALED value and scaleRingLevel would double it again. Pure.
  *
- * @param {object|undefined} day0 - sensor.day0, may be undefined.
+ * @param {object|undefined} day - the representative day (sensor.days[0]), may be undefined.
  * @returns {number} the level (>= 0), or -1 when there is no usable reading.
  */
-export function badgeRingLevel(day0: ForecastDay | null | undefined): number {
-  if (day0 == null) return -1;
+export function badgeRingLevel(day: ForecastDay | null | undefined): number {
+  if (day == null) return -1;
   // No-data override: a negative display_state means "no information" even when
   // state is a non-negative placeholder (atmo unavailable = state 0).
-  if (day0.display_state != null && Number(day0.display_state) < 0) return -1;
-  if (day0.state == null) return -1;
-  const n = Number(day0.state);
+  if (day.display_state != null && Number(day.display_state) < 0) return -1;
+  if (day.state == null) return -1;
+  const n = Number(day.state);
   return Number.isFinite(n) ? n : -1;
 }
 
 /**
  * True when at least one configured allergen has a valid current reading,
  * ignoring the threshold. Re-fetches at pollen_threshold 0 and checks for any
- * sensor whose day0 resolves to a real level via badgeRingLevel (>= 0), so a
+ * sensor whose days[0] resolves to a real level via badgeRingLevel (>= 0), so a
  * caller can tell genuine "no pollen" (data exists, all below threshold) from
  * "no usable data" (entities exist but no valid forecast) and show the
  * no_allergens image only for the former. Reusing badgeRingLevel keeps the
@@ -438,7 +438,7 @@ export async function hasValidPollenData(
     );
     return (
       Array.isArray(sensors) &&
-      sensors.some((s) => badgeRingLevel(s?.day0) >= 0)
+      sensors.some((s) => badgeRingLevel(s?.days?.[0]) >= 0)
     );
   } catch {
     return false;
@@ -558,7 +558,7 @@ export function scaleRingLevel(
  * no-op for them regardless of the flag. Typeguarded against a null day or
  * non-numeric fields.
  *
- * @param {object} day    - A day object (e.g. sensor.day0 or sensor.days[i]).
+ * @param {object} day    - A day object (e.g. sensor.days[i]).
  * @param {object} config - The card/badge config.
  * @returns {*} The value to display (number, or display_state/state fallback).
  */
@@ -593,15 +593,18 @@ export function sortSensors(sensors: PollenSensor[], sortKey: string): void {
   if (sortKey === "none") return;
   const sortFns: Record<string, (a: PollenSensor, b: PollenSensor) => number> =
     {
-      value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-      value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+      value_ascending: (a, b) =>
+        (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0),
+      value_descending: (a, b) =>
+        (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0),
       name_ascending: (a, b) =>
         a.allergenCapitalized.localeCompare(b.allergenCapitalized),
       name_descending: (a, b) =>
         b.allergenCapitalized.localeCompare(a.allergenCapitalized),
     };
   const sortFn =
-    sortFns[sortKey] || ((a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
+    sortFns[sortKey] ||
+    ((a, b) => (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0));
   sensors.sort(sortFn);
 }
 

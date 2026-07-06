@@ -20,21 +20,7 @@
     "group": "pollen",
     "allergenCapitalized": "Bouleau",
     "allergenShort": "Bouleau",
-    "entity_id": "sensor.niveau_bouleau_paris",
-    "day0": {
-      "name": "Bouleau",
-      "day": "Aujourd'hui",
-      "state": 3,
-      "display_state": 3,
-      "state_text": "Niveaux modérés"
-    },
-    "day1": {
-      "name": "Bouleau",
-      "day": "Demain",
-      "state": 2,
-      "display_state": 2,
-      "state_text": "Niveaux faibles à modérés"
-    }
+    "entity_id": "sensor.niveau_bouleau_paris"
   },
   {
     "days": [
@@ -57,21 +43,7 @@
     "group": "pollution",
     "allergenCapitalized": "Dioxyde d'azote",
     "allergenShort": "Dioxyde d'azote",
-    "entity_id": "sensor.dioxyde_d_azote_paris",
-    "day0": {
-      "name": "Dioxyde d'azote",
-      "day": "Aujourd'hui",
-      "state": 2,
-      "display_state": 2,
-      "state_text": "Niveaux faibles à modérés"
-    },
-    "day1": {
-      "name": "Dioxyde d'azote",
-      "day": "Demain",
-      "state": 1,
-      "display_state": 1,
-      "state_text": "Faibles niveaux"
-    }
+    "entity_id": "sensor.dioxyde_d_azote_paris"
   },
   {
     "days": [
@@ -94,20 +66,6 @@
     "group": "pollution",
     "allergenCapitalized": "PM10",
     "allergenShort": "PM10",
-    "entity_id": "sensor.pm10_paris",
-    "day0": {
-      "name": "PM10",
-      "day": "Aujourd'hui",
-      "state": 1,
-      "display_state": 1,
-      "state_text": "Faibles niveaux"
-    },
-    "day1": {
-      "name": "PM10",
-      "day": "Demain",
-      "state": 0,
-      "display_state": -1,
-      "state_text": "Indisponible"
-    }
+    "entity_id": "sensor.pm10_paris"
   }
 ]

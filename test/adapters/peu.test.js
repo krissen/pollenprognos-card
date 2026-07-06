@@ -118,8 +118,8 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].day0).toBeDefined();
-      expect(result[0].day0).toBe(result[0].days[0]);
+      expect(result[0].days[0]).toBeDefined();
+      expect(result[0].days[0]).toBe(result[0].days[0]);
     });
 
     it("each day object has required properties", async () => {
@@ -130,7 +130,7 @@ describe("PEU adapter: fetchForecast", () => {
       });
 
       const result = await fetchForecast(hass, config);
-      const day = result[0].day0;
+      const day = result[0].days[0];
 
       expect(day).toHaveProperty("name");
       expect(day).toHaveProperty("day");
@@ -168,10 +168,10 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result[0].days.length).toBe(3);
-      expect(result[0].day0).toBeDefined();
-      expect(result[0].day1).toBeDefined();
-      expect(result[0].day2).toBeDefined();
-      expect(result[0].day3).toBeUndefined();
+      expect(result[0].days[0]).toBeDefined();
+      expect(result[0].days[1]).toBeDefined();
+      expect(result[0].days[2]).toBeDefined();
+      expect(result[0].days[3]).toBeUndefined();
     });
   });
 
@@ -206,10 +206,10 @@ describe("PEU adapter: fetchForecast", () => {
         const result = await fetchForecast(hass, config);
 
         // state stores the native (0-4) value verbatim
-        expect(result[0].day0.state).toBe(input >= 0 ? input : -1);
+        expect(result[0].days[0].state).toBe(input >= 0 ? input : -1);
         // state_text comes from card.levels5.0..4 keyed at the native index
-        expect(typeof result[0].day0.state_text).toBe("string");
-        expect(result[0].day0.state_text.length).toBeGreaterThan(0);
+        expect(typeof result[0].days[0].state_text).toBe("string");
+        expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
       });
     }
 
@@ -234,7 +234,7 @@ describe("PEU adapter: fetchForecast", () => {
           pollen_threshold: 0,
         });
         const result = await fetchForecast(hass, config);
-        expect(result[0].day0.state_text).toBe(expected);
+        expect(result[0].days[0].state_text).toBe(expected);
       }
     });
 
@@ -260,7 +260,7 @@ describe("PEU adapter: fetchForecast", () => {
           pollen_threshold: 0,
         });
         const result = await fetchForecast(hass, config);
-        expect(result[0].day0.state_text).toBe(expected);
+        expect(result[0].days[0].state_text).toBe(expected);
       }
     });
 
@@ -276,8 +276,8 @@ describe("PEU adapter: fetchForecast", () => {
       const resultHigh = await fetchForecast(hassHigh, config);
       const resultLow = await fetchForecast(hassLow, config);
 
-      expect(resultHigh[0].day0.state_text).not.toBe(
-        resultLow[0].day0.state_text,
+      expect(resultHigh[0].days[0].state_text).not.toBe(
+        resultLow[0].days[0].state_text,
       );
     });
   });
@@ -380,7 +380,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Level 10 clamped to maxLevel=4
-      expect(result[0].day0.state).toBe(4);
+      expect(result[0].days[0].state).toBe(4);
     });
   });
 
@@ -536,8 +536,8 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       for (let i = 0; i < result.length - 1; i++) {
-        expect(result[i].day0.state).toBeGreaterThanOrEqual(
-          result[i + 1].day0.state,
+        expect(result[i].days[0].state).toBeGreaterThanOrEqual(
+          result[i + 1].days[0].state,
         );
       }
     });
@@ -558,8 +558,8 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       for (let i = 0; i < result.length - 1; i++) {
-        expect(result[i].day0.state).toBeLessThanOrEqual(
-          result[i + 1].day0.state,
+        expect(result[i].days[0].state).toBeLessThanOrEqual(
+          result[i + 1].days[0].state,
         );
       }
     });
@@ -797,7 +797,7 @@ describe("PEU adapter: fetchForecast", () => {
       // Native level 2 -> "Medium" (was customLevels[3] under spread,
       // now customLevels[3] picked into native index 2 via the [0,1,3,5,6]
       // migration extraction; same user-visible outcome.)
-      expect(result[0].day0.state_text).toBe("Medium");
+      expect(result[0].days[0].state_text).toBe("Medium");
     });
 
     it("accepts 5 custom level labels at native indices", async () => {
@@ -815,7 +815,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Native level 2 -> customLevels[2] = "Moderate"
-      expect(result[0].day0.state_text).toBe("Moderate");
+      expect(result[0].days[0].state_text).toBe("Moderate");
     });
 
     it("falls back to default level names for empty/null custom entries (7 labels)", async () => {
@@ -831,7 +831,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Native level 0 -> scaled level 0 -> customLevels[0] = "CustomZero"
-      expect(result[0].day0.state_text).toBe("CustomZero");
+      expect(result[0].days[0].state_text).toBe("CustomZero");
     });
 
     it("falls back to default level names for empty/null custom entries (5 labels)", async () => {
@@ -849,8 +849,8 @@ describe("PEU adapter: fetchForecast", () => {
 
       // Native level 0 -> scaled level 0; customLevels[0] is "" -> fallback to i18n
       // Just verify it's a non-empty string (i18n fallback)
-      expect(typeof result[0].day0.state_text).toBe("string");
-      expect(result[0].day0.state_text.length).toBeGreaterThan(0);
+      expect(typeof result[0].days[0].state_text).toBe("string");
+      expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
     });
   });
 
@@ -1171,7 +1171,7 @@ describe("PEU adapter: fetchForecast", () => {
       // indexToLevel(NaN) returns -1 => scaledLevel < 0 => state_text = noInfoLabel.
       expect(result.length).toBe(1);
       expect(result[0].days.length).toBe(1);
-      expect(result[0].day0.state_text).toBe("N/A");
+      expect(result[0].days[0].state_text).toBe("N/A");
     });
   });
 });

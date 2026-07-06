@@ -392,7 +392,6 @@ function buildDwdDict({
         display_state: scaled,
         state_text: stateText,
       };
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     }
   });

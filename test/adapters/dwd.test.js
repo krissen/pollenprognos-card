@@ -58,12 +58,12 @@ describe("DWD adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     // DWD level 3 * 2 = 6
-    expect(result[0].day0.display_state).toBe(6);
+    expect(result[0].days[0].display_state).toBe(6);
     // DWD level 1.5 * 2 = 3
-    expect(result[0].day1.display_state).toBe(3);
+    expect(result[0].days[1].display_state).toBe(3);
     // DWD level 0 * 2 = 0
     // Note: day0.state stores the RAW level (not scaled)
-    expect(result[0].day0.state).toBe(3);
+    expect(result[0].days[0].state).toBe(3);
   });
 
   it("returns -1 for NaN values", async () => {
@@ -159,7 +159,7 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBeGreaterThanOrEqual(result[1].day0.state);
+    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
   });
 
   it("each day object has DWD-specific display_state", async () => {
@@ -171,9 +171,9 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0).toHaveProperty("display_state");
+    expect(result[0].days[0]).toHaveProperty("display_state");
     // display_state should be level * 2
-    expect(result[0].day0.display_state).toBe(result[0].day0.state * 2);
+    expect(result[0].days[0].display_state).toBe(result[0].days[0].state * 2);
   });
 
   it("entity_id is set on sensor dict", async () => {

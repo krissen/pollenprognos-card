@@ -499,7 +499,6 @@ function buildPeuDict({
         state_text:
           levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
       };
-      dict[`day${i}`] = dayObj;
       dict.days.push(dayObj);
     }
     return dict;
@@ -565,7 +564,6 @@ function buildPeuDict({
           levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
       };
 
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     }
   });

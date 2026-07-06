@@ -110,8 +110,8 @@ describe("IRMKMI adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].day0.state).toBe(expected);
-      expect(result[0].day0.display_state).toBe(expected);
+      expect(result[0].days[0].state).toBe(expected);
+      expect(result[0].days[0].display_state).toBe(expected);
     }
   });
 
@@ -183,7 +183,7 @@ describe("IRMKMI adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].day0.state).toBe(0);
+    expect(result[0].days[0].state).toBe(0);
   });
 
   it("pollen_threshold>0 filters out green (level 0) allergens", async () => {
@@ -214,7 +214,7 @@ describe("IRMKMI adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBeGreaterThanOrEqual(result[1].day0.state);
+    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
   });
 
   it("handles multiple allergens, hiding out-of-season (none) ones", async () => {
@@ -233,7 +233,7 @@ describe("IRMKMI adapter: fetchForecast", () => {
 
     expect(result.length).toBe(1);
     expect(result[0].allergenReplaced).toBe("grass");
-    expect(result[0].day0.state).toBe(4);
+    expect(result[0].days[0].state).toBe(4);
   });
 
   it("stubConfigIRMKMI has days_to_show set to 1", () => {
@@ -261,7 +261,7 @@ describe("IRMKMI adapter: fetchForecast", () => {
       const config = makeConfig({ allergens: ["birch"], pollen_threshold: 0 });
       const result = await fetchForecast(hass, config);
       expect(result.length).toBe(1);
-      expect(result[0].day0.state_text).toBe(expectedText);
+      expect(result[0].days[0].state_text).toBe(expectedText);
     }
   });
 
@@ -279,7 +279,7 @@ describe("IRMKMI adapter: fetchForecast", () => {
       },
     });
     const result = await fetchForecast(hass, config);
-    expect(result[0].day0.state_text).toBe("Zeer hoog");
+    expect(result[0].days[0].state_text).toBe("Zeer hoog");
   });
 });
 
@@ -475,7 +475,7 @@ describe("IRMKMI adapter: registryless (tier-3) multi-location", () => {
     });
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.saint_ghislain_grasses_level");
-    expect(result[0].day0.state).toBe(3); // red
+    expect(result[0].days[0].state).toBe(3); // red
   });
 });
 
@@ -490,7 +490,7 @@ describe("IRMKMI adapter: fetchForecast (multi-location)", () => {
     });
     expect(result.length).toBe(1);
     expect(result[0].entity_id).toBe("sensor.saint_ghislain_grasses_level");
-    expect(result[0].day0.state).toBe(3);
+    expect(result[0].days[0].state).toBe(3);
   });
 
   it("hides out-of-season allergens by default (only grass shows)", async () => {
@@ -501,6 +501,6 @@ describe("IRMKMI adapter: fetchForecast (multi-location)", () => {
     });
     expect(result.length).toBe(1);
     expect(result[0].allergenReplaced).toBe("grass");
-    expect(result[0].day0.state).toBe(4); // purple
+    expect(result[0].days[0].state).toBe(4); // purple
   });
 });

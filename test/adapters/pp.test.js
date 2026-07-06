@@ -76,10 +76,10 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].days.length).toBe(3);
-    expect(result[0].day0).toBeDefined();
-    expect(result[0].day1).toBeDefined();
-    expect(result[0].day2).toBeDefined();
-    expect(result[0].day3).toBeUndefined();
+    expect(result[0].days[0]).toBeDefined();
+    expect(result[0].days[1]).toBeDefined();
+    expect(result[0].days[2]).toBeDefined();
+    expect(result[0].days[3]).toBeUndefined();
   });
 
   it("clamps levels to 0-6 range, returns null for NaN", async () => {
@@ -93,14 +93,14 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     // Level 8 should be clamped to 6
-    expect(result[0].day0.state).toBe(6);
+    expect(result[0].days[0].state).toBe(6);
     // -1 and NaN produce null via clampLevel; with pollen_threshold 0 these
     // days still appear but carry the no-data sentinel state -1 (no info, not a
     // real level 0), so the render path shows the no-data pattern.
-    expect(result[0].day1.state).toBe(-1);
-    expect(result[0].day2.state).toBe(-1);
+    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0].days[2].state).toBe(-1);
     // Valid level passes through
-    expect(result[0].day3.state).toBe(3);
+    expect(result[0].days[3].state).toBe(3);
   });
 
   it("filters allergens below pollen_threshold", async () => {
@@ -150,7 +150,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBeGreaterThanOrEqual(result[1].day0.state);
+    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
   });
 
   it("sorts by value_ascending", async () => {
@@ -166,7 +166,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBeLessThanOrEqual(result[1].day0.state);
+    expect(result[0].days[0].state).toBeLessThanOrEqual(result[1].days[0].state);
   });
 
   it("respects user phrase overrides for allergen names", async () => {
@@ -230,7 +230,7 @@ describe("PP adapter: fetchForecast", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].day0;
+    const day = result[0].days[0];
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
