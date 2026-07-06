@@ -3,10 +3,12 @@
 // Extracted verbatim from PollenEditorBase._renderInteractionSection; `this` -> `editor`.
 // ------------------------------------------------------------------ //
 
-import { html } from "lit";
-import { t } from "../../i18n.js";
+import { html, type TemplateResult } from "lit";
+import type { PollenEditorLike } from "../types.js";
 
-export function renderInteractionSection(editor) {
+export function renderInteractionSection(
+  editor: PollenEditorLike,
+): TemplateResult {
   const c = editor._editorConfig();
   return html`
     <!-- §10 Interactions -->
@@ -20,26 +22,29 @@ export function renderInteractionSection(editor) {
       <ha-formfield label="${editor._t("link_to_sensors")}">
         <ha-switch
           .checked=${c.link_to_sensors !== false}
-          @change=${(e) =>
-            editor._updateConfig("link_to_sensors", e.target.checked)}
+          @change=${(e: Event) =>
+            editor._updateConfig(
+              "link_to_sensors",
+              (e.target as HTMLInputElement).checked,
+            )}
         ></ha-switch>
       </ha-formfield>
       <ha-formfield label="${editor._t("tap_action_enable")}">
         <ha-switch
           .checked=${editor._tapType !== "none"}
-          @change=${(e) => {
+          @change=${(e: Event) => {
             // Drop the Lovelace-standard `action` alias: the resolver gives
             // it precedence over `type`, so leaving a stale `action` here
             // would keep the old action live and make the toggle a no-op.
             // Coerce a non-object (e.g. mis-typed YAML `tap_action: "foo"`)
             // to {} first so string indices aren't spread into the config.
-            const _ta = editor._config.tap_action;
-            const _base =
+            const _ta = editor._config?.tap_action;
+            const _base: Record<string, unknown> =
               _ta && typeof _ta === "object" && !Array.isArray(_ta)
-                ? _ta
+                ? (_ta as Record<string, unknown>)
                 : {};
             const { action: _drop, ..._rest } = _base;
-            if (e.target.checked) {
+            if ((e.target as HTMLInputElement).checked) {
               editor._tapType = "more-info";
               editor._updateConfig("tap_action", {
                 ..._rest,
@@ -82,11 +87,13 @@ export function renderInteractionSection(editor) {
                   },
                 }}
                 .value=${editor._tapType}
-                @value-changed=${(e) => {
+                @value-changed=${(e: CustomEvent) => {
                   const v = e.detail?.value;
                   if (v === undefined) return;
-                  editor._tapType = v;
-                  let tapAction = { type: editor._tapType };
+                  editor._tapType = v as string;
+                  const tapAction: Record<string, unknown> = {
+                    type: editor._tapType,
+                  };
                   if (editor._tapType === "more-info")
                     tapAction.entity = editor._tapEntity;
                   if (editor._tapType === "navigate")
