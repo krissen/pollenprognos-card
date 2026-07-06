@@ -528,18 +528,18 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         @click=${hasTap ? this._handleTapAction : null}
       >
         ${picks.map((sensor) => {
-          // Preserve a no-data sensor (missing / NaN / negative day0) as a
+          // Preserve a no-data sensor (missing / NaN / negative days[0]) as a
           // negative level so the ring + icon render the no-data noise pattern
           // instead of collapsing to a green level-0 ring. This matters for a
           // single pinned allergen whose entity is unavailable (e.g. DWD/PEU
-          // emit no day0 for no data), which would otherwise look like level 0.
-          const normalizedLevel = badgeRingLevel(sensor.day0);
+          // emit no days[0] for no data), which would otherwise look like level 0.
+          const normalizedLevel = badgeRingLevel(sensor.days?.[0]);
           const ringLevel = scaleRingLevel(
             this.config.integration,
             normalizedLevel,
           );
           const svgKey = this._getSvgKey(sensor.allergenReplaced);
-          const rawNum = resolveNumericValue(sensor.day0, this.config) ?? ringLevel;
+          const rawNum = resolveNumericValue(sensor.days?.[0], this.config) ?? ringLevel;
           const displayLevel = rawNum != null && rawNum >= 0 ? rawNum : ringLevel;
           const clickable =
             this.config.link_to_sensors !== false && !!sensor.entity_id;

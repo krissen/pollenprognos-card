@@ -464,7 +464,6 @@ export async function fetchForecast(
       next_poll: dict.attributes?.next_poll || null,
     };
 
-    dict.day0 = dayObj;
     dict.days.push(dayObj);
 
     // Clamp number of columns according to configuration (only today available)
@@ -488,8 +487,8 @@ export async function fetchForecast(
       string,
       (a: PollenSensor, b: PollenSensor) => number
     > = {
-      value_ascending: (a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
-      value_descending: (a, b) => (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+      value_ascending: (a, b) => (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0),
+      value_descending: (a, b) => (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0),
       name_ascending: (a, b) =>
         (a.allergenCapitalized || "").localeCompare(
           b.allergenCapitalized || "",
@@ -504,7 +503,7 @@ export async function fetchForecast(
     };
     sensors.sort(
       sortFns[config.sort as string] ||
-        ((a, b) => (a.day0?.state ?? 0) - (b.day0?.state ?? 0)),
+        ((a, b) => (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0)),
     );
   }
 

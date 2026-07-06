@@ -8,20 +8,20 @@ import { hasValidPollenData } from "../../src/utils/adapter-helpers.js";
 
 describe("hasValidPollenData", () => {
   it("returns true when a sensor has state 0 (level-0 is valid data)", async () => {
-    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ day0: { state: 0 } }]) };
+    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: 0 }] }]) };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(true);
   });
 
   it("returns true when a sensor has state 3", async () => {
-    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ day0: { state: 3 } }]) };
+    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: 3 }] }]) };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(true);
   });
 
   it("returns false when all sensors have state -1 (no-data sentinels)", async () => {
     const adapter = {
       fetchForecast: vi.fn().mockResolvedValue([
-        { day0: { state: -1 } },
-        { day0: { state: -1 } },
+        { days: [{ state: -1 }] },
+        { days: [{ state: -1 }] },
       ]),
     };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
@@ -32,21 +32,21 @@ describe("hasValidPollenData", () => {
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
   });
 
-  it("returns false when day0.state is missing (Number(undefined) is NaN)", async () => {
-    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ day0: {} }]) };
+  it("returns false when days[0].state is missing (Number(undefined) is NaN)", async () => {
+    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{}] }]) };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
   });
 
-  it("returns false when day0.state is null (Number(null) is 0, must not count as data)", async () => {
-    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ day0: { state: null } }]) };
+  it("returns false when days[0].state is null (Number(null) is 0, must not count as data)", async () => {
+    const adapter = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: null }] }]) };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
   });
 
   it("returns false when all sensors are atmo-unavailable (state 0 / display_state -1)", async () => {
     const adapter = {
       fetchForecast: vi.fn().mockResolvedValue([
-        { day0: { state: 0, display_state: -1 } },
-        { day0: { state: 0, display_state: -1 } },
+        { days: [{ state: 0, display_state: -1 }] },
+        { days: [{ state: 0, display_state: -1 }] },
       ]),
     };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(false);
@@ -55,8 +55,8 @@ describe("hasValidPollenData", () => {
   it("returns true when at least one sensor has real data among unavailable ones", async () => {
     const adapter = {
       fetchForecast: vi.fn().mockResolvedValue([
-        { day0: { state: 0, display_state: -1 } },
-        { day0: { state: 2, display_state: 2 } },
+        { days: [{ state: 0, display_state: -1 }] },
+        { days: [{ state: 2, display_state: 2 }] },
       ]),
     };
     expect(await hasValidPollenData(adapter, {}, {})).toBe(true);

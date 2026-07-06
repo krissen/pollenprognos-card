@@ -8,12 +8,12 @@ import { selectBadgeSensor } from "../../src/utils/adapter-helpers.js";
 const summary = {
   allergenReplaced: "allergy_risk",
   isSummary: true,
-  day0: { state: 2 },
+  days: [{ state: 2 }],
 };
-const birch = { allergenReplaced: "birch", day0: { state: 1 } };
-const grass = { allergenReplaced: "grass", day0: { state: 4 } };
-const mugwort = { allergenReplaced: "mugwort", day0: { state: 0 } };
-const noData = { allergenReplaced: "alder", day0: { state: -1 } };
+const birch = { allergenReplaced: "birch", days: [{ state: 1 }] };
+const grass = { allergenReplaced: "grass", days: [{ state: 4 }] };
+const mugwort = { allergenReplaced: "mugwort", days: [{ state: 0 }] };
+const noData = { allergenReplaced: "alder", days: [{ state: -1 }] };
 
 describe("selectBadgeSensor", () => {
   it("defaults to the worst (highest-level) per-allergen sensor", () => {
@@ -109,8 +109,8 @@ describe("selectBadgeSensor", () => {
   it("matches 'single' on a PP localized config key (Björk -> bjork)", () => {
     // PP sensors store normalize(configKey): "Björk" -> "bjork". The badge
     // config holds the localized key "Björk", so single must still resolve.
-    const ppBjork = { allergenReplaced: "bjork", day0: { state: 2 } };
-    const ppGras = { allergenReplaced: "gras", day0: { state: 1 } };
+    const ppBjork = { allergenReplaced: "bjork", days: [{ state: 2 }] };
+    const ppGras = { allergenReplaced: "gras", days: [{ state: 1 }] };
     expect(
       selectBadgeSensor([ppBjork, ppGras], {
         badge_content: "single",
@@ -121,8 +121,8 @@ describe("selectBadgeSensor", () => {
 
   it("matches 'single' on a DWD localized config key (gräser -> graeser)", () => {
     // DWD sensors store normalizeDWD(configKey): "gräser" -> "graeser".
-    const dwdGraeser = { allergenReplaced: "graeser", day0: { state: 3 } };
-    const dwdBirke = { allergenReplaced: "birke", day0: { state: 1 } };
+    const dwdGraeser = { allergenReplaced: "graeser", days: [{ state: 3 }] };
+    const dwdBirke = { allergenReplaced: "birke", days: [{ state: 1 }] };
     expect(
       selectBadgeSensor([dwdGraeser, dwdBirke], {
         badge_content: "single",

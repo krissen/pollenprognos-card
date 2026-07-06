@@ -302,13 +302,13 @@ export function assertSensorShape(sensor, opts = {}) {
   if (sensor.days.length < minDays) {
     throw new Error(`days should have at least ${minDays} entries, got ${sensor.days.length}`);
   }
-  if (sensor.day0 === undefined) {
-    throw new Error("day0 should be defined");
+  if (sensor.days[0] === undefined) {
+    throw new Error("days[0] should be defined");
   }
-  if (typeof sensor.day0.state !== "number") {
-    throw new Error(`day0.state should be number, got ${typeof sensor.day0.state}`);
+  if (typeof sensor.days[0].state !== "number") {
+    throw new Error(`days[0].state should be number, got ${typeof sensor.days[0].state}`);
   }
-  if (typeof sensor.day0.day !== "string") {
-    throw new Error(`day0.day (label) should be string, got ${typeof sensor.day0.day}`);
+  if (typeof sensor.days[0].day !== "string") {
+    throw new Error(`days[0].day (label) should be string, got ${typeof sensor.days[0].day}`);
   }
 }

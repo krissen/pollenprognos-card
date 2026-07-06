@@ -489,7 +489,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].day0;
+    const day = result[0].days[0];
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
@@ -517,8 +517,8 @@ describe("fetchForecast: basic shape", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].days.length).toBe(3);
-    expect(result[0].day2).toBeDefined();
-    expect(result[0].day3).toBeUndefined();
+    expect(result[0].days[2]).toBeDefined();
+    expect(result[0].days[3]).toBeUndefined();
   });
 
   it("returns empty array when no matching sensors exist", async () => {
@@ -554,10 +554,10 @@ describe("fetchForecast: flat forecast attributes", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(2);
-    expect(result[0].day1.state).toBe(4);
-    expect(result[0].day2.state).toBe(1);
-    expect(result[0].day3.state).toBe(3);
+    expect(result[0].days[0].state).toBe(2);
+    expect(result[0].days[1].state).toBe(4);
+    expect(result[0].days[2].state).toBe(1);
+    expect(result[0].days[3].state).toBe(3);
   });
 
   it("pads missing forecast days with state=-1", async () => {
@@ -574,9 +574,9 @@ describe("fetchForecast: flat forecast attributes", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].days.length).toBe(3);
-    expect(result[0].day0.state).toBe(3);
-    expect(result[0].day1.state).toBe(-1);
-    expect(result[0].day2.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(3);
+    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0].days[2].state).toBe(-1);
   });
 });
 
@@ -607,9 +607,9 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].day0.state).toBe(nativeLevel);
-      expect(typeof result[0].day0.state_text).toBe("string");
-      expect(result[0].day0.state_text.length).toBeGreaterThan(0);
+      expect(result[0].days[0].state).toBe(nativeLevel);
+      expect(typeof result[0].days[0].state_text).toBe("string");
+      expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
     });
   }
 
@@ -629,7 +629,7 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0].day0.state_text).not.toBe(resultLow[0].day0.state_text);
+    expect(resultHigh[0].days[0].state_text).not.toBe(resultLow[0].days[0].state_text);
   });
 });
 
@@ -649,7 +649,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].day0.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(-1);
   });
 
   it("returns state=-1 for negative index_value", async () => {
@@ -663,7 +663,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].day0.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(-1);
   });
 
   it("clamps index_value above 5 to 5", async () => {
@@ -677,7 +677,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].day0.state).toBe(5);
+    expect(result[0].days[0].state).toBe(5);
   });
 
   it("returns state=-1 for undefined forecast attribute", async () => {
@@ -692,8 +692,8 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].day0.state).toBe(3);
-    expect(result[0].day1.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(3);
+    expect(result[0].days[1].state).toBe(-1);
   });
 });
 
@@ -828,7 +828,7 @@ describe("fetchForecast: sorting modes", () => {
 
     const result = await fetchForecast(hass, config);
     for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i].day0.state).toBeLessThanOrEqual(result[i + 1].day0.state);
+      expect(result[i].days[0].state).toBeLessThanOrEqual(result[i + 1].days[0].state);
     }
   });
 

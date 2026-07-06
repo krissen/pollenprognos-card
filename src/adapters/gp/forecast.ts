@@ -153,7 +153,6 @@ export async function fetchForecast(
           state_text: stateText,
         };
 
-        dict[`day${i}`] = dayObj;
         dict.days.push(dayObj);
       }
 

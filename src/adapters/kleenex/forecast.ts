@@ -843,6 +843,9 @@ export async function fetchForecast(
           name: dict.allergenCapitalized,
           day: dayLabel,
           state: level, // Raw level for sorting and threshold checking
+          // display_state mirrors state: kleenex has no separate display value,
+          // so the contract's always-present display_state carries the level.
+          display_state: level,
           state_text:
             scaledLevel < 0
               ? noInfoLabel
@@ -860,7 +863,6 @@ export async function fetchForecast(
               : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
         };
 
-        dict[`day${i}`] = dayObj;
         dict.days.push(dayObj);
       }
 
@@ -906,7 +908,7 @@ export async function fetchForecast(
         sensors.push(dict);
         if (debug) {
           console.debug(
-            `[Kleenex] SENSOR ADDED for ${allergenKey}: today_state=${dict.day0?.state}, entity_id=${dict.entity_id}`,
+            `[Kleenex] SENSOR ADDED for ${allergenKey}: today_state=${dict.days?.[0]?.state}, entity_id=${dict.entity_id}`,
           );
         }
       } else {
@@ -988,7 +990,7 @@ export async function fetchForecast(
           sensor.allergenReplaced,
         );
         console.debug(
-          `[Kleenex] ${i + 1}. ${sensor.allergenReplaced} (${isCategory ? "CATEGORY" : "INDIVIDUAL"}): day0_state=${sensor.day0?.state}, entity_id=${sensor.entity_id}`,
+          `[Kleenex] ${i + 1}. ${sensor.allergenReplaced} (${isCategory ? "CATEGORY" : "INDIVIDUAL"}): day0_state=${sensor.days?.[0]?.state}, entity_id=${sensor.entity_id}`,
         );
       });
     }

@@ -318,7 +318,6 @@ export async function fetchForecast(
         allergenCapitalized,
         allergenShort,
         entity_id: entityId,
-        day0,
         days: [day0],
       };
 

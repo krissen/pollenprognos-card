@@ -10,13 +10,6 @@
       },
       {
         "name": "Birch",
-        "day": "Tomorrow",
-        "state": 4,
-        "display_state": 4,
-        "state_text": "Moderate–high levels"
-      },
-      {
-        "name": "Birch",
         "day": "Day after tomorrow",
         "state": 2,
         "display_state": 2,

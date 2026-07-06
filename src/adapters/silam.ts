@@ -637,17 +637,17 @@ export async function fetchForecast(
               ? noInfoLabel
               : levelNames[lvlIndex] || String(scaled);
 
-        // TODO(#259-normalize): SILAM day objects deliberately omit
-        // display_state (unlike dwd/peu); the card falls back to `state`.
+        // display_state mirrors state: SILAM has no separate display value, so
+        // the contract's always-present display_state carries the same level.
         const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,
           day: label,
           icon: icon as string,
           state: scaled,
+          display_state: scaled,
           raw_value: rawList[i] ?? null,
           state_text: stateText,
         };
-        dict[`day${i}`] = dayObj;
         dict.days.push(dayObj);
       }
 

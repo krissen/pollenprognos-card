@@ -23,21 +23,6 @@
     "entity_id": "sensor.pollen_birch",
     "attributes": {
       "unit_of_measurement": "grains/m³"
-    },
-    "day0": {
-      "name": "Birch",
-      "day": "Today",
-      "state": 2,
-      "display_state": 2,
-      "raw_value": 25,
-      "state_text": "Moderate levels",
-      "thresholds": {
-        "moderate": 11,
-        "high": 51
-      },
-      "level_string": null,
-      "last_update": null,
-      "next_poll": null
     }
   },
   {
@@ -64,21 +49,6 @@
     "entity_id": "sensor.pollen_alder",
     "attributes": {
       "unit_of_measurement": "grains/m³"
-    },
-    "day0": {
-      "name": "Alder",
-      "day": "Today",
-      "state": 1,
-      "display_state": 1,
-      "raw_value": 5,
-      "state_text": "Low levels",
-      "thresholds": {
-        "moderate": 11,
-        "high": 51
-      },
-      "level_string": null,
-      "last_update": null,
-      "next_poll": null
     }
   }
 ]

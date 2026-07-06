@@ -543,9 +543,9 @@ export async function fetchForecast(
   if (debug)
     console.debug("ATMO adapter: start fetchForecast", { config, lang });
 
-  // Atmo France: 0 = indisponible, 1–6 = valid levels, 7 = événement.
-  // TODO(#259-normalize): the raw 0-7 scale is deliberately preserved in
-  // `state`; display_state caps at 6 for ring rendering (see mapAtmoLevel).
+  // Atmo France raw scale: 0 = indisponible, 1–6 = valid levels, 7 = événement.
+  // testVal keeps the raw value here; mapAtmoLevel normalizes it onto the 0-6
+  // (or -1 no-data) contract for both state and display_state.
   const testVal = (v: unknown): number => clampLevel(v, null, -1);
 
   // Labels for Atmo-specific special values (0 and 7).
@@ -559,7 +559,12 @@ export async function fetchForecast(
   const atmoEventLabel = localizedOrNull("card.atmo.event");
 
   /**
-   * Map raw Atmo level to state/display_state/state_text.
+   * Map raw Atmo level to state/display_state/state_text. The raw 0-7 scale is
+   * normalized here: `state` carries the clamped 0-6 (or -1 no-data) value, the
+   * same as `display_state`, so the raw event/unavailable codes never leave the
+   * adapter. Both the ring (reads state) and the numeric value (reads
+   * display_state) then agree; in particular, "Indisponible" (raw 0) renders as
+   * the no-data pattern via state -1 instead of a misleading green level-0 ring.
    * @param raw     - Raw sensor value (-1, 0–7)
    * @param libelle - Sensor Libellé attribute (native label)
    */
@@ -568,12 +573,12 @@ export async function fetchForecast(
       return { state: -1, display_state: -1, state_text: noInfoLabel };
     }
     if (raw === 0) {
-      // Indisponible — show as empty circle. Prefer the card's localized label
-      // over the integration's Libellé (which is always French "Indisponible").
-      // If no translation exists for this locale, fall back to Libellé, then
-      // the generic noInfoLabel.
+      // Indisponible — no data. state -1 renders the no-data pattern (the ring
+      // reads state); a green level-0 ring would falsely read as "no pollen".
+      // Prefer the card's localized label over the integration's Libellé (always
+      // French "Indisponible"); fall back to Libellé, then the generic label.
       return {
-        state: 0,
+        state: -1,
         display_state: -1,
         state_text: atmoUnavailableLabel || libelle || noInfoLabel,
       };
@@ -586,18 +591,18 @@ export async function fetchForecast(
       };
     }
     if (raw === 7) {
-      // Événement — cap circle at 6. Prefer the localized label so non-French
-      // users don't see the raw French wording; fall back to Libellé, then
-      // noInfoLabel.
+      // Événement — cap at 6 for both state and display. Prefer the localized
+      // label so non-French users don't see the raw French wording; fall back
+      // to Libellé, then noInfoLabel.
       return {
-        state: 7,
+        state: 6,
         display_state: 6,
         state_text: atmoEventLabel || libelle || noInfoLabel,
       };
     }
     // Unexpected value — treat as max
     return {
-      state: raw,
+      state: Math.min(raw, 6),
       display_state: Math.min(raw, 6),
       state_text: libelle || noInfoLabel,
     };
@@ -697,7 +702,6 @@ export async function fetchForecast(
           display_state: mapped.display_state,
           state_text: mapped.state_text,
         };
-        dict[`day${idx}`] = dayObj;
         dict.days.push(dayObj);
       });
 
@@ -721,13 +725,13 @@ export async function fetchForecast(
       (a: PollenSensor, b: PollenSensor) => number
     > = {
       value_ascending: (a, b) =>
-        ((a.day0?.display_state as number) ?? 0) -
-          ((b.day0?.display_state as number) ?? 0) ||
-        (a.day0?.state ?? 0) - (b.day0?.state ?? 0),
+        ((a.days?.[0]?.display_state as number) ?? 0) -
+          ((b.days?.[0]?.display_state as number) ?? 0) ||
+        (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0),
       value_descending: (a, b) =>
-        ((b.day0?.display_state as number) ?? 0) -
-          ((a.day0?.display_state as number) ?? 0) ||
-        (b.day0?.state ?? 0) - (a.day0?.state ?? 0),
+        ((b.days?.[0]?.display_state as number) ?? 0) -
+          ((a.days?.[0]?.display_state as number) ?? 0) ||
+        (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0),
       name_ascending: (a, b) =>
         a.allergenCapitalized.localeCompare(b.allergenCapitalized),
       name_descending: (a, b) =>
@@ -736,9 +740,9 @@ export async function fetchForecast(
     const sortFn =
       sortFns[config.sort as string] ||
       ((a: PollenSensor, b: PollenSensor) =>
-        ((b.day0?.display_state as number) ?? 0) -
-          ((a.day0?.display_state as number) ?? 0) ||
-        (b.day0?.state ?? 0) - (a.day0?.state ?? 0));
+        ((b.days?.[0]?.display_state as number) ?? 0) -
+          ((a.days?.[0]?.display_state as number) ?? 0) ||
+        (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0));
 
     if (config.sort_pollution_block) {
       // Separate into pollen and pollution by group property

@@ -310,6 +310,24 @@ export function buildGoldenFixtures() {
       pollen_threshold: 1,
     }),
   );
+  // Mid-sequence gap: the middle forecast day has no reading (level null) and
+  // pollen_threshold > 0, so pp skips it. Under the old day0..dayN contract this
+  // produced a SPARSE key set (day0, day2, day3 with no day1) alongside a
+  // COMPACT days[] ([today, day2, day3]). Locks that divergence before the
+  // days[] migration so the Step-1 diff shows exactly what the sparse dayN
+  // keys carried; after the swap only the dayN keys disappear and readers move
+  // to the compact days[] (deliberate consistency correction, not a regression).
+  add(
+    "pp",
+    "mid-sequence-gap",
+    ppHass("stockholm", { bjork: [3, null, 2, 1] }),
+    cfg(stubConfigPP, {
+      city: "Stockholm",
+      allergens: ["Björk"],
+      days_to_show: 4,
+      pollen_threshold: 1,
+    }),
+  );
 
   // -- DWD ----------------------------------------------------------------
   add(
@@ -418,6 +436,25 @@ export function buildGoldenFixtures() {
       pollen_threshold: 0,
     }),
   );
+  // Atmo's two special raw levels: 0 = "Indisponible" (no data) and 7 =
+  // "Événement". birch's tomorrow is raw 0; grass's today is raw 7. Captures
+  // how mapAtmoLevel maps these onto state/display_state, so the Step-3
+  // state-normalization diff (raw 0 -> state -1, raw 7 -> state 6, both
+  // matching display_state) is visible and reviewable. Committed before that
+  // change with the old shape (state 0 / state 7).
+  add(
+    "atmo",
+    "unavailable-and-event",
+    atmoHass("paris", [
+      ["birch", 3, 0],
+      ["grass", 7, 5],
+    ]),
+    cfg(stubConfigATMO, {
+      location: "paris",
+      allergens: ["birch", "grass"],
+      pollen_threshold: 0,
+    }),
+  );
 
   // -- PLU ----------------------------------------------------------------
   add(
@@ -485,6 +522,26 @@ export function buildGoldenFixtures() {
     }),
     cfg(stubConfigGP, {
       allergens: ["grass_cat", "birch"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    }),
+  );
+  // Collision path: three sensors share the localized display_name "Gräs" and
+  // carry no unique_id (entities undefined -> tier-3 prefix scan). The first
+  // classifies to the grass category; the second collides and is reclassified
+  // as the graminales plant via GP_COLLISION_PLANTS; the third collides again
+  // but graminales is already taken, so the `!locEntities.has(alt)` guard drops
+  // it (both branches of the onCollision guard exercised -- PR8 near-miss).
+  add(
+    "gp",
+    "collision",
+    gpHass({
+      "sensor.google_pollen_gras": gpSensor("Gräs", 3, { tomorrow: 2 }),
+      "sensor.google_pollen_gras_2": gpSensor("Gräs", 2, { tomorrow: 1 }),
+      "sensor.google_pollen_gras_3": gpSensor("Gräs", 1, { tomorrow: 0 }),
+    }),
+    cfg(stubConfigGP, {
+      allergens: ["grass_cat", "graminales"],
       pollen_threshold: 0,
       days_to_show: 2,
     }),

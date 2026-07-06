@@ -44,19 +44,19 @@ describe("PLU adapter: fetchForecast", () => {
 
     const hass = makeHass({ birch: 0 });
     const result = await fetchForecast(hass, makeConfig(base));
-    expect(result[0].day0.state).toBe(0); // 0 grains = level 0
+    expect(result[0].days[0].state).toBe(0); // 0 grains = level 0
 
     const hass2 = makeHass({ birch: 5 });
     const result2 = await fetchForecast(hass2, makeConfig(base));
-    expect(result2[0].day0.state).toBe(1); // 5 < 11 = level 1 (low)
+    expect(result2[0].days[0].state).toBe(1); // 5 < 11 = level 1 (low)
 
     const hass3 = makeHass({ birch: 25 });
     const result3 = await fetchForecast(hass3, makeConfig(base));
-    expect(result3[0].day0.state).toBe(2); // 11 <= 25 < 51 = level 2 (moderate)
+    expect(result3[0].days[0].state).toBe(2); // 11 <= 25 < 51 = level 2 (moderate)
 
     const hass4 = makeHass({ birch: 100 });
     const result4 = await fetchForecast(hass4, makeConfig(base));
-    expect(result4[0].day0.state).toBe(3); // 100 >= 51 = level 3 (high)
+    expect(result4[0].days[0].state).toBe(3); // 100 >= 51 = level 3 (high)
   });
 
   it("returns -1 for NaN/negative values", async () => {
@@ -71,7 +71,7 @@ describe("PLU adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(-1);
   });
 
   it("keeps the raw concentration in raw_value and shows the level by default", async () => {
@@ -82,8 +82,8 @@ describe("PLU adapter: fetchForecast", () => {
 
     // display_state is the calculated level (shown by default); the raw p/m3
     // concentration lives in raw_value (surfaced only via numeric_value_raw).
-    expect(result[0].day0.raw_value).toBe(25);
-    expect(result[0].day0.display_state).toBe(result[0].day0.state);
+    expect(result[0].days[0].raw_value).toBe(25);
+    expect(result[0].days[0].display_state).toBe(result[0].days[0].state);
   });
 
   it("has PLU-specific extra day properties", async () => {
@@ -100,7 +100,7 @@ describe("PLU adapter: fetchForecast", () => {
     const config = makeConfig({ allergens: ["birch"] });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].day0;
+    const day = result[0].days[0];
 
     expect(day).toHaveProperty("thresholds");
     expect(day.thresholds).toEqual({ moderate: 11, high: 51 });

@@ -135,8 +135,8 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0).toBeDefined();
-    expect(result[0].day0).toBe(result[0].days[0]);
+    expect(result[0].days[0]).toBeDefined();
+    expect(result[0].days[0]).toBe(result[0].days[0]);
   });
 
   it("respects days_to_show", async () => {
@@ -156,8 +156,8 @@ describe("Kleenex adapter: basic shape", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result[0].days.length).toBe(3);
-    expect(result[0].day2).toBeDefined();
-    expect(result[0].day3).toBeUndefined();
+    expect(result[0].days[2]).toBeDefined();
+    expect(result[0].days[3]).toBeUndefined();
   });
 });
 
@@ -181,7 +181,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(0);
+    expect(result[0].days[0].state).toBe(0);
   });
 
   it("maps trees PPM within low threshold (<=95) to level 1", async () => {
@@ -198,7 +198,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(1);
+    expect(result[0].days[0].state).toBe(1);
   });
 
   it("maps trees PPM within moderate threshold (96-207) to level 2", async () => {
@@ -215,7 +215,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(2);
+    expect(result[0].days[0].state).toBe(2);
   });
 
   it("maps trees PPM within high threshold (208-703) to level 3", async () => {
@@ -232,7 +232,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(3);
+    expect(result[0].days[0].state).toBe(3);
   });
 
   it("maps trees PPM above high threshold (>703) to level 4", async () => {
@@ -249,7 +249,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(4);
+    expect(result[0].days[0].state).toBe(4);
   });
 
   // Grass thresholds: [29, 60, 341]
@@ -268,7 +268,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
     const result = await fetchForecast(hass, config);
 
     // 30 > 29 (low threshold) so level 2 (moderate)
-    expect(result[0].day0.state).toBe(2);
+    expect(result[0].days[0].state).toBe(2);
   });
 
   // Weeds thresholds: [20, 77, 266]
@@ -287,9 +287,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
     const result = await fetchForecast(hass, config);
 
     // 15 <= 20 (low threshold) so level 1
-    expect(result[0].day0.state).toBe(1);
+    expect(result[0].days[0].state).toBe(1);
     // The raw ppm measurement is kept for numeric_value_raw.
-    expect(result[0].day0.raw_value).toBe(15);
+    expect(result[0].days[0].raw_value).toBe(15);
   });
 
   it("coerces 'unavailable' sensor state to level 0 for category sensors", async () => {
@@ -313,7 +313,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(0);
+    expect(result[0].days[0].state).toBe(0);
   });
 
   it("returns -1 for negative PPM values", async () => {
@@ -330,7 +330,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(-1);
+    expect(result[0].days[0].state).toBe(-1);
   });
 });
 
@@ -366,8 +366,8 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].day0.state).toBe(expectedRawLevel);
-      expect(typeof result[0].day0.state_text).toBe("string");
+      expect(result[0].days[0].state).toBe(expectedRawLevel);
+      expect(typeof result[0].days[0].state_text).toBe("string");
     });
   }
 
@@ -392,7 +392,7 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0].day0.state_text).not.toBe(resultLow[0].day0.state_text);
+    expect(resultHigh[0].days[0].state_text).not.toBe(resultLow[0].days[0].state_text);
   });
 });
 
@@ -472,7 +472,7 @@ describe("Kleenex adapter: category sensors", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].day0.state).toBe(2);
+    expect(result[0].days[0].state).toBe(2);
   });
 });
 
@@ -576,7 +576,7 @@ describe("Kleenex adapter: individual allergens from details", () => {
     const result = await fetchForecast(hass, config);
 
     // 50 PPM for birch (trees category) <= 95 -> level 1
-    expect(result[0].day0.state).toBe(1);
+    expect(result[0].days[0].state).toBe(1);
   });
 
   it("extracts forecast day data for individual allergens from forecast.details", async () => {
@@ -598,9 +598,9 @@ describe("Kleenex adapter: individual allergens from details", () => {
     const result = await fetchForecast(hass, config);
 
     // Today: 100 PPM <= 95? No: 100 > 95 so level 2
-    expect(result[0].day0.state).toBe(2);
+    expect(result[0].days[0].state).toBe(2);
     // Tomorrow: 800 PPM > 703 -> level 4
-    expect(result[0].day1.state).toBe(4);
+    expect(result[0].days[1].state).toBe(4);
   });
 });
 
@@ -771,7 +771,7 @@ describe("Kleenex adapter: user level names", () => {
     const result = await fetchForecast(hass, config);
 
     // Raw level 2 -> scaled level 3 -> customLevels[3] = "Medium"
-    expect(result[0].day0.state_text).toBe("Medium");
+    expect(result[0].days[0].state_text).toBe("Medium");
   });
 
   it("accepts 5 custom level labels mapped via index positions [0,1,3,5,6]", async () => {
@@ -793,7 +793,7 @@ describe("Kleenex adapter: user level names", () => {
     const result = await fetchForecast(hass, config);
 
     // Raw level 2 -> scaled 3; 5-label map[2] = 3 -> customLevels[2] = "Moderate"
-    expect(result[0].day0.state_text).toBe("Moderate");
+    expect(result[0].days[0].state_text).toBe("Moderate");
   });
 
   it("falls back to i18n default for empty string entries in 7-label array", async () => {
@@ -813,7 +813,7 @@ describe("Kleenex adapter: user level names", () => {
     const result = await fetchForecast(hass, config);
 
     // Level 0 -> scaled 0 -> customLevels[0] = "CustomZero"
-    expect(result[0].day0.state_text).toBe("CustomZero");
+    expect(result[0].days[0].state_text).toBe("CustomZero");
   });
 });
 
@@ -1172,10 +1172,10 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(result[0].allergenReplaced).toBe("birch");
     expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
     // 150 ppm for birch (trees category) is in range 96-207 -> raw level 2
-    expect(result[0].day0.state).toBe(2);
+    expect(result[0].days[0].state).toBe(2);
     // Forecast day 1: 100 ppm -> raw level 2; day 2: 50 ppm -> raw level 1
-    expect(result[0].day1.state).toBe(2);
-    expect(result[0].day2.state).toBe(1);
+    expect(result[0].days[1].state).toBe(2);
+    expect(result[0].days[2].state).toBe(1);
   });
 
   it("Test 5b - DetailSensor result passes sensor shape contract", async () => {
@@ -1252,7 +1252,7 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(result.length).toBe(1);
     expect(result[0].allergenReplaced).toBe("birch");
     // Must use the category sensor value (250 ppm -> level 3), not DetailSensor (50 -> level 1).
-    expect(result[0].day0.state).toBe(3);
+    expect(result[0].days[0].state).toBe(3);
     expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
   });
 

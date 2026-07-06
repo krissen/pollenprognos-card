@@ -412,7 +412,7 @@ function buildPeuDict({
   // code called this variable allergenSlug.
   const allergenSlug = rawKey;
   // Preserve the original key-insertion order (days first, then allergen
-  // fields, entity_id, then stale/staleSince or dayN) so the serialized sensor
+  // fields, entity_id, then stale/staleSince) so the serialized sensor
   // dict stays byte-identical.
   const dict = { days: [] as ForecastDay[] } as PollenSensor;
   dict.allergenReplaced = allergenSlug;
@@ -499,7 +499,6 @@ function buildPeuDict({
         state_text:
           levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
       };
-      dict[`day${i}`] = dayObj;
       dict.days.push(dayObj);
     }
     return dict;
@@ -565,7 +564,6 @@ function buildPeuDict({
           levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
       };
 
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     }
   });

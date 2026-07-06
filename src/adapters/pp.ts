@@ -366,9 +366,11 @@ function buildPpDict({
         name: dict.allergenCapitalized,
         day: label,
         state: level,
+        // display_state mirrors state: PP has no separate display value, so the
+        // contract's always-present display_state carries the same level.
+        display_state: level,
         state_text: ctx.levelNames[level],
       };
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     } else if (ctx.pollen_threshold === 0) {
       // When threshold is 0, show all allergens even with no data. Emit the
@@ -381,9 +383,9 @@ function buildPpDict({
         name: dict.allergenCapitalized,
         day: label,
         state: -1,
+        display_state: -1,
         state_text: ctx.noInfoLabel,
       };
-      dict[`day${idx}`] = dayObj;
       dict.days.push(dayObj);
     }
   });
