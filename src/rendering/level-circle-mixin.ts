@@ -653,8 +653,21 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
             ta.navigation_path &&
             typeof window !== "undefined" &&
             window.history?.pushState
-          )
+          ) {
             window.history.pushState(null, "", ta.navigation_path);
+            // HA's router listens on window for "location-changed"; a bare
+            // pushState updates the URL but never re-resolves the panel. Mirror
+            // the frontend navigate() helper's fireEvent form: a plain Event
+            // (bubbles+composed) with a { replace } detail bag attached.
+            const ev = new Event("location-changed", {
+              bubbles: true,
+              composed: true,
+            });
+            (ev as unknown as { detail: { replace: boolean } }).detail = {
+              replace: false,
+            };
+            window.dispatchEvent(ev);
+          }
           break;
         case "call-service": {
           // Accept the card's service/service_data and HA's modern

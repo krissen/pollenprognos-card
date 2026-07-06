@@ -92,7 +92,10 @@ describe("LevelCircleMixin._handleTapAction", () => {
 
   it("honours the Lovelace-standard `action` key (navigate)", () => {
     const prev = globalThis.window;
-    globalThis.window = { history: { pushState: vi.fn() } } as any;
+    globalThis.window = {
+      history: { pushState: vi.fn() },
+      dispatchEvent: vi.fn(),
+    } as any;
     el.tapAction = { action: "navigate", navigation_path: "/lovelace/2" };
     el._handleTapAction(makeEvent());
     expect(window.history.pushState).toHaveBeenCalledWith(null, "", "/lovelace/2");
@@ -199,7 +202,10 @@ describe("LevelCircleMixin._handleTapAction", () => {
     let prevWindow: any;
     beforeEach(() => {
       prevWindow = globalThis.window;
-      globalThis.window = { history: { pushState: vi.fn() } } as any;
+      globalThis.window = {
+        history: { pushState: vi.fn() },
+        dispatchEvent: vi.fn(),
+      } as any;
     });
     afterEach(() => {
       globalThis.window = prevWindow;
@@ -215,10 +221,27 @@ describe("LevelCircleMixin._handleTapAction", () => {
       );
     });
 
+    it("dispatches location-changed so HA's router re-resolves the panel", () => {
+      // A bare pushState updates the URL but never re-renders the panel; HA's
+      // router listens on window for "location-changed". Mirror the frontend
+      // navigate() helper's fireEvent form (#279).
+      el.tapAction = { type: "navigate", navigation_path: "/lovelace/3" };
+      el._handleTapAction(makeEvent());
+      expect(window.dispatchEvent).toHaveBeenCalledTimes(1);
+      const ev = (window.dispatchEvent as any).mock.calls[0][0];
+      expect(ev.type).toBe("location-changed");
+      expect(ev.bubbles).toBe(true);
+      expect(ev.composed).toBe(true);
+      expect(ev.detail).toEqual({ replace: false });
+      // Fires after the URL is updated.
+      expect(window.history.pushState).toHaveBeenCalled();
+    });
+
     it("does nothing without a navigation path", () => {
       el.tapAction = { type: "navigate" };
       el._handleTapAction(makeEvent());
       expect(window.history.pushState).not.toHaveBeenCalled();
+      expect(window.dispatchEvent).not.toHaveBeenCalled();
     });
 
     it("navigates even without hass (navigate needs only the History API)", () => {
@@ -230,6 +253,7 @@ describe("LevelCircleMixin._handleTapAction", () => {
         "",
         "/lovelace/1",
       );
+      expect(window.dispatchEvent).toHaveBeenCalledTimes(1);
     });
   });
 });
