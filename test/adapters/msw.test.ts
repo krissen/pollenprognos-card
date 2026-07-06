@@ -19,7 +19,7 @@ function makeConfig(overrides: any = {}): any {
 function makeHass(allergenMap: any): any {
   // allergenMap: { canonical_allergen: [mswSlug, levelStr, postcode?, station?] }
   const states: Record<string, any> = {};
-  for (const [canonical, [mswSlug, levelStr, postcode, station]] of Object.entries(allergenMap) as [string, any][]) {
+  for (const [, [mswSlug, levelStr, postcode, station]] of Object.entries(allergenMap) as [string, any][]) {
     const pc = postcode ?? "8000";
     const st = station ?? "za";
     states[`sensor.pollen_${mswSlug}_level_at_${pc}_${st}`] = createMSWSensor(levelStr);

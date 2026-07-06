@@ -39,7 +39,7 @@ export function cleanDeviceLabel(raw: string): string {
   // Each value: optional sign, digits, optional decimal part. Whitespace
   // tolerated around values and the comma.
   const COORD_PAREN =
-    /\s*\(\s*[+\-]?\d+(?:\.\d+)?\s*,\s*[+\-]?\d+(?:\.\d+)?\s*\)\s*$/;
+    /\s*\(\s*[+-]?\d+(?:\.\d+)?\s*,\s*[+-]?\d+(?:\.\d+)?\s*\)\s*$/;
   const stripped = trimmed.replace(COORD_PAREN, "").trim();
   if (stripped === trimmed) return trimmed;
 

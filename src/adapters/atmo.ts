@@ -688,7 +688,7 @@ export async function fetchForecast(
       }
 
       // Build day objects (always include placeholders for show_empty_days support)
-      levels.forEach((entry, idx) => {
+      levels.forEach((entry) => {
         const diff = Math.round((entry.date.getTime() - today.getTime()) / 86400000);
         const dayLabel = buildDayLabel(entry.date, diff, {
           daysRelative,

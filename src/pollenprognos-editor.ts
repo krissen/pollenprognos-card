@@ -31,10 +31,7 @@ import { GPL_BASE_ALLERGENS, discoverGplSensors, discoverGplAllergens } from "./
 import { GP_BASE_ALLERGENS, discoverGpSensors, discoverGpAllergens } from "./adapters/gp/index.js";
 import { discoverMswSensors } from "./adapters/msw.js";
 import { discoverIrmkmiSensors } from "./adapters/irmkmi.js";
-import {
-  discoverSilamSensors,
-  resolveDiscoveredLocation,
-} from "./utils/silam.js";
+import { discoverSilamSensors } from "./utils/silam.js";
 import {
   findLocationBySlug,
   type DeviceDiscovery,
@@ -218,7 +215,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             "[Editor] saved user-chosen allergens:",
             this._userConfig.allergens,
           );
-      } else {
       }
 
       // 3. Släpp aldrig in stub-allergener (alltid med när editorn öppnas)
@@ -236,7 +232,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // 4. Släpp aldrig in stub-pollen_threshold
       const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")!).pollen_threshold;
       if (
-        incoming.hasOwnProperty("pollen_threshold") &&
+        Object.hasOwn(incoming, "pollen_threshold") &&
         !this._thresholdExplicit &&
         incoming.pollen_threshold === stubThresh
       ) {
@@ -309,9 +305,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
               "[Editor] dropping incoming allergens (matches stub, keeping explicit)",
             );
           delete incoming.allergens;
-        } else {
         }
-      } else {
       }
 
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
@@ -321,13 +315,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit =
-        this._userConfig.hasOwnProperty("pollen_threshold");
-      this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
+        Object.hasOwn(this._userConfig, "pollen_threshold");
+      this._allergensExplicit = Object.hasOwn(this._userConfig, "allergens");
       this._integrationExplicit =
-        this._userConfig.hasOwnProperty("integration");
+        Object.hasOwn(this._userConfig, "integration");
       
-      this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
-      this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
+      this._daysExplicit = Object.hasOwn(this._userConfig, "days_to_show");
+      this._localeExplicit = Object.hasOwn(this._userConfig, "date_locale");
 
       // 9. Bestäm integration (userConfig > tidigare config > autodetect).
       // Autodetect uses the shared module (src/utils/autodetect.js), so this
@@ -379,7 +373,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       });
 
       // 11. Om användaren inte explicit satt pollen_threshold, ta stub-värdet
-      if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+      if (!Object.hasOwn(this._userConfig, "pollen_threshold")) {
         merged.pollen_threshold = baseStub.pollen_threshold as number;
         if (this.debug)
           console.debug(
@@ -717,7 +711,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
 
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
-    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+    if (!Object.hasOwn(this._userConfig, "pollen_threshold")) {
       merged.pollen_threshold = base.pollen_threshold as number;
       if (this.debug)
         console.debug(
@@ -984,8 +978,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
               // Clean up the title to show only the location
               title = title
-                .replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
-                .replace(/[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
+                .replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
+                .replace(/[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
                 .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
                 .trim();
 
@@ -1099,7 +1093,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           composed: true,
         }),
       );
-    } else {
     }
 
     this.requestUpdate();
@@ -1117,7 +1110,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this._updateConfig("mode", "daily");
     }
     const set = new Set(this._config?.allergens as string[]);
-    checked ? set.add(allergen) : set.delete(allergen);
+    if (checked) set.add(allergen);
+    else set.delete(allergen);
 
     this._updateConfig("allergens", [...set]);
   };
@@ -1453,8 +1447,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // Compute locals needed by the inline sections (§3, §4, §7, §8, §9, §10, §11).
     // Sections §1, §2, §5 are rendered via inherited base methods.
     const c = this._editorConfig();
-    const allergens = this._currentAllergens();
-    const numLevels = this._currentNumLevels();
 
     if (this.debug) {
       console.debug("[Editor] Current language (lang):", this._lang);

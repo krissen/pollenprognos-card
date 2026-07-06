@@ -352,7 +352,7 @@ function buildPpDict({
   );
 
   // Iterate forecast days
-  forecastDates.forEach((dateStr, idx) => {
+  forecastDates.forEach((dateStr) => {
     const raw = forecastMap[dateStr] || {};
     const level = testVal(raw.level);
     const d = parseLocal(dateStr);

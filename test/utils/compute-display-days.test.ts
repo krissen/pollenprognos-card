@@ -18,9 +18,6 @@ const sensor3 = makeSensor(3);
 const sensor5 = makeSensor(5);
 const sensor1 = makeSensor(1);
 
-/** Aggregate-only sensor: exactly one day with valid state. */
-const aggregateOnly = makeSensor(1);
-
 // ---------------------------------------------------------------------------
 // show_empty_days: true
 // ---------------------------------------------------------------------------

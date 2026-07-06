@@ -3,7 +3,6 @@ import { LitElement, html, css } from "lit";
 import type { TemplateResult, PropertyValues } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { slugify } from "./utils/slugify.js";
-import { getSvgContent } from "./pollenprognos-svgs.js";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
@@ -96,7 +95,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   declare _forecastSubEntity: string | null;
   declare _forecastSubType: string | null;
   declare _fetchSeq?: number;
-  // Cached SILAM discovery from set hass (autodetect is still JS/untyped).
+  // Cached SILAM discovery from set hass. Bridges two structurally different
+  // discovery shapes: the assignment source is the driver's AutodetectDiscovery
+  // (adapter.ts), while the consumer (findSilamWeatherEntity) expects silam.ts's
+  // private SilamDiscovery. Reconciling the two Map value types is a tracked
+  // follow-up; `any` keeps the bridge until then.
   declare _silamDiscovery?: any;
   // Debug-only snapshots, assigned when this.debug is on.
   declare d_sensors?: PollenSensor[];
@@ -631,7 +634,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     if (deepEqual(this._userConfig, config)) return;
 
     // Explicit integration
-    this._integrationExplicit = config.hasOwnProperty("integration");
+    this._integrationExplicit = Object.hasOwn(config, "integration");
     this._skipIntegrations.clear();
     this.tapAction = config.tap_action || null;
 
@@ -707,12 +710,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const detection = detectIntegrationStates(hass, {
       debug: this.debug,
     });
-    // peuStates + the discovery objects/getters below are consumed by the
-    // header label-resolution block further down; the per-integration state
-    // lists used only for the pick/location are handled inside the shared
-    // module, so they are not destructured here.
+    // The discovery objects/getters below are consumed by the header
+    // label-resolution block further down; the per-integration state lists
+    // used only for the pick/location are handled inside the shared module,
+    // so they are not destructured here.
     const {
-      states: { peu: peuStates },
       discovery: {
         silam: silamDiscovery,
         atmo: atmoDiscovery,
@@ -1099,9 +1101,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             attr.location_name ||
             attr.friendly_name?.match(/\(([^)]+)\)/)?.[1] ||
             attr.friendly_name
-              ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
+              ?.replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
               .replace(
-                /[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
+                /[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
                 "",
               )
               .replace(
@@ -1279,7 +1281,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // latest fetch may apply its result, so a slower earlier fetch cannot
     // overwrite newer sensors with stale data on rapid config/hass changes.
     const fetchId = (this._fetchSeq = (this._fetchSeq || 0) + 1);
-    let fetchPromise: Promise<PollenSensor[]> | null = null;
+    let fetchPromise: Promise<PollenSensor[]> | null;
     if (cfg.integration === "silam") {
       // Pass forecastEvent when available; fetchForecast falls back to
       // entity.attributes.forecast when forecastEvent is null (daily mode
@@ -1397,9 +1399,6 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   }
 
   _renderNoAllergensHtml() {
-    const imgSize =
-      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
-
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
       <div class="card-content">
@@ -2074,7 +2073,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     if (this._isLoaded && (!this.sensors || !this.sensors.length)) {
       const nameKey = `card.integration.${this.config.integration}`;
       const name = this._t(nameKey);
-      let errorMsg = "";
+      let errorMsg: string;
       if (this._error) {
         errorMsg = this._t(this._error);
         return html`
