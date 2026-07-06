@@ -96,7 +96,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   declare _forecastSubEntity: string | null;
   declare _forecastSubType: string | null;
   declare _fetchSeq?: number;
-  // Cached SILAM discovery from set hass (autodetect is still JS/untyped).
+  // Cached SILAM discovery from set hass. Bridges two structurally different
+  // discovery shapes: the assignment source is the driver's AutodetectDiscovery
+  // (adapter.ts), while the consumer (findSilamWeatherEntity) expects silam.ts's
+  // private SilamDiscovery. Reconciling the two Map value types is a tracked
+  // follow-up; `any` keeps the bridge until then.
   declare _silamDiscovery?: any;
   // Debug-only snapshots, assigned when this.debug is on.
   declare d_sensors?: PollenSensor[];
