@@ -381,7 +381,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 11. Om användaren inte explicit satt pollen_threshold, ta stub-värdet
       if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
-        merged.pollen_threshold = baseStub.pollen_threshold;
+        merged.pollen_threshold = baseStub.pollen_threshold as number;
         if (this.debug)
           console.debug(
             "[Editor] reset pollen_threshold to stub:",
@@ -391,9 +391,11 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 12. Alltid använd explicit userConfig.allergens om det finns, annars stub
       
-      merged.allergens = Array.isArray(this._userConfig.allergens)
-        ? this._userConfig.allergens
-        : baseStub.allergens;
+      merged.allergens = (
+        Array.isArray(this._userConfig.allergens)
+          ? this._userConfig.allergens
+          : baseStub.allergens
+      ) as string[];
       //
       // 13. Lägg till typ och integration
       merged.integration = integration;
@@ -408,7 +410,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 14. Återställ days_to_show om inte explicit
       if (!this._daysExplicit) {
-        this._config.days_to_show = baseStub.days_to_show;
+        this._config.days_to_show = baseStub.days_to_show as number;
         if (this.debug)
           console.debug(
             "[Editor] reset days_to_show to stub:",
@@ -529,7 +531,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           !this._userConfig.location &&
           this.installedLocations!.length
         ) {
-          this._config.location = this.installedLocations![0];
+          // installedLocations is declared [string, string][] but the SILAM
+          // branch stores the location value; preserve the runtime assignment.
+          this._config.location = this.installedLocations![0] as unknown as string;
         }
       }
 
@@ -715,7 +719,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
     if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
-      merged.pollen_threshold = base.pollen_threshold;
+      merged.pollen_threshold = base.pollen_threshold as number;
       if (this.debug)
         console.debug(
           "[Editor][hass] reset pollen_threshold to stub:",
@@ -1247,7 +1251,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // Sätt nytt språk och nollställ sort och mode tillfälligt för att trigga omritning
       this._config = {
         ...this._config,
-        date_locale: value,
+        date_locale: value as string,
         sort: "",
         mode: "",
       };

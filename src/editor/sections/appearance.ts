@@ -59,7 +59,7 @@ export function renderAppearanceSection(
                   style="width: 120px;"
                 ></ha-slider>
                 ${editor._renderNumberField({
-                  value: (c.icon_size as number) ?? 48,
+                  value: (c.icon_size as unknown as number) ?? 48,
                   min: 16,
                   max: 128,
                   step: 1,
