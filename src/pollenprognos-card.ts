@@ -1103,9 +1103,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             attr.location_name ||
             attr.friendly_name?.match(/\(([^)]+)\)/)?.[1] ||
             attr.friendly_name
-              ?.replace(/^Kleenex Pollen Radar\s*[\(\-]?\s*/i, "")
+              ?.replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
               .replace(
-                /[\)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
+                /[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
                 "",
               )
               .replace(

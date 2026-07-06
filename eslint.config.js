@@ -61,8 +61,8 @@ export default tseslint.config(
       // Direct `obj.hasOwnProperty(k)` calls were migrated to `Object.hasOwn`
       // (plain-config sites) or `Object.prototype.hasOwnProperty.call`.
       "no-prototype-builtins": "error",
-      // Over-escaped but harmless characters inside regex character classes.
-      "no-useless-escape": "warn",
+      // Over-escaped characters inside regex character classes were cleaned up.
+      "no-useless-escape": "error",
       // Newer stylistic rule; hits dead assignments before early returns.
       "no-useless-assignment": "warn",
       // Deliberate default-then-override-after-spread object literals in the
