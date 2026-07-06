@@ -35,7 +35,6 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "chart.js": "^4.5.0",
     "intl-messageformat": "^10.7.16",
     "lit": "^3.3.3"
   }
