@@ -2,7 +2,7 @@
 // Thin alias layer: maps integration ID → { module, stub }.
 // Replaces scattered if/else chains in card and editor.
 
-import type { AdapterModule } from "./types/adapter.js";
+import type { AdapterModule, AdapterAutodetect } from "./types/adapter.js";
 import type { AdapterStubConfig } from "./types/config.js";
 import * as PP from "./adapters/pp.js";
 import * as DWD from "./adapters/dwd.js";
@@ -47,4 +47,29 @@ export function getStubConfig(
 
 export function getAllAdapterIds(): string[] {
   return Object.keys(registry);
+}
+
+/**
+ * Return an integration's autodetect descriptor, or undefined if the id is
+ * unknown or the adapter exposes none. The shared autodetect module
+ * (`src/utils/autodetect.ts`) uses this instead of importing adapter internals.
+ */
+export function getAutodetect(
+  id: string | undefined,
+): AdapterAutodetect | undefined {
+  return id ? registry[id]?.module.autodetect : undefined;
+}
+
+/**
+ * Return every `[id, descriptor]` pair sorted by the descriptor's `priority`
+ * (lowest first). This is the single source of truth for the autodetect
+ * precedence order that INTEGRATION_PRIORITY used to hardcode.
+ */
+export function getAllAutodetect(): Array<[string, AdapterAutodetect]> {
+  const out: Array<[string, AdapterAutodetect]> = [];
+  for (const [id, entry] of Object.entries(registry)) {
+    if (entry.module.autodetect) out.push([id, entry.module.autodetect]);
+  }
+  out.sort((a, b) => a[1].priority - b[1].priority);
+  return out;
 }

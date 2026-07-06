@@ -618,7 +618,7 @@ describe("badge picker integration choice (getStubConfig logic)", () => {
   });
 
   it("detectIntegrationStates tolerates an empty hass", () => {
-    const detection = detectIntegrationStates({ states: {}, entities: {} });
+    const detection = detectIntegrationStates({ states: {}, entities: {} } as any);
     expect(detectedIntegrationIds(detection).size).toBe(0);
   });
 });

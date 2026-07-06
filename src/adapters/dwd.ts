@@ -1,6 +1,11 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+} from "../types/adapter.js";
 import { normalizeDWD } from "../utils/normalize.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import {
@@ -422,3 +427,25 @@ export async function fetchForecast(
     },
   });
 }
+
+/**
+ * Autodetect descriptor. Detection matches the `pollenflug_<allergen>_<region>`
+ * segment whether or not HA has prepended a device-name slug (#217).
+ * `extractLocationSlug` returns the numeric region id, used by
+ * deriveLocationForEntity for the card-picker suggestion.
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 3,
+  detectStates(
+    _hass: HomeAssistant,
+    ctx: AutodetectContext,
+  ): AutodetectDetectResult {
+    const ids = ctx.stateIds.filter(
+      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
+    );
+    return { ids };
+  },
+  discover: discoverDwdSensors,
+  extractLocationSlug: (entityId: string) =>
+    entityId.match(DWD_ENTITY_ID_RE)?.[2] || null,
+};

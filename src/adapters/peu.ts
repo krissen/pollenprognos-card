@@ -1,6 +1,11 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+} from "../types/adapter.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
@@ -627,3 +632,24 @@ export async function fetchForecast(
     },
   });
 }
+
+/**
+ * Autodetect descriptor. Detection matches the `sensor.polleninformation_`
+ * prefix. `extractLocationSlug` derives the location from the entity id, used
+ * as the fallback when the integration's `location_slug` attribute is absent.
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 2,
+  detectStates(
+    _hass: HomeAssistant,
+    ctx: AutodetectContext,
+  ): AutodetectDetectResult {
+    const ids = ctx.stateIds.filter(
+      (id) =>
+        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
+    );
+    return { ids };
+  },
+  discover: discoverPeuSensors,
+  extractLocationSlug: extractPeuLocationSlugFromEntityId,
+};

@@ -2,6 +2,11 @@
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, AdapterStubConfig } from "../types/config.js";
 import type { PollenSensor, ForecastDay } from "../types/sensor.js";
+import type {
+  AdapterAutodetect,
+  AutodetectContext,
+  AutodetectDetectResult,
+} from "../types/adapter.js";
 import { t } from "../i18n.js";
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNames } from "../utils/level-names.js";
@@ -509,3 +514,36 @@ export async function fetchForecast(
 
   return sensors;
 }
+
+/**
+ * PLU allergen slugs, exported so the PP autodetect descriptor can disambiguate
+ * `sensor.pollen_<allergen>` (single underscore) between PP and PLU without PP
+ * importing PLU internals. The detection driver reads this to build the shared
+ * autodetect context.
+ */
+export const PLU_ALLERGEN_SLUGS = new Set<string>(
+  Object.values(PLU_ALIAS_MAP).flat(),
+);
+
+/**
+ * Autodetect descriptor. Detection matches `sensor.pollen_<allergen>` with a
+ * single underscore whose allergen slug is a known PLU allergen. PLU has no
+ * location dimension in the card, so no `extractLocationSlug` is provided.
+ */
+export const autodetect: AdapterAutodetect = {
+  priority: 1,
+  detectStates(
+    _hass: HomeAssistant,
+    ctx: AutodetectContext,
+  ): AutodetectDetectResult {
+    const ids = ctx.stateIds.filter((id) => {
+      if (typeof id !== "string") return false;
+      const match = /^sensor\.pollen_([^_]+)$/.exec(id);
+      if (!match) return false;
+      return ctx.pluAllergenSlugs.has(match[1]);
+    });
+    return { ids };
+  },
+  discover: discoverPluSensors,
+  allergenSlugs: PLU_ALLERGEN_SLUGS,
+};

@@ -38,4 +38,99 @@ export interface AdapterModule {
 
   /** Default configuration template consumed by the editor (`stubConfig*`). */
   stubConfig?: CardConfig;
+
+  /**
+   * Autodetection descriptor. Every adapter exports one so the shared
+   * autodetect module (`src/utils/autodetect.ts`) can detect the integration,
+   * run its discovery, and resolve legacy-config location slugs without
+   * importing adapter internals. See {@link AdapterAutodetect}.
+   */
+  autodetect?: AdapterAutodetect;
+}
+
+/**
+ * The discovery shape the autodetect module reads structurally. It is the
+ * common denominator of the two concrete discovery return types:
+ * `DeviceDiscovery` (device-based adapters expose `entities`) and
+ * `SilamDiscovery` (exposes `sensors` plus an optional `weatherEntity`).
+ * Autodetect only reads `locations` and, for reverse-mapping, each location's
+ * `entities`/`sensors`/`weatherEntity`.
+ */
+export interface AutodetectDiscovery {
+  locations: Map<
+    string,
+    {
+      label: string;
+      entities?: Map<string, string>;
+      sensors?: Map<string, string>;
+      weatherEntity?: string;
+      deviceId?: string;
+    }
+  >;
+  tierUsed?: 0 | 1 | 2 | 3;
+}
+
+/**
+ * Cross-adapter context the detection driver passes to every `detectStates`.
+ * Computed once per detection pass so individual adapters don't re-scan
+ * `hass.states` or rebuild the PLU alias set.
+ */
+export interface AutodetectContext {
+  /** All entity ids in `hass.states`, computed once by the driver. */
+  stateIds: string[];
+  /**
+   * PLU allergen slugs, for the PP-vs-PLU disambiguation (both integrations can
+   * expose `sensor.pollen_<allergen>`). Sourced from the PLU descriptor's
+   * `allergenSlugs` so PP never imports PLU internals.
+   */
+  pluAllergenSlugs: Set<string>;
+}
+
+/**
+ * Result of an adapter's `detectStates`: the entity ids it owns, plus — for
+ * discovery-primary adapters (silam/atmo/gp) — the discovery object it computed
+ * eagerly, so `autoSelectLocation` can reuse it instead of recomputing.
+ */
+export interface AutodetectDetectResult {
+  ids: string[];
+  discovery?: AutodetectDiscovery;
+}
+
+/**
+ * Per-adapter autodetection descriptor. Keeps every integration's detection
+ * knowledge (entity-id regexes, platform checks, attribution strings, alias
+ * disambiguation, discovery wrappers, legacy slug extraction) in the adapter
+ * itself; the shared autodetect module orchestrates them uniformly via the
+ * registry (`getAutodetect`/`getAllAutodetect`).
+ */
+export interface AdapterAutodetect {
+  /** Position in the canonical autodetect precedence order (lower wins). */
+  priority: number;
+  /**
+   * Return the entity ids this integration owns in `hass`. Encapsulates the
+   * integration's full detection strategy: regex match, `hass.entities`
+   * platform check, discovery-primary + regex fallback, attribution fallback,
+   * and PP-vs-PLU disambiguation.
+   */
+  detectStates(
+    hass: HomeAssistant,
+    ctx: AutodetectContext,
+    debug?: boolean,
+  ): AutodetectDetectResult;
+  /**
+   * Run the integration's device/registry discovery. Absent for adapters with
+   * no location dimension resolved via discovery (kleenex, plu).
+   */
+  discover?(hass: HomeAssistant, debug?: boolean): AutodetectDiscovery;
+  /**
+   * Derive the location/city/region slug from a single entity id (pp → city,
+   * dwd → region_id, peu → location). Used by `autoSelectLocation` and
+   * `deriveLocationForEntity`.
+   */
+  extractLocationSlug?(entityId: string): string | null;
+  /**
+   * PLU exposes its allergen slug set so the driver can build the PP-vs-PLU
+   * disambiguation context without PP importing PLU.
+   */
+  allergenSlugs?: Set<string>;
 }

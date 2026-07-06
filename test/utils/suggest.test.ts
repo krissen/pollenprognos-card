@@ -362,13 +362,13 @@ describe("deriveLocationForEntity", () => {
 
   it("PP: city from the entity id", () => {
     expect(
-      deriveLocationForEntity("pp", "sensor.pollen_goteborg_bjork", {}, {} as any),
+      deriveLocationForEntity("pp", "sensor.pollen_goteborg_bjork", {} as any, {} as any),
     ).toEqual({ key: "city", value: "goteborg" });
   });
 
   it("DWD: region_id from the entity id", () => {
     expect(
-      deriveLocationForEntity("dwd", "sensor.pollenflug_erle_91", {}, {} as any),
+      deriveLocationForEntity("dwd", "sensor.pollenflug_erle_91", {} as any, {} as any),
     ).toEqual({ key: "region_id", value: "91" });
   });
 
@@ -379,7 +379,7 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("peu", "sensor.polleninformation_x", hass, {} as any),
+      deriveLocationForEntity("peu", "sensor.polleninformation_x", hass as any, {} as any),
     ).toEqual({ key: "location", value: "wien" });
   });
 
@@ -389,7 +389,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "peu",
         "sensor.polleninformation_wien_birch",
-        hass,
+        hass as any,
         {} as any,
       ),
     ).toEqual({ key: "location", value: "wien" });
@@ -412,7 +412,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "atmo",
         "sensor.niveau_bouleau_paris",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "paris" });
@@ -424,7 +424,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "atmo",
         "sensor.niveau_bouleau_paris",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "paris" });
@@ -439,7 +439,7 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("atmo", "sensor.pm25_paris", {}, detection),
+      deriveLocationForEntity("atmo", "sensor.pm25_paris", {} as any, detection),
     ).toEqual({ key: "location", value: "entry_atmo" });
   });
 
@@ -452,7 +452,7 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("atmo", "sensor.pm25_paris", {}, detection),
+      deriveLocationForEntity("atmo", "sensor.pm25_paris", {} as any, detection),
     ).toBeNull();
   });
 
@@ -471,7 +471,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "silam",
         "weather.silam_pollen_oslo",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "entry_s" });
@@ -483,7 +483,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "silam",
         "sensor.silam_pollen_helsinki_birch",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "helsinki" });
@@ -500,7 +500,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "kleenex",
         "sensor.kleenex_pollen_radar_noord_holland_trees",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "noord_holland" });
@@ -515,7 +515,7 @@ describe("deriveLocationForEntity", () => {
         deriveLocationForEntity(
           "kleenex",
           `sensor.kleenex_pollen_radar_amsterdam_${suffix}`,
-          {},
+          {} as any,
           detection,
         ),
       ).toBeNull();
@@ -525,7 +525,7 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "kleenex",
         "sensor.kleenex_pollen_radar_amsterdam_trees",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "amsterdam" });
@@ -540,7 +540,7 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("gp", "sensor.gp_grass", {}, detection),
+      deriveLocationForEntity("gp", "sensor.gp_grass", {} as any, detection),
     ).toEqual({ key: "location", value: "entry_gp" });
   });
 
@@ -552,7 +552,7 @@ describe("deriveLocationForEntity", () => {
         ]),
     };
     expect(
-      deriveLocationForEntity("gpl", "sensor.gpl_tree", {}, detection),
+      deriveLocationForEntity("gpl", "sensor.gpl_tree", {} as any, detection),
     ).toEqual({ key: "location", value: "entry_gpl" });
   });
 
@@ -574,13 +574,13 @@ describe("deriveLocationForEntity", () => {
       deriveLocationForEntity(
         "msw",
         "sensor.bern_pollen_birch_level_at_3000",
-        {},
+        {} as any,
         detection,
       ),
     ).toEqual({ key: "location", value: "entry_msw" });
   });
 
   it("returns null for an unknown integration", () => {
-    expect(deriveLocationForEntity("nope", "sensor.x", {}, {} as any)).toBeNull();
+    expect(deriveLocationForEntity("nope", "sensor.x", {} as any, {} as any)).toBeNull();
   });
 });

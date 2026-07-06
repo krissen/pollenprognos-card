@@ -211,7 +211,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       config,
       "integration",
     );
-    let integration = normalizeIntegration(config.integration);
+    let integration = normalizeIntegration(config.integration) as
+      | string
+      | undefined;
 
     // Autodetect integration when the user didn't pin one.
     let detection = null;
@@ -222,7 +224,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     }
 
     const stub = (getStubConfig(integration) || getStubConfig("pp"))!;
-    if (!integration) integration = stub.integration;
+    if (!integration) integration = stub.integration as string;
 
     // Defensive typeguards (repo policy): coerce YAML-sourced fields that the
     // badge adds so mis-typed values can't cause silent misbehaviour.
@@ -337,7 +339,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // user didn't set one (and isn't in manual mode). Reuses the detection
     // computed above; the guard keeps an explicit "manual" / user value.
     if (!explicit && hass && detection) {
-      const sel = autoSelectLocation(integration, built, hass, detection);
+      const sel = autoSelectLocation(
+        integration as string,
+        built,
+        hass,
+        detection,
+      );
       if (sel && built[sel.key] !== "manual" && !built[sel.key]) {
         built[sel.key] = sel.value;
       }

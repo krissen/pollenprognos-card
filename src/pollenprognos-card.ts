@@ -18,6 +18,8 @@ import {
   scaleRingLevel,
   resolveNumericValue,
   hasValidPollenData,
+  type DeviceDiscovery,
+  type DiscoveredLocation,
 } from "./utils/adapter-helpers.js";
 import { COSMETIC_FIELDS } from "./constants.js";
 // Sensor detection / integration pick / location auto-select are shared with
@@ -697,20 +699,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     if (this.debug)
       console.debug("[Card] set hass called; explicit:", explicit);
 
-    // Sensordetektion — shared autodetect (see src/utils/autodetect.js).
+    // Sensordetektion — shared autodetect (see src/utils/autodetect.ts).
     // Destructure local aliases with the same names the header block below
     // already uses, so only the scan/pick/location logic moves to the shared
     // module while the rest of set hass() is untouched. The lazy discovery
     // getters preserve the per-tick discovery call count on large installs.
-    // detectIntegrationStates lives in the still-JS autodetect module; its
-    // JSDoc @returns typedef is incomplete (e.g. omits getIrmkmiDiscovery) and
-    // types every discovery object as the opaque `object`, so the destructured
-    // getters/discoveries would not typecheck against the helpers that consume
-    // them. Cast at this JS boundary; the shapes are exercised by the adapter
-    // contract tests. (Latent: the autodetect JSDoc should be completed.)
     const detection = detectIntegrationStates(hass, {
       debug: this.debug,
-    }) as any;
+    });
     // peuStates + the discovery objects/getters below are consumed by the
     // header label-resolution block further down; the per-integration state
     // lists used only for the pick/location are handled inside the shared
@@ -884,7 +880,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // numeric region_id slugs and user-customized device names all render
         // the friendly location name instead of the raw config value. Reuses
         // the cached discovery from set hass() to avoid a second registry scan.
-        const dwdDiscovery = getDwdDiscovery();
+        const dwdDiscovery = getDwdDiscovery() as DeviceDiscovery;
         const wantedLocation =
           cfg.region_id && cfg.region_id !== "manual" ? cfg.region_id : "";
         const match = resolveLocationByKey(dwdDiscovery, wantedLocation, {
@@ -902,7 +898,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // Primary: resolve via shared discovery so config_entry_id keys and
         // legacy lowercase slugs both produce the friendly location name.
         // Reuses cached discovery from set hass() to avoid a second scan.
-        const peuDiscovery = getPeuDiscovery();
+        const peuDiscovery = getPeuDiscovery() as DeviceDiscovery;
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const peuMatch = resolveLocationByKey(peuDiscovery, wantedLocation, {
@@ -978,7 +974,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           cfg.location === "manual" ? "" : cfg.location || "";
         if (cfg.location !== "manual") {
           const discoveredLoc = resolveDiscoveredLocation(
-            silamDiscovery,
+            silamDiscovery as Parameters<typeof resolveDiscoveredLocation>[0],
             configLocation,
             this.debug,
           );
@@ -1129,18 +1125,18 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         let title = "";
         if (wantedLocation) {
           if (atmoDiscovery.locations.has(wantedLocation)) {
-            title = atmoDiscovery.locations.get(wantedLocation).label;
+            title = atmoDiscovery.locations.get(wantedLocation)!.label;
           } else {
             // Legacy slug configs ("nice"): map slug -> config_entry_id via discovery
             const entryId = findAtmoLocationBySlug(
-              atmoDiscovery,
+              atmoDiscovery as Parameters<typeof findAtmoLocationBySlug>[0],
               wantedLocation,
             );
-            if (entryId) title = atmoDiscovery.locations.get(entryId).label;
+            if (entryId) title = atmoDiscovery.locations.get(entryId)!.label;
           }
         } else if (atmoDiscovery.locations.size) {
           // No explicit location: pick first discovered
-          title = atmoDiscovery.locations.values().next().value.label;
+          title = atmoDiscovery.locations.values().next().value!.label;
         }
 
         if (title) {
@@ -1152,8 +1148,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // Google Pollen Levels: resolve via shared discovery so config_entry_id
         // keys and legacy label slugs both produce the friendly location name.
         // Reuses cached discovery from set hass() to avoid a second scan.
-        const gplDiscovery = getGplDiscovery();
-        let gplMatch = null;
+        const gplDiscovery = getGplDiscovery() as DeviceDiscovery;
+        let gplMatch: [string, DiscoveredLocation] | null = null;
         if (cfg.location === "manual" && cfg.entity_prefix) {
           // Manual mode: entity resolution filters by prefix AND suffix
           // (gpl/discovery.js:resolveEntityId). Title resolution has to
@@ -1199,7 +1195,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // friendly location name. Reuses gpDiscovery computed in set hass().
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const gpMatch = resolveLocationByKey(gpDiscovery, wantedLocation);
+        const gpMatch = resolveLocationByKey(gpDiscovery as DeviceDiscovery, wantedLocation);
         // Defensive: same rationale as the GPL branch above.
         const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
@@ -1208,7 +1204,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // MeteoSwiss / hass-swissweather: resolve via shared device discovery
         // so config_entry_id keys, friendly device names, and renamed devices
         // (name_by_user) all surface the right station label in the header.
-        const mswDiscovery = getMswDiscovery();
+        const mswDiscovery = getMswDiscovery() as DeviceDiscovery;
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const mswMatch = resolveLocationByKey(mswDiscovery, wantedLocation);
@@ -1218,7 +1214,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // IRM KMI / meteo.be: resolve via shared device discovery so
         // config_entry_id keys, device names (the location), and renamed
         // devices (name_by_user) all surface the right location label.
-        const irmkmiDiscovery = getIrmkmiDiscovery();
+        const irmkmiDiscovery = getIrmkmiDiscovery() as DeviceDiscovery;
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
         const irmkmiMatch = resolveLocationByKey(
@@ -1239,7 +1235,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // config_entry_id keys, legacy city slugs and user-customized device
         // names all render the friendly location name. Reuses cached discovery
         // from set hass() to avoid a second scan.
-        const ppDiscovery = getPpDiscovery();
+        const ppDiscovery = getPpDiscovery() as DeviceDiscovery;
         const wantedLocation =
           cfg.city && cfg.city !== "manual" ? cfg.city : "";
         const ppMatch = resolveLocationByKey(ppDiscovery, wantedLocation, {

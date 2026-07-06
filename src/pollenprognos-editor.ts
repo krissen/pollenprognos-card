@@ -35,7 +35,10 @@ import {
   discoverSilamSensors,
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
-import { findLocationBySlug } from "./utils/adapter-helpers.js";
+import {
+  findLocationBySlug,
+  type DeviceDiscovery,
+} from "./utils/adapter-helpers.js";
 import { slugify } from "./utils/slugify.js";
 import { formatNumberForInput } from "./utils/number-format.js";
 import {
@@ -53,11 +56,7 @@ import silamAllergenMap from "./adapters/silam_allergen_map.json";
 import type { HomeAssistant } from "./types/home-assistant.js";
 import type { CardConfig, RawCardConfig } from "./types/config.js";
 import type { InstalledLocation } from "./editor/types.js";
-
-// The autodetect module (src/utils/autodetect.js) is still untyped JS; its
-// memoized-discovery return shape is typed in a later PR. Until then the
-// detection object crosses this boundary as `any`.
-type DetectionResult = any;
+import type { DetectionResult } from "./utils/autodetect.js";
 
 /**
  * Map a discovery result's `locations` Map into the editor's `[key, label]`
@@ -743,7 +742,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // 3) Fyll installerade regioner/städer via discovery helpers
 
       // PP: device-based discovery with legacy slug fallback (memoized).
-      const ppDiscovery = getPpDiscovery();
+      const ppDiscovery = getPpDiscovery() as DeviceDiscovery;
       if (ppDiscovery.locations.size > 0) {
         this.installedPpLocations = discoveryToLocations(ppDiscovery);
         // Legacy compatibility: if config.city is a slug not present as a key,
@@ -789,7 +788,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       // DWD: device-based discovery with legacy region_id fallback (memoized).
-      const dwdDiscovery = getDwdDiscovery();
+      const dwdDiscovery = getDwdDiscovery() as DeviceDiscovery;
       if (dwdDiscovery.locations.size > 0) {
         this.installedDwdLocations = discoveryToLocations(dwdDiscovery);
         // Legacy compatibility: if config.region_id is a numeric ID not present as a key,
@@ -829,7 +828,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // PEU: device-based discovery with legacy location slug fallback.
       // Sort by label so the dropdown stays stable across HA restarts (memoized).
-      const peuDiscovery = getPeuDiscovery();
+      const peuDiscovery = getPeuDiscovery() as DeviceDiscovery;
       if (peuDiscovery.locations.size > 0) {
         this.installedPeuLocations = discoveryToLocations(peuDiscovery).sort(
           ([, a], [, b]) =>
@@ -1015,9 +1014,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         cfgLoc !== "manual" &&
         !atmoDiscovery.locations.has(cfgLoc)
       ) {
-        const matchEntryId = findAtmoLocationBySlug(atmoDiscovery, cfgLoc);
+        const matchEntryId = findAtmoLocationBySlug(
+          atmoDiscovery as Parameters<typeof findAtmoLocationBySlug>[0],
+          cfgLoc,
+        );
         if (matchEntryId) {
-          const label = atmoDiscovery.locations.get(matchEntryId).label;
+          const label = atmoDiscovery.locations.get(matchEntryId)!.label;
           this.installedAtmoLocations.push([cfgLoc, label] as InstalledLocation);
         }
       }
