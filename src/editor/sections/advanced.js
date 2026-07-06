@@ -1,0 +1,35 @@
+// ------------------------------------------------------------------ //
+// §10 Advanced section
+// Extracted verbatim from PollenEditorBase._renderAdvancedSection; `this` -> `editor`.
+// ------------------------------------------------------------------ //
+
+import { html } from "lit";
+
+export function renderAdvancedSection(editor) {
+  const c = editor._editorConfig();
+  return html`
+    <details>
+      <summary>
+        ${editor._t("summary_advanced")}
+        ${editor._renderSectionReset(["debug", "show_version"])}
+      </summary>
+      <div class="section-helper">${editor._t("helper_advanced")}</div>
+      <ha-formfield label="${editor._t("debug")}">
+        <ha-switch
+          .checked=${c.debug}
+          @change=${(e) => editor._updateConfig("debug", e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <ha-formfield label="${editor._t("show_version")}">
+        <ha-switch
+          .checked=${c.show_version !== false}
+          @change=${(e) =>
+            editor._updateConfig("show_version", e.target.checked)}
+        ></ha-switch>
+      </ha-formfield>
+      <div class="version-info">
+        ${editor._versionLabel()}: ${__VERSION__}
+      </div>
+    </details>
+  `;
+}
