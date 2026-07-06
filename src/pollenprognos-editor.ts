@@ -236,7 +236,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // 4. Släpp aldrig in stub-pollen_threshold
       const stubThresh = (getStubConfig(incoming.integration) || getStubConfig("pp")!).pollen_threshold;
       if (
-        incoming.hasOwnProperty("pollen_threshold") &&
+        Object.hasOwn(incoming, "pollen_threshold") &&
         !this._thresholdExplicit &&
         incoming.pollen_threshold === stubThresh
       ) {
@@ -321,13 +321,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit =
-        this._userConfig.hasOwnProperty("pollen_threshold");
-      this._allergensExplicit = this._userConfig.hasOwnProperty("allergens");
+        Object.hasOwn(this._userConfig, "pollen_threshold");
+      this._allergensExplicit = Object.hasOwn(this._userConfig, "allergens");
       this._integrationExplicit =
-        this._userConfig.hasOwnProperty("integration");
+        Object.hasOwn(this._userConfig, "integration");
       
-      this._daysExplicit = this._userConfig.hasOwnProperty("days_to_show");
-      this._localeExplicit = this._userConfig.hasOwnProperty("date_locale");
+      this._daysExplicit = Object.hasOwn(this._userConfig, "days_to_show");
+      this._localeExplicit = Object.hasOwn(this._userConfig, "date_locale");
 
       // 9. Bestäm integration (userConfig > tidigare config > autodetect).
       // Autodetect uses the shared module (src/utils/autodetect.js), so this
@@ -379,7 +379,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       });
 
       // 11. Om användaren inte explicit satt pollen_threshold, ta stub-värdet
-      if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+      if (!Object.hasOwn(this._userConfig, "pollen_threshold")) {
         merged.pollen_threshold = baseStub.pollen_threshold as number;
         if (this.debug)
           console.debug(
@@ -717,7 +717,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
 
     // --- återställ pollen_threshold om användaren inte explicit satt det ---
-    if (!this._userConfig.hasOwnProperty("pollen_threshold")) {
+    if (!Object.hasOwn(this._userConfig, "pollen_threshold")) {
       merged.pollen_threshold = base.pollen_threshold as number;
       if (this.debug)
         console.debug(

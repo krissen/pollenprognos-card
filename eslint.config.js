@@ -58,8 +58,9 @@ export default tseslint.config(
 
       // Intentional empty blocks (e.g. empty catch swallowing optional lookups).
       "no-empty": "warn",
-      // Legacy `obj.hasOwnProperty(k)` calls; safe on plain config objects here.
-      "no-prototype-builtins": "warn",
+      // Direct `obj.hasOwnProperty(k)` calls were migrated to `Object.hasOwn`
+      // (plain-config sites) or `Object.prototype.hasOwnProperty.call`.
+      "no-prototype-builtins": "error",
       // Over-escaped but harmless characters inside regex character classes.
       "no-useless-escape": "warn",
       // Newer stylistic rule; hits dead assignments before early returns.

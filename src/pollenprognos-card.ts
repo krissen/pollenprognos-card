@@ -635,7 +635,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     if (deepEqual(this._userConfig, config)) return;
 
     // Explicit integration
-    this._integrationExplicit = config.hasOwnProperty("integration");
+    this._integrationExplicit = Object.hasOwn(config, "integration");
     this._skipIntegrations.clear();
     this.tapAction = config.tap_action || null;
 
