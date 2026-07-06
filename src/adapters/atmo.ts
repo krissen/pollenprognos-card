@@ -110,7 +110,6 @@ export const stubConfigATMO: AdapterStubConfig = {
   pollution_block_position: "bottom",
   show_block_separator: false,
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: {

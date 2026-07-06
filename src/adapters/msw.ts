@@ -119,7 +119,6 @@ export const stubConfigMSW: AdapterStubConfig = {
   pollen_threshold: 1,
   sort: "value_descending",
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   debug: false,

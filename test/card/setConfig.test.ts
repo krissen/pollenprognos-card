@@ -22,6 +22,7 @@ const HARDCODED_EXTRAS = [
   "location",
   "region_id",
   "tap_action",
+  "link_to_sensors",
   "debug",
   "show_version",
   "title",
@@ -298,7 +299,7 @@ describe("setConfig: hardcoded extras pass through", () => {
     expect(result.date_locale).toBe("sv-SE");
   });
 
-  it("all 15 hardcoded extras survive when provided", () => {
+  it("all hardcoded extras survive when provided", () => {
     const config = {
       integration: "pp",
       type: "custom:pollenprognos-card",
@@ -311,6 +312,7 @@ describe("setConfig: hardcoded extras pass through", () => {
       location: "test_location",
       region_id: "42",
       tap_action: { action: "navigate" },
+      link_to_sensors: false,
       debug: true,
       show_version: false,
       title: "My Pollen Card",
@@ -445,8 +447,22 @@ describe("setConfig: unknown integration falls back to PP stub", () => {
 
     // Verify a sample of PP-unique stub defaults
     expect(result.allergy_risk_top).toBe(true);
-    expect(result.link_to_sensors).toBe(true);
     expect(result.sort).toBe("value_descending");
+  });
+
+  it("link_to_sensors has no stub default (absent means default-on, #279)", () => {
+    // No adapter stub declares link_to_sensors: an absent key is the "default
+    // on" state, so an explicit true is distinguishable as an opt-in that keeps
+    // per-icon more-info alongside a configured tap_action.
+    const result = simulateSetConfig({ integration: "pp" });
+    expect(result).not.toHaveProperty("link_to_sensors");
+  });
+
+  it("keeps a user-set link_to_sensors through the allowed-field filter", () => {
+    const off = simulateSetConfig({ integration: "pp", link_to_sensors: false });
+    expect(off.link_to_sensors).toBe(false);
+    const on = simulateSetConfig({ integration: "pp", link_to_sensors: true });
+    expect(on.link_to_sensors).toBe(true);
   });
 
   it("unknown fields still get dropped even with PP fallback", () => {
