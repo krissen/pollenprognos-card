@@ -131,7 +131,6 @@ export const stubConfigKleenex: AdapterStubConfig = {
   sort_category_allergens_first: true,
   allergy_risk_top: true,
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },

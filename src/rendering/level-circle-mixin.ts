@@ -117,6 +117,27 @@ export function resolveTapActionType(tapAction: unknown): TapActionType | null {
 }
 
 /**
+ * Decide whether a per-icon click should open more-info, given the badge/card
+ * `link_to_sensors` setting and whether the element has an active tap_action.
+ *
+ * Without a tap_action, per-icon more-info is the default (on unless the user
+ * set `link_to_sensors: false`). With a tap_action configured, the whole
+ * element runs that action and per-icon more-info is suppressed UNLESS the user
+ * explicitly opted in with `link_to_sensors: true` -- otherwise the ring/icon
+ * click handler (stopPropagation + more-info) would shadow the configured
+ * tap_action, since the ring covers almost the whole element (#279).
+ *
+ * `linkToSensors` is boolean|undefined after the config boundary coerces string
+ * scalars, but typed `unknown` here to stay tolerant of a raw call.
+ */
+export function iconMoreInfoEnabled(
+  linkToSensors: unknown,
+  hasTapAction: boolean,
+): boolean {
+  return hasTapAction ? linkToSensors === true : linkToSensors !== false;
+}
+
+/**
  * LevelCircleMixin — adds the level-circle / icon-in-ring rendering engine
  * to any LitElement subclass.
  *
@@ -632,8 +653,21 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
             ta.navigation_path &&
             typeof window !== "undefined" &&
             window.history?.pushState
-          )
+          ) {
             window.history.pushState(null, "", ta.navigation_path);
+            // HA's router listens on window for "location-changed"; a bare
+            // pushState updates the URL but never re-resolves the panel. Mirror
+            // the frontend navigate() helper's fireEvent form: a plain Event
+            // (bubbles+composed) with a { replace } detail bag attached.
+            const ev = new Event("location-changed", {
+              bubbles: true,
+              composed: true,
+            });
+            (ev as unknown as { detail: { replace: boolean } }).detail = {
+              replace: false,
+            };
+            window.dispatchEvent(ev);
+          }
           break;
         case "call-service": {
           // Accept the card's service/service_data and HA's modern

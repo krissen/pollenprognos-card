@@ -167,6 +167,40 @@ describe("mergeCardConfig: filter asymmetry", () => {
   });
 });
 
+describe("link_to_sensors: no stub default, explicit opt-in (#279)", () => {
+  it("stays absent when the user does not set it (default-on state)", () => {
+    // No stub declares link_to_sensors, so a config that omits it must not gain
+    // it from the merge -- an absent key is the "default on" signal that lets a
+    // configured tap_action take precedence over per-icon more-info.
+    const cfg = normalizeCardConfig({ integration: "pp" }, stubConfigPP, {
+      integration: "pp",
+      filter: true,
+    });
+    expect(cfg).not.toHaveProperty("link_to_sensors");
+  });
+
+  it("keeps an explicit boolean and coerces the YAML string form", () => {
+    const asTrue = normalizeCardConfig(
+      { integration: "pp", link_to_sensors: true },
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    expect(asTrue.link_to_sensors).toBe(true);
+
+    const asString = normalizeCardConfig(
+      { integration: "pp", link_to_sensors: "false" },
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    expect(asString.link_to_sensors).toBe(false);
+  });
+
+  it("is an accepted extra field (survives the allowed-field filter)", () => {
+    expect(CARD_EXTRA_FIELDS).toContain("link_to_sensors");
+    expect(cardAllowedFields(stubConfigPP)).toContain("link_to_sensors");
+  });
+});
+
 describe("cross-stub coercion union", () => {
   it("coerces a field the active stub omits but another stub declares boolean", () => {
     // show_summary_top_types is defined only in the GPL stub, not SILAM's, yet

@@ -549,7 +549,6 @@ export const stubConfigGP: AdapterStubConfig = {
   sort: "value_descending",
   sort_category_allergens_first: true,
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },

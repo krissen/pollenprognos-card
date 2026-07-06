@@ -62,6 +62,14 @@ function buildFieldTypeSets(): {
 const { booleanFields: BOOLEAN_FIELDS, numberFields: NUMBER_FIELDS } =
   buildFieldTypeSets();
 
+// link_to_sensors is a boolean flag that deliberately has NO stub default: its
+// absence means "default on" and an explicit `true` is a distinct, meaningful
+// opt-in (it lets a configured tap_action be shadowed by per-icon more-info,
+// see iconMoreInfoEnabled / #279). Because no stub declares it, the cross-stub
+// union above can't discover its type, so register it here so a hand-written
+// `link_to_sensors: "false"` YAML string still coerces to a boolean.
+BOOLEAN_FIELDS.add("link_to_sensors");
+
 /**
  * Non-stub config keys that setConfig accepts in addition to the resolved
  * adapter stub's own keys. Kept identical to the list the card historically
@@ -78,6 +86,11 @@ export const CARD_EXTRA_FIELDS: readonly string[] = [
   "location",
   "region_id",
   "tap_action",
+  // No stub declares link_to_sensors any more (absence = default on, explicit
+  // true = opt in to per-icon more-info alongside a tap_action; see #279), so
+  // it must be listed here or setConfig's allowed-field filter would strip a
+  // user-set value.
+  "link_to_sensors",
   "debug",
   "show_version",
   "title",

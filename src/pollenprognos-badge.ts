@@ -37,6 +37,7 @@ import {
 import {
   LevelCircleMixin,
   resolveTapActionType,
+  iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import { deepEqual } from "./utils/confcompare.js";
@@ -263,14 +264,25 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       config.badge_label_position === "below" ? "below" : "right";
     // tap_action: optional element-level action (more-info | navigate |
     // call-service), shared with the card. Keep only a plain object so a
-    // mis-typed YAML scalar can't reach the runtime handler. link_to_sensors
-    // passes through ...config unchanged (boolean, read default-on at runtime).
+    // mis-typed YAML scalar can't reach the runtime handler.
     const tapAction =
       config.tap_action &&
       typeof config.tap_action === "object" &&
       !Array.isArray(config.tap_action)
         ? config.tap_action
         : undefined;
+    // link_to_sensors has no stub default: absent means "default on", explicit
+    // true is a distinct opt-in that keeps per-icon more-info alongside a
+    // tap_action (see iconMoreInfoEnabled / #279). Coerce only the "true"/"false"
+    // YAML strings (mirroring the card's config boundary) so a hand-written
+    // link_to_sensors: "false" is honoured; an absent key stays undefined and
+    // reads default-on at runtime.
+    const linkToSensors =
+      config.link_to_sensors === "true"
+        ? true
+        : config.link_to_sensors === "false"
+          ? false
+          : config.link_to_sensors;
 
     // badge_visual drives two engine flags so the shared LevelCircleMixin
     // renders the right centre content: icon_in_ring shows the allergen icon;
@@ -325,6 +337,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       // Type-guarded above; override the raw spread so a bad scalar becomes
       // undefined and the runtime click guard simply skips it.
       tap_action: tapAction,
+      // Coerced above; overrides the raw spread so a "false" string is a real
+      // boolean at the iconMoreInfoEnabled call site.
+      link_to_sensors: linkToSensors,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
@@ -583,9 +598,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     // Badge-level tap_action (shared with the card). Bind only when the action
     // resolves to a supported type (so an inert/unknown action doesn't make the
-    // badge clickable-but-dead); per-icon link_to_sensors clicks stopPropagation,
-    // so the two coexist without double-firing, exactly like the card. Handler
-    // and predicate live in LevelCircleMixin.
+    // badge clickable-but-dead). A configured tap_action takes precedence over
+    // per-icon more-info: iconMoreInfoEnabled suppresses the ring/icon click
+    // (which would otherwise stopPropagation and shadow the tap_action) unless
+    // link_to_sensors is explicitly true (#279). Handler and predicate live in
+    // LevelCircleMixin.
     const hasTap = resolveTapActionType(this.config?.tap_action) !== null;
 
     return html`
@@ -614,7 +631,8 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           const displayLevel =
             rawNum != null && (rawNum as number) >= 0 ? rawNum : ringLevel;
           const clickable =
-            this.config.link_to_sensors !== false && !!sensor.entity_id;
+            iconMoreInfoEnabled(this.config.link_to_sensors, hasTap) &&
+            !!sensor.entity_id;
 
           const visual = this._renderBadgeVisual(visualMode, sensor, {
             ringConfig,

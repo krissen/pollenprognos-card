@@ -99,7 +99,6 @@ export const stubConfigSILAM: AdapterStubConfig = {
   show_summary_row: false,
   show_summary_separator: true,
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },

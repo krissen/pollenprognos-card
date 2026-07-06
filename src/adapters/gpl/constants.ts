@@ -52,7 +52,6 @@ export const stubConfigGPL: AdapterStubConfig = {
   show_summary_top_types: true,
   show_summary_plants_in_season: true,
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: { full: {}, short: {}, levels: [], days: {}, no_information: "" },

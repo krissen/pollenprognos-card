@@ -68,7 +68,6 @@ export const stubConfigDWD: AdapterStubConfig = {
   sort: "value_descending",
   allergy_risk_top: true,
   allergens_abbreviated: false,
-  link_to_sensors: true,
   date_locale: undefined,
   title: undefined,
   phrases: {
