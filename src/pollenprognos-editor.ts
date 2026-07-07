@@ -83,12 +83,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
   // subclass's own members are.
   declare installedCities: string[];
   declare installedRegionIds: string[];
-  // NOTE: `installedLocations` is read once in setConfig's SILAM auto-select
-  // branch but is never assigned anywhere (a latent bug preserved verbatim in
-  // this conversion). Declared optional so the read type-checks; the access
-  // site keeps the original throw-on-undefined behaviour via a non-null
-  // assertion.
-  declare installedLocations?: InstalledLocation[];
   declare _integrationExplicit: boolean;
   declare _thresholdExplicit: boolean;
   declare _prevIntegration?: string;
@@ -502,6 +496,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             (id) => [id, `${id} — ${DWD_REGIONS[id] || id}`] as InstalledLocation,
           );
         }
+
+        // SILAM: device-based discovery so the auto-select below (and the
+        // dropdown) has data within this same setConfig call, mirroring PP/DWD.
+        if (integration === "silam") {
+          const silamDiscovery = discoverSilamSensors(this._hass, false);
+          if (silamDiscovery.locations.size > 0) {
+            this.installedSilamLocations = discoveryToLocations(silamDiscovery);
+          }
+        }
       }
       // 17. Auto-välj city/region om inte explicit
       if (!this._integrationExplicit) {
@@ -522,11 +525,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         if (
           integration === "silam" &&
           !this._userConfig.location &&
-          this.installedLocations!.length
+          this.installedSilamLocations.length
         ) {
-          // installedLocations is declared [string, string][] but the SILAM
-          // branch stores the location value; preserve the runtime assignment.
-          this._config.location = this.installedLocations![0] as unknown as string;
+          this._config.location = this.installedSilamLocations[0][0];
         }
       }
 
@@ -592,13 +593,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         this.installedIrmkmiLocations = discoveryToLocations(id);
       }
 
-      // SILAM discovery: run here too for same reason as GPL above
-      if (this._config.integration === "silam" && this._hass) {
-        const sd = discoverSilamSensors(this._hass, false);
-        if (sd.locations.size > 0) {
-          this.installedSilamLocations = discoveryToLocations(sd);
-        }
-      }
     } catch (e) {
       console.error("pollenprognos-card-editor: Fel i setConfig:", e, config);
       throw e;
