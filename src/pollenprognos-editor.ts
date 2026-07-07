@@ -499,6 +499,11 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
         // SILAM: device-based discovery so the auto-select below (and the
         // dropdown) has data within this same setConfig call, mirroring PP/DWD.
+        // Deliberately NO else-clear on empty discovery: `set hass` owns the
+        // regex fallback for SILAM installs whose devices lack registry
+        // metadata, and clearing here would clobber that list. `set hass`
+        // always reassigns (fallback or empty) on the next hass tick, so a
+        // stale list cannot outlive one update cycle.
         if (integration === "silam") {
           const silamDiscovery = discoverSilamSensors(this._hass, false);
           if (silamDiscovery.locations.size > 0) {

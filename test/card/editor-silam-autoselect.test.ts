@@ -2,8 +2,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { createHass } from "../helpers.js";
 
 // The editor is a LitElement and cannot be imported in the bare node test
-// environment (see test/card/autodetect.test.ts). Install a minimal DOM shim
-// so lit-html/reactive-element load and the element can be constructed. We
+// environment, so this file installs a minimal DOM shim (a new pattern; the
+// other card tests import pure modules and need no DOM) so that
+// lit-html/reactive-element load and the element can be constructed. Vitest's
+// default per-file isolation keeps the shimmed globals out of other files. We
 // never render the element here; we only exercise setConfig's data logic.
 class FakeNode {
   childNodes: unknown[] = [];
