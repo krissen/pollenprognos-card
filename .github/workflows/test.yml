@@ -1,0 +1,29 @@
+name: Test & Build
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # update-version.js (prebuild) reads git tags to stamp the version;
+          # a shallow checkout would break the build step.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - run: npm run check-dist-size

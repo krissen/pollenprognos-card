@@ -8,8 +8,8 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 ### Technology Stack
 - **Framework**: Lit Element (Web Components)
 - **Build System**: Vite
-- **Language**: Modern ES6+ JavaScript
-- **Dependencies**: lit, chart.js, intl-messageformat
+- **Language**: TypeScript (strict)
+- **Dependencies**: lit, intl-messageformat
 - **Target Environment**: Home Assistant frontend (modern browsers)
 
 ### Development Environment Setup
@@ -52,10 +52,9 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 - Handle property changes in `updated(changedProperties)` lifecycle method
 - Use `this.requestUpdate()` to trigger re-rendering when needed
 
-#### Chart.js Integration
-- Register required Chart.js components before use
-- Cache chart instances in `_chartCache` Map to prevent memory leaks
-- Properly destroy charts when component unmounts
+#### SVG Donut Rings
+- Level circles render declaratively via `buildDonutSvg()` (`src/rendering/donut.ts`)
+- Attribute-escape any user-influenced string interpolated into SVG markup (`escapeXmlAttr`)
 
 #### Error Handling
 - Store error states in `_error` property with translation keys
@@ -120,7 +119,6 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 1. **Never edit generated files** in `dist/`
 2. **Don't break adapter interface consistency** when modifying integrations
 4. **Avoid direct DOM manipulation** - use Lit's reactive rendering
-5. **Don't forget to register Chart.js components** before use
 6. **Always handle missing entities gracefully** in adapters
 
 ### Comments and Documentation

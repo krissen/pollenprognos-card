@@ -1,0 +1,32 @@
+[
+  {
+    "allergenReplaced": "grass",
+    "allergenCapitalized": "Grass",
+    "allergenShort": "Grass",
+    "entity_id": "sensor.home_grasses_level",
+    "days": [
+      {
+        "name": "Grass",
+        "day": "Today",
+        "state": 2,
+        "display_state": 2,
+        "state_text": "Moderate levels"
+      }
+    ]
+  },
+  {
+    "allergenReplaced": "birch",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.home_birch_level",
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels"
+      }
+    ]
+  }
+]

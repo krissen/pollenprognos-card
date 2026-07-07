@@ -1,0 +1,46 @@
+[
+  {
+    "days": [
+      {
+        "name": "Grasses",
+        "day": "Today",
+        "state": 3,
+        "display_state": 3,
+        "state_text": "Moderate–high levels"
+      },
+      {
+        "name": "Grasses",
+        "day": "Tomorrow",
+        "state": 2,
+        "display_state": 2,
+        "state_text": "Moderate levels"
+      }
+    ],
+    "allergenReplaced": "grass_cat",
+    "allergenCapitalized": "Grasses",
+    "allergenShort": "Grasses",
+    "entity_id": "sensor.google_pollen_grass"
+  },
+  {
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 4,
+        "display_state": 4,
+        "state_text": "High levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 3,
+        "display_state": 3,
+        "state_text": "Moderate–high levels"
+      }
+    ],
+    "allergenReplaced": "birch",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.google_pollen_birch"
+  }
+]

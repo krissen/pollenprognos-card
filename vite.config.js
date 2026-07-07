@@ -7,14 +7,14 @@ import { execSync } from "child_process";
 export default defineConfig(({ command }) => {
   const isServe = command === "serve";
 
-  let version = "";
+  let version;
   try {
     version = execSync("git describe --exact-match --tags", {
       stdio: ["pipe", "pipe", "ignore"],
     })
       .toString()
       .trim();
-  } catch (e) {
+  } catch {
     version = execSync("git rev-parse --short HEAD").toString().trim();
   }
   return {

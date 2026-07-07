@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.0.0] - 2026-07-06
+
+The TypeScript release: the whole codebase migrated from JavaScript + Lit 2 to
+TypeScript (strict) + Lit 3, the level rings got an in-house SVG renderer, and
+the bundle shrank by about 30 %. Configuration keys are unchanged and rendering
+is pixel-identical. Note, however, that **two deliberate fixes change runtime
+behaviour for some existing configurations**; see *Breaking behaviour changes*
+below before upgrading.
+
+### Breaking behaviour changes
+
+- **A configured `tap_action` now takes precedence over per-icon more-info**
+  (issue #279). Previously, a badge or card with a `tap_action` (e.g.
+  `type: navigate`) never ran it. The level ring / allergen icon covers almost
+  the whole element, and its built-in open-more-info click handler swallowed
+  the tap first. With this release, a configured `tap_action` runs for the
+  whole element. **If your config sets a `tap_action` AND you relied on tapping
+  the icons to open more-info, add `link_to_sensors: true` to restore the
+  per-icon more-info alongside the action.** Configs without a `tap_action`,
+  and configs with `link_to_sensors: false`, behave exactly as before.
+- **Hand-written string-typed YAML booleans and numbers now mean what they
+  say.** Configuration is validated and type-coerced once when the card loads,
+  so e.g. `minimal: "false"` no longer *enables* minimal mode (the string was
+  truthy before) and `days_to_show: "4"` is honoured. **If a config leans on
+  the old behaviour, where a quoted `"false"` acted as true, the card will now
+  do what the value reads.** Configs written via the visual editor were always
+  canonical and are unaffected.
+
+### Changed
+
+- **The whole codebase is now TypeScript (strict) on Lit 3** (issue #259). All
+  source and test code migrated from JavaScript + Lit 2, with type checking,
+  linting and a bundle-size guard gating CI. Adapter behaviour is pinned by
+  golden characterization tests for all eleven integrations, so the migration
+  is rendering-identical by construction. No configuration changes.
+- **The bundle is about 30 % smaller** (289 kB to 203 kB gzip): the level rings
+  are drawn by an in-house SVG donut and the Chart.js dependency is gone. The
+  rings render pixel-identically to before.
+
+### Fixed
+
+- **`tap_action: navigate` actually loads the target view** (issue #279).
+  Beyond the precedence fix above, the navigate action only updated the URL
+  without dispatching Home Assistant's `location-changed` event, so the router
+  never re-resolved the view.
+- **German five-step scale tops out at "sehr hohe Belastung"** (issue #277).
+  The German labels for the native 5-level scale (Polleninformation EU,
+  MeteoSwiss, IRM KMI) borrowed the seven-step DWD wording, so the highest
+  level read "hohe Belastung" ("high") where every other language says "very
+  high". The German ladder is now keine / geringe / mittlere / hohe / sehr hohe
+  Belastung. The DWD scale itself is unchanged (its own maximum actually is
+  "hohe Belastung").
+- **Atmo France "Indisponible" days show the no-data pattern** instead of an
+  empty green level ring that read as "no pollen" when the truth was "no
+  data".
+- **The card editor's SILAM fallback no longer crashes** on a missing helper
+  import that had made one auto-detection path throw since it was written.
+
 ## [3.4.0] - 2026-06-14
 
 ### Added

@@ -1,0 +1,26 @@
+[
+  {
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      }
+    ],
+    "allergenReplaced": "birch",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.polleninformation_amsterdam_birch"
+  }
+]

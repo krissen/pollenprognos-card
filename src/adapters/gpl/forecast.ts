@@ -1,0 +1,396 @@
+// src/adapters/gpl/forecast.ts
+import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { CardConfig } from "../../types/config.js";
+import type { PollenSensor, ForecastDay } from "../../types/sensor.js";
+import { buildLevelNames } from "../../utils/level-names.js";
+import {
+  getLangAndLocale,
+  mergePhrases,
+  buildDayLabel,
+  clampLevel,
+  sortSensors,
+  meetsThreshold,
+  resolveAllergenNames,
+  coerceBool,
+  deviceLocationKey,
+  parseLocalDate,
+} from "../../utils/adapter-helpers.js";
+import { scaleUpi0_5To0_6 } from "../base.js";
+import { stubConfigGPL, capitalize } from "./constants.js";
+import { resolveEntityIds } from "./discovery.js";
+import { t } from "../../i18n.js";
+
+// Google Pollen API top-type codes -> our canonical category keys.
+const TOP_CODE_TO_KEY: Record<string, string> = {
+  TREE: "trees_cat",
+  GRASS: "grass_cat",
+  WEED: "weeds_cat",
+};
+
+interface GplLevelDay {
+  date: Date;
+  level: number;
+}
+
+/**
+ * Localize a pollen code to the CARD's language (issue #222). The pollenlevels
+ * integration may have fetched its *_names in a different language than the
+ * card (e.g. a config entry set to Ukrainian), so we localize from the code
+ * via our own translations and only fall back to the integration's name when
+ * we have no translation for that code.
+ */
+function localizeAllergenLabel(
+  key: string,
+  fallbackName: unknown,
+  lang: string,
+): string {
+  const tk = `card.allergen.${key}`;
+  const tr = t(tk, lang);
+  if (typeof tr === "string" && tr && tr !== tk) return tr;
+  if (typeof fallbackName === "string" && fallbackName.trim())
+    return fallbackName.trim();
+  return capitalize(String(key).replace(/_/g, " "));
+}
+
+/**
+ * Subentry-aware location key for an entity, derived from its device.
+ *
+ * pollenlevels v3 puts several locations under one parent config entry via
+ * config subentries (issue #262), so scoping siblings by config entry alone
+ * would let a summary in location A bind a sibling in location B (both share
+ * the parent entry). deviceLocationKey collapses to the subentry id when the
+ * device has one and to the config entry id otherwise, so legacy (one entry
+ * per location) and v3 (subentry per location) both scope correctly. Returns
+ * the location key, or null when the entity has no resolvable device.
+ */
+function entityLocationKey(hass: HomeAssistant, eid: string): string | null {
+  const entry = hass?.entities?.[eid];
+  const dev = entry?.device_id ? hass?.devices?.[entry.device_id] : null;
+  if (!dev) return null;
+  const key = deviceLocationKey(dev);
+  return key === "default" ? null : key;
+}
+
+/**
+ * Resolve a sibling pollenlevels entity in the SAME location as the summary
+ * (e.g. plants_in_season_today next to overall_pollen_risk_today).
+ * pollenlevels splits a location across several devices (pollen types vs
+ * plants), so scope by location key, not device. Matches by translation_key OR
+ * unique_id suffix (the frontend's reduced hass.entities does not always
+ * expose unique_id, so translation_key is the primary signal). Returns the
+ * sibling entity_id or null.
+ */
+function findSiblingEntityId(
+  hass: HomeAssistant,
+  summaryEntityId: string,
+  translationKey: string,
+  uidSuffix: string,
+): string | null {
+  const entities = hass?.entities;
+  if (!entities) return null;
+  const summaryKey = entityLocationKey(hass, summaryEntityId);
+  for (const [eid, entry] of Object.entries(entities)) {
+    const matches =
+      entry?.translation_key === translationKey ||
+      (typeof entry?.unique_id === "string" &&
+        entry.unique_id.endsWith(uidSuffix));
+    if (!matches) continue;
+    // When the summary has a resolvable location, only accept a sibling from
+    // the same location. A candidate without a resolvable key can't be proven
+    // same-location, so skip it.
+    if (summaryKey !== null && entityLocationKey(hass, eid) !== summaryKey)
+      continue;
+    return eid;
+  }
+  return null;
+}
+
+export async function fetchForecast(
+  hass: HomeAssistant,
+  config: CardConfig,
+): Promise<PollenSensor[]> {
+  const debug = Boolean(config.debug);
+  const { lang, locale, daysRelative, dayAbbrev, daysUppercase } =
+    getLangAndLocale(
+      hass,
+      config,
+      stubConfigGPL.date_locale as string | undefined,
+    );
+
+  const { fullPhrases, shortPhrases, userLevels, userDays, noInfoLabel } =
+    mergePhrases(config, lang);
+  const levelNames = buildLevelNames(
+    userLevels as Array<string | null | undefined>,
+    lang,
+  );
+  const days_to_show =
+    (config.days_to_show as number | undefined) ??
+    (stubConfigGPL.days_to_show as number);
+  const pollen_threshold =
+    (config.pollen_threshold as number | undefined) ??
+    (stubConfigGPL.pollen_threshold as number);
+
+  // GPL uses 6-level system (0-5)
+  const testVal = (v: unknown): number => clampLevel(v, 5, -1);
+
+  if (debug)
+    console.debug("[GPL] Adapter: start fetchForecast", { config, lang });
+
+  const entityMap = resolveEntityIds(config, hass, debug);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let sensors: PollenSensor[] = [];
+
+  for (const allergen of config.allergens as string[]) {
+    try {
+      const dict = { days: [] as ForecastDay[] } as PollenSensor;
+      dict.allergenReplaced = allergen;
+
+      // Allergen name resolution
+      const { allergenCapitalized, allergenShort } = resolveAllergenNames(
+        allergen,
+        {
+          fullPhrases,
+          shortPhrases,
+          abbreviated: config.allergens_abbreviated as boolean,
+          lang,
+          capitalize: (s) => capitalize(s.replace(/_/g, " ")),
+        },
+      );
+      dict.allergenCapitalized = allergenCapitalized;
+      dict.allergenShort = allergenShort;
+
+      // Sensor lookup (delegated to resolveEntityIds)
+      const sensorId = entityMap.get(allergen);
+      if (!sensorId) continue;
+
+      const sensor = hass.states[sensorId];
+      dict.entity_id = sensorId;
+
+      // Summary block (issue #222): tag the aggregate and enrich it with the
+      // v2.1.0 extras (top pollen types + plants in season), each shown as its
+      // own text qualifier row under the aggregate. SILAM/Atmo have no
+      // equivalent and stay a plain aggregate row.
+      if (allergen === "allergy_risk") {
+        dict.isSummary = true;
+        const attrs = sensor.attributes ?? {};
+        // Top types: localize from the canonical category codes in the CARD's
+        // language (TREE -> trees_cat -> "Träd"). The integration's *_names may
+        // be in another language, so they are only a per-item fallback.
+        const topCodes = Array.isArray(attrs.top_pollen_codes)
+          ? attrs.top_pollen_codes
+          : [];
+        const topNames = Array.isArray(attrs.top_pollen_names)
+          ? attrs.top_pollen_names
+          : [];
+        const topList = topCodes
+          .map((code: unknown, i: number) => {
+            const key =
+              TOP_CODE_TO_KEY[String(code).toUpperCase()] ||
+              String(code).toLowerCase();
+            return localizeAllergenLabel(key, topNames[i], lang);
+          })
+          .filter((n: unknown) => typeof n === "string" && n.trim());
+        if (topList.length) dict.topPollen = topList;
+
+        // Plants in season: list + count from the sibling
+        // `plants_in_season_today` entity (same config entry, shared unique_id
+        // prefix). Localize from plant codes in the card language; fall back to
+        // the integration's names per item.
+        const plantsId = findSiblingEntityId(
+          hass,
+          sensorId,
+          "plants_in_season_today",
+          "_plants_in_season_today",
+        );
+        const plantsState = plantsId ? hass.states[plantsId] : null;
+        const pAttrs = plantsState?.attributes ?? {};
+        const plantCodes = Array.isArray(pAttrs.plant_codes)
+          ? pAttrs.plant_codes
+          : [];
+        const plantNames = Array.isArray(pAttrs.plant_names)
+          ? pAttrs.plant_names
+          : [];
+        let plantList: string[];
+        if (plantCodes.length) {
+          plantList = plantCodes
+            .map((code: unknown, i: number) =>
+              localizeAllergenLabel(String(code).toLowerCase(), plantNames[i], lang),
+            )
+            .filter((n: unknown) => typeof n === "string" && n.trim());
+        } else {
+          plantList = plantNames.filter(
+            (n: unknown) => typeof n === "string" && n.trim(),
+          );
+        }
+        if (plantList.length) dict.plantsInSeasonList = plantList;
+      }
+
+      if (debug) {
+        console.debug(`[GPL] Processing sensor ${sensorId}:`, {
+          state: sensor.state,
+          forecast: sensor.attributes?.forecast?.length,
+        });
+      }
+
+      // Today's value (0-5 direct)
+      const todayVal = testVal(sensor.state);
+
+      // pollenlevels items: { offset, date, has_index, value, category, ... }.
+      // The sensor STATE is Google's dailyInfo[0], i.e. the value for the
+      // integration's LAST FETCH DAY (undated); forecast item dates come
+      // straight from the Google API (location ground truth) while `offset` is
+      // the item's position relative to that fetch day. When the integration
+      // has not refreshed since yesterday, the state is yesterday's value and
+      // forecast[0] (offset 1) is dated today: the old code pinned the state
+      // to today and appended the item, rendering two "Today" columns (issue
+      // #271). Anchor everything by calendar day instead: derive the fetch day
+      // from the first dated item (date minus offset), place the state there
+      // and each item on its own date, then render from the browser's today
+      // forward. Dates are parsed at LOCAL midnight (UTC parsing skewed the
+      // day diff in timezones away from UTC).
+      const forecastData = Array.isArray(sensor.attributes?.forecast)
+        ? sensor.attributes.forecast
+        : [];
+      const addDays = (date: Date, n: number): Date => {
+        const d = new Date(date);
+        d.setDate(d.getDate() + n);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+      let stateDate = today;
+      for (const item of forecastData) {
+        const d = parseLocalDate(item.date);
+        const off = Number(item.offset);
+        if (d && Number.isFinite(off) && off >= 1) {
+          stateDate = addDays(d, -off);
+          break;
+        }
+      }
+
+      const entries: GplLevelDay[] = [{ date: stateDate, level: todayVal }];
+      for (const forecastItem of forecastData) {
+        const off = Number.isFinite(Number(forecastItem.offset))
+          ? Number(forecastItem.offset)
+          : entries.length;
+        const date =
+          parseLocalDate(forecastItem.date) ?? addDays(stateDate, off);
+        // Same calendar day already present: first entry wins (the state for
+        // the fetch day, or an earlier item).
+        if (
+          entries.some((e) => e.date.toDateString() === date.toDateString())
+        ) {
+          continue;
+        }
+        const hasIndex = forecastItem.has_index !== false;
+        const val =
+          forecastItem.value ??
+          forecastItem.state ??
+          forecastItem.level ??
+          forecastItem;
+        entries.push({ date, level: hasIndex ? testVal(val) : -1 });
+      }
+
+      // Render from the browser's today forward; past days fall away. If the
+      // known data starts after today (e.g. viewing a location whose local day
+      // is ahead of the browser's), keep day 0 as an honest empty "today".
+      const levels = entries
+        .filter((e) => e.date.getTime() - today.getTime() >= 0)
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+      if (!levels.length || levels[0].date.getTime() - today.getTime() > 0) {
+        levels.unshift({ date: today, level: -1 });
+      }
+      levels.splice(days_to_show);
+
+      // Pad to days_to_show. Continue from the last entry's date (not the
+      // array index): forecast items are placed by their `date`, so an
+      // index-based date could collide with a date already in the list.
+      while (levels.length < days_to_show) {
+        const last = levels[levels.length - 1].date;
+        const next = new Date(last.getTime() + 36 * 3600000);
+        next.setHours(0, 0, 0, 0);
+        levels.push({ date: next, level: -1 });
+      }
+
+      // Build day objects (always include -1 placeholders so show_empty_days works)
+      for (let i = 0; i < days_to_show; i++) {
+        const entry = levels[i];
+        if (!entry) continue;
+
+        const diff = Math.round(
+          (entry.date.getTime() - today.getTime()) / 86400000,
+        );
+        const dayLabel = buildDayLabel(entry.date, diff, {
+          daysRelative,
+          dayAbbrev,
+          daysUppercase,
+          userDays,
+          lang,
+          locale,
+        });
+
+        // Scale level 0-5 to level name index 0-6 (like Kleenex does for 0-4)
+        const level = entry.level;
+        const scaledLevel = scaleUpi0_5To0_6(level);
+
+        const stateText =
+          scaledLevel < 0 ? noInfoLabel : levelNames[scaledLevel] || noInfoLabel;
+
+        const dayObj: ForecastDay = {
+          name: dict.allergenCapitalized,
+          day: dayLabel,
+          state: entry.level,
+          display_state: entry.level < 0 ? -1 : entry.level,
+          state_text: stateText,
+        };
+
+        dict.days.push(dayObj);
+      }
+
+      // Threshold filter. The summary block (issue #222) needs the aggregate
+      // retained regardless of threshold, but only when the block is enabled,
+      // so existing row behaviour is unchanged when it is off.
+      const skipThreshold =
+        allergen === "allergy_risk" && coerceBool(config.show_summary_block);
+      if (skipThreshold || meetsThreshold(dict.days, pollen_threshold)) {
+        sensors.push(dict);
+      }
+    } catch (e) {
+      console.warn(`[GPL] Adapter error for allergen ${allergen}:`, e);
+    }
+  }
+
+  // Sorting
+  if (config.sort !== "none") {
+    if (config.sort_category_allergens_first) {
+      const categoryAllergens = sensors.filter((s) =>
+        ["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
+      );
+      const individualAllergens = sensors.filter(
+        (s) =>
+          !["trees_cat", "grass_cat", "weeds_cat"].includes(s.allergenReplaced),
+      );
+      sortSensors(categoryAllergens, config.sort as string);
+      sortSensors(individualAllergens, config.sort as string);
+      sensors = [...categoryAllergens, ...individualAllergens];
+    } else {
+      sortSensors(sensors, config.sort as string);
+    }
+  }
+
+  // Pin the `allergy_risk` summary row to the top when configured. Done
+  // after sorting so the user's chosen sort order (and the
+  // sort_category_allergens_first grouping above) is preserved for
+  // everything else. Mirrors Atmo's allergy_risk_top pattern.
+  if (config.allergy_risk_top) {
+    const arIdx = sensors.findIndex(
+      (s) => s.allergenReplaced === "allergy_risk",
+    );
+    if (arIdx > 0) sensors.unshift(...sensors.splice(arIdx, 1));
+  }
+
+  if (debug) console.debug("[GPL] Adapter complete sensors:", sensors);
+  return sensors;
+}

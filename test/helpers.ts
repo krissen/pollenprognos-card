@@ -1,0 +1,369 @@
+/**
+ * Shared test helpers for mocking Home Assistant state objects.
+ */
+
+import type { HomeAssistant } from "../src/types/home-assistant.js";
+
+/**
+ * Create a minimal hass mock with the given entity states.
+ *
+ * The mock is deliberately partial: it only wires the properties adapters and
+ * card logic actually read. The build result is cast to HomeAssistant so tests
+ * can pass it to typed signatures without fabricating every field.
+ *
+ * @param states - Map of entity_id to state object
+ * @param opts - Additional hass properties
+ * @returns hass mock
+ */
+export function createHass(
+  states: Record<string, any> = {},
+  opts: Record<string, any> = {},
+): HomeAssistant {
+  return {
+    states,
+    locale: { language: opts.language || "en" },
+    language: opts.language || "en",
+    entities: opts.entities || {},
+    ...opts,
+  } as unknown as HomeAssistant;
+}
+
+/**
+ * Create a sensor state object with forecast data (PP style).
+ * @param levels - Array of level values per day
+ * @param opts - Override attributes
+ * @returns sensor state
+ */
+export function createPPSensor(levels: Array<number | null>, opts: Record<string, any> = {}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const forecast = levels.map((level, i) => {
+    const d = new Date(today.getTime() + i * 86400000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return { time: `${yyyy}-${mm}-${dd}T00:00:00`, level };
+  });
+  return {
+    state: String(levels[0] ?? 0),
+    attributes: { forecast, ...opts },
+  };
+}
+
+/**
+ * Create a sensor state object for DWD.
+ * @param todayVal - Today's level (0-3 scale)
+ * @param tomorrowVal - Tomorrow's level
+ * @param twoDaysVal - Day after tomorrow's level
+ * @param opts - Override attributes
+ * @returns sensor state
+ */
+export function createDWDSensor(
+  todayVal: number,
+  tomorrowVal: number,
+  twoDaysVal: number,
+  opts: Record<string, any> = {},
+) {
+  return {
+    state: String(todayVal),
+    attributes: {
+      state_tomorrow: String(tomorrowVal),
+      state_in_2_days: String(twoDaysVal),
+      state_today_desc: "",
+      state_tomorrow_desc: "",
+      state_in_2_days_desc: "",
+      ...opts,
+    },
+  };
+}
+
+/**
+ * Create a sensor state object for PLU.
+ * @param value - Raw grain count value
+ * @param attrOverrides - Override attributes
+ * @returns sensor state
+ */
+export function createPLUSensor(value: number, attrOverrides: Record<string, any> = {}) {
+  return {
+    state: String(value),
+    attributes: {
+      unit_of_measurement: "grains/m\u00B3",
+      ...attrOverrides,
+    },
+  };
+}
+
+/**
+ * Create a sensor state object for PEU.
+ * @param level - Level value (0-4 scale for daily)
+ * @param forecastLevels - Additional forecast day levels
+ * @param opts - Override attributes
+ * @returns sensor state
+ */
+export function createPEUSensor(
+  level: number,
+  forecastLevels: number[] = [],
+  opts: Record<string, any> = {},
+) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const forecast = [level, ...forecastLevels].map((lv, i) => {
+    const d = new Date(today.getTime() + i * 86400000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return { datetime: `${yyyy}-${mm}-${dd}T00:00:00`, native_value: lv };
+  });
+  return {
+    state: String(level),
+    attributes: {
+      forecast,
+      data_stale: false,
+      ...opts,
+    },
+  };
+}
+
+/**
+ * Create a sensor state object for MSW (hass-swissweather SwissPollenLevelSensor).
+ * @param levelStr - One of "None","Low","Medium","Strong","Very Strong"
+ * @param attrOverrides - Override attributes
+ * @returns sensor state
+ */
+export function createMSWSensor(levelStr: string, attrOverrides: Record<string, any> = {}) {
+  return {
+    state: levelStr,
+    attributes: {
+      attribution: "Source: MeteoSwiss",
+      ...attrOverrides,
+    },
+  };
+}
+
+interface MakeDeviceOpts {
+  deviceId?: string;
+  identifiers?: Array<[string, string]>;
+  configEntries?: string[];
+  name?: string;
+  nameByUser?: string;
+}
+
+/**
+ * Create a minimal device registry entry.
+ *
+ * @param opts.deviceId      - Device ID (required, must be explicit).
+ * @param opts.identifiers   - Array of [domain, unique_id] tuples.
+ * @param opts.configEntries - Config entry IDs. Default: ["cfg_default"].
+ * @param opts.name          - Device name.
+ * @param opts.nameByUser    - User-assigned device name.
+ */
+export function makeDevice({
+  deviceId,
+  identifiers,
+  configEntries = ["cfg_default"],
+  name,
+  nameByUser,
+}: MakeDeviceOpts = {}) {
+  if (!deviceId) {
+    throw new Error("makeDevice: deviceId is required");
+  }
+  return {
+    device_id: deviceId,
+    identifiers: identifiers || [],
+    config_entries: configEntries,
+    name: name || null,
+    name_by_user: nameByUser || null,
+  };
+}
+
+interface MakeEntityEntryOpts {
+  deviceId?: string | null;
+  platform?: string | null;
+  translationKey?: string | null;
+  uniqueId?: string | null;
+  entityCategory?: string | null;
+}
+
+/**
+ * Create a minimal entity registry entry.
+ *
+ * @param opts.deviceId        - Device ID the entity belongs to.
+ * @param opts.platform        - Integration platform name.
+ * @param opts.translationKey  - Translation key.
+ * @param opts.uniqueId        - Unique ID.
+ * @param opts.entityCategory  - Entity category (e.g. "diagnostic"). Default: null.
+ */
+export function makeEntityEntry({
+  deviceId,
+  platform,
+  translationKey,
+  uniqueId,
+  entityCategory = null,
+}: MakeEntityEntryOpts = {}) {
+  return {
+    device_id: deviceId || null,
+    platform: platform || null,
+    translation_key: translationKey || null,
+    unique_id: uniqueId || null,
+    entity_category: entityCategory,
+  };
+}
+
+interface RegistryEntry {
+  entityId: string;
+  state?: string | number;
+  attributes?: Record<string, any>;
+  deviceId?: string | null;
+  platform?: string | null;
+  translationKey?: string | null;
+  uniqueId?: string | null;
+  entityCategory?: string | null;
+  deviceMeta?: Omit<MakeDeviceOpts, "deviceId">;
+}
+
+/**
+ * Create a hass mock with wired states, entities, and devices registries.
+ *
+ * @param entries - Array of entity descriptors:
+ *   { entityId, state, attributes, deviceId, platform, translationKey, uniqueId, entityCategory, deviceMeta }
+ *   deviceMeta is passed to makeDevice() (keyed by deviceId, first occurrence wins).
+ * @param opts.locale - Default: { language: "en" }.
+ * @returns hass mock
+ */
+export function createHassWithRegistry(
+  entries: RegistryEntry[],
+  { locale = { language: "en" } }: { locale?: { language: string } } = {},
+): HomeAssistant {
+  const states: Record<string, any> = {};
+  const entities: Record<string, any> = {};
+  const devices: Record<string, any> = {};
+  const seenDevices = new Set();
+  // Per-call counter so any auto-assigned device IDs are deterministic and
+  // independent of test execution order. Earlier versions used a module-level
+  // counter, which made test failures order-dependent.
+  let autoDeviceCounter = 0;
+
+  for (const entry of entries) {
+    const {
+      entityId,
+      state: stateVal = "0",
+      attributes = {},
+      deviceId: rawDeviceId = null,
+      platform = null,
+      translationKey = null,
+      uniqueId = null,
+      entityCategory = null,
+      deviceMeta = {},
+    } = entry;
+
+    let deviceId = rawDeviceId;
+    if (deviceId === "auto") {
+      deviceId = `device_auto_${++autoDeviceCounter}`;
+    }
+
+    // Build state. Include entity_id so the mock matches real HA, where
+    // production code can iterate Object.values(hass.states) and read
+    // s.entity_id directly (e.g. editor/card slug-based fallbacks).
+    states[entityId] = {
+      entity_id: entityId,
+      state: String(stateVal),
+      attributes: { friendly_name: entityId, ...attributes },
+    };
+
+    // Build entity registry entry
+    entities[entityId] = makeEntityEntry({
+      deviceId,
+      platform,
+      translationKey,
+      uniqueId,
+      entityCategory,
+    });
+
+    // Build device registry entry (first occurrence wins)
+    if (deviceId && !seenDevices.has(deviceId)) {
+      seenDevices.add(deviceId);
+      const dev = makeDevice({ deviceId, ...deviceMeta });
+      devices[deviceId] = {
+        identifiers: dev.identifiers,
+        config_entries: dev.config_entries,
+        name: dev.name,
+        name_by_user: dev.name_by_user,
+      };
+    }
+  }
+
+  return {
+    states,
+    entities,
+    devices,
+    locale,
+    language: locale.language,
+  } as unknown as HomeAssistant;
+}
+
+/**
+ * Assert the structural contract of a discoverEntitiesByDevice() result.
+ */
+export function assertDiscoveryShape(discovery: any) {
+  if (!discovery || typeof discovery !== "object") {
+    throw new Error("discovery must be an object");
+  }
+  if (!(discovery.locations instanceof Map)) {
+    throw new Error("discovery.locations must be a Map");
+  }
+  if (typeof discovery.tierUsed !== "number" || discovery.tierUsed < 0 || discovery.tierUsed > 3) {
+    throw new Error(`discovery.tierUsed must be 0-3, got ${discovery.tierUsed}`);
+  }
+  for (const [key, loc] of discovery.locations) {
+    if (typeof key !== "string") {
+      throw new Error(`location key must be string, got ${typeof key}`);
+    }
+    if (typeof loc.label !== "string") {
+      throw new Error(`location.label must be string, got ${typeof loc.label}`);
+    }
+    if (!(loc.entities instanceof Map)) {
+      throw new Error("location.entities must be a Map");
+    }
+    for (const [allergenKey, entityId] of loc.entities) {
+      if (typeof allergenKey !== "string") {
+        throw new Error(`allergen key must be string, got ${typeof allergenKey}`);
+      }
+      if (typeof entityId !== "string") {
+        throw new Error(`entity ID must be string, got ${typeof entityId}`);
+      }
+    }
+  }
+}
+
+/**
+ * Assert the contract shape of a sensor dict returned by any adapter's fetchForecast().
+ * @param sensor - A single sensor dict from fetchForecast result
+ * @param opts - Optional expectations
+ */
+export function assertSensorShape(sensor: any, opts: { minDays?: number } = {}) {
+  const { minDays = 1 } = opts;
+  if (typeof sensor.allergenReplaced !== "string") {
+    throw new Error(`allergenReplaced should be string, got ${typeof sensor.allergenReplaced}`);
+  }
+  if (typeof sensor.allergenCapitalized !== "string") {
+    throw new Error(`allergenCapitalized should be string, got ${typeof sensor.allergenCapitalized}`);
+  }
+  if (typeof sensor.allergenShort !== "string") {
+    throw new Error(`allergenShort should be string, got ${typeof sensor.allergenShort}`);
+  }
+  if (!Array.isArray(sensor.days)) {
+    throw new Error(`days should be array, got ${typeof sensor.days}`);
+  }
+  if (sensor.days.length < minDays) {
+    throw new Error(`days should have at least ${minDays} entries, got ${sensor.days.length}`);
+  }
+  if (sensor.days[0] === undefined) {
+    throw new Error("days[0] should be defined");
+  }
+  if (typeof sensor.days[0].state !== "number") {
+    throw new Error(`days[0].state should be number, got ${typeof sensor.days[0].state}`);
+  }
+  if (typeof sensor.days[0].day !== "string") {
+    throw new Error(`days[0].day (label) should be string, got ${typeof sensor.days[0].day}`);
+  }
+}

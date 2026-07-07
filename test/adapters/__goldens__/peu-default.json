@@ -1,0 +1,82 @@
+[
+  {
+    "days": [
+      {
+        "name": "Grass",
+        "day": "Today",
+        "state": 3,
+        "display_state": 3,
+        "raw_value": null,
+        "state_text": "High levels"
+      },
+      {
+        "name": "Grass",
+        "day": "Tomorrow",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Grass",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Grass",
+        "day": "Jun 18",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      }
+    ],
+    "allergenReplaced": "grasses",
+    "allergenCapitalized": "Grass",
+    "allergenShort": "Grass",
+    "entity_id": "sensor.polleninformation_amsterdam_grasses"
+  },
+  {
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Birch",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 18",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      }
+    ],
+    "allergenReplaced": "birch",
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch",
+    "entity_id": "sensor.polleninformation_amsterdam_birch"
+  }
+]
