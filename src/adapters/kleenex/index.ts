@@ -18,6 +18,8 @@ export {
   resolveKleenexLocationEntry,
   canonicalAllergenFromSlug,
   classifyKleenexEntityId,
+  normalizeDetailName,
+  scopeManualEntities,
 } from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
@@ -26,6 +28,7 @@ import {
   kleenexSlugExtractor,
   resolveKleenexLocationEntry,
   classifyKleenexEntityId,
+  scopeManualEntities,
 } from "./discovery.js";
 import type { DiscoveredLocation } from "../../utils/adapter-helpers.js";
 import type { HomeAssistant } from "../../types/home-assistant.js";
@@ -86,4 +89,14 @@ export const autodetect: AdapterAutodetect = {
   // names would yield a header like "Kleenex pollen Date", so the card asks
   // the adapter which entity IDs are renderable before deriving a title.
   isRenderableEntity: (entityId) => classifyKleenexEntityId(entityId) !== null,
+  // Manual mode's entity_prefix can straddle two config entries, so the header
+  // narrows its candidate entities through the same rule fetchForecast uses;
+  // otherwise the two can name and render different locations.
+  scopeManualEntities: (hass, entityIds, opts) =>
+    scopeManualEntities(hass, entityIds, {
+      ...opts,
+      discovery: opts.discovery as
+        | { locations: Map<string, DiscoveredLocation> }
+        | undefined,
+    }),
 };

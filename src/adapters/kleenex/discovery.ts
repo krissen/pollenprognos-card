@@ -515,6 +515,117 @@ export function resolveKleenexLocationEntry(
   });
 }
 
+/** Outcome of scoping a manual-mode prefix match to a single location. */
+export interface KleenexManualScope {
+  /** The entity IDs the card should use, in the order they were given. */
+  entityIds: string[];
+  /**
+   * Label of the location the match was narrowed to, or null when no narrowing
+   * happened (single location, or no registry information at all).
+   */
+  label: string | null;
+}
+
+/**
+ * Narrow a manual-mode `entity_prefix` match to one location.
+ *
+ * A prefix is a substring test, so a prefix minted from a renamed device
+ * (`kleenex_pollen_`) also matches another config entry's legacy IDs
+ * (`sensor.kleenex_pollen_radar_utrecht_grass`). The card would then merge two
+ * cities into one set of allergen rows and name the header after whichever one
+ * `hass.states` happened to list first (issue #309 follow-up).
+ *
+ * The rule, when the matched entities span more than one *discovered* location:
+ * keep the location whose entity IDs have the least left over after the
+ * configured prefix (and suffix) is removed. That is the location the prefix
+ * was actually minted from -- `kleenex_pollen_` leaves `grass` on the renamed
+ * Paris device but `radar_utrecht_grass` on the Utrecht one -- and it is a rule
+ * a user can check by eye. Ties are broken on the total remainder and finally
+ * on the location key, so the choice never depends on registry iteration order.
+ *
+ * Entities the registry knows nothing about (template sensors, an install whose
+ * registry the frontend doesn't expose) are always kept: manual mode is the
+ * fallback for exactly those setups, and an unattributable entity cannot be
+ * evidence of a second location. Consequently an install with at most one
+ * discovered location behaves exactly as before.
+ */
+export function scopeManualEntities(
+  hass: HomeAssistant,
+  entityIds: string[],
+  opts: {
+    prefix: string;
+    suffix?: string;
+    discovery?: { locations: Map<string, DiscoveredLocation> };
+    debug?: boolean;
+  },
+): KleenexManualScope {
+  const { prefix, suffix = "", debug = false } = opts;
+  if (entityIds.length < 2 || !prefix) return { entityIds, label: null };
+
+  const discovery = opts.discovery ?? discoverKleenex(hass, debug);
+  if (!discovery || discovery.locations.size < 2) {
+    return { entityIds, label: null };
+  }
+
+  // entity_id -> location key, for the discovered locations only.
+  const locationOf = new Map<string, string>();
+  for (const [key, loc] of discovery.locations) {
+    for (const eid of loc.entities.values()) locationOf.set(eid, key);
+  }
+
+  const base = `sensor.${prefix}`;
+  // Per location: shortest and total remainder length after prefix and suffix.
+  const scores = new Map<string, { min: number; total: number }>();
+  for (const entityId of entityIds) {
+    const key = locationOf.get(entityId);
+    if (!key) continue;
+    let rest = entityId.startsWith(base)
+      ? entityId.slice(base.length)
+      : entityId;
+    if (suffix && rest.endsWith(suffix)) rest = rest.slice(0, -suffix.length);
+    const score = scores.get(key);
+    if (!score) {
+      scores.set(key, { min: rest.length, total: rest.length });
+    } else {
+      score.min = Math.min(score.min, rest.length);
+      score.total += rest.length;
+    }
+  }
+  if (scores.size < 2) return { entityIds, label: null };
+
+  let winner: string | null = null;
+  let best: { min: number; total: number } | null = null;
+  for (const [key, score] of [...scores].sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  )) {
+    if (
+      !best ||
+      score.min < best.min ||
+      (score.min === best.min && score.total < best.total)
+    ) {
+      winner = key;
+      best = score;
+    }
+  }
+
+  const kept = entityIds.filter((eid) => {
+    const key = locationOf.get(eid);
+    return !key || key === winner;
+  });
+
+  if (debug) {
+    console.debug(
+      `[Kleenex] Manual prefix '${prefix}' spans ${scores.size} locations (${[
+        ...scores.keys(),
+      ].join(", ")}); keeping '${winner}' and any unregistered entities`,
+      kept,
+    );
+  }
+
+  const label = winner ? (discovery.locations.get(winner)?.label ?? null) : null;
+  return { entityIds: kept, label };
+}
+
 /** One discovered Kleenex location, resolved against the card config. */
 export interface KleenexLocationMatch {
   locationKey: string;

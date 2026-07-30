@@ -1063,8 +1063,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             ? (cfg.location as string)
             : "";
         // One call into the adapter's own resolution rather than a candidate
-        // chain rebuilt here: the header can then never name a different
-        // location than the one the card renders data for.
+        // chain rebuilt here, so a location-based config resolves to the same
+        // place the card renders data for. Manual mode has no location to
+        // resolve; there the two are kept in step by the shared
+        // scopeManualEntities call further down instead.
         const kleenexResolved = kleenexWanted
           ? kleenexAutodetect?.resolveLocation?.(
               hass,
@@ -1097,13 +1099,35 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               // header. fetchForecast filters its own collection the same way.
               const entitySuffix =
                 typeof cfg.entity_suffix === "string" ? cfg.entity_suffix : "";
-              const prefixed = Object.values(hass.states)
+              let prefixed = Object.values(hass.states)
                 .filter(isKleenexState)
                 .filter(
                   (s) =>
                     s.entity_id.startsWith(`sensor.${prefix}`) &&
                     (!entitySuffix || s.entity_id.endsWith(entitySuffix)),
                 );
+              // The prefix can also match another config entry's entities
+              // (`kleenex_pollen_` matches `kleenex_pollen_radar_utrecht_*`).
+              // The adapter narrows its own collection to one location; the
+              // header goes through the same function so it can never name a
+              // location other than the one the card renders.
+              const scope = kleenexAutodetect?.scopeManualEntities?.(
+                hass,
+                prefixed.map((s) => s.entity_id),
+                {
+                  prefix,
+                  suffix: entitySuffix,
+                  discovery: kleenexDiscovery,
+                  debug: this.debug,
+                },
+              );
+              if (scope && scope.entityIds.length !== prefixed.length) {
+                const keep = new Set(scope.entityIds);
+                prefixed = prefixed.filter((s) => keep.has(s.entity_id));
+              }
+              // A narrowed match resolved a device, so its label is a better
+              // header than anything scraped out of a friendly name.
+              if (scope?.label) title = scope.label;
               // The prefix also matches the diagnostic siblings (`..._date`,
               // `..._last_updated`), whose friendly names would yield a header
               // like "Kleenex pollen Date". Prefer an entity the adapter
@@ -1153,7 +1177,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             }
           }
 
-          if (match) {
+          if (match && !title) {
             const attr = match.attributes;
             title =
               attr.location_name ||
