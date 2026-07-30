@@ -128,15 +128,14 @@ function locationsFor(config: Record<string, unknown>, hass: any) {
 }
 
 describe("badge editor Kleenex legacy-slug compatibility (issue #309)", () => {
-  it("lists the discovered location keyed by config entry", () => {
+  it("lists the discovered location keyed by the device identifier slug", () => {
     expect(
       locationsFor({ integration: "kleenex" }, legacyKleenexHass()),
-    ).toContainEqual(["entry_utrecht", "Utrecht"]);
+    ).toContainEqual(["utrecht", "Utrecht"]);
   });
 
-  // Without the compat entry the selector stays bound to "utrecht" while the
-  // list only offers "entry_utrecht", so the badge editor shows no selection
-  // even though the badge itself resolves correctly.
+  // A legacy slug now hits the discovery key directly, so the selector binds
+  // without any compatibility entry at all.
   it("keeps a saved legacy slug selectable", () => {
     expect(
       locationsFor(
@@ -160,6 +159,6 @@ describe("badge editor Kleenex legacy-slug compatibility (issue #309)", () => {
       { integration: "kleenex", location: "manual" },
       legacyKleenexHass(),
     );
-    expect(list).toEqual([["entry_utrecht", "Utrecht"]]);
+    expect(list).toEqual([["utrecht", "Utrecht"]]);
   });
 });

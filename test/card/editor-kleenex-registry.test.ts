@@ -158,7 +158,7 @@ beforeAll(async () => {
 });
 
 describe("editor Kleenex locations via registry discovery (issue #309)", () => {
-  it("lists the discovered location with its device label", () => {
+  it("lists the discovered location keyed by the device identifier slug", () => {
     const editor = new EditorCtor();
     editor.setConfig({
       type: "custom:pollenprognos-card",
@@ -167,7 +167,7 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     editor.hass = renamedKleenexHass();
 
     expect(editor.installedKleenexLocations).toContainEqual([
-      "entry_home",
+      "home",
       "Home",
     ]);
   });
@@ -179,7 +179,7 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     editor.hass = renamedKleenexHass();
 
     expect(editor._config.integration).toBe("kleenex");
-    expect(editor._config.location).toBe("entry_home");
+    expect(editor._config.location).toBe("home");
   });
 
   // Codex P1 on PR #311: with the device and its entities both renamed, the
@@ -202,7 +202,7 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     expect(editor._config.location).toBe("home");
   });
 
-  it("keeps a legacy slug config visible as its own dropdown entry", () => {
+  it("lists a legacy slug config once, as the discovered entry itself", () => {
     const editor = new EditorCtor();
     editor.setConfig({
       type: "custom:pollenprognos-card",
@@ -211,16 +211,9 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     });
     editor.hass = legacyKleenexHass();
 
-    // The discovered entry (keyed by config entry) plus the legacy slug the
-    // config still points at, so the dropdown shows the selected value.
-    expect(editor.installedKleenexLocations).toContainEqual([
-      "entry_utrecht",
-      "Utrecht",
-    ]);
-    expect(editor.installedKleenexLocations).toContainEqual([
-      "utrecht",
-      "Utrecht",
-    ]);
+    // The legacy slug is the discovery key now, so the configured value IS the
+    // discovered entry rather than a second one beside it.
+    expect(editor.installedKleenexLocations).toEqual([["utrecht", "Utrecht"]]);
     expect(editor._config.location).toBe("utrecht");
   });
 });

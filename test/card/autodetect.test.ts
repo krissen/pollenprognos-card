@@ -466,7 +466,7 @@ describe("Kleenex detection with renamed devices (issue #309)", () => {
     const detection = detectIntegrationStates(hass);
     expect(autoSelectLocation("kleenex", {}, hass, detection)).toEqual({
       key: "location",
-      value: "entry_home",
+      value: "home",
     });
   });
 
@@ -480,7 +480,7 @@ describe("Kleenex detection with renamed devices (issue #309)", () => {
         hass,
         detection,
       ),
-    ).toEqual({ key: "location", value: "entry_home" });
+    ).toEqual({ key: "location", value: "home" });
   });
 
   it("offers no derivation for a diagnostic sensor", () => {

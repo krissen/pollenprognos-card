@@ -1656,6 +1656,31 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(loc.entities.get("mugwort")).toBe("sensor.kleenex_pollen_armoise");
   });
 
+  it("keys locations by the slugified device identifier, not the entry id", () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const discovery = discoverKleenex(hass);
+
+    // A readable, rename-stable key that survives removing and re-adding the
+    // integration, unlike the config-entry ULID.
+    expect([...discovery.locations.keys()]).toEqual(["home"]);
+  });
+
+  it("falls back to the config-entry key when two instances share a name", () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_a", "cfg_a"),
+      ...kleenexRegistryEntries("Home", "other_pollen", "device_b", "cfg_b"),
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    // Both would slugify to "home" and merge into one location; the unique
+    // config-entry key keeps them apart.
+    expect([...discovery.locations.keys()].sort()).toEqual(["cfg_a", "cfg_b"]);
+  });
+
   it("keeps two config entries in separate locations", () => {
     const hass = createHassWithRegistry([
       ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
@@ -1672,9 +1697,9 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(discovery.locations.size).toBe(2);
     const labels = [...discovery.locations.values()].map((l) => l.label).sort();
     expect(labels).toEqual(["Cabin", "Home"]);
-    const home = discovery.locations.get("cfg_home")!;
+    const home = discovery.locations.get("home")!;
     expect(home.entities.get("trees")).toBe("sensor.kleenex_pollen_trees");
-    const cabin = discovery.locations.get("cfg_cabin")!;
+    const cabin = discovery.locations.get("cabin")!;
     expect(cabin.entities.get("trees")).toBe(
       "sensor.kleenex_pollen_radar_cabin_trees",
     );
@@ -1723,7 +1748,7 @@ describe("Kleenex adapter: discoverKleenex", () => {
 
     const discovery = discoverKleenex(hass);
 
-    const loc = discovery.locations.get("cfg_home")!;
+    const loc = discovery.locations.get("home")!;
     expect(loc.entities.get("birch")).toBe("sensor.kleenex_pollen_bjoerk");
   });
 });

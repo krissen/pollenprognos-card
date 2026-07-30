@@ -1,5 +1,9 @@
 // src/adapters/kleenex/discovery.ts
-import type { HassEntity, HomeAssistant } from "../../types/home-assistant.js";
+import type {
+  HassEntity,
+  HomeAssistant,
+  DeviceRegistryEntry,
+} from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
@@ -222,22 +226,65 @@ function resolveKleenexLabel(ctx: DiscoveryContext): string {
   return "Auto";
 }
 
+/** Slugified instance name from a device's `kleenex_pollenradar` identifier. */
+function deviceIdentifierSlug(
+  device: DeviceRegistryEntry | null | undefined,
+): string | null {
+  const identifiers = device?.identifiers;
+  if (!Array.isArray(identifiers)) return null;
+  for (const tuple of identifiers) {
+    if (!Array.isArray(tuple) || tuple[0] !== PLATFORM || !tuple[1]) continue;
+    const slug = slugify(String(tuple[1]));
+    if (slug) return slug;
+  }
+  return null;
+}
+
+/**
+ * Map device id -> identifier slug, for devices whose slug is unambiguous.
+ *
+ * Two config entries created with the same instance name slugify to the same
+ * key and would merge into one location, so those devices are dropped here and
+ * fall back to the unique config-entry key.
+ */
+function buildIdentifierKeys(hass: HomeAssistant): Map<string, string> {
+  const byDevice = new Map<string, string>();
+  const counts = new Map<string, number>();
+  for (const [deviceId, device] of Object.entries(hass.devices || {})) {
+    const slug = deviceIdentifierSlug(device);
+    if (!slug) continue;
+    byDevice.set(deviceId, slug);
+    counts.set(slug, (counts.get(slug) || 0) + 1);
+  }
+  for (const [deviceId, slug] of [...byDevice]) {
+    if ((counts.get(slug) || 0) > 1) byDevice.delete(deviceId);
+  }
+  return byDevice;
+}
+
 /**
  * Discover Kleenex Pollen Radar entities grouped by location (one config entry
  * and one device per configured location).
  *
- * Thin wrapper around discoverEntitiesByDevice. Tiers 1/2 key locations by the
- * device's config entry; tier 3 (no registry at all) keys them by the legacy
- * `sensor.kleenex_pollen_radar_<location>_<sensor>` slug so old configs keep
- * resolving. Collisions keep the first entity seen -- detail sensors that would
- * alias onto a category key are already rejected by the classifier, so a
- * category sensor can never be displaced by a detail sensor.
+ * Thin wrapper around discoverEntitiesByDevice. Locations are keyed by the
+ * slugified device identifier (the config-entry instance name), which is both
+ * human-readable in YAML and stable across renames *and* across removing and
+ * re-adding the integration -- unlike the config-entry id, which is a fresh
+ * ULID every time. It is also the exact string the legacy entity-ID slug was
+ * minted from, so pre-existing configs match on the key directly. Devices
+ * without a usable identifier keep the config-entry key; tier 3 (no registry at
+ * all) keys by the legacy `sensor.kleenex_pollen_radar_<location>_<sensor>`
+ * slug. Collisions keep the first entity seen -- detail sensors that would alias
+ * onto a category key are already rejected by the classifier, so a category
+ * sensor can never be displaced by a detail sensor.
  */
 export function discoverKleenex(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
   if (!hass) return { locations: new Map(), tierUsed: 0 };
+
+  const identifierKeys = buildIdentifierKeys(hass);
 
   return discoverEntitiesByDevice(hass, {
     platform: PLATFORM,
@@ -248,7 +295,10 @@ export function discoverKleenex(
         const slug = entityIdSuffix(ctx.entityId).replace(/_[^_]+$/, "");
         return slug || "default";
       }
-      return deviceLocationKey(ctx.device);
+      const identifierSlug = ctx.deviceId
+        ? identifierKeys.get(ctx.deviceId)
+        : undefined;
+      return identifierSlug || deviceLocationKey(ctx.device);
     },
     fallbackRegex: /^sensor\.kleenex_pollen_radar_/,
     debug,
