@@ -148,14 +148,40 @@ export function classifyKleenexEntityId(entityId: string): string | null {
 }
 
 /**
+ * Read the allergen out of a detail sensor's registry unique_id, which the
+ * integration builds as
+ * `<entry_id>-Kleenex Pollen Radar<group>_details-<PollenName>-<value|level>`.
+ * The name is the second-to-last dash-separated segment.
+ *
+ * This is the only non-user-editable carrier of the allergen name, so it is
+ * tried first -- but only when present: the frontend's reduced `hass.entities`
+ * usually omits unique_id, hence the name-based candidates below.
+ */
+function allergenFromUniqueId(
+  uniqueId: string | null | undefined,
+): string | null {
+  if (typeof uniqueId !== "string" || !uniqueId) return null;
+  const parts = uniqueId.split("-");
+  if (parts.length < 2) return null;
+  const name = parts[parts.length - 2]?.trim().toLowerCase();
+  if (!name) return null;
+  const canonical = KLEENEX_ALLERGEN_MAP[name];
+  return canonical && !CATEGORY_KEYS.has(canonical) ? canonical : null;
+}
+
+/**
  * Resolve the canonical allergen behind a per-allergen detail sensor. All of
  * them share the `detail_value` translation key, so the allergen name survives
- * only in the entity-ID slug and the friendly name.
+ * in the registry unique_id when the frontend exposes it, and otherwise only in
+ * the entity-ID slug and the friendly name -- both of which the user can edit.
  */
 function classifyDetailEntity(
   entityId: string,
   ctx: DiscoveryContext,
 ): string | null {
+  const byUniqueId = allergenFromUniqueId(ctx.entry?.unique_id);
+  if (byUniqueId) return byUniqueId;
+
   const canonical = canonicalAllergenFromSlug(entityIdSuffix(entityId));
   if (canonical && !CATEGORY_KEYS.has(canonical)) return canonical;
 

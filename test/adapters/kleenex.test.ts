@@ -1957,6 +1957,55 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect([...loc.entities.keys()].sort()).toEqual(["birch", "grass", "trees"]);
   });
 
+  it("classifies a fully renamed detail sensor via its unique_id", () => {
+    // Codex round 12: neither the entity ID nor the friendly name carries the
+    // allergen any more; the registry unique_id still does.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_thing",
+        state: "12",
+        attributes: { friendly_name: "Pollen thing" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        uniqueId:
+          "01KQ58DAJBWSK3EJ69H36FB4N6-Kleenex Pollen Radar Utrecht_details-Bouleau-value",
+        deviceId: "device_home",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Home)",
+          identifiers: [["kleenex_pollenradar", "Home"] as [string, string]],
+          configEntries: ["cfg_home"],
+        },
+      },
+    ]);
+
+    const loc = discoverKleenex(hass).locations.get("home")!;
+    expect(loc.entities.get("birch")).toBe("sensor.pollen_thing");
+  });
+
+  it("skips a fully renamed detail sensor when unique_id is unavailable", () => {
+    // Documented residual: the frontend's reduced hass.entities usually omits
+    // unique_id, and then nothing non-editable carries the allergen name. Same
+    // outcome as before registry discovery, i.e. no regression.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_thing",
+        state: "12",
+        attributes: { friendly_name: "Pollen thing" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        deviceId: "device_home",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Home)",
+          identifiers: [["kleenex_pollenradar", "Home"] as [string, string]],
+          configEntries: ["cfg_home"],
+        },
+      },
+    ]);
+
+    const loc = discoverKleenex(hass).locations.get("home");
+    expect(loc?.entities.size ?? 0).toBe(0);
+  });
+
   it("resolves the allergen from friendly_name when the ID slug is unknown", () => {
     const hass = createHassWithRegistry([
       {
