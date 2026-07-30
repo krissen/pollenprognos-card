@@ -15,11 +15,13 @@
 //   - a field that is boolean in any stub coerces the exact strings
 //     "true"/"false" to booleans (everything else is left untouched);
 //   - a field that is a number in any stub coerces a finite numeric string to
-//     a number;
+//     a number, and falls back to the stub default when the value can never be
+//     one (icon_size: abc, an empty scalar, .nan, a boolean or a nested
+//     structure) so read-sites doing arithmetic only ever see a number;
 //   - `allergens` is guaranteed to be an array (falls back to the stub default
 //     when a malformed non-array slips through).
 // Fields no stub types as boolean/number (title, city/location/region_id,
-// icon_size, date_locale, tap_action, ...) are never coerced, so title="false"
+// date_locale, tap_action, ...) are never coerced, so title="false"
 // stays the string the header logic expects and entity-id slugs stay strings.
 //
 // The result is frozen: nothing downstream mutates the card's config in place
@@ -129,6 +131,67 @@ export function mergeCardConfig(
   return { ...stub, ...picked, integration };
 }
 
+/** Icon edge length in px when `icon_size` is absent or unusable. */
+export const DEFAULT_ICON_SIZE = 48;
+
+/**
+ * Numeric value of a config scalar, or NaN when it can never be one. The single
+ * definition of that rule: both layers below call this, and the whole point of
+ * having two layers is that they agree on what a usable number is.
+ *
+ * The rule is subtle in the way that invites drift, hence one copy: a blank
+ * string must not become 0, and a non-string must never reach Number(), which
+ * would turn `true` into 1, `[]` into 0 and `[64]` into 64.
+ */
+function toFiniteNumber(raw: unknown): number {
+  if (typeof raw === "number") return raw;
+  if (typeof raw !== "string" || raw.trim() === "") return NaN;
+  return Number(raw);
+}
+
+/**
+ * The read-side guard for `icon_size`, shared by the card's three read-sites
+ * (minimal rows, daily rows, the `--pollen-icon-size` custom property) and the
+ * editor's slider/number field, so they can never disagree about a size.
+ *
+ * The second half of a two-layer defence: {@link coerceConfigTypes} repairs
+ * hand-written YAML (`icon_size: 48px`, plausible since the editor label reads
+ * "Icon size (px)") at the config boundary, but not every config reaches the
+ * card through it — the editor spreads its config without coercing. The guard
+ * therefore does its own numeric-string conversion instead of assuming the
+ * boundary ran: the legacy `icon_size: "64"` must show 64 on the editor's
+ * slider, not the default, or the controls start from a different value than
+ * the card renders.
+ *
+ * The boundary deliberately keeps 0 and negative numbers, which are legitimate
+ * for other number fields but yield invalid CSS or a clamped ring as an edge
+ * length. Anything that isn't a positive finite number renders at the default
+ * rather than flowing into the geometry, where the daily path would produce a
+ * NaN donut width and minimal mode a literal `width: ${value}px`.
+ */
+export function resolveIconSize(raw: unknown): number {
+  const value = toFiniteNumber(raw);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_ICON_SIZE;
+}
+
+/**
+ * Replace a number-typed field whose value can never become a finite number
+ * (hand-written `icon_size: abc` or `icon_size: true`, an explicit `.nan`, an
+ * empty scalar) with the stub default, dropping the key when the resolved stub
+ * does not declare the field. Without this the value survives to read-sites
+ * that now expect a number and reaches arithmetic — donut geometry calls
+ * toFixed on it and aborts the render, the normal-mode paths emit NaN geometry,
+ * and minimal mode interpolates it straight into `width: ${value}px`.
+ */
+function dropUnusableNumber(
+  out: Record<string, unknown>,
+  key: string,
+  stubFields: Record<string, unknown>,
+): void {
+  if (typeof stubFields[key] === "number") out[key] = stubFields[key];
+  else delete out[key];
+}
+
 /**
  * Coerce known-typed fields to their canonical runtime types, driven by the
  * cross-stub field-type union ({@link BOOLEAN_FIELDS} / {@link NUMBER_FIELDS}).
@@ -140,19 +203,20 @@ export function coerceConfigTypes(
   stub: AdapterStubConfig,
 ): CardConfig {
   const out: Record<string, unknown> = { ...merged };
+  const stubFields = stub as Record<string, unknown>;
 
   for (const [key, value] of Object.entries(out)) {
     if (BOOLEAN_FIELDS.has(key)) {
       if (value === "true") out[key] = true;
       else if (value === "false") out[key] = false;
     } else if (NUMBER_FIELDS.has(key)) {
-      if (
-        typeof value === "string" &&
-        value.trim() !== "" &&
-        Number.isFinite(Number(value))
-      ) {
-        out[key] = Number(value);
-      }
+      // Unusable covers the numeric strings that don't parse ("48px") as well
+      // as `icon_size: true` (Number(true) === 1, so the old read-sites drew a
+      // 1px icon), an object/array from a malformed nesting, null from an empty
+      // YAML scalar, .nan and .inf.
+      const n = toFiniteNumber(value);
+      if (Number.isFinite(n)) out[key] = n;
+      else dropUnusableNumber(out, key, stubFields);
     }
   }
 

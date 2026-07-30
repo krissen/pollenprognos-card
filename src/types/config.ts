@@ -76,7 +76,7 @@ export interface CardConfig extends LovelaceCardConfig {
   show_summary_plants_in_season?: boolean;
 
   // --- Icons ---
-  icon_size?: string;
+  icon_size?: number;
   icon_color_mode?: string;
   icon_color?: string;
   icon_in_ring?: boolean;
