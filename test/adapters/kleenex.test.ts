@@ -2474,6 +2474,107 @@ describe("Kleenex adapter: manual prefix across locations", () => {
     );
   });
 
+  // Codex P2 on PR #315: the remainder heuristic measures allergen-name length,
+  // so an install where the intended device has only a long-named detail sensor
+  // enabled lost to the colliding device's shorter `radar_utrecht_grass`.
+  // Ownership is now decided on the device slug, before any entity name is
+  // measured.
+  it("picks the device the prefix was minted from, however long its entity names are", async () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
+        state: "50",
+        attributes: { friendly_name: "Kleenex pollen Zeer lange naam brandnetel" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        uniqueId: "cfg_paris-Kleenex Pollen Radarweeds_details-Nettle-value",
+        deviceId: "dev_paris",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Paris)",
+          nameByUser: "Kleenex pollen",
+          identifiers: [["kleenex_pollenradar", "Paris"]],
+          configEntries: ["cfg_paris"],
+        },
+      },
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+        state: "10",
+        attributes: { details: [], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+    ] as any);
+
+    // The remainder the old rule compared: 26 for Paris, 19 for Utrecht.
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.label).toBe("Kleenex pollen");
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
+    ]);
+
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        location: "manual",
+        entity_prefix: "kleenex_pollen_",
+        allergens: ["nettle"],
+        pollen_threshold: 0,
+      }),
+    );
+    expect(result.map((s) => s.entity_id)).toEqual([
+      "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
+    ]);
+  });
+
+  it("gives a legacy prefix to the legacy device, not the renamed one", () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_grass",
+        state: "100",
+        attributes: { details: [], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_paris",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Paris)",
+          nameByUser: "Kleenex pollen",
+          identifiers: [["kleenex_pollenradar", "Paris"]],
+          configEntries: ["cfg_paris"],
+        },
+      },
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+        state: "10",
+        attributes: { details: [], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+    ] as any);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_radar_utrecht_",
+    });
+
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_radar_utrecht_grass",
+    ]);
+  });
+
   it("does not narrow when no matched entity is in the registry", () => {
     // Registry-less install: two locations by naming convention only. Today's
     // behaviour (pure prefix matching) must survive.

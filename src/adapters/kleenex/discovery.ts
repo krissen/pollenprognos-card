@@ -520,6 +520,31 @@ export function resolveKleenexLocationEntry(
   });
 }
 
+/**
+ * Every slug a discovered location can reasonably be addressed by: its
+ * discovery key (the config-entry instance slug), its label, and both device
+ * names. A manual `entity_prefix` is minted from one of these, so they are what
+ * prefix ownership is decided on.
+ */
+function locationSlugCandidates(
+  hass: HomeAssistant,
+  key: string,
+  loc: DiscoveredLocation | undefined,
+): Set<string> {
+  const out = new Set<string>();
+  const add = (value: unknown): void => {
+    if (typeof value !== "string" || !value) return;
+    const slug = slugify(value);
+    if (slug) out.add(slug);
+  };
+  add(key);
+  add(loc?.label);
+  const device = loc?.deviceId ? hass.devices?.[loc.deviceId] : undefined;
+  add(device?.name_by_user);
+  add(device?.name);
+  return out;
+}
+
 /** Outcome of scoping a manual-mode prefix match to a single location. */
 export interface KleenexManualScope {
   /** The entity IDs the card should use, in the order they were given. */
@@ -541,12 +566,20 @@ export interface KleenexManualScope {
  * `hass.states` happened to list first (issue #309 follow-up).
  *
  * The rule, when the matched entities span more than one *discovered* location:
- * keep the location whose entity IDs have the least left over after the
- * configured prefix (and suffix) is removed. That is the location the prefix
- * was actually minted from -- `kleenex_pollen_` leaves `grass` on the renamed
- * Paris device but `radar_utrecht_grass` on the Utrecht one -- and it is a rule
- * a user can check by eye. Ties are broken on the total remainder and finally
- * on the location key, so the choice never depends on registry iteration order.
+ *
+ *   1. A prefix is minted from a device name, so the location whose own slug
+ *      (device name, user rename, discovery key or label) equals the prefix
+ *      owns it: `kleenex_pollen_` belongs to the device named "Kleenex pollen",
+ *      and `kleenex_pollen_radar_utrecht_` to "Kleenex Pollen Radar (Utrecht)".
+ *      This is independent of which entities happen to be enabled.
+ *   2. Only when no location's slug matches does the fallback apply: keep the
+ *      location whose entity IDs have the least left over after the prefix (and
+ *      suffix) is removed. It is a weaker signal, because the remainder is an
+ *      allergen name and one location may only have long-named detail sensors
+ *      enabled -- but it still beats merging two cities.
+ *
+ * Ties in either step are broken on the total remainder and finally on the
+ * location key, so the choice never depends on registry iteration order.
  *
  * Entities the registry knows nothing about (template sensors, an install whose
  * registry the frontend doesn't expose) are always kept: manual mode is the
@@ -598,11 +631,21 @@ export function scopeManualEntities(
   }
   if (scores.size < 2) return { entityIds, label: null };
 
+  // Step 1: does any candidate location's own slug equal the prefix? The
+  // prefix was minted from a device name, so this settles ownership without
+  // looking at entity names at all.
+  const needle = slugify(prefix.replace(/_+$/, ""));
+  const owners = [...scores.keys()].filter((key) =>
+    locationSlugCandidates(hass, key, discovery.locations.get(key)).has(needle),
+  );
+  const candidates =
+    owners.length > 0 ? new Set(owners) : new Set(scores.keys());
+
   let winner: string | null = null;
   let best: { min: number; total: number } | null = null;
-  for (const [key, score] of [...scores].sort(([a], [b]) =>
-    a < b ? -1 : a > b ? 1 : 0,
-  )) {
+  for (const [key, score] of [...scores]
+    .filter(([key]) => candidates.has(key))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     if (
       !best ||
       score.min < best.min ||
