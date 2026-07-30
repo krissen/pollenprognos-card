@@ -57,6 +57,11 @@ const ROTTERDAM_DEVICE = {
 };
 const ROTTERDAM_IDS = ["sensor.kleenex_pollen_radar_rotterdam_trees"];
 
+/** The same devices as seen in a mixed registry: no identifiers, so they are
+ * only recognisable through their entities' `platform` (discovery tier 2). */
+const PARIS_DEVICE_TIER2 = { ...PARIS_DEVICE, identifiers: [] };
+const UTRECHT_DEVICE_TIER2 = { ...UTRECHT_DEVICE, identifiers: [] };
+
 /**
  * How the owning config entry presents itself:
  *  - available: registry entries and live states.
@@ -66,7 +71,14 @@ const ROTTERDAM_IDS = ["sensor.kleenex_pollen_radar_rotterdam_trees"];
  *  - absent: not in the registry at all (the user's own template sensors).
  */
 type OwnerMode = "available" | "unavailable" | "no-states" | "absent";
-type Environment = "multi" | "multi-long" | "multi-legacy" | "single" | "bare";
+type Environment =
+  | "multi"
+  | "multi-long"
+  | "multi-legacy"
+  | "mixed-colliding-tier2"
+  | "mixed-owner-tier2"
+  | "single"
+  | "bare";
 
 function entityEntry(deviceId: string, translationKey: string) {
   return {
@@ -103,6 +115,16 @@ function ownerIds(env: Environment): string[] {
   return env === "multi-long" ? PARIS_LONG_IDS : PARIS_IDS;
 }
 
+/** Whether each device carries `kleenex_pollenradar` identifiers in this env. */
+function identifierBacked(env: Environment): {
+  owner: boolean;
+  colliding: boolean;
+} {
+  if (env === "mixed-colliding-tier2") return { owner: true, colliding: false };
+  if (env === "mixed-owner-tier2") return { owner: false, colliding: true };
+  return { owner: true, colliding: true };
+}
+
 function buildHass(env: Environment, owner: OwnerMode): HomeAssistant {
   const states: Record<string, unknown> = {};
   const entities: Record<string, unknown> = {};
@@ -112,7 +134,9 @@ function buildHass(env: Environment, owner: OwnerMode): HomeAssistant {
   if (env !== "bare") {
     // Owner (Paris).
     if (owner !== "absent") {
-      devices.dev_paris = PARIS_DEVICE;
+      devices.dev_paris = identifierBacked(env).owner
+        ? PARIS_DEVICE
+        : PARIS_DEVICE_TIER2;
       paris.forEach((eid, i) => {
         entities[eid] = entityEntry(
           "dev_paris",
@@ -147,7 +171,11 @@ function buildHass(env: Environment, owner: OwnerMode): HomeAssistant {
         entities[eid] = entityEntry("dev_utrecht", i === 0 ? "trees" : "grass");
       }
     });
-    if (env !== "bare") devices.dev_utrecht = UTRECHT_DEVICE;
+    if (env !== "bare") {
+      devices.dev_utrecht = identifierBacked(env).colliding
+        ? UTRECHT_DEVICE
+        : UTRECHT_DEVICE_TIER2;
+    }
   }
 
   return {
@@ -204,6 +232,8 @@ const ENVIRONMENTS: Environment[] = [
   "multi",
   "multi-long",
   "multi-legacy",
+  "mixed-colliding-tier2",
+  "mixed-owner-tier2",
   "single",
   "bare",
 ];
@@ -221,6 +251,9 @@ const OWNER_MODES: OwnerMode[] = [
 function invalidReason(env: Environment, owner: OwnerMode): string | null {
   if (env === "bare" && owner !== "absent") {
     return "a registry-less install has no registry entry for any device, so the owner can only be 'absent'";
+  }
+  if (owner === "absent" && env === "mixed-owner-tier2") {
+    return "an owner known only through its entities' platform must have registry entries, so it cannot be absent from the registry";
   }
   if (owner === "absent" && env === "multi-long") {
     return "the long-entity-name variant exists to stress the remainder heuristic, which only runs for registry-known devices";

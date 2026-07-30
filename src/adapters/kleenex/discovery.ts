@@ -605,11 +605,24 @@ function deviceSlugCandidates(
   return out;
 }
 
-/** Device ids of every Kleenex device in the registry. */
+/**
+ * Device ids of every Kleenex device the registry knows, from both signals
+ * discovery itself accepts: a `kleenex_pollenradar` device identifier (tier 1)
+ * and an entity registry entry whose platform is ours (tier 2).
+ *
+ * A mixed registry exposes some devices only the second way. Recognising just
+ * the first would leave those devices outside the integration's membership, so
+ * scoping would treat their entities as somebody else's and keep them --
+ * merging two locations after all (Codex round 3 on PR #315).
+ */
 function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
   const out = new Set<string>();
   for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
     if (deviceIdentifierSlug(device)) out.add(deviceId);
+  }
+  for (const entry of Object.values(hass?.entities || {})) {
+    const deviceId = entry?.device_id;
+    if (deviceId && entry?.platform === PLATFORM) out.add(deviceId);
   }
   return out;
 }
@@ -631,8 +644,9 @@ function findPrefixOwnerDevice(
 ): string | null {
   if (!needle) return null;
   let found: string | null = null;
-  for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
-    if (!deviceIdentifierSlug(device)) continue;
+  for (const deviceId of kleenexDeviceIds(hass)) {
+    const device = hass?.devices?.[deviceId];
+    if (!device) continue;
     if (!deviceSlugCandidates(device).has(needle)) continue;
     // Two devices answering to the same slug cannot say which was meant; the
     // discovery-based path below applies its own tie-breaks instead.
