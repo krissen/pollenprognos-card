@@ -227,6 +227,44 @@ describe("resolveIconSize", () => {
     expect(rendered(-10)).toBe(48);
   });
 
+  it("renders the same size whether or not the boundary ran", () => {
+    // Both layers parse numeric scalars through one shared rule, so passing a
+    // value through the boundary must never change what the guard renders.
+    // Drift between the two is what produced the round 1 and round 3 findings:
+    // a boundary that accepted [64] as 64 while the guard said 48 would fail
+    // here, as would a guard that started accepting "48px".
+    for (const raw of [
+      64,
+      "64",
+      " 64 ",
+      "48px",
+      "abc",
+      "",
+      "  ",
+      "0x10",
+      0,
+      "0",
+      -10,
+      "-10",
+      true,
+      false,
+      {},
+      [],
+      [64],
+      null,
+      undefined,
+      NaN,
+      Infinity,
+    ]) {
+      const throughBoundary = normalizeCardConfig(
+        { integration: "pp", icon_size: raw } as Record<string, unknown>,
+        stubConfigPP,
+        { integration: "pp", filter: true },
+      ).icon_size;
+      expect(resolveIconSize(throughBoundary)).toBe(resolveIconSize(raw));
+    }
+  });
+
   it("uses the stub default when icon_size is absent", () => {
     const cfg = normalizeCardConfig({ integration: "pp" }, stubConfigPP, {
       integration: "pp",

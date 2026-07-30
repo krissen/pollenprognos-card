@@ -135,6 +135,21 @@ export function mergeCardConfig(
 export const DEFAULT_ICON_SIZE = 48;
 
 /**
+ * Numeric value of a config scalar, or NaN when it can never be one. The single
+ * definition of that rule: both layers below call this, and the whole point of
+ * having two layers is that they agree on what a usable number is.
+ *
+ * The rule is subtle in the way that invites drift, hence one copy: a blank
+ * string must not become 0, and a non-string must never reach Number(), which
+ * would turn `true` into 1, `[]` into 0 and `[64]` into 64.
+ */
+function toFiniteNumber(raw: unknown): number {
+  if (typeof raw === "number") return raw;
+  if (typeof raw !== "string" || raw.trim() === "") return NaN;
+  return Number(raw);
+}
+
+/**
  * The read-side guard for `icon_size`, shared by the card's three read-sites
  * (minimal rows, daily rows, the `--pollen-icon-size` custom property) and the
  * editor's slider/number field, so they can never disagree about a size.
@@ -155,11 +170,8 @@ export const DEFAULT_ICON_SIZE = 48;
  * NaN donut width and minimal mode a literal `width: ${value}px`.
  */
 export function resolveIconSize(raw: unknown): number {
-  const value =
-    typeof raw === "string" ? (raw.trim() === "" ? NaN : Number(raw)) : raw;
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? value
-    : DEFAULT_ICON_SIZE;
+  const value = toFiniteNumber(raw);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_ICON_SIZE;
 }
 
 /**
@@ -198,17 +210,13 @@ export function coerceConfigTypes(
       if (value === "true") out[key] = true;
       else if (value === "false") out[key] = false;
     } else if (NUMBER_FIELDS.has(key)) {
-      if (typeof value === "string") {
-        const n = value.trim() === "" ? NaN : Number(value);
-        if (Number.isFinite(n)) out[key] = n;
-        else dropUnusableNumber(out, key, stubFields);
-      } else if (typeof value !== "number" || !Number.isFinite(value)) {
-        // Everything that is neither a usable string nor a finite number:
-        // `icon_size: true` (Number(true) === 1, so the old read-sites drew a
-        // 1px icon), an object/array from a malformed nesting, null from an
-        // empty YAML scalar, .nan, Infinity.
-        dropUnusableNumber(out, key, stubFields);
-      }
+      // Unusable covers the numeric strings that don't parse ("48px") as well
+      // as `icon_size: true` (Number(true) === 1, so the old read-sites drew a
+      // 1px icon), an object/array from a malformed nesting, null from an empty
+      // YAML scalar, .nan and .inf.
+      const n = toFiniteNumber(value);
+      if (Number.isFinite(n)) out[key] = n;
+      else dropUnusableNumber(out, key, stubFields);
     }
   }
 
