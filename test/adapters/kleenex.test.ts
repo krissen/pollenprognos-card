@@ -1784,6 +1784,80 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(await fetchForecast(hass, cfg)).toEqual([]);
   });
 
+  it("resolves a legacy multiword slug against the slugified label", async () => {
+    // Codex round 10: no usable identifier, entity IDs re-minted, and the label
+    // is "New York" -- neither literal ("new york" != "new_york"), fuzzy nor
+    // entity-ID matching reaches it.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.my_pollen_trees",
+        state: "200",
+        attributes: {
+          friendly_name: "New York Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          ],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "device_ny",
+        deviceMeta: {
+          name: "New York",
+          identifiers: [] as [string, string][],
+          configEntries: ["cfg_ny"],
+        },
+      },
+    ]);
+
+    const cfg = makeConfig({
+      location: "new_york",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).get("trees")).toBe(
+      "sensor.my_pollen_trees",
+    );
+    const result = await fetchForecast(hass, cfg);
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
+  });
+
+  it("treats two identically labelled multiword devices as ambiguous", async () => {
+    const device = (prefix: string, id: string, cfg: string) => ({
+      entityId: `sensor.${prefix}_trees`,
+      state: "200",
+      attributes: {
+        friendly_name: "New York Trees",
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+        ],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: id,
+      deviceMeta: {
+        name: "New York",
+        identifiers: [] as [string, string][],
+        configEntries: [cfg],
+      },
+    });
+    const hass = createHassWithRegistry([
+      device("a_pollen", "device_a", "cfg_a"),
+      device("b_pollen", "device_b", "cfg_b"),
+    ]);
+
+    const cfg = makeConfig({
+      location: "new_york",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
   it("does not pick between two devices that share a label", async () => {
     // Codex round 9: neither device has a usable identifier, so both are keyed
     // by config entry -- and both are labelled "Home", so the label step of the
