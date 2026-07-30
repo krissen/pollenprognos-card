@@ -108,6 +108,34 @@ describe("normalizeCardConfig: numeric string coercion", () => {
     expect(cfg.days_to_show).toBe(4);
   });
 
+  it("falls back for values that are neither string nor number", () => {
+    // icon_size: true used to render as a 1px icon (Number(true)); an object
+    // slips in through a malformed nesting. Both must not reach the geometry.
+    const cfg = normalizeCardConfig(
+      { integration: "pp", icon_size: true, days_to_show: {} } as Record<
+        string,
+        unknown
+      >,
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    expect(cfg.icon_size).toBe(48);
+    expect(cfg.days_to_show).toBe(4);
+  });
+
+  it("falls back for null and undefined", () => {
+    const cfg = normalizeCardConfig(
+      { integration: "pp", icon_size: null, days_to_show: undefined } as Record<
+        string,
+        unknown
+      >,
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    expect(cfg.icon_size).toBe(48);
+    expect(cfg.days_to_show).toBe(4);
+  });
+
   it("drops an unusable number field the resolved stub does not declare", () => {
     // set hass spreads the full config, so a field only another stub declares
     // can arrive; with no stub default to restore, the key is removed and the

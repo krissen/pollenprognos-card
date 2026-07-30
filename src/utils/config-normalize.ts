@@ -16,8 +16,8 @@
 //     "true"/"false" to booleans (everything else is left untouched);
 //   - a field that is a number in any stub coerces a finite numeric string to
 //     a number, and falls back to the stub default when the value can never be
-//     one (icon_size: abc, an empty scalar, .nan) so read-sites doing
-//     arithmetic never see a string;
+//     one (icon_size: abc, an empty scalar, .nan, a boolean or a nested
+//     structure) so read-sites doing arithmetic only ever see a number;
 //   - `allergens` is guaranteed to be an array (falls back to the stub default
 //     when a malformed non-array slips through).
 // Fields no stub types as boolean/number (title, city/location/region_id,
@@ -133,11 +133,12 @@ export function mergeCardConfig(
 
 /**
  * Replace a number-typed field whose value can never become a finite number
- * (hand-written `icon_size: abc`, an explicit `.nan`, an empty scalar) with the
- * stub default, dropping the key when the resolved stub does not declare the
- * field. Without this a string survives to read-sites that now expect a number
- * and reaches arithmetic — donut geometry calls toFixed on it and aborts the
- * render, and the normal-mode paths emit NaN geometry.
+ * (hand-written `icon_size: abc` or `icon_size: true`, an explicit `.nan`, an
+ * empty scalar) with the stub default, dropping the key when the resolved stub
+ * does not declare the field. Without this the value survives to read-sites
+ * that now expect a number and reaches arithmetic — donut geometry calls
+ * toFixed on it and aborts the render, the normal-mode paths emit NaN geometry,
+ * and minimal mode interpolates it straight into `width: ${value}px`.
  */
 function dropUnusableNumber(
   out: Record<string, unknown>,
@@ -170,7 +171,11 @@ export function coerceConfigTypes(
         const n = value.trim() === "" ? NaN : Number(value);
         if (Number.isFinite(n)) out[key] = n;
         else dropUnusableNumber(out, key, stubFields);
-      } else if (typeof value === "number" && !Number.isFinite(value)) {
+      } else if (typeof value !== "number" || !Number.isFinite(value)) {
+        // Everything that is neither a usable string nor a finite number:
+        // `icon_size: true` (Number(true) === 1, so the old read-sites drew a
+        // 1px icon), an object/array from a malformed nesting, null from an
+        // empty YAML scalar, .nan, Infinity.
         dropUnusableNumber(out, key, stubFields);
       }
     }
