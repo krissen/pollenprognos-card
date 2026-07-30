@@ -520,6 +520,17 @@ export function resolveKleenexLocationEntry(
   });
 }
 
+// Manual-mode narrowing is silent by design in the common case, but the one
+// time it drops data the user must hear about it. Dedup keyed on the config
+// identity, mirroring the NA-zone warning in forecast.ts, so a warning is
+// emitted once per configuration rather than on every HA state update.
+const MANUAL_SCOPE_WARNED_KEYS = new Set<string>();
+
+/** Test-only hook to clear the dedup state between cases. */
+export function _resetManualScopeWarningsForTest(): void {
+  MANUAL_SCOPE_WARNED_KEYS.clear();
+}
+
 /**
  * Every slug a discovered location can reasonably be addressed by: its
  * discovery key (the config-entry instance slug), its label, and both device
@@ -661,16 +672,25 @@ export function scopeManualEntities(
     return !key || key === winner;
   });
 
-  if (debug) {
-    console.debug(
-      `[Kleenex] Manual prefix '${prefix}' spans ${scores.size} locations (${[
-        ...scores.keys(),
-      ].join(", ")}); keeping '${winner}' and any unregistered entities`,
-      kept,
+  const label = winner ? (discovery.locations.get(winner)?.label ?? null) : null;
+
+  // Narrowing removes rows and renames the header, so it is never silent: a
+  // user with two legacy locations and a broad prefix would otherwise see data
+  // disappear with no explanation anywhere.
+  const dropped = [...scores.keys()]
+    .filter((key) => key !== winner)
+    .map((key) => discovery.locations.get(key)?.label || key);
+  const warnKey = `${prefix}|${suffix}`;
+  if (!MANUAL_SCOPE_WARNED_KEYS.has(warnKey)) {
+    MANUAL_SCOPE_WARNED_KEYS.add(warnKey);
+    console.warn(
+      `[Kleenex] The configured entity_prefix '${prefix}' matches entities from several locations. Showing '${label || winner}' and ignoring: ${dropped.join(", ")}. Use a prefix that only matches the location you want, or switch from manual to a location-based config.`,
     );
   }
+  if (debug) {
+    console.debug(`[Kleenex] Manual prefix narrowed to '${winner}'`, kept);
+  }
 
-  const label = winner ? (discovery.locations.get(winner)?.label ?? null) : null;
   return { entityIds: kept, label };
 }
 

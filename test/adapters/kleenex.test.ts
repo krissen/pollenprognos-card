@@ -5,6 +5,7 @@ import {
   resolveEntityIds,
   discoverKleenex,
   scopeManualEntities,
+  _resetManualScopeWarningsForTest,
 } from "../../src/adapters/kleenex/index.js";
 import { _resetNaWarningsForTest } from "../../src/adapters/kleenex/forecast.js";
 import {
@@ -2573,6 +2574,44 @@ describe("Kleenex adapter: manual prefix across locations", () => {
     expect(scope.entityIds).toEqual([
       "sensor.kleenex_pollen_radar_utrecht_grass",
     ]);
+  });
+
+  // Nagelfar round 1: narrowing removes rows and renames the header, so the one
+  // case where data disappears must say so without requiring debug: true.
+  it("warns exactly once per configuration when it narrows", () => {
+    _resetManualScopeWarningsForTest();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const hass = createHassWithRegistry(collidingEntries() as any);
+      const ids = Object.keys(hass.states);
+
+      scopeManualEntities(hass, ids, { prefix: "kleenex_pollen_" });
+      scopeManualEntities(hass, ids, { prefix: "kleenex_pollen_" });
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0]![0]);
+      // Names both the location it kept and the one it dropped.
+      expect(message).toContain("Kleenex pollen");
+      expect(message).toContain("Utrecht");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("stays silent when nothing is narrowed", () => {
+    _resetManualScopeWarningsForTest();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const hass = createHassWithRegistry(collidingEntries().slice(0, 2) as any);
+
+      scopeManualEntities(hass, Object.keys(hass.states), {
+        prefix: "kleenex_pollen_",
+      });
+
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("does not narrow when no matched entity is in the registry", () => {

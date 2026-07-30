@@ -20,6 +20,7 @@ export {
   classifyKleenexEntityId,
   normalizeDetailName,
   scopeManualEntities,
+  _resetManualScopeWarningsForTest,
 } from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
@@ -92,6 +93,8 @@ export const autodetect: AdapterAutodetect = {
   // Manual mode's entity_prefix can straddle two config entries, so the header
   // narrows its candidate entities through the same rule fetchForecast uses;
   // otherwise the two can name and render different locations.
+  // The cast narrows the structural discovery type back to the device
+  // discovery Kleenex always produces, as in resolveLocation above.
   scopeManualEntities: (hass, entityIds, opts) =>
     scopeManualEntities(hass, entityIds, {
       ...opts,
