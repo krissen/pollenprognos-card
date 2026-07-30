@@ -282,15 +282,24 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       !kleenexDiscovery.locations.has(kleenexCfgLoc)
     ) {
       const kleenexAutodetect = getAutodetect("kleenex");
-      const kleenexMatch =
+      const kleenexByIdentifier =
         kleenexAutodetect?.matchLocation?.(
           hass,
           kleenexDiscovery,
           kleenexCfgLoc,
-        ) ??
-        findLocationBySlug(kleenexDiscovery as DeviceDiscovery, kleenexCfgLoc, {
-          slugExtractor: kleenexAutodetect?.extractLocationSlug,
-        });
+        ) ?? null;
+      // Ambiguous: more than one location answers to the configured value, so
+      // the generic matching would only re-pick one of them by iteration
+      // order. Offer no entry rather than binding the selector to a guess.
+      const kleenexMatch =
+        kleenexByIdentifier === "ambiguous"
+          ? null
+          : kleenexByIdentifier ??
+            findLocationBySlug(
+              kleenexDiscovery as DeviceDiscovery,
+              kleenexCfgLoc,
+              { slugExtractor: kleenexAutodetect?.extractLocationSlug },
+            );
       if (kleenexMatch) {
         const entry = [
           kleenexCfgLoc,

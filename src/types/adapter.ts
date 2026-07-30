@@ -134,12 +134,17 @@ export interface AdapterAutodetect {
    * device identifier). Consumed as the first candidate by the card header and
    * the card editor's legacy-slug compatibility path, before the generic
    * matching. Returns the discovery entry, or null when nothing matches.
+   *
+   * `"ambiguous"` means the adapter recognised the value but more than one
+   * location answers to it. Callers must then resolve nothing: falling back to
+   * the generic matching would pick one of those same candidates by registry
+   * iteration order and silently show the wrong location.
    */
   matchLocation?(
     hass: HomeAssistant,
     discovery: AutodetectDiscovery,
     cfgLocation: string | null | undefined,
-  ): [string, AutodetectLocation] | null;
+  ): [string, AutodetectLocation] | "ambiguous" | null;
   /**
    * True when the entity id is one the card can render a level for, as opposed
    * to a diagnostic/timestamp sibling. Lets the card pick a meaningful sensor

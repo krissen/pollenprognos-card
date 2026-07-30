@@ -168,6 +168,31 @@ function identifierlessKleenexHass(): any {
   ]);
 }
 
+/**
+ * Two config entries whose instance names normalize to the same slug AND whose
+ * labels are identical, so neither the identifier nor the label can tell them
+ * apart.
+ */
+function ambiguousKleenexHass(): any {
+  const device = (instance: string, prefix: string, id: string, cfg: string) => ({
+    entityId: `sensor.${prefix}_trees`,
+    state: "200",
+    platform: "kleenex_pollenradar",
+    translationKey: "trees",
+    deviceId: id,
+    deviceMeta: {
+      name: `Kleenex Pollen Radar (${instance})`,
+      nameByUser: "St John",
+      identifiers: [["kleenex_pollenradar", instance] as [string, string]],
+      configEntries: [cfg],
+    },
+  });
+  return createHassWithRegistry([
+    device("St. John", "kleenex_a", "dev_a", "cfg_a"),
+    device("St John", "kleenex_b", "dev_b", "cfg_b"),
+  ]);
+}
+
 let EditorCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -244,6 +269,26 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     const list = editor.installedKleenexLocations;
     expect(list).toEqual([["utrecht", "Utrecht"]]);
     expect(list.filter(([, label]) => label === "Utrecht").length).toBe(1);
+  });
+
+  // Codex P2 (round 6). Contract guard rather than a regression test: the
+  // editor's own fallback (findLocationBySlug) matches on entity-ID slugs,
+  // which two devices cannot share, so only the card's label-based chain could
+  // actually mis-resolve here. This pins the editor to the same "ambiguous ->
+  // offer nothing" semantics so a future fallback change cannot reintroduce
+  // the guess.
+  it("adds no compat entry when the configured value is ambiguous", () => {
+    const editor = new EditorCtor();
+    editor.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "St John",
+    });
+    editor.hass = ambiguousKleenexHass();
+
+    const list = editor.installedKleenexLocations;
+    expect(list.some(([key]) => key === "St John")).toBe(false);
+    expect(list.map(([key]) => key).sort()).toEqual(["cfg_a", "cfg_b"]);
   });
 
   it("lists a legacy slug config once, as the discovered entry itself", () => {

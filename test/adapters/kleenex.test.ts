@@ -36,7 +36,7 @@ function kleenexRegistryEntries(
   });
   const deviceMeta = {
     name: `Kleenex Pollen Radar (${instance})`,
-    identifiers: [["kleenex_pollenradar", instance]],
+    identifiers: [["kleenex_pollenradar", instance] as [string, string]],
     configEntries: [cfgEntry],
   };
   return [
@@ -1684,6 +1684,46 @@ describe("Kleenex adapter: discoverKleenex", () => {
       allergens: ["trees_cat"],
       pollen_threshold: 0,
     });
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
+  it("resolves nothing when identifiers AND labels are both ambiguous", async () => {
+    // Worst case: the config value slugifies onto two identifiers, so the
+    // identifier matcher declines -- and it also equals both devices' labels,
+    // so the generic label matching would otherwise resolve to whichever
+    // device the registry happens to list first.
+    const device = (instance: string, label: string, prefix: string, id: string, cfg: string) => [
+      {
+        entityId: `sensor.${prefix}_trees`,
+        state: "200",
+        attributes: {
+          friendly_name: `${label} Trees`,
+          details: [],
+          forecast: [{ datetime: "2026-04-26", level: 2, value: 200, details: [] }],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: id,
+        deviceMeta: {
+          name: `Kleenex Pollen Radar (${instance})`,
+          nameByUser: label,
+          identifiers: [["kleenex_pollenradar", instance] as [string, string]],
+          configEntries: [cfg],
+        },
+      },
+    ];
+    const hass = createHassWithRegistry([
+      ...device("St. John", "St John", "kleenex_a", "device_a", "cfg_a"),
+      ...device("St John", "St John", "kleenex_b", "device_b", "cfg_b"),
+    ]);
+
+    const cfg = makeConfig({
+      location: "St John",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
     expect(resolveEntityIds(cfg, hass).size).toBe(0);
     expect(await fetchForecast(hass, cfg)).toEqual([]);
   });

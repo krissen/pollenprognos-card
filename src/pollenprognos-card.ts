@@ -1066,23 +1066,32 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // label/slug matching. Without the identifier candidate a legacy
         // `location: home` config left the header on the raw config value once
         // the user renamed both the device and its entities.
-        const kleenexMatch = kleenexWanted
-          ? (kleenexDiscovery.locations.has(kleenexWanted)
-              ? null
-              : kleenexAutodetect?.matchLocation?.(
-                  hass,
-                  kleenexDiscovery,
-                  kleenexWanted,
-                )) ??
-            resolveLocationByKey(
-              kleenexDiscovery as DeviceDiscovery,
-              kleenexWanted,
-              { slugExtractor: kleenexAutodetect?.extractLocationSlug },
-            )
-          : null;
+        const kleenexByIdentifier =
+          kleenexWanted && !kleenexDiscovery.locations.has(kleenexWanted)
+            ? kleenexAutodetect?.matchLocation?.(
+                hass,
+                kleenexDiscovery,
+                kleenexWanted,
+              ) ?? null
+            : null;
+        // More than one location answers to the configured value: every
+        // remaining candidate would just pick one of them by iteration order,
+        // so derive no label at all and let the header fall back to the raw
+        // config value rather than name the wrong place.
+        const kleenexAmbiguous = kleenexByIdentifier === "ambiguous";
+        const kleenexMatch = kleenexAmbiguous
+          ? null
+          : kleenexWanted
+            ? kleenexByIdentifier ??
+              resolveLocationByKey(
+                kleenexDiscovery as DeviceDiscovery,
+                kleenexWanted,
+                { slugExtractor: kleenexAutodetect?.extractLocationSlug },
+              )
+            : null;
         let title = kleenexMatch ? kleenexMatch[1].label : "";
 
-        if (!title) {
+        if (!title && !kleenexAmbiguous) {
           const isKleenexState = (s: unknown): s is { entity_id: string; attributes: Record<string, any> } =>
             !!s && typeof s === "object" && typeof (s as { entity_id?: unknown }).entity_id === "string";
 

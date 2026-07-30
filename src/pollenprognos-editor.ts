@@ -1020,15 +1020,24 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         // Device identifier first: when the user renamed both the device and
         // its entities, the identifier is the only thing a legacy slug config
         // can still match (same precedence as the adapter's own resolution).
-        const kleenexMatch =
+        const kleenexByIdentifier =
           kleenexAutodetect?.matchLocation?.(
             hass,
             kleenexDiscovery,
             kleenexCfgLoc,
-          ) ??
-          findLocationBySlug(kleenexDiscovery as DeviceDiscovery, kleenexCfgLoc, {
-            slugExtractor: kleenexAutodetect?.extractLocationSlug,
-          });
+          ) ?? null;
+        // Ambiguous: more than one location answers to the configured value,
+        // so the generic matching would only re-pick one of them by iteration
+        // order. Offer no entry rather than binding the selector to a guess.
+        const kleenexMatch =
+          kleenexByIdentifier === "ambiguous"
+            ? null
+            : kleenexByIdentifier ??
+              findLocationBySlug(
+                kleenexDiscovery as DeviceDiscovery,
+                kleenexCfgLoc,
+                { slugExtractor: kleenexAutodetect?.extractLocationSlug },
+              );
         if (kleenexMatch) {
           const entry = [
             kleenexCfgLoc,

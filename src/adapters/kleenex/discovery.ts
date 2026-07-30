@@ -332,14 +332,24 @@ export function kleenexSlugExtractor(entityId: string): string | null {
  *
  * Mirrors the ambiguity rule of buildIdentifierKeys: when two instance names
  * normalize to the same slug ("St. John" and "St John"), the config value
- * cannot say which one it meant, so this returns null and lets the generic
- * label/entity-ID chain decide rather than picking a device arbitrarily.
+ * cannot say which one it meant. That outcome is reported as `"ambiguous"`
+ * rather than as `null`, because the two are not interchangeable: `null` means
+ * "no identifier knows this value, try the generic label/entity-ID chain",
+ * while `"ambiguous"` means "the identifiers know it and disagree". Falling
+ * through to the generic chain on an ambiguous slug would just re-pick one of
+ * the same two devices by registry iteration order -- silently showing another
+ * location's forecast -- so callers must stop instead.
  */
+export type KleenexIdentifierMatch =
+  | [string, DiscoveredLocation]
+  | "ambiguous"
+  | null;
+
 export function matchKleenexLocationByIdentifier(
   hass: HomeAssistant,
   discovery: { locations: Map<string, DiscoveredLocation> },
   cfgLocation: string | null | undefined,
-): [string, DiscoveredLocation] | null {
+): KleenexIdentifierMatch {
   if (!cfgLocation) return null;
   const needle = slugify(String(cfgLocation));
   if (!needle) return null;
@@ -348,7 +358,7 @@ export function matchKleenexLocationByIdentifier(
   for (const [key, loc] of discovery.locations) {
     const device = loc.deviceId ? hass.devices?.[loc.deviceId] : undefined;
     if (deviceIdentifierSlug(device) !== needle) continue;
-    if (found) return null; // ambiguous -- two instances share this slug
+    if (found) return "ambiguous";
     found = [key, loc];
   }
   return found;
@@ -386,10 +396,23 @@ export function resolveKleenexLocation(
   // touch. The label and entity-ID candidates in resolveLocationByKey stay as
   // the fallbacks for installs without device metadata.
   const cfgLocation = cfg.location as string | undefined;
-  const match =
-    (cfgLocation && !discovery.locations.has(cfgLocation)
+  const byIdentifier =
+    cfgLocation && !discovery.locations.has(cfgLocation)
       ? matchKleenexLocationByIdentifier(hass, discovery, cfgLocation)
-      : null) ??
+      : null;
+  if (byIdentifier === "ambiguous") {
+    // Two instances answer to this slug. Resolving anyway would show one of
+    // them at random; leaving it unresolved surfaces the card's own
+    // "no sensors" error, which the user can act on.
+    if (debug) {
+      console.debug(
+        `[Kleenex] Location '${cfgLocation}' matches more than one device identifier; not resolving`,
+      );
+    }
+    return null;
+  }
+  const match =
+    byIdentifier ??
     resolveLocationByKey(discovery, cfgLocation, {
       slugExtractor: kleenexSlugExtractor,
     });
