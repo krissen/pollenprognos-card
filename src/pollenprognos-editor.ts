@@ -1012,11 +1012,19 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         kleenexCfgLoc !== "manual" &&
         !kleenexDiscovery.locations.has(kleenexCfgLoc)
       ) {
-        const kleenexMatch = findLocationBySlug(
-          kleenexDiscovery as DeviceDiscovery,
-          kleenexCfgLoc,
-          { slugExtractor: getAutodetect("kleenex")?.extractLocationSlug },
-        );
+        const kleenexAutodetect = getAutodetect("kleenex");
+        // Device identifier first: when the user renamed both the device and
+        // its entities, the identifier is the only thing a legacy slug config
+        // can still match (same precedence as the adapter's own resolution).
+        const kleenexMatch =
+          kleenexAutodetect?.matchLocation?.(
+            hass,
+            kleenexDiscovery,
+            kleenexCfgLoc,
+          ) ??
+          findLocationBySlug(kleenexDiscovery as DeviceDiscovery, kleenexCfgLoc, {
+            slugExtractor: kleenexAutodetect?.extractLocationSlug,
+          });
         if (kleenexMatch) {
           this.installedKleenexLocations.push([
             kleenexCfgLoc,

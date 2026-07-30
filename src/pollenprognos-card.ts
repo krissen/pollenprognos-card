@@ -1056,14 +1056,30 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // scraping below relies on (issue #309). The scraping stays as the
         // fallback for registry-less installs and as the only path in manual
         // mode.
-        const kleenexMatch =
+        const kleenexAutodetect = getAutodetect("kleenex");
+        const kleenexWanted =
           cfg.location && cfg.location !== "manual"
-            ? resolveLocationByKey(
-                kleenexDiscovery as DeviceDiscovery,
-                cfg.location as string,
-                { slugExtractor: getAutodetect("kleenex")?.extractLocationSlug },
-              )
-            : null;
+            ? (cfg.location as string)
+            : "";
+        // Candidate order mirrors the adapter's own resolution: an exact key
+        // hit, then the rename-stable device identifier, then the generic
+        // label/slug matching. Without the identifier candidate a legacy
+        // `location: home` config left the header on the raw config value once
+        // the user renamed both the device and its entities.
+        const kleenexMatch = kleenexWanted
+          ? (kleenexDiscovery.locations.has(kleenexWanted)
+              ? null
+              : kleenexAutodetect?.matchLocation?.(
+                  hass,
+                  kleenexDiscovery,
+                  kleenexWanted,
+                )) ??
+            resolveLocationByKey(
+              kleenexDiscovery as DeviceDiscovery,
+              kleenexWanted,
+              { slugExtractor: kleenexAutodetect?.extractLocationSlug },
+            )
+          : null;
         let title = kleenexMatch ? kleenexMatch[1].label : "";
 
         if (!title) {

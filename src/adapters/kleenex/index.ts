@@ -14,11 +14,17 @@ export {
   resolveEntityIds,
   discoverKleenex,
   kleenexSlugExtractor,
+  matchKleenexLocationByIdentifier,
   canonicalAllergenFromSlug,
 } from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
-import { discoverKleenex, kleenexSlugExtractor } from "./discovery.js";
+import {
+  discoverKleenex,
+  kleenexSlugExtractor,
+  matchKleenexLocationByIdentifier,
+} from "./discovery.js";
+import type { DiscoveredLocation } from "../../utils/adapter-helpers.js";
 import type { HomeAssistant } from "../../types/home-assistant.js";
 import type {
   AdapterAutodetect,
@@ -62,4 +68,14 @@ export const autodetect: AdapterAutodetect = {
   },
   discover: (hass, debug) => discoverKleenex(hass, debug) as AutodetectDiscovery,
   extractLocationSlug: kleenexSlugExtractor,
+  // The device identifier is the only part of the registry a rename cannot
+  // touch, so it resolves legacy slug configs that no longer match any entity
+  // ID or device name. The cast narrows the structural discovery type back to
+  // the device discovery Kleenex always produces.
+  matchLocation: (hass, discovery, cfgLocation) =>
+    matchKleenexLocationByIdentifier(
+      hass,
+      discovery as { locations: Map<string, DiscoveredLocation> },
+      cfgLocation,
+    ),
 };

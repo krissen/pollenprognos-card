@@ -56,17 +56,16 @@ export interface AdapterModule {
  * Autodetect only reads `locations` and, for reverse-mapping, each location's
  * `entities`/`sensors`/`weatherEntity`.
  */
+export interface AutodetectLocation {
+  label: string;
+  entities?: Map<string, string>;
+  sensors?: Map<string, string>;
+  weatherEntity?: string;
+  deviceId?: string;
+}
+
 export interface AutodetectDiscovery {
-  locations: Map<
-    string,
-    {
-      label: string;
-      entities?: Map<string, string>;
-      sensors?: Map<string, string>;
-      weatherEntity?: string;
-      deviceId?: string;
-    }
-  >;
+  locations: Map<string, AutodetectLocation>;
   tierUsed?: 0 | 1 | 2 | 3;
 }
 
@@ -128,6 +127,19 @@ export interface AdapterAutodetect {
    * `deriveLocationForEntity`.
    */
   extractLocationSlug?(entityId: string): string | null;
+  /**
+   * Resolve a config location value against a discovery result using
+   * rename-stable adapter knowledge that the generic label/entity-ID matching
+   * in `resolveLocationByKey`/`findLocationBySlug` cannot express (Kleenex: the
+   * device identifier). Consumed as the first candidate by the card header and
+   * the card editor's legacy-slug compatibility path, before the generic
+   * matching. Returns the discovery entry, or null when nothing matches.
+   */
+  matchLocation?(
+    hass: HomeAssistant,
+    discovery: AutodetectDiscovery,
+    cfgLocation: string | null | undefined,
+  ): [string, AutodetectLocation] | null;
   /**
    * PLU exposes its allergen slug set so the driver can build the PP-vs-PLU
    * disambiguation context without PP importing PLU.

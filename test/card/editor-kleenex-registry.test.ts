@@ -85,6 +85,36 @@ function renamedKleenexHass(): any {
   ]);
 }
 
+/**
+ * The device was renamed AND its entities re-minted from the new name, so
+ * neither the entity IDs nor the visible device name carry the original "Home"
+ * instance any more. Only the device identifier still does.
+ */
+function reMintedKleenexHass(): any {
+  return createHassWithRegistry([
+    {
+      entityId: "sensor.my_pollen_trees",
+      state: "200",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_renamed",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Home)",
+        nameByUser: "My Pollen",
+        identifiers: [["kleenex_pollenradar", "Home"]],
+        configEntries: ["entry_renamed"],
+      },
+    },
+    {
+      entityId: "sensor.my_pollen_grass",
+      state: "100",
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId: "dev_renamed",
+    },
+  ]);
+}
+
 /** Legacy-shaped entity IDs on a device that is nonetheless in the registry. */
 function legacyKleenexHass(): any {
   return createHassWithRegistry([
@@ -150,6 +180,26 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
 
     expect(editor._config.integration).toBe("kleenex");
     expect(editor._config.location).toBe("entry_home");
+  });
+
+  // Codex P1 on PR #311: with the device and its entities both renamed, the
+  // legacy slug matches no entity ID and no visible device name, so the
+  // dropdown lost the configured value entirely. The device identifier is the
+  // only rename-stable candidate left.
+  it("keeps a legacy slug config visible when the entity IDs were re-minted", () => {
+    const editor = new EditorCtor();
+    editor.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "home",
+    });
+    editor.hass = reMintedKleenexHass();
+
+    expect(editor.installedKleenexLocations).toContainEqual([
+      "home",
+      "My Pollen",
+    ]);
+    expect(editor._config.location).toBe("home");
   });
 
   it("keeps a legacy slug config visible as its own dropdown entry", () => {
