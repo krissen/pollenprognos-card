@@ -532,6 +532,25 @@ export function _resetManualScopeWarningsForTest(): void {
 }
 
 /**
+ * Tell the user, once per configuration, that a manual prefix matched more
+ * than one location and which one survived. Narrowing removes rows and renames
+ * the header, so it must never be a silent decision.
+ */
+function warnOnceAboutNarrowing(
+  prefix: string,
+  suffix: string,
+  kept: string,
+  dropped: string[],
+): void {
+  const warnKey = `${prefix}|${suffix}`;
+  if (MANUAL_SCOPE_WARNED_KEYS.has(warnKey)) return;
+  MANUAL_SCOPE_WARNED_KEYS.add(warnKey);
+  console.warn(
+    `[Kleenex] The configured entity_prefix '${prefix}' matches entities from several locations. Showing '${kept}' and ignoring: ${dropped.join(", ")}. Use a prefix that only matches the location you want, or switch from manual to a location-based config.`,
+  );
+}
+
+/**
  * Every slug a discovered location can reasonably be addressed by: its
  * discovery key (the config-entry instance slug), its label, and both device
  * names. A manual `entity_prefix` is minted from one of these, so they are what
@@ -554,6 +573,67 @@ function locationSlugCandidates(
   add(device?.name_by_user);
   add(device?.name);
   return out;
+}
+
+/** Every slug a *device* can be addressed by, for prefix-ownership matching. */
+function deviceSlugCandidates(
+  device: DeviceRegistryEntry | null | undefined,
+): Set<string> {
+  const out = new Set<string>();
+  const add = (value: unknown): void => {
+    if (typeof value !== "string" || !value) return;
+    const slug = slugify(value);
+    if (slug) out.add(slug);
+  };
+  add(deviceIdentifierSlug(device));
+  add(device?.name_by_user);
+  add(device?.name);
+  return out;
+}
+
+/** Human-readable name for a device, for warnings and the header. */
+function deviceLabel(device: DeviceRegistryEntry | null | undefined): string {
+  const name = device?.name_by_user || device?.name;
+  if (!name) return "";
+  const m = /^Kleenex Pollen Radar\s*\((.+)\)\s*$/.exec(name);
+  return m?.[1]?.trim() || name;
+}
+
+/** Device ids of every Kleenex device in the registry. */
+function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
+  const out = new Set<string>();
+  for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
+    if (deviceIdentifierSlug(device)) out.add(deviceId);
+  }
+  return out;
+}
+
+/**
+ * The Kleenex device a manual `entity_prefix` was minted from, if any.
+ *
+ * Read from the device registry rather than from discovery, because discovery
+ * only sees devices with state-backed entities: when the intended config entry
+ * is down, its device is absent from discovery entirely, and deciding ownership
+ * on discovery alone would silently hand the prefix to whichever *other*
+ * location it happens to match (Codex round 2 on PR #315). Ownership must
+ * survive the owner having no data -- the card then shows its usual empty state
+ * for the right place instead of another city's forecast.
+ */
+function findPrefixOwnerDevice(
+  hass: HomeAssistant,
+  needle: string,
+): string | null {
+  if (!needle) return null;
+  let found: string | null = null;
+  for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
+    if (!deviceIdentifierSlug(device)) continue;
+    if (!deviceSlugCandidates(device).has(needle)) continue;
+    // Two devices answering to the same slug cannot say which was meant; the
+    // discovery-based path below applies its own tie-breaks instead.
+    if (found) return null;
+    found = deviceId;
+  }
+  return found;
 }
 
 /** Outcome of scoping a manual-mode prefix match to a single location. */
@@ -609,7 +689,51 @@ export function scopeManualEntities(
   },
 ): KleenexManualScope {
   const { prefix, suffix = "", debug = false } = opts;
-  if (entityIds.length < 2 || !prefix) return { entityIds, label: null };
+  if (entityIds.length === 0 || !prefix) return { entityIds, label: null };
+
+  const needle = slugify(prefix.replace(/_+$/, ""));
+
+  // Step 1, registry-level: a device whose own slug is the prefix owns it,
+  // whether or not it currently has usable states. Everything belonging to
+  // another Kleenex device is dropped; entities with no registry entry, and
+  // entities on devices from other integrations, are none of our business and
+  // stay.
+  const ownerDeviceId = findPrefixOwnerDevice(hass, needle);
+  if (ownerDeviceId) {
+    const kleenexDevices = kleenexDeviceIds(hass);
+    const kept = entityIds.filter((eid) => {
+      const deviceId = hass?.entities?.[eid]?.device_id;
+      if (!deviceId || deviceId === ownerDeviceId) return true;
+      return !kleenexDevices.has(deviceId);
+    });
+    if (kept.length === entityIds.length) return { entityIds, label: null };
+
+    const droppedDevices = new Set<string>();
+    for (const eid of entityIds) {
+      if (kept.includes(eid)) continue;
+      const deviceId = hass?.entities?.[eid]?.device_id;
+      if (deviceId) droppedDevices.add(deviceId);
+    }
+    const ownerDevice = hass?.devices?.[ownerDeviceId];
+    const label = deviceLabel(ownerDevice) || null;
+    warnOnceAboutNarrowing(
+      prefix,
+      suffix,
+      label || ownerDeviceId,
+      [...droppedDevices].map(
+        (deviceId) => deviceLabel(hass?.devices?.[deviceId]) || deviceId,
+      ),
+    );
+    if (debug) {
+      console.debug(
+        `[Kleenex] Manual prefix owned by device '${ownerDeviceId}'`,
+        kept,
+      );
+    }
+    return { entityIds: kept, label };
+  }
+
+  if (entityIds.length < 2) return { entityIds, label: null };
 
   const discovery = opts.discovery ?? discoverKleenex(hass, debug);
   if (!discovery || discovery.locations.size < 2) {
@@ -642,10 +766,9 @@ export function scopeManualEntities(
   }
   if (scores.size < 2) return { entityIds, label: null };
 
-  // Step 1: does any candidate location's own slug equal the prefix? The
-  // prefix was minted from a device name, so this settles ownership without
-  // looking at entity names at all.
-  const needle = slugify(prefix.replace(/_+$/, ""));
+  // Step 2: no device owned the prefix outright, but a discovered location may
+  // still answer to it through its discovery key or label -- shapes the device
+  // registry alone does not carry.
   const owners = [...scores.keys()].filter((key) =>
     locationSlugCandidates(hass, key, discovery.locations.get(key)).has(needle),
   );
@@ -674,19 +797,14 @@ export function scopeManualEntities(
 
   const label = winner ? (discovery.locations.get(winner)?.label ?? null) : null;
 
-  // Narrowing removes rows and renames the header, so it is never silent: a
-  // user with two legacy locations and a broad prefix would otherwise see data
-  // disappear with no explanation anywhere.
-  const dropped = [...scores.keys()]
-    .filter((key) => key !== winner)
-    .map((key) => discovery.locations.get(key)?.label || key);
-  const warnKey = `${prefix}|${suffix}`;
-  if (!MANUAL_SCOPE_WARNED_KEYS.has(warnKey)) {
-    MANUAL_SCOPE_WARNED_KEYS.add(warnKey);
-    console.warn(
-      `[Kleenex] The configured entity_prefix '${prefix}' matches entities from several locations. Showing '${label || winner}' and ignoring: ${dropped.join(", ")}. Use a prefix that only matches the location you want, or switch from manual to a location-based config.`,
-    );
-  }
+  warnOnceAboutNarrowing(
+    prefix,
+    suffix,
+    label || winner || "",
+    [...scores.keys()]
+      .filter((key) => key !== winner)
+      .map((key) => discovery.locations.get(key)?.label || key),
+  );
   if (debug) {
     console.debug(`[Kleenex] Manual prefix narrowed to '${winner}'`, kept);
   }

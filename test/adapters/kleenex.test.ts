@@ -2614,6 +2614,96 @@ describe("Kleenex adapter: manual prefix across locations", () => {
     }
   });
 
+  /**
+   * The owning config entry is down: its device and entities are in the
+   * registry, but HA exposes no state objects for them (or only unavailable
+   * ones). Discovery, which only sees state-backed entities, therefore knows
+   * nothing about the owner.
+   */
+  function ownerWithoutStatesHass(withUnavailableStates: boolean): any {
+    const hass: any = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_trees",
+        state: "20",
+        attributes: { details: [{ name: "Berk", value: 20 }], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+    ] as any);
+
+    hass.devices.dev_paris = {
+      identifiers: [["kleenex_pollenradar", "Paris"]],
+      config_entries: ["cfg_paris"],
+      name: "Kleenex Pollen Radar (Paris)",
+      name_by_user: "Kleenex pollen",
+    };
+    for (const suffix of ["trees", "grass"]) {
+      const eid = `sensor.kleenex_pollen_${suffix}`;
+      hass.entities[eid] = {
+        device_id: "dev_paris",
+        platform: "kleenex_pollenradar",
+        translation_key: suffix,
+        unique_id: null,
+        entity_category: null,
+      };
+      if (withUnavailableStates) {
+        hass.states[eid] = {
+          entity_id: eid,
+          state: "unavailable",
+          attributes: { friendly_name: `Kleenex pollen ${suffix}` },
+        };
+      }
+    }
+    return hass;
+  }
+
+  // Codex round 2 on PR #315: with the owner missing from discovery, the early
+  // returns let every prefix match through, so `kleenex_pollen_` rendered
+  // Utrecht's forecast under a config meant for Paris. Ownership is decided on
+  // the device registry, which still knows the owner while its entry is down.
+  it("keeps ownership when the owning device has no usable states", async () => {
+    const hass = ownerWithoutStatesHass(false);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toEqual([]);
+    expect(scope.label).toBe("Kleenex pollen");
+
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        location: "manual",
+        entity_prefix: "kleenex_pollen_",
+        allergens: ["trees_cat", "birch"],
+        pollen_threshold: 0,
+      }),
+    );
+    // No data for the intended location beats another city's data.
+    expect(result).toEqual([]);
+  });
+
+  it("keeps ownership when the owning device's states are unavailable", () => {
+    const hass = ownerWithoutStatesHass(true);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_trees",
+      "sensor.kleenex_pollen_grass",
+    ]);
+    expect(scope.label).toBe("Kleenex pollen");
+  });
+
   it("does not narrow when no matched entity is in the registry", () => {
     // Registry-less install: two locations by naming convention only. Today's
     // behaviour (pure prefix matching) must survive.
