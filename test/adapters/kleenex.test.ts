@@ -2260,3 +2260,53 @@ describe("Kleenex adapter: legacy slug via device identifier", () => {
     expect(map.size).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Allergen names with stray whitespace (FR zone)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: whitespace in detail allergen names", () => {
+  // The FR feed reports detail entries as {"name": "Poaceae ", ...}. Without
+  // trimming, the lookup key is "poaceae " and matches neither
+  // KLEENEX_ALLERGEN_MAP nor config.allergens, so the row vanished silently.
+  it("resolves today's details when the name has a trailing space", async () => {
+    // The individual allergen only exists in details[], so nothing else can
+    // supply the row if the lookup key keeps its trailing space.
+    const entity = makeKleenexEntity("paris", "trees", 150, [
+      { name: "Bouleau ", value: 150 },
+    ]);
+    const hass = makeHassFromEntities([entity]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch");
+    expect(birch).toBeDefined();
+    expect(birch!.days[0]!.value).toBe(150);
+  });
+
+  it("resolves forecast-day details when the name has a leading space", async () => {
+    const entity = makeKleenexEntity(
+      "paris",
+      "trees",
+      0,
+      [],
+      [{ level: 2, details: [{ name: " Bouleau", value: 120 }] }],
+    );
+    const hass = makeHassFromEntities([entity]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch");
+    expect(birch).toBeDefined();
+    expect(birch!.days[1]!.value).toBe(120);
+  });
+});

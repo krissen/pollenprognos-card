@@ -21,6 +21,7 @@ import {
   CATEGORY_KEYS,
   DIAGNOSTIC_SUFFIXES,
   canonicalAllergenFromSlug,
+  normalizeDetailName,
   resolveKleenexLocation,
 } from "./discovery.js";
 import { ppmToLevel } from "./levels.js";
@@ -364,7 +365,7 @@ export async function fetchForecast(
 
     try {
       for (const detail of details) {
-        const allergenName = (detail.name as string)?.toLowerCase();
+        const allergenName = normalizeDetailName(detail.name);
         if (!allergenName) continue;
 
         const canonicalName =
@@ -444,7 +445,7 @@ export async function fetchForecast(
         }
 
         for (const detail of forecastDetails) {
-          const allergenName = (detail.name as string)?.toLowerCase();
+          const allergenName = normalizeDetailName(detail.name);
           if (!allergenName) continue;
 
           const canonicalName =

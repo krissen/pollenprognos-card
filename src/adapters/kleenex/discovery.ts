@@ -79,6 +79,18 @@ export function canonicalAllergenFromSlug(
   return undefined;
 }
 
+/**
+ * Normalize an allergen name as reported inside `details[]` / `forecast[].details[]`.
+ *
+ * The feed is not whitespace-clean: the FR zone reports names like `"Poaceae "`,
+ * and an untrimmed lookup key matches neither KLEENEX_ALLERGEN_MAP nor the
+ * configured allergen list, so the row disappears without a trace. Returns an
+ * empty string for anything that isn't a usable name.
+ */
+export function normalizeDetailName(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim().toLowerCase() : "";
+}
+
 // Static reverse index: canonical allergen name -> Set of slugified alias
 // entity-suffixes. Built once from KLEENEX_ALLERGEN_MAP since the map is
 // module-level constant data.
@@ -163,7 +175,7 @@ function allergenFromUniqueId(
   if (typeof uniqueId !== "string" || !uniqueId) return null;
   const parts = uniqueId.split("-");
   if (parts.length < 2) return null;
-  const name = parts[parts.length - 2]?.trim().toLowerCase();
+  const name = normalizeDetailName(parts[parts.length - 2]);
   if (!name) return null;
   const canonical = KLEENEX_ALLERGEN_MAP[name];
   return canonical && !CATEGORY_KEYS.has(canonical) ? canonical : null;
@@ -192,7 +204,7 @@ function classifyDetailEntity(
   if (typeof friendly === "string") {
     const lastWord = friendly.trim().split(/\s+/).pop();
     if (lastWord) {
-      const byName = KLEENEX_ALLERGEN_MAP[lastWord.toLowerCase()];
+      const byName = KLEENEX_ALLERGEN_MAP[normalizeDetailName(lastWord)];
       if (byName && !CATEGORY_KEYS.has(byName)) return byName;
     }
   }
