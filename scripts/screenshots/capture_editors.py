@@ -75,6 +75,11 @@ def poll(pg, sel, t=15000):
 # hui-badge-edit-mode overlays on the badge.
 CARD_EDIT = "hui-card-options .card-actions > ha-button"
 BADGE_EDIT = "hui-badge-edit-mode .badge-overlay .edit"
+KINDS = ("card", "badge")
+
+
+def editor_tag(kind):
+    return f"pollenprognos-{kind}-editor"
 
 
 def click_center(pg, sel):
@@ -102,13 +107,16 @@ def open_editor(pg, kind):
     if not click_center(pg, sel):
         print(f"ERROR: {kind} edit control has no layout box", file=sys.stderr)
         return False
-    return poll(pg, f"pollenprognos-{kind}-editor")
+    return poll(pg, editor_tag(kind))
 
 
 def main():
     if not TOKEN:
         print("ERROR: set HASS_TOKEN", file=sys.stderr); sys.exit(2)
-    kinds = [sys.argv[1]] if len(sys.argv) > 1 else ["card", "badge"]
+    kinds = [sys.argv[1]] if len(sys.argv) > 1 else list(KINDS)
+    if any(k not in KINDS for k in kinds):
+        print("ERROR: usage: capture_editors.py [card|badge]", file=sys.stderr)
+        sys.exit(2)
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         ctx = b.new_context(viewport={"width": 1000, "height": 1700}, device_scale_factor=2)
@@ -126,8 +134,8 @@ def main():
             print(f"{kind} editor present:", ok)
             if ok:
                 pg.wait_for_timeout(1500)
-                el = "pollenprognos-card-editor" if kind == "card" else "pollenprognos-badge-editor"
-                pg.locator(el).first.screenshot(path=os.path.join(OUT, f"editor-{kind}.png"))
+                pg.locator(editor_tag(kind)).first.screenshot(
+                    path=os.path.join(OUT, f"editor-{kind}.png"))
                 print(f"saved editor-{kind}.png")
         full["views"] = base
         hass_save(pg, full)

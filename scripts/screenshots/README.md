@@ -74,6 +74,8 @@ The README badge block (`hero-badges.png`) is shot manually: apply
 (~210 px) so the badges wrap into a compact block, and screenshot
 `hui-view-badges`.
 
-Images render in the HA UI language (English via the browser locale by default);
-avoid fixture cards that pin a `date_locale`. Keep PNGs lean (element crops, not
-full-page dumps).
+Images render in the HA UI language, which is set by the HA user profile and not
+by the browser locale (a browser running en-US against an instance whose profile
+language is Swedish still shoots Swedish images). Check the profile before
+regenerating committed images, and avoid fixture cards that pin a `date_locale`.
+Keep PNGs lean (element crops, not full-page dumps).
