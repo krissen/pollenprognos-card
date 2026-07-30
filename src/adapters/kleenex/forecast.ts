@@ -807,7 +807,6 @@ export async function fetchForecast(
           });
         }
       }
-      dict.levelNames = levelNames;
 
       // Build day objects for card display
       for (let i = 0; i < days_to_show; i++) {
