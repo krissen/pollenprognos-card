@@ -358,6 +358,31 @@ describe("Kleenex manual-scope invariants (prefix forms x owner modes x environm
     expect(scope.entityIds).toEqual(PARIS_IDS);
   });
 
+  // Single-entity cells. 776a559 lowered the entry guard from "at least two
+  // matched entities" to "at least one", precisely so a lone entity from the
+  // wrong device can be filtered out: an empty card for the right location
+  // beats a populated one for the wrong city.
+  it("drops a lone entity that belongs to another location", () => {
+    const hass = buildHass("multi", "available");
+    const scope = scopeManualEntities(hass, [UTRECHT_IDS[0]!], {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toEqual([]);
+    expect(scope.label).toBe("Kleenex pollen");
+  });
+
+  it("keeps a lone entity that belongs to the owner", () => {
+    const hass = buildHass("multi", "available");
+    const scope = scopeManualEntities(hass, [PARIS_IDS[0]!], {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toEqual([PARIS_IDS[0]]);
+    // Nothing was narrowed, so no header override is claimed.
+    expect(scope.label).toBeNull();
+  });
+
   it("multi-legacy/broad-prefix narrows to one legacy location and says so", () => {
     // No device slug equals `kleenex_pollen_radar`, so the fallback decides:
     // Utrecht's remainder ("utrecht_trees") is shorter than Rotterdam's. The

@@ -240,17 +240,31 @@ function classifyKleenexEntity(
   return classifyKleenexEntityId(entityId);
 }
 
-/** Resolve a human-readable location label for a discovered device. */
-function resolveKleenexLabel(ctx: DiscoveryContext): string {
-  const device = ctx.device;
+/**
+ * The location name a device stands for: the user's own rename verbatim,
+ * otherwise the instance inside the default name "Kleenex Pollen Radar
+ * (<instance>)", which is what the user configured as the location. Null when
+ * the device carries no name at all.
+ *
+ * Both user-visible label paths go through here -- the discovered location
+ * label and the manual-scoping warning/header -- so an upstream change to the
+ * default naming cannot make them disagree.
+ */
+function deviceDisplayLabel(
+  device: DeviceRegistryEntry | null | undefined,
+): string | null {
   if (device?.name_by_user) return device.name_by_user;
   if (device?.name) {
-    // Default device name is "Kleenex Pollen Radar (<instance>)"; the instance
-    // is what the user configured as the location.
     const m = /^Kleenex Pollen Radar\s*\((.+)\)\s*$/.exec(device.name);
-    if (m?.[1]) return m[1].trim();
-    return device.name;
+    return m?.[1]?.trim() || device.name;
   }
+  return null;
+}
+
+/** Resolve a human-readable location label for a discovered device. */
+function resolveKleenexLabel(ctx: DiscoveryContext): string {
+  const fromDevice = deviceDisplayLabel(ctx.device);
+  if (fromDevice) return fromDevice;
 
   const friendly = ctx.state?.attributes?.friendly_name;
   if (typeof friendly === "string") {
@@ -591,14 +605,6 @@ function deviceSlugCandidates(
   return out;
 }
 
-/** Human-readable name for a device, for warnings and the header. */
-function deviceLabel(device: DeviceRegistryEntry | null | undefined): string {
-  const name = device?.name_by_user || device?.name;
-  if (!name) return "";
-  const m = /^Kleenex Pollen Radar\s*\((.+)\)\s*$/.exec(name);
-  return m?.[1]?.trim() || name;
-}
-
 /** Device ids of every Kleenex device in the registry. */
 function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
   const out = new Set<string>();
@@ -715,13 +721,13 @@ export function scopeManualEntities(
       if (deviceId) droppedDevices.add(deviceId);
     }
     const ownerDevice = hass?.devices?.[ownerDeviceId];
-    const label = deviceLabel(ownerDevice) || null;
+    const label = deviceDisplayLabel(ownerDevice);
     warnOnceAboutNarrowing(
       prefix,
       suffix,
       label || ownerDeviceId,
       [...droppedDevices].map(
-        (deviceId) => deviceLabel(hass?.devices?.[deviceId]) || deviceId,
+        (deviceId) => deviceDisplayLabel(hass?.devices?.[deviceId]) || deviceId,
       ),
     );
     if (debug) {
