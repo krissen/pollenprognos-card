@@ -1727,3 +1727,83 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(loc.entities.get("birch")).toBe("sensor.kleenex_pollen_bjoerk");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 16. Registry-driven entity resolution and forecast (issue #309)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: registry-driven resolution", () => {
+  const registryConfig = (overrides: any = {}) =>
+    makeConfig({
+      allergens: ["trees_cat", "grass_cat", "weeds_cat", "birch", "mugwort"],
+      pollen_threshold: 0,
+      ...overrides,
+    });
+
+  it("resolveEntityIds finds renamed-device entities and skips diagnostics", () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const map = resolveEntityIds(registryConfig({ location: "" }), hass);
+
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_trees");
+    expect(map.get("grass")).toBe("sensor.kleenex_pollen_grass");
+    expect(map.get("weeds")).toBe("sensor.kleenex_pollen_weeds");
+    expect(map.get("mugwort")).toBe("sensor.kleenex_pollen_armoise");
+    expect([...map.values()].some((id) => id.endsWith("_level"))).toBe(false);
+    expect([...map.values()].some((id) => id.endsWith("_last_updated"))).toBe(
+      false,
+    );
+  });
+
+  it("fetchForecast returns category and detail sensors for a renamed device", async () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const result = await fetchForecast(hass, registryConfig({ location: "" }));
+
+    const keys = result.map((s) => s.allergenReplaced).sort();
+    expect(keys).toEqual(["birch", "grass_cat", "mugwort", "trees_cat", "weeds_cat"]);
+    expect(
+      result.find((s) => s.allergenReplaced === "mugwort")!.entity_id,
+    ).toBe("sensor.kleenex_pollen_armoise");
+    expect(result.every((s) => !s.entity_id.endsWith("_level"))).toBe(true);
+  });
+
+  it("resolves a legacy slug-style location config against the device label", async () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const map = resolveEntityIds(registryConfig({ location: "home" }), hass);
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_trees");
+
+    const result = await fetchForecast(hass, registryConfig({ location: "home" }));
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("keeps two config entries apart (no cross-talk)", async () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      ...kleenexRegistryEntries(
+        "Cabin",
+        "kleenex_pollen_radar_cabin",
+        "device_cabin",
+        "cfg_cabin",
+      ),
+    ]);
+
+    const map = resolveEntityIds(registryConfig({ location: "Cabin" }), hass);
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_radar_cabin_trees");
+
+    const result = await fetchForecast(
+      hass,
+      registryConfig({ location: "Cabin" }),
+    );
+    expect(result.length).toBeGreaterThan(0);
+    expect(
+      result.every((s) => s.entity_id.startsWith("sensor.kleenex_pollen_radar_cabin_")),
+    ).toBe(true);
+  });
+});

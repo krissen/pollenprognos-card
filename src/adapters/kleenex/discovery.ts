@@ -1,5 +1,5 @@
 // src/adapters/kleenex/discovery.ts
-import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { HassEntity, HomeAssistant } from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
@@ -7,6 +7,7 @@ import {
   normalizeManualPrefix,
   discoverEntitiesByDevice,
   deviceLocationKey,
+  resolveLocationByKey,
   type DeviceDiscovery,
   type DiscoveryContext,
 } from "../../utils/adapter-helpers.js";
@@ -21,7 +22,7 @@ import {
 // They are reserved for the category sensors: a per-allergen detail sensor that
 // happens to alias onto one of them (e.g. a detail literally named "Grass") is
 // dropped rather than allowed to shadow the category sensor.
-const CATEGORY_KEYS = new Set(["trees", "grass", "weeds"]);
+export const CATEGORY_KEYS = new Set(["trees", "grass", "weeds"]);
 
 // Translation keys of entities that carry no allergen reading: the enum level
 // mirrors of the category sensors, the timestamps and the diagnostics. Several
@@ -255,6 +256,102 @@ export function discoverKleenex(
 }
 
 /**
+ * Extract the legacy location slug from an entity ID
+ * (`sensor.kleenex_pollen_radar_<location>_<sensor>` -> `<location>`), so
+ * configs written before registry discovery keep resolving.
+ */
+function kleenexSlugExtractor(entityId: string): string | null {
+  const slug = entityIdSuffix(entityId).replace(/_[^_]+$/, "");
+  return slug || null;
+}
+
+/** One discovered Kleenex location, resolved against the card config. */
+export interface KleenexLocationMatch {
+  locationKey: string;
+  label: string;
+  /** classified key (`trees`/`grass`/`weeds` or canonical allergen) -> entity_id */
+  entities: Map<string, string>;
+  /** entity_id -> classified key, for the forecast passes */
+  keyByEntityId: Map<string, string>;
+  /** state objects of the location's entities, in discovery order */
+  states: HassEntity[];
+}
+
+/**
+ * Resolve the location the card config points at, via registry discovery.
+ *
+ * Returns null when discovery found nothing or when no location matched the
+ * config, leaving the caller on its legacy entity-ID path. An empty
+ * `cfg.location` picks the first discovered location.
+ */
+export function resolveKleenexLocation(
+  hass: HomeAssistant,
+  cfg: CardConfig,
+  debug = false,
+): KleenexLocationMatch | null {
+  const discovery = discoverKleenex(hass, debug);
+  if (discovery.locations.size === 0) return null;
+
+  const match = resolveLocationByKey(discovery, cfg.location as string, {
+    slugExtractor: kleenexSlugExtractor,
+  });
+  if (!match) return null;
+
+  const [locationKey, loc] = match;
+  const keyByEntityId = new Map<string, string>();
+  const states: HassEntity[] = [];
+  for (const [key, eid] of loc.entities) {
+    const state = hass.states?.[eid];
+    if (!state) continue;
+    keyByEntityId.set(eid, key);
+    states.push(state);
+  }
+  if (states.length === 0) return null;
+
+  if (debug) {
+    console.debug(
+      `[Kleenex] Registry discovery matched location '${locationKey}' (${loc.label}) with entities:`,
+      [...loc.entities.keys()],
+    );
+  }
+
+  return {
+    locationKey,
+    label: loc.label,
+    entities: loc.entities,
+    keyByEntityId,
+    states,
+  };
+}
+
+/** Category keys the config asks for, derived from the allergen list. */
+function requestedCategories(cfg: CardConfig): Set<string> {
+  const needsCategories = new Set<string>();
+  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
+    if (CATEGORY_KEYS.has(allergen)) {
+      needsCategories.add(allergen);
+    } else if (allergen.endsWith("_cat")) {
+      const categoryName = allergen.replace("_cat", "");
+      if (CATEGORY_KEYS.has(categoryName)) needsCategories.add(categoryName);
+    } else {
+      const category = INDIVIDUAL_TO_CATEGORY[allergen];
+      if (category) needsCategories.add(category);
+    }
+  }
+  return needsCategories;
+}
+
+/** The non-category allergens the config asks for. */
+function requestedIndividualAllergens(cfg: CardConfig): string[] {
+  return ((cfg.allergens as string[] | undefined) || []).filter(
+    (a) =>
+      !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(
+        a,
+      ),
+  );
+}
+
+/**
  * Resolve entity IDs for sensor detection.
  *
  * Returns Map<key, entityId> where each key is either:
@@ -272,21 +369,25 @@ export function resolveEntityIds(
 ): Map<string, string> {
   const map = new Map<string, string>();
   const locationSlug = slugify((cfg.location as string) || "");
-  const categoryAllergens = ["trees", "grass", "weeds"];
+  const needsCategories = requestedCategories(cfg);
 
-  // Determine which categories are needed
-  const needsCategories = new Set<string>();
-  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
-    if (categoryAllergens.includes(allergen)) {
-      needsCategories.add(allergen);
-    } else if (allergen.endsWith("_cat")) {
-      const categoryName = allergen.replace("_cat", "");
-      if (categoryAllergens.includes(categoryName)) {
-        needsCategories.add(categoryName);
+  // Registry-first path. Entity IDs carry no reliable structure (the device is
+  // renameable and the sensor part is translated), so the registry is the only
+  // dependable source; the entity-ID probing below stays as the fallback for
+  // installs whose registry isn't exposed to the frontend.
+  if (cfg.location !== "manual") {
+    const located = resolveKleenexLocation(hass, cfg, debug);
+    if (located) {
+      const wantedIndividual = new Set(requestedIndividualAllergens(cfg));
+      for (const [key, entityId] of located.entities) {
+        if (!hass.states[entityId]) continue;
+        if (CATEGORY_KEYS.has(key)) {
+          if (needsCategories.has(key)) map.set(key, entityId);
+        } else if (wantedIndividual.has(key)) {
+          map.set(key, entityId);
+        }
       }
-    } else {
-      const category = INDIVIDUAL_TO_CATEGORY[allergen];
-      if (category) needsCategories.add(category);
+      if (map.size > 0) return map;
     }
   }
 
@@ -351,12 +452,7 @@ export function resolveEntityIds(
   // These are disabled by default in HA (entity_registry_enabled_default=False) but
   // users may enable them. For NA zones they don't exist at all; for EU/UK zones they
   // give per-allergen data when the category sensor's details[] is empty.
-  const individualAllergens = ((cfg.allergens as string[] | undefined) || []).filter(
-    (a) =>
-      !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(
-        a,
-      ),
-  );
+  const individualAllergens = requestedIndividualAllergens(cfg);
 
   for (const allergen of individualAllergens) {
     // map already has this allergen (from some other path) — skip.
