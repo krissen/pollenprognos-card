@@ -9,6 +9,7 @@ import {
   deviceLocationKey,
   resolveLocationByKey,
   type DeviceDiscovery,
+  type DiscoveredLocation,
   type DiscoveryContext,
 } from "../../utils/adapter-helpers.js";
 import {
@@ -265,6 +266,37 @@ export function kleenexSlugExtractor(entityId: string): string | null {
   return slug || null;
 }
 
+/**
+ * Match a config location against the slugified device identifier
+ * (`("kleenex_pollenradar", "<instance>")`).
+ *
+ * The identifier carries the config-entry instance name, which is exactly what
+ * the legacy entity-ID slug was minted from (default device name
+ * "Kleenex Pollen Radar (Home)" -> `..._home_trees`). Unlike the entity IDs and
+ * the device name, it survives a rename, so a legacy `location: home` config
+ * still resolves for a user who has renamed both the device and its entities.
+ */
+export function matchKleenexLocationByIdentifier(
+  hass: HomeAssistant,
+  discovery: { locations: Map<string, DiscoveredLocation> },
+  cfgLocation: string | null | undefined,
+): [string, DiscoveredLocation] | null {
+  if (!cfgLocation) return null;
+  const needle = slugify(String(cfgLocation));
+  if (!needle) return null;
+
+  for (const [key, loc] of discovery.locations) {
+    const device = loc.deviceId ? hass.devices?.[loc.deviceId] : undefined;
+    const identifiers = device?.identifiers;
+    if (!Array.isArray(identifiers)) continue;
+    for (const tuple of identifiers) {
+      if (!Array.isArray(tuple) || tuple[0] !== PLATFORM || !tuple[1]) continue;
+      if (slugify(String(tuple[1])) === needle) return [key, loc];
+    }
+  }
+  return null;
+}
+
 /** One discovered Kleenex location, resolved against the card config. */
 export interface KleenexLocationMatch {
   locationKey: string;
@@ -292,9 +324,18 @@ export function resolveKleenexLocation(
   const discovery = discoverKleenex(hass, debug);
   if (discovery.locations.size === 0) return null;
 
-  const match = resolveLocationByKey(discovery, cfg.location as string, {
-    slugExtractor: kleenexSlugExtractor,
-  });
+  // Device identifiers beat every name-derived candidate except an exact
+  // location-key hit: they are the only part of the registry a rename cannot
+  // touch. The label and entity-ID candidates in resolveLocationByKey stay as
+  // the fallbacks for installs without device metadata.
+  const cfgLocation = cfg.location as string | undefined;
+  const match =
+    (cfgLocation && !discovery.locations.has(cfgLocation)
+      ? matchKleenexLocationByIdentifier(hass, discovery, cfgLocation)
+      : null) ??
+    resolveLocationByKey(discovery, cfgLocation, {
+      slugExtractor: kleenexSlugExtractor,
+    });
   if (!match) return null;
 
   const [locationKey, loc] = match;

@@ -1807,3 +1807,92 @@ describe("Kleenex adapter: registry-driven resolution", () => {
     ).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 17. Legacy slug configs against renamed devices (device identifier match)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: legacy slug via device identifier", () => {
+  // Device renamed by the user AND entities renamed: neither the label nor the
+  // entity IDs carry the legacy "home" slug any more. Only the config-entry
+  // identifier still does.
+  const renamedEntries = [
+    {
+      entityId: "sensor.my_pollen_trees",
+      state: "200",
+      attributes: {
+        friendly_name: "My pollen Trees",
+        details: [{ name: "Birch", value: 150 }],
+        forecast: [
+          {
+            datetime: "2026-04-26",
+            level: 2,
+            value: 200,
+            details: [{ name: "Birch", value: 150 }],
+          },
+        ],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "device_home",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Home)",
+        nameByUser: "My pollen",
+        identifiers: [["kleenex_pollenradar", "Home"]],
+        configEntries: ["cfg_home"],
+      },
+    },
+    {
+      entityId: "sensor.my_pollen_armoise",
+      state: "42",
+      attributes: {
+        friendly_name: "My pollen Armoise",
+        forecast: [{ date: "2026-04-26", value: 30 }],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "detail_value",
+      deviceId: "device_home",
+    },
+  ];
+
+  const legacyConfig = makeConfig({
+    location: "home",
+    allergens: ["trees_cat", "birch", "mugwort"],
+    pollen_threshold: 0,
+  });
+
+  it("resolveEntityIds matches the legacy slug against the device identifier", () => {
+    const hass = createHassWithRegistry(renamedEntries as any);
+
+    const map = resolveEntityIds(legacyConfig, hass);
+
+    expect(map.get("trees")).toBe("sensor.my_pollen_trees");
+    expect(map.get("mugwort")).toBe("sensor.my_pollen_armoise");
+  });
+
+  it("fetchForecast renders the renamed device for a legacy slug config", async () => {
+    const hass = createHassWithRegistry(renamedEntries as any);
+
+    const result = await fetchForecast(hass, legacyConfig);
+
+    const keys = result.map((s) => s.allergenReplaced).sort();
+    expect(keys).toEqual(["birch", "mugwort", "trees_cat"]);
+    expect(result.every((s) => s.entity_id.startsWith("sensor.my_pollen_"))).toBe(
+      true,
+    );
+  });
+
+  it("does not bind a legacy slug to a different location's identifier", () => {
+    const hass = createHassWithRegistry(renamedEntries as any);
+
+    const map = resolveEntityIds(
+      makeConfig({
+        location: "cabin",
+        allergens: ["trees_cat"],
+        pollen_threshold: 0,
+      }),
+      hass,
+    );
+
+    expect(map.size).toBe(0);
+  });
+});
