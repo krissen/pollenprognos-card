@@ -231,7 +231,7 @@ function resolveKleenexLabel(ctx: DiscoveryContext): string {
     // Default device name is "Kleenex Pollen Radar (<instance>)"; the instance
     // is what the user configured as the location.
     const m = /^Kleenex Pollen Radar\s*\((.+)\)\s*$/.exec(device.name);
-    if (m) return m[1].trim();
+    if (m?.[1]) return m[1].trim();
     return device.name;
   }
 
@@ -491,7 +491,7 @@ export function resolveKleenexLocationEntry(
       if (step.length === 0) continue;
       // The first step with any match decides; more than one match there means
       // the config value cannot say which location it meant.
-      return step.length > 1 ? "ambiguous" : step[0];
+      return step.length > 1 ? "ambiguous" : step[0]!;
     }
     return null;
   }
@@ -691,10 +691,10 @@ export function resolveEntityIds(
             if (!afterPrefix.startsWith(locationSlug + "_")) return false;
           }
           const parts = id.split("_");
-          const suffix = parts[parts.length - 1];
+          const suffix = parts[parts.length - 1] ?? "";
           return possiblePrefixes.some((lp) => suffix.startsWith(lp));
         });
-        if (candidates.length >= 1) sensorId = candidates[0];
+        if (candidates.length >= 1) sensorId = candidates[0]!;
       }
     }
 

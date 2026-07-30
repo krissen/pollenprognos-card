@@ -85,7 +85,7 @@ function classifyMswEntity(eid: string): string | null {
   if (typeof eid !== "string") return null;
   const m = MSW_LEVEL_RE.exec(eid);
   if (!m) return null;
-  return MSW_POLLEN_TYPES[m[1]] || null;
+  return MSW_POLLEN_TYPES[m[1] ?? ""] || null;
 }
 
 export const stubConfigMSW: AdapterStubConfig = {

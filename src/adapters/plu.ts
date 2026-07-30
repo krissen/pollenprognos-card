@@ -539,7 +539,7 @@ export const autodetect: AdapterAutodetect = {
       if (typeof id !== "string") return false;
       const match = /^sensor\.pollen_([^_]+)$/.exec(id);
       if (!match) return false;
-      return ctx.pluAllergenSlugs.has(match[1]);
+      return ctx.pluAllergenSlugs.has(match[1] ?? "");
     });
     return { ids };
   },

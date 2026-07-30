@@ -35,7 +35,7 @@ const UNIQUE_ID_RE = /^google_pollen_(.+?)_-?\d/;
 function codeFromUniqueId(uniqueId: string | undefined): string | null {
   if (!uniqueId) return null;
   const m = UNIQUE_ID_RE.exec(uniqueId);
-  return m ? m[1].toLowerCase() : null;
+  return m?.[1]?.toLowerCase() ?? null;
 }
 
 // Category codes used in unique_id for the three base category sensors.

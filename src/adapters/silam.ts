@@ -131,12 +131,13 @@ export function grainsToLevel(allergen: string, grains: number): number {
   const arr = SILAM_THRESHOLDS[allergen];
   if (!arr) return -1;
   if (isNaN(grains)) return -1;
-  if (grains < arr[0]) return 0;
-  if (grains < arr[1]) return 1;
-  if (grains < arr[2]) return 2;
-  if (grains < arr[3]) return 3;
-  if (grains < arr[4]) return 4;
-  if (grains < arr[5]) return 5;
+  // Every threshold row is a fixed six-step ladder (see SILAM_THRESHOLDS).
+  if (grains < arr[0]!) return 0;
+  if (grains < arr[1]!) return 1;
+  if (grains < arr[2]!) return 2;
+  if (grains < arr[3]!) return 3;
+  if (grains < arr[4]!) return 4;
+  if (grains < arr[5]!) return 5;
   return 6;
 }
 
@@ -181,12 +182,13 @@ export function indexToLevel(val: unknown): number {
   };
   if (typeof val === "string") {
     const idx = map[val.toLowerCase()];
-    return idx == null ? -1 : scale[Math.max(0, Math.min(idx, 4))];
+    // The index is clamped to 0-4 and the spread has exactly five entries.
+    return idx == null ? -1 : scale[Math.max(0, Math.min(idx, 4))]!;
   }
   const num = Number(val);
   if (!isNaN(num)) {
     const idx = Math.max(0, Math.min(Math.round(num), 4));
-    return scale[idx];
+    return scale[idx]!;
   }
   return -1;
 }
@@ -432,7 +434,8 @@ export async function fetchForecast(
     }
   }
 
-  const entity = hass.states[weatherEntity];
+  // Both branches above returned early unless hass.states holds the entity.
+  const entity = hass.states[weatherEntity]!;
   const rawAllergens =
     (config.allergens as string[] | undefined) ||
     (stubConfigSILAM.allergens as string[]);
@@ -593,7 +596,8 @@ export async function fetchForecast(
 
       // Fyll dag-objekt för kortet
       for (let i = 0; i < maxItems; ++i) {
-        const scaled = stateList[i];
+        // Every branch above pushed exactly maxItems entries onto stateList.
+        const scaled = stateList[i]!;
         let label: string;
         let icon: string | null;
         let d: Date;
@@ -637,7 +641,7 @@ export async function fetchForecast(
         // than our level-0 label ("No pollen").
         const stateText =
           autoAddedAllergyRisk && allergen === "allergy_risk" && scaled === 0
-            ? t("card.index.very_low", lang) || levelNames[0]
+            ? t("card.index.very_low", lang) || levelNames[0]!
             : scaled < 0
               ? noInfoLabel
               : levelNames[lvlIndex] || String(scaled);
@@ -683,7 +687,7 @@ export async function fetchForecast(
     );
     if (idx > 0) {
       const [special] = sensors.splice(idx, 1);
-      sensors.unshift(special);
+      sensors.unshift(special!);
     }
   }
 
