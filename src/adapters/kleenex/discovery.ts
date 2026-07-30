@@ -260,7 +260,7 @@ export function discoverKleenex(
  * (`sensor.kleenex_pollen_radar_<location>_<sensor>` -> `<location>`), so
  * configs written before registry discovery keep resolving.
  */
-function kleenexSlugExtractor(entityId: string): string | null {
+export function kleenexSlugExtractor(entityId: string): string | null {
   const slug = entityIdSuffix(entityId).replace(/_[^_]+$/, "");
   return slug || null;
 }

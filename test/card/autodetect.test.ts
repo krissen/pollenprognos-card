@@ -22,7 +22,10 @@ import {
   detectIntegrationStates,
   pickIntegration,
   detectedIntegrationIds,
+  autoSelectLocation,
+  deriveLocationForEntity,
 } from "../../src/utils/autodetect.js";
+import { createHassWithRegistry } from "../helpers.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -408,6 +411,102 @@ describe("pollenflug_ prefix exclusion from PP", () => {
   it("sensor.pollenflug_ does not trigger PP even when only PP-like prefix matches", () => {
     const hass = mkHass(["sensor.pollenflug_hasel_11"]);
     expect(detect(hass)).toBe("dwd");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Kleenex detection / location resolution (issue #309)
+//
+// Since integration v1.6.1 the entity IDs follow the (renameable) device name,
+// so a renamed device yields sensor.kleenex_pollen_* with neither the `radar_`
+// prefix nor a location slug. Detection and location resolution must therefore
+// go through registry discovery, with the legacy entity-ID paths as fallback.
+// ---------------------------------------------------------------------------
+
+describe("Kleenex detection with renamed devices (issue #309)", () => {
+  /** One config entry / device whose entity IDs carry no location slug. */
+  function renamedKleenexHass() {
+    const deviceMeta = {
+      name: "Kleenex Pollen Radar (Home)",
+      identifiers: [["kleenex_pollenradar", "Home"] as [string, string]],
+      configEntries: ["entry_home"],
+    };
+    return createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_trees",
+        state: "200",
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "dev_home",
+        deviceMeta,
+      },
+      {
+        entityId: "sensor.kleenex_pollen_grass",
+        state: "100",
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_home",
+      },
+      {
+        entityId: "sensor.kleenex_pollen_last_updated",
+        state: "2026-04-25T10:00:00+00:00",
+        platform: "kleenex_pollenradar",
+        translationKey: "last_updated",
+        deviceId: "dev_home",
+      },
+    ]);
+  }
+
+  it("detects Kleenex from the registry when no entity ID carries the prefix", () => {
+    expect(detect(renamedKleenexHass())).toBe("kleenex");
+  });
+
+  it("auto-selects the discovered location (config entry key)", () => {
+    const hass = renamedKleenexHass();
+    const detection = detectIntegrationStates(hass);
+    expect(autoSelectLocation("kleenex", {}, hass, detection)).toEqual({
+      key: "location",
+      value: "entry_home",
+    });
+  });
+
+  it("derives the location of a specific renamed entity", () => {
+    const hass = renamedKleenexHass();
+    const detection = detectIntegrationStates(hass);
+    expect(
+      deriveLocationForEntity(
+        "kleenex",
+        "sensor.kleenex_pollen_grass",
+        hass,
+        detection,
+      ),
+    ).toEqual({ key: "location", value: "entry_home" });
+  });
+
+  it("offers no derivation for a diagnostic sensor", () => {
+    const hass = renamedKleenexHass();
+    const detection = detectIntegrationStates(hass);
+    expect(
+      deriveLocationForEntity(
+        "kleenex",
+        "sensor.kleenex_pollen_last_updated",
+        hass,
+        detection,
+      ),
+    ).toBeNull();
+  });
+
+  it("keeps the legacy slug for registry-less installs", () => {
+    const hass = mkHass([
+      "sensor.kleenex_pollen_radar_utrecht_trees",
+      "sensor.kleenex_pollen_radar_utrecht_date",
+    ]);
+    const detection = detectIntegrationStates(hass);
+    expect(pickIntegration(detection)).toBe("kleenex");
+    expect(autoSelectLocation("kleenex", {}, hass, detection)).toEqual({
+      key: "location",
+      value: "utrecht",
+    });
   });
 });
 

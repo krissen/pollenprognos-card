@@ -244,19 +244,24 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.installedMswLocations = toList(detection.getMswDiscovery());
     this.installedIrmkmiLocations = toList(detection.getIrmkmiDiscovery());
 
-    // Kleenex has no discovery helper; derive slugs from the *_date sensors.
-    this.installedKleenexLocations = Array.from(
-      new Set(
-        detection.stateIds
-          .map((id: string) => {
-            const m =
-              typeof id === "string" &&
-              id.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
-            return m ? m[1] : null;
-          })
-          .filter(Boolean),
-      ),
-    ).map((slug) => [slug, slug] as InstalledLocation);
+    // Kleenex via eager discovery; the *_date slug derivation stays as the
+    // fallback for installs without registry metadata. Discovery is required
+    // for renamed devices, whose entity IDs carry no location slug (issue #309).
+    const kleenexDiscovery = detection.discovery.kleenex;
+    this.installedKleenexLocations = kleenexDiscovery.locations.size
+      ? toList(kleenexDiscovery)
+      : Array.from(
+          new Set(
+            detection.stateIds
+              .map((id: string) => {
+                const m =
+                  typeof id === "string" &&
+                  id.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
+                return m ? m[1] : null;
+              })
+              .filter(Boolean),
+          ),
+        ).map((slug) => [slug, slug] as InstalledLocation);
   }
 
   /**
