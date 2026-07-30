@@ -83,8 +83,13 @@ describe("normalizeCardConfig: numeric string coercion", () => {
       stubConfigPP,
       { integration: "pp", filter: true },
     );
+    // The boundary coerces the type and stops there: 0 and -1 are legitimate
+    // values for some number fields, so range-checking is not its job. For
+    // icon_size the read-side guard rejects them, so both layers have to be
+    // read together — hence the guard assertion alongside the config one.
     expect(cfg.icon_size).toBe(0);
     expect(cfg.days_to_show).toBe(-1);
+    expect(resolveIconSize(cfg.icon_size)).toBe(48);
   });
 
   it("falls back to the stub default for an unusable numeric value", () => {
