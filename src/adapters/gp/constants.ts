@@ -530,7 +530,7 @@ export const stubConfigGP: AdapterStubConfig = {
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,

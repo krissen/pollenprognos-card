@@ -1451,7 +1451,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-    const iconSize = Number(this.config?.icon_size) || 48;
+    const iconSize = this.config?.icon_size ?? 48;
     // A configured element-level tap_action takes precedence over per-icon
     // more-info unless link_to_sensors is explicitly true (#279).
     const hasTap = resolveTapActionType(this.tapAction) !== null;
@@ -1656,7 +1656,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // thickness and gap. Same derivation minimal mode and the badge use.
     const { colors, emptyColor, gapColor, thickness, gap } =
       this._buildLevelRingConfig();
-    const iconSize = Number(this.config.icon_size) || 48;
+    const iconSize = this.config.icon_size ?? 48;
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
 
@@ -2141,8 +2141,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const bg = (this.config.background_color as string | undefined)?.trim?.();
     const bgStyle = bg ? `background-color: ${bg};` : "";
     const cursorStyle = hasTap ? "pointer" : "auto";
-    const imgSize =
-      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
+    const configuredIconSize = this.config.icon_size ?? 0;
+    const imgSize = configuredIconSize > 0 ? configuredIconSize : 48;
     const cardStyle = `
     ${bgStyle}
     cursor: ${cursorStyle};

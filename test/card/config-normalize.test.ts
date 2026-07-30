@@ -76,13 +76,13 @@ describe("normalizeCardConfig: numeric string coercion", () => {
     expect(cfg.days_to_show).toBe("abc");
   });
 
-  it("does not coerce icon_size (a string in the stub) to a number", () => {
+  it("coerces a legacy string icon_size to a number", () => {
     const cfg = normalizeCardConfig(
       { integration: "pp", icon_size: "64" },
       stubConfigPP,
       { integration: "pp", filter: true },
     );
-    expect(cfg.icon_size).toBe("64");
+    expect(cfg.icon_size).toBe(64);
   });
 });
 

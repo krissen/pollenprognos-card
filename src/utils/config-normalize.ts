@@ -19,7 +19,7 @@
 //   - `allergens` is guaranteed to be an array (falls back to the stub default
 //     when a malformed non-array slips through).
 // Fields no stub types as boolean/number (title, city/location/region_id,
-// icon_size, date_locale, tap_action, ...) are never coerced, so title="false"
+// date_locale, tap_action, ...) are never coerced, so title="false"
 // stays the string the header logic expects and entity-id slugs stay strings.
 //
 // The result is frozen: nothing downstream mutates the card's config in place
