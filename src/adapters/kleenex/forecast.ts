@@ -17,6 +17,10 @@ import {
   normalizeManualPrefix,
 } from "../../utils/adapter-helpers.js";
 import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
+import {
+  DIAGNOSTIC_SUFFIXES,
+  canonicalAllergenFromSlug,
+} from "./discovery.js";
 import { ppmToLevel } from "./levels.js";
 
 // One collected day of data for an allergen (raw level 0-4 plus the ppm value).
@@ -35,29 +39,6 @@ interface KleenexAllergenEntry {
 
 // A forecast/detail item as reported by the integration (loosely shaped).
 type KleenexItem = Record<string, unknown>;
-
-// Static lookup: slugified alias key -> canonical allergen name. Built once
-// from KLEENEX_ALLERGEN_MAP since the map is module-level constant data.
-const SLUGIFIED_ALIAS_MAP: Map<string, string> = (() => {
-  const m = new Map<string, string>();
-  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
-    const slug = slugify(alias);
-    if (!m.has(slug)) m.set(slug, canonical);
-  }
-  return m;
-})();
-
-// Diagnostic suffixes that are not allergen names — skip them in Pass 2.
-const DIAGNOSTIC_SUFFIXES = new Set([
-  "level",
-  "date",
-  "last_updated",
-  "latitude",
-  "longitude",
-  "city",
-  "region",
-  "error",
-]);
 
 // Track which (location, entity_prefix) combinations have already received the
 // NA-zone warning so it isn't re-emitted on every HA state update.
@@ -524,19 +505,8 @@ export async function fetchForecast(
 
     // Check whether this suffix matches a known allergen alias (by slug). When
     // config.location is unset, the location segment couldn't be stripped above,
-    // so fall back to progressively shorter trailing slug candidates.
-    let canonicalName = SLUGIFIED_ALIAS_MAP.get(allergenSuffix);
-    if (!canonicalName && allergenSuffix.includes("_")) {
-      const parts = allergenSuffix.split("_");
-      for (let i = 1; i < parts.length; i++) {
-        const candidate = parts.slice(i).join("_");
-        const match = SLUGIFIED_ALIAS_MAP.get(candidate);
-        if (match) {
-          canonicalName = match;
-          break;
-        }
-      }
-    }
+    // so the helper also tries progressively shorter trailing slug candidates.
+    const canonicalName = canonicalAllergenFromSlug(allergenSuffix);
     if (!canonicalName) continue;
 
     // Skip allergens not requested in config.

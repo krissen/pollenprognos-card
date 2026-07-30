@@ -6,10 +6,15 @@ export {
   KLEENEX_ALLERGEN_CATEGORIES,
   INDIVIDUAL_TO_CATEGORY,
   DOMAIN,
+  PLATFORM,
   capitalize,
 } from "./constants.js";
 export { ppmToLevel } from "./levels.js";
-export { resolveEntityIds } from "./discovery.js";
+export {
+  resolveEntityIds,
+  discoverKleenex,
+  canonicalAllergenFromSlug,
+} from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
 import type { HomeAssistant } from "../../types/home-assistant.js";

@@ -1,7 +1,101 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { fetchForecast, stubConfigKleenex, resolveEntityIds } from "../../src/adapters/kleenex/index.js";
+import {
+  fetchForecast,
+  stubConfigKleenex,
+  resolveEntityIds,
+  discoverKleenex,
+} from "../../src/adapters/kleenex/index.js";
 import { _resetNaWarningsForTest } from "../../src/adapters/kleenex/forecast.js";
-import { createHass, assertSensorShape } from "../helpers.js";
+import {
+  createHass,
+  createHassWithRegistry,
+  assertSensorShape,
+} from "../helpers.js";
+
+/**
+ * Build registry entries for one Kleenex config entry (one device), using the
+ * renamed-device entity IDs from issue #309: no `radar_` slug, no location slug.
+ *
+ * @param instance   - Config-entry instance name (device label).
+ * @param prefix     - Entity-ID prefix, e.g. "kleenex_pollen".
+ * @param deviceId   - Device registry ID.
+ * @param cfgEntry   - Config entry ID.
+ */
+function kleenexRegistryEntries(
+  instance: string,
+  prefix: string,
+  deviceId: string,
+  cfgEntry: string,
+): any[] {
+  const categoryAttrs = (ppm: number, details: any[]) => ({
+    details,
+    forecast: [
+      { datetime: "2026-04-26", level: 2, value: ppm, details },
+      { datetime: "2026-04-27", level: 2, value: ppm, details },
+    ],
+  });
+  const deviceMeta = {
+    name: `Kleenex Pollen Radar (${instance})`,
+    identifiers: [["kleenex_pollenradar", instance]],
+    configEntries: [cfgEntry],
+  };
+  return [
+    {
+      entityId: `sensor.${prefix}_trees`,
+      state: "200",
+      attributes: categoryAttrs(200, [{ name: "Birch", value: 150 }]),
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId,
+      deviceMeta,
+    },
+    {
+      entityId: `sensor.${prefix}_grass`,
+      state: "100",
+      attributes: categoryAttrs(100, []),
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_weeds`,
+      state: "80",
+      attributes: categoryAttrs(80, []),
+      platform: "kleenex_pollenradar",
+      translationKey: "weeds",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_armoise`,
+      state: "42",
+      attributes: { forecast: [{ date: "2026-04-26", value: 30 }] },
+      platform: "kleenex_pollenradar",
+      translationKey: "detail_value",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_armoise_level`,
+      state: "low",
+      platform: "kleenex_pollenradar",
+      translationKey: "detail_level",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_trees_level`,
+      state: "high",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees_level",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_last_updated`,
+      state: "2026-04-25T10:00:00+00:00",
+      platform: "kleenex_pollenradar",
+      translationKey: "last_updated",
+      deviceId,
+    },
+  ];
+}
 
 function makeConfig(overrides: any = {}): any {
   return { ...stubConfigKleenex, ...overrides };
@@ -1534,5 +1628,102 @@ describe("Kleenex adapter: resolveEntityIds DetailSensor probe", () => {
     expect(map.has("birch")).toBe(false);
     // Category sensor is still found.
     expect(map.has("trees")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 15. Registry-based discovery (discoverKleenex)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: discoverKleenex", () => {
+  it("discovers a renamed device (issue #309) as one location", () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const discovery = discoverKleenex(hass);
+
+    expect(discovery.tierUsed).toBe(1);
+    expect(discovery.locations.size).toBe(1);
+    const [, loc] = [...discovery.locations][0];
+    expect(loc.label).toBe("Home");
+    expect([...loc.entities.keys()].sort()).toEqual([
+      "grass",
+      "mugwort",
+      "trees",
+      "weeds",
+    ]);
+    expect(loc.entities.get("trees")).toBe("sensor.kleenex_pollen_trees");
+    expect(loc.entities.get("mugwort")).toBe("sensor.kleenex_pollen_armoise");
+  });
+
+  it("keeps two config entries in separate locations", () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      ...kleenexRegistryEntries(
+        "Cabin",
+        "kleenex_pollen_radar_cabin",
+        "device_cabin",
+        "cfg_cabin",
+      ),
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    expect(discovery.locations.size).toBe(2);
+    const labels = [...discovery.locations.values()].map((l) => l.label).sort();
+    expect(labels).toEqual(["Cabin", "Home"]);
+    const home = discovery.locations.get("cfg_home")!;
+    expect(home.entities.get("trees")).toBe("sensor.kleenex_pollen_trees");
+    const cabin = discovery.locations.get("cfg_cabin")!;
+    expect(cabin.entities.get("trees")).toBe(
+      "sensor.kleenex_pollen_radar_cabin_trees",
+    );
+  });
+
+  it("falls back to the legacy entity-ID slug when no registry exists", () => {
+    const hass = makeHassFromEntities([
+      makeKleenexEntity("amsterdam", "trees", 200, [{ name: "Birch", value: 150 }]),
+      makeKleenexEntity("amsterdam", "grass", 100, []),
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_bouleau",
+        state: "150",
+        attributes: { forecast: [] },
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_last_updated",
+        state: "2026-04-25T10:00:00+00:00",
+        attributes: {},
+      },
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    expect(discovery.tierUsed).toBe(3);
+    expect([...discovery.locations.keys()]).toEqual(["amsterdam"]);
+    const loc = discovery.locations.get("amsterdam")!;
+    expect([...loc.entities.keys()].sort()).toEqual(["birch", "grass", "trees"]);
+  });
+
+  it("resolves the allergen from friendly_name when the ID slug is unknown", () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_bjoerk",
+        state: "12",
+        attributes: { friendly_name: "Kleenex pollen Birch" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        deviceId: "device_home",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Home)",
+          identifiers: [["kleenex_pollenradar", "Home"]],
+          configEntries: ["cfg_home"],
+        },
+      },
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    const loc = discovery.locations.get("cfg_home")!;
+    expect(loc.entities.get("birch")).toBe("sensor.kleenex_pollen_bjoerk");
   });
 });
