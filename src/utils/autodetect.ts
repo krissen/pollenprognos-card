@@ -488,17 +488,13 @@ export function deriveLocationForEntity(
         }
       }
       if (!best) return null;
-      // Reject diagnostic helper sensors (date/last_updated/region); only
-      // category/detail sensors are renderable pollen data.
-      const rest = entityId.slice(
-        `sensor.kleenex_pollen_radar_${best}_`.length,
-      );
-      const KLEENEX_DIAGNOSTIC_SUFFIXES = new Set([
-        "date",
-        "last_updated",
-        "region",
-      ]);
-      if (!rest || KLEENEX_DIAGNOSTIC_SUFFIXES.has(rest)) return null;
+      // Only category/detail sensors are renderable pollen data. Ask the
+      // adapter rather than keeping a local list of diagnostic suffixes here:
+      // the previous list covered date/last_updated/region but not latitude,
+      // longitude, city, error or the `*_level` enums, so a card was suggested
+      // for those. The adapter's classifier is the same one discovery uses.
+      const isRenderable = getAutodetect("kleenex")?.isRenderableEntity;
+      if (isRenderable && !isRenderable(entityId)) return null;
       return { key: "location", value: best };
     }
 

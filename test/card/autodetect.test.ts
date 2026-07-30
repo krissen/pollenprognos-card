@@ -496,6 +496,43 @@ describe("Kleenex detection with renamed devices (issue #309)", () => {
     ).toBeNull();
   });
 
+  // Codex round 14: without a registry, the fallback rejected only
+  // date/last_updated/region, so HA's "suggest a card" flow advertised a pollen
+  // card for latitude/longitude/city/error and the *_level enums.
+  it("offers no derivation for legacy diagnostic helpers", () => {
+    const hass = mkHass([
+      "sensor.kleenex_pollen_radar_home_trees",
+      "sensor.kleenex_pollen_radar_home_trees_level",
+      "sensor.kleenex_pollen_radar_home_latitude",
+      "sensor.kleenex_pollen_radar_home_longitude",
+      "sensor.kleenex_pollen_radar_home_city",
+      "sensor.kleenex_pollen_radar_home_error",
+      "sensor.kleenex_pollen_radar_home_date",
+    ]);
+    const detection = detectIntegrationStates(hass);
+
+    for (const id of [
+      "sensor.kleenex_pollen_radar_home_trees_level",
+      "sensor.kleenex_pollen_radar_home_latitude",
+      "sensor.kleenex_pollen_radar_home_longitude",
+      "sensor.kleenex_pollen_radar_home_city",
+      "sensor.kleenex_pollen_radar_home_error",
+      "sensor.kleenex_pollen_radar_home_date",
+    ]) {
+      expect(deriveLocationForEntity("kleenex", id, hass, detection)).toBeNull();
+    }
+
+    // The category sensor still derives its location.
+    expect(
+      deriveLocationForEntity(
+        "kleenex",
+        "sensor.kleenex_pollen_radar_home_trees",
+        hass,
+        detection,
+      ),
+    ).toEqual({ key: "location", value: "home" });
+  });
+
   it("keeps the legacy slug for registry-less installs", () => {
     const hass = mkHass([
       "sensor.kleenex_pollen_radar_utrecht_trees",
