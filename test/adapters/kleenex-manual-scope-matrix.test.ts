@@ -209,33 +209,138 @@ function reversed(hass: HomeAssistant): HomeAssistant {
   } as HomeAssistant;
 }
 
-const PREFIX_FORMS: { form: string; prefix: string; note: string }[] = [
+/**
+ * A prefix form, described by *what it is* rather than by its name: `owns`
+ * names the role of the device the prefix is the slug of, which is what decides
+ * whether the ownership invariant applies. Invariant selection reads these
+ * properties, never the form's name.
+ */
+interface PrefixForm {
+  form: string;
+  prefix: string;
+  note: string;
+  owns: "owner" | "colliding" | null;
+}
+
+const PREFIX_FORMS: PrefixForm[] = [
   {
     form: "1-renamed-device-slug",
     prefix: "kleenex_pollen_",
     note: "exact slug of the renamed device",
+    owns: "owner",
   },
   {
     form: "2-legacy-device-slug",
     prefix: "kleenex_pollen_radar_utrecht_",
     note: "exact slug of the legacy device",
+    owns: "colliding",
   },
   {
     form: "3-broad-legacy-prefix",
     prefix: "kleenex_pollen_radar_",
     note: "prefix of several locations' IDs, slug of none",
+    owns: null,
   },
   {
     form: "4-truncated-non-slug",
     prefix: "kleenex_pol",
     note: "truncated, matches no device slug",
+    owns: null,
   },
   {
     form: "5-non-slug-with-matches",
     prefix: "kleenex_",
     note: "matches every entity, slug of no device",
+    owns: null,
   },
 ];
+
+/**
+ * What each environment *is*, so the invariants below can be selected from
+ * properties instead of from the environment's name.
+ *
+ * This is not cosmetic. The first version gated the strongest invariant on
+ * `env.startsWith("multi")`, and the two mixed-registry environments added
+ * later silently opted out of it: a mutation that reverted half the tier-2 fix
+ * kept the whole suite green while the bug was demonstrably back. A new
+ * environment must now state its properties, and TypeScript will not let it be
+ * added without them.
+ */
+interface EnvSpec {
+  /** Any registry information at all (entity entries and/or devices). */
+  hasRegistry: boolean;
+  /** Device id of the device a prefix minted from a rename would belong to. */
+  ownerDevice: string | null;
+  /** Every other Kleenex device present, in the order they collide. */
+  collidingDevices: string[];
+  /** Locations discoverable from entity IDs alone (tier 3). */
+  tier3Locations: number;
+}
+
+const ENV_SPECS: Record<Environment, EnvSpec> = {
+  multi: {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: ["dev_utrecht"],
+    tier3Locations: 1,
+  },
+  "multi-long": {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: ["dev_utrecht"],
+    tier3Locations: 1,
+  },
+  "multi-legacy": {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: ["dev_utrecht", "dev_rotterdam"],
+    tier3Locations: 2,
+  },
+  "multi-duplicate-keys": {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: ["dev_utrecht", "dev_rotterdam"],
+    tier3Locations: 2,
+  },
+  "mixed-colliding-tier2": {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: ["dev_utrecht"],
+    tier3Locations: 1,
+  },
+  "mixed-owner-tier2": {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: ["dev_utrecht"],
+    tier3Locations: 1,
+  },
+  single: {
+    hasRegistry: true,
+    ownerDevice: "dev_paris",
+    collidingDevices: [],
+    tier3Locations: 0,
+  },
+  bare: {
+    hasRegistry: false,
+    ownerDevice: null,
+    collidingDevices: [],
+    tier3Locations: 1,
+  },
+};
+
+/** The device the given prefix form is the slug of, in this cell. */
+function ownedDevice(
+  spec: EnvSpec,
+  owner: OwnerMode,
+  form: PrefixForm,
+): string | null {
+  if (form.owns === "owner") {
+    // An owner absent from the registry cannot be recognised as one.
+    return owner === "absent" ? null : spec.ownerDevice;
+  }
+  if (form.owns === "colliding") return spec.collidingDevices[0] ?? null;
+  return null;
+}
 
 const ENVIRONMENTS: Environment[] = [
   "multi",
@@ -305,7 +410,9 @@ describe("Kleenex manual-scope invariants (prefix forms x owner modes x environm
         continue;
       }
 
-      for (const { form, prefix, note } of PREFIX_FORMS) {
+      const spec = ENV_SPECS[env];
+      for (const formSpec of PREFIX_FORMS) {
+        const { form, prefix, note } = formSpec;
         it(`${env}/${owner}/${form}: holds every invariant (${note})`, () => {
           const hass = buildHass(env, owner);
           const inputIds = Object.keys(
@@ -329,27 +436,24 @@ describe("Kleenex manual-scope invariants (prefix forms x owner modes x environm
             }
           }
 
-          // Invariant: a registry-less install behaves exactly as before, i.e.
-          // pure prefix matching with no narrowing and no header override.
-          if (env === "bare") {
+          // Invariant: an install where nothing can attribute an entity --
+          // no registry, and too few tier-3 locations to tell them apart --
+          // is returned untouched, with no header override.
+          if (!spec.hasRegistry && spec.tier3Locations < 2) {
             expect(scope.entityIds).toEqual(inputIds);
             expect(scope.label).toBeNull();
           }
 
-          // Invariant: when the registry knows an owner for this prefix, no
-          // other location's data may appear -- not even if the owner has no
-          // usable states of its own.
-          const multi = env.startsWith("multi");
-          if (multi && owner !== "absent" && form.startsWith("1-")) {
-            // Ownership survives the owner having no usable states: no other
-            // location's data may appear, however little the owner offers.
-            expect([...keptDevices]).not.toContain("dev_utrecht");
-            for (const eid of UTRECHT_IDS) {
-              expect(scope.entityIds).not.toContain(eid);
+          // Invariant: when a registry-known device owns this prefix, no other
+          // location's entities may appear -- not even when the owner has no
+          // usable states and contributes nothing itself.
+          const owned = ownedDevice(spec, owner, formSpec);
+          if (owned) {
+            expect([...keptDevices].filter((id) => id !== owned)).toEqual([]);
+            for (const eid of scope.entityIds) {
+              const deviceId = (hass as any).entities?.[eid]?.device_id;
+              expect(deviceId === undefined || deviceId === owned).toBe(true);
             }
-          }
-          if (multi && form.startsWith("2-")) {
-            expect([...keptDevices]).not.toContain("dev_paris");
           }
 
           // Invariant: the outcome does not depend on registry/state iteration
