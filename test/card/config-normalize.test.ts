@@ -162,24 +162,29 @@ describe("normalizeCardConfig: numeric string coercion", () => {
 //      icon_size sites (minimal rows, daily rows, --pollen-icon-size) and the
 //      editor's slider/number field. It covers what the boundary deliberately
 //      leaves alone — 0 and negative numbers are legitimate values there — and
-//      keeps the number type backed by a runtime check for configs that never
-//      passed the boundary (the editor spreads config without coercing it).
+//      stands on its own for configs that never passed the boundary (the editor
+//      spreads config without coercing it).
 describe("resolveIconSize", () => {
   it("passes a usable size through", () => {
     expect(resolveIconSize(64)).toBe(64);
     expect(resolveIconSize(16)).toBe(16);
   });
 
+  it("converts a numeric string, for configs that skipped the boundary", () => {
+    // The editor spreads config uncoerced, so legacy icon_size: "64" arrives
+    // here as a string; returning the default would make the slider and number
+    // field start from a different value than the card renders.
+    expect(resolveIconSize("64")).toBe(64);
+    expect(resolveIconSize(" 64 ")).toBe(64);
+  });
+
   it("falls back to 48 for every unusable value", () => {
     // "48px" is plausible by hand: the editor label reads "Icon size (px)".
-    // "64" is here on purpose too — converting numeric strings is the
-    // boundary's job, so a string reaching the guard means it bypassed it.
     for (const raw of [
       "abc",
       "48px",
       "",
       "  ",
-      "64",
       true,
       {},
       [],
@@ -197,6 +202,8 @@ describe("resolveIconSize", () => {
     // through (Number(-10) || 48 === -10), which is invalid CSS anyway.
     expect(resolveIconSize(0)).toBe(48);
     expect(resolveIconSize(-10)).toBe(48);
+    expect(resolveIconSize("0")).toBe(48);
+    expect(resolveIconSize("-10")).toBe(48);
   });
 
   it("layers with the boundary for real YAML values", () => {

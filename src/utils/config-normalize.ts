@@ -142,16 +142,23 @@ export const DEFAULT_ICON_SIZE = 48;
  * The second half of a two-layer defence: {@link coerceConfigTypes} repairs
  * hand-written YAML (`icon_size: 48px`, plausible since the editor label reads
  * "Icon size (px)") at the config boundary, but not every config reaches the
- * card through it — the editor spreads its config without coercing. And the
- * boundary deliberately keeps 0 and negative numbers, which are legitimate for
- * other number fields but yield invalid CSS or a clamped ring as an edge
+ * card through it — the editor spreads its config without coercing. The guard
+ * therefore does its own numeric-string conversion instead of assuming the
+ * boundary ran: the legacy `icon_size: "64"` must show 64 on the editor's
+ * slider, not the default, or the controls start from a different value than
+ * the card renders.
+ *
+ * The boundary deliberately keeps 0 and negative numbers, which are legitimate
+ * for other number fields but yield invalid CSS or a clamped ring as an edge
  * length. Anything that isn't a positive finite number renders at the default
  * rather than flowing into the geometry, where the daily path would produce a
  * NaN donut width and minimal mode a literal `width: ${value}px`.
  */
 export function resolveIconSize(raw: unknown): number {
-  return typeof raw === "number" && Number.isFinite(raw) && raw > 0
-    ? raw
+  const value =
+    typeof raw === "string" ? (raw.trim() === "" ? NaN : Number(raw)) : raw;
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
     : DEFAULT_ICON_SIZE;
 }
 
