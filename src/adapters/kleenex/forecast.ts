@@ -116,14 +116,22 @@ export async function fetchForecast(
     keyByEntityId = located.keyByEntityId;
   } else if (manualPrefix) {
     const expectedPrefix = `sensor.${manualPrefix}`;
+    // The configured suffix is part of the naming contract, not decoration:
+    // an install can hold both `..._birch` and `..._birch_v2`, and collecting
+    // both would let state insertion order decide which one the allergen map
+    // keeps -- while resolveEntityIds unambiguously selects the suffixed one.
+    const manualSuffix =
+      typeof config.entity_suffix === "string" ? config.entity_suffix : "";
     if (debug) {
       console.debug(
-        `[Kleenex] Manual mode filtering with prefix: '${manualPrefix}'`,
+        `[Kleenex] Manual mode filtering with prefix: '${manualPrefix}'${manualSuffix ? `, suffix: '${manualSuffix}'` : ""}`,
       );
     }
     kleenexSensors = Object.values(hass.states).filter((entity) => {
       const matches =
-        !!entity.entity_id && entity.entity_id.startsWith(expectedPrefix);
+        !!entity.entity_id &&
+        entity.entity_id.startsWith(expectedPrefix) &&
+        (!manualSuffix || entity.entity_id.endsWith(manualSuffix));
       if (debug && matches) {
         console.debug(`[Kleenex] Manual mode match: ${entity.entity_id}`);
       }

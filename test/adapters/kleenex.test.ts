@@ -956,6 +956,37 @@ describe("Kleenex adapter: manual mode", () => {
     expect(result.length).toBe(0);
   });
 
+  it("uses only suffixed entities when entity_suffix is configured", async () => {
+    // Codex round 15: both the unsuffixed and the suffixed sensor match the
+    // prefix, and the unsuffixed one is listed first, so a prefix-only
+    // collection would render it instead of the configured `_v2` sensor.
+    const detail = (entityId: string, ppm: number) => ({
+      entity_id: entityId,
+      state: String(ppm),
+      attributes: {
+        friendly_name: entityId,
+        forecast: [{ date: "2026-04-26", value: ppm }],
+      },
+    });
+    const hass = makeHassFromEntities([
+      detail("sensor.kleenex_pollen_birch", 10),
+      detail("sensor.kleenex_pollen_birch_v2", 200),
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      entity_suffix: "_v2",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_birch_v2");
+    expect(result[0].days[0].value).toBe(200);
+  });
+
   it("issue #309 - collects sensors whose IDs lack the legacy domain slug", async () => {
     // Device renamed to "Kleenex pollen": entity IDs carry neither
     // `kleenex_pollen_radar_` nor a location slug.
