@@ -208,7 +208,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       ? toList(ppDiscovery)
       : Array.from(
           new Set(
-            detection.states.pp
+            (detection.states.pp ?? [])
               .map((id: string) => extractPpCitySlugFromEntityId(id))
               .filter(Boolean),
           ),
@@ -218,7 +218,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.installedDwdLocations = dwdDiscovery.locations.size
       ? toList(dwdDiscovery)
       : Array.from(
-          new Set(detection.states.dwd.map((id: string) => id.split("_").pop())),
+          new Set((detection.states.dwd ?? []).map((id: string) => id.split("_").pop())),
         )
           .sort((a, b) => Number(a) - Number(b))
           .map((id) => [id, id] as InstalledLocation);
@@ -228,7 +228,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       ? toList(peuDiscovery)
       : Array.from(
           new Set(
-            detection.states.peu
+            (detection.states.peu ?? [])
               .map(
                 (eid: string) =>
                   hass.states[eid]?.attributes?.location_slug || null,

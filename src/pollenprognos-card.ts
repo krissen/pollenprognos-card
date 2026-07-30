@@ -229,10 +229,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     let targetLocation =
       this.config.location === "manual" ? "" : this.config.location;
     if (!targetLocation && this.config.location !== "manual") {
-      const match = peuStates[0].match(
+      const match = peuStates[0]!.match(
         /^sensor\.polleninformation_(.+)_[^_]+$/,
       );
-      targetLocation = match ? match[1] : "";
+      targetLocation = match?.[1] ?? "";
     }
 
     if (!targetLocation) {
@@ -1022,7 +1022,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
             if (!match) return false;
-            return SilamValidAllergenSlugs.has(match[2]);
+            return SilamValidAllergenSlugs.has(match[2] ?? "");
           });
           const wantedSlug = slugify(cfg.location as string);
           const match = wantedSlug
@@ -1827,8 +1827,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 this.config.show_block_separator &&
                 sIdx > 0 &&
                 sensor.group &&
-                rowSensors[sIdx - 1].group &&
-                sensor.group !== rowSensors[sIdx - 1].group
+                rowSensors[sIdx - 1]?.group &&
+                sensor.group !== rowSensors[sIdx - 1]?.group
                   ? html`<tr class="block-separator-row">
                       <td colspan="${totalCols}">
                         <hr class="block-separator" />
