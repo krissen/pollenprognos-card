@@ -110,6 +110,30 @@ function diagnosticsFirstHass(): any {
   });
 }
 
+/**
+ * Diagnostics first again, but every entity carries a configured
+ * entity_suffix, so the classifier only recognises the category sensor once
+ * the suffix is stripped.
+ */
+function suffixedDiagnosticsFirstHass(): any {
+  return createHass({
+    "sensor.kleenex_pollen_date_v2": {
+      entity_id: "sensor.kleenex_pollen_date_v2",
+      state: "2026-04-25",
+      attributes: { friendly_name: "Kleenex pollen Date v2" },
+    },
+    "sensor.kleenex_pollen_trees_v2": {
+      entity_id: "sensor.kleenex_pollen_trees_v2",
+      state: "200",
+      attributes: {
+        friendly_name: "Kleenex pollen Trees v2",
+        details: [],
+        forecast: [],
+      },
+    },
+  });
+}
+
 let CardCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -158,6 +182,24 @@ describe("card header for Kleenex manual mode (issue #309)", () => {
       allergens: ["trees"],
     });
     card.hass = diagnosticsFirstHass();
+
+    expect(card.header).toBe("Pollen forecast for Kleenex pollen");
+  });
+
+  // Codex P2 (round 5): the classifier reads the trailing token, so with an
+  // entity_suffix configured every entity looked unrenderable and the fallback
+  // picked the diagnostic sensor again.
+  it("ignores diagnostic sensors when an entity_suffix is configured", () => {
+    const card = new CardCtor();
+    card.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      entity_suffix: "_v2",
+      allergens: ["trees"],
+    });
+    card.hass = suffixedDiagnosticsFirstHass();
 
     expect(card.header).toBe("Pollen forecast for Kleenex pollen");
   });

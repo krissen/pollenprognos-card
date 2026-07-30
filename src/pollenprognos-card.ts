@@ -1101,10 +1101,23 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               // `..._last_updated`), whose friendly names would yield a header
               // like "Kleenex pollen Date". Prefer an entity the adapter
               // classifies as renderable, whatever order hass.states has.
+              //
+              // entity_suffix is stripped first: the classifier reads the
+              // trailing token, so `..._trees_v2` would otherwise look as
+              // unrenderable as `..._date_v2`. Suffix handling belongs to the
+              // caller here, since it is card config the adapter's entity-ID
+              // predicate knows nothing about (fetchForecast strips it the same
+              // way before its own lookups).
+              const entitySuffix =
+                typeof cfg.entity_suffix === "string" ? cfg.entity_suffix : "";
+              const stripSuffix = (entityId: string): string =>
+                entitySuffix && entityId.endsWith(entitySuffix)
+                  ? entityId.slice(0, -entitySuffix.length)
+                  : entityId;
               const isRenderable = kleenexAutodetect?.isRenderableEntity;
               match =
                 (isRenderable
-                  ? prefixed.find((s) => isRenderable(s.entity_id))
+                  ? prefixed.find((s) => isRenderable(stripSuffix(s.entity_id)))
                   : undefined) ??
                 prefixed[0] ??
                 null;
