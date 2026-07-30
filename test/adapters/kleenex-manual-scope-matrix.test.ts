@@ -56,6 +56,10 @@ const ROTTERDAM_DEVICE = {
   name_by_user: null,
 };
 const ROTTERDAM_IDS = ["sensor.kleenex_pollen_radar_rotterdam_trees"];
+// A second entity on the same device that classifies to the same key ("bomen"
+// is the Dutch trees sensor). Discovery keeps one entity per key, so this one
+// is missing from its location's entity map.
+const ROTTERDAM_DUPLICATE_ID = "sensor.kleenex_pollen_radar_rotterdam_bomen";
 
 /** The same devices as seen in a mixed registry: no identifiers, so they are
  * only recognisable through their entities' `platform` (discovery tier 2). */
@@ -75,6 +79,7 @@ type Environment =
   | "multi"
   | "multi-long"
   | "multi-legacy"
+  | "multi-duplicate-keys"
   | "mixed-colliding-tier2"
   | "mixed-owner-tier2"
   | "single"
@@ -154,7 +159,7 @@ function buildHass(env: Environment, owner: OwnerMode): HomeAssistant {
     paris.forEach((eid) => (states[eid] = sensorState(eid, "100")));
   }
 
-  if (env === "multi-legacy") {
+  if (env === "multi-legacy" || env === "multi-duplicate-keys") {
     // A second legacy location, so a broad `kleenex_pollen_radar_` prefix
     // matches two devices at once -- the case the narrowing warning exists for.
     devices.dev_rotterdam = ROTTERDAM_DEVICE;
@@ -162,6 +167,10 @@ function buildHass(env: Environment, owner: OwnerMode): HomeAssistant {
       states[eid] = sensorState(eid, "5");
       entities[eid] = entityEntry("dev_rotterdam", "trees");
     });
+    if (env === "multi-duplicate-keys") {
+      states[ROTTERDAM_DUPLICATE_ID] = sensorState(ROTTERDAM_DUPLICATE_ID, "9");
+      entities[ROTTERDAM_DUPLICATE_ID] = entityEntry("dev_rotterdam", "trees");
+    }
   }
 
   if (env !== "single") {
@@ -232,6 +241,7 @@ const ENVIRONMENTS: Environment[] = [
   "multi",
   "multi-long",
   "multi-legacy",
+  "multi-duplicate-keys",
   "mixed-colliding-tier2",
   "mixed-owner-tier2",
   "single",
@@ -395,6 +405,58 @@ describe("Kleenex manual-scope invariants (prefix forms x owner modes x environm
   // "untouched". Tier-3 discovery attributes legacy IDs by their slug, so two
   // legacy locations are narrowed to one even with an empty registry -- what is
   // guaranteed is only that entities nothing can attribute survive.
+  // Codex round 4: discovery keeps one entity per classified key, so the losing
+  // location's duplicate was unattributed -- and unattributed means kept, which
+  // let its data overwrite the winner's allergen values downstream.
+  it("drops every entity of a losing location, duplicates included", () => {
+    const hass = buildHass("multi-duplicate-keys", "absent");
+    const ids = Object.keys((hass as any).states).filter((id) =>
+      id.startsWith("sensor.kleenex_pollen_radar_"),
+    );
+    expect(ids).toContain(ROTTERDAM_DUPLICATE_ID);
+
+    const scope = scopeManualEntities(hass, ids, {
+      prefix: "kleenex_pollen_radar_",
+    });
+
+    expect(scope.entityIds).toEqual(UTRECHT_IDS);
+    expect(scope.entityIds).not.toContain(ROTTERDAM_DUPLICATE_ID);
+  });
+
+  it("drops duplicates of a losing location without any registry", () => {
+    // Tier-3 discovery keys locations by the legacy ID slug, so the duplicate
+    // is placed by its own ID even though nothing else knows it.
+    const legacyState = (id: string, city: string) => ({
+      entity_id: id,
+      state: "1",
+      attributes: {
+        friendly_name: `Kleenex Pollen Radar (${city}) Trees`,
+        details: [],
+        forecast: [],
+      },
+    });
+    const hass = {
+      states: {
+        [UTRECHT_IDS[0]!]: legacyState(UTRECHT_IDS[0]!, "Utrecht"),
+        [ROTTERDAM_IDS[0]!]: legacyState(ROTTERDAM_IDS[0]!, "Rotterdam"),
+        [ROTTERDAM_DUPLICATE_ID]: legacyState(
+          ROTTERDAM_DUPLICATE_ID,
+          "Rotterdam",
+        ),
+      },
+      entities: {},
+      devices: {},
+      locale: { language: "en" },
+      language: "en",
+    } as unknown as HomeAssistant;
+
+    const scope = scopeManualEntities(hass, Object.keys((hass as any).states), {
+      prefix: "kleenex_pollen_radar_",
+    });
+
+    expect(scope.entityIds).toEqual([UTRECHT_IDS[0]]);
+  });
+
   it("narrows two legacy locations even with an empty registry", () => {
     // Realistic friendly names, since a registry-less install has nothing else
     // to derive a label from.

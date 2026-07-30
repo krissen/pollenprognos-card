@@ -782,17 +782,40 @@ export function scopeManualEntities(
     return { entityIds, label: null };
   }
 
-  // entity_id -> location key, for the discovered locations only.
+  // Attribution: which discovered location does an entity belong to?
+  //
+  // discovery.locations[].entities is keyed by classified allergen key and thus
+  // holds one entity per key -- a second sensor that classifies the same way
+  // (e.g. an English and a Dutch trees sensor on one device) is simply missing
+  // from it. Attributing from that map alone would leave such duplicates
+  // unattributed, and unattributed means "always kept", so a losing location
+  // could still leak entities into the result (Codex round 4 on PR #315).
+  //
+  // The entity registry's device link is therefore tried first: it covers every
+  // entity of a device, classified or not. The classified map is the second
+  // source (it also holds entities whose registry entry has no device), and the
+  // legacy ID slug the third, since tier-3 locations are keyed by exactly that.
   const locationOf = new Map<string, string>();
+  const locationOfDevice = new Map<string, string>();
   for (const [key, loc] of discovery.locations) {
     for (const eid of loc.entities.values()) locationOf.set(eid, key);
+    if (loc.deviceId) locationOfDevice.set(loc.deviceId, key);
   }
+  const attribute = (entityId: string): string | undefined => {
+    const deviceId = hass?.entities?.[entityId]?.device_id;
+    const byDevice = deviceId ? locationOfDevice.get(deviceId) : undefined;
+    if (byDevice) return byDevice;
+    const byClassification = locationOf.get(entityId);
+    if (byClassification) return byClassification;
+    const slug = kleenexSlugExtractor(entityId);
+    return slug && discovery.locations.has(slug) ? slug : undefined;
+  };
 
   const base = `sensor.${prefix}`;
   // Per location: shortest and total remainder length after prefix and suffix.
   const scores = new Map<string, { min: number; total: number }>();
   for (const entityId of entityIds) {
-    const key = locationOf.get(entityId);
+    const key = attribute(entityId);
     if (!key) continue;
     let rest = entityId.startsWith(base)
       ? entityId.slice(base.length)
@@ -833,7 +856,7 @@ export function scopeManualEntities(
   }
 
   const kept = entityIds.filter((eid) => {
-    const key = locationOf.get(eid);
+    const key = attribute(eid);
     return !key || key === winner;
   });
 
