@@ -1728,6 +1728,62 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(await fetchForecast(hass, cfg)).toEqual([]);
   });
 
+  it("does not fall back to legacy IDs when the configured value is ambiguous", async () => {
+    // Codex round 8: one of the two colliding devices still has legacy-shaped
+    // entity IDs, so returning "no match" would let the entity-ID scan pick
+    // that device -- the arbitrary choice we just refused to make, one layer
+    // down.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_radar_st_john_trees",
+        state: "200",
+        attributes: {
+          friendly_name: "Kleenex Pollen Radar (St. John) Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          ],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "device_a",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (St. John)",
+          identifiers: [["kleenex_pollenradar", "St. John"] as [string, string]],
+          configEntries: ["cfg_a"],
+        },
+      },
+      {
+        entityId: "sensor.other_pollen_trees",
+        state: "50",
+        attributes: {
+          friendly_name: "Other pollen Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 1, value: 50, details: [] },
+          ],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "device_b",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (St John)",
+          identifiers: [["kleenex_pollenradar", "St John"] as [string, string]],
+          configEntries: ["cfg_b"],
+        },
+      },
+    ]);
+
+    const cfg = makeConfig({
+      location: "st_john",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
   it("falls back to the config-entry key when two instances share a name", () => {
     const hass = createHassWithRegistry([
       ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_a", "cfg_a"),

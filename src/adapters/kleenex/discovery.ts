@@ -416,30 +416,35 @@ export interface KleenexLocationMatch {
 /**
  * Resolve the location the card config points at, via registry discovery.
  *
- * Returns null when discovery found nothing or when no location matched the
- * config, leaving the caller on its legacy entity-ID path. An empty
- * `cfg.location` picks the first discovered location.
+ * Three outcomes, all distinct on purpose:
+ *   - a match,
+ *   - `null`: discovery found nothing, or nothing matched the config -- the
+ *     caller may fall back to its legacy entity-ID scan,
+ *   - `"ambiguous"`: several locations answer to the config value. The caller
+ *     must stop. Falling back to the legacy scan would pick up
+ *     `sensor.kleenex_pollen_radar_<slug>_*` from whichever colliding device
+ *     kept the unsuffixed IDs, i.e. re-introduce the arbitrary choice one layer
+ *     down.
+ *
+ * An empty `cfg.location` picks the first discovered location.
  */
 export function resolveKleenexLocation(
   hass: HomeAssistant,
   cfg: CardConfig,
   debug = false,
-): KleenexLocationMatch | null {
+): KleenexLocationMatch | "ambiguous" | null {
   const discovery = discoverKleenex(hass, debug);
   if (discovery.locations.size === 0) return null;
 
   const cfgLocation = cfg.location as string | undefined;
   const resolved = resolveKleenexLocationEntry(hass, discovery, cfgLocation);
   if (resolved === "ambiguous") {
-    // Two instances answer to this value. Resolving anyway would show one of
-    // them at random; leaving it unresolved surfaces the card's own
-    // "no sensors" error, which the user can act on.
     if (debug) {
       console.debug(
-        `[Kleenex] Location '${cfgLocation}' matches more than one device identifier; not resolving`,
+        `[Kleenex] Location '${cfgLocation}' matches more than one device; not resolving`,
       );
     }
-    return null;
+    return "ambiguous";
   }
   if (!resolved) return null;
   const match = resolved;
@@ -524,6 +529,10 @@ export function resolveEntityIds(
   // installs whose registry isn't exposed to the frontend.
   if (cfg.location !== "manual") {
     const located = resolveKleenexLocation(hass, cfg, debug);
+    // Several locations answer to the configured value: stop rather than fall
+    // through to the entity-ID probing below, which would pick the colliding
+    // device that happens to still carry legacy-shaped IDs.
+    if (located === "ambiguous") return map;
     if (located) {
       const wantedIndividual = new Set(requestedIndividualAllergens(cfg));
       for (const [key, entityId] of located.entities) {

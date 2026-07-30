@@ -99,6 +99,18 @@ export async function fetchForecast(
     config.location === "manual"
       ? null
       : resolveKleenexLocation(hass, config, !!debug);
+  if (located === "ambiguous") {
+    // Several locations answer to the configured value. Rendering one of them
+    // would be a guess -- and the legacy entity-ID scan below would make that
+    // guess for us, by picking whichever colliding device kept the unsuffixed
+    // IDs. Return nothing so the card shows its own "no sensors" error.
+    if (debug) {
+      console.debug(
+        `[Kleenex] Location '${config.location}' is ambiguous; returning no sensors`,
+      );
+    }
+    return [];
+  }
   if (located) {
     kleenexSensors = located.states;
     keyByEntityId = located.keyByEntityId;
