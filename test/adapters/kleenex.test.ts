@@ -1784,6 +1784,44 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(await fetchForecast(hass, cfg)).toEqual([]);
   });
 
+  it("does not pick between two devices that share a label", async () => {
+    // Codex round 9: neither device has a usable identifier, so both are keyed
+    // by config entry -- and both are labelled "Home", so the label step of the
+    // generic matching would resolve to whichever comes first.
+    const device = (prefix: string, id: string, cfg: string) => ({
+      entityId: `sensor.${prefix}_trees`,
+      state: "200",
+      attributes: {
+        friendly_name: "Home Trees",
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+        ],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: id,
+      deviceMeta: {
+        name: "Home",
+        identifiers: [] as [string, string][],
+        configEntries: [cfg],
+      },
+    });
+    const hass = createHassWithRegistry([
+      device("a_pollen", "device_a", "cfg_a"),
+      device("b_pollen", "device_b", "cfg_b"),
+    ]);
+
+    const cfg = makeConfig({
+      location: "home",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
   it("falls back to the config-entry key when two instances share a name", () => {
     const hass = createHassWithRegistry([
       ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_a", "cfg_a"),

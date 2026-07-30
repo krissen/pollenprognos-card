@@ -365,13 +365,57 @@ export function matchKleenexLocationByIdentifier(
 }
 
 /**
+ * How many locations each name-based candidate step matches, in the order
+ * resolveLocationByKey applies them: exact (case-insensitive) label equality,
+ * entity-ID slug, then fuzzy label containment.
+ *
+ * Only the counts matter here: resolveLocationByKey stops at the first step
+ * that matches anything, so that step decides -- and if it matches more than
+ * one location, it would pick by registry iteration order.
+ */
+function nameCandidateCounts(
+  discovery: { locations: Map<string, DiscoveredLocation> },
+  cfgLocation: string,
+): [labelExact: number, slugMatch: number, fuzzyLabel: number] {
+  // findLocationBySlug lowercases the needle and compares it to the extracted
+  // slug verbatim, so the same lowercased value is used for both steps here.
+  const needle = String(cfgLocation).toLowerCase();
+  let labelExact = 0;
+  let slugMatch = 0;
+  let fuzzyLabel = 0;
+
+  for (const loc of discovery.locations.values()) {
+    const label = loc.label ? String(loc.label).toLowerCase() : "";
+    if (label === needle && label) labelExact++;
+    if (label && label.includes(needle)) fuzzyLabel++;
+
+    for (const eid of loc.entities.values()) {
+      const lid = String(eid).toLowerCase();
+      const extracted = kleenexSlugExtractor(eid);
+      if (
+        (extracted && extracted.toLowerCase() === needle) ||
+        lid.endsWith(`_${needle}`) ||
+        lid.endsWith(`_${needle}_j_1`)
+      ) {
+        slugMatch++;
+        break;
+      }
+    }
+  }
+
+  return [labelExact, slugMatch, fuzzyLabel];
+}
+
+/**
  * Resolve a config location value against a discovery result, using the full
  * Kleenex candidate chain:
  *
  *   1. exact discovery key (the identifier slug for modern installs),
  *   2. device identifier (rename-stable; `"ambiguous"` when several match),
- *   3. resolveLocationByKey: label equality, label slug, entity-ID slug, fuzzy
- *      label -- which covers devices with no usable identifier.
+ *   3. resolveLocationByKey: label equality, entity-ID slug, fuzzy label --
+ *      which covers devices with no usable identifier. The deciding step is
+ *      checked for multiplicity first, so two devices both labelled "Home"
+ *      yield `"ambiguous"` instead of whichever the registry lists first.
  *
  * This is the single definition of "which location does this config mean" for
  * Kleenex. The card, both editors and the adapter all go through it (via the
@@ -395,6 +439,17 @@ export function resolveKleenexLocationEntry(
   );
   if (byIdentifier === "ambiguous") return "ambiguous";
   if (byIdentifier) return byIdentifier;
+
+  // The generic helper is shared with atmo/pp/gpl and keeps its first-match
+  // semantics for them; the multiplicity rule is applied here, in the Kleenex
+  // layer, so only this adapter's resolution changes. An empty cfgLocation
+  // means "auto-pick the first location" and is deliberately left alone.
+  if (cfgLocation) {
+    const deciding = nameCandidateCounts(discovery, cfgLocation).find(
+      (count) => count > 0,
+    );
+    if (deciding !== undefined && deciding > 1) return "ambiguous";
+  }
 
   return resolveLocationByKey(discovery, cfgLocation, {
     slugExtractor: kleenexSlugExtractor,

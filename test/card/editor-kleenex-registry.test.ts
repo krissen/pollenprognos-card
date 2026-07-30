@@ -222,6 +222,30 @@ function labelOnlyKleenexHass(): any {
   ]);
 }
 
+/**
+ * Two devices with no usable identifier and the same label: nothing can tell
+ * them apart, so a saved `location: home` must not bind to either (Codex
+ * round 9).
+ */
+function sharedLabelKleenexHass(): any {
+  const device = (prefix: string, id: string, cfg: string) => ({
+    entityId: `sensor.${prefix}_trees`,
+    state: "200",
+    platform: "kleenex_pollenradar",
+    translationKey: "trees",
+    deviceId: id,
+    deviceMeta: {
+      name: "Home",
+      identifiers: [] as [string, string][],
+      configEntries: [cfg],
+    },
+  });
+  return createHassWithRegistry([
+    device("a_pollen", "dev_a", "cfg_a"),
+    device("b_pollen", "dev_b", "cfg_b"),
+  ]);
+}
+
 let EditorCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -315,6 +339,20 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     const list = editor.installedKleenexLocations;
     expect(list).toEqual([["home", "Home"]]);
     expect(editor._config.location).toBe("home");
+  });
+
+  it("adds no compat entry when two devices share the configured label", () => {
+    const editor = new EditorCtor();
+    editor.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "home",
+    });
+    editor.hass = sharedLabelKleenexHass();
+
+    const list = editor.installedKleenexLocations;
+    expect(list.some(([key]) => key === "home")).toBe(false);
+    expect(list.map(([key]) => key).sort()).toEqual(["cfg_a", "cfg_b"]);
   });
 
   // Codex P2 (round 6). Contract guard rather than a regression test: the
