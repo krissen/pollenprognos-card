@@ -861,6 +861,65 @@ describe("Kleenex adapter: manual mode", () => {
 
     expect(result.length).toBe(0);
   });
+
+  it("issue #309 - collects sensors whose IDs lack the legacy domain slug", async () => {
+    // Device renamed to "Kleenex pollen": entity IDs carry neither
+    // `kleenex_pollen_radar_` nor a location slug.
+    const category = (name: string, ppm: number, details: any[]) => ({
+      entity_id: `sensor.kleenex_pollen_${name}`,
+      state: String(ppm),
+      attributes: {
+        details,
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: ppm, details },
+          { datetime: "2026-04-27", level: 2, value: ppm, details },
+        ],
+      },
+    });
+    const hass = makeHassFromEntities([
+      category("trees", 200, [{ name: "Birch", value: 150 }]),
+      category("grass", 100, []),
+      category("weeds", 80, []),
+      {
+        entity_id: "sensor.kleenex_pollen_armoise",
+        state: "42",
+        attributes: { forecast: [{ date: "2026-04-26", value: 30 }] },
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_armoise_level",
+        state: "low",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_last_updated",
+        state: "2026-04-25T10:00:00+00:00",
+        attributes: {},
+      },
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      allergens: ["trees_cat", "grass_cat", "weeds_cat", "birch", "mugwort"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const keys = result.map((s) => s.allergenReplaced);
+    expect(keys).toContain("trees_cat");
+    expect(keys).toContain("grass_cat");
+    expect(keys).toContain("weeds_cat");
+    expect(keys).toContain("birch");
+    expect(keys).toContain("mugwort");
+    expect(
+      result.find((s) => s.allergenReplaced === "mugwort")!.entity_id,
+    ).toBe("sensor.kleenex_pollen_armoise");
+    // Diagnostic entities must never become allergen sensors.
+    expect(result.every((s) => !s.entity_id.endsWith("_level"))).toBe(true);
+    expect(result.every((s) => !s.entity_id.endsWith("_last_updated"))).toBe(
+      true,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

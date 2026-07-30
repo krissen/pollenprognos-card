@@ -1,5 +1,5 @@
 // src/adapters/kleenex/forecast.ts
-import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { HassEntity, HomeAssistant } from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
 import type { PollenSensor, ForecastDay } from "../../types/sensor.js";
 import { t } from "../../i18n.js";
@@ -96,10 +96,46 @@ export async function fetchForecast(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find all kleenex sensors
-  let kleenexSensors = Object.values(hass.states).filter((entity) => {
-    return entity.entity_id && entity.entity_id.startsWith(`sensor.${DOMAIN}_`);
-  });
+  // Find all kleenex sensors.
+  //
+  // Manual mode is collected separately: the user-supplied entity_prefix is the
+  // whole naming contract there, and it need not contain the legacy
+  // `kleenex_pollen_radar_` slug at all. The integration derives entity IDs from
+  // the (renameable) device name, so a device renamed to "Kleenex pollen" yields
+  // `sensor.kleenex_pollen_trees` (issue #309). Prefiltering on the legacy slug
+  // before applying the prefix would drop those entities entirely.
+  const manualPrefix =
+    config.location === "manual"
+      ? normalizeManualPrefix(config.entity_prefix)
+      : "";
+  let kleenexSensors: HassEntity[];
+  if (manualPrefix) {
+    const expectedPrefix = `sensor.${manualPrefix}`;
+    if (debug) {
+      console.debug(
+        `[Kleenex] Manual mode filtering with prefix: '${manualPrefix}'`,
+      );
+    }
+    kleenexSensors = Object.values(hass.states).filter((entity) => {
+      const matches =
+        !!entity.entity_id && entity.entity_id.startsWith(expectedPrefix);
+      if (debug && matches) {
+        console.debug(`[Kleenex] Manual mode match: ${entity.entity_id}`);
+      }
+      return matches;
+    });
+    if (debug) {
+      console.debug(
+        `[Kleenex] After manual mode filtering: ${kleenexSensors.length} sensors with prefix '${expectedPrefix}'`,
+      );
+    }
+  } else {
+    kleenexSensors = Object.values(hass.states).filter((entity) => {
+      return (
+        entity.entity_id && entity.entity_id.startsWith(`sensor.${DOMAIN}_`)
+      );
+    });
+  }
 
   // Filter by location if specified (and not manual mode)
   if (config.location && config.location !== "manual") {
@@ -129,40 +165,6 @@ export async function fetchForecast(
       console.debug(
         `[Kleenex] After location filtering: ${kleenexSensors.length} sensors for location '${wantedLocation}'`,
       );
-    }
-  } else if (config.location === "manual") {
-    // Manual mode: filter by entity_prefix
-    let prefix = (config.entity_prefix as string) || "";
-    // Remove 'sensor.' prefix if user included it
-    if (prefix.startsWith("sensor.")) {
-      prefix = prefix.substring(7); // Remove 'sensor.'
-    }
-    // Add trailing underscore if not present (unless prefix is empty)
-    if (prefix && !prefix.endsWith("_")) {
-      prefix = prefix + "_";
-    }
-
-    if (debug) {
-      console.debug(`[Kleenex] Manual mode filtering with prefix: '${prefix}'`);
-    }
-
-    if (prefix) {
-      const expectedPrefix = `sensor.${prefix}`;
-      kleenexSensors = kleenexSensors.filter((entity) => {
-        const matches = entity.entity_id.startsWith(expectedPrefix);
-
-        if (debug && matches) {
-          console.debug(`[Kleenex] Manual mode match: ${entity.entity_id}`);
-        }
-
-        return matches;
-      });
-
-      if (debug) {
-        console.debug(
-          `[Kleenex] After manual mode filtering: ${kleenexSensors.length} sensors with prefix '${expectedPrefix}'`,
-        );
-      }
     }
   }
 
