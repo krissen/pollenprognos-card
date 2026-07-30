@@ -6,6 +6,7 @@ import {
   finalizeCardConfig,
   cardAllowedFields,
   CARD_EXTRA_FIELDS,
+  resolveIconSize,
 } from "../../src/utils/config-normalize.js";
 import { stubConfigPP } from "../../src/adapters/pp.js";
 import { stubConfigSILAM } from "../../src/adapters/silam.js";
@@ -145,6 +146,81 @@ describe("normalizeCardConfig: numeric string coercion", () => {
       { ...stubConfigPP, pollen_threshold: undefined } as never,
     );
     expect(cfg).not.toHaveProperty("pollen_threshold");
+  });
+});
+
+// Two layers keep the icon geometry safe, and both are exercised here.
+//   1. The boundary (the block above) repairs hand-written YAML for every
+//      number field: a non-coercible string, NaN, a boolean or a nested
+//      structure becomes the stub default before the card sees it.
+//   2. resolveIconSize is the read-side guard shared by the card's three
+//      icon_size sites (minimal rows, daily rows, --pollen-icon-size) and the
+//      editor's slider/number field. It covers what the boundary deliberately
+//      leaves alone — 0 and negative numbers are legitimate values there — and
+//      keeps the number type backed by a runtime check for configs that never
+//      passed the boundary (the editor spreads config without coercing it).
+describe("resolveIconSize", () => {
+  it("passes a usable size through", () => {
+    expect(resolveIconSize(64)).toBe(64);
+    expect(resolveIconSize(16)).toBe(16);
+  });
+
+  it("falls back to 48 for every unusable value", () => {
+    // "48px" is plausible by hand: the editor label reads "Icon size (px)".
+    // "64" is here on purpose too — converting numeric strings is the
+    // boundary's job, so a string reaching the guard means it bypassed it.
+    for (const raw of [
+      "abc",
+      "48px",
+      "",
+      "  ",
+      "64",
+      true,
+      {},
+      [],
+      null,
+      undefined,
+      NaN,
+      Infinity,
+    ]) {
+      expect(resolveIconSize(raw)).toBe(48);
+    }
+  });
+
+  it("falls back to 48 for non-positive sizes the boundary keeps", () => {
+    // Behaviour change: the minimal/daily sites previously let a negative
+    // through (Number(-10) || 48 === -10), which is invalid CSS anyway.
+    expect(resolveIconSize(0)).toBe(48);
+    expect(resolveIconSize(-10)).toBe(48);
+  });
+
+  it("layers with the boundary for real YAML values", () => {
+    const rendered = (raw: unknown) =>
+      resolveIconSize(
+        normalizeCardConfig(
+          { integration: "pp", icon_size: raw } as Record<string, unknown>,
+          stubConfigPP,
+          { integration: "pp", filter: true },
+        ).icon_size,
+      );
+    // Repaired by the boundary, passed through by the guard.
+    expect(rendered("64")).toBe(64);
+    expect(rendered(64)).toBe(64);
+    // Repaired by the boundary before the guard is reached.
+    for (const raw of ["abc", "48px", "", true, {}, null]) {
+      expect(rendered(raw)).toBe(48);
+    }
+    // Survives the boundary as a valid number; only the guard rejects it.
+    expect(rendered("0")).toBe(48);
+    expect(rendered(-10)).toBe(48);
+  });
+
+  it("uses the stub default when icon_size is absent", () => {
+    const cfg = normalizeCardConfig({ integration: "pp" }, stubConfigPP, {
+      integration: "pp",
+      filter: true,
+    });
+    expect(resolveIconSize(cfg.icon_size)).toBe(stubConfigPP.icon_size);
   });
 });
 

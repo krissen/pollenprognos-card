@@ -5,6 +5,7 @@
 
 import { html, type TemplateResult } from "lit";
 import type { PollenEditorLike } from "../types.js";
+import { resolveIconSize } from "../../utils/config-normalize.js";
 
 export function renderAppearanceSection(
   editor: PollenEditorLike,
@@ -50,7 +51,7 @@ export function renderAppearanceSection(
                   min="16"
                   max="128"
                   step="1"
-                  .value=${c.icon_size ?? 48}
+                  .value=${resolveIconSize(c.icon_size)}
                   @input=${(e: Event) =>
                     editor._updateConfig(
                       "icon_size",
@@ -59,7 +60,7 @@ export function renderAppearanceSection(
                   style="width: 120px;"
                 ></ha-slider>
                 ${editor._renderNumberField({
-                  value: c.icon_size ?? 48,
+                  value: resolveIconSize(c.icon_size),
                   min: 16,
                   max: 128,
                   step: 1,

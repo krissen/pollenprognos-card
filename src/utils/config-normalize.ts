@@ -131,6 +131,30 @@ export function mergeCardConfig(
   return { ...stub, ...picked, integration };
 }
 
+/** Icon edge length in px when `icon_size` is absent or unusable. */
+export const DEFAULT_ICON_SIZE = 48;
+
+/**
+ * The read-side guard for `icon_size`, shared by the card's three read-sites
+ * (minimal rows, daily rows, the `--pollen-icon-size` custom property) and the
+ * editor's slider/number field, so they can never disagree about a size.
+ *
+ * The second half of a two-layer defence: {@link coerceConfigTypes} repairs
+ * hand-written YAML (`icon_size: 48px`, plausible since the editor label reads
+ * "Icon size (px)") at the config boundary, but not every config reaches the
+ * card through it — the editor spreads its config without coercing. And the
+ * boundary deliberately keeps 0 and negative numbers, which are legitimate for
+ * other number fields but yield invalid CSS or a clamped ring as an edge
+ * length. Anything that isn't a positive finite number renders at the default
+ * rather than flowing into the geometry, where the daily path would produce a
+ * NaN donut width and minimal mode a literal `width: ${value}px`.
+ */
+export function resolveIconSize(raw: unknown): number {
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0
+    ? raw
+    : DEFAULT_ICON_SIZE;
+}
+
 /**
  * Replace a number-typed field whose value can never become a finite number
  * (hand-written `icon_size: abc` or `icon_size: true`, an explicit `.nan`, an
