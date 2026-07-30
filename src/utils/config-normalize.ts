@@ -15,7 +15,9 @@
 //   - a field that is boolean in any stub coerces the exact strings
 //     "true"/"false" to booleans (everything else is left untouched);
 //   - a field that is a number in any stub coerces a finite numeric string to
-//     a number;
+//     a number, and falls back to the stub default when the value can never be
+//     one (icon_size: abc, an empty scalar, .nan) so read-sites doing
+//     arithmetic never see a string;
 //   - `allergens` is guaranteed to be an array (falls back to the stub default
 //     when a malformed non-array slips through).
 // Fields no stub types as boolean/number (title, city/location/region_id,
@@ -130,6 +132,23 @@ export function mergeCardConfig(
 }
 
 /**
+ * Replace a number-typed field whose value can never become a finite number
+ * (hand-written `icon_size: abc`, an explicit `.nan`, an empty scalar) with the
+ * stub default, dropping the key when the resolved stub does not declare the
+ * field. Without this a string survives to read-sites that now expect a number
+ * and reaches arithmetic — donut geometry calls toFixed on it and aborts the
+ * render, and the normal-mode paths emit NaN geometry.
+ */
+function dropUnusableNumber(
+  out: Record<string, unknown>,
+  key: string,
+  stubFields: Record<string, unknown>,
+): void {
+  if (typeof stubFields[key] === "number") out[key] = stubFields[key];
+  else delete out[key];
+}
+
+/**
  * Coerce known-typed fields to their canonical runtime types, driven by the
  * cross-stub field-type union ({@link BOOLEAN_FIELDS} / {@link NUMBER_FIELDS}).
  * The stub is used only for the `allergens` array fallback. Returns a new
@@ -140,18 +159,19 @@ export function coerceConfigTypes(
   stub: AdapterStubConfig,
 ): CardConfig {
   const out: Record<string, unknown> = { ...merged };
+  const stubFields = stub as Record<string, unknown>;
 
   for (const [key, value] of Object.entries(out)) {
     if (BOOLEAN_FIELDS.has(key)) {
       if (value === "true") out[key] = true;
       else if (value === "false") out[key] = false;
     } else if (NUMBER_FIELDS.has(key)) {
-      if (
-        typeof value === "string" &&
-        value.trim() !== "" &&
-        Number.isFinite(Number(value))
-      ) {
-        out[key] = Number(value);
+      if (typeof value === "string") {
+        const n = value.trim() === "" ? NaN : Number(value);
+        if (Number.isFinite(n)) out[key] = n;
+        else dropUnusableNumber(out, key, stubFields);
+      } else if (typeof value === "number" && !Number.isFinite(value)) {
+        dropUnusableNumber(out, key, stubFields);
       }
     }
   }

@@ -67,15 +67,6 @@ describe("normalizeCardConfig: numeric string coercion", () => {
     expect(cfg.pollen_threshold).toBe(3);
   });
 
-  it("leaves a non-numeric string for a numeric field untouched", () => {
-    const cfg = normalizeCardConfig(
-      { integration: "pp", days_to_show: "abc" },
-      stubConfigPP,
-      { integration: "pp", filter: true },
-    );
-    expect(cfg.days_to_show).toBe("abc");
-  });
-
   it("coerces a legacy string icon_size to a number", () => {
     const cfg = normalizeCardConfig(
       { integration: "pp", icon_size: "64" },
@@ -83,6 +74,49 @@ describe("normalizeCardConfig: numeric string coercion", () => {
       { integration: "pp", filter: true },
     );
     expect(cfg.icon_size).toBe(64);
+  });
+
+  it("keeps zero and negative numeric strings as-is", () => {
+    const cfg = normalizeCardConfig(
+      { integration: "pp", icon_size: "0", days_to_show: "-1" },
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    expect(cfg.icon_size).toBe(0);
+    expect(cfg.days_to_show).toBe(-1);
+  });
+
+  it("falls back to the stub default for an unusable numeric value", () => {
+    const cfg = normalizeCardConfig(
+      { integration: "pp", icon_size: "abc", days_to_show: "abc" },
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    // A string reaching the donut geometry would abort the render (toFixed).
+    expect(cfg.icon_size).toBe(stubConfigPP.icon_size);
+    expect(cfg.icon_size).toBe(48);
+    expect(cfg.days_to_show).toBe(stubConfigPP.days_to_show);
+  });
+
+  it("falls back for an empty scalar and for NaN", () => {
+    const cfg = normalizeCardConfig(
+      { integration: "pp", icon_size: "  ", days_to_show: NaN },
+      stubConfigPP,
+      { integration: "pp", filter: true },
+    );
+    expect(cfg.icon_size).toBe(48);
+    expect(cfg.days_to_show).toBe(4);
+  });
+
+  it("drops an unusable number field the resolved stub does not declare", () => {
+    // set hass spreads the full config, so a field only another stub declares
+    // can arrive; with no stub default to restore, the key is removed and the
+    // read-site default applies.
+    const cfg = coerceConfigTypes(
+      { integration: "pp", pollen_threshold: "abc" },
+      { ...stubConfigPP, pollen_threshold: undefined } as never,
+    );
+    expect(cfg).not.toHaveProperty("pollen_threshold");
   });
 });
 
