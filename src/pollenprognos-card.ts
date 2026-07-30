@@ -1083,51 +1083,48 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         let title = kleenexMatch ? kleenexMatch[1].label : "";
 
         if (!title) {
-          const kleenexEntities = Object.values(hass.states).filter((s) => {
-            if (
-              !s ||
-              typeof s !== "object" ||
-              typeof s.entity_id !== "string" ||
-              !s.entity_id.startsWith("sensor.kleenex_pollen_radar_")
-            )
-              return false;
-            return s.entity_id.match(/^sensor\.kleenex_pollen_radar_.+_.+$/);
-          });
+          const isKleenexState = (s: unknown): s is { entity_id: string; attributes: Record<string, any> } =>
+            !!s && typeof s === "object" && typeof (s as { entity_id?: unknown }).entity_id === "string";
 
-          const wantedLocation =
-            cfg.location && cfg.location !== "manual"
+          let match = null;
+          if (cfg.location === "manual") {
+            // Manual mode: the user-supplied entity_prefix is the whole naming
+            // contract and need not contain the legacy `kleenex_pollen_radar_`
+            // slug, so match it against every sensor rather than prefiltering
+            // on the legacy prefix first (same rationale as fetchForecast).
+            const prefix = normalizeManualPrefix(cfg.entity_prefix);
+            if (prefix) {
+              match =
+                Object.values(hass.states)
+                  .filter(isKleenexState)
+                  .find((s) => s.entity_id.startsWith(`sensor.${prefix}`)) ??
+                null;
+            }
+          } else {
+            const kleenexEntities = Object.values(hass.states)
+              .filter(isKleenexState)
+              .filter((s) =>
+                /^sensor\.kleenex_pollen_radar_.+_.+$/.test(s.entity_id),
+              );
+
+            const wantedLocation = cfg.location
               ? slugify(cfg.location as string)
               : "";
 
-          // Find first entity with matching location
-          let match = null;
-          if (cfg.location === "manual") {
-            // In manual mode, use entity_prefix to find matching sensor
-            let prefix = cfg.entity_prefix || "";
-            // Remove 'sensor.' prefix if user included it
-            if (prefix.startsWith("sensor.")) {
-              prefix = prefix.substring(7);
+            // Find first entity with matching location
+            if (wantedLocation) {
+              match =
+                kleenexEntities.find((s) => {
+                  const eid = s.entity_id.replace(
+                    "sensor.kleenex_pollen_radar_",
+                    "",
+                  );
+                  const locPart = eid.replace(/_[^_]+$/, "");
+                  return locPart === wantedLocation;
+                }) ?? null;
+            } else {
+              match = kleenexEntities[0] ?? null;
             }
-            // Add trailing underscore if not present
-            if (prefix && !prefix.endsWith("_")) {
-              prefix = prefix + "_";
-            }
-            if (prefix) {
-              match = kleenexEntities.find((s) =>
-                s.entity_id.startsWith(`sensor.${prefix}`),
-              );
-            }
-          } else if (wantedLocation) {
-            match = kleenexEntities.find((s) => {
-              const eid = s.entity_id.replace(
-                "sensor.kleenex_pollen_radar_",
-                "",
-              );
-              const locPart = eid.replace(/_[^_]+$/, "");
-              return locPart === wantedLocation;
-            });
-          } else {
-            match = kleenexEntities[0];
           }
 
           if (match) {
