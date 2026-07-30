@@ -1668,6 +1668,26 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect([...discovery.locations.keys()]).toEqual(["home"]);
   });
 
+  it("does not resolve a config value that two identifiers both normalize to", async () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("St. John", "kleenex_pollen_a", "device_a", "cfg_a"),
+      ...kleenexRegistryEntries("St John", "kleenex_pollen_b", "device_b", "cfg_b"),
+    ]);
+
+    const discovery = discoverKleenex(hass);
+    expect([...discovery.locations.keys()].sort()).toEqual(["cfg_a", "cfg_b"]);
+
+    // Ambiguous: the config cannot say which instance it meant, so nothing is
+    // resolved rather than an arbitrary one of the two.
+    const cfg = makeConfig({
+      location: "st_john",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
   it("falls back to the config-entry key when two instances share a name", () => {
     const hass = createHassWithRegistry([
       ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_a", "cfg_a"),

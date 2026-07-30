@@ -325,6 +325,11 @@ export function kleenexSlugExtractor(entityId: string): string | null {
  * "Kleenex Pollen Radar (Home)" -> `..._home_trees`). Unlike the entity IDs and
  * the device name, it survives a rename, so a legacy `location: home` config
  * still resolves for a user who has renamed both the device and its entities.
+ *
+ * Mirrors the ambiguity rule of buildIdentifierKeys: when two instance names
+ * normalize to the same slug ("St. John" and "St John"), the config value
+ * cannot say which one it meant, so this returns null and lets the generic
+ * label/entity-ID chain decide rather than picking a device arbitrarily.
  */
 export function matchKleenexLocationByIdentifier(
   hass: HomeAssistant,
@@ -335,16 +340,14 @@ export function matchKleenexLocationByIdentifier(
   const needle = slugify(String(cfgLocation));
   if (!needle) return null;
 
+  let found: [string, DiscoveredLocation] | null = null;
   for (const [key, loc] of discovery.locations) {
     const device = loc.deviceId ? hass.devices?.[loc.deviceId] : undefined;
-    const identifiers = device?.identifiers;
-    if (!Array.isArray(identifiers)) continue;
-    for (const tuple of identifiers) {
-      if (!Array.isArray(tuple) || tuple[0] !== PLATFORM || !tuple[1]) continue;
-      if (slugify(String(tuple[1])) === needle) return [key, loc];
-    }
+    if (deviceIdentifierSlug(device) !== needle) continue;
+    if (found) return null; // ambiguous -- two instances share this slug
+    found = [key, loc];
   }
-  return null;
+  return found;
 }
 
 /** One discovered Kleenex location, resolved against the card config. */
