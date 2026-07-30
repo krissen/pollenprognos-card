@@ -56,17 +56,16 @@ export interface AdapterModule {
  * Autodetect only reads `locations` and, for reverse-mapping, each location's
  * `entities`/`sensors`/`weatherEntity`.
  */
+export interface AutodetectLocation {
+  label: string;
+  entities?: Map<string, string>;
+  sensors?: Map<string, string>;
+  weatherEntity?: string;
+  deviceId?: string;
+}
+
 export interface AutodetectDiscovery {
-  locations: Map<
-    string,
-    {
-      label: string;
-      entities?: Map<string, string>;
-      sensors?: Map<string, string>;
-      weatherEntity?: string;
-      deviceId?: string;
-    }
-  >;
+  locations: Map<string, AutodetectLocation>;
   tierUsed?: 0 | 1 | 2 | 3;
 }
 
@@ -128,6 +127,33 @@ export interface AdapterAutodetect {
    * `deriveLocationForEntity`.
    */
   extractLocationSlug?(entityId: string): string | null;
+  /**
+   * Resolve a config location value against a discovery result using the
+   * adapter's own complete candidate chain, including rename-stable knowledge
+   * the generic `resolveLocationByKey`/`findLocationBySlug` helpers cannot
+   * express (Kleenex: the device identifier).
+   *
+   * Callers -- card header, card editor, badge editor -- must use this as their
+   * entire resolution rather than as one candidate among locally reproduced
+   * others: a partial mirror of the chain drifts from the adapter and resolves
+   * a different set of configs than the card actually renders.
+   *
+   * Returns the discovery entry, null when nothing matches, or `"ambiguous"`
+   * when several locations answer to the value -- in which case callers must
+   * resolve nothing rather than pick one by registry iteration order.
+   */
+  resolveLocation?(
+    hass: HomeAssistant,
+    discovery: AutodetectDiscovery,
+    cfgLocation: string | null | undefined,
+  ): [string, AutodetectLocation] | "ambiguous" | null;
+  /**
+   * True when the entity id is one the card can render a level for, as opposed
+   * to a diagnostic/timestamp sibling. Lets the card pick a meaningful sensor
+   * to derive a header from when only entity ids are available (Kleenex manual
+   * mode), using the adapter's own classification instead of a heuristic.
+   */
+  isRenderableEntity?(entityId: string): boolean;
   /**
    * PLU exposes its allergen slug set so the driver can build the PP-vs-PLU
    * disambiguation context without PP importing PLU.

@@ -1,7 +1,101 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { fetchForecast, stubConfigKleenex, resolveEntityIds } from "../../src/adapters/kleenex/index.js";
+import {
+  fetchForecast,
+  stubConfigKleenex,
+  resolveEntityIds,
+  discoverKleenex,
+} from "../../src/adapters/kleenex/index.js";
 import { _resetNaWarningsForTest } from "../../src/adapters/kleenex/forecast.js";
-import { createHass, assertSensorShape } from "../helpers.js";
+import {
+  createHass,
+  createHassWithRegistry,
+  assertSensorShape,
+} from "../helpers.js";
+
+/**
+ * Build registry entries for one Kleenex config entry (one device), using the
+ * renamed-device entity IDs from issue #309: no `radar_` slug, no location slug.
+ *
+ * @param instance   - Config-entry instance name (device label).
+ * @param prefix     - Entity-ID prefix, e.g. "kleenex_pollen".
+ * @param deviceId   - Device registry ID.
+ * @param cfgEntry   - Config entry ID.
+ */
+function kleenexRegistryEntries(
+  instance: string,
+  prefix: string,
+  deviceId: string,
+  cfgEntry: string,
+): any[] {
+  const categoryAttrs = (ppm: number, details: any[]) => ({
+    details,
+    forecast: [
+      { datetime: "2026-04-26", level: 2, value: ppm, details },
+      { datetime: "2026-04-27", level: 2, value: ppm, details },
+    ],
+  });
+  const deviceMeta = {
+    name: `Kleenex Pollen Radar (${instance})`,
+    identifiers: [["kleenex_pollenradar", instance] as [string, string]],
+    configEntries: [cfgEntry],
+  };
+  return [
+    {
+      entityId: `sensor.${prefix}_trees`,
+      state: "200",
+      attributes: categoryAttrs(200, [{ name: "Birch", value: 150 }]),
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId,
+      deviceMeta,
+    },
+    {
+      entityId: `sensor.${prefix}_grass`,
+      state: "100",
+      attributes: categoryAttrs(100, []),
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_weeds`,
+      state: "80",
+      attributes: categoryAttrs(80, []),
+      platform: "kleenex_pollenradar",
+      translationKey: "weeds",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_armoise`,
+      state: "42",
+      attributes: { forecast: [{ date: "2026-04-26", value: 30 }] },
+      platform: "kleenex_pollenradar",
+      translationKey: "detail_value",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_armoise_level`,
+      state: "low",
+      platform: "kleenex_pollenradar",
+      translationKey: "detail_level",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_trees_level`,
+      state: "high",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees_level",
+      deviceId,
+    },
+    {
+      entityId: `sensor.${prefix}_last_updated`,
+      state: "2026-04-25T10:00:00+00:00",
+      platform: "kleenex_pollenradar",
+      translationKey: "last_updated",
+      deviceId,
+    },
+  ];
+}
 
 function makeConfig(overrides: any = {}): any {
   return { ...stubConfigKleenex, ...overrides };
@@ -861,6 +955,127 @@ describe("Kleenex adapter: manual mode", () => {
 
     expect(result.length).toBe(0);
   });
+
+  it("classifies a suffixed category sensor in pass 1", async () => {
+    // Codex round 16: pass 1 read the raw last token ("v2"), so a category-only
+    // (NA-zone) config collected nothing, while pass 2 correctly recognised the
+    // same entity as a category sensor and skipped it -- no forecast at all.
+    const hass = makeHassFromEntities([
+      {
+        entity_id: "sensor.kleenex_pollen_trees_v2",
+        state: "200",
+        attributes: {
+          friendly_name: "Kleenex pollen Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 180, details: [] },
+          ],
+        },
+      },
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      entity_suffix: "_v2",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_trees_v2");
+  });
+
+  it("uses only suffixed entities when entity_suffix is configured", async () => {
+    // Codex round 15: both the unsuffixed and the suffixed sensor match the
+    // prefix, and the unsuffixed one is listed first, so a prefix-only
+    // collection would render it instead of the configured `_v2` sensor.
+    const detail = (entityId: string, ppm: number) => ({
+      entity_id: entityId,
+      state: String(ppm),
+      attributes: {
+        friendly_name: entityId,
+        forecast: [{ date: "2026-04-26", value: ppm }],
+      },
+    });
+    const hass = makeHassFromEntities([
+      detail("sensor.kleenex_pollen_birch", 10),
+      detail("sensor.kleenex_pollen_birch_v2", 200),
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      entity_suffix: "_v2",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.length).toBe(1);
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_birch_v2");
+    expect(result[0].days[0].value).toBe(200);
+  });
+
+  it("issue #309 - collects sensors whose IDs lack the legacy domain slug", async () => {
+    // Device renamed to "Kleenex pollen": entity IDs carry neither
+    // `kleenex_pollen_radar_` nor a location slug.
+    const category = (name: string, ppm: number, details: any[]) => ({
+      entity_id: `sensor.kleenex_pollen_${name}`,
+      state: String(ppm),
+      attributes: {
+        details,
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: ppm, details },
+          { datetime: "2026-04-27", level: 2, value: ppm, details },
+        ],
+      },
+    });
+    const hass = makeHassFromEntities([
+      category("trees", 200, [{ name: "Birch", value: 150 }]),
+      category("grass", 100, []),
+      category("weeds", 80, []),
+      {
+        entity_id: "sensor.kleenex_pollen_armoise",
+        state: "42",
+        attributes: { forecast: [{ date: "2026-04-26", value: 30 }] },
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_armoise_level",
+        state: "low",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_last_updated",
+        state: "2026-04-25T10:00:00+00:00",
+        attributes: {},
+      },
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      allergens: ["trees_cat", "grass_cat", "weeds_cat", "birch", "mugwort"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const keys = result.map((s) => s.allergenReplaced);
+    expect(keys).toContain("trees_cat");
+    expect(keys).toContain("grass_cat");
+    expect(keys).toContain("weeds_cat");
+    expect(keys).toContain("birch");
+    expect(keys).toContain("mugwort");
+    expect(
+      result.find((s) => s.allergenReplaced === "mugwort")!.entity_id,
+    ).toBe("sensor.kleenex_pollen_armoise");
+    // Diagnostic entities must never become allergen sensors.
+    expect(result.every((s) => !s.entity_id.endsWith("_level"))).toBe(true);
+    expect(result.every((s) => !s.entity_id.endsWith("_last_updated"))).toBe(
+      true,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1475,5 +1690,573 @@ describe("Kleenex adapter: resolveEntityIds DetailSensor probe", () => {
     expect(map.has("birch")).toBe(false);
     // Category sensor is still found.
     expect(map.has("trees")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 15. Registry-based discovery (discoverKleenex)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: discoverKleenex", () => {
+  it("discovers a renamed device (issue #309) as one location", () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const discovery = discoverKleenex(hass);
+
+    expect(discovery.tierUsed).toBe(1);
+    expect(discovery.locations.size).toBe(1);
+    const [, loc] = [...discovery.locations][0];
+    expect(loc.label).toBe("Home");
+    expect([...loc.entities.keys()].sort()).toEqual([
+      "grass",
+      "mugwort",
+      "trees",
+      "weeds",
+    ]);
+    expect(loc.entities.get("trees")).toBe("sensor.kleenex_pollen_trees");
+    expect(loc.entities.get("mugwort")).toBe("sensor.kleenex_pollen_armoise");
+  });
+
+  it("keys locations by the slugified device identifier, not the entry id", () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const discovery = discoverKleenex(hass);
+
+    // A readable, rename-stable key that survives removing and re-adding the
+    // integration, unlike the config-entry ULID.
+    expect([...discovery.locations.keys()]).toEqual(["home"]);
+  });
+
+  it("does not resolve a config value that two identifiers both normalize to", async () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("St. John", "kleenex_pollen_a", "device_a", "cfg_a"),
+      ...kleenexRegistryEntries("St John", "kleenex_pollen_b", "device_b", "cfg_b"),
+    ]);
+
+    const discovery = discoverKleenex(hass);
+    expect([...discovery.locations.keys()].sort()).toEqual(["cfg_a", "cfg_b"]);
+
+    // Ambiguous: the config cannot say which instance it meant, so nothing is
+    // resolved rather than an arbitrary one of the two.
+    const cfg = makeConfig({
+      location: "st_john",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
+  it("resolves nothing when identifiers AND labels are both ambiguous", async () => {
+    // Worst case: the config value slugifies onto two identifiers, so the
+    // identifier matcher declines -- and it also equals both devices' labels,
+    // so the generic label matching would otherwise resolve to whichever
+    // device the registry happens to list first.
+    const device = (instance: string, label: string, prefix: string, id: string, cfg: string) => [
+      {
+        entityId: `sensor.${prefix}_trees`,
+        state: "200",
+        attributes: {
+          friendly_name: `${label} Trees`,
+          details: [],
+          forecast: [{ datetime: "2026-04-26", level: 2, value: 200, details: [] }],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: id,
+        deviceMeta: {
+          name: `Kleenex Pollen Radar (${instance})`,
+          nameByUser: label,
+          identifiers: [["kleenex_pollenradar", instance] as [string, string]],
+          configEntries: [cfg],
+        },
+      },
+    ];
+    const hass = createHassWithRegistry([
+      ...device("St. John", "St John", "kleenex_a", "device_a", "cfg_a"),
+      ...device("St John", "St John", "kleenex_b", "device_b", "cfg_b"),
+    ]);
+
+    const cfg = makeConfig({
+      location: "St John",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
+  it("does not fall back to legacy IDs when the configured value is ambiguous", async () => {
+    // Codex round 8: one of the two colliding devices still has legacy-shaped
+    // entity IDs, so returning "no match" would let the entity-ID scan pick
+    // that device -- the arbitrary choice we just refused to make, one layer
+    // down.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_radar_st_john_trees",
+        state: "200",
+        attributes: {
+          friendly_name: "Kleenex Pollen Radar (St. John) Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          ],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "device_a",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (St. John)",
+          identifiers: [["kleenex_pollenradar", "St. John"] as [string, string]],
+          configEntries: ["cfg_a"],
+        },
+      },
+      {
+        entityId: "sensor.other_pollen_trees",
+        state: "50",
+        attributes: {
+          friendly_name: "Other pollen Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 1, value: 50, details: [] },
+          ],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "device_b",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (St John)",
+          identifiers: [["kleenex_pollenradar", "St John"] as [string, string]],
+          configEntries: ["cfg_b"],
+        },
+      },
+    ]);
+
+    const cfg = makeConfig({
+      location: "st_john",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
+  it("resolves a legacy multiword slug against the slugified label", async () => {
+    // Codex round 10: no usable identifier, entity IDs re-minted, and the label
+    // is "New York" -- neither literal ("new york" != "new_york"), fuzzy nor
+    // entity-ID matching reaches it.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.my_pollen_trees",
+        state: "200",
+        attributes: {
+          friendly_name: "New York Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          ],
+        },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "device_ny",
+        deviceMeta: {
+          name: "New York",
+          identifiers: [] as [string, string][],
+          configEntries: ["cfg_ny"],
+        },
+      },
+    ]);
+
+    const cfg = makeConfig({
+      location: "new_york",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).get("trees")).toBe(
+      "sensor.my_pollen_trees",
+    );
+    const result = await fetchForecast(hass, cfg);
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
+  });
+
+  it("treats two identically labelled multiword devices as ambiguous", async () => {
+    const device = (prefix: string, id: string, cfg: string) => ({
+      entityId: `sensor.${prefix}_trees`,
+      state: "200",
+      attributes: {
+        friendly_name: "New York Trees",
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+        ],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: id,
+      deviceMeta: {
+        name: "New York",
+        identifiers: [] as [string, string][],
+        configEntries: [cfg],
+      },
+    });
+    const hass = createHassWithRegistry([
+      device("a_pollen", "device_a", "cfg_a"),
+      device("b_pollen", "device_b", "cfg_b"),
+    ]);
+
+    const cfg = makeConfig({
+      location: "new_york",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
+  it("does not pick between two devices that share a label", async () => {
+    // Codex round 9: neither device has a usable identifier, so both are keyed
+    // by config entry -- and both are labelled "Home", so the label step of the
+    // generic matching would resolve to whichever comes first.
+    const device = (prefix: string, id: string, cfg: string) => ({
+      entityId: `sensor.${prefix}_trees`,
+      state: "200",
+      attributes: {
+        friendly_name: "Home Trees",
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+        ],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: id,
+      deviceMeta: {
+        name: "Home",
+        identifiers: [] as [string, string][],
+        configEntries: [cfg],
+      },
+    });
+    const hass = createHassWithRegistry([
+      device("a_pollen", "device_a", "cfg_a"),
+      device("b_pollen", "device_b", "cfg_b"),
+    ]);
+
+    const cfg = makeConfig({
+      location: "home",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    expect(await fetchForecast(hass, cfg)).toEqual([]);
+  });
+
+  it("falls back to the config-entry key when two instances share a name", () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_a", "cfg_a"),
+      ...kleenexRegistryEntries("Home", "other_pollen", "device_b", "cfg_b"),
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    // Both would slugify to "home" and merge into one location; the unique
+    // config-entry key keeps them apart.
+    expect([...discovery.locations.keys()].sort()).toEqual(["cfg_a", "cfg_b"]);
+  });
+
+  it("keeps two config entries in separate locations", () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      ...kleenexRegistryEntries(
+        "Cabin",
+        "kleenex_pollen_radar_cabin",
+        "device_cabin",
+        "cfg_cabin",
+      ),
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    expect(discovery.locations.size).toBe(2);
+    const labels = [...discovery.locations.values()].map((l) => l.label).sort();
+    expect(labels).toEqual(["Cabin", "Home"]);
+    const home = discovery.locations.get("home")!;
+    expect(home.entities.get("trees")).toBe("sensor.kleenex_pollen_trees");
+    const cabin = discovery.locations.get("cabin")!;
+    expect(cabin.entities.get("trees")).toBe(
+      "sensor.kleenex_pollen_radar_cabin_trees",
+    );
+  });
+
+  it("falls back to the legacy entity-ID slug when no registry exists", () => {
+    const hass = makeHassFromEntities([
+      makeKleenexEntity("amsterdam", "trees", 200, [{ name: "Birch", value: 150 }]),
+      makeKleenexEntity("amsterdam", "grass", 100, []),
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_bouleau",
+        state: "150",
+        attributes: { forecast: [] },
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_last_updated",
+        state: "2026-04-25T10:00:00+00:00",
+        attributes: {},
+      },
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    expect(discovery.tierUsed).toBe(3);
+    expect([...discovery.locations.keys()]).toEqual(["amsterdam"]);
+    const loc = discovery.locations.get("amsterdam")!;
+    expect([...loc.entities.keys()].sort()).toEqual(["birch", "grass", "trees"]);
+  });
+
+  it("classifies a fully renamed detail sensor via its unique_id", () => {
+    // Codex round 12: neither the entity ID nor the friendly name carries the
+    // allergen any more; the registry unique_id still does.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_thing",
+        state: "12",
+        attributes: { friendly_name: "Pollen thing" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        uniqueId:
+          "01KQ58DAJBWSK3EJ69H36FB4N6-Kleenex Pollen Radar Utrecht_details-Bouleau-value",
+        deviceId: "device_home",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Home)",
+          identifiers: [["kleenex_pollenradar", "Home"] as [string, string]],
+          configEntries: ["cfg_home"],
+        },
+      },
+    ]);
+
+    const loc = discoverKleenex(hass).locations.get("home")!;
+    expect(loc.entities.get("birch")).toBe("sensor.pollen_thing");
+  });
+
+  it("skips a fully renamed detail sensor when unique_id is unavailable", () => {
+    // Documented residual: the frontend's reduced hass.entities usually omits
+    // unique_id, and then nothing non-editable carries the allergen name. Same
+    // outcome as before registry discovery, i.e. no regression.
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.pollen_thing",
+        state: "12",
+        attributes: { friendly_name: "Pollen thing" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        deviceId: "device_home",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Home)",
+          identifiers: [["kleenex_pollenradar", "Home"] as [string, string]],
+          configEntries: ["cfg_home"],
+        },
+      },
+    ]);
+
+    const loc = discoverKleenex(hass).locations.get("home");
+    expect(loc?.entities.size ?? 0).toBe(0);
+  });
+
+  it("resolves the allergen from friendly_name when the ID slug is unknown", () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_bjoerk",
+        state: "12",
+        attributes: { friendly_name: "Kleenex pollen Birch" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        deviceId: "device_home",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Home)",
+          identifiers: [["kleenex_pollenradar", "Home"]],
+          configEntries: ["cfg_home"],
+        },
+      },
+    ]);
+
+    const discovery = discoverKleenex(hass);
+
+    const loc = discovery.locations.get("home")!;
+    expect(loc.entities.get("birch")).toBe("sensor.kleenex_pollen_bjoerk");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 16. Registry-driven entity resolution and forecast (issue #309)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: registry-driven resolution", () => {
+  const registryConfig = (overrides: any = {}) =>
+    makeConfig({
+      allergens: ["trees_cat", "grass_cat", "weeds_cat", "birch", "mugwort"],
+      pollen_threshold: 0,
+      ...overrides,
+    });
+
+  it("resolveEntityIds finds renamed-device entities and skips diagnostics", () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const map = resolveEntityIds(registryConfig({ location: "" }), hass);
+
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_trees");
+    expect(map.get("grass")).toBe("sensor.kleenex_pollen_grass");
+    expect(map.get("weeds")).toBe("sensor.kleenex_pollen_weeds");
+    expect(map.get("mugwort")).toBe("sensor.kleenex_pollen_armoise");
+    expect([...map.values()].some((id) => id.endsWith("_level"))).toBe(false);
+    expect([...map.values()].some((id) => id.endsWith("_last_updated"))).toBe(
+      false,
+    );
+  });
+
+  it("fetchForecast returns category and detail sensors for a renamed device", async () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const result = await fetchForecast(hass, registryConfig({ location: "" }));
+
+    const keys = result.map((s) => s.allergenReplaced).sort();
+    expect(keys).toEqual(["birch", "grass_cat", "mugwort", "trees_cat", "weeds_cat"]);
+    expect(
+      result.find((s) => s.allergenReplaced === "mugwort")!.entity_id,
+    ).toBe("sensor.kleenex_pollen_armoise");
+    expect(result.every((s) => !s.entity_id.endsWith("_level"))).toBe(true);
+  });
+
+  it("resolves a legacy slug-style location config against the device label", async () => {
+    const hass = createHassWithRegistry(
+      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+    );
+
+    const map = resolveEntityIds(registryConfig({ location: "home" }), hass);
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_trees");
+
+    const result = await fetchForecast(hass, registryConfig({ location: "home" }));
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("keeps two config entries apart (no cross-talk)", async () => {
+    const hass = createHassWithRegistry([
+      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      ...kleenexRegistryEntries(
+        "Cabin",
+        "kleenex_pollen_radar_cabin",
+        "device_cabin",
+        "cfg_cabin",
+      ),
+    ]);
+
+    const map = resolveEntityIds(registryConfig({ location: "Cabin" }), hass);
+    expect(map.get("trees")).toBe("sensor.kleenex_pollen_radar_cabin_trees");
+
+    const result = await fetchForecast(
+      hass,
+      registryConfig({ location: "Cabin" }),
+    );
+    expect(result.length).toBeGreaterThan(0);
+    expect(
+      result.every((s) => s.entity_id.startsWith("sensor.kleenex_pollen_radar_cabin_")),
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 17. Legacy slug configs against renamed devices (device identifier match)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: legacy slug via device identifier", () => {
+  // Device renamed by the user AND entities renamed: neither the label nor the
+  // entity IDs carry the legacy "home" slug any more. Only the config-entry
+  // identifier still does.
+  const renamedEntries = [
+    {
+      entityId: "sensor.my_pollen_trees",
+      state: "200",
+      attributes: {
+        friendly_name: "My pollen Trees",
+        details: [{ name: "Birch", value: 150 }],
+        forecast: [
+          {
+            datetime: "2026-04-26",
+            level: 2,
+            value: 200,
+            details: [{ name: "Birch", value: 150 }],
+          },
+        ],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "device_home",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Home)",
+        nameByUser: "My pollen",
+        identifiers: [["kleenex_pollenradar", "Home"]],
+        configEntries: ["cfg_home"],
+      },
+    },
+    {
+      entityId: "sensor.my_pollen_armoise",
+      state: "42",
+      attributes: {
+        friendly_name: "My pollen Armoise",
+        forecast: [{ date: "2026-04-26", value: 30 }],
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "detail_value",
+      deviceId: "device_home",
+    },
+  ];
+
+  const legacyConfig = makeConfig({
+    location: "home",
+    allergens: ["trees_cat", "birch", "mugwort"],
+    pollen_threshold: 0,
+  });
+
+  it("resolveEntityIds matches the legacy slug against the device identifier", () => {
+    const hass = createHassWithRegistry(renamedEntries as any);
+
+    const map = resolveEntityIds(legacyConfig, hass);
+
+    expect(map.get("trees")).toBe("sensor.my_pollen_trees");
+    expect(map.get("mugwort")).toBe("sensor.my_pollen_armoise");
+  });
+
+  it("fetchForecast renders the renamed device for a legacy slug config", async () => {
+    const hass = createHassWithRegistry(renamedEntries as any);
+
+    const result = await fetchForecast(hass, legacyConfig);
+
+    const keys = result.map((s) => s.allergenReplaced).sort();
+    expect(keys).toEqual(["birch", "mugwort", "trees_cat"]);
+    expect(result.every((s) => s.entity_id.startsWith("sensor.my_pollen_"))).toBe(
+      true,
+    );
+  });
+
+  it("does not bind a legacy slug to a different location's identifier", () => {
+    const hass = createHassWithRegistry(renamedEntries as any);
+
+    const map = resolveEntityIds(
+      makeConfig({
+        location: "cabin",
+        allergens: ["trees_cat"],
+        pollen_threshold: 0,
+      }),
+      hass,
+    );
+
+    expect(map.size).toBe(0);
   });
 });

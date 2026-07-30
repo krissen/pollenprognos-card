@@ -4,7 +4,7 @@
 // Extends PollenEditorBase to share integration/location and allergen sections.
 
 import { html, css, type TemplateResult, type PropertyDeclarations } from "lit";
-import { getStubConfig } from "./adapter-registry.js";
+import { getStubConfig, getAutodetect } from "./adapter-registry.js";
 import {
   PollenEditorBase,
   deepMerge,
@@ -185,10 +185,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   /**
    * Build the installed-location lists the shared integration section reads
-   * (installedPpLocations, installedDwdLocations, ...). The badge is new, so
-   * there are no legacy slug configs to preserve: this is the discovery-first
-   * path only (the card editor keeps the richer legacy-compat variant). Lists
-   * are [key, label] pairs; the dropdown shows label, stores key.
+   * (installedPpLocations, installedDwdLocations, ...). Discovery-first, with
+   * per-integration entity-ID fallbacks; Kleenex additionally keeps the card
+   * editor's legacy-slug compatibility entry, since badges saved before
+   * registry discovery store the slug. Lists are [key, label] pairs; the
+   * dropdown shows label, stores key.
    *
    * @param {ReturnType<typeof detectIntegrationStates>} detection
    * @param {object} hass
@@ -244,19 +245,61 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.installedMswLocations = toList(detection.getMswDiscovery());
     this.installedIrmkmiLocations = toList(detection.getIrmkmiDiscovery());
 
-    // Kleenex has no discovery helper; derive slugs from the *_date sensors.
-    this.installedKleenexLocations = Array.from(
-      new Set(
-        detection.stateIds
-          .map((id: string) => {
-            const m =
-              typeof id === "string" &&
-              id.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
-            return m ? m[1] : null;
-          })
-          .filter(Boolean),
-      ),
-    ).map((slug) => [slug, slug] as InstalledLocation);
+    // Kleenex via eager discovery; the *_date slug derivation stays as the
+    // fallback for installs without registry metadata. Discovery is required
+    // for renamed devices, whose entity IDs carry no location slug (issue #309).
+    const kleenexDiscovery = detection.discovery.kleenex;
+    this.installedKleenexLocations = kleenexDiscovery.locations.size
+      ? toList(kleenexDiscovery)
+      : Array.from(
+          new Set(
+            detection.stateIds
+              .map((id: string) => {
+                const m =
+                  typeof id === "string" &&
+                  id.match(/^sensor\.kleenex_pollen_radar_(.+)_date$/);
+                return m ? m[1] : null;
+              })
+              .filter(Boolean),
+          ),
+        ).map((slug) => [slug, slug] as InstalledLocation);
+
+    // Compatibility: a badge can hold a location value that is not a discovery
+    // key (a device without a usable identifier, or a legacy slug whose device
+    // was renamed). Without a matching entry the selector shows nothing
+    // selected even though the badge still resolves. Same candidate order as
+    // the card editor -- rename-stable device identifier before generic slug
+    // matching -- and the same re-key rather than append, so the list never
+    // holds two identically-labelled options.
+    const kleenexCfgLoc = this._config?.location as string | undefined;
+    if (
+      kleenexCfgLoc &&
+      kleenexCfgLoc !== "manual" &&
+      !kleenexDiscovery.locations.has(kleenexCfgLoc)
+    ) {
+      const kleenexAutodetect = getAutodetect("kleenex");
+      // Same single resolution as the card editor and the adapter; see the
+      // comment there. "ambiguous" yields no entry rather than a guess.
+      const kleenexResolved =
+        kleenexAutodetect?.resolveLocation?.(
+          hass,
+          kleenexDiscovery,
+          kleenexCfgLoc,
+        ) ?? null;
+      const kleenexMatch =
+        kleenexResolved === "ambiguous" ? null : kleenexResolved;
+      if (kleenexMatch) {
+        const entry = [
+          kleenexCfgLoc,
+          kleenexMatch[1].label,
+        ] as InstalledLocation;
+        const idx = this.installedKleenexLocations.findIndex(
+          ([key]) => key === kleenexMatch[0],
+        );
+        if (idx >= 0) this.installedKleenexLocations[idx] = entry;
+        else this.installedKleenexLocations.push(entry);
+      }
+    }
   }
 
   /**

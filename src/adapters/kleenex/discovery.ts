@@ -1,10 +1,83 @@
 // src/adapters/kleenex/discovery.ts
-import type { HomeAssistant } from "../../types/home-assistant.js";
+import type {
+  HassEntity,
+  HomeAssistant,
+  DeviceRegistryEntry,
+} from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
 import { KLEENEX_LOCALIZED_CATEGORY_NAMES } from "../../constants.js";
 import { slugify } from "../../utils/slugify.js";
-import { normalizeManualPrefix } from "../../utils/adapter-helpers.js";
-import { INDIVIDUAL_TO_CATEGORY, KLEENEX_ALLERGEN_MAP } from "./constants.js";
+import {
+  normalizeManualPrefix,
+  discoverEntitiesByDevice,
+  deviceLocationKey,
+  resolveLocationByKey,
+  type DeviceDiscovery,
+  type DiscoveredLocation,
+  type DiscoveryContext,
+} from "../../utils/adapter-helpers.js";
+import {
+  INDIVIDUAL_TO_CATEGORY,
+  KLEENEX_ALLERGEN_MAP,
+  DOMAIN,
+  PLATFORM,
+} from "./constants.js";
+
+// The three category keys the integration exposes as first-class sensors.
+// They are reserved for the category sensors: a per-allergen detail sensor that
+// happens to alias onto one of them (e.g. a detail literally named "Grass") is
+// dropped rather than allowed to shadow the category sensor.
+export const CATEGORY_KEYS = new Set(["trees", "grass", "weeds"]);
+
+// Translation keys of entities that carry no allergen reading: the enum level
+// mirrors of the category sensors, the timestamps and the diagnostics. Several
+// of these have no entity_category upstream, so discovery's default exclusion
+// does not filter them -- the classifier must reject them explicitly.
+const NON_ALLERGEN_TRANSLATION_KEYS = new Set([
+  "trees_level",
+  "grass_level",
+  "weeds_level",
+  "detail_level",
+  "date",
+  "last_updated",
+  "latitude",
+  "longitude",
+  "city",
+  "region",
+  "error",
+]);
+
+// Static lookup: slugified alias key -> canonical allergen name. Built once
+// from KLEENEX_ALLERGEN_MAP since the map is module-level constant data.
+const SLUGIFIED_ALIAS_MAP: Map<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
+    const slug = slugify(alias);
+    if (!m.has(slug)) m.set(slug, canonical);
+  }
+  return m;
+})();
+
+/**
+ * Resolve a canonical allergen name from an entity-ID suffix.
+ *
+ * Tries the whole suffix first, then progressively shorter trailing segments,
+ * so `amsterdam_noord_bouleau` still resolves to `birch` when the location part
+ * could not be stripped up front.
+ */
+export function canonicalAllergenFromSlug(
+  suffix: string,
+): string | undefined {
+  const direct = SLUGIFIED_ALIAS_MAP.get(suffix);
+  if (direct) return direct;
+  if (!suffix.includes("_")) return undefined;
+  const parts = suffix.split("_");
+  for (let i = 1; i < parts.length; i++) {
+    const match = SLUGIFIED_ALIAS_MAP.get(parts.slice(i).join("_"));
+    if (match) return match;
+  }
+  return undefined;
+}
 
 // Static reverse index: canonical allergen name -> Set of slugified alias
 // entity-suffixes. Built once from KLEENEX_ALLERGEN_MAP since the map is
@@ -21,6 +94,516 @@ const CANONICAL_TO_ALIAS_SLUGS: Map<string, Set<string>> = (() => {
   }
   return m;
 })();
+
+// Entity-ID suffixes that are diagnostics rather than allergen readings. Used
+// by the legacy (registry-less) classification paths here and in forecast.ts.
+export const DIAGNOSTIC_SUFFIXES = new Set([
+  "level",
+  "date",
+  "last_updated",
+  "latitude",
+  "longitude",
+  "city",
+  "region",
+  "error",
+]);
+
+/** Strip `sensor.` and the legacy default-device prefix from an entity ID. */
+function entityIdSuffix(entityId: string): string {
+  const legacy = `sensor.${DOMAIN}_`;
+  if (entityId.startsWith(legacy)) return entityId.slice(legacy.length);
+  return entityId.startsWith("sensor.") ? entityId.slice(7) : entityId;
+}
+
+/** True when the suffix is (or ends with) a known diagnostic token. */
+function isDiagnosticSuffix(suffix: string): boolean {
+  if (suffix.endsWith("_level")) return true;
+  for (const diag of DIAGNOSTIC_SUFFIXES) {
+    if (suffix === diag || suffix.endsWith(`_${diag}`)) return true;
+  }
+  return false;
+}
+
+/**
+ * Classify an entity from its ID alone: the classified key
+ * (`trees`/`grass`/`weeds` or a canonical allergen), or null for diagnostics
+ * and anything unrecognised.
+ *
+ * Used for entities without a registry entry (tier 3), as the fallback for
+ * unknown translation keys, and by the card header to tell a renderable sensor
+ * from a diagnostic one in manual mode: the last token decides a category,
+ * otherwise the trailing slug is matched against the allergen alias table.
+ */
+export function classifyKleenexEntityId(entityId: string): string | null {
+  const suffix = entityIdSuffix(entityId);
+  const lastToken = suffix.split("_").pop() as string;
+  for (const [localizedPrefix, canonicalCategory] of Object.entries(
+    KLEENEX_LOCALIZED_CATEGORY_NAMES,
+  )) {
+    if (lastToken.startsWith(localizedPrefix)) return canonicalCategory;
+  }
+  if (isDiagnosticSuffix(suffix)) return null;
+  const canonical = canonicalAllergenFromSlug(suffix);
+  return canonical && !CATEGORY_KEYS.has(canonical) ? canonical : null;
+}
+
+/**
+ * Read the allergen out of a detail sensor's registry unique_id, which the
+ * integration builds as
+ * `<entry_id>-Kleenex Pollen Radar<group>_details-<PollenName>-<value|level>`.
+ * The name is the second-to-last dash-separated segment.
+ *
+ * This is the only non-user-editable carrier of the allergen name, so it is
+ * tried first -- but only when present: the frontend's reduced `hass.entities`
+ * usually omits unique_id, hence the name-based candidates below.
+ */
+function allergenFromUniqueId(
+  uniqueId: string | null | undefined,
+): string | null {
+  if (typeof uniqueId !== "string" || !uniqueId) return null;
+  const parts = uniqueId.split("-");
+  if (parts.length < 2) return null;
+  const name = parts[parts.length - 2]?.trim().toLowerCase();
+  if (!name) return null;
+  const canonical = KLEENEX_ALLERGEN_MAP[name];
+  return canonical && !CATEGORY_KEYS.has(canonical) ? canonical : null;
+}
+
+/**
+ * Resolve the canonical allergen behind a per-allergen detail sensor. All of
+ * them share the `detail_value` translation key, so the allergen name survives
+ * in the registry unique_id when the frontend exposes it, and otherwise only in
+ * the entity-ID slug and the friendly name -- both of which the user can edit.
+ */
+function classifyDetailEntity(
+  entityId: string,
+  ctx: DiscoveryContext,
+): string | null {
+  const byUniqueId = allergenFromUniqueId(ctx.entry?.unique_id);
+  if (byUniqueId) return byUniqueId;
+
+  const canonical = canonicalAllergenFromSlug(entityIdSuffix(entityId));
+  if (canonical && !CATEGORY_KEYS.has(canonical)) return canonical;
+
+  // The ID slug follows the HA language at first registration, which may use
+  // an allergen spelling the alias table doesn't cover; the friendly name ends
+  // with the same word and is worth one more try.
+  const friendly = ctx.state?.attributes?.friendly_name;
+  if (typeof friendly === "string") {
+    const lastWord = friendly.trim().split(/\s+/).pop();
+    if (lastWord) {
+      const byName = KLEENEX_ALLERGEN_MAP[lastWord.toLowerCase()];
+      if (byName && !CATEGORY_KEYS.has(byName)) return byName;
+    }
+  }
+  return null;
+}
+
+/**
+ * Classify a Kleenex entity into a category key (`trees`/`grass`/`weeds`), a
+ * canonical allergen name, or null (not an allergen reading).
+ *
+ * Registry entries are classified on translation_key, which is the only stable
+ * signal: entity IDs are derived from the (renameable) device name plus the
+ * translated sensor name, so neither a domain prefix nor a location slug can be
+ * assumed (issue #309).
+ */
+function classifyKleenexEntity(
+  entityId: string,
+  ctx: DiscoveryContext,
+): string | null {
+  const tk = ctx.entry?.translation_key;
+  if (typeof tk === "string" && tk) {
+    if (CATEGORY_KEYS.has(tk)) return tk;
+    if (NON_ALLERGEN_TRANSLATION_KEYS.has(tk)) return null;
+    if (tk === "detail_value") return classifyDetailEntity(entityId, ctx);
+    // Unknown key from a future integration version: fall through to the
+    // entity-ID heuristic instead of guessing from the key.
+  }
+  return classifyKleenexEntityId(entityId);
+}
+
+/** Resolve a human-readable location label for a discovered device. */
+function resolveKleenexLabel(ctx: DiscoveryContext): string {
+  const device = ctx.device;
+  if (device?.name_by_user) return device.name_by_user;
+  if (device?.name) {
+    // Default device name is "Kleenex Pollen Radar (<instance>)"; the instance
+    // is what the user configured as the location.
+    const m = /^Kleenex Pollen Radar\s*\((.+)\)\s*$/.exec(device.name);
+    if (m) return m[1].trim();
+    return device.name;
+  }
+
+  const friendly = ctx.state?.attributes?.friendly_name;
+  if (typeof friendly === "string") {
+    const cleaned = friendly
+      .replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
+      .replace(
+        /[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
+        "",
+      )
+      .replace(
+        /^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i,
+        "",
+      )
+      .trim();
+    if (cleaned) return cleaned;
+  }
+
+  const slug = entityIdSuffix(ctx.entityId).replace(/_[^_]+$/, "");
+  if (slug) return slug.charAt(0).toUpperCase() + slug.slice(1);
+  return "Auto";
+}
+
+/** Slugified instance name from a device's `kleenex_pollenradar` identifier. */
+function deviceIdentifierSlug(
+  device: DeviceRegistryEntry | null | undefined,
+): string | null {
+  const identifiers = device?.identifiers;
+  if (!Array.isArray(identifiers)) return null;
+  for (const tuple of identifiers) {
+    if (!Array.isArray(tuple) || tuple[0] !== PLATFORM || !tuple[1]) continue;
+    const slug = slugify(String(tuple[1]));
+    if (slug) return slug;
+  }
+  return null;
+}
+
+/**
+ * Map device id -> identifier slug, for devices whose slug is unambiguous.
+ *
+ * Two config entries created with the same instance name slugify to the same
+ * key and would merge into one location, so those devices are dropped here and
+ * fall back to the unique config-entry key.
+ */
+function buildIdentifierKeys(hass: HomeAssistant): Map<string, string> {
+  const byDevice = new Map<string, string>();
+  const counts = new Map<string, number>();
+  for (const [deviceId, device] of Object.entries(hass.devices || {})) {
+    const slug = deviceIdentifierSlug(device);
+    if (!slug) continue;
+    byDevice.set(deviceId, slug);
+    counts.set(slug, (counts.get(slug) || 0) + 1);
+  }
+  for (const [deviceId, slug] of [...byDevice]) {
+    if ((counts.get(slug) || 0) > 1) byDevice.delete(deviceId);
+  }
+  return byDevice;
+}
+
+/**
+ * Discover Kleenex Pollen Radar entities grouped by location (one config entry
+ * and one device per configured location).
+ *
+ * Thin wrapper around discoverEntitiesByDevice. Locations are keyed by the
+ * slugified device identifier (the config-entry instance name), which is both
+ * human-readable in YAML and stable across renames *and* across removing and
+ * re-adding the integration -- unlike the config-entry id, which is a fresh
+ * ULID every time. It is also the exact string the legacy entity-ID slug was
+ * minted from, so pre-existing configs match on the key directly. Devices
+ * without a usable identifier keep the config-entry key; tier 3 (no registry at
+ * all) keys by the legacy `sensor.kleenex_pollen_radar_<location>_<sensor>`
+ * slug. Collisions keep the first entity seen -- detail sensors that would alias
+ * onto a category key are already rejected by the classifier, so a category
+ * sensor can never be displaced by a detail sensor.
+ */
+export function discoverKleenex(
+  hass: HomeAssistant,
+  debug = false,
+): DeviceDiscovery {
+  if (!hass) return { locations: new Map(), tierUsed: 0 };
+
+  const identifierKeys = buildIdentifierKeys(hass);
+
+  return discoverEntitiesByDevice(hass, {
+    platform: PLATFORM,
+    classify: classifyKleenexEntity,
+    resolveLabel: resolveKleenexLabel,
+    resolveLocationKey: (ctx) => {
+      if (ctx.tier === 3) {
+        const slug = entityIdSuffix(ctx.entityId).replace(/_[^_]+$/, "");
+        return slug || "default";
+      }
+      const identifierSlug = ctx.deviceId
+        ? identifierKeys.get(ctx.deviceId)
+        : undefined;
+      return identifierSlug || deviceLocationKey(ctx.device);
+    },
+    fallbackRegex: /^sensor\.kleenex_pollen_radar_/,
+    debug,
+    logTag: "Kleenex",
+  });
+}
+
+/**
+ * Extract the legacy location slug from an entity ID
+ * (`sensor.kleenex_pollen_radar_<location>_<sensor>` -> `<location>`), so
+ * configs written before registry discovery keep resolving.
+ */
+export function kleenexSlugExtractor(entityId: string): string | null {
+  const slug = entityIdSuffix(entityId).replace(/_[^_]+$/, "");
+  return slug || null;
+}
+
+/**
+ * Match a config location against the slugified device identifier
+ * (`("kleenex_pollenradar", "<instance>")`).
+ *
+ * The identifier carries the config-entry instance name, which is exactly what
+ * the legacy entity-ID slug was minted from (default device name
+ * "Kleenex Pollen Radar (Home)" -> `..._home_trees`). Unlike the entity IDs and
+ * the device name, it survives a rename, so a legacy `location: home` config
+ * still resolves for a user who has renamed both the device and its entities.
+ *
+ * Mirrors the ambiguity rule of buildIdentifierKeys: when two instance names
+ * normalize to the same slug ("St. John" and "St John"), the config value
+ * cannot say which one it meant. That outcome is reported as `"ambiguous"`
+ * rather than as `null`, because the two are not interchangeable: `null` means
+ * "no identifier knows this value, try the generic label/entity-ID chain",
+ * while `"ambiguous"` means "the identifiers know it and disagree". Falling
+ * through to the generic chain on an ambiguous slug would just re-pick one of
+ * the same two devices by registry iteration order -- silently showing another
+ * location's forecast -- so callers must stop instead.
+ */
+export type KleenexIdentifierMatch =
+  | [string, DiscoveredLocation]
+  | "ambiguous"
+  | null;
+
+export function matchKleenexLocationByIdentifier(
+  hass: HomeAssistant,
+  discovery: { locations: Map<string, DiscoveredLocation> },
+  cfgLocation: string | null | undefined,
+): KleenexIdentifierMatch {
+  if (!cfgLocation) return null;
+  const needle = slugify(String(cfgLocation));
+  if (!needle) return null;
+
+  let found: [string, DiscoveredLocation] | null = null;
+  for (const [key, loc] of discovery.locations) {
+    const device = loc.deviceId ? hass.devices?.[loc.deviceId] : undefined;
+    if (deviceIdentifierSlug(device) !== needle) continue;
+    if (found) return "ambiguous";
+    found = [key, loc];
+  }
+  return found;
+}
+
+/**
+ * The name-based candidate steps, in precedence order, each as the list of
+ * locations it matches:
+ *
+ *   1. exact (case-insensitive) label equality,
+ *   2. entity-ID slug (what findLocationBySlug matches),
+ *   3. slugified label -- so a legacy multiword slug like `new_york` still
+ *      finds the device labelled "New York" once its entity IDs are re-minted;
+ *      neither literal nor fuzzy matching gets there, because the label
+ *      contains a space and the config value an underscore,
+ *   4. fuzzy label containment.
+ *
+ * Steps 1, 2 and 4 mirror resolveLocationByKey's order so existing configs keep
+ * resolving to the same location; step 3 sits before the fuzzy step, i.e. it
+ * can only catch configs that previously fell through to fuzzy matching or
+ * failed outright.
+ *
+ * Whole lists rather than a single match, because the caller must be able to
+ * tell "one location matched" from "several did".
+ */
+function nameCandidateSteps(
+  discovery: { locations: Map<string, DiscoveredLocation> },
+  cfgLocation: string,
+): [string, DiscoveredLocation][][] {
+  // findLocationBySlug lowercases the needle and compares it to the extracted
+  // slug verbatim, so the same lowercased value is used for both steps here.
+  const needle = String(cfgLocation).toLowerCase();
+  const needleSlug = slugify(String(cfgLocation));
+  const labelExact: [string, DiscoveredLocation][] = [];
+  const entitySlug: [string, DiscoveredLocation][] = [];
+  const labelSlug: [string, DiscoveredLocation][] = [];
+  const fuzzyLabel: [string, DiscoveredLocation][] = [];
+
+  for (const [key, loc] of discovery.locations) {
+    const label = loc.label ? String(loc.label).toLowerCase() : "";
+    if (label && label === needle) labelExact.push([key, loc]);
+    if (label && needleSlug && slugify(String(loc.label)) === needleSlug) {
+      labelSlug.push([key, loc]);
+    }
+    if (label && label.includes(needle)) fuzzyLabel.push([key, loc]);
+
+    for (const eid of loc.entities.values()) {
+      const lid = String(eid).toLowerCase();
+      const extracted = kleenexSlugExtractor(eid);
+      if (
+        (extracted && extracted.toLowerCase() === needle) ||
+        lid.endsWith(`_${needle}`) ||
+        lid.endsWith(`_${needle}_j_1`)
+      ) {
+        entitySlug.push([key, loc]);
+        break;
+      }
+    }
+  }
+
+  return [labelExact, entitySlug, labelSlug, fuzzyLabel];
+}
+
+/**
+ * Resolve a config location value against a discovery result, using the full
+ * Kleenex candidate chain:
+ *
+ *   1. exact discovery key (the identifier slug for modern installs),
+ *   2. device identifier (rename-stable; `"ambiguous"` when several match),
+ *   3. the name-based steps in nameCandidateSteps, which cover devices with no
+ *      usable identifier. Every step is checked for multiplicity, so two
+ *      devices both labelled "Home" yield `"ambiguous"` instead of whichever
+ *      the registry lists first.
+ *
+ * This is the single definition of "which location does this config mean" for
+ * Kleenex. The card, both editors and the adapter all go through it (via the
+ * autodetect descriptor for the UI layers), because three hand-mirrored copies
+ * of the chain drifted apart three times during review: each caller that
+ * reproduces only part of it silently resolves a different set of configs.
+ */
+export function resolveKleenexLocationEntry(
+  hass: HomeAssistant,
+  discovery: { locations: Map<string, DiscoveredLocation> },
+  cfgLocation: string | null | undefined,
+): KleenexIdentifierMatch {
+  if (cfgLocation && discovery.locations.has(cfgLocation)) {
+    return [cfgLocation, discovery.locations.get(cfgLocation)!];
+  }
+
+  const byIdentifier = matchKleenexLocationByIdentifier(
+    hass,
+    discovery,
+    cfgLocation,
+  );
+  if (byIdentifier === "ambiguous") return "ambiguous";
+  if (byIdentifier) return byIdentifier;
+
+  // The name-based steps run here rather than in resolveLocationByKey: the
+  // generic helper is shared with atmo/pp/gpl and keeps its first-match
+  // semantics for them, while Kleenex needs both the extra slugified-label
+  // candidate and the multiplicity rule on every step.
+  if (cfgLocation) {
+    for (const step of nameCandidateSteps(discovery, cfgLocation)) {
+      if (step.length === 0) continue;
+      // The first step with any match decides; more than one match there means
+      // the config value cannot say which location it meant.
+      return step.length > 1 ? "ambiguous" : step[0];
+    }
+    return null;
+  }
+
+  // Empty cfgLocation means "auto-pick the first location" -- the helper's own
+  // deterministic sort, deliberately unchanged.
+  return resolveLocationByKey(discovery, cfgLocation, {
+    slugExtractor: kleenexSlugExtractor,
+  });
+}
+
+/** One discovered Kleenex location, resolved against the card config. */
+export interface KleenexLocationMatch {
+  locationKey: string;
+  label: string;
+  /** classified key (`trees`/`grass`/`weeds` or canonical allergen) -> entity_id */
+  entities: Map<string, string>;
+  /** entity_id -> classified key, for the forecast passes */
+  keyByEntityId: Map<string, string>;
+  /** state objects of the location's entities, in discovery order */
+  states: HassEntity[];
+}
+
+/**
+ * Resolve the location the card config points at, via registry discovery.
+ *
+ * Three outcomes, all distinct on purpose:
+ *   - a match,
+ *   - `null`: discovery found nothing, or nothing matched the config -- the
+ *     caller may fall back to its legacy entity-ID scan,
+ *   - `"ambiguous"`: several locations answer to the config value. The caller
+ *     must stop. Falling back to the legacy scan would pick up
+ *     `sensor.kleenex_pollen_radar_<slug>_*` from whichever colliding device
+ *     kept the unsuffixed IDs, i.e. re-introduce the arbitrary choice one layer
+ *     down.
+ *
+ * An empty `cfg.location` picks the first discovered location.
+ */
+export function resolveKleenexLocation(
+  hass: HomeAssistant,
+  cfg: CardConfig,
+  debug = false,
+): KleenexLocationMatch | "ambiguous" | null {
+  const discovery = discoverKleenex(hass, debug);
+  if (discovery.locations.size === 0) return null;
+
+  const cfgLocation = cfg.location as string | undefined;
+  const resolved = resolveKleenexLocationEntry(hass, discovery, cfgLocation);
+  if (resolved === "ambiguous") {
+    if (debug) {
+      console.debug(
+        `[Kleenex] Location '${cfgLocation}' matches more than one device; not resolving`,
+      );
+    }
+    return "ambiguous";
+  }
+  if (!resolved) return null;
+  const match = resolved;
+
+  const [locationKey, loc] = match;
+  const keyByEntityId = new Map<string, string>();
+  const states: HassEntity[] = [];
+  for (const [key, eid] of loc.entities) {
+    const state = hass.states?.[eid];
+    if (!state) continue;
+    keyByEntityId.set(eid, key);
+    states.push(state);
+  }
+  if (states.length === 0) return null;
+
+  if (debug) {
+    console.debug(
+      `[Kleenex] Registry discovery matched location '${locationKey}' (${loc.label}) with entities:`,
+      [...loc.entities.keys()],
+    );
+  }
+
+  return {
+    locationKey,
+    label: loc.label,
+    entities: loc.entities,
+    keyByEntityId,
+    states,
+  };
+}
+
+/** Category keys the config asks for, derived from the allergen list. */
+function requestedCategories(cfg: CardConfig): Set<string> {
+  const needsCategories = new Set<string>();
+  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
+    if (CATEGORY_KEYS.has(allergen)) {
+      needsCategories.add(allergen);
+    } else if (allergen.endsWith("_cat")) {
+      const categoryName = allergen.replace("_cat", "");
+      if (CATEGORY_KEYS.has(categoryName)) needsCategories.add(categoryName);
+    } else {
+      const category = INDIVIDUAL_TO_CATEGORY[allergen];
+      if (category) needsCategories.add(category);
+    }
+  }
+  return needsCategories;
+}
+
+/** The non-category allergens the config asks for. */
+function requestedIndividualAllergens(cfg: CardConfig): string[] {
+  return ((cfg.allergens as string[] | undefined) || []).filter(
+    (a) =>
+      !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(
+        a,
+      ),
+  );
+}
 
 /**
  * Resolve entity IDs for sensor detection.
@@ -40,21 +623,29 @@ export function resolveEntityIds(
 ): Map<string, string> {
   const map = new Map<string, string>();
   const locationSlug = slugify((cfg.location as string) || "");
-  const categoryAllergens = ["trees", "grass", "weeds"];
+  const needsCategories = requestedCategories(cfg);
 
-  // Determine which categories are needed
-  const needsCategories = new Set<string>();
-  for (const allergen of (cfg.allergens as string[] | undefined) || []) {
-    if (categoryAllergens.includes(allergen)) {
-      needsCategories.add(allergen);
-    } else if (allergen.endsWith("_cat")) {
-      const categoryName = allergen.replace("_cat", "");
-      if (categoryAllergens.includes(categoryName)) {
-        needsCategories.add(categoryName);
+  // Registry-first path. Entity IDs carry no reliable structure (the device is
+  // renameable and the sensor part is translated), so the registry is the only
+  // dependable source; the entity-ID probing below stays as the fallback for
+  // installs whose registry isn't exposed to the frontend.
+  if (cfg.location !== "manual") {
+    const located = resolveKleenexLocation(hass, cfg, debug);
+    // Several locations answer to the configured value: stop rather than fall
+    // through to the entity-ID probing below, which would pick the colliding
+    // device that happens to still carry legacy-shaped IDs.
+    if (located === "ambiguous") return map;
+    if (located) {
+      const wantedIndividual = new Set(requestedIndividualAllergens(cfg));
+      for (const [key, entityId] of located.entities) {
+        if (!hass.states[entityId]) continue;
+        if (CATEGORY_KEYS.has(key)) {
+          if (needsCategories.has(key)) map.set(key, entityId);
+        } else if (wantedIndividual.has(key)) {
+          map.set(key, entityId);
+        }
       }
-    } else {
-      const category = INDIVIDUAL_TO_CATEGORY[allergen];
-      if (category) needsCategories.add(category);
+      if (map.size > 0) return map;
     }
   }
 
@@ -119,12 +710,7 @@ export function resolveEntityIds(
   // These are disabled by default in HA (entity_registry_enabled_default=False) but
   // users may enable them. For NA zones they don't exist at all; for EU/UK zones they
   // give per-allergen data when the category sensor's details[] is empty.
-  const individualAllergens = ((cfg.allergens as string[] | undefined) || []).filter(
-    (a) =>
-      !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(
-        a,
-      ),
-  );
+  const individualAllergens = requestedIndividualAllergens(cfg);
 
   for (const allergen of individualAllergens) {
     // map already has this allergen (from some other path) — skip.

@@ -2,7 +2,15 @@
 import type { AdapterStubConfig } from "../../types/config.js";
 import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 
+// Legacy entity-ID prefix: the slug of the integration's *default* device name
+// ("Kleenex Pollen Radar (<instance>)"). It is not, and never was, the HA
+// domain -- users who rename the device get entity IDs without it (issue #309).
+// Kept for the pre-registry fallback paths only.
 export const DOMAIN = "kleenex_pollen_radar";
+
+// The actual HA platform/domain of the upstream integration. Used for
+// registry-based discovery (device identifiers and entry.platform).
+export const PLATFORM = "kleenex_pollenradar";
 
 // Map kleenex allergen names to our canonical names (supports all regional language variations)
 export const KLEENEX_ALLERGEN_MAP: Record<string, string> = {

@@ -1,5 +1,5 @@
 // src/adapters/kleenex/forecast.ts
-import type { HomeAssistant } from "../../types/home-assistant.js";
+import type { HassEntity, HomeAssistant } from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
 import type { PollenSensor, ForecastDay } from "../../types/sensor.js";
 import { t } from "../../i18n.js";
@@ -17,6 +17,12 @@ import {
   normalizeManualPrefix,
 } from "../../utils/adapter-helpers.js";
 import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
+import {
+  CATEGORY_KEYS,
+  DIAGNOSTIC_SUFFIXES,
+  canonicalAllergenFromSlug,
+  resolveKleenexLocation,
+} from "./discovery.js";
 import { ppmToLevel } from "./levels.js";
 
 // One collected day of data for an allergen (raw level 0-4 plus the ppm value).
@@ -35,29 +41,6 @@ interface KleenexAllergenEntry {
 
 // A forecast/detail item as reported by the integration (loosely shaped).
 type KleenexItem = Record<string, unknown>;
-
-// Static lookup: slugified alias key -> canonical allergen name. Built once
-// from KLEENEX_ALLERGEN_MAP since the map is module-level constant data.
-const SLUGIFIED_ALIAS_MAP: Map<string, string> = (() => {
-  const m = new Map<string, string>();
-  for (const [alias, canonical] of Object.entries(KLEENEX_ALLERGEN_MAP)) {
-    const slug = slugify(alias);
-    if (!m.has(slug)) m.set(slug, canonical);
-  }
-  return m;
-})();
-
-// Diagnostic suffixes that are not allergen names — skip them in Pass 2.
-const DIAGNOSTIC_SUFFIXES = new Set([
-  "level",
-  "date",
-  "last_updated",
-  "latitude",
-  "longitude",
-  "city",
-  "region",
-  "error",
-]);
 
 // Track which (location, entity_prefix) combinations have already received the
 // NA-zone warning so it isn't re-emitted on every HA state update.
@@ -96,13 +79,80 @@ export async function fetchForecast(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find all kleenex sensors
-  let kleenexSensors = Object.values(hass.states).filter((entity) => {
-    return entity.entity_id && entity.entity_id.startsWith(`sensor.${DOMAIN}_`);
-  });
+  // Find all kleenex sensors.
+  //
+  // Manual mode is collected separately: the user-supplied entity_prefix is the
+  // whole naming contract there, and it need not contain the legacy
+  // `kleenex_pollen_radar_` slug at all. The integration derives entity IDs from
+  // the (renameable) device name, so a device renamed to "Kleenex pollen" yields
+  // `sensor.kleenex_pollen_trees` (issue #309). Prefiltering on the legacy slug
+  // before applying the prefix would drop those entities entirely.
+  const manualPrefix =
+    config.location === "manual"
+      ? normalizeManualPrefix(config.entity_prefix)
+      : "";
+  let kleenexSensors: HassEntity[];
+  // entity_id -> classified key from registry discovery. Empty on the legacy
+  // paths, where the passes below fall back to the entity-ID heuristics.
+  let keyByEntityId = new Map<string, string>();
+  const located =
+    config.location === "manual"
+      ? null
+      : resolveKleenexLocation(hass, config, !!debug);
+  if (located === "ambiguous") {
+    // Several locations answer to the configured value. Rendering one of them
+    // would be a guess -- and the legacy entity-ID scan below would make that
+    // guess for us, by picking whichever colliding device kept the unsuffixed
+    // IDs. Return nothing so the card shows its own "no sensors" error.
+    if (debug) {
+      console.debug(
+        `[Kleenex] Location '${config.location}' is ambiguous; returning no sensors`,
+      );
+    }
+    return [];
+  }
+  if (located) {
+    kleenexSensors = located.states;
+    keyByEntityId = located.keyByEntityId;
+  } else if (manualPrefix) {
+    const expectedPrefix = `sensor.${manualPrefix}`;
+    // The configured suffix is part of the naming contract, not decoration:
+    // an install can hold both `..._birch` and `..._birch_v2`, and collecting
+    // both would let state insertion order decide which one the allergen map
+    // keeps -- while resolveEntityIds unambiguously selects the suffixed one.
+    const manualSuffix =
+      typeof config.entity_suffix === "string" ? config.entity_suffix : "";
+    if (debug) {
+      console.debug(
+        `[Kleenex] Manual mode filtering with prefix: '${manualPrefix}'${manualSuffix ? `, suffix: '${manualSuffix}'` : ""}`,
+      );
+    }
+    kleenexSensors = Object.values(hass.states).filter((entity) => {
+      const matches =
+        !!entity.entity_id &&
+        entity.entity_id.startsWith(expectedPrefix) &&
+        (!manualSuffix || entity.entity_id.endsWith(manualSuffix));
+      if (debug && matches) {
+        console.debug(`[Kleenex] Manual mode match: ${entity.entity_id}`);
+      }
+      return matches;
+    });
+    if (debug) {
+      console.debug(
+        `[Kleenex] After manual mode filtering: ${kleenexSensors.length} sensors with prefix '${expectedPrefix}'`,
+      );
+    }
+  } else {
+    kleenexSensors = Object.values(hass.states).filter((entity) => {
+      return (
+        entity.entity_id && entity.entity_id.startsWith(`sensor.${DOMAIN}_`)
+      );
+    });
+  }
 
-  // Filter by location if specified (and not manual mode)
-  if (config.location && config.location !== "manual") {
+  // Filter by location if specified (and not manual mode). Registry discovery
+  // has already narrowed the set to one location when it matched.
+  if (!located && config.location && config.location !== "manual") {
     const wantedLocation = slugify(config.location as string);
 
     if (debug) {
@@ -130,40 +180,6 @@ export async function fetchForecast(
         `[Kleenex] After location filtering: ${kleenexSensors.length} sensors for location '${wantedLocation}'`,
       );
     }
-  } else if (config.location === "manual") {
-    // Manual mode: filter by entity_prefix
-    let prefix = (config.entity_prefix as string) || "";
-    // Remove 'sensor.' prefix if user included it
-    if (prefix.startsWith("sensor.")) {
-      prefix = prefix.substring(7); // Remove 'sensor.'
-    }
-    // Add trailing underscore if not present (unless prefix is empty)
-    if (prefix && !prefix.endsWith("_")) {
-      prefix = prefix + "_";
-    }
-
-    if (debug) {
-      console.debug(`[Kleenex] Manual mode filtering with prefix: '${prefix}'`);
-    }
-
-    if (prefix) {
-      const expectedPrefix = `sensor.${prefix}`;
-      kleenexSensors = kleenexSensors.filter((entity) => {
-        const matches = entity.entity_id.startsWith(expectedPrefix);
-
-        if (debug && matches) {
-          console.debug(`[Kleenex] Manual mode match: ${entity.entity_id}`);
-        }
-
-        return matches;
-      });
-
-      if (debug) {
-        console.debug(
-          `[Kleenex] After manual mode filtering: ${kleenexSensors.length} sensors with prefix '${expectedPrefix}'`,
-        );
-      }
-    }
   }
 
   if (debug) {
@@ -172,6 +188,20 @@ export async function fetchForecast(
       kleenexSensors.map((s) => s.entity_id),
     );
   }
+
+  // Effective last token of an entity_id, accounting for manual-mode
+  // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`). Shared by
+  // both passes and the NA warning so they cannot disagree about what a given
+  // entity is.
+  const effectiveLastToken = (entityId: string): string => {
+    let id = entityId;
+    const entitySuffix =
+      typeof config.entity_suffix === "string" ? config.entity_suffix : "";
+    if (config.location === "manual" && entitySuffix && id.endsWith(entitySuffix)) {
+      id = id.slice(0, -entitySuffix.length);
+    }
+    return id.split("_").pop() as string;
+  };
 
   let sensors: PollenSensor[] = [];
   const allergenData = new Map<string, KleenexAllergenEntry>(); // Map to collect data by allergen name
@@ -193,15 +223,25 @@ export async function fetchForecast(
     const details: KleenexItem[] = attributes.details || [];
     const forecastData: KleenexItem[] = attributes.forecast || [];
 
-    // Determine sensor category from entity_id by checking all localized name prefixes
+    // Determine the sensor category: registry classification when discovery
+    // resolved this entity, otherwise the localized entity-ID token. The token
+    // must be the *effective* one, i.e. with any manual-mode entity_suffix
+    // removed -- `..._trees_v2` yields "v2" otherwise, and a category-only
+    // (NA-zone) config would collect nothing here while pass 2 correctly skips
+    // the same entity as a category sensor.
     let sensorCategory: string | null = null;
-    const entitySuffix = sensor.entity_id.split("_").pop() as string;
-    for (const [localizedPrefix, canonicalCategory] of Object.entries(
-      KLEENEX_LOCALIZED_CATEGORY_NAMES,
-    )) {
-      if (entitySuffix.startsWith(localizedPrefix)) {
-        sensorCategory = canonicalCategory;
-        break;
+    const discoveredKey = keyByEntityId.get(sensor.entity_id);
+    if (discoveredKey) {
+      sensorCategory = CATEGORY_KEYS.has(discoveredKey) ? discoveredKey : null;
+    } else {
+      const entityToken = effectiveLastToken(sensor.entity_id);
+      for (const [localizedPrefix, canonicalCategory] of Object.entries(
+        KLEENEX_LOCALIZED_CATEGORY_NAMES,
+      )) {
+        if (entityToken.startsWith(localizedPrefix)) {
+          sensorCategory = canonicalCategory;
+          break;
+        }
       }
     }
 
@@ -462,30 +502,23 @@ export async function fetchForecast(
   // empty details — see api.py:__decode_raw_data_na), try individually-enabled
   // DetailSensor entities (disabled by default in HA registry).
 
-  // Effective last token of an entity_id, accounting for manual-mode
-  // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`).
-  const effectiveLastToken = (entityId: string): string => {
-    let id = entityId;
-    const entitySuffix = config.entity_suffix as string | undefined;
-    if (config.location === "manual" && entitySuffix && id.endsWith(entitySuffix)) {
-      id = id.slice(0, -entitySuffix.length);
-    }
-    return id.split("_").pop() as string;
+  // True when the entity is a category sensor: registry classification first,
+  // localized entity-ID suffix as fallback.
+  const isCategorySensorEntity = (entityId: string): boolean => {
+    const key = keyByEntityId.get(entityId);
+    if (key) return CATEGORY_KEYS.has(key);
+    const lastToken = effectiveLastToken(entityId);
+    return Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES).some((lp) =>
+      lastToken.startsWith(lp),
+    );
   };
 
   for (const sensor of kleenexSensors) {
     // Only consider sensors that were NOT identified as category sensors.
-    const lastToken = effectiveLastToken(sensor.entity_id);
-    let isCategorySensor = false;
-    for (const localizedPrefix of Object.keys(
-      KLEENEX_LOCALIZED_CATEGORY_NAMES,
-    )) {
-      if (lastToken.startsWith(localizedPrefix)) {
-        isCategorySensor = true;
-        break;
-      }
-    }
-    if (isCategorySensor) continue;
+    if (isCategorySensorEntity(sensor.entity_id)) continue;
+
+    // Registry-classified detail sensors carry their canonical allergen already.
+    const discoveredAllergen = keyByEntityId.get(sensor.entity_id);
 
     // Derive the allergen suffix from the entity_id.
     let allergenSuffix: string;
@@ -515,27 +548,21 @@ export async function fetchForecast(
       }
     }
 
-    // Skip diagnostic entities (single-token like `date`, `region`, multi-token
-    // like `last_updated`, and any `<allergen>_level` variant).
-    if (DIAGNOSTIC_SUFFIXES.has(allergenSuffix)) continue;
-    if (allergenSuffix.endsWith("_level")) continue;
+    let derivedName: string | undefined = discoveredAllergen;
+    if (!derivedName) {
+      // Skip diagnostic entities (single-token like `date`, `region`,
+      // multi-token like `last_updated`, and any `<allergen>_level` variant).
+      if (DIAGNOSTIC_SUFFIXES.has(allergenSuffix)) continue;
+      if (allergenSuffix.endsWith("_level")) continue;
 
-    // Check whether this suffix matches a known allergen alias (by slug). When
-    // config.location is unset, the location segment couldn't be stripped above,
-    // so fall back to progressively shorter trailing slug candidates.
-    let canonicalName = SLUGIFIED_ALIAS_MAP.get(allergenSuffix);
-    if (!canonicalName && allergenSuffix.includes("_")) {
-      const parts = allergenSuffix.split("_");
-      for (let i = 1; i < parts.length; i++) {
-        const candidate = parts.slice(i).join("_");
-        const match = SLUGIFIED_ALIAS_MAP.get(candidate);
-        if (match) {
-          canonicalName = match;
-          break;
-        }
-      }
+      // Check whether this suffix matches a known allergen alias (by slug). When
+      // config.location is unset, the location segment couldn't be stripped
+      // above, so the helper also tries progressively shorter trailing slug
+      // candidates.
+      derivedName = canonicalAllergenFromSlug(allergenSuffix);
     }
-    if (!canonicalName) continue;
+    if (!derivedName) continue;
+    const canonicalName = derivedName;
 
     // Skip allergens not requested in config.
     if (!allergens.includes(canonicalName)) continue;
@@ -613,12 +640,9 @@ export async function fetchForecast(
   );
   // Only evaluate when at least one category sensor was actually found (guards
   // against vacuous-truth on empty kleenexSensors when location doesn't match).
-  const categorySensorsFound = kleenexSensors.filter((sensor) => {
-    const suffix = effectiveLastToken(sensor.entity_id);
-    return Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES).some((lp) =>
-      suffix.startsWith(lp),
-    );
-  });
+  const categorySensorsFound = kleenexSensors.filter((sensor) =>
+    isCategorySensorEntity(sensor.entity_id),
+  );
   if (requestedIndividual.length > 0 && categorySensorsFound.length > 0) {
     const allIndividualEmpty = requestedIndividual.every(
       (a) => !allergenData.has(a),
@@ -810,7 +834,6 @@ export async function fetchForecast(
           });
         }
       }
-      dict.levelNames = levelNames;
 
       // Build day objects for card display
       for (let i = 0; i < days_to_show; i++) {

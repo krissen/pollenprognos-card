@@ -22,7 +22,7 @@ import {
 } from "./editor/base.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
-import { getStubConfig } from "./adapter-registry.js";
+import { getStubConfig, getAutodetect } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
@@ -627,6 +627,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         silam: silamDiscovery,
         atmo: atmoDiscovery,
         gp: gpDiscovery,
+        kleenex: kleenexDiscovery,
       },
       getPpDiscovery,
       getDwdDiscovery,
@@ -952,47 +953,96 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         );
       }
 
-      // Collect kleenex locations
-      this.installedKleenexLocations = Array.from(
-        new Map(
-          Object.values(hass.states)
-            .filter(
-              (s) =>
-                s &&
-                typeof s === "object" &&
-                typeof s.entity_id === "string" &&
-                s.entity_id.startsWith("sensor.kleenex_pollen_radar_"),
-            )
-            .map((s) => {
-              // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
-              // Match all localized category names: English (trees/grass/weeds), Dutch (bomen/gras/kruiden/onkruid),
-              // French (arbres/graminees/herbacees), Italian (alberi/graminacee/erbacee)
-              const match = s.entity_id.match(
-                /^sensor\.kleenex_pollen_radar_(.*)_(?:tree|bomen|arbre|alber|grass|gras|graminee|graminace|weed|kruid|onkruid|herbacee|erbace)/,
-              );
-              if (!match) return null;
+      // Collect kleenex locations. Registry discovery first: a renamed device
+      // strips both the `radar_` prefix and the location slug from the entity
+      // IDs the regex below parses, which left the dropdown empty (issue #309).
+      this.installedKleenexLocations = discoveryToLocations(kleenexDiscovery);
 
-              const locationSlug = match[1];
-              let title = s.attributes?.friendly_name || locationSlug;
+      if (!this.installedKleenexLocations.length) {
+        this.installedKleenexLocations = Array.from(
+          new Map(
+            Object.values(hass.states)
+              .filter(
+                (s) =>
+                  s &&
+                  typeof s === "object" &&
+                  typeof s.entity_id === "string" &&
+                  s.entity_id.startsWith("sensor.kleenex_pollen_radar_"),
+              )
+              .map((s) => {
+                // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
+                // Match all localized category names: English (trees/grass/weeds), Dutch (bomen/gras/kruiden/onkruid),
+                // French (arbres/graminees/herbacees), Italian (alberi/graminacee/erbacee)
+                const match = s.entity_id.match(
+                  /^sensor\.kleenex_pollen_radar_(.*)_(?:tree|bomen|arbre|alber|grass|gras|graminee|graminace|weed|kruid|onkruid|herbacee|erbace)/,
+                );
+                if (!match) return null;
 
-              // Clean up the title to show only the location
-              title = title
-                .replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
-                .replace(/[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
-                .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
-                .trim();
+                const locationSlug = match[1];
+                let title = s.attributes?.friendly_name || locationSlug;
 
-              // Fallback to locationSlug if cleaning resulted in empty string
-              if (!title) {
-                title =
-                  locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
-              }
+                // Clean up the title to show only the location
+                title = title
+                  .replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
+                  .replace(/[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
+                  .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
+                  .trim();
 
-              return [locationSlug, title] as InstalledLocation;
-            })
-            .filter((entry): entry is InstalledLocation => entry !== null),
-        ),
-      );
+                // Fallback to locationSlug if cleaning resulted in empty string
+                if (!title) {
+                  title =
+                    locationSlug.charAt(0).toUpperCase() +
+                    locationSlug.slice(1);
+                }
+
+                return [locationSlug, title] as InstalledLocation;
+              })
+              .filter((entry): entry is InstalledLocation => entry !== null),
+          ),
+        );
+      }
+
+      // Compatibility: a config can still hold a location value that is not a
+      // discovery key -- e.g. a device without a usable identifier (keyed by
+      // config entry), or a legacy slug whose device was renamed. Re-key the
+      // matched entry to the configured value so the dropdown shows it as
+      // selected. Replacing rather than appending keeps exactly one option per
+      // location: two entries sharing a label are indistinguishable to the
+      // user, and picking the wrong one would silently rewrite the config's
+      // location key.
+      const kleenexCfgLoc = this._config?.location as string | undefined;
+      if (
+        kleenexCfgLoc &&
+        kleenexCfgLoc !== "manual" &&
+        !kleenexDiscovery.locations.has(kleenexCfgLoc)
+      ) {
+        const kleenexAutodetect = getAutodetect("kleenex");
+        // Resolve exactly the way the adapter does -- one call, no local copy
+        // of the candidate chain. A partial mirror makes the dropdown and the
+        // rendered card disagree about which config values resolve, which is
+        // how the label-matching case was missed here. "ambiguous" (several
+        // locations answer to the value) yields no entry: binding the selector
+        // to one of them would be a guess.
+        const kleenexResolved =
+          kleenexAutodetect?.resolveLocation?.(
+            hass,
+            kleenexDiscovery,
+            kleenexCfgLoc,
+          ) ?? null;
+        const kleenexMatch =
+          kleenexResolved === "ambiguous" ? null : kleenexResolved;
+        if (kleenexMatch) {
+          const entry = [
+            kleenexCfgLoc,
+            kleenexMatch[1].label,
+          ] as InstalledLocation;
+          const idx = this.installedKleenexLocations.findIndex(
+            ([key]) => key === kleenexMatch[0],
+          );
+          if (idx >= 0) this.installedKleenexLocations[idx] = entry;
+          else this.installedKleenexLocations.push(entry);
+        }
+      }
 
       // Collect Atmo France locations (reuse discovery from autodetect above)
       this.installedAtmoLocations = discoveryToLocations(atmoDiscovery);

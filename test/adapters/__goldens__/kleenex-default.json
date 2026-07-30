@@ -55,16 +55,7 @@
       }
     ],
     "allergenCapitalized": "Trees",
-    "allergenShort": "Trees",
-    "levelNames": [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels"
-    ]
+    "allergenShort": "Trees"
   },
   {
     "allergenReplaced": "birch",
@@ -122,16 +113,7 @@
       }
     ],
     "allergenCapitalized": "Birch",
-    "allergenShort": "Birch",
-    "levelNames": [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels"
-    ]
+    "allergenShort": "Birch"
   },
   {
     "allergenReplaced": "oak",
@@ -189,15 +171,6 @@
       }
     ],
     "allergenCapitalized": "Oak",
-    "allergenShort": "Oak",
-    "levelNames": [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels"
-    ]
+    "allergenShort": "Oak"
   }
 ]

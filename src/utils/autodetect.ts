@@ -41,12 +41,13 @@ export type LocationResult = { key: string; value: unknown } | null;
 export interface DetectionResult {
   stateIds: string[];
   states: Record<string, string[]>;
-  // silam/atmo/gp run their discovery eagerly during detection (their
+  // silam/atmo/gp/kleenex run their discovery eagerly during detection (their
   // descriptors always return it), so these are always present.
   discovery: {
     silam: AutodetectDiscovery;
     atmo: AutodetectDiscovery;
     gp: AutodetectDiscovery;
+    kleenex: AutodetectDiscovery;
   };
   getPpDiscovery: () => AutodetectDiscovery;
   getDwdDiscovery: () => AutodetectDiscovery;
@@ -129,13 +130,15 @@ export function detectIntegrationStates(
     if (result.discovery) eagerDiscovery[id] = result.discovery;
   }
 
-  // Preserve the { silam, atmo, gp } discovery shape consumers read directly.
-  // These descriptors always run discovery eagerly, so the entries are present.
+  // Preserve the { silam, atmo, gp, kleenex } discovery shape consumers read
+  // directly. These descriptors always run discovery eagerly, so the entries
+  // are present.
   const emptyDiscovery: AutodetectDiscovery = { locations: new Map() };
   const discovery: DetectionResult["discovery"] = {
     silam: eagerDiscovery.silam ?? emptyDiscovery,
     atmo: eagerDiscovery.atmo ?? emptyDiscovery,
     gp: eagerDiscovery.gp ?? emptyDiscovery,
+    kleenex: eagerDiscovery.kleenex ?? emptyDiscovery,
   };
 
   // Lazy/memoized discoveries for adapters whose header label / location
@@ -277,6 +280,14 @@ export function autoSelectLocation(
   }
 
   if (integration === "kleenex" && states.kleenex?.length) {
+    // Registry discovery first: entity IDs lose both the `radar_` prefix and
+    // the location slug once the device is renamed (issue #309), so the
+    // `_date`-sensor regex below only works on legacy installs.
+    const kleenexDiscovery = detection.discovery.kleenex;
+    if (kleenexDiscovery && kleenexDiscovery.locations.size > 0) {
+      const firstLocId = kleenexDiscovery.locations.keys().next().value;
+      if (firstLocId) return { key: "location", value: firstLocId };
+    }
     const kleenexDateSensors = detection.stateIds.filter(
       (id) =>
         typeof id === "string" &&
@@ -439,9 +450,18 @@ export function deriveLocationForEntity(
     }
 
     case "kleenex": {
-      // Location can contain underscores, so match against the known location
-      // set derived from the `..._date` sensors and pick the longest prefix
-      // that owns this entity.
+      // Registry discovery owns the entity -> location mapping whenever it
+      // found anything; it also classifies out the diagnostic sensors, so a
+      // hit is always a renderable pollen sensor.
+      const fromDiscovery = findLocationKeyInDiscovery(
+        detection?.discovery?.kleenex,
+        entityId,
+      );
+      if (fromDiscovery) return { key: "location", value: fromDiscovery };
+
+      // Legacy fallback (no registry exposed). Location can contain
+      // underscores, so match against the known location set derived from the
+      // `..._date` sensors and pick the longest prefix that owns this entity.
       const dateSensors = (detection?.stateIds || []).filter(
         (id) =>
           typeof id === "string" &&
@@ -468,17 +488,13 @@ export function deriveLocationForEntity(
         }
       }
       if (!best) return null;
-      // Reject diagnostic helper sensors (date/last_updated/region); only
-      // category/detail sensors are renderable pollen data.
-      const rest = entityId.slice(
-        `sensor.kleenex_pollen_radar_${best}_`.length,
-      );
-      const KLEENEX_DIAGNOSTIC_SUFFIXES = new Set([
-        "date",
-        "last_updated",
-        "region",
-      ]);
-      if (!rest || KLEENEX_DIAGNOSTIC_SUFFIXES.has(rest)) return null;
+      // Only category/detail sensors are renderable pollen data. Ask the
+      // adapter rather than keeping a local list of diagnostic suffixes here:
+      // the previous list covered date/last_updated/region but not latitude,
+      // longitude, city, error or the `*_level` enums, so a card was suggested
+      // for those. The adapter's classifier is the same one discovery uses.
+      const isRenderable = getAutodetect("kleenex")?.isRenderableEntity;
+      if (isRenderable && !isRenderable(entityId)) return null;
       return { key: "location", value: best };
     }
 
