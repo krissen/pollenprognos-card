@@ -4,14 +4,18 @@
 // Extends PollenEditorBase to share integration/location and allergen sections.
 
 import { html, css, type TemplateResult, type PropertyDeclarations } from "lit";
-import { getStubConfig } from "./adapter-registry.js";
+import { getStubConfig, getAutodetect } from "./adapter-registry.js";
 import {
   PollenEditorBase,
   deepMerge,
   sectionResetStyles,
   editorControlStyles,
 } from "./editor/base.js";
-import { coerceBool } from "./utils/adapter-helpers.js";
+import {
+  coerceBool,
+  findLocationBySlug,
+  type DeviceDiscovery,
+} from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   detectIntegrationStates,
@@ -185,10 +189,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
   /**
    * Build the installed-location lists the shared integration section reads
-   * (installedPpLocations, installedDwdLocations, ...). The badge is new, so
-   * there are no legacy slug configs to preserve: this is the discovery-first
-   * path only (the card editor keeps the richer legacy-compat variant). Lists
-   * are [key, label] pairs; the dropdown shows label, stores key.
+   * (installedPpLocations, installedDwdLocations, ...). Discovery-first, with
+   * per-integration entity-ID fallbacks; Kleenex additionally keeps the card
+   * editor's legacy-slug compatibility entry, since badges saved before
+   * registry discovery store the slug. Lists are [key, label] pairs; the
+   * dropdown shows label, stores key.
    *
    * @param {ReturnType<typeof detectIntegrationStates>} detection
    * @param {object} hass
@@ -262,6 +267,35 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               .filter(Boolean),
           ),
         ).map((slug) => [slug, slug] as InstalledLocation);
+
+    // Compatibility: a badge saved before registry discovery carries the legacy
+    // slug ("utrecht"), while discovery keys locations by config entry. Without
+    // an entry for the slug the selector shows nothing selected even though the
+    // badge still resolves. Same candidate order as the card editor: the
+    // rename-stable device identifier before the generic slug matching.
+    const kleenexCfgLoc = this._config?.location as string | undefined;
+    if (
+      kleenexCfgLoc &&
+      kleenexCfgLoc !== "manual" &&
+      !kleenexDiscovery.locations.has(kleenexCfgLoc)
+    ) {
+      const kleenexAutodetect = getAutodetect("kleenex");
+      const kleenexMatch =
+        kleenexAutodetect?.matchLocation?.(
+          hass,
+          kleenexDiscovery,
+          kleenexCfgLoc,
+        ) ??
+        findLocationBySlug(kleenexDiscovery as DeviceDiscovery, kleenexCfgLoc, {
+          slugExtractor: kleenexAutodetect?.extractLocationSlug,
+        });
+      if (kleenexMatch) {
+        this.installedKleenexLocations.push([
+          kleenexCfgLoc,
+          kleenexMatch[1].label,
+        ] as InstalledLocation);
+      }
+    }
   }
 
   /**
