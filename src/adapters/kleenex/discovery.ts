@@ -80,15 +80,20 @@ export function canonicalAllergenFromSlug(
 }
 
 /**
- * Normalize an allergen name as reported inside `details[]` / `forecast[].details[]`.
+ * Normalize an allergen name as reported by the integration, for lookups
+ * against KLEENEX_ALLERGEN_MAP and the configured allergen list.
  *
- * The feed is not whitespace-clean: the FR zone reports names like `"Poaceae "`,
- * and an untrimmed lookup key matches neither KLEENEX_ALLERGEN_MAP nor the
- * configured allergen list, so the row disappears without a trace. Returns an
- * empty string for anything that isn't a usable name.
+ * The feed is not whitespace-clean: the FR and IT zones report names like
+ * `"Poaceae "`, and an unnormalized key matches neither the alias map nor the
+ * config, so the row disappears without a trace. Leading/trailing whitespace is
+ * stripped, runs of inner whitespace collapse to a single space, and the result
+ * is lowercased. Every name-to-allergen lookup in this adapter goes through
+ * here, so a new upstream spelling only ever needs an alias, never a second
+ * normalization rule. Returns an empty string for anything unusable.
  */
 export function normalizeDetailName(raw: unknown): string {
-  return typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 // Static reverse index: canonical allergen name -> Set of slugified alias
