@@ -189,6 +189,20 @@ export async function fetchForecast(
     );
   }
 
+  // Effective last token of an entity_id, accounting for manual-mode
+  // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`). Shared by
+  // both passes and the NA warning so they cannot disagree about what a given
+  // entity is.
+  const effectiveLastToken = (entityId: string): string => {
+    let id = entityId;
+    const entitySuffix =
+      typeof config.entity_suffix === "string" ? config.entity_suffix : "";
+    if (config.location === "manual" && entitySuffix && id.endsWith(entitySuffix)) {
+      id = id.slice(0, -entitySuffix.length);
+    }
+    return id.split("_").pop() as string;
+  };
+
   let sensors: PollenSensor[] = [];
   const allergenData = new Map<string, KleenexAllergenEntry>(); // Map to collect data by allergen name
 
@@ -210,17 +224,21 @@ export async function fetchForecast(
     const forecastData: KleenexItem[] = attributes.forecast || [];
 
     // Determine the sensor category: registry classification when discovery
-    // resolved this entity, otherwise the localized entity-ID suffix.
+    // resolved this entity, otherwise the localized entity-ID token. The token
+    // must be the *effective* one, i.e. with any manual-mode entity_suffix
+    // removed -- `..._trees_v2` yields "v2" otherwise, and a category-only
+    // (NA-zone) config would collect nothing here while pass 2 correctly skips
+    // the same entity as a category sensor.
     let sensorCategory: string | null = null;
     const discoveredKey = keyByEntityId.get(sensor.entity_id);
     if (discoveredKey) {
       sensorCategory = CATEGORY_KEYS.has(discoveredKey) ? discoveredKey : null;
     } else {
-      const entitySuffix = sensor.entity_id.split("_").pop() as string;
+      const entityToken = effectiveLastToken(sensor.entity_id);
       for (const [localizedPrefix, canonicalCategory] of Object.entries(
         KLEENEX_LOCALIZED_CATEGORY_NAMES,
       )) {
-        if (entitySuffix.startsWith(localizedPrefix)) {
+        if (entityToken.startsWith(localizedPrefix)) {
           sensorCategory = canonicalCategory;
           break;
         }
@@ -483,17 +501,6 @@ export async function fetchForecast(
   // For zones where category sensor details[] is empty (e.g. NA/US endpoint hardcodes
   // empty details — see api.py:__decode_raw_data_na), try individually-enabled
   // DetailSensor entities (disabled by default in HA registry).
-
-  // Effective last token of an entity_id, accounting for manual-mode
-  // entity_suffix (e.g. `..._trees_v2` should resolve to `trees`).
-  const effectiveLastToken = (entityId: string): string => {
-    let id = entityId;
-    const entitySuffix = config.entity_suffix as string | undefined;
-    if (config.location === "manual" && entitySuffix && id.endsWith(entitySuffix)) {
-      id = id.slice(0, -entitySuffix.length);
-    }
-    return id.split("_").pop() as string;
-  };
 
   // True when the entity is a category sensor: registry classification first,
   // localized entity-ID suffix as fallback.

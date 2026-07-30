@@ -956,6 +956,37 @@ describe("Kleenex adapter: manual mode", () => {
     expect(result.length).toBe(0);
   });
 
+  it("classifies a suffixed category sensor in pass 1", async () => {
+    // Codex round 16: pass 1 read the raw last token ("v2"), so a category-only
+    // (NA-zone) config collected nothing, while pass 2 correctly recognised the
+    // same entity as a category sensor and skipped it -- no forecast at all.
+    const hass = makeHassFromEntities([
+      {
+        entity_id: "sensor.kleenex_pollen_trees_v2",
+        state: "200",
+        attributes: {
+          friendly_name: "Kleenex pollen Trees",
+          details: [],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 180, details: [] },
+          ],
+        },
+      },
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      entity_suffix: "_v2",
+      allergens: ["trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
+    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_trees_v2");
+  });
+
   it("uses only suffixed entities when entity_suffix is configured", async () => {
     // Codex round 15: both the unsuffixed and the suffixed sensor match the
     // prefix, and the unsuffixed one is listed first, so a prefix-only
