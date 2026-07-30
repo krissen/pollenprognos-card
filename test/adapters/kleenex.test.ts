@@ -177,7 +177,7 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
   });
 
   it("sets entity_id to the source sensor entity_id", async () => {
@@ -194,7 +194,7 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
   });
 
   it("sets allergenCapitalized to a non-empty string", async () => {
@@ -211,8 +211,8 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(typeof result[0].allergenCapitalized).toBe("string");
-    expect(result[0].allergenCapitalized.length).toBeGreaterThan(0);
+    expect(typeof result[0]!.allergenCapitalized).toBe("string");
+    expect(result[0]!.allergenCapitalized.length).toBeGreaterThan(0);
   });
 
   it("day0 is defined and is the same object as days[0]", async () => {
@@ -229,8 +229,8 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0]).toBeDefined();
-    expect(result[0].days[0]).toBe(result[0].days[0]);
+    expect(result[0]!.days[0]).toBeDefined();
+    expect(result[0]!.days[0]).toBe(result[0]!.days[0]);
   });
 
   it("respects days_to_show", async () => {
@@ -249,9 +249,9 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
-    expect(result[0].days[2]).toBeDefined();
-    expect(result[0].days[3]).toBeUndefined();
+    expect(result[0]!.days.length).toBe(3);
+    expect(result[0]!.days[2]).toBeDefined();
+    expect(result[0]!.days[3]).toBeUndefined();
   });
 });
 
@@ -275,7 +275,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(0);
+    expect(result[0]!.days[0]!.state).toBe(0);
   });
 
   it("maps trees PPM within low threshold (<=95) to level 1", async () => {
@@ -292,7 +292,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(1);
+    expect(result[0]!.days[0]!.state).toBe(1);
   });
 
   it("maps trees PPM within moderate threshold (96-207) to level 2", async () => {
@@ -309,7 +309,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
   });
 
   it("maps trees PPM within high threshold (208-703) to level 3", async () => {
@@ -326,7 +326,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(3);
+    expect(result[0]!.days[0]!.state).toBe(3);
   });
 
   it("maps trees PPM above high threshold (>703) to level 4", async () => {
@@ -343,7 +343,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(4);
+    expect(result[0]!.days[0]!.state).toBe(4);
   });
 
   // Grass thresholds: [29, 60, 341]
@@ -362,7 +362,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
     const result = await fetchForecast(hass, config);
 
     // 30 > 29 (low threshold) so level 2 (moderate)
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
   });
 
   // Weeds thresholds: [20, 77, 266]
@@ -381,9 +381,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
     const result = await fetchForecast(hass, config);
 
     // 15 <= 20 (low threshold) so level 1
-    expect(result[0].days[0].state).toBe(1);
+    expect(result[0]!.days[0]!.state).toBe(1);
     // The raw ppm measurement is kept for numeric_value_raw.
-    expect(result[0].days[0].raw_value).toBe(15);
+    expect(result[0]!.days[0]!.raw_value).toBe(15);
   });
 
   it("coerces 'unavailable' sensor state to level 0 for category sensors", async () => {
@@ -407,7 +407,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(0);
+    expect(result[0]!.days[0]!.state).toBe(0);
   });
 
   it("returns -1 for negative PPM values", async () => {
@@ -424,7 +424,7 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(-1);
   });
 });
 
@@ -460,8 +460,8 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state).toBe(expectedRawLevel);
-      expect(typeof result[0].days[0].state_text).toBe("string");
+      expect(result[0]!.days[0]!.state).toBe(expectedRawLevel);
+      expect(typeof result[0]!.days[0]!.state_text).toBe("string");
     });
   }
 
@@ -486,7 +486,7 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0].days[0].state_text).not.toBe(resultLow[0].days[0].state_text);
+    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(resultLow[0]!.days[0]!.state_text);
   });
 });
 
@@ -506,7 +506,7 @@ describe("Kleenex adapter: category sensors", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("trees_cat");
+    expect(result[0]!.allergenReplaced).toBe("trees_cat");
   });
 
   it("includes grass_cat when included in allergens and grass sensor exists", async () => {
@@ -521,7 +521,7 @@ describe("Kleenex adapter: category sensors", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
   });
 
   it("includes weeds_cat when included in allergens and weeds sensor exists", async () => {
@@ -536,7 +536,7 @@ describe("Kleenex adapter: category sensors", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("weeds_cat");
+    expect(result[0]!.allergenReplaced).toBe("weeds_cat");
   });
 
   it("skips category sensor when the corresponding _cat key is not in allergens", async () => {
@@ -566,7 +566,7 @@ describe("Kleenex adapter: category sensors", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
   });
 });
 
@@ -612,7 +612,7 @@ describe("Kleenex adapter: individual allergens from details", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
   });
 
   it("maps localized Dutch allergen names to canonical slugs", async () => {
@@ -631,7 +631,7 @@ describe("Kleenex adapter: individual allergens from details", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
   });
 
   it("skips individual allergens not in config.allergens", async () => {
@@ -670,7 +670,7 @@ describe("Kleenex adapter: individual allergens from details", () => {
     const result = await fetchForecast(hass, config);
 
     // 50 PPM for birch (trees category) <= 95 -> level 1
-    expect(result[0].days[0].state).toBe(1);
+    expect(result[0]!.days[0]!.state).toBe(1);
   });
 
   it("extracts forecast day data for individual allergens from forecast.details", async () => {
@@ -692,9 +692,9 @@ describe("Kleenex adapter: individual allergens from details", () => {
     const result = await fetchForecast(hass, config);
 
     // Today: 100 PPM <= 95? No: 100 > 95 so level 2
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
     // Tomorrow: 800 PPM > 703 -> level 4
-    expect(result[0].days[1].state).toBe(4);
+    expect(result[0]!.days[1]!.state).toBe(4);
   });
 });
 
@@ -722,7 +722,7 @@ describe("Kleenex adapter: sort_category_allergens_first", () => {
     const result = await fetchForecast(hass, config);
 
     // trees_cat should come first regardless of its lower value
-    expect(result[0].allergenReplaced).toBe("trees_cat");
+    expect(result[0]!.allergenReplaced).toBe("trees_cat");
     // Individual allergens should be sorted by value_descending among themselves
     const individualKeys = result.slice(1).map((s) => s.allergenReplaced);
     expect(individualKeys[0]).toBe("birch"); // 700 PPM > oak 200 PPM
@@ -748,8 +748,8 @@ describe("Kleenex adapter: sort_category_allergens_first", () => {
     const result = await fetchForecast(hass, config);
 
     // Without two-tiered sort, trees_cat (level 4) should sort before birch (level 1)
-    expect(result[0].allergenReplaced).toBe("trees_cat");
-    expect(result[1].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("trees_cat");
+    expect(result[1]!.allergenReplaced).toBe("birch");
   });
 
   it("preserves config order when sort is 'none'", async () => {
@@ -771,8 +771,8 @@ describe("Kleenex adapter: sort_category_allergens_first", () => {
     const result = await fetchForecast(hass, config);
 
     // Order in config: oak, birch
-    expect(result[0].allergenReplaced).toBe("oak");
-    expect(result[1].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("oak");
+    expect(result[1]!.allergenReplaced).toBe("birch");
   });
 });
 
@@ -865,7 +865,7 @@ describe("Kleenex adapter: user level names", () => {
     const result = await fetchForecast(hass, config);
 
     // Raw level 2 -> scaled level 3 -> customLevels[3] = "Medium"
-    expect(result[0].days[0].state_text).toBe("Medium");
+    expect(result[0]!.days[0]!.state_text).toBe("Medium");
   });
 
   it("accepts 5 custom level labels mapped via index positions [0,1,3,5,6]", async () => {
@@ -887,7 +887,7 @@ describe("Kleenex adapter: user level names", () => {
     const result = await fetchForecast(hass, config);
 
     // Raw level 2 -> scaled 3; 5-label map[2] = 3 -> customLevels[2] = "Moderate"
-    expect(result[0].days[0].state_text).toBe("Moderate");
+    expect(result[0]!.days[0]!.state_text).toBe("Moderate");
   });
 
   it("falls back to i18n default for empty string entries in 7-label array", async () => {
@@ -907,7 +907,7 @@ describe("Kleenex adapter: user level names", () => {
     const result = await fetchForecast(hass, config);
 
     // Level 0 -> scaled 0 -> customLevels[0] = "CustomZero"
-    expect(result[0].days[0].state_text).toBe("CustomZero");
+    expect(result[0]!.days[0]!.state_text).toBe("CustomZero");
   });
 });
 
@@ -933,7 +933,7 @@ describe("Kleenex adapter: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe(
+    expect(result[0]!.entity_id).toBe(
       "sensor.kleenex_pollen_radar_mypfx_amsterdam_trees",
     );
   });
@@ -984,7 +984,7 @@ describe("Kleenex adapter: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_trees_v2");
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_trees_v2");
   });
 
   it("uses only suffixed entities when entity_suffix is configured", async () => {
@@ -1014,8 +1014,8 @@ describe("Kleenex adapter: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_birch_v2");
-    expect(result[0].days[0].value).toBe(200);
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_birch_v2");
+    expect(result[0]!.days[0]!.value).toBe(200);
   });
 
   it("issue #309 - collects sensors whose IDs lack the legacy domain slug", async () => {
@@ -1099,8 +1099,8 @@ describe("Kleenex adapter: location filtering", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toContain("amsterdam");
-    expect(result[0].entity_id).not.toContain("brussels");
+    expect(result[0]!.entity_id).toContain("amsterdam");
+    expect(result[0]!.entity_id).not.toContain("brussels");
   });
 
   it("returns empty array when no sensors match the configured location", async () => {
@@ -1210,7 +1210,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
 
     expect(result).toEqual([]);
     expect(warnSpy).toHaveBeenCalled();
-    const warnMessage = warnSpy.mock.calls[0][0];
+    const warnMessage = warnSpy.mock.calls[0]![0];
     expect(warnMessage).toContain("North America");
   });
 
@@ -1231,7 +1231,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
     // The warn spy may be called for other reasons (e.g. adapter errors), but
     // the NA warning message must NOT appear.
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
   });
@@ -1255,7 +1255,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
   });
@@ -1283,7 +1283,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
   });
@@ -1305,7 +1305,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(true);
   });
@@ -1327,7 +1327,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarnings = warnSpy.mock.calls.filter(
-      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarnings.length).toBe(1);
   });
@@ -1358,7 +1358,7 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0].includes("North America"),
+      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(true);
   });
@@ -1384,13 +1384,13 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
     // 150 ppm for birch (trees category) is in range 96-207 -> raw level 2
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
     // Forecast day 1: 100 ppm -> raw level 2; day 2: 50 ppm -> raw level 1
-    expect(result[0].days[1].state).toBe(2);
-    expect(result[0].days[2].state).toBe(1);
+    expect(result[0]!.days[1]!.state).toBe(2);
+    expect(result[0]!.days[2]!.state).toBe(1);
   });
 
   it("Test 5b - DetailSensor result passes sensor shape contract", async () => {
@@ -1425,8 +1425,8 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_berk");
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_berk");
   });
 
   it("Test 6b - localized Italian DetailSensor slug 'betulla' normalizes to canonical allergen 'birch'", async () => {
@@ -1442,8 +1442,8 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_rome_betulla");
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_rome_betulla");
   });
 
   it("Test 7 - category sensor details (EU full data) wins over DetailSensor", async () => {
@@ -1465,10 +1465,10 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
     // Must use the category sensor value (250 ppm -> level 3), not DetailSensor (50 -> level 1).
-    expect(result[0].days[0].state).toBe(3);
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+    expect(result[0]!.days[0]!.state).toBe(3);
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
   });
 
   it("Test 8 - entity with '_level' suffix is NOT treated as a DetailSensor", async () => {
@@ -1537,8 +1537,8 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[0].entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
   });
 
   it("Test 9a - DetailSensor with non-numeric state ('unknown'/'unavailable') is skipped, not treated as 0 ppm", async () => {
@@ -1586,8 +1586,8 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[0].entity_id).toBe(
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.entity_id).toBe(
       "sensor.kleenex_pollen_radar_atlanta_georgia_birch",
     );
   });
@@ -1617,8 +1617,8 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[0].entity_id).toBe(
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.entity_id).toBe(
       "sensor.kleenex_pollen_radar_atlanta_birch_v2",
     );
   });
@@ -1706,7 +1706,7 @@ describe("Kleenex adapter: discoverKleenex", () => {
 
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(1);
-    const [, loc] = [...discovery.locations][0];
+    const [, loc] = [...discovery.locations][0]!;
     expect(loc.label).toBe("Home");
     expect([...loc.entities.keys()].sort()).toEqual([
       "grass",

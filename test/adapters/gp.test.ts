@@ -124,7 +124,7 @@ describe("discoverGpSensors: prefix fallback path", () => {
     const result = discoverGpSensors(hass);
 
     expect(result.locations.size).toBeGreaterThan(0);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
 
@@ -134,7 +134,7 @@ describe("discoverGpSensors: prefix fallback path", () => {
       "sensor.google_pollen_weed": makeSensor("Weed", 1),
     });
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("trees_cat")).toBe(true);
     expect(loc.entities.has("weeds_cat")).toBe(true);
   });
@@ -144,7 +144,7 @@ describe("discoverGpSensors: prefix fallback path", () => {
       "sensor.google_pollen_birch": makeSensor("Birch", 4),
     });
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("birch")).toBe(true);
     expect(loc.entities.get("birch")).toBe("sensor.google_pollen_birch");
   });
@@ -154,7 +154,7 @@ describe("discoverGpSensors: prefix fallback path", () => {
       "sensor.google_pollen_cypress_pine": makeSensor("Cypress Pine", 2),
     });
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("cypress_pine")).toBe(true);
   });
 
@@ -163,7 +163,7 @@ describe("discoverGpSensors: prefix fallback path", () => {
       "sensor.google_pollen_cottonwood": makeSensor("Cottonwood", 1),
     });
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("cottonwood")).toBe(true);
   });
 
@@ -175,7 +175,7 @@ describe("discoverGpSensors: prefix fallback path", () => {
     });
     const result = discoverGpSensors(hass);
     expect(result.locations.size).toBe(1);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.size).toBe(3);
   });
 
@@ -203,7 +203,7 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
     const result = discoverGpSensors(hass);
 
     expect(result.locations.size).toBeGreaterThan(0);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
 
@@ -245,7 +245,7 @@ describe("discoverGpSensors: primary path (hass.entities)", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.size).toBe(1);
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
@@ -330,7 +330,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("birch")).toBe(true);
     expect(loc.entities.has("trees_cat")).toBe(true);
     expect(loc.entities.has("weeds_cat")).toBe(true);
@@ -359,7 +359,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("graminales")).toBe(true);
     expect(loc.entities.has("grass_cat")).toBe(true);
     expect(loc.entities.size).toBe(2);
@@ -380,7 +380,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("cypress_pine")).toBe(true);
   });
 
@@ -399,7 +399,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("birch")).toBe(true);
   });
 
@@ -418,7 +418,7 @@ describe("discoverGpSensors: unique_id classification", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGpSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     // classifySensor lowercases display_name and looks it up directly in
     // GP_DISPLAY_NAME_MAP ("björk" -> "birch"). No slugify, no PP_ALIASES.
     expect(loc.entities.has("birch")).toBe(true);
@@ -461,7 +461,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
   });
 
   it("sets entity_id on each sensor dict", async () => {
@@ -475,7 +475,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].entity_id).toBe("sensor.google_pollen_birch");
+    expect(result[0]!.entity_id).toBe("sensor.google_pollen_birch");
   });
 
   it("each day object has required properties", async () => {
@@ -489,7 +489,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].days[0];
+    const day = result[0]!.days[0]!;
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
@@ -516,9 +516,9 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
-    expect(result[0].days[2]).toBeDefined();
-    expect(result[0].days[3]).toBeUndefined();
+    expect(result[0]!.days.length).toBe(3);
+    expect(result[0]!.days[2]).toBeDefined();
+    expect(result[0]!.days[3]).toBeUndefined();
   });
 
   it("returns empty array when no matching sensors exist", async () => {
@@ -554,10 +554,10 @@ describe("fetchForecast: flat forecast attributes", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(2);
-    expect(result[0].days[1].state).toBe(4);
-    expect(result[0].days[2].state).toBe(1);
-    expect(result[0].days[3].state).toBe(3);
+    expect(result[0]!.days[0]!.state).toBe(2);
+    expect(result[0]!.days[1]!.state).toBe(4);
+    expect(result[0]!.days[2]!.state).toBe(1);
+    expect(result[0]!.days[3]!.state).toBe(3);
   });
 
   it("pads missing forecast days with state=-1", async () => {
@@ -573,10 +573,10 @@ describe("fetchForecast: flat forecast attributes", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
-    expect(result[0].days[0].state).toBe(3);
-    expect(result[0].days[1].state).toBe(-1);
-    expect(result[0].days[2].state).toBe(-1);
+    expect(result[0]!.days.length).toBe(3);
+    expect(result[0]!.days[0]!.state).toBe(3);
+    expect(result[0]!.days[1]!.state).toBe(-1);
+    expect(result[0]!.days[2]!.state).toBe(-1);
   });
 });
 
@@ -607,9 +607,9 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state).toBe(nativeLevel);
-      expect(typeof result[0].days[0].state_text).toBe("string");
-      expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
+      expect(result[0]!.days[0]!.state).toBe(nativeLevel);
+      expect(typeof result[0]!.days[0]!.state_text).toBe("string");
+      expect(result[0]!.days[0]!.state_text.length).toBeGreaterThan(0);
     });
   }
 
@@ -629,7 +629,7 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0].days[0].state_text).not.toBe(resultLow[0].days[0].state_text);
+    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(resultLow[0]!.days[0]!.state_text);
   });
 });
 
@@ -649,7 +649,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(-1);
   });
 
   it("returns state=-1 for negative index_value", async () => {
@@ -663,7 +663,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(-1);
   });
 
   it("clamps index_value above 5 to 5", async () => {
@@ -677,7 +677,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].days[0].state).toBe(5);
+    expect(result[0]!.days[0]!.state).toBe(5);
   });
 
   it("returns state=-1 for undefined forecast attribute", async () => {
@@ -692,8 +692,8 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].days[0].state).toBe(3);
-    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(3);
+    expect(result[0]!.days[1]!.state).toBe(-1);
   });
 });
 
@@ -715,7 +715,7 @@ describe("fetchForecast: threshold filtering", () => {
 
     const result = await fetchForecast(hass, config);
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
   });
 
   it("includes all allergens when pollen_threshold is 0", async () => {
@@ -802,8 +802,8 @@ describe("fetchForecast: sort_category_allergens_first", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].allergenReplaced).toBe("oak");
-    expect(result[1].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("oak");
+    expect(result[1]!.allergenReplaced).toBe("grass_cat");
   });
 });
 
@@ -828,7 +828,7 @@ describe("fetchForecast: sorting modes", () => {
 
     const result = await fetchForecast(hass, config);
     for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i].days[0].state).toBeLessThanOrEqual(result[i + 1].days[0].state);
+      expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(result[i + 1]!.days[0]!.state);
     }
   });
 
@@ -847,9 +847,9 @@ describe("fetchForecast: sorting modes", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].allergenReplaced).toBe("oak");
-    expect(result[1].allergenReplaced).toBe("birch");
-    expect(result[2].allergenReplaced).toBe("alder");
+    expect(result[0]!.allergenReplaced).toBe("oak");
+    expect(result[1]!.allergenReplaced).toBe("birch");
+    expect(result[2]!.allergenReplaced).toBe("alder");
   });
 });
 
@@ -876,6 +876,6 @@ describe("fetchForecast: user phrase overrides", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].allergenCapitalized).toBe("My Custom Grass");
+    expect(result[0]!.allergenCapitalized).toBe("My Custom Grass");
   });
 });

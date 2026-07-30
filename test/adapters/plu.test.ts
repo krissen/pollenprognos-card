@@ -44,19 +44,19 @@ describe("PLU adapter: fetchForecast", () => {
 
     const hass = makeHass({ birch: 0 });
     const result = await fetchForecast(hass, makeConfig(base));
-    expect(result[0].days[0].state).toBe(0); // 0 grains = level 0
+    expect(result[0]!.days[0]!.state).toBe(0); // 0 grains = level 0
 
     const hass2 = makeHass({ birch: 5 });
     const result2 = await fetchForecast(hass2, makeConfig(base));
-    expect(result2[0].days[0].state).toBe(1); // 5 < 11 = level 1 (low)
+    expect(result2[0]!.days[0]!.state).toBe(1); // 5 < 11 = level 1 (low)
 
     const hass3 = makeHass({ birch: 25 });
     const result3 = await fetchForecast(hass3, makeConfig(base));
-    expect(result3[0].days[0].state).toBe(2); // 11 <= 25 < 51 = level 2 (moderate)
+    expect(result3[0]!.days[0]!.state).toBe(2); // 11 <= 25 < 51 = level 2 (moderate)
 
     const hass4 = makeHass({ birch: 100 });
     const result4 = await fetchForecast(hass4, makeConfig(base));
-    expect(result4[0].days[0].state).toBe(3); // 100 >= 51 = level 3 (high)
+    expect(result4[0]!.days[0]!.state).toBe(3); // 100 >= 51 = level 3 (high)
   });
 
   it("returns -1 for NaN/negative values", async () => {
@@ -71,7 +71,7 @@ describe("PLU adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(-1);
   });
 
   it("keeps the raw concentration in raw_value and shows the level by default", async () => {
@@ -82,8 +82,8 @@ describe("PLU adapter: fetchForecast", () => {
 
     // display_state is the calculated level (shown by default); the raw p/m3
     // concentration lives in raw_value (surfaced only via numeric_value_raw).
-    expect(result[0].days[0].raw_value).toBe(25);
-    expect(result[0].days[0].display_state).toBe(result[0].days[0].state);
+    expect(result[0]!.days[0]!.raw_value).toBe(25);
+    expect(result[0]!.days[0]!.display_state).toBe(result[0]!.days[0]!.state);
   });
 
   it("has PLU-specific extra day properties", async () => {
@@ -100,7 +100,7 @@ describe("PLU adapter: fetchForecast", () => {
     const config = makeConfig({ allergens: ["birch"] });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].days[0];
+    const day = result[0]!.days[0]!;
 
     expect(day).toHaveProperty("thresholds");
     expect(day.thresholds).toEqual({ moderate: 11, high: 51 });
@@ -115,7 +115,7 @@ describe("PLU adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(1);
+    expect(result[0]!.days.length).toBe(1);
   });
 
   it("pads days array to days_to_show with empty entries", async () => {
@@ -124,10 +124,10 @@ describe("PLU adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
+    expect(result[0]!.days.length).toBe(3);
     // Padded days should have state -1
-    expect(result[0].days[1].state).toBe(-1);
-    expect(result[0].days[2].state).toBe(-1);
+    expect(result[0]!.days[1]!.state).toBe(-1);
+    expect(result[0]!.days[2]!.state).toBe(-1);
   });
 
   it("resolves sensors via alias map (Latin name)", async () => {
@@ -141,7 +141,7 @@ describe("PLU adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.pollen_betula");
+    expect(result[0]!.entity_id).toBe("sensor.pollen_betula");
   });
 
   it("skips allergens not in PLU_SUPPORTED_ALLERGENS", async () => {
@@ -151,7 +151,7 @@ describe("PLU adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
   });
 
   it("stub config exposes manual-mode fields (location + prefix + suffix), no city/region_id", () => {
@@ -331,7 +331,7 @@ describe("PLU adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
   });
 
   it("sorts with locale-aware comparison for name sorting", async () => {
@@ -349,12 +349,12 @@ describe("PLU adapter: fetchForecast", () => {
     // PLU passes lang to localeCompare (unique among adapters)
     expect(result.length).toBe(2);
     const names = result.map((s) => s.allergenCapitalized);
-    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    const sorted = [...names]!.sort((a, b) => a.localeCompare(b));
     expect(names).toEqual(sorted);
   });
 
   it("PLU_SUPPORTED_ALLERGENS is alphabetically sorted", () => {
-    const sorted = [...PLU_SUPPORTED_ALLERGENS].sort();
+    const sorted = [...PLU_SUPPORTED_ALLERGENS]!.sort();
     expect(PLU_SUPPORTED_ALLERGENS).toEqual(sorted);
   });
 });
