@@ -1094,10 +1094,19 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             // on the legacy prefix first (same rationale as fetchForecast).
             const prefix = normalizeManualPrefix(cfg.entity_prefix);
             if (prefix) {
+              const prefixed = Object.values(hass.states)
+                .filter(isKleenexState)
+                .filter((s) => s.entity_id.startsWith(`sensor.${prefix}`));
+              // The prefix also matches the diagnostic siblings (`..._date`,
+              // `..._last_updated`), whose friendly names would yield a header
+              // like "Kleenex pollen Date". Prefer an entity the adapter
+              // classifies as renderable, whatever order hass.states has.
+              const isRenderable = kleenexAutodetect?.isRenderableEntity;
               match =
-                Object.values(hass.states)
-                  .filter(isKleenexState)
-                  .find((s) => s.entity_id.startsWith(`sensor.${prefix}`)) ??
+                (isRenderable
+                  ? prefixed.find((s) => isRenderable(s.entity_id))
+                  : undefined) ??
+                prefixed[0] ??
                 null;
             }
           } else {

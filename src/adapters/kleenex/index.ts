@@ -16,6 +16,7 @@ export {
   kleenexSlugExtractor,
   matchKleenexLocationByIdentifier,
   canonicalAllergenFromSlug,
+  classifyKleenexEntityId,
 } from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
@@ -23,6 +24,7 @@ import {
   discoverKleenex,
   kleenexSlugExtractor,
   matchKleenexLocationByIdentifier,
+  classifyKleenexEntityId,
 } from "./discovery.js";
 import type { DiscoveredLocation } from "../../utils/adapter-helpers.js";
 import type { HomeAssistant } from "../../types/home-assistant.js";
@@ -78,4 +80,8 @@ export const autodetect: AdapterAutodetect = {
       discovery as { locations: Map<string, DiscoveredLocation> },
       cfgLocation,
     ),
+  // `sensor.<prefix>_date` / `_last_updated` carry no level and their friendly
+  // names would yield a header like "Kleenex pollen Date", so the card asks
+  // the adapter which entity IDs are renderable before deriving a title.
+  isRenderableEntity: (entityId) => classifyKleenexEntityId(entityId) !== null,
 };

@@ -82,6 +82,34 @@ function manualPrefixHass(): any {
   });
 }
 
+/**
+ * Same install, but the diagnostic siblings come first in hass.states -- the
+ * order HA happens to hand them over is not something the card can rely on.
+ */
+function diagnosticsFirstHass(): any {
+  return createHass({
+    "sensor.kleenex_pollen_date": {
+      entity_id: "sensor.kleenex_pollen_date",
+      state: "2026-04-25",
+      attributes: { friendly_name: "Kleenex pollen Date" },
+    },
+    "sensor.kleenex_pollen_last_updated": {
+      entity_id: "sensor.kleenex_pollen_last_updated",
+      state: "2026-04-25T10:00:00+00:00",
+      attributes: { friendly_name: "Kleenex pollen Last updated" },
+    },
+    "sensor.kleenex_pollen_trees": {
+      entity_id: "sensor.kleenex_pollen_trees",
+      state: "200",
+      attributes: {
+        friendly_name: "Kleenex pollen Trees",
+        details: [],
+        forecast: [],
+      },
+    },
+  });
+}
+
 let CardCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -113,6 +141,23 @@ describe("card header for Kleenex manual mode (issue #309)", () => {
       allergens: ["trees", "grass"],
     });
     card.hass = manualPrefixHass();
+
+    expect(card.header).toBe("Pollen forecast for Kleenex pollen");
+  });
+
+  // Codex P2 (round 4): the prefix also matches `_date` / `_last_updated`, so
+  // an unrestricted find picked whichever came first in hass.states and could
+  // derive a header of "Kleenex pollen Date".
+  it("ignores diagnostic sensors that share the prefix", () => {
+    const card = new CardCtor();
+    card.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      allergens: ["trees"],
+    });
+    card.hass = diagnosticsFirstHass();
 
     expect(card.header).toBe("Pollen forecast for Kleenex pollen");
   });

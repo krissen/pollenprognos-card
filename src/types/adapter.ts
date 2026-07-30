@@ -141,6 +141,13 @@ export interface AdapterAutodetect {
     cfgLocation: string | null | undefined,
   ): [string, AutodetectLocation] | null;
   /**
+   * True when the entity id is one the card can render a level for, as opposed
+   * to a diagnostic/timestamp sibling. Lets the card pick a meaningful sensor
+   * to derive a header from when only entity ids are available (Kleenex manual
+   * mode), using the adapter's own classification instead of a heuristic.
+   */
+  isRenderableEntity?(entityId: string): boolean;
+  /**
    * PLU exposes its allergen slug set so the driver can build the PP-vs-PLU
    * disambiguation context without PP importing PLU.
    */

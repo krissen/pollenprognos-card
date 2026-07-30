@@ -125,12 +125,16 @@ function isDiagnosticSuffix(suffix: string): boolean {
 }
 
 /**
- * Classify an entity from its ID alone. Used for entities without a registry
- * entry (tier 3) and as the fallback for unknown translation keys: the last
- * token decides a category, otherwise the trailing slug is matched against the
- * allergen alias table.
+ * Classify an entity from its ID alone: the classified key
+ * (`trees`/`grass`/`weeds` or a canonical allergen), or null for diagnostics
+ * and anything unrecognised.
+ *
+ * Used for entities without a registry entry (tier 3), as the fallback for
+ * unknown translation keys, and by the card header to tell a renderable sensor
+ * from a diagnostic one in manual mode: the last token decides a category,
+ * otherwise the trailing slug is matched against the allergen alias table.
  */
-function classifyByEntityId(entityId: string): string | null {
+export function classifyKleenexEntityId(entityId: string): string | null {
   const suffix = entityIdSuffix(entityId);
   const lastToken = suffix.split("_").pop() as string;
   for (const [localizedPrefix, canonicalCategory] of Object.entries(
@@ -190,7 +194,7 @@ function classifyKleenexEntity(
     // Unknown key from a future integration version: fall through to the
     // entity-ID heuristic instead of guessing from the key.
   }
-  return classifyByEntityId(entityId);
+  return classifyKleenexEntityId(entityId);
 }
 
 /** Resolve a human-readable location label for a discovered device. */
