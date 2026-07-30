@@ -77,6 +77,10 @@ export const KLEENEX_ALLERGEN_MAP: Record<string, string> = {
   ortie: "nettle",
 
   // Weeds - Italian (IT)
+  // The IT endpoint reports English allergen names, so the Italian aliases
+  // below are never exercised in practice -- but it misspells chenopod as
+  // "Chenepod" (Roma, Milano), which is the alias IT installs actually need.
+  chenepod: "chenopod",
   ambrosia: "ragweed",
   artemisia: "mugwort",
   chenopodio: "chenopod",

@@ -2289,6 +2289,34 @@ describe("Kleenex adapter: whitespace in detail allergen names", () => {
     expect(birch!.days[0]!.value).toBe(150);
   });
 
+  // Roma/Milano, verbatim from the live IT install: the endpoint answers in
+  // English, pads "Poaceae " with a trailing space and spells chenopod
+  // "Chenepod". All three had to hold for the Italian rows to render.
+  it("renders the Italian weeds and grass rows (English names, padded, Chenepod)", async () => {
+    const grass = makeKleenexEntity("roma", "grass", 75, [
+      { name: "Poaceae ", value: 75 },
+    ]);
+    const weeds = makeKleenexEntity("roma", "weeds", 187, [
+      { name: "Nettle", value: 173 },
+      { name: "Chenepod", value: 1 },
+      { name: "Mugwort", value: 1 },
+      { name: "Ragweed", value: 7 },
+    ]);
+    const hass = makeHassFromEntities([grass, weeds]);
+    const config = makeConfig({
+      location: "roma",
+      allergens: ["poaceae", "chenopod", "nettle"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const byKey = new Map(result.map((s) => [s.allergenReplaced, s]));
+    expect([...byKey.keys()].sort()).toEqual(["chenopod", "nettle", "poaceae"]);
+    expect(byKey.get("poaceae")!.days[0]!.value).toBe(75);
+    expect(byKey.get("chenopod")!.days[0]!.value).toBe(1);
+  });
+
   it("resolves forecast-day details when the name has a leading space", async () => {
     const entity = makeKleenexEntity(
       "paris",
