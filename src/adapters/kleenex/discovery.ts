@@ -661,8 +661,8 @@ export interface KleenexManualScope {
   /** The entity IDs the card should use, in the order they were given. */
   entityIds: string[];
   /**
-   * Label of the location the match was narrowed to, or null when no narrowing
-   * happened (single location, or no registry information at all).
+   * Label of the location the match was narrowed to, or null when nothing was
+   * dropped and the input is returned as it came in.
    */
   label: string | null;
 }
@@ -676,27 +676,49 @@ export interface KleenexManualScope {
  * cities into one set of allergen rows and name the header after whichever one
  * `hass.states` happened to list first (issue #309 follow-up).
  *
- * The rule, when the matched entities span more than one *discovered* location:
+ * Three ordered steps, each with its own guard:
  *
- *   1. A prefix is minted from a device name, so the location whose own slug
- *      (device name, user rename, discovery key or label) equals the prefix
- *      owns it: `kleenex_pollen_` belongs to the device named "Kleenex pollen",
- *      and `kleenex_pollen_radar_utrecht_` to "Kleenex Pollen Radar (Utrecht)".
- *      This is independent of which entities happen to be enabled.
- *   2. Only when no location's slug matches does the fallback apply: keep the
- *      location whose entity IDs have the least left over after the prefix (and
- *      suffix) is removed. It is a weaker signal, because the remainder is an
- *      allergen name and one location may only have long-named detail sensors
- *      enabled -- but it still beats merging two cities.
+ *   1. Device registry (runs whenever at least one entity matched). A prefix is
+ *      minted from a device name, so a Kleenex device whose own slug -- its
+ *      identifier, name or user rename -- equals the prefix owns it:
+ *      `kleenex_pollen_` belongs to the device named "Kleenex pollen",
+ *      `kleenex_pollen_radar_utrecht_` to "Kleenex Pollen Radar (Utrecht)".
+ *      Everything belonging to another Kleenex device is then dropped, however
+ *      many entities that leaves -- including none. This step needs no
+ *      discovery at all, which is the point: an owner whose config entry is
+ *      down has no state-backed entities and is invisible to discovery, yet it
+ *      still owns its prefix. Membership follows discovery's own two signals, a
+ *      `kleenex_pollenradar` device identifier or an entity registry entry with
+ *      that platform, so a device exposed only the second way counts too.
+ *   2. Discovered locations (runs when no device owned the prefix, at least two
+ *      entities matched, and they span more than one discovered location). A
+ *      location may still answer to the prefix through its discovery key or
+ *      label -- shapes the device registry does not carry.
+ *   3. Remainder fallback (same guard as step 2, when no location's slug
+ *      matches either). Keep the location whose entity IDs have the least left
+ *      over after the prefix and suffix are removed. A weak signal, since the
+ *      remainder is an allergen name and a location may only have long-named
+ *      detail sensors enabled -- but it still beats merging two cities. Ties
+ *      here and in step 2 are broken on the total remainder and finally on the
+ *      location key, so the choice never depends on registry iteration order.
  *
- * Ties in either step are broken on the total remainder and finally on the
- * location key, so the choice never depends on registry iteration order.
+ * "Unattributable" means two different things, deliberately:
+ *   - unknown to the *entity registry* (template sensors, a frontend without
+ *     registry access): always kept. Manual mode is the fallback for exactly
+ *     those setups, and such an entity cannot be evidence of a second location.
+ *   - known to the registry but not placeable by *discovery* (the owner's own
+ *     entities while its entry is down): under step 1 these are simply the
+ *     owner's, and another location's entities are dropped even though nothing
+ *     replaces them.
  *
- * Entities the registry knows nothing about (template sensors, an install whose
- * registry the frontend doesn't expose) are always kept: manual mode is the
- * fallback for exactly those setups, and an unattributable entity cannot be
- * evidence of a second location. Consequently an install with at most one
- * discovered location behaves exactly as before.
+ * What is still guaranteed, now that step 1 can act on a single entity and can
+ * leave nothing behind: an entity that *nothing* can attribute -- no registry
+ * entry and no discovered location -- is never dropped, and no narrowing is
+ * reported (neither a label nor a warning) unless something actually was.
+ * Note that "no registry" does not by itself mean "untouched": tier-3 discovery
+ * attributes legacy `sensor.kleenex_pollen_radar_<location>_*` IDs by their
+ * slug, so a registry-less install holding two legacy locations is still
+ * narrowed to one.
  */
 export function scopeManualEntities(
   hass: HomeAssistant,

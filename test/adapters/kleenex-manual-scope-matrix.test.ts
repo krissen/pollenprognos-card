@@ -391,6 +391,41 @@ describe("Kleenex manual-scope invariants (prefix forms x owner modes x environm
     expect(scope.entityIds).toEqual(PARIS_IDS);
   });
 
+  // The docstring's boundary claim, pinned: "no registry" does not imply
+  // "untouched". Tier-3 discovery attributes legacy IDs by their slug, so two
+  // legacy locations are narrowed to one even with an empty registry -- what is
+  // guaranteed is only that entities nothing can attribute survive.
+  it("narrows two legacy locations even with an empty registry", () => {
+    // Realistic friendly names, since a registry-less install has nothing else
+    // to derive a label from.
+    const legacyState = (id: string, city: string) => ({
+      entity_id: id,
+      state: "1",
+      attributes: {
+        friendly_name: `Kleenex Pollen Radar (${city}) Trees`,
+        details: [],
+        forecast: [],
+      },
+    });
+    const hass = {
+      states: {
+        [UTRECHT_IDS[0]!]: legacyState(UTRECHT_IDS[0]!, "Utrecht"),
+        [ROTTERDAM_IDS[0]!]: legacyState(ROTTERDAM_IDS[0]!, "Rotterdam"),
+      },
+      entities: {},
+      devices: {},
+      locale: { language: "en" },
+      language: "en",
+    } as unknown as HomeAssistant;
+
+    const scope = scopeManualEntities(hass, Object.keys((hass as any).states), {
+      prefix: "kleenex_pollen_radar_",
+    });
+
+    expect(scope.entityIds).toEqual([UTRECHT_IDS[0]]);
+    expect(scope.label).toBe("Utrecht");
+  });
+
   // Single-entity cells. 776a559 lowered the entry guard from "at least two
   // matched entities" to "at least one", precisely so a lone entity from the
   // wrong device can be filtered out: an empty card for the right location
