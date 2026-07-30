@@ -60,6 +60,12 @@ editor element (the `ha-dialog` wrapper is portaled and has zero box):
 python capture_editors.py            # editor-card.png + editor-badge.png
 ```
 
+It drives the UI without matching any translated label (edit mode via `?edit=1`,
+edit controls via their structure inside `hui-card-options` /
+`hui-badge-edit-mode`), so it runs against an HA instance in any language. The
+resulting screenshots still show the instance's UI language, so shoot the
+committed docs images against an English-language HA.
+
 `shoot.py` is a thin helper for ad-hoc shots (a badge row or a card by index in
 a given view).
 
@@ -68,6 +74,8 @@ The README badge block (`hero-badges.png`) is shot manually: apply
 (~210 px) so the badges wrap into a compact block, and screenshot
 `hui-view-badges`.
 
-Images render in the HA UI language (English via the browser locale by default);
-avoid fixture cards that pin a `date_locale`. Keep PNGs lean (element crops, not
-full-page dumps).
+Images render in the HA UI language, which is set by the HA user profile and not
+by the browser locale (a browser running en-US against an instance whose profile
+language is Swedish still shoots Swedish images). Check the profile before
+regenerating committed images, and avoid fixture cards that pin a `date_locale`.
+Keep PNGs lean (element crops, not full-page dumps).
