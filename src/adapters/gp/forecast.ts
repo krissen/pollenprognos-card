@@ -83,7 +83,8 @@ export async function fetchForecast(
       const sensorId = entityMap.get(allergen);
       if (!sensorId) continue;
 
-      const sensor = hass.states[sensorId];
+      // resolveEntityIds only maps ids it found in hass.states.
+      const sensor = hass.states[sensorId]!;
       dict.entity_id = sensorId;
 
       if (debug) {
@@ -101,7 +102,7 @@ export async function fetchForecast(
 
       for (let i = 0; i < FORECAST_ATTRS.length; i++) {
         if (levels.length >= days_to_show) break;
-        const attrKey = FORECAST_ATTRS[i];
+        const attrKey = FORECAST_ATTRS[i]!;
         const val = sensor.attributes?.[attrKey];
         const offset =
           attrKey === "tomorrow"

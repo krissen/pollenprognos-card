@@ -518,21 +518,21 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           !this._userConfig.region_id &&
           this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedDwdLocations[0][0];
+          this._config.region_id = this.installedDwdLocations[0]![0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
           this.installedPpLocations.length
         ) {
-          this._config.city = this.installedPpLocations[0][0];
+          this._config.city = this.installedPpLocations[0]![0];
         }
         if (
           integration === "silam" &&
           !this._userConfig.location &&
           this.installedSilamLocations.length
         ) {
-          this._config.location = this.installedSilamLocations[0][0];
+          this._config.location = this.installedSilamLocations[0]![0];
         }
       }
 
@@ -574,7 +574,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       if (this._config.integration === "gpl" && this._hass) {
         const gplDiscovery = discoverGplSensors(this._hass, false);
         this.installedGplLocations = discoveryToLocations(gplDiscovery);
-        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0]![0] : null);
         const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId as string, false);
         this.installedGplPlants = allGplAllergens.filter((k: string) => !GPL_BASE_ALLERGENS.includes(k));
       }
@@ -582,7 +582,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       if (this._config.integration === "gp" && this._hass) {
         const gpDiscovery = discoverGpSensors(this._hass, false);
         this.installedGpLocations = discoveryToLocations(gpDiscovery);
-        const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
+        const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0]![0] : null);
         const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId as string, false);
         this.installedGpPlants = allGpAllergens.filter((k: string) => !GP_BASE_ALLERGENS.includes(k));
       }
@@ -622,7 +622,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // Other per-integration state lists are only needed for the pick, which is
     // handled inside the shared module.
     const {
-      states: { pp: ppStates, dwd: dwdStates },
+      states: { pp: ppStates = [], dwd: dwdStates = [] },
       discovery: {
         silam: silamDiscovery,
         atmo: atmoDiscovery,
@@ -664,7 +664,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this.installedGplLocations = discoveryToLocations(gplDiscovery);
 
     if (integration === "gpl") {
-      const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+      const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0]![0] : null);
       const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId as string, false);
       this.installedGplPlants = allGplAllergens.filter((k: string) => !GPL_BASE_ALLERGENS.includes(k));
     } else {
@@ -676,7 +676,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this.installedGpLocations = discoveryToLocations(gpDiscovery);
 
     if (integration === "gp") {
-      const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
+      const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0]![0] : null);
       const allGpAllergens = discoverGpAllergens(hass, gpConfigEntryId as string, false);
       this.installedGpPlants = allGpAllergens.filter((k: string) => !GP_BASE_ALLERGENS.includes(k));
     } else {
@@ -922,7 +922,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   /^sensor\.silam_pollen_(.*)_([^_]+)$/,
                 );
                 if (!match) return false;
-                const allergenSlug = match[2];
+                const allergenSlug = match[2] ?? "";
                 return SilamValidAllergenSlugs.has(allergenSlug);
               })
               .map((s) => {
@@ -930,7 +930,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   /^sensor\.silam_pollen_(.*)_([^_]+)$/,
                 );
                 const rawLocation = match
-                  ? match[1].replace(/^[-\s]+/, "")
+                  ? (match[1] ?? "").replace(/^[-\s]+/, "")
                   : "";
                 const locationSlug = slugify(rawLocation);
 
@@ -978,7 +978,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                 );
                 if (!match) return null;
 
-                const locationSlug = match[1];
+                const locationSlug = match[1] ?? "";
                 let title = s.attributes?.friendly_name || locationSlug;
 
                 // Clean up the title to show only the location
@@ -1074,63 +1074,63 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           !this._userConfig.region_id &&
           this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedDwdLocations[0][0];
+          this._config.region_id = this.installedDwdLocations[0]![0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
           this.installedPpLocations.length
         ) {
-          this._config.city = this.installedPpLocations[0][0];
+          this._config.city = this.installedPpLocations[0]![0];
         }
         if (
           integration === "silam" &&
           !this._userConfig.location &&
           this.installedSilamLocations.length
         ) {
-          this._config.location = this.installedSilamLocations[0][0];
+          this._config.location = this.installedSilamLocations[0]![0];
         }
         if (
           integration === "kleenex" &&
           !this._userConfig.location &&
           this.installedKleenexLocations.length
         ) {
-          this._config.location = this.installedKleenexLocations[0][0];
+          this._config.location = this.installedKleenexLocations[0]![0];
         }
         if (
           integration === "atmo" &&
           !this._userConfig.location &&
           this.installedAtmoLocations.length
         ) {
-          this._config.location = this.installedAtmoLocations[0][0];
+          this._config.location = this.installedAtmoLocations[0]![0];
         }
         if (
           integration === "gpl" &&
           !this._userConfig.location &&
           this.installedGplLocations.length
         ) {
-          this._config.location = this.installedGplLocations[0][0];
+          this._config.location = this.installedGplLocations[0]![0];
         }
         if (
           integration === "gp" &&
           !this._userConfig.location &&
           this.installedGpLocations?.length
         ) {
-          this._config.location = this.installedGpLocations[0][0];
+          this._config.location = this.installedGpLocations[0]![0];
         }
         if (
           integration === "msw" &&
           !this._userConfig.location &&
           this.installedMswLocations?.length
         ) {
-          this._config.location = this.installedMswLocations[0][0];
+          this._config.location = this.installedMswLocations[0]![0];
         }
         if (
           integration === "irmkmi" &&
           !this._userConfig.location &&
           this.installedIrmkmiLocations?.length
         ) {
-          this._config.location = this.installedIrmkmiLocations[0][0];
+          this._config.location = this.installedIrmkmiLocations[0]![0];
         }
       }
 

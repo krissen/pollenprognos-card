@@ -513,7 +513,7 @@ export function clampLevel<N = number>(
  */
 export function parseLocalDate(dateStr: unknown): Date | null {
   if (typeof dateStr !== "string") return null;
-  const [ymd] = dateStr.split("T");
+  const ymd = dateStr.split("T")[0] ?? "";
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
   if (!m) return null;
   const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
@@ -764,7 +764,8 @@ function getCanonicalPhraseIndex(phrases: PhraseMap): Record<string, string> {
   const isAlias = (k: string) =>
     Object.prototype.hasOwnProperty.call(ALLERGEN_TRANSLATION, k);
   for (const rawKey of Object.keys(phrases)) {
-    const value = phrases[rawKey];
+    // rawKey comes from Object.keys(phrases), so the lookup is always present.
+    const value = phrases[rawKey]!;
     const addCanon = (canon: unknown) => {
       if (typeof canon === "string" && canon && !(canon in idx))
         idx[canon] = value;
@@ -887,7 +888,7 @@ export function resolveManualEntity(
     const candidates = Object.keys(hass.states).filter((id) =>
       id.startsWith(base),
     );
-    if (candidates.length === 1) return candidates[0];
+    if (candidates.length === 1) return candidates[0]!;
   }
   return null;
 }
@@ -980,9 +981,11 @@ export function filterSensorsPostFetch(
         const m = id.match(/^sensor\.silam_pollen_(.*)_([^_]+)$/);
         if (!m || m[1] !== silamLoc) continue;
         const haSlug = m[2];
+        if (!haSlug) continue;
         for (const [, mapping] of Object.entries(silamMapping)) {
-          if (mapping[haSlug]) {
-            silamReverse[mapping[haSlug]] = haSlug;
+          const canon = mapping[haSlug];
+          if (canon) {
+            silamReverse[canon] = haSlug;
             break;
           }
         }
@@ -1498,7 +1501,8 @@ export function resolveLocationByKey(
     const sortedKeys = allNumeric
       ? keys.sort((a, b) => Number(a) - Number(b))
       : keys.sort();
-    const key = sortedKeys[0];
+    // locs.size > 0 was checked above, so sortedKeys[0] exists.
+    const key = sortedKeys[0]!;
     return [key, locs.get(key)!];
   }
 

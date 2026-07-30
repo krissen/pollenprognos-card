@@ -277,7 +277,7 @@ function dwdTemplateFallback({
         if (m[1] !== rawKey) return false;
         return regionId ? m[2] === String(regionId) : true;
       });
-      if (candidates.length === 1) sensorId = candidates[0];
+      if (candidates.length === 1) sensorId = candidates[0]!;
       else if (candidates.length > 1 && debug) {
         console.debug(
           `[DWD:resolveEntityIds] template fallback ambiguous for '${allergen}' (${candidates.length} candidates); skipping`,

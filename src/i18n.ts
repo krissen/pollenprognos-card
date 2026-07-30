@@ -15,8 +15,9 @@ const localeModules = import.meta.glob<{ default: LocaleData }>(
 const LOCALES: Record<string, LocaleData> = {};
 for (const filePath in localeModules) {
   const match = filePath.match(/\.\/locales\/([\w-]+)\.json$/);
-  if (match) {
-    LOCALES[match[1]] = localeModules[filePath].default;
+  const code = match?.[1];
+  if (code) {
+    LOCALES[code] = localeModules[filePath]!.default;
   }
 }
 

@@ -38,7 +38,7 @@ describe("filterSensorsPostFetch", () => {
       const available = ["sensor.silam_pollen_stockholm_birch"];
       const result = filterSensorsPostFetch(sensors, baseCfg, available, [], silamMapping);
       expect(result).toHaveLength(1);
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("drops sensors whose entity_id is NOT in availableSensors", () => {
@@ -80,7 +80,7 @@ describe("filterSensorsPostFetch", () => {
         const available = ["sensor.silam_pollen_stockholm_birch"];
         const result = filterSensorsPostFetch(sensors, cfg, available, hassKeys, silamMapping);
         expect(result).toHaveLength(1);
-        expect(result[0].allergenReplaced).toBe("birch");
+        expect(result[0]!.allergenReplaced).toBe("birch");
       });
 
       it("resolves localized HA slugs via reverse map", () => {
@@ -208,7 +208,7 @@ describe("filterSensorsPostFetch", () => {
       ];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(1);
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("Kleenex: filters by normalized allergen name", () => {

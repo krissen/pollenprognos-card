@@ -52,7 +52,10 @@ function ppHass(cityKey: string, allergenMap: Record<string, Array<number | null
 }
 
 // -- DWD ------------------------------------------------------------------
-function dwdHass(regionId: string, allergenMap: Record<string, number[]>) {
+function dwdHass(
+  regionId: string,
+  allergenMap: Record<string, [number, number, number]>,
+) {
   const states: Record<string, any> = {};
   for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap)) {
     states[`sensor.pollenflug_${allergen}_${regionId}`] = createDWDSensor(

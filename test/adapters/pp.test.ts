@@ -48,7 +48,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("bjork");
+    expect(result[0]!.allergenReplaced).toBe("bjork");
   });
 
   it("resolves allergen display names via i18n", async () => {
@@ -61,8 +61,8 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     // allergenCapitalized should be a non-empty string (i18n lookup or fallback)
-    expect(result[0].allergenCapitalized).toBeTruthy();
-    expect(typeof result[0].allergenCapitalized).toBe("string");
+    expect(result[0]!.allergenCapitalized).toBeTruthy();
+    expect(typeof result[0]!.allergenCapitalized).toBe("string");
   });
 
   it("returns correct number of days based on days_to_show", async () => {
@@ -75,11 +75,11 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
-    expect(result[0].days[0]).toBeDefined();
-    expect(result[0].days[1]).toBeDefined();
-    expect(result[0].days[2]).toBeDefined();
-    expect(result[0].days[3]).toBeUndefined();
+    expect(result[0]!.days.length).toBe(3);
+    expect(result[0]!.days[0]).toBeDefined();
+    expect(result[0]!.days[1]).toBeDefined();
+    expect(result[0]!.days[2]).toBeDefined();
+    expect(result[0]!.days[3]).toBeUndefined();
   });
 
   it("clamps levels to 0-6 range, returns null for NaN", async () => {
@@ -93,14 +93,14 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     // Level 8 should be clamped to 6
-    expect(result[0].days[0].state).toBe(6);
+    expect(result[0]!.days[0]!.state).toBe(6);
     // -1 and NaN produce null via clampLevel; with pollen_threshold 0 these
     // days still appear but carry the no-data sentinel state -1 (no info, not a
     // real level 0), so the render path shows the no-data pattern.
-    expect(result[0].days[1].state).toBe(-1);
-    expect(result[0].days[2].state).toBe(-1);
+    expect(result[0]!.days[1]!.state).toBe(-1);
+    expect(result[0]!.days[2]!.state).toBe(-1);
     // Valid level passes through
-    expect(result[0].days[3].state).toBe(3);
+    expect(result[0]!.days[3]!.state).toBe(3);
   });
 
   it("filters allergens below pollen_threshold", async () => {
@@ -118,7 +118,7 @@ describe("PP adapter: fetchForecast", () => {
 
     // Only Björk should pass (Al has all 0s, below threshold 1)
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("bjork");
+    expect(result[0]!.allergenReplaced).toBe("bjork");
   });
 
   it("includes all allergens when pollen_threshold is 0", async () => {
@@ -150,7 +150,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
   });
 
   it("sorts by value_ascending", async () => {
@@ -166,7 +166,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBeLessThanOrEqual(result[1].days[0].state);
+    expect(result[0]!.days[0]!.state).toBeLessThanOrEqual(result[1]!.days[0]!.state);
   });
 
   it("respects user phrase overrides for allergen names", async () => {
@@ -185,7 +185,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenCapitalized).toBe("Custom Birch");
+    expect(result[0]!.allergenCapitalized).toBe("Custom Birch");
   });
 
   it("handles manual mode entity resolution", async () => {
@@ -203,7 +203,7 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.my_prefix_bjork_suffix");
+    expect(result[0]!.entity_id).toBe("sensor.my_prefix_bjork_suffix");
   });
 
   it("auto-detects city from sensor entity IDs when city is empty", async () => {
@@ -219,7 +219,7 @@ describe("PP adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.pollen_goteborg_bjork");
+    expect(result[0]!.entity_id).toBe("sensor.pollen_goteborg_bjork");
   });
 
   it("each day object has required properties", async () => {
@@ -230,7 +230,7 @@ describe("PP adapter: fetchForecast", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].days[0];
+    const day = result[0]!.days[0]!;
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
@@ -251,7 +251,7 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].entity_id).toBe("sensor.pollen_stockholm_bjork");
+    expect(result[0]!.entity_id).toBe("sensor.pollen_stockholm_bjork");
   });
 });
 
@@ -353,7 +353,7 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
     ]);
 
     const discovery = PP.discoverPpSensors(hass);
-    const [, loc] = [...discovery.locations.entries()][0];
+    const [, loc] = [...discovery.locations.entries()][0]!;
     expect(loc.label).toBe("Visby");
   });
 
@@ -374,7 +374,7 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
     ]);
 
     const discovery = PP.discoverPpSensors(hass);
-    const [, loc] = [...discovery.locations.entries()][0];
+    const [, loc] = [...discovery.locations.entries()][0]!;
     expect(loc.label).toBe("My Visby card");
   });
 });

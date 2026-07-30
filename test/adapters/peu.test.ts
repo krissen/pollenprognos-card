@@ -80,7 +80,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("sets allergenCapitalized to a non-empty string", async () => {
@@ -92,8 +92,8 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(typeof result[0].allergenCapitalized).toBe("string");
-      expect(result[0].allergenCapitalized.length).toBeGreaterThan(0);
+      expect(typeof result[0]!.allergenCapitalized).toBe("string");
+      expect(result[0]!.allergenCapitalized.length).toBeGreaterThan(0);
     });
 
     it("sets allergenShort equal to allergenCapitalized when not abbreviated", async () => {
@@ -106,7 +106,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenShort).toBe(result[0].allergenCapitalized);
+      expect(result[0]!.allergenShort).toBe(result[0]!.allergenCapitalized);
     });
 
     it("day0 is defined and mirrors the first days entry", async () => {
@@ -118,8 +118,8 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0]).toBeDefined();
-      expect(result[0].days[0]).toBe(result[0].days[0]);
+      expect(result[0]!.days[0]).toBeDefined();
+      expect(result[0]!.days[0]).toBe(result[0]!.days[0]);
     });
 
     it("each day object has required properties", async () => {
@@ -130,7 +130,7 @@ describe("PEU adapter: fetchForecast", () => {
       });
 
       const result = await fetchForecast(hass, config);
-      const day = result[0].days[0];
+      const day = result[0]!.days[0]!;
 
       expect(day).toHaveProperty("name");
       expect(day).toHaveProperty("day");
@@ -152,7 +152,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe(
+      expect(result[0]!.entity_id).toBe(
         "sensor.polleninformation_amsterdam_birch",
       );
     });
@@ -167,11 +167,11 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days.length).toBe(3);
-      expect(result[0].days[0]).toBeDefined();
-      expect(result[0].days[1]).toBeDefined();
-      expect(result[0].days[2]).toBeDefined();
-      expect(result[0].days[3]).toBeUndefined();
+      expect(result[0]!.days.length).toBe(3);
+      expect(result[0]!.days[0]).toBeDefined();
+      expect(result[0]!.days[1]).toBeDefined();
+      expect(result[0]!.days[2]).toBeDefined();
+      expect(result[0]!.days[3]).toBeUndefined();
     });
   });
 
@@ -206,10 +206,10 @@ describe("PEU adapter: fetchForecast", () => {
         const result = await fetchForecast(hass, config);
 
         // state stores the native (0-4) value verbatim
-        expect(result[0].days[0].state).toBe(input >= 0 ? input : -1);
+        expect(result[0]!.days[0]!.state).toBe(input >= 0 ? input : -1);
         // state_text comes from card.levels5.0..4 keyed at the native index
-        expect(typeof result[0].days[0].state_text).toBe("string");
-        expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
+        expect(typeof result[0]!.days[0]!.state_text).toBe("string");
+        expect(result[0]!.days[0]!.state_text.length).toBeGreaterThan(0);
       });
     }
 
@@ -234,7 +234,7 @@ describe("PEU adapter: fetchForecast", () => {
           pollen_threshold: 0,
         });
         const result = await fetchForecast(hass, config);
-        expect(result[0].days[0].state_text).toBe(expected);
+        expect(result[0]!.days[0]!.state_text).toBe(expected);
       }
     });
 
@@ -260,7 +260,7 @@ describe("PEU adapter: fetchForecast", () => {
           pollen_threshold: 0,
         });
         const result = await fetchForecast(hass, config);
-        expect(result[0].days[0].state_text).toBe(expected);
+        expect(result[0]!.days[0]!.state_text).toBe(expected);
       }
     });
 
@@ -276,8 +276,8 @@ describe("PEU adapter: fetchForecast", () => {
       const resultHigh = await fetchForecast(hassHigh, config);
       const resultLow = await fetchForecast(hassLow, config);
 
-      expect(resultHigh[0].days[0].state_text).not.toBe(
-        resultLow[0].days[0].state_text,
+      expect(resultHigh[0]!.days[0]!.state_text).not.toBe(
+        resultLow[0]!.days[0]!.state_text,
       );
     });
   });
@@ -317,7 +317,7 @@ describe("PEU adapter: fetchForecast", () => {
       // NaN level evaluates to -1, and level >= 0 is false, so day is skipped
       // The sensor still appears because pollen_threshold === 0
       expect(result.length).toBe(1);
-      expect(result[0].days.length).toBe(0);
+      expect(result[0]!.days.length).toBe(0);
     });
 
     it("returns -1 for negative level values (day is skipped)", async () => {
@@ -349,7 +349,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       // Negative level evaluates to -1, day is skipped
       expect(result.length).toBe(1);
-      expect(result[0].days.length).toBe(0);
+      expect(result[0]!.days.length).toBe(0);
     });
 
     it("clamps level above maxLevel (4) to 4", async () => {
@@ -380,7 +380,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Level 10 clamped to maxLevel=4
-      expect(result[0].days[0].state).toBe(4);
+      expect(result[0]!.days[0]!.state).toBe(4);
     });
   });
 
@@ -418,7 +418,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe(
+      expect(result[0]!.entity_id).toBe(
         "sensor.polleninformation_amsterdam_allergy_risk_hourly",
       );
     });
@@ -434,7 +434,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe(
+      expect(result[0]!.entity_id).toBe(
         "sensor.polleninformation_amsterdam_allergy_risk",
       );
     });
@@ -481,7 +481,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("includes all allergens when pollen_threshold is 0", async () => {
@@ -536,8 +536,8 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       for (let i = 0; i < result.length - 1; i++) {
-        expect(result[i].days[0].state).toBeGreaterThanOrEqual(
-          result[i + 1].days[0].state,
+        expect(result[i]!.days[0]!.state).toBeGreaterThanOrEqual(
+          result[i + 1]!.days[0]!.state,
         );
       }
     });
@@ -558,8 +558,8 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       for (let i = 0; i < result.length - 1; i++) {
-        expect(result[i].days[0].state).toBeLessThanOrEqual(
-          result[i + 1].days[0].state,
+        expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(
+          result[i + 1]!.days[0]!.state,
         );
       }
     });
@@ -580,7 +580,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       const names = result.map((s) => s.allergenCapitalized);
-      const sorted = [...names].sort((a, b) => a.localeCompare(b));
+      const sorted = [...names]!.sort((a, b) => a.localeCompare(b));
       expect(names).toEqual(sorted);
     });
 
@@ -600,7 +600,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       const names = result.map((s) => s.allergenCapitalized);
-      const sorted = [...names].sort((a, b) => b.localeCompare(a));
+      const sorted = [...names]!.sort((a, b) => b.localeCompare(a));
       expect(names).toEqual(sorted);
     });
 
@@ -620,9 +620,9 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Original order (oak, grasses, birch) should be preserved
-      expect(result[0].allergenReplaced).toBe("oak");
-      expect(result[1].allergenReplaced).toBe("grasses");
-      expect(result[2].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("oak");
+      expect(result[1]!.allergenReplaced).toBe("grasses");
+      expect(result[2]!.allergenReplaced).toBe("birch");
     });
   });
 
@@ -645,7 +645,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenReplaced).toBe("allergy_risk");
+      expect(result[0]!.allergenReplaced).toBe("allergy_risk");
     });
 
     it("leaves order unchanged when allergy_risk_top is false", async () => {
@@ -664,7 +664,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // value_descending: birch(4) > grasses(3) > allergy_risk(1)
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("allergy_risk_top is a no-op when allergy_risk is already first", async () => {
@@ -681,7 +681,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenReplaced).toBe("allergy_risk");
+      expect(result[0]!.allergenReplaced).toBe("allergy_risk");
       expect(result.length).toBe(2);
     });
   });
@@ -708,8 +708,8 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].stale).toBe(true);
-      expect(result[0].days).toEqual([]);
+      expect(result[0]!.stale).toBe(true);
+      expect(result[0]!.days).toEqual([]);
     });
 
     it("includes staleSince when the attribute is present", async () => {
@@ -729,7 +729,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].staleSince).toBe("2024-05-01T00:00:00");
+      expect(result[0]!.staleSince).toBe("2024-05-01T00:00:00");
     });
 
     it("returns stale:true with empty days when forecast array is empty", async () => {
@@ -748,8 +748,8 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].stale).toBe(true);
-      expect(result[0].days).toEqual([]);
+      expect(result[0]!.stale).toBe(true);
+      expect(result[0]!.days).toEqual([]);
     });
 
     it("does not set stale:true when data_stale is false and forecast is present", async () => {
@@ -761,7 +761,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].stale).toBeUndefined();
+      expect(result[0]!.stale).toBeUndefined();
     });
   });
 
@@ -797,7 +797,7 @@ describe("PEU adapter: fetchForecast", () => {
       // Native level 2 -> "Medium" (was customLevels[3] under spread,
       // now customLevels[3] picked into native index 2 via the [0,1,3,5,6]
       // migration extraction; same user-visible outcome.)
-      expect(result[0].days[0].state_text).toBe("Medium");
+      expect(result[0]!.days[0]!.state_text).toBe("Medium");
     });
 
     it("accepts 5 custom level labels at native indices", async () => {
@@ -815,7 +815,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Native level 2 -> customLevels[2] = "Moderate"
-      expect(result[0].days[0].state_text).toBe("Moderate");
+      expect(result[0]!.days[0]!.state_text).toBe("Moderate");
     });
 
     it("falls back to default level names for empty/null custom entries (7 labels)", async () => {
@@ -831,7 +831,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // Native level 0 -> scaled level 0 -> customLevels[0] = "CustomZero"
-      expect(result[0].days[0].state_text).toBe("CustomZero");
+      expect(result[0]!.days[0]!.state_text).toBe("CustomZero");
     });
 
     it("falls back to default level names for empty/null custom entries (5 labels)", async () => {
@@ -849,8 +849,8 @@ describe("PEU adapter: fetchForecast", () => {
 
       // Native level 0 -> scaled level 0; customLevels[0] is "" -> fallback to i18n
       // Just verify it's a non-empty string (i18n fallback)
-      expect(typeof result[0].days[0].state_text).toBe("string");
-      expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
+      expect(typeof result[0]!.days[0]!.state_text).toBe("string");
+      expect(result[0]!.days[0]!.state_text.length).toBeGreaterThan(0);
     });
   });
 
@@ -873,7 +873,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.mypfx_birch_sfx");
+      expect(result[0]!.entity_id).toBe("sensor.mypfx_birch_sfx");
     });
 
     it("skips allergen when manual entity is not in hass.states", async () => {
@@ -917,7 +917,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.pfx_allergy_risk_hourly_sfx");
+      expect(result[0]!.entity_id).toBe("sensor.pfx_allergy_risk_hourly_sfx");
     });
 
     it("works without prefix and suffix (empty strings)", async () => {
@@ -935,7 +935,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.birch");
+      expect(result[0]!.entity_id).toBe("sensor.birch");
     });
   });
 
@@ -1021,7 +1021,7 @@ describe("PEU adapter: fetchForecast", () => {
       ]);
 
       const discovery = discoverPeuSensors(hass);
-      const [, loc] = [...discovery.locations.entries()][0];
+      const [, loc] = [...discovery.locations.entries()][0]!;
       expect(loc.label).toBe("Hamburg");
     });
 
@@ -1046,7 +1046,7 @@ describe("PEU adapter: fetchForecast", () => {
       ]);
 
       const discovery = discoverPeuSensors(hass);
-      const [, loc] = [...discovery.locations.entries()][0];
+      const [, loc] = [...discovery.locations.entries()][0]!;
       expect(loc.label).toBe("Hamburg");
     });
 
@@ -1092,7 +1092,7 @@ describe("PEU adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe(
+      expect(result[0]!.entity_id).toBe(
         "sensor.polleninformation_brussels_birch",
       );
     });
@@ -1130,7 +1130,7 @@ describe("PEU adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenCapitalized).toBe("My Custom Birch Name");
+      expect(result[0]!.allergenCapitalized).toBe("My Custom Birch Name");
     });
 
     it("uses custom no_information label for state_text when level is an unrecognized string", async () => {
@@ -1169,8 +1169,8 @@ describe("PEU adapter: fetchForecast", () => {
       // "unknown" is not null/undefined, so ?? keeps it; Number("unknown") = NaN;
       // indexToLevel(NaN) returns -1 => scaledLevel < 0 => state_text = noInfoLabel.
       expect(result.length).toBe(1);
-      expect(result[0].days.length).toBe(1);
-      expect(result[0].days[0].state_text).toBe("N/A");
+      expect(result[0]!.days.length).toBe(1);
+      expect(result[0]!.days[0]!.state_text).toBe("N/A");
     });
   });
 });

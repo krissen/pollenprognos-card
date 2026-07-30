@@ -11,6 +11,7 @@
     "skipLibCheck": true,
     "useDefineForClassFields": false,
     "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "types": ["vite/client"]
   },
   "include": ["src", "test"],

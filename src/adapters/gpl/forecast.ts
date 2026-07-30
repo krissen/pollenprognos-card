@@ -166,7 +166,8 @@ export async function fetchForecast(
       const sensorId = entityMap.get(allergen);
       if (!sensorId) continue;
 
-      const sensor = hass.states[sensorId];
+      // resolveEntityIds only maps ids it found in hass.states.
+      const sensor = hass.states[sensorId]!;
       dict.entity_id = sensorId;
 
       // Summary block (issue #222): tag the aggregate and enrich it with the
@@ -299,7 +300,7 @@ export async function fetchForecast(
       const levels = entries
         .filter((e) => e.date.getTime() - today.getTime() >= 0)
         .sort((a, b) => a.date.getTime() - b.date.getTime());
-      if (!levels.length || levels[0].date.getTime() - today.getTime() > 0) {
+      if (!levels.length || levels[0]!.date.getTime() - today.getTime() > 0) {
         levels.unshift({ date: today, level: -1 });
       }
       levels.splice(days_to_show);
@@ -308,7 +309,8 @@ export async function fetchForecast(
       // array index): forecast items are placed by their `date`, so an
       // index-based date could collide with a date already in the list.
       while (levels.length < days_to_show) {
-        const last = levels[levels.length - 1].date;
+        // The unshift above guarantees at least one entry.
+        const last = levels[levels.length - 1]!.date;
         const next = new Date(last.getTime() + 36 * 3600000);
         next.setHours(0, 0, 0, 0);
         levels.push({ date: next, level: -1 });

@@ -169,7 +169,7 @@ describe("discoverGplSensors: attribution fallback path", () => {
     const result = discoverGplSensors(hass);
 
     expect(result.locations.size).toBeGreaterThan(0);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("grass_cat")).toBe(true);
     expect(loc.entities.get("grass_cat")).toBe("sensor.pollenlevels_grass");
   });
@@ -179,7 +179,7 @@ describe("discoverGplSensors: attribution fallback path", () => {
       "sensor.pollenlevels_tree": makeTypeSensor("mdi:tree", 2),
     });
     const result = discoverGplSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("trees_cat")).toBe(true);
   });
 
@@ -188,7 +188,7 @@ describe("discoverGplSensors: attribution fallback path", () => {
       "sensor.pollenlevels_weed": makeTypeSensor("mdi:flower-tulip", 1),
     });
     const result = discoverGplSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("weeds_cat")).toBe(true);
   });
 
@@ -197,7 +197,7 @@ describe("discoverGplSensors: attribution fallback path", () => {
       "sensor.pollenlevels_birch": makePlantSensor("birch", 4),
     });
     const result = discoverGplSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("birch")).toBe(true);
     expect(loc.entities.get("birch")).toBe("sensor.pollenlevels_birch");
   });
@@ -212,7 +212,7 @@ describe("discoverGplSensors: attribution fallback path", () => {
 
     // Attribution fallback groups everything under "default"
     expect(result.locations.size).toBe(1);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.size).toBe(3);
   });
 
@@ -228,7 +228,7 @@ describe("discoverGplSensors: attribution fallback path", () => {
       },
     });
     const result = discoverGplSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.size).toBe(1);
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
@@ -246,7 +246,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     const result = discoverGplSensors(hass);
 
     expect(result.locations.size).toBeGreaterThan(0);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
 
@@ -374,7 +374,7 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
     };
     const hass: any = { ...createHass(statesMap), entities, devices: {} };
     const result = discoverGplSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.size).toBe(1);
     expect(loc.entities.has("grass_cat")).toBe(true);
   });
@@ -509,7 +509,7 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
   });
 
   it("sets allergenCapitalized to a non-empty string", async () => {
@@ -524,8 +524,8 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(typeof result[0].allergenCapitalized).toBe("string");
-    expect(result[0].allergenCapitalized.length).toBeGreaterThan(0);
+    expect(typeof result[0]!.allergenCapitalized).toBe("string");
+    expect(result[0]!.allergenCapitalized.length).toBeGreaterThan(0);
   });
 
   it("sets allergenShort equal to allergenCapitalized when not abbreviated", async () => {
@@ -541,7 +541,7 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenShort).toBe(result[0].allergenCapitalized);
+    expect(result[0]!.allergenShort).toBe(result[0]!.allergenCapitalized);
   });
 
   it("day0 is defined and is the first element of days array", async () => {
@@ -556,8 +556,8 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0]).toBeDefined();
-    expect(result[0].days[0]).toBe(result[0].days[0]);
+    expect(result[0]!.days[0]).toBeDefined();
+    expect(result[0]!.days[0]).toBe(result[0]!.days[0]);
   });
 
   it("each day object has required properties", async () => {
@@ -571,7 +571,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].days[0];
+    const day = result[0]!.days[0]!;
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
@@ -596,7 +596,7 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].entity_id).toBe("sensor.pollenlevels_birch");
+    expect(result[0]!.entity_id).toBe("sensor.pollenlevels_birch");
   });
 
   it("respects days_to_show", async () => {
@@ -616,11 +616,11 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
-    expect(result[0].days[0]).toBeDefined();
-    expect(result[0].days[1]).toBeDefined();
-    expect(result[0].days[2]).toBeDefined();
-    expect(result[0].days[3]).toBeUndefined();
+    expect(result[0]!.days.length).toBe(3);
+    expect(result[0]!.days[0]).toBeDefined();
+    expect(result[0]!.days[1]).toBeDefined();
+    expect(result[0]!.days[2]).toBeDefined();
+    expect(result[0]!.days[3]).toBeUndefined();
   });
 
   it("returns empty array when no matching sensors exist", async () => {
@@ -672,10 +672,10 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
       const result = await fetchForecast(hass, config);
 
       // state stores the raw (0-5) value
-      expect(result[0].days[0].state).toBe(nativeLevel);
+      expect(result[0]!.days[0]!.state).toBe(nativeLevel);
       // state_text should be a non-empty string (scaled level label)
-      expect(typeof result[0].days[0].state_text).toBe("string");
-      expect(result[0].days[0].state_text.length).toBeGreaterThan(0);
+      expect(typeof result[0]!.days[0]!.state_text).toBe("string");
+      expect(result[0]!.days[0]!.state_text.length).toBeGreaterThan(0);
     });
   }
 
@@ -695,7 +695,7 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0].days[0].state_text).not.toBe(resultLow[0].days[0].state_text);
+    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(resultLow[0]!.days[0]!.state_text);
   });
 });
 
@@ -716,7 +716,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(-1);
   });
 
   it("returns state=-1 for negative sensor state", async () => {
@@ -731,7 +731,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(-1);
   });
 
   it("clamps sensor state above 5 to 5", async () => {
@@ -746,7 +746,7 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(5);
+    expect(result[0]!.days[0]!.state).toBe(5);
   });
 
   it("returns state=-1 for forecast item with has_index=false", async () => {
@@ -764,8 +764,8 @@ describe("fetchForecast: NaN/negative/out-of-range handling", () => {
     const result = await fetchForecast(hass, config);
 
     // day0 has valid state=3, day1 has has_index=false -> state=-1
-    expect(result[0].days[0].state).toBe(3);
-    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0]!.days[0]!.state).toBe(3);
+    expect(result[0]!.days[1]!.state).toBe(-1);
   });
 });
 
@@ -789,9 +789,9 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(2);
-    expect(result[0].days[1].state).toBe(4);
-    expect(result[0].days[2].state).toBe(1);
+    expect(result[0]!.days[0]!.state).toBe(2);
+    expect(result[0]!.days[1]!.state).toBe(4);
+    expect(result[0]!.days[2]!.state).toBe(1);
   });
 
   it("pads missing forecast days with state=-1", async () => {
@@ -807,10 +807,10 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(3);
-    expect(result[0].days[0].state).toBe(3);
-    expect(result[0].days[1].state).toBe(-1);
-    expect(result[0].days[2].state).toBe(-1);
+    expect(result[0]!.days.length).toBe(3);
+    expect(result[0]!.days[0]!.state).toBe(3);
+    expect(result[0]!.days[1]!.state).toBe(-1);
+    expect(result[0]!.days[2]!.state).toBe(-1);
   });
 
   it("uses date field from forecast item when provided", async () => {
@@ -828,7 +828,7 @@ describe("fetchForecast: forecast data", () => {
     const result = await fetchForecast(hass, config);
 
     // day1's label is derived from the forecast date: offset 1 -> "Tomorrow"
-    expect(result[0].days[1].day).toBe("Tomorrow");
+    expect(result[0]!.days[1]!.day).toBe("Tomorrow");
   });
 
   // Issue #271: the sensor state is the value for the integration's last
@@ -850,11 +850,11 @@ describe("fetchForecast: forecast data", () => {
     const result = await fetchForecast(hass, config);
 
     // Today shows the item's value; the state belongs to yesterday
-    expect(result[0].days[0].day).toBe("Today");
-    expect(result[0].days[0].state).toBe(3);
+    expect(result[0]!.days[0]!.day).toBe("Today");
+    expect(result[0]!.days[0]!.state).toBe(3);
     // Second column is a padded empty tomorrow, not a duplicate today
-    expect(result[0].days[1].day).toBe("Tomorrow");
-    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0]!.days[1]!.day).toBe("Tomorrow");
+    expect(result[0]!.days[1]!.state).toBe(-1);
   });
 
   it("places a forecast item by its date and drops the day-old state (offset lag)", async () => {
@@ -872,10 +872,10 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].day).toBe("Today");
-    expect(result[0].days[0].state).toBe(-1);
-    expect(result[0].days[1].day).toBe("Tomorrow");
-    expect(result[0].days[1].state).toBe(4);
+    expect(result[0]!.days[0]!.day).toBe("Today");
+    expect(result[0]!.days[0]!.state).toBe(-1);
+    expect(result[0]!.days[1]!.day).toBe("Tomorrow");
+    expect(result[0]!.days[1]!.state).toBe(4);
   });
 
   it("uses the today-dated forecast item when the state is unavailable", async () => {
@@ -891,10 +891,10 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].day).toBe("Today");
-    expect(result[0].days[0].state).toBe(2);
-    expect(result[0].days[1].day).toBe("Tomorrow");
-    expect(result[0].days[1].state).toBe(-1);
+    expect(result[0]!.days[0]!.day).toBe("Today");
+    expect(result[0]!.days[0]!.state).toBe(2);
+    expect(result[0]!.days[1]!.day).toBe("Tomorrow");
+    expect(result[0]!.days[1]!.state).toBe(-1);
   });
 
   it("keeps the state as today and items on their dates when the data is fresh", async () => {
@@ -913,11 +913,11 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].day).toBe("Today");
-    expect(result[0].days[0].state).toBe(2);
-    expect(result[0].days[1].day).toBe("Tomorrow");
-    expect(result[0].days[1].state).toBe(4);
-    expect(result[0].days[2].state).toBe(1);
+    expect(result[0]!.days[0]!.day).toBe("Today");
+    expect(result[0]!.days[0]!.state).toBe(2);
+    expect(result[0]!.days[1]!.day).toBe("Tomorrow");
+    expect(result[0]!.days[1]!.state).toBe(4);
+    expect(result[0]!.days[2]!.state).toBe(1);
   });
 
   it("day0 state_text is the no_information label when level is -1", async () => {
@@ -939,7 +939,7 @@ describe("fetchForecast: forecast data", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state_text).toBe("N/A");
+    expect(result[0]!.days[0]!.state_text).toBe("N/A");
   });
 });
 
@@ -966,7 +966,7 @@ describe("fetchForecast: threshold filtering", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
   });
 
   it("includes all allergens when pollen_threshold is 0", async () => {
@@ -1088,8 +1088,8 @@ describe("fetchForecast: sort_category_allergens_first", () => {
     const result = await fetchForecast(hass, config);
 
     // oak(5) should come before grass_cat(1) with value_descending
-    expect(result[0].allergenReplaced).toBe("oak");
-    expect(result[1].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("oak");
+    expect(result[1]!.allergenReplaced).toBe("grass_cat");
   });
 });
 
@@ -1115,7 +1115,7 @@ describe("fetchForecast: sorting modes", () => {
     const result = await fetchForecast(hass, config);
 
     for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i].days[0].state).toBeLessThanOrEqual(result[i + 1].days[0].state);
+      expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(result[i + 1]!.days[0]!.state);
     }
   });
 
@@ -1136,7 +1136,7 @@ describe("fetchForecast: sorting modes", () => {
     const result = await fetchForecast(hass, config);
 
     const names = result.map((s) => s.allergenCapitalized);
-    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    const sorted = [...names]!.sort((a, b) => a.localeCompare(b));
     expect(names).toEqual(sorted);
   });
 
@@ -1156,9 +1156,9 @@ describe("fetchForecast: sorting modes", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("oak");
-    expect(result[1].allergenReplaced).toBe("birch");
-    expect(result[2].allergenReplaced).toBe("alder");
+    expect(result[0]!.allergenReplaced).toBe("oak");
+    expect(result[1]!.allergenReplaced).toBe("birch");
+    expect(result[2]!.allergenReplaced).toBe("alder");
   });
 });
 
@@ -1186,7 +1186,7 @@ describe("fetchForecast: user phrase overrides", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenCapitalized).toBe("My Custom Grass");
+    expect(result[0]!.allergenCapitalized).toBe("My Custom Grass");
   });
 });
 
@@ -1348,9 +1348,9 @@ describe("discoverGplSensors: v3 summary siblings don't collide on allergy_risk 
       dev1: { name: "Home", config_entries: ["entry_v3"] },
     });
     // Reduced frontend shape carries translation_key, not unique_id.
-    hass.entities["sensor.home_overall"].translation_key =
+    hass.entities["sensor.home_overall"]!.translation_key =
       "overall_pollen_risk_today";
-    hass.entities["sensor.home_top_types"].translation_key =
+    hass.entities["sensor.home_top_types"]!.translation_key =
       "top_pollen_types_today";
 
     const result = discoverGplSensors(hass);
@@ -1385,7 +1385,7 @@ describe("discoverGplSensors: summary sensor flows through to allergy_risk key",
       const base = makeHassPrimary(statesMap, entitiesMap, {
         dev1: { name: "Home", config_entries: ["entry-summary-1"] },
       });
-      base.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+      base.entities["sensor.home_overall_pollen_risk_today"]!.unique_id =
         "cfg_entry_id_overall_pollen_risk_today";
       return base;
     })();
@@ -1423,7 +1423,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     const hass = makeHassPrimary(statesMap, entitiesMap, {
       dev1: { name: "Home", config_entries: ["entry_a"] },
     });
-    hass.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+    hass.entities["sensor.home_overall_pollen_risk_today"]!.unique_id =
       pinTopUnique;
     return hass;
   }
@@ -1440,7 +1440,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
     expect(ar).toBeDefined();
-    expect(ar.days[0].state).toBe(3);
+    expect(ar.days[0]!.state).toBe(3);
   });
 
   it("renders day1..N as no-data sentinels (-1) since the summary has no forecast", async () => {
@@ -1454,12 +1454,12 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
 
     const result = await fetchForecast(hass, config);
     const ar = result.find((s) => s.allergenReplaced === "allergy_risk")!;
-    expect(ar.days[0].state).toBe(2);
+    expect(ar.days[0]!.state).toBe(2);
     // The card treats level=-1 as the fuzzy no-data variant (#228); padding
     // future days as -1 is what keeps the row from inventing fake values.
-    expect(ar.days[1].state).toBe(-1);
-    expect(ar.days[2].state).toBe(-1);
-    expect(ar.days[3].state).toBe(-1);
+    expect(ar.days[1]!.state).toBe(-1);
+    expect(ar.days[2]!.state).toBe(-1);
+    expect(ar.days[3]!.state).toBe(-1);
   });
 
   it("pins allergy_risk to position 0 when allergy_risk_top: true", async () => {
@@ -1472,7 +1472,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].allergenReplaced).toBe("allergy_risk");
+    expect(result[0]!.allergenReplaced).toBe("allergy_risk");
   });
 
   it("leaves allergy_risk in its natural sort position when allergy_risk_top: false", async () => {
@@ -1489,8 +1489,8 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    expect(result[0].allergenReplaced).toBe("grass_cat");
-    expect(result[1].allergenReplaced).toBe("allergy_risk");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
+    expect(result[1]!.allergenReplaced).toBe("allergy_risk");
   });
 
   it("pre-v2.1.0 installs (no summary sensor) keep working", async () => {
@@ -1508,7 +1508,7 @@ describe("fetchForecast: allergy_risk summary row (#221)", () => {
 
     const result = await fetchForecast(hass, config);
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("grass_cat");
+    expect(result[0]!.allergenReplaced).toBe("grass_cat");
   });
 });
 
@@ -1549,12 +1549,12 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     const hass = makeHassPrimary(statesMap, entitiesMap, {
       dev1: { name: "Home", config_entries: ["entry_a"] },
     });
-    hass.entities["sensor.home_overall_pollen_risk_today"].unique_id =
+    hass.entities["sensor.home_overall_pollen_risk_today"]!.unique_id =
       "entry_a_overall_pollen_risk_today";
     if (plants) {
-      hass.entities["sensor.home_plants_in_season_today"].unique_id =
+      hass.entities["sensor.home_plants_in_season_today"]!.unique_id =
         "entry_a_plants_in_season_today";
-      hass.entities["sensor.home_plants_in_season_today"].translation_key =
+      hass.entities["sensor.home_plants_in_season_today"]!.translation_key =
         "plants_in_season_today";
     }
     // Force the card language (detectLang reads hass.locale.language).
@@ -1674,7 +1674,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       plants: { state: "2", plant_codes: ["BIRCH", "PINE"] },
       language: "sv",
     });
-    delete hass.entities["sensor.home_plants_in_season_today"].unique_id;
+    delete hass.entities["sensor.home_plants_in_season_today"]!.unique_id;
     const config = makeConfig({
       allergens: ["allergy_risk"],
       pollen_threshold: 0,
@@ -1709,7 +1709,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       dev_types: { name: "Home types", config_entries: ["entry_a"] },
       dev_plants: { name: "Home plants", config_entries: ["entry_a"] },
     });
-    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+    hass.entities["sensor.home_plants_in_season_today"]!.translation_key =
       "plants_in_season_today";
     hass.language = "sv";
     hass.locale = { language: "sv" };
@@ -1760,7 +1760,7 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
         config_entries_subentries: { [PARENT]: [SUB_A] },
       },
     });
-    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+    hass.entities["sensor.home_plants_in_season_today"]!.translation_key =
       "plants_in_season_today";
     hass.language = "sv";
     hass.locale = { language: "sv" };
@@ -1821,9 +1821,9 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
         config_entries_subentries: { [PARENT]: [SUB_B] },
       },
     });
-    hass.entities["sensor.home_plants_in_season_today"].translation_key =
+    hass.entities["sensor.home_plants_in_season_today"]!.translation_key =
       "plants_in_season_today";
-    hass.entities["sensor.work_plants_in_season_today"].translation_key =
+    hass.entities["sensor.work_plants_in_season_today"]!.translation_key =
       "plants_in_season_today";
     hass.language = "sv";
     hass.locale = { language: "sv" };

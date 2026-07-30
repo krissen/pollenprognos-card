@@ -837,7 +837,8 @@ export async function fetchForecast(
 
       // Build day objects for card display
       for (let i = 0; i < days_to_show; i++) {
-        const dayData = levels[i];
+        // levels was padded to days_to_show entries above.
+        const dayData = levels[i]!;
         const d = dayData.date;
         const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
 

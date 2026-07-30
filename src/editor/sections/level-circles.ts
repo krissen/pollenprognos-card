@@ -105,7 +105,7 @@ export function renderLevelCirclesSection(
                         style: "margin-left: 8px;",
                         onClick: () => {
                           const newColors = [...levelsColors];
-                          newColors[i] = LEVELS_DEFAULTS.levels_colors[i];
+                          newColors[i] = LEVELS_DEFAULTS.levels_colors[i]!;
                           editor._updateConfig("levels_colors", newColors);
                         },
                       })}

@@ -45,7 +45,7 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("graeser");
+    expect(result[0]!.allergenReplaced).toBe("graeser");
   });
 
   it("scales levels by factor of 2 (DWD 0-3 to display 0-6)", async () => {
@@ -58,12 +58,12 @@ describe("DWD adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     // DWD level 3 * 2 = 6
-    expect(result[0].days[0].display_state).toBe(6);
+    expect(result[0]!.days[0]!.display_state).toBe(6);
     // DWD level 1.5 * 2 = 3
-    expect(result[0].days[1].display_state).toBe(3);
+    expect(result[0]!.days[1]!.display_state).toBe(3);
     // DWD level 0 * 2 = 0
     // Note: day0.state stores the RAW level (not scaled)
-    expect(result[0].days[0].state).toBe(3);
+    expect(result[0]!.days[0]!.state).toBe(3);
   });
 
   it("returns -1 for NaN values", async () => {
@@ -107,7 +107,7 @@ describe("DWD adapter: fetchForecast", () => {
     // DWD always builds 3 levels (today, tomorrow, day_after).
     // days_to_show only affects threshold filtering and padding, not output slicing.
     // All 3 valid days appear in output.
-    expect(result[0].days.length).toBe(3);
+    expect(result[0]!.days.length).toBe(3);
     expect(stubConfigDWD.days_to_show).toBe(2);
   });
 
@@ -125,7 +125,7 @@ describe("DWD adapter: fetchForecast", () => {
 
     // erle has level 1 (meets 0.5 threshold), birke has 0 (below)
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("erle");
+    expect(result[0]!.allergenReplaced).toBe("erle");
   });
 
   it("handles manual mode", async () => {
@@ -143,7 +143,7 @@ describe("DWD adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.custom_erle_end");
+    expect(result[0]!.entity_id).toBe("sensor.custom_erle_end");
   });
 
   it("sorts by value_descending by default", async () => {
@@ -159,7 +159,7 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
   });
 
   it("each day object has DWD-specific display_state", async () => {
@@ -171,9 +171,9 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0]).toHaveProperty("display_state");
+    expect(result[0]!.days[0]).toHaveProperty("display_state");
     // display_state should be level * 2
-    expect(result[0].days[0].display_state).toBe(result[0].days[0].state * 2);
+    expect(result[0]!.days[0]!.display_state).toBe(result[0]!.days[0]!.state * 2);
   });
 
   it("entity_id is set on sensor dict", async () => {
@@ -185,7 +185,7 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].entity_id).toBe("sensor.pollenflug_erle_50");
+    expect(result[0]!.entity_id).toBe("sensor.pollenflug_erle_50");
   });
 });
 
@@ -211,7 +211,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
     expect(result.locations.size).toBe(1);
 
     // In tier 3, the location key is the region ID string
-    const [locKey, loc] = [...result.locations.entries()][0];
+    const [locKey, loc] = [...result.locations.entries()][0]!;
     expect(locKey).toBe("50");
     expect(loc.entities.has("erle")).toBe(true);
     expect(loc.entities.has("birke")).toBe(true);
@@ -260,7 +260,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
     expect(result.tierUsed).toBe(2);
     expect(result.locations.size).toBe(1);
 
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.has("erle")).toBe(true);
     expect(loc.entities.has("birke")).toBe(true);
     expect(loc.entities.get("erle")).toBe("sensor.pollenflug_erle_50");
@@ -315,7 +315,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
 
     const result = discoverDwdSensors(hass);
 
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.label).toBe("Brandenburg und Berlin");
   });
 
@@ -347,7 +347,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
     };
 
     const result = discoverDwdSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.label).toBe("Brandenburg und Berlin");
   });
 
@@ -388,14 +388,14 @@ describe("DWD adapter: discoverDwdSensors", () => {
     };
 
     const result = discoverDwdSensors(hass);
-    const labels = [...result.locations.values()].map((l) => l.label).sort();
+    const labels = [...result.locations.values()]!.map((l) => l.label).sort();
     expect(labels).toEqual(["Bayern (121)", "Bayern (122)"]);
   });
 
   it("unique region label stays clean (no disambiguation suffix)", () => {
     const hass = makeHass("50", { erle: [1, 0, 0] });
     const result = discoverDwdSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     // Only one region 50 present; label stays bare.
     expect(loc.label).toBe("Brandenburg und Berlin");
   });
@@ -425,7 +425,7 @@ describe("DWD adapter: discoverDwdSensors", () => {
     };
 
     const result = discoverDwdSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.label).toBe("My custom region");
   });
 });
@@ -462,7 +462,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     );
     const result = discoverDwdSensors(hass);
     expect(result.locations.size).toBe(1);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     // Entities are keyed by the normalizeDWD() output (German allergen
     // segment from the entity ID), matching the existing bare-shape tests
     // above.
@@ -482,7 +482,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     );
     const result = discoverDwdSensors(hass);
     expect(result.locations.size).toBe(1);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.get("erle")).toBe("sensor.mystation_pollenflug_erle_50");
     expect(loc.entities.get("graeser")).toBe(
       "sensor.mystation_pollenflug_graeser_50",
@@ -524,7 +524,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     });
     const result = await fetchForecast(hass, config);
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe(
+    expect(result[0]!.entity_id).toBe(
       `sensor.pollenflug_gefahrenindex_pollenflug_ambrosia_${PREFIXED_ZONE}`,
     );
     assertSensorShape(result[0], { minDays: 1 });
@@ -558,7 +558,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
       { erle: [2, 1, 0] },
     );
     const result = discoverDwdSensors(hass);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.get("erle")).toBe(
       "sensor.pollenflug_pollenflug_erle_121",
     );
@@ -577,7 +577,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     });
     const result = discoverDwdSensors(hass);
     expect(result.locations.size).toBe(1);
-    const [, loc] = [...result.locations.entries()][0];
+    const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.get("erle")).toBe("sensor.pollenflug_erle_50");
     // No other entities should have leaked into the location's entity map.
     expect(loc.entities.size).toBe(1);

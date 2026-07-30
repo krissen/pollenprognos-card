@@ -243,7 +243,7 @@ export function discoverPeuSensors(
           .replace(/^\s*polleninformation\b[\s:\-–—]*/i, "")
           .trim();
         const paren = stripped.match(/^\(([^)]+)\)$/);
-        if (paren) return paren[1].trim();
+        if (paren?.[1]) return paren[1].trim();
         if (stripped) return stripped;
         return rawName.trim();
       }
@@ -285,10 +285,10 @@ function detectLocation(cfg: CardConfig, hass: HomeAssistant): string {
       id.startsWith("sensor.polleninformation_"),
     );
     if (peuStates.length) {
-      const match = peuStates[0].match(
+      const match = peuStates[0]!.match(
         /^sensor\.polleninformation_(.+)_[^_]+$/,
       );
-      locationSlug = match ? match[1] : "";
+      locationSlug = match?.[1] ?? "";
     }
   }
   return locationSlug;
@@ -342,7 +342,7 @@ function peuTemplateFallback({
         }
         return (!locationSlug || loc === locationSlug) && allg === allergenSlug;
       });
-      if (cands.length === 1) sensorId = cands[0];
+      if (cands.length === 1) sensorId = cands[0]!;
       else continue;
     }
     if (debug) {
@@ -624,7 +624,7 @@ export async function fetchForecast(
         );
         if (idx > 0) {
           const [special] = sensors.splice(idx, 1);
-          sensors.unshift(special);
+          sensors.unshift(special!);
         }
       }
       if (ctx.debug) console.debug("PEU.fetchForecast — done", sensors);

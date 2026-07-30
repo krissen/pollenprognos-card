@@ -185,13 +185,13 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
         const allergenColors = this.config.allergen_colors as string[];
         const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
-        return allergenColors[clampedLevel] || allergenColors[0];
+        return allergenColors[clampedLevel] || allergenColors[0]!;
       }
 
       // Default: use default allergen colors (which includes empty color at index 0)
       const defaultColors = LEVELS_DEFAULTS.allergen_colors;
       const clampedLevel = Math.max(0, Math.min(level, defaultColors.length - 1));
-      return defaultColors[clampedLevel] || defaultColors[0];
+      return defaultColors[clampedLevel] || defaultColors[0]!;
     }
 
     /**
@@ -220,7 +220,7 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
         (this.config?.levels_colors as string[]) || LEVELS_DEFAULTS.levels_colors;
       const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
       const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
-      return colors[clampedIndex] || colors[0];
+      return colors[clampedIndex] || colors[0]!;
     }
 
     /**
