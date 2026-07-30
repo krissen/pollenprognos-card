@@ -135,6 +135,27 @@ function reMintedKleenexHass(): any {
   ]);
 }
 
+/**
+ * No usable identifier and re-minted entity IDs: only the device label can
+ * resolve a saved `location: home` (Codex round 7).
+ */
+function labelOnlyKleenexHass(): any {
+  return createHassWithRegistry([
+    {
+      entityId: "sensor.my_pollen_trees",
+      state: "200",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_home",
+      deviceMeta: {
+        name: "Home",
+        identifiers: [],
+        configEntries: ["entry_home"],
+      },
+    },
+  ]);
+}
+
 let BadgeEditorCtor: new () => {
   _config: Record<string, unknown>;
   installedKleenexLocations: Array<[string, string]>;
@@ -190,6 +211,12 @@ describe("badge editor Kleenex legacy-slug compatibility (issue #309)", () => {
 
     expect(list).toEqual([["utrecht", "Utrecht"]]);
     expect(list.filter(([, label]) => label === "Utrecht").length).toBe(1);
+  });
+
+  it("keeps a config that only the device label can resolve", () => {
+    expect(
+      locationsFor({ integration: "kleenex", location: "home" }, labelOnlyKleenexHass()),
+    ).toEqual([["home", "Home"]]);
   });
 
   it("adds no compat entry in manual mode", () => {

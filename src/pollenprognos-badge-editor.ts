@@ -11,11 +11,7 @@ import {
   sectionResetStyles,
   editorControlStyles,
 } from "./editor/base.js";
-import {
-  coerceBool,
-  findLocationBySlug,
-  type DeviceDiscovery,
-} from "./utils/adapter-helpers.js";
+import { coerceBool } from "./utils/adapter-helpers.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   detectIntegrationStates,
@@ -282,24 +278,16 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       !kleenexDiscovery.locations.has(kleenexCfgLoc)
     ) {
       const kleenexAutodetect = getAutodetect("kleenex");
-      const kleenexByIdentifier =
-        kleenexAutodetect?.matchLocation?.(
+      // Same single resolution as the card editor and the adapter; see the
+      // comment there. "ambiguous" yields no entry rather than a guess.
+      const kleenexResolved =
+        kleenexAutodetect?.resolveLocation?.(
           hass,
           kleenexDiscovery,
           kleenexCfgLoc,
         ) ?? null;
-      // Ambiguous: more than one location answers to the configured value, so
-      // the generic matching would only re-pick one of them by iteration
-      // order. Offer no entry rather than binding the selector to a guess.
       const kleenexMatch =
-        kleenexByIdentifier === "ambiguous"
-          ? null
-          : kleenexByIdentifier ??
-            findLocationBySlug(
-              kleenexDiscovery as DeviceDiscovery,
-              kleenexCfgLoc,
-              { slugExtractor: kleenexAutodetect?.extractLocationSlug },
-            );
+        kleenexResolved === "ambiguous" ? null : kleenexResolved;
       if (kleenexMatch) {
         const entry = [
           kleenexCfgLoc,

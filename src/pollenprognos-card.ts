@@ -1061,34 +1061,21 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           cfg.location && cfg.location !== "manual"
             ? (cfg.location as string)
             : "";
-        // Candidate order mirrors the adapter's own resolution: an exact key
-        // hit, then the rename-stable device identifier, then the generic
-        // label/slug matching. Without the identifier candidate a legacy
-        // `location: home` config left the header on the raw config value once
-        // the user renamed both the device and its entities.
-        const kleenexByIdentifier =
-          kleenexWanted && !kleenexDiscovery.locations.has(kleenexWanted)
-            ? kleenexAutodetect?.matchLocation?.(
-                hass,
-                kleenexDiscovery,
-                kleenexWanted,
-              ) ?? null
-            : null;
-        // More than one location answers to the configured value: every
-        // remaining candidate would just pick one of them by iteration order,
-        // so derive no label at all and let the header fall back to the raw
-        // config value rather than name the wrong place.
-        const kleenexAmbiguous = kleenexByIdentifier === "ambiguous";
-        const kleenexMatch = kleenexAmbiguous
-          ? null
-          : kleenexWanted
-            ? kleenexByIdentifier ??
-              resolveLocationByKey(
-                kleenexDiscovery as DeviceDiscovery,
-                kleenexWanted,
-                { slugExtractor: kleenexAutodetect?.extractLocationSlug },
-              )
-            : null;
+        // One call into the adapter's own resolution rather than a candidate
+        // chain rebuilt here: the header can then never name a different
+        // location than the one the card renders data for.
+        const kleenexResolved = kleenexWanted
+          ? kleenexAutodetect?.resolveLocation?.(
+              hass,
+              kleenexDiscovery,
+              kleenexWanted,
+            ) ?? null
+          : null;
+        // More than one location answers to the configured value, so naming
+        // either would be a guess: derive no label and let the header fall
+        // back to the raw config value.
+        const kleenexAmbiguous = kleenexResolved === "ambiguous";
+        const kleenexMatch = kleenexAmbiguous ? null : kleenexResolved;
         let title = kleenexMatch ? kleenexMatch[1].label : "";
 
         if (!title && !kleenexAmbiguous) {

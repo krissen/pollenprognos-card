@@ -364,6 +364,43 @@ export function matchKleenexLocationByIdentifier(
   return found;
 }
 
+/**
+ * Resolve a config location value against a discovery result, using the full
+ * Kleenex candidate chain:
+ *
+ *   1. exact discovery key (the identifier slug for modern installs),
+ *   2. device identifier (rename-stable; `"ambiguous"` when several match),
+ *   3. resolveLocationByKey: label equality, label slug, entity-ID slug, fuzzy
+ *      label -- which covers devices with no usable identifier.
+ *
+ * This is the single definition of "which location does this config mean" for
+ * Kleenex. The card, both editors and the adapter all go through it (via the
+ * autodetect descriptor for the UI layers), because three hand-mirrored copies
+ * of the chain drifted apart three times during review: each caller that
+ * reproduces only part of it silently resolves a different set of configs.
+ */
+export function resolveKleenexLocationEntry(
+  hass: HomeAssistant,
+  discovery: { locations: Map<string, DiscoveredLocation> },
+  cfgLocation: string | null | undefined,
+): KleenexIdentifierMatch {
+  if (cfgLocation && discovery.locations.has(cfgLocation)) {
+    return [cfgLocation, discovery.locations.get(cfgLocation)!];
+  }
+
+  const byIdentifier = matchKleenexLocationByIdentifier(
+    hass,
+    discovery,
+    cfgLocation,
+  );
+  if (byIdentifier === "ambiguous") return "ambiguous";
+  if (byIdentifier) return byIdentifier;
+
+  return resolveLocationByKey(discovery, cfgLocation, {
+    slugExtractor: kleenexSlugExtractor,
+  });
+}
+
 /** One discovered Kleenex location, resolved against the card config. */
 export interface KleenexLocationMatch {
   locationKey: string;
@@ -391,17 +428,10 @@ export function resolveKleenexLocation(
   const discovery = discoverKleenex(hass, debug);
   if (discovery.locations.size === 0) return null;
 
-  // Device identifiers beat every name-derived candidate except an exact
-  // location-key hit: they are the only part of the registry a rename cannot
-  // touch. The label and entity-ID candidates in resolveLocationByKey stay as
-  // the fallbacks for installs without device metadata.
   const cfgLocation = cfg.location as string | undefined;
-  const byIdentifier =
-    cfgLocation && !discovery.locations.has(cfgLocation)
-      ? matchKleenexLocationByIdentifier(hass, discovery, cfgLocation)
-      : null;
-  if (byIdentifier === "ambiguous") {
-    // Two instances answer to this slug. Resolving anyway would show one of
+  const resolved = resolveKleenexLocationEntry(hass, discovery, cfgLocation);
+  if (resolved === "ambiguous") {
+    // Two instances answer to this value. Resolving anyway would show one of
     // them at random; leaving it unresolved surfaces the card's own
     // "no sensors" error, which the user can act on.
     if (debug) {
@@ -411,12 +441,8 @@ export function resolveKleenexLocation(
     }
     return null;
   }
-  const match =
-    byIdentifier ??
-    resolveLocationByKey(discovery, cfgLocation, {
-      slugExtractor: kleenexSlugExtractor,
-    });
-  if (!match) return null;
+  if (!resolved) return null;
+  const match = resolved;
 
   const [locationKey, loc] = match;
   const keyByEntityId = new Map<string, string>();

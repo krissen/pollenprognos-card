@@ -128,19 +128,21 @@ export interface AdapterAutodetect {
    */
   extractLocationSlug?(entityId: string): string | null;
   /**
-   * Resolve a config location value against a discovery result using
-   * rename-stable adapter knowledge that the generic label/entity-ID matching
-   * in `resolveLocationByKey`/`findLocationBySlug` cannot express (Kleenex: the
-   * device identifier). Consumed as the first candidate by the card header and
-   * the card editor's legacy-slug compatibility path, before the generic
-   * matching. Returns the discovery entry, or null when nothing matches.
+   * Resolve a config location value against a discovery result using the
+   * adapter's own complete candidate chain, including rename-stable knowledge
+   * the generic `resolveLocationByKey`/`findLocationBySlug` helpers cannot
+   * express (Kleenex: the device identifier).
    *
-   * `"ambiguous"` means the adapter recognised the value but more than one
-   * location answers to it. Callers must then resolve nothing: falling back to
-   * the generic matching would pick one of those same candidates by registry
-   * iteration order and silently show the wrong location.
+   * Callers -- card header, card editor, badge editor -- must use this as their
+   * entire resolution rather than as one candidate among locally reproduced
+   * others: a partial mirror of the chain drifts from the adapter and resolves
+   * a different set of configs than the card actually renders.
+   *
+   * Returns the discovery entry, null when nothing matches, or `"ambiguous"`
+   * when several locations answer to the value -- in which case callers must
+   * resolve nothing rather than pick one by registry iteration order.
    */
-  matchLocation?(
+  resolveLocation?(
     hass: HomeAssistant,
     discovery: AutodetectDiscovery,
     cfgLocation: string | null | undefined,

@@ -15,6 +15,7 @@ export {
   discoverKleenex,
   kleenexSlugExtractor,
   matchKleenexLocationByIdentifier,
+  resolveKleenexLocationEntry,
   canonicalAllergenFromSlug,
   classifyKleenexEntityId,
 } from "./discovery.js";
@@ -23,7 +24,7 @@ export { fetchForecast } from "./forecast.js";
 import {
   discoverKleenex,
   kleenexSlugExtractor,
-  matchKleenexLocationByIdentifier,
+  resolveKleenexLocationEntry,
   classifyKleenexEntityId,
 } from "./discovery.js";
 import type { DiscoveredLocation } from "../../utils/adapter-helpers.js";
@@ -70,12 +71,13 @@ export const autodetect: AdapterAutodetect = {
   },
   discover: (hass, debug) => discoverKleenex(hass, debug) as AutodetectDiscovery,
   extractLocationSlug: kleenexSlugExtractor,
-  // The device identifier is the only part of the registry a rename cannot
-  // touch, so it resolves legacy slug configs that no longer match any entity
-  // ID or device name. The cast narrows the structural discovery type back to
-  // the device discovery Kleenex always produces.
-  matchLocation: (hass, discovery, cfgLocation) =>
-    matchKleenexLocationByIdentifier(
+  // The one definition of "which location does this config mean": exact key,
+  // then the rename-stable device identifier, then label/entity-ID matching.
+  // The card and both editors resolve through this instead of rebuilding the
+  // chain locally. The cast narrows the structural discovery type back to the
+  // device discovery Kleenex always produces.
+  resolveLocation: (hass, discovery, cfgLocation) =>
+    resolveKleenexLocationEntry(
       hass,
       discovery as { locations: Map<string, DiscoveredLocation> },
       cfgLocation,

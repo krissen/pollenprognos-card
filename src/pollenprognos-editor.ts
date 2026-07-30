@@ -1017,27 +1017,20 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         !kleenexDiscovery.locations.has(kleenexCfgLoc)
       ) {
         const kleenexAutodetect = getAutodetect("kleenex");
-        // Device identifier first: when the user renamed both the device and
-        // its entities, the identifier is the only thing a legacy slug config
-        // can still match (same precedence as the adapter's own resolution).
-        const kleenexByIdentifier =
-          kleenexAutodetect?.matchLocation?.(
+        // Resolve exactly the way the adapter does -- one call, no local copy
+        // of the candidate chain. A partial mirror makes the dropdown and the
+        // rendered card disagree about which config values resolve, which is
+        // how the label-matching case was missed here. "ambiguous" (several
+        // locations answer to the value) yields no entry: binding the selector
+        // to one of them would be a guess.
+        const kleenexResolved =
+          kleenexAutodetect?.resolveLocation?.(
             hass,
             kleenexDiscovery,
             kleenexCfgLoc,
           ) ?? null;
-        // Ambiguous: more than one location answers to the configured value,
-        // so the generic matching would only re-pick one of them by iteration
-        // order. Offer no entry rather than binding the selector to a guess.
         const kleenexMatch =
-          kleenexByIdentifier === "ambiguous"
-            ? null
-            : kleenexByIdentifier ??
-              findLocationBySlug(
-                kleenexDiscovery as DeviceDiscovery,
-                kleenexCfgLoc,
-                { slugExtractor: kleenexAutodetect?.extractLocationSlug },
-              );
+          kleenexResolved === "ambiguous" ? null : kleenexResolved;
         if (kleenexMatch) {
           const entry = [
             kleenexCfgLoc,

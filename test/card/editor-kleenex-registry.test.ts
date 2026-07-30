@@ -193,6 +193,35 @@ function ambiguousKleenexHass(): any {
   ]);
 }
 
+/**
+ * Codex round 7: no usable identifier (so discovery keys by config entry) AND
+ * re-minted entity IDs (so no entity-ID slug matches either). The device label
+ * is the only thing a saved `location: home` can still resolve through.
+ */
+function labelOnlyKleenexHass(): any {
+  return createHassWithRegistry([
+    {
+      entityId: "sensor.my_pollen_trees",
+      state: "200",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_home",
+      deviceMeta: {
+        name: "Home",
+        identifiers: [],
+        configEntries: ["entry_home"],
+      },
+    },
+    {
+      entityId: "sensor.my_pollen_grass",
+      state: "100",
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId: "dev_home",
+    },
+  ]);
+}
+
 let EditorCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -269,6 +298,23 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     const list = editor.installedKleenexLocations;
     expect(list).toEqual([["utrecht", "Utrecht"]]);
     expect(list.filter(([, label]) => label === "Utrecht").length).toBe(1);
+  });
+
+  // Codex P2 (round 7): the compat path only searched entity IDs, so a config
+  // that the adapter resolves through the device label was dropped from the
+  // list and the selector showed nothing selected.
+  it("keeps a config that only the device label can resolve", () => {
+    const editor = new EditorCtor();
+    editor.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "home",
+    });
+    editor.hass = labelOnlyKleenexHass();
+
+    const list = editor.installedKleenexLocations;
+    expect(list).toEqual([["home", "Home"]]);
+    expect(editor._config.location).toBe("home");
   });
 
   // Codex P2 (round 6). Contract guard rather than a regression test: the
