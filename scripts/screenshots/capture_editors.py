@@ -11,6 +11,12 @@ Flow: write a throwaway single-card + single-badge "docedit" view live via the
 HA WebSocket API, enter dashboard edit mode, click the element's edit control,
 then shoot the editor element. The view is removed afterwards.
 
+Locale independence: nothing here matches on translated UI text, so the script
+works against a Home Assistant in any language. Edit mode is entered through
+HA's own `?edit=1` URL parameter instead of clicking a translated "Edit
+dashboard" control, and the per-element edit controls are found by their
+structural position inside `hui-card-options` / `hui-badge-edit-mode`.
+
 Auth: hass-test long-lived token in HASS_TOKEN (never committed).
 
 Usage:
@@ -62,23 +68,41 @@ def poll(pg, sel, t=15000):
     return False
 
 
+# Structural (untranslated) handles on the per-element edit controls in edit
+# mode. The card's edit button is the only ha-button that is a direct child of
+# the .card-actions row in hui-card-options (the reorder/overflow buttons sit in
+# a nested .right div). The badge's edit control is the .edit hit area that
+# hui-badge-edit-mode overlays on the badge.
+CARD_EDIT = "hui-card-options .card-actions > ha-button"
+BADGE_EDIT = "hui-badge-edit-mode .badge-overlay .edit"
+
+
+def click_center(pg, sel):
+    """Click the middle of a located element by coordinates. Both edit controls
+    live inside a shadow root whose host swallows Playwright's actionability
+    hit-test ("<hui-badge-edit-mode> intercepts pointer events"), so a plain
+    locator click is not reliable here."""
+    bb = pg.locator(sel).first.bounding_box()
+    if not bb:
+        return False
+    pg.mouse.click(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+    return True
+
+
 def open_editor(pg, kind):
-    pg.goto(f"{URL}/{DASH}/docedit", wait_until="networkidle"); pg.wait_for_timeout(3000)
-    pg.get_by_label("Edit dashboard").first.click(); pg.wait_for_timeout(2800)
-    if kind == "card":
-        # The card's "Edit" text button is in hui-card-options. A toolbar pencil
-        # is also labelled "Edit" but sits at the top; pick the lower, wider one.
-        btns = pg.get_by_role("button", name="Edit")
-        for i in range(btns.count()):
-            bb = btns.nth(i).bounding_box()
-            if bb and bb["y"] > 120 and bb["width"] > 45:
-                pg.mouse.click(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
-                break
-        return poll(pg, "pollenprognos-card-editor")
-    else:
-        bb = pg.locator("pollenprognos-badge").first.bounding_box()
-        pg.mouse.click(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
-        return poll(pg, "pollenprognos-badge-editor")
+    # ?edit=1 is HA's own URL entry into dashboard edit mode, so we never need to
+    # click a control whose label is translated.
+    pg.goto(f"{URL}/{DASH}/docedit?edit=1", wait_until="networkidle")
+    pg.wait_for_timeout(3000)
+    sel = CARD_EDIT if kind == "card" else BADGE_EDIT
+    if not poll(pg, sel):
+        print(f"ERROR: {kind} edit control ({sel}) never appeared; "
+              "is the dashboard in edit mode?", file=sys.stderr)
+        return False
+    if not click_center(pg, sel):
+        print(f"ERROR: {kind} edit control has no layout box", file=sys.stderr)
+        return False
+    return poll(pg, f"pollenprognos-{kind}-editor")
 
 
 def main():

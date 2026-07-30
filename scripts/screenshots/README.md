@@ -60,6 +60,12 @@ editor element (the `ha-dialog` wrapper is portaled and has zero box):
 python capture_editors.py            # editor-card.png + editor-badge.png
 ```
 
+It drives the UI without matching any translated label (edit mode via `?edit=1`,
+edit controls via their structure inside `hui-card-options` /
+`hui-badge-edit-mode`), so it runs against an HA instance in any language. The
+resulting screenshots still show the instance's UI language, so shoot the
+committed docs images against an English-language HA.
+
 `shoot.py` is a thin helper for ad-hoc shots (a badge row or a card by index in
 a given view).
 
