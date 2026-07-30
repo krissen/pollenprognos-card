@@ -268,11 +268,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           ),
         ).map((slug) => [slug, slug] as InstalledLocation);
 
-    // Compatibility: a badge saved before registry discovery carries the legacy
-    // slug ("utrecht"), while discovery keys locations by config entry. Without
-    // an entry for the slug the selector shows nothing selected even though the
-    // badge still resolves. Same candidate order as the card editor: the
-    // rename-stable device identifier before the generic slug matching.
+    // Compatibility: a badge can hold a location value that is not a discovery
+    // key (a device without a usable identifier, or a legacy slug whose device
+    // was renamed). Without a matching entry the selector shows nothing
+    // selected even though the badge still resolves. Same candidate order as
+    // the card editor -- rename-stable device identifier before generic slug
+    // matching -- and the same re-key rather than append, so the list never
+    // holds two identically-labelled options.
     const kleenexCfgLoc = this._config?.location as string | undefined;
     if (
       kleenexCfgLoc &&
@@ -290,10 +292,15 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           slugExtractor: kleenexAutodetect?.extractLocationSlug,
         });
       if (kleenexMatch) {
-        this.installedKleenexLocations.push([
+        const entry = [
           kleenexCfgLoc,
           kleenexMatch[1].label,
-        ] as InstalledLocation);
+        ] as InstalledLocation;
+        const idx = this.installedKleenexLocations.findIndex(
+          ([key]) => key === kleenexMatch[0],
+        );
+        if (idx >= 0) this.installedKleenexLocations[idx] = entry;
+        else this.installedKleenexLocations.push(entry);
       }
     }
   }

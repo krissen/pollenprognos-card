@@ -81,6 +81,34 @@ function legacyKleenexHass(): any {
   ]);
 }
 
+/**
+ * A device with no usable identifier, so discovery keys it by config entry
+ * while the config still holds the legacy entity-ID slug.
+ */
+function identifierlessKleenexHass(): any {
+  return createHassWithRegistry([
+    {
+      entityId: "sensor.kleenex_pollen_radar_utrecht_trees",
+      state: "200",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_utrecht",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Utrecht)",
+        identifiers: [],
+        configEntries: ["entry_utrecht"],
+      },
+    },
+    {
+      entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+      state: "100",
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId: "dev_utrecht",
+    },
+  ]);
+}
+
 /** Device and entities both renamed: only the identifier still says "Home". */
 function reMintedKleenexHass(): any {
   return createHassWithRegistry([
@@ -152,6 +180,16 @@ describe("badge editor Kleenex legacy-slug compatibility (issue #309)", () => {
         reMintedKleenexHass(),
       ),
     ).toContainEqual(["home", "My Pollen"]);
+  });
+
+  it("re-keys the matched entry instead of listing the label twice", () => {
+    const list = locationsFor(
+      { integration: "kleenex", location: "utrecht" },
+      identifierlessKleenexHass(),
+    );
+
+    expect(list).toEqual([["utrecht", "Utrecht"]]);
+    expect(list.filter(([, label]) => label === "Utrecht").length).toBe(1);
   });
 
   it("adds no compat entry in manual mode", () => {

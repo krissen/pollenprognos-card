@@ -1002,10 +1002,14 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         );
       }
 
-      // Compatibility: a config written before registry discovery carries the
-      // legacy location slug ("utrecht"), while discovery now keys locations by
-      // config entry. Expose the slug as an extra entry so the existing config
-      // stays visible and selected in the dropdown.
+      // Compatibility: a config can still hold a location value that is not a
+      // discovery key -- e.g. a device without a usable identifier (keyed by
+      // config entry), or a legacy slug whose device was renamed. Re-key the
+      // matched entry to the configured value so the dropdown shows it as
+      // selected. Replacing rather than appending keeps exactly one option per
+      // location: two entries sharing a label are indistinguishable to the
+      // user, and picking the wrong one would silently rewrite the config's
+      // location key.
       const kleenexCfgLoc = this._config?.location as string | undefined;
       if (
         kleenexCfgLoc &&
@@ -1026,10 +1030,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             slugExtractor: kleenexAutodetect?.extractLocationSlug,
           });
         if (kleenexMatch) {
-          this.installedKleenexLocations.push([
+          const entry = [
             kleenexCfgLoc,
             kleenexMatch[1].label,
-          ] as InstalledLocation);
+          ] as InstalledLocation;
+          const idx = this.installedKleenexLocations.findIndex(
+            ([key]) => key === kleenexMatch[0],
+          );
+          if (idx >= 0) this.installedKleenexLocations[idx] = entry;
+          else this.installedKleenexLocations.push(entry);
         }
       }
 

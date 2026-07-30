@@ -140,6 +140,34 @@ function legacyKleenexHass(): any {
   ]);
 }
 
+/**
+ * A device with no usable identifier, so discovery keys it by config entry
+ * while the config still holds the legacy entity-ID slug.
+ */
+function identifierlessKleenexHass(): any {
+  return createHassWithRegistry([
+    {
+      entityId: "sensor.kleenex_pollen_radar_utrecht_trees",
+      state: "200",
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_utrecht",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Utrecht)",
+        identifiers: [],
+        configEntries: ["entry_utrecht"],
+      },
+    },
+    {
+      entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+      state: "100",
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId: "dev_utrecht",
+    },
+  ]);
+}
+
 let EditorCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -200,6 +228,22 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
       "My Pollen",
     ]);
     expect(editor._config.location).toBe("home");
+  });
+
+  // Nagelfar issue-001: appending the configured value produced two options
+  // with the same label, and picking the wrong one silently rewrote the key.
+  it("re-keys the matched entry instead of listing the label twice", () => {
+    const editor = new EditorCtor();
+    editor.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "utrecht",
+    });
+    editor.hass = identifierlessKleenexHass();
+
+    const list = editor.installedKleenexLocations;
+    expect(list).toEqual([["utrecht", "Utrecht"]]);
+    expect(list.filter(([, label]) => label === "Utrecht").length).toBe(1);
   });
 
   it("lists a legacy slug config once, as the discovered entry itself", () => {
