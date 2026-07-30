@@ -1090,22 +1090,29 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             // on the legacy prefix first (same rationale as fetchForecast).
             const prefix = normalizeManualPrefix(cfg.entity_prefix);
             if (prefix) {
+              // entity_suffix is part of the naming contract: an install can
+              // hold both `..._birch` and `..._birch_v2`, and a prefix-only
+              // collection would let state order decide which one names the
+              // header. fetchForecast filters its own collection the same way.
+              const entitySuffix =
+                typeof cfg.entity_suffix === "string" ? cfg.entity_suffix : "";
               const prefixed = Object.values(hass.states)
                 .filter(isKleenexState)
-                .filter((s) => s.entity_id.startsWith(`sensor.${prefix}`));
+                .filter(
+                  (s) =>
+                    s.entity_id.startsWith(`sensor.${prefix}`) &&
+                    (!entitySuffix || s.entity_id.endsWith(entitySuffix)),
+                );
               // The prefix also matches the diagnostic siblings (`..._date`,
               // `..._last_updated`), whose friendly names would yield a header
               // like "Kleenex pollen Date". Prefer an entity the adapter
               // classifies as renderable, whatever order hass.states has.
               //
-              // entity_suffix is stripped first: the classifier reads the
-              // trailing token, so `..._trees_v2` would otherwise look as
+              // The suffix is stripped before classifying: the classifier reads
+              // the trailing token, so `..._trees_v2` would otherwise look as
               // unrenderable as `..._date_v2`. Suffix handling belongs to the
               // caller here, since it is card config the adapter's entity-ID
-              // predicate knows nothing about (fetchForecast strips it the same
-              // way before its own lookups).
-              const entitySuffix =
-                typeof cfg.entity_suffix === "string" ? cfg.entity_suffix : "";
+              // predicate knows nothing about.
               const stripSuffix = (entityId: string): string =>
                 entitySuffix && entityId.endsWith(entitySuffix)
                   ? entityId.slice(0, -entitySuffix.length)

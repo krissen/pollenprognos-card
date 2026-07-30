@@ -134,6 +134,33 @@ function suffixedDiagnosticsFirstHass(): any {
   });
 }
 
+/**
+ * Both an unsuffixed and a suffixed sensor match the prefix, the unsuffixed one
+ * first. Only the `_v2` pair belongs to this card (Codex round 15).
+ */
+function mixedSuffixHass(): any {
+  return createHass({
+    "sensor.kleenex_pollen_trees": {
+      entity_id: "sensor.kleenex_pollen_trees",
+      state: "10",
+      attributes: {
+        friendly_name: "Old kleenex Trees",
+        details: [],
+        forecast: [],
+      },
+    },
+    "sensor.kleenex_pollen_trees_v2": {
+      entity_id: "sensor.kleenex_pollen_trees_v2",
+      state: "200",
+      attributes: {
+        friendly_name: "Kleenex pollen Trees",
+        details: [],
+        forecast: [],
+      },
+    },
+  });
+}
+
 let CardCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -182,6 +209,21 @@ describe("card header for Kleenex manual mode (issue #309)", () => {
       allergens: ["trees"],
     });
     card.hass = diagnosticsFirstHass();
+
+    expect(card.header).toBe("Pollen forecast for Kleenex pollen");
+  });
+
+  it("names the header from a suffixed sensor, not its unsuffixed sibling", () => {
+    const card = new CardCtor();
+    card.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      entity_suffix: "_v2",
+      allergens: ["trees"],
+    });
+    card.hass = mixedSuffixHass();
 
     expect(card.header).toBe("Pollen forecast for Kleenex pollen");
   });
