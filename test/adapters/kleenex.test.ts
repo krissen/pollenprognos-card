@@ -106,13 +106,16 @@ function makeConfig(overrides: any = {}): any {
 /**
  * Build a Kleenex sensor state object.
  *
- * Every forecast day carries a numeric `value`, because every real one does:
- * checked across all eight configured locations, and structural in the
- * integration (sensor.py:272-278 writes the field unconditionally). A day
- * without the field describes a payload the integration cannot produce, so
- * omitting it here only ever tested the card against fiction. When a caller
- * gives no explicit `value`, the day repeats today's reading -- which is what
- * the US zone actually sends, and is a plausible EU day too.
+ * Every forecast day carries a `value` key, because every real one does: the
+ * integration writes the field unconditionally (sensor.py:272-278) and all
+ * eight configured locations were checked. The key being present is not a
+ * promise that it holds a number -- it is written from a `day.get()`, so it
+ * arrives as null when the site omits the reading, which is exactly why
+ * `readPpm` guards null rather than trusting the field. A day with no key at
+ * all is the shape the integration cannot produce, and leaving it out here
+ * only ever tested the card against fiction. When a caller gives no explicit
+ * `value`, the day repeats today's reading -- which is what the US zone
+ * actually sends, and is a plausible EU day too.
  *
  * 0 is a reading, not a gap: London's and Utrecht's trees sensors sit at 0
  * across the whole forecast, and that is "no pollen".

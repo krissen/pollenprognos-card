@@ -227,10 +227,12 @@ function irmkmiHass(
 }
 
 // -- Kleenex --------------------------------------------------------------
-// The EU/UK shape. Every forecast day carries a numeric `value`: verified
-// across all eight configured locations and written unconditionally by the
-// integration (sensor.py:272-278), so a day without one describes a payload
-// that cannot occur. A day with no explicit value repeats today's reading.
+// The EU/UK shape. Every forecast day carries a `value` key: written
+// unconditionally by the integration (sensor.py:272-278) and checked across all
+// eight configured locations, so a day without the key describes a payload that
+// cannot occur. The key is not a promise of a number -- it comes from a
+// `day.get()` and arrives as null when the site omits the reading, which is why
+// readPpm guards null. A day with no explicit value repeats today's reading.
 function kleenexEntity(
   location: string,
   category: string,
