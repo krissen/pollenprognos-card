@@ -85,12 +85,48 @@ function rawTapActionType(tapAction: TapActionConfig): string {
  * "domain.service": one dot, both halves non-empty. Multi-dot strings
  * (e.g. "foo.bar.baz") and dotless strings are rejected so a misconfigured
  * value can't silently call an unintended service.
+ *
+ * Whitespace around the id and around either half is dropped, the same way
+ * {@link parseEntityId} treats it: `" light.turn_on "` used to split into a
+ * domain of `" light"`, which is not a domain Home Assistant has, so the call
+ * went nowhere with nothing said. The trimmed halves are what get dispatched.
  */
-function parseServiceId(svc: unknown): [string, string] | null {
+export function parseServiceId(svc: unknown): [string, string] | null {
   if (typeof svc !== "string") return null;
-  const parts = svc.split(".");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-  return [parts[0], parts[1]];
+  const parts = svc.trim().split(".");
+  if (parts.length !== 2) return null;
+  const domain = parts[0]!.trim();
+  const service = parts[1]!.trim();
+  if (!domain || !service) return null;
+  return [domain, service];
+}
+
+/**
+ * The entity id a more-info action should open, or null when there is none to
+ * open. Exported so the editor can decide whether to warn on exactly the rule
+ * the runtime applies. YAML can deliver a number, a list, or a string of spaces, and all three
+ * are truthy: testing the raw value would bind a click and then dispatch
+ * something that is not an entity id. Surrounding whitespace is dropped rather
+ * than rejected, since a stray space in hand-written YAML still names an
+ * entity the user meant.
+ */
+export function parseEntityId(entity: unknown): string | null {
+  if (typeof entity !== "string") return null;
+  const trimmed = entity.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * The path a navigate action should push, or null when there is none. Same
+ * treatment as the other two parsers, for the same reason: a YAML value that
+ * is a number, a list or nothing but spaces is truthy, and pushing `"   "`
+ * into the router is not navigation. Exported so the editor warns on exactly
+ * this rule.
+ */
+export function parseNavigationPath(path: unknown): string | null {
+  if (typeof path !== "string") return null;
+  const trimmed = path.trim();
+  return trimmed ? trimmed : null;
 }
 
 /**
@@ -110,9 +146,16 @@ export function resolveTapActionType(tapAction: unknown): TapActionType | null {
   if (!TAP_ACTION_TYPES.includes(type as TapActionType)) return null;
   // Mirror the handler's own field requirements so callers never bind a click
   // (or show a pointer cursor) for a config the handler would no-op on.
-  if (type === "navigate" && !ta.navigation_path) return null;
+  if (type === "navigate" && !parseNavigationPath(ta.navigation_path))
+    return null;
   if (type === "call-service" && !parseServiceId(ta.service || ta.perform_action))
     return null;
+  // more-info has nothing to open without an entity. The handler used to
+  // substitute `sun.sun`, so `tap_action: {type: more-info}` on its own turned
+  // every click on the card into the sun dialog -- and, since a bound
+  // tap_action suppresses per-icon more-info, it also took away the
+  // per-allergen dialogs the user had before configuring it.
+  if (type === "more-info" && !parseEntityId(ta.entity)) return null;
   return type as TapActionType;
 }
 
@@ -637,8 +680,10 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       e?.stopPropagation?.();
       switch (action) {
         case "more-info": {
-          // Fall back to sun.sun, which always exists in Home Assistant.
-          const entityId = ta.entity || "sun.sun";
+          // resolveTapActionType applies the same rule, so the click is never
+          // bound for an entity the handler would have to invent.
+          const entityId = parseEntityId(ta.entity);
+          if (!entityId) break;
           this.dispatchEvent(
             new CustomEvent("hass-more-info", {
               bubbles: true,
@@ -648,13 +693,10 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
           );
           break;
         }
-        case "navigate":
-          if (
-            ta.navigation_path &&
-            typeof window !== "undefined" &&
-            window.history?.pushState
-          ) {
-            window.history.pushState(null, "", ta.navigation_path);
+        case "navigate": {
+          const path = parseNavigationPath(ta.navigation_path);
+          if (path && typeof window !== "undefined" && window.history?.pushState) {
+            window.history.pushState(null, "", path);
             // HA's router listens on window for "location-changed"; a bare
             // pushState updates the URL but never re-resolves the panel. Mirror
             // the frontend navigate() helper's fireEvent form: a plain Event
@@ -669,6 +711,7 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
             window.dispatchEvent(ev);
           }
           break;
+        }
         case "call-service": {
           // Accept the card's service/service_data and HA's modern
           // perform_action/data spelling. parseServiceId enforces a strict

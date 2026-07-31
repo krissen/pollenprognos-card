@@ -59,7 +59,7 @@
   },
   {
     "allergenReplaced": "birch",
-    "entity_id": "",
+    "entity_id": "sensor.kleenex_pollen_radar_london_trees",
     "days": [
       {
         "name": "Birch",

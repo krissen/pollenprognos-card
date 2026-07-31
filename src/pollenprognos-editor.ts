@@ -1905,6 +1905,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         margin-right: 24px;
       }
 
+      /* Inline caveat under a field whose current value cannot take effect. */
+      .field-warning {
+        font-size: 12px;
+        color: var(--warning-color, #ff9800);
+        padding: 0 0 8px;
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
       /* Subgroup header (uppercase divider inside a section) */
       .subgroup-header {
         text-transform: uppercase;

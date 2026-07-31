@@ -528,12 +528,13 @@ export async function fetchForecast(
         if (!allergenData.has(canonicalName)) {
           allergenData.set(canonicalName, {
             levels: [],
-            // No entity of its own: this reading comes out of the category
-            // sensor's `details` attribute. Carrying the category entity here
-            // made the card open the trees dialog when the user tapped birch
-            // (issue #317). The DetailSensor pass below fills this in when the
-            // per-allergen entity exists.
-            entity_id: "",
+            // The category sensor this reading was lifted out of. It is the
+            // fallback, not the answer: the DetailSensor pass below replaces
+            // it with the allergen's own entity whenever that exists, which is
+            // what #317 was actually missing. Keeping the category here means
+            // tapping birch still opens something useful -- the sensor whose
+            // `details` attribute holds birch's number -- rather than nothing.
+            entity_id: sensor.entity_id,
             source: "individual_details", // Track data source
           });
         }
@@ -600,9 +601,10 @@ export async function fetchForecast(
           if (!allergenData.has(canonicalName)) {
             allergenData.set(canonicalName, {
               levels: [],
-              // Same as the details pass above: read out of the category
-              // sensor's forecast, so the row has no entity of its own.
-              entity_id: "",
+              // Same as the details pass above: the category sensor the
+              // reading came from, superseded by the allergen's own entity
+              // when there is one.
+              entity_id: sensor.entity_id,
               source: "individual_forecast", // Track data source
             });
           }
@@ -709,7 +711,13 @@ export async function fetchForecast(
     // user taps its icon (issue #317).
     const alreadyCollected = allergenData.get(canonicalName);
     if (alreadyCollected) {
-      if (!alreadyCollected.entity_id) {
+      // Adopt on the row's source, not on an empty entity_id: a derived row
+      // already carries the category sensor as its fallback link, and the
+      // allergen's own entity has to win over it.
+      const derivedFromCategory =
+        alreadyCollected.source === "individual_details" ||
+        alreadyCollected.source === "individual_forecast";
+      if (derivedFromCategory) {
         alreadyCollected.entity_id = sensor.entity_id;
         if (debug) {
           console.debug(
