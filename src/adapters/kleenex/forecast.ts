@@ -57,8 +57,14 @@ type KleenexItem = Record<string, unknown>;
  * ppm read in this file goes through here so the sensor state, the category
  * forecast days and the DetailSensor days cannot answer the question
  * differently. `ppmToLevel` maps the sentinel straight back to level -1.
+ *
+ * `null` and the empty string are checked before `Number`, which reads both as
+ * 0 -- the very coercion this function exists to stop. A Python integration
+ * serialises a missing reading as JSON `null` more readily than as anything
+ * else, so that is the likeliest shape of the bug in the field.
  */
 function readPpm(value: unknown): number {
+  if (value === null || value === "") return -1;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : -1;
 }
