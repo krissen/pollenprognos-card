@@ -389,6 +389,7 @@
   "editor.tap_action": "Azione al tocco",
   "editor.tap_action_enable": "Abilita azione al tocco",
   "editor.tap_action_entity": "Entità",
+  "editor.tap_action_more_info_needs_entity": "Senza un'entità questa azione non fa nulla. Toccando un allergene si apre quell'allergene.",
   "editor.tap_action_navigation_path": "Percorso di navigazione",
   "editor.tap_action_service": "Servizio (es. light.turn_on)",
   "editor.tap_action_service_data": "Dati del servizio (JSON)",

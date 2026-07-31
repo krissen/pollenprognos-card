@@ -113,3 +113,17 @@ describe("i18n", () => {
     }
   });
 });
+
+describe("editor warning strings", () => {
+  it("has the more-info-needs-entity caveat in every locale", () => {
+    // The editor shows it whenever tap_action is more-info with no entity, in
+    // whatever language the user runs HA in.
+    for (const lang of SUPPORTED_LOCALES) {
+      const text = t("editor.tap_action_more_info_needs_entity", lang);
+      expect(text, `missing for ${lang}`).toBeTruthy();
+      expect(text, `untranslated key for ${lang}`).not.toBe(
+        "editor.tap_action_more_info_needs_entity",
+      );
+    }
+  });
+});

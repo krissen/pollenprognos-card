@@ -389,6 +389,7 @@
   "editor.tap_action": "Akcia na klepnutie",
   "editor.tap_action_enable": "Povoliť akciu na klepnutie",
   "editor.tap_action_entity": "Entita",
+  "editor.tap_action_more_info_needs_entity": "Bez entity táto akcia nič neurobí. Klepnutie na alergén otvorí daný alergén.",
   "editor.tap_action_navigation_path": "Navigačná cesta",
   "editor.tap_action_service": "Akcia (napr. light.turn_on)",
   "editor.tap_action_service_data": "Dáta akcie (JSON)",

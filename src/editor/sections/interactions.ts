@@ -127,6 +127,11 @@ export function renderInteractionSection(
                       },
                     })}
                   </ha-formfield>
+                  ${!editor._tapEntity
+                    ? html`<div class="field-warning">
+                        ${editor._t("tap_action_more_info_needs_entity")}
+                      </div>`
+                    : ""}
                 `
               : ""}
             ${editor._tapType === "navigate"

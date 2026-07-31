@@ -71,10 +71,14 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(e.stopPropagation).toHaveBeenCalled();
   });
 
-  it("more-info falls back to sun.sun when no entity is given", () => {
+  it("does nothing for more-info without an entity", () => {
+    // This used to open sun.sun, so `tap_action: {type: more-info}` on its own
+    // made every click on the card show the sun -- and suppressed the
+    // per-allergen dialogs at the same time, since a bound tap_action takes
+    // precedence over per-icon more-info.
     el.tapAction = { type: "more-info" };
     el._handleTapAction(makeEvent());
-    expect(el.dispatched[0].detail).toEqual({ entityId: "sun.sun" });
+    expect(el.dispatched).toEqual([]);
   });
 
   it("defaults a typeless action to more-info", () => {
@@ -278,7 +282,9 @@ describe("iconMoreInfoEnabled", () => {
 
 describe("resolveTapActionType", () => {
   it("resolves supported explicit types (with their required fields)", () => {
-    expect(resolveTapActionType({ type: "more-info" })).toBe("more-info");
+    expect(resolveTapActionType({ type: "more-info", entity: "sensor.x" })).toBe(
+      "more-info",
+    );
     expect(
       resolveTapActionType({ type: "navigate", navigation_path: "/x" }),
     ).toBe("navigate");
@@ -295,7 +301,9 @@ describe("resolveTapActionType", () => {
     expect(
       resolveTapActionType({ action: "navigate", navigation_path: "/x" }),
     ).toBe("navigate");
-    expect(resolveTapActionType({ action: "more-info" })).toBe("more-info");
+    expect(
+      resolveTapActionType({ action: "more-info", entity: "sensor.x" }),
+    ).toBe("more-info");
     expect(
       resolveTapActionType({
         action: "perform-action",
@@ -318,6 +326,9 @@ describe("resolveTapActionType", () => {
     // actionable (keeps the pointer cursor and click listener in lockstep).
     expect(resolveTapActionType({ type: "navigate" })).toBeNull();
     expect(resolveTapActionType({ action: "navigate" })).toBeNull();
+    // more-info needs an entity for the same reason.
+    expect(resolveTapActionType({ type: "more-info" })).toBeNull();
+    expect(resolveTapActionType({ action: "more-info" })).toBeNull();
     expect(resolveTapActionType({ type: "call-service" })).toBeNull();
     expect(resolveTapActionType({ action: "perform-action" })).toBeNull();
     expect(
@@ -337,5 +348,40 @@ describe("resolveTapActionType", () => {
     expect(resolveTapActionType(undefined)).toBeNull();
     expect(resolveTapActionType("more-info")).toBeNull();
     expect(resolveTapActionType([{ type: "more-info" }])).toBeNull();
+  });
+});
+
+/**
+ * The pair that bit a user (owner, live in hass-test): a `tap_action` the
+ * handler could not act on still counted as "the element has a tap_action",
+ * which suppressed the per-icon more-info the card gives by default. So
+ * configuring `tap_action: {type: more-info}` without an entity both opened the
+ * wrong dialog and removed the right ones.
+ */
+describe("an unactionable tap_action leaves the per-icon dialogs alone", () => {
+  const perIconEnabled = (tapAction: unknown, linkToSensors?: unknown) =>
+    iconMoreInfoEnabled(linkToSensors, resolveTapActionType(tapAction) !== null);
+
+  it("keeps per-icon more-info on for more-info without an entity", () => {
+    // Identical to having configured no tap_action at all.
+    expect(perIconEnabled({ type: "more-info" })).toBe(true);
+    expect(perIconEnabled({ action: "more-info" })).toBe(true);
+    expect(perIconEnabled(undefined)).toBe(true);
+  });
+
+  it("still suppresses per-icon more-info for an actionable tap_action", () => {
+    expect(perIconEnabled({ type: "more-info", entity: "sensor.x" })).toBe(
+      false,
+    );
+    expect(perIconEnabled({ type: "navigate", navigation_path: "/x" })).toBe(
+      false,
+    );
+  });
+
+  it("leaves link_to_sensors as the global off switch either way", () => {
+    expect(perIconEnabled({ type: "more-info" }, false)).toBe(false);
+    expect(perIconEnabled({ type: "more-info", entity: "sensor.x" }, true)).toBe(
+      true,
+    );
   });
 });

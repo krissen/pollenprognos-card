@@ -389,6 +389,7 @@
   "editor.tap_action": "Tap action",
   "editor.tap_action_enable": "Enable tap action",
   "editor.tap_action_entity": "Entity",
+  "editor.tap_action_more_info_needs_entity": "Without an entity this action does nothing. Tapping an allergen opens that allergen instead.",
   "editor.tap_action_navigation_path": "Navigation path",
   "editor.tap_action_service": "Service (e.g. light.turn_on)",
   "editor.tap_action_service_data": "Service data (JSON)",

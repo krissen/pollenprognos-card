@@ -113,6 +113,12 @@ export function resolveTapActionType(tapAction: unknown): TapActionType | null {
   if (type === "navigate" && !ta.navigation_path) return null;
   if (type === "call-service" && !parseServiceId(ta.service || ta.perform_action))
     return null;
+  // more-info has nothing to open without an entity. The handler used to
+  // substitute `sun.sun`, so `tap_action: {type: more-info}` on its own turned
+  // every click on the card into the sun dialog -- and, since a bound
+  // tap_action suppresses per-icon more-info, it also took away the
+  // per-allergen dialogs the user had before configuring it.
+  if (type === "more-info" && !ta.entity) return null;
   return type as TapActionType;
 }
 
@@ -637,13 +643,15 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       e?.stopPropagation?.();
       switch (action) {
         case "more-info": {
-          // Fall back to sun.sun, which always exists in Home Assistant.
-          const entityId = ta.entity || "sun.sun";
+          // resolveTapActionType rejects more-info without an entity, so the
+          // click is never bound in that case and there is nothing to guess at
+          // here.
+          if (!ta.entity) break;
           this.dispatchEvent(
             new CustomEvent("hass-more-info", {
               bubbles: true,
               composed: true,
-              detail: { entityId },
+              detail: { entityId: ta.entity },
             }),
           );
           break;

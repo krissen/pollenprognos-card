@@ -389,6 +389,7 @@
   "editor.tap_action": "Tryk-handling",
   "editor.tap_action_enable": "Aktivér tryk-handling",
   "editor.tap_action_entity": "Entitet",
+  "editor.tap_action_more_info_needs_entity": "Uden en entitet gør denne handling ingenting. Et tryk på et allergen åbner allergenet i stedet.",
   "editor.tap_action_navigation_path": "Navigationssti",
   "editor.tap_action_service": "Service (f.eks. light.turn_on)",
   "editor.tap_action_service_data": "Servicedata (JSON)",

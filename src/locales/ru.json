@@ -389,6 +389,7 @@
   "editor.tap_action": "Действие при нажатии",
   "editor.tap_action_enable": "Включить действие при нажатии",
   "editor.tap_action_entity": "Объект",
+  "editor.tap_action_more_info_needs_entity": "Без объекта это действие ничего не делает. Нажатие на аллерген открывает сам аллерген.",
   "editor.tap_action_navigation_path": "Путь навигации",
   "editor.tap_action_service": "Действие (напр. light.turn_on)",
   "editor.tap_action_service_data": "Данные действия (JSON)",
