@@ -4,6 +4,8 @@ import {
   stubConfigKleenex,
   resolveEntityIds,
   discoverKleenex,
+  scopeManualEntities,
+  _resetManualScopeWarningsForTest,
 } from "../../src/adapters/kleenex/index.js";
 import { _resetNaWarningsForTest } from "../../src/adapters/kleenex/forecast.js";
 import {
@@ -2258,5 +2260,471 @@ describe("Kleenex adapter: legacy slug via device identifier", () => {
     );
 
     expect(map.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Allergen names with stray whitespace (FR zone)
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: whitespace in detail allergen names", () => {
+  // The FR feed reports detail entries as {"name": "Poaceae ", ...}. Without
+  // trimming, the lookup key is "poaceae " and matches neither
+  // KLEENEX_ALLERGEN_MAP nor config.allergens, so the row vanished silently.
+  it("resolves today's details when the name has a trailing space", async () => {
+    // The individual allergen only exists in details[], so nothing else can
+    // supply the row if the lookup key keeps its trailing space.
+    const entity = makeKleenexEntity("paris", "trees", 150, [
+      { name: "Bouleau ", value: 150 },
+    ]);
+    const hass = makeHassFromEntities([entity]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch");
+    expect(birch).toBeDefined();
+    expect(birch!.days[0]!.value).toBe(150);
+  });
+
+  // Roma/Milano, verbatim from the live IT install: the endpoint answers in
+  // English, pads "Poaceae " with a trailing space and spells chenopod
+  // "Chenepod". All three had to hold for the Italian rows to render.
+  it("renders the Italian weeds and grass rows (English names, padded, Chenepod)", async () => {
+    const grass = makeKleenexEntity("roma", "grass", 75, [
+      { name: "Poaceae ", value: 75 },
+    ]);
+    const weeds = makeKleenexEntity("roma", "weeds", 187, [
+      { name: "Nettle", value: 173 },
+      { name: "Chenepod", value: 1 },
+      { name: "Mugwort", value: 1 },
+      { name: "Ragweed", value: 7 },
+    ]);
+    const hass = makeHassFromEntities([grass, weeds]);
+    const config = makeConfig({
+      location: "roma",
+      allergens: ["poaceae", "chenopod", "nettle"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const byKey = new Map(result.map((s) => [s.allergenReplaced, s]));
+    expect([...byKey.keys()].sort()).toEqual(["chenopod", "nettle", "poaceae"]);
+    expect(byKey.get("poaceae")!.days[0]!.value).toBe(75);
+    expect(byKey.get("chenopod")!.days[0]!.value).toBe(1);
+  });
+
+  it("resolves forecast-day details when the name has a leading space", async () => {
+    const entity = makeKleenexEntity(
+      "paris",
+      "trees",
+      0,
+      [],
+      [{ level: 2, details: [{ name: " Bouleau", value: 120 }] }],
+    );
+    const hass = makeHassFromEntities([entity]);
+    const config = makeConfig({
+      location: "paris",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch");
+    expect(birch).toBeDefined();
+    expect(birch!.days[1]!.value).toBe(120);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Manual prefix spanning two config entries
+// ---------------------------------------------------------------------------
+describe("Kleenex adapter: manual prefix across locations", () => {
+  /**
+   * Two config entries as seen in the field: Paris on a renamed device
+   * ("Kleenex pollen" -> sensor.kleenex_pollen_*) and Utrecht on the legacy
+   * default naming (sensor.kleenex_pollen_radar_utrecht_*). The prefix
+   * `kleenex_pollen_` matches both.
+   */
+  function collidingEntries(): any[] {
+    const attrs = (ppm: number, name: string) => ({
+      details: [{ name, value: ppm }],
+      forecast: [],
+    });
+    return [
+      {
+        entityId: "sensor.kleenex_pollen_trees",
+        state: "200",
+        attributes: attrs(200, "Bouleau"),
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "dev_paris",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Paris)",
+          nameByUser: "Kleenex pollen",
+          identifiers: [["kleenex_pollenradar", "Paris"]],
+          configEntries: ["cfg_paris"],
+        },
+      },
+      {
+        entityId: "sensor.kleenex_pollen_grass",
+        state: "100",
+        attributes: attrs(100, "Poaceae"),
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_paris",
+      },
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_trees",
+        state: "20",
+        attributes: attrs(20, "Berk"),
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+        state: "10",
+        attributes: attrs(10, "Grassen"),
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_utrecht",
+      },
+    ];
+  }
+
+  const manualConfig = makeConfig({
+    location: "manual",
+    entity_prefix: "kleenex_pollen_",
+    allergens: ["trees_cat", "grass_cat"],
+    pollen_threshold: 0,
+  });
+
+  it("keeps only the location the prefix was minted from", async () => {
+    const hass = createHassWithRegistry(collidingEntries() as any);
+
+    const result = await fetchForecast(hass, manualConfig);
+
+    expect(result.length).toBe(2);
+    expect(result.map((s) => s.entity_id).sort()).toEqual([
+      "sensor.kleenex_pollen_grass",
+      "sensor.kleenex_pollen_trees",
+    ]);
+    // Paris values, not Utrecht's.
+    const trees = result.find((s) => s.allergenReplaced === "trees_cat");
+    expect(trees!.days[0]!.value).toBe(200);
+  });
+
+  it("scopeManualEntities reports the winning location's label", () => {
+    const hass = createHassWithRegistry(collidingEntries() as any);
+
+    const scope = scopeManualEntities(
+      hass,
+      Object.keys(hass.states),
+      { prefix: "kleenex_pollen_" },
+    );
+
+    expect(scope.label).toBe("Kleenex pollen");
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_trees",
+      "sensor.kleenex_pollen_grass",
+    ]);
+  });
+
+  it("leaves a single-location install untouched", async () => {
+    const single = collidingEntries().slice(0, 2);
+    const hass = createHassWithRegistry(single as any);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+    expect(scope.label).toBeNull();
+    expect(scope.entityIds.length).toBe(2);
+
+    const result = await fetchForecast(hass, manualConfig);
+    expect(result.length).toBe(2);
+  });
+
+  it("keeps entities the registry knows nothing about", async () => {
+    // A template sensor imitating the naming: unattributable, so it must not
+    // be dropped -- manual mode is the fallback for registry-less setups.
+    const hass = createHassWithRegistry(collidingEntries() as any);
+    (hass.states as any)["sensor.kleenex_pollen_weeds"] = {
+      entity_id: "sensor.kleenex_pollen_weeds",
+      state: "30",
+      attributes: { friendly_name: "Template weeds", details: [], forecast: [] },
+    };
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toContain("sensor.kleenex_pollen_weeds");
+    expect(scope.entityIds).not.toContain(
+      "sensor.kleenex_pollen_radar_utrecht_grass",
+    );
+  });
+
+  // Codex P2 on PR #315: the remainder heuristic measures allergen-name length,
+  // so an install where the intended device has only a long-named detail sensor
+  // enabled lost to the colliding device's shorter `radar_utrecht_grass`.
+  // Ownership is now decided on the device slug, before any entity name is
+  // measured.
+  it("picks the device the prefix was minted from, however long its entity names are", async () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
+        state: "50",
+        attributes: { friendly_name: "Kleenex pollen Zeer lange naam brandnetel" },
+        platform: "kleenex_pollenradar",
+        translationKey: "detail_value",
+        uniqueId: "cfg_paris-Kleenex Pollen Radarweeds_details-Nettle-value",
+        deviceId: "dev_paris",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Paris)",
+          nameByUser: "Kleenex pollen",
+          identifiers: [["kleenex_pollenradar", "Paris"]],
+          configEntries: ["cfg_paris"],
+        },
+      },
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+        state: "10",
+        attributes: { details: [], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+    ] as any);
+
+    // The remainder the old rule compared: 26 for Paris, 19 for Utrecht.
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.label).toBe("Kleenex pollen");
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
+    ]);
+
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        location: "manual",
+        entity_prefix: "kleenex_pollen_",
+        allergens: ["nettle"],
+        pollen_threshold: 0,
+      }),
+    );
+    expect(result.map((s) => s.entity_id)).toEqual([
+      "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
+    ]);
+  });
+
+  it("gives a legacy prefix to the legacy device, not the renamed one", () => {
+    const hass = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_grass",
+        state: "100",
+        attributes: { details: [], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_paris",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Paris)",
+          nameByUser: "Kleenex pollen",
+          identifiers: [["kleenex_pollenradar", "Paris"]],
+          configEntries: ["cfg_paris"],
+        },
+      },
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+        state: "10",
+        attributes: { details: [], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "grass",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+    ] as any);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_radar_utrecht_",
+    });
+
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_radar_utrecht_grass",
+    ]);
+  });
+
+  // Nagelfar round 1: narrowing removes rows and renames the header, so the one
+  // case where data disappears must say so without requiring debug: true.
+  it("warns exactly once per configuration when it narrows", () => {
+    _resetManualScopeWarningsForTest();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const hass = createHassWithRegistry(collidingEntries() as any);
+      const ids = Object.keys(hass.states);
+
+      scopeManualEntities(hass, ids, { prefix: "kleenex_pollen_" });
+      scopeManualEntities(hass, ids, { prefix: "kleenex_pollen_" });
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0]![0]);
+      // Names both the location it kept and the one it dropped.
+      expect(message).toContain("Kleenex pollen");
+      expect(message).toContain("Utrecht");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("stays silent when nothing is narrowed", () => {
+    _resetManualScopeWarningsForTest();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const hass = createHassWithRegistry(collidingEntries().slice(0, 2) as any);
+
+      scopeManualEntities(hass, Object.keys(hass.states), {
+        prefix: "kleenex_pollen_",
+      });
+
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  /**
+   * The owning config entry is down: its device and entities are in the
+   * registry, but HA exposes no state objects for them (or only unavailable
+   * ones). Discovery, which only sees state-backed entities, therefore knows
+   * nothing about the owner.
+   */
+  function ownerWithoutStatesHass(withUnavailableStates: boolean): any {
+    const hass: any = createHassWithRegistry([
+      {
+        entityId: "sensor.kleenex_pollen_radar_utrecht_trees",
+        state: "20",
+        attributes: { details: [{ name: "Berk", value: 20 }], forecast: [] },
+        platform: "kleenex_pollenradar",
+        translationKey: "trees",
+        deviceId: "dev_utrecht",
+        deviceMeta: {
+          name: "Kleenex Pollen Radar (Utrecht)",
+          identifiers: [["kleenex_pollenradar", "Utrecht"]],
+          configEntries: ["cfg_utrecht"],
+        },
+      },
+    ] as any);
+
+    hass.devices.dev_paris = {
+      identifiers: [["kleenex_pollenradar", "Paris"]],
+      config_entries: ["cfg_paris"],
+      name: "Kleenex Pollen Radar (Paris)",
+      name_by_user: "Kleenex pollen",
+    };
+    for (const suffix of ["trees", "grass"]) {
+      const eid = `sensor.kleenex_pollen_${suffix}`;
+      hass.entities[eid] = {
+        device_id: "dev_paris",
+        platform: "kleenex_pollenradar",
+        translation_key: suffix,
+        unique_id: null,
+        entity_category: null,
+      };
+      if (withUnavailableStates) {
+        hass.states[eid] = {
+          entity_id: eid,
+          state: "unavailable",
+          attributes: { friendly_name: `Kleenex pollen ${suffix}` },
+        };
+      }
+    }
+    return hass;
+  }
+
+  // Codex round 2 on PR #315: with the owner missing from discovery, the early
+  // returns let every prefix match through, so `kleenex_pollen_` rendered
+  // Utrecht's forecast under a config meant for Paris. Ownership is decided on
+  // the device registry, which still knows the owner while its entry is down.
+  it("keeps ownership when the owning device has no usable states", async () => {
+    const hass = ownerWithoutStatesHass(false);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toEqual([]);
+    expect(scope.label).toBe("Kleenex pollen");
+
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        location: "manual",
+        entity_prefix: "kleenex_pollen_",
+        allergens: ["trees_cat", "birch"],
+        pollen_threshold: 0,
+      }),
+    );
+    // No data for the intended location beats another city's data.
+    expect(result).toEqual([]);
+  });
+
+  it("keeps ownership when the owning device's states are unavailable", () => {
+    const hass = ownerWithoutStatesHass(true);
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.entityIds).toEqual([
+      "sensor.kleenex_pollen_trees",
+      "sensor.kleenex_pollen_grass",
+    ]);
+    expect(scope.label).toBe("Kleenex pollen");
+  });
+
+  it("does not narrow when no matched entity is in the registry", () => {
+    // Registry-less install: two locations by naming convention only. Today's
+    // behaviour (pure prefix matching) must survive.
+    const hass = createHass({
+      "sensor.kleenex_pollen_trees": {
+        entity_id: "sensor.kleenex_pollen_trees",
+        state: "200",
+        attributes: { details: [], forecast: [] },
+      },
+      "sensor.kleenex_pollen_radar_utrecht_trees": {
+        entity_id: "sensor.kleenex_pollen_radar_utrecht_trees",
+        state: "20",
+        attributes: { details: [], forecast: [] },
+      },
+    });
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(scope.label).toBeNull();
+    expect(scope.entityIds.length).toBe(2);
   });
 });

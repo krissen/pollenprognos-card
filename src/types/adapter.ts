@@ -155,6 +155,25 @@ export interface AdapterAutodetect {
    */
   isRenderableEntity?(entityId: string): boolean;
   /**
+   * Narrow a manual-mode prefix match to a single location, so the card renders
+   * and labels one place instead of merging two config entries whose entity ids
+   * happen to share a prefix (Kleenex). Returns the entity ids to keep and, when
+   * the narrowing actually happened, the label of the location that won.
+   *
+   * The adapter's `fetchForecast` applies the same function, so the header and
+   * the rendered data cannot pick different locations.
+   */
+  scopeManualEntities?(
+    hass: HomeAssistant,
+    entityIds: string[],
+    opts: {
+      prefix: string;
+      suffix?: string;
+      discovery?: AutodetectDiscovery;
+      debug?: boolean;
+    },
+  ): { entityIds: string[]; label: string | null };
+  /**
    * PLU exposes its allergen slug set so the driver can build the PP-vs-PLU
    * disambiguation context without PP importing PLU.
    */

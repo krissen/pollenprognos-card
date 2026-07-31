@@ -65,9 +65,7 @@ const SLUGIFIED_ALIAS_MAP: Map<string, string> = (() => {
  * so `amsterdam_noord_bouleau` still resolves to `birch` when the location part
  * could not be stripped up front.
  */
-export function canonicalAllergenFromSlug(
-  suffix: string,
-): string | undefined {
+export function canonicalAllergenFromSlug(suffix: string): string | undefined {
   const direct = SLUGIFIED_ALIAS_MAP.get(suffix);
   if (direct) return direct;
   if (!suffix.includes("_")) return undefined;
@@ -77,6 +75,23 @@ export function canonicalAllergenFromSlug(
     if (match) return match;
   }
   return undefined;
+}
+
+/**
+ * Normalize an allergen name as reported by the integration, for lookups
+ * against KLEENEX_ALLERGEN_MAP and the configured allergen list.
+ *
+ * The feed is not whitespace-clean: the FR and IT zones report names like
+ * `"Poaceae "`, and an unnormalized key matches neither the alias map nor the
+ * config, so the row disappears without a trace. Leading/trailing whitespace is
+ * stripped, runs of inner whitespace collapse to a single space, and the result
+ * is lowercased. Every name-to-allergen lookup in this adapter goes through
+ * here, so a new upstream spelling only ever needs an alias, never a second
+ * normalization rule. Returns an empty string for anything unusable.
+ */
+export function normalizeDetailName(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 // Static reverse index: canonical allergen name -> Set of slugified alias
@@ -163,7 +178,7 @@ function allergenFromUniqueId(
   if (typeof uniqueId !== "string" || !uniqueId) return null;
   const parts = uniqueId.split("-");
   if (parts.length < 2) return null;
-  const name = parts[parts.length - 2]?.trim().toLowerCase();
+  const name = normalizeDetailName(parts[parts.length - 2]);
   if (!name) return null;
   const canonical = KLEENEX_ALLERGEN_MAP[name];
   return canonical && !CATEGORY_KEYS.has(canonical) ? canonical : null;
@@ -192,7 +207,7 @@ function classifyDetailEntity(
   if (typeof friendly === "string") {
     const lastWord = friendly.trim().split(/\s+/).pop();
     if (lastWord) {
-      const byName = KLEENEX_ALLERGEN_MAP[lastWord.toLowerCase()];
+      const byName = KLEENEX_ALLERGEN_MAP[normalizeDetailName(lastWord)];
       if (byName && !CATEGORY_KEYS.has(byName)) return byName;
     }
   }
@@ -223,17 +238,31 @@ function classifyKleenexEntity(
   return classifyKleenexEntityId(entityId);
 }
 
-/** Resolve a human-readable location label for a discovered device. */
-function resolveKleenexLabel(ctx: DiscoveryContext): string {
-  const device = ctx.device;
+/**
+ * The location name a device stands for: the user's own rename verbatim,
+ * otherwise the instance inside the default name "Kleenex Pollen Radar
+ * (<instance>)", which is what the user configured as the location. Null when
+ * the device carries no name at all.
+ *
+ * Both user-visible label paths go through here -- the discovered location
+ * label and the manual-scoping warning/header -- so an upstream change to the
+ * default naming cannot make them disagree.
+ */
+function deviceDisplayLabel(
+  device: DeviceRegistryEntry | null | undefined,
+): string | null {
   if (device?.name_by_user) return device.name_by_user;
   if (device?.name) {
-    // Default device name is "Kleenex Pollen Radar (<instance>)"; the instance
-    // is what the user configured as the location.
     const m = /^Kleenex Pollen Radar\s*\((.+)\)\s*$/.exec(device.name);
-    if (m?.[1]) return m[1].trim();
-    return device.name;
+    return m?.[1]?.trim() || device.name;
   }
+  return null;
+}
+
+/** Resolve a human-readable location label for a discovered device. */
+function resolveKleenexLabel(ctx: DiscoveryContext): string {
+  const fromDevice = deviceDisplayLabel(ctx.device);
+  if (fromDevice) return fromDevice;
 
   const friendly = ctx.state?.attributes?.friendly_name;
   if (typeof friendly === "string") {
@@ -367,9 +396,7 @@ export function kleenexSlugExtractor(entityId: string): string | null {
  * location's forecast -- so callers must stop instead.
  */
 export type KleenexIdentifierMatch =
-  | [string, DiscoveredLocation]
-  | "ambiguous"
-  | null;
+  [string, DiscoveredLocation] | "ambiguous" | null;
 
 export function matchKleenexLocationByIdentifier(
   hass: HomeAssistant,
@@ -503,6 +530,359 @@ export function resolveKleenexLocationEntry(
   });
 }
 
+// Manual-mode narrowing is silent by design in the common case, but the one
+// time it drops data the user must hear about it. Dedup keyed on the config
+// identity, mirroring the NA-zone warning in forecast.ts, so a warning is
+// emitted once per configuration rather than on every HA state update.
+const MANUAL_SCOPE_WARNED_KEYS = new Set<string>();
+
+/** Test-only hook to clear the dedup state between cases. */
+export function _resetManualScopeWarningsForTest(): void {
+  MANUAL_SCOPE_WARNED_KEYS.clear();
+}
+
+/**
+ * Tell the user, once per configuration, that a manual prefix matched more
+ * than one location and which one survived. Narrowing removes rows and renames
+ * the header, so it must never be a silent decision.
+ */
+function warnOnceAboutNarrowing(
+  prefix: string,
+  suffix: string,
+  kept: string,
+  dropped: string[],
+): void {
+  const warnKey = `${prefix}|${suffix}`;
+  if (MANUAL_SCOPE_WARNED_KEYS.has(warnKey)) return;
+  MANUAL_SCOPE_WARNED_KEYS.add(warnKey);
+  console.warn(
+    `[Kleenex] The configured entity_prefix '${prefix}' matches entities from several locations. Showing '${kept}' and ignoring: ${dropped.join(", ")}. Use a prefix that only matches the location you want, or switch from manual to a location-based config.`,
+  );
+}
+
+/**
+ * Every slug a discovered location can reasonably be addressed by: its
+ * discovery key (the config-entry instance slug), its label, and both device
+ * names. A manual `entity_prefix` is minted from one of these, so they are what
+ * prefix ownership is decided on.
+ */
+function locationSlugCandidates(
+  hass: HomeAssistant,
+  key: string,
+  loc: DiscoveredLocation | undefined,
+): Set<string> {
+  const out = new Set<string>();
+  const add = (value: unknown): void => {
+    if (typeof value !== "string" || !value) return;
+    const slug = slugify(value);
+    if (slug) out.add(slug);
+  };
+  add(key);
+  add(loc?.label);
+  const device = loc?.deviceId ? hass.devices?.[loc.deviceId] : undefined;
+  add(device?.name_by_user);
+  add(device?.name);
+  return out;
+}
+
+/** Every slug a *device* can be addressed by, for prefix-ownership matching. */
+function deviceSlugCandidates(
+  device: DeviceRegistryEntry | null | undefined,
+): Set<string> {
+  const out = new Set<string>();
+  const add = (value: unknown): void => {
+    if (typeof value !== "string" || !value) return;
+    const slug = slugify(value);
+    if (slug) out.add(slug);
+  };
+  add(deviceIdentifierSlug(device));
+  add(device?.name_by_user);
+  add(device?.name);
+  return out;
+}
+
+/**
+ * Device ids of every Kleenex device the registry knows, from both signals
+ * discovery itself accepts: a `kleenex_pollenradar` device identifier (tier 1)
+ * and an entity registry entry whose platform is ours (tier 2).
+ *
+ * A mixed registry exposes some devices only the second way. Recognising just
+ * the first would leave those devices outside the integration's membership, so
+ * scoping would treat their entities as somebody else's and keep them --
+ * merging two locations after all (Codex round 3 on PR #315).
+ */
+function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
+  const out = new Set<string>();
+  for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
+    if (deviceIdentifierSlug(device)) out.add(deviceId);
+  }
+  for (const entry of Object.values(hass?.entities || {})) {
+    const deviceId = entry?.device_id;
+    if (deviceId && entry?.platform === PLATFORM) out.add(deviceId);
+  }
+  return out;
+}
+
+/**
+ * The Kleenex device a manual `entity_prefix` was minted from, if any.
+ *
+ * Read from the device registry rather than from discovery, because discovery
+ * only sees devices with state-backed entities: when the intended config entry
+ * is down, its device is absent from discovery entirely, and deciding ownership
+ * on discovery alone would silently hand the prefix to whichever *other*
+ * location it happens to match (Codex round 2 on PR #315). Ownership must
+ * survive the owner having no data -- the card then shows its usual empty state
+ * for the right place instead of another city's forecast.
+ */
+function findPrefixOwnerDevice(
+  hass: HomeAssistant,
+  needle: string,
+): string | null {
+  if (!needle) return null;
+  let found: string | null = null;
+  for (const deviceId of kleenexDeviceIds(hass)) {
+    const device = hass?.devices?.[deviceId];
+    if (!device) continue;
+    if (!deviceSlugCandidates(device).has(needle)) continue;
+    // Two devices answering to the same slug cannot say which was meant; the
+    // discovery-based path below applies its own tie-breaks instead.
+    if (found) return null;
+    found = deviceId;
+  }
+  return found;
+}
+
+/** Outcome of scoping a manual-mode prefix match to a single location. */
+export interface KleenexManualScope {
+  /** The entity IDs the card should use, in the order they were given. */
+  entityIds: string[];
+  /**
+   * Label of the location the match was narrowed to, or null when nothing was
+   * dropped and the input is returned as it came in.
+   */
+  label: string | null;
+}
+
+/**
+ * Narrow a manual-mode `entity_prefix` match to one location.
+ *
+ * A prefix is a substring test, so a prefix minted from a renamed device
+ * (`kleenex_pollen_`) also matches another config entry's legacy IDs
+ * (`sensor.kleenex_pollen_radar_utrecht_grass`). The card would then merge two
+ * cities into one set of allergen rows and name the header after whichever one
+ * `hass.states` happened to list first (issue #309 follow-up).
+ *
+ * Three ordered steps, each with its own guard:
+ *
+ *   1. Device registry (runs whenever at least one entity matched). A prefix is
+ *      minted from a device name, so a Kleenex device whose own slug -- its
+ *      identifier, name or user rename -- equals the prefix owns it:
+ *      `kleenex_pollen_` belongs to the device named "Kleenex pollen",
+ *      `kleenex_pollen_radar_utrecht_` to "Kleenex Pollen Radar (Utrecht)".
+ *      Everything belonging to another Kleenex device is then dropped, however
+ *      many entities that leaves -- including none. This step needs no
+ *      discovery at all, which is the point: an owner whose config entry is
+ *      down has no state-backed entities and is invisible to discovery, yet it
+ *      still owns its prefix. Membership follows discovery's own two signals, a
+ *      `kleenex_pollenradar` device identifier or an entity registry entry with
+ *      that platform, so a device exposed only the second way counts too.
+ *      Everything this step decides on is the device link, so a registry entry
+ *      that has none is not "another device" to it and stays -- deliberately:
+ *      were the link ever missing wholesale, dropping would leave an empty card
+ *      where keeping degrades to the pre-narrowing behaviour. Kept by this step,
+ *      that is: on an install where no device owns the prefix, step 2 can
+ *      attribute such an entry and does drop it.
+ *   2. Discovered locations (runs when no device owned the prefix, at least two
+ *      entities matched, and they span more than one discovered location). A
+ *      location may still answer to the prefix through its discovery key or
+ *      label -- shapes the device registry does not carry.
+ *   3. Remainder fallback (same guard as step 2, when no location's slug
+ *      matches either). Keep the location whose entity IDs have the least left
+ *      over after the prefix and suffix are removed. A weak signal, since the
+ *      remainder is an allergen name and a location may only have long-named
+ *      detail sensors enabled -- but it still beats merging two cities. Ties
+ *      here and in step 2 are broken on the total remainder and finally on the
+ *      location key, so the choice never depends on registry iteration order.
+ *
+ * "Unattributable" means two different things, deliberately:
+ *   - unknown to the *entity registry* (template sensors, a frontend without
+ *     registry access): always kept. Manual mode is the fallback for exactly
+ *     those setups, and such an entity cannot be evidence of a second location.
+ *   - known to the registry but not placeable by *discovery* (the owner's own
+ *     entities while its entry is down): under step 1 these are simply the
+ *     owner's, and another location's entities are dropped even though nothing
+ *     replaces them.
+ *
+ * What is still guaranteed, now that step 1 can act on a single entity and can
+ * leave nothing behind: an entity that *nothing* can attribute -- no registry
+ * entry and no discovered location -- is never dropped, and no narrowing is
+ * reported (neither a label nor a warning) unless something actually was.
+ * Note that "no registry" does not by itself mean "untouched": tier-3 discovery
+ * attributes legacy `sensor.kleenex_pollen_radar_<location>_*` IDs by their
+ * slug, so a registry-less install holding two legacy locations is still
+ * narrowed to one.
+ */
+export function scopeManualEntities(
+  hass: HomeAssistant,
+  entityIds: string[],
+  opts: {
+    prefix: string;
+    suffix?: string;
+    discovery?: { locations: Map<string, DiscoveredLocation> };
+    debug?: boolean;
+  },
+): KleenexManualScope {
+  const { prefix, suffix = "", debug = false } = opts;
+  if (entityIds.length === 0 || !prefix) return { entityIds, label: null };
+
+  const needle = slugify(prefix.replace(/_+$/, ""));
+
+  // Step 1, registry-level: a device whose own slug is the prefix owns it,
+  // whether or not it currently has usable states. Everything belonging to
+  // another Kleenex device is dropped; entities with no registry entry, and
+  // entities on devices from other integrations, are none of our business and
+  // stay.
+  const ownerDeviceId = findPrefixOwnerDevice(hass, needle);
+  if (ownerDeviceId) {
+    const kleenexDevices = kleenexDeviceIds(hass);
+    const kept = entityIds.filter((eid) => {
+      const deviceId = hass?.entities?.[eid]?.device_id;
+      if (!deviceId || deviceId === ownerDeviceId) return true;
+      return !kleenexDevices.has(deviceId);
+    });
+    if (kept.length === entityIds.length) return { entityIds, label: null };
+
+    const droppedDevices = new Set<string>();
+    for (const eid of entityIds) {
+      if (kept.includes(eid)) continue;
+      const deviceId = hass?.entities?.[eid]?.device_id;
+      if (deviceId) droppedDevices.add(deviceId);
+    }
+    const ownerDevice = hass?.devices?.[ownerDeviceId];
+    const label = deviceDisplayLabel(ownerDevice);
+    warnOnceAboutNarrowing(
+      prefix,
+      suffix,
+      label || ownerDeviceId,
+      [...droppedDevices].map(
+        (deviceId) => deviceDisplayLabel(hass?.devices?.[deviceId]) || deviceId,
+      ),
+    );
+    if (debug) {
+      console.debug(
+        `[Kleenex] Manual prefix owned by device '${ownerDeviceId}'`,
+        kept,
+      );
+    }
+    return { entityIds: kept, label };
+  }
+
+  if (entityIds.length < 2) return { entityIds, label: null };
+
+  const discovery = opts.discovery ?? discoverKleenex(hass, debug);
+  if (!discovery || discovery.locations.size < 2) {
+    return { entityIds, label: null };
+  }
+
+  // Attribution: which discovered location does an entity belong to?
+  //
+  // discovery.locations[].entities is keyed by classified allergen key and thus
+  // holds one entity per key -- a second sensor that classifies the same way
+  // (e.g. an English and a Dutch trees sensor on one device) is simply missing
+  // from it. Attributing from that map alone would leave such duplicates
+  // unattributed, and unattributed means "always kept", so a losing location
+  // could still leak entities into the result (Codex round 4 on PR #315).
+  //
+  // The entity registry's device link is therefore tried first: it covers every
+  // entity of a device, classified or not. The classified map is the second
+  // source, and the only one that reaches a registry entry with our platform and
+  // no device at all: discovery buckets those as "default", a key no entity ID
+  // spells, so neither the device link nor the slug can place them. The legacy
+  // ID slug is the third, since tier-3 locations are keyed by exactly that.
+  const locationOf = new Map<string, string>();
+  const locationOfDevice = new Map<string, string>();
+  for (const [key, loc] of discovery.locations) {
+    for (const eid of loc.entities.values()) locationOf.set(eid, key);
+    if (loc.deviceId) locationOfDevice.set(loc.deviceId, key);
+  }
+  const attribute = (entityId: string): string | undefined => {
+    const deviceId = hass?.entities?.[entityId]?.device_id;
+    const byDevice = deviceId ? locationOfDevice.get(deviceId) : undefined;
+    if (byDevice) return byDevice;
+    const byClassification = locationOf.get(entityId);
+    if (byClassification) return byClassification;
+    const slug = kleenexSlugExtractor(entityId);
+    return slug && discovery.locations.has(slug) ? slug : undefined;
+  };
+
+  const base = `sensor.${prefix}`;
+  // Per location: shortest and total remainder length after prefix and suffix.
+  const scores = new Map<string, { min: number; total: number }>();
+  for (const entityId of entityIds) {
+    const key = attribute(entityId);
+    if (!key) continue;
+    let rest = entityId.startsWith(base)
+      ? entityId.slice(base.length)
+      : entityId;
+    if (suffix && rest.endsWith(suffix)) rest = rest.slice(0, -suffix.length);
+    const score = scores.get(key);
+    if (!score) {
+      scores.set(key, { min: rest.length, total: rest.length });
+    } else {
+      score.min = Math.min(score.min, rest.length);
+      score.total += rest.length;
+    }
+  }
+  if (scores.size < 2) return { entityIds, label: null };
+
+  // Step 2: no device owned the prefix outright, but a discovered location may
+  // still answer to it through its discovery key or label -- shapes the device
+  // registry alone does not carry.
+  const owners = [...scores.keys()].filter((key) =>
+    locationSlugCandidates(hass, key, discovery.locations.get(key)).has(needle),
+  );
+  const candidates =
+    owners.length > 0 ? new Set(owners) : new Set(scores.keys());
+
+  let winner: string | null = null;
+  let best: { min: number; total: number } | null = null;
+  for (const [key, score] of [...scores]
+    .filter(([key]) => candidates.has(key))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    if (
+      !best ||
+      score.min < best.min ||
+      (score.min === best.min && score.total < best.total)
+    ) {
+      winner = key;
+      best = score;
+    }
+  }
+
+  const kept = entityIds.filter((eid) => {
+    const key = attribute(eid);
+    return !key || key === winner;
+  });
+
+  const label = winner
+    ? (discovery.locations.get(winner)?.label ?? null)
+    : null;
+
+  warnOnceAboutNarrowing(
+    prefix,
+    suffix,
+    label || winner || "",
+    [...scores.keys()]
+      .filter((key) => key !== winner)
+      .map((key) => discovery.locations.get(key)?.label || key),
+  );
+  if (debug) {
+    console.debug(`[Kleenex] Manual prefix narrowed to '${winner}'`, kept);
+  }
+
+  return { entityIds: kept, label };
+}
+
 /** One discovered Kleenex location, resolved against the card config. */
 export interface KleenexLocationMatch {
   locationKey: string;
@@ -599,9 +979,14 @@ function requestedCategories(cfg: CardConfig): Set<string> {
 function requestedIndividualAllergens(cfg: CardConfig): string[] {
   return ((cfg.allergens as string[] | undefined) || []).filter(
     (a) =>
-      !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(
-        a,
-      ),
+      ![
+        "trees_cat",
+        "grass_cat",
+        "weeds_cat",
+        "trees",
+        "grass",
+        "weeds",
+      ].includes(a),
   );
 }
 
@@ -657,7 +1042,9 @@ export function resolveEntityIds(
 
       sensorId = `sensor.${prefix}${category}${suffix}`;
       if (!hass.states[sensorId]) {
-        const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
+        const possiblePrefixes = Object.entries(
+          KLEENEX_LOCALIZED_CATEGORY_NAMES,
+        )
           .filter(([, canonical]) => canonical === category)
           .map(([localPrefix]) => localPrefix);
 
@@ -678,7 +1065,9 @@ export function resolveEntityIds(
         ? `sensor.kleenex_pollen_radar_${locationSlug}_${category}`
         : undefined;
       if (!sensorId || !hass.states[sensorId]) {
-        const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
+        const possiblePrefixes = Object.entries(
+          KLEENEX_LOCALIZED_CATEGORY_NAMES,
+        )
           .filter(([, canonical]) => canonical === category)
           .map(([lp]) => lp);
 

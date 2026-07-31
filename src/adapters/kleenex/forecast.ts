@@ -21,7 +21,9 @@ import {
   CATEGORY_KEYS,
   DIAGNOSTIC_SUFFIXES,
   canonicalAllergenFromSlug,
+  normalizeDetailName,
   resolveKleenexLocation,
+  scopeManualEntities,
 } from "./discovery.js";
 import { ppmToLevel } from "./levels.js";
 
@@ -137,6 +139,19 @@ export async function fetchForecast(
       }
       return matches;
     });
+    // A prefix can straddle two config entries (`kleenex_pollen_` also matches
+    // another location's legacy `kleenex_pollen_radar_utrecht_*` IDs), which
+    // would merge two cities into one set of rows. Narrow to a single location
+    // when the registry can tell them apart.
+    const scoped = scopeManualEntities(
+      hass,
+      kleenexSensors.map((s) => s.entity_id),
+      { prefix: manualPrefix, suffix: manualSuffix, debug: !!debug },
+    );
+    if (scoped.entityIds.length !== kleenexSensors.length) {
+      const keep = new Set(scoped.entityIds);
+      kleenexSensors = kleenexSensors.filter((s) => keep.has(s.entity_id));
+    }
     if (debug) {
       console.debug(
         `[Kleenex] After manual mode filtering: ${kleenexSensors.length} sensors with prefix '${expectedPrefix}'`,
@@ -364,7 +379,7 @@ export async function fetchForecast(
 
     try {
       for (const detail of details) {
-        const allergenName = (detail.name as string)?.toLowerCase();
+        const allergenName = normalizeDetailName(detail.name);
         if (!allergenName) continue;
 
         const canonicalName =
@@ -444,7 +459,7 @@ export async function fetchForecast(
         }
 
         for (const detail of forecastDetails) {
-          const allergenName = (detail.name as string)?.toLowerCase();
+          const allergenName = normalizeDetailName(detail.name);
           if (!allergenName) continue;
 
           const canonicalName =

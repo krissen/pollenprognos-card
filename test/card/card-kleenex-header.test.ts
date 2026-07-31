@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { createHass } from "../helpers.js";
+import { createHass, createHassWithRegistry } from "../helpers.js";
 
 // The card is a LitElement, so this file installs the same minimal DOM shim as
 // the editor tests. Nothing is rendered; only the header label resolution in
@@ -161,6 +161,59 @@ function mixedSuffixHass(): any {
   });
 }
 
+/**
+ * Two config entries whose entity IDs collide under the prefix
+ * `kleenex_pollen_`: Paris on a renamed device, Utrecht on the legacy naming.
+ */
+function collidingLocationsHass(): any {
+  const attrs = { details: [], forecast: [] };
+  // Utrecht first: the pre-fix header picked whichever colliding entity
+  // hass.states listed first, so the order is what reproduced the bug.
+  return createHassWithRegistry([
+    {
+      entityId: "sensor.kleenex_pollen_radar_utrecht_trees",
+      state: "20",
+      attributes: {
+        friendly_name: "Kleenex Pollen Radar (Utrecht) Trees",
+        ...attrs,
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_utrecht",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Utrecht)",
+        identifiers: [["kleenex_pollenradar", "Utrecht"]],
+        configEntries: ["cfg_utrecht"],
+      },
+    },
+    {
+      entityId: "sensor.kleenex_pollen_radar_utrecht_grass",
+      state: "10",
+      attributes: {
+        friendly_name: "Kleenex Pollen Radar (Utrecht) Grass",
+        ...attrs,
+      },
+      platform: "kleenex_pollenradar",
+      translationKey: "grass",
+      deviceId: "dev_utrecht",
+    },
+    {
+      entityId: "sensor.kleenex_pollen_trees",
+      state: "200",
+      attributes: { friendly_name: "Kleenex pollen Trees", ...attrs },
+      platform: "kleenex_pollenradar",
+      translationKey: "trees",
+      deviceId: "dev_paris",
+      deviceMeta: {
+        name: "Kleenex Pollen Radar (Paris)",
+        nameByUser: "Kleenex pollen",
+        identifiers: [["kleenex_pollenradar", "Paris"]],
+        configEntries: ["cfg_paris"],
+      },
+    },
+  ] as any);
+}
+
 let CardCtor: new () => {
   hass: unknown;
   setConfig: (config: Record<string, unknown>) => void;
@@ -242,6 +295,23 @@ describe("card header for Kleenex manual mode (issue #309)", () => {
       allergens: ["trees"],
     });
     card.hass = suffixedDiagnosticsFirstHass();
+
+    expect(card.header).toBe("Pollen forecast for Kleenex pollen");
+  });
+
+  // The prefix `kleenex_pollen_` also matches another config entry's legacy
+  // `kleenex_pollen_radar_utrecht_*` IDs, and Utrecht came first in
+  // hass.states, so the header named a location the card wasn't rendering.
+  it("names the location the prefix was minted from, not a colliding one", () => {
+    const card = new CardCtor();
+    card.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "kleenex",
+      location: "manual",
+      entity_prefix: "kleenex_pollen_",
+      allergens: ["trees"],
+    });
+    card.hass = collidingLocationsHass();
 
     expect(card.header).toBe("Pollen forecast for Kleenex pollen");
   });
