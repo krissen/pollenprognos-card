@@ -389,7 +389,7 @@
   "editor.tap_action": "Tikactie",
   "editor.tap_action_enable": "Tikactie inschakelen",
   "editor.tap_action_entity": "Entiteit",
-  "editor.tap_action_more_info_needs_entity": "Zonder entiteit doet deze actie niets. Tikken op een allergeen opent dat allergeen.",
+  "editor.tap_action_more_info_needs_entity": "Deze actie heeft een entiteit nodig; zonder entiteit doet ze niets.",
   "editor.tap_action_navigation_path": "Navigatiepad",
   "editor.tap_action_service": "Service (bijv. light.turn_on)",
   "editor.tap_action_service_data": "Servicegegevens (JSON)",

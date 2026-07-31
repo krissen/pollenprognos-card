@@ -389,7 +389,7 @@
   "editor.tap_action": "Akcja kliknięcia",
   "editor.tap_action_enable": "Aktywuj akcję kliknięcia",
   "editor.tap_action_entity": "Encja",
-  "editor.tap_action_more_info_needs_entity": "Bez encji ta akcja nic nie robi. Dotknięcie alergenu otwiera ten alergen.",
+  "editor.tap_action_more_info_needs_entity": "Ta akcja wymaga encji; bez niej nic nie robi.",
   "editor.tap_action_navigation_path": "Ścieżka nawigacji",
   "editor.tap_action_service": "Usługa (np. light.turn_on)",
   "editor.tap_action_service_data": "Dane usługi (JSON)",

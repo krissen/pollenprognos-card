@@ -389,7 +389,7 @@
   "editor.tap_action": "Action tactile",
   "editor.tap_action_enable": "Activer l'action tactile",
   "editor.tap_action_entity": "Entité",
-  "editor.tap_action_more_info_needs_entity": "Sans entité, cette action ne fait rien. Appuyer sur un allergène ouvre cet allergène.",
+  "editor.tap_action_more_info_needs_entity": "Cette action nécessite une entité ; sans elle, elle ne fait rien.",
   "editor.tap_action_navigation_path": "Chemin de navigation",
   "editor.tap_action_service": "Service (ex. light.turn_on)",
   "editor.tap_action_service_data": "Données du service (JSON)",

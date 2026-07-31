@@ -389,7 +389,7 @@
   "editor.tap_action": "Acción al tocar",
   "editor.tap_action_enable": "Activar acción al tocar",
   "editor.tap_action_entity": "Entidad",
-  "editor.tap_action_more_info_needs_entity": "Sin una entidad, esta acción no hace nada. Al tocar un alérgeno se abre ese alérgeno.",
+  "editor.tap_action_more_info_needs_entity": "Esta acción necesita una entidad; sin ella no hace nada.",
   "editor.tap_action_navigation_path": "Ruta de navegación",
   "editor.tap_action_service": "Servicio (ej. light.turn_on)",
   "editor.tap_action_service_data": "Datos del servicio (JSON)",

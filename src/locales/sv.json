@@ -389,7 +389,7 @@
   "editor.tap_action": "Tryckåtgärd",
   "editor.tap_action_enable": "Aktivera tryckåtgärd",
   "editor.tap_action_entity": "Entitet",
-  "editor.tap_action_more_info_needs_entity": "Utan en entitet gör den här åtgärden ingenting. Ett tryck på ett allergen öppnar allergenet i stället.",
+  "editor.tap_action_more_info_needs_entity": "Den här åtgärden kräver en entitet; utan en gör den ingenting.",
   "editor.tap_action_navigation_path": "Navigeringssökväg",
   "editor.tap_action_service": "Tjänst (t.ex. light.turn_on)",
   "editor.tap_action_service_data": "Tjänstedata (JSON)",
