@@ -28,7 +28,10 @@ describe("filterSensorsPostFetch", () => {
   // Branch 1: SILAM daily mode (entity_id-based filtering)
   // ──────────────────────────────────────────────────
   describe("SILAM daily mode", () => {
-    const baseCfg: any = { integration: "silam", allergens: ["birch", "grass"] };
+    const baseCfg: any = {
+      integration: "silam",
+      allergens: ["birch", "grass"],
+    };
 
     it("keeps sensors whose entity_id is in availableSensors", () => {
       const sensors = [
@@ -36,34 +39,46 @@ describe("filterSensorsPostFetch", () => {
         sensor("grass", "sensor.silam_pollen_stockholm_grass"),
       ];
       const available = ["sensor.silam_pollen_stockholm_birch"];
-      const result = filterSensorsPostFetch(sensors, baseCfg, available, [], silamMapping);
+      const result = filterSensorsPostFetch(
+        sensors,
+        baseCfg,
+        available,
+        [],
+        silamMapping,
+      );
       expect(result).toHaveLength(1);
       expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("drops sensors whose entity_id is NOT in availableSensors", () => {
-      const sensors = [
-        sensor("birch", "sensor.silam_pollen_stockholm_birch"),
-      ];
-      const result = filterSensorsPostFetch(sensors, baseCfg, [], [], silamMapping);
+      const sensors = [sensor("birch", "sensor.silam_pollen_stockholm_birch")];
+      const result = filterSensorsPostFetch(
+        sensors,
+        baseCfg,
+        [],
+        [],
+        silamMapping,
+      );
       expect(result).toHaveLength(0);
     });
 
     it("mode=daily explicitly triggers entity_id filtering", () => {
       const cfg: any = { ...baseCfg, mode: "daily" };
-      const sensors = [
-        sensor("birch", "sensor.silam_pollen_stockholm_birch"),
-      ];
+      const sensors = [sensor("birch", "sensor.silam_pollen_stockholm_birch")];
       const available = ["sensor.silam_pollen_stockholm_birch"];
-      const result = filterSensorsPostFetch(sensors, cfg, available, [], silamMapping);
+      const result = filterSensorsPostFetch(
+        sensors,
+        cfg,
+        available,
+        [],
+        silamMapping,
+      );
       expect(result).toHaveLength(1);
     });
 
     it("mode=undefined (no mode set) triggers entity_id filtering", () => {
       const cfg: any = { integration: "silam", allergens: ["birch"] };
-      const sensors = [
-        sensor("birch", "sensor.silam_pollen_stockholm_birch"),
-      ];
+      const sensors = [sensor("birch", "sensor.silam_pollen_stockholm_birch")];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(0);
     });
@@ -78,7 +93,13 @@ describe("filterSensorsPostFetch", () => {
           "sensor.silam_pollen_stockholm_grass",
         ];
         const available = ["sensor.silam_pollen_stockholm_birch"];
-        const result = filterSensorsPostFetch(sensors, cfg, available, hassKeys, silamMapping);
+        const result = filterSensorsPostFetch(
+          sensors,
+          cfg,
+          available,
+          hassKeys,
+          silamMapping,
+        );
         expect(result).toHaveLength(1);
         expect(result[0]!.allergenReplaced).toBe("birch");
       });
@@ -87,11 +108,15 @@ describe("filterSensorsPostFetch", () => {
         // Swedish HA slug "bjork" maps to master "birch" via silamMapping.sv
         const cfg: any = { ...baseCfg, location: "stockholm" };
         const sensors = [sensor("birch", null)];
-        const hassKeys = [
-          "sensor.silam_pollen_stockholm_bjork",
-        ];
+        const hassKeys = ["sensor.silam_pollen_stockholm_bjork"];
         const available = ["sensor.silam_pollen_stockholm_bjork"];
-        const result = filterSensorsPostFetch(sensors, cfg, available, hassKeys, silamMapping);
+        const result = filterSensorsPostFetch(
+          sensors,
+          cfg,
+          available,
+          hassKeys,
+          silamMapping,
+        );
         expect(result).toHaveLength(1);
       });
 
@@ -100,7 +125,13 @@ describe("filterSensorsPostFetch", () => {
         const sensors = [sensor("unknown_allergen", null)];
         const hassKeys: string[] = [];
         const available = ["sensor.silam_pollen_stockholm_unknown_allergen"];
-        const result = filterSensorsPostFetch(sensors, cfg, available, hassKeys, silamMapping);
+        const result = filterSensorsPostFetch(
+          sensors,
+          cfg,
+          available,
+          hassKeys,
+          silamMapping,
+        );
         expect(result).toHaveLength(1);
       });
 
@@ -109,7 +140,13 @@ describe("filterSensorsPostFetch", () => {
         const sensors = [sensor("birch", null)];
         const hassKeys = ["sensor.silam_pollen_stockholm_birch"];
         const available: string[] = [];
-        const result = filterSensorsPostFetch(sensors, cfg, available, hassKeys, silamMapping);
+        const result = filterSensorsPostFetch(
+          sensors,
+          cfg,
+          available,
+          hassKeys,
+          silamMapping,
+        );
         expect(result).toHaveLength(0);
       });
 
@@ -118,7 +155,13 @@ describe("filterSensorsPostFetch", () => {
         const sensors = [sensor("birch", null)];
         const hassKeys = ["sensor.silam_pollen__birch"];
         const available = ["sensor.silam_pollen__birch"];
-        const result = filterSensorsPostFetch(sensors, cfg, available, hassKeys, silamMapping);
+        const result = filterSensorsPostFetch(
+          sensors,
+          cfg,
+          available,
+          hassKeys,
+          silamMapping,
+        );
         expect(result).toHaveLength(1);
       });
     });
@@ -129,7 +172,13 @@ describe("filterSensorsPostFetch", () => {
         const cfg: any = { ...baseCfg, location: "01JRGQH6VXQBCN2C6Z5E3DMPFY" };
         const sensors = [sensor("birch", null)];
         const available = ["sensor.silam_pollen_stockholm_birch"];
-        const result = filterSensorsPostFetch(sensors, cfg, available, [], silamMapping);
+        const result = filterSensorsPostFetch(
+          sensors,
+          cfg,
+          available,
+          [],
+          silamMapping,
+        );
         expect(result).toHaveLength(0);
       });
     });
@@ -140,17 +189,22 @@ describe("filterSensorsPostFetch", () => {
   // ──────────────────────────────────────────────────
   describe("SILAM non-daily modes", () => {
     it("mode=hourly passes all sensors through", () => {
-      const cfg: any = { integration: "silam", mode: "hourly", allergens: ["birch"] };
-      const sensors = [
-        sensor("birch", null),
-        sensor("grass", null),
-      ];
+      const cfg: any = {
+        integration: "silam",
+        mode: "hourly",
+        allergens: ["birch"],
+      };
+      const sensors = [sensor("birch", null), sensor("grass", null)];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(2);
     });
 
     it("mode=twice_daily passes all sensors through", () => {
-      const cfg: any = { integration: "silam", mode: "twice_daily", allergens: ["birch"] };
+      const cfg: any = {
+        integration: "silam",
+        mode: "twice_daily",
+        allergens: ["birch"],
+      };
       const sensors = [sensor("birch", null)];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(1);
@@ -163,11 +217,7 @@ describe("filterSensorsPostFetch", () => {
   describe("other integrations (name-based filtering)", () => {
     it("PP: keeps sensors matching normalized allergen names", () => {
       const cfg: any = { integration: "pp", allergens: ["birch", "grass"] };
-      const sensors = [
-        sensor("birch"),
-        sensor("grass"),
-        sensor("alder"),
-      ];
+      const sensors = [sensor("birch"), sensor("grass"), sensor("alder")];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(2);
       expect(result.map((s) => s.allergenReplaced)).toEqual(["birch", "grass"]);
@@ -190,11 +240,7 @@ describe("filterSensorsPostFetch", () => {
     it("DWD: uses normalizeDWD for matching", () => {
       // normalizeDWD lowercases and strips umlauts differently
       const cfg: any = { integration: "dwd", allergens: ["Erle", "Birke"] };
-      const sensors = [
-        sensor("erle"),
-        sensor("birke"),
-        sensor("hasel"),
-      ];
+      const sensors = [sensor("erle"), sensor("birke"), sensor("hasel")];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(2);
       expect(result.map((s) => s.allergenReplaced)).toEqual(["erle", "birke"]);
@@ -202,10 +248,7 @@ describe("filterSensorsPostFetch", () => {
 
     it("PEU: filters by normalized allergen name", () => {
       const cfg: any = { integration: "peu", allergens: ["birch"] };
-      const sensors = [
-        sensor("birch"),
-        sensor("grass"),
-      ];
+      const sensors = [sensor("birch"), sensor("grass")];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(1);
       expect(result[0]!.allergenReplaced).toBe("birch");
@@ -213,10 +256,7 @@ describe("filterSensorsPostFetch", () => {
 
     it("Kleenex: filters by normalized allergen name", () => {
       const cfg: any = { integration: "kleenex", allergens: ["trees"] };
-      const sensors = [
-        sensor("trees"),
-        sensor("grass"),
-      ];
+      const sensors = [sensor("trees"), sensor("grass")];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(1);
     });
@@ -242,18 +282,73 @@ describe("filterSensorsPostFetch", () => {
         "sensor.silam_pollen_stockholm_birch",
         "sensor.silam_pollen_stockholm_grass",
       ];
-      const result = filterSensorsPostFetch(sensors, cfg, available, [], silamMapping);
+      const result = filterSensorsPostFetch(
+        sensors,
+        cfg,
+        available,
+        [],
+        silamMapping,
+      );
       expect(result).toHaveLength(2);
     });
 
     it("non-SILAM integration skips SILAM entity_id filtering entirely", () => {
       // Even if sensors have entity_ids, the SILAM branch is not entered
       const cfg: any = { integration: "pp", allergens: ["birch"] };
-      const sensors = [
-        sensor("birch", "sensor.silam_pollen_stockholm_birch"),
-      ];
+      const sensors = [sensor("birch", "sensor.silam_pollen_stockholm_birch")];
       const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
       expect(result).toHaveLength(1);
+    });
+  });
+  // ──────────────────────────────────────────────────
+  // Kleenex: the adapter's US/NA category substitution (issue #313)
+  // ──────────────────────────────────────────────────
+  describe("Kleenex category totals", () => {
+    // A US location can produce nothing but these three rows, and they are by
+    // construction absent from the configured allergen list -- filtering on
+    // that list alone emptied the card even after the adapter had done its job.
+    const usCfg: any = {
+      integration: "kleenex",
+      allergens: ["birch", "oak", "nettle"],
+    };
+
+    it("keeps the category rows the adapter substituted", () => {
+      const sensors = [
+        sensor("trees_cat"),
+        sensor("grass_cat"),
+        sensor("weeds_cat"),
+      ];
+      const result = filterSensorsPostFetch(
+        sensors,
+        usCfg,
+        [],
+        [],
+        silamMapping,
+      );
+      expect(result.map((s: any) => s.allergenReplaced)).toEqual([
+        "trees_cat",
+        "grass_cat",
+        "weeds_cat",
+      ]);
+    });
+
+    it("still drops an individual allergen the user did not configure", () => {
+      const sensors = [sensor("birch"), sensor("mugwort")];
+      const result = filterSensorsPostFetch(
+        sensors,
+        usCfg,
+        [],
+        [],
+        silamMapping,
+      );
+      expect(result.map((s: any) => s.allergenReplaced)).toEqual(["birch"]);
+    });
+
+    it("does not extend the same courtesy to another integration", () => {
+      const cfg: any = { integration: "peu", allergens: ["birch"] };
+      const sensors = [sensor("birch"), sensor("trees_cat")];
+      const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
+      expect(result.map((s: any) => s.allergenReplaced)).toEqual(["birch"]);
     });
   });
 });

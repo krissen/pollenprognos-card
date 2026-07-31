@@ -1027,6 +1027,18 @@ export function filterSensorsPostFetch(
       allowed = new Set(cfg.allergens.map((a) => normalize(a)));
       getKey = (s) => normalize(s.allergenReplaced || "");
     }
+    if (cfg.integration === "kleenex") {
+      // The Kleenex adapter substitutes the category totals when the zone has
+      // no per-allergen data to give (US/NA, issue #313). Those keys are by
+      // construction absent from cfg.allergens, so filtering on the configured
+      // list alone drops the only rows such a location can produce and leaves
+      // the card empty. The adapter is the authority on which category rows
+      // exist -- it emits them only when the user configured them or when the
+      // fallback fired -- so let them through.
+      for (const key of ["trees_cat", "grass_cat", "weeds_cat"]) {
+        allowed.add(normalize(key));
+      }
+    }
     filtered = filtered.filter((s) => allowed.has(getKey(s)));
   }
 

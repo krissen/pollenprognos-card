@@ -115,10 +115,10 @@ export const stubConfigKleenex: AdapterStubConfig = {
     "poaceae",
     "poplar",
     "ragweed",
-    // General categories (broad sensors) - disabled by default
-    // "trees_cat",
-    // "grass_cat",
-    // "weeds_cat",
+    // The three category totals are selectable in the editor
+    // (KLEENEX_EDITOR_ALLERGENS) but off by default: an EU install gets the
+    // per-allergen rows, and a US install gets the categories through the
+    // fallback in forecast.ts without having to configure anything.
   ],
   minimal: false,
   minimal_gap: 35,
@@ -194,6 +194,25 @@ export const INDIVIDUAL_TO_CATEGORY: Record<string, string> = {
   chenopod: "weeds",
   nettle: "weeds",
 };
+
+/**
+ * The allergen keys the editor offers for Kleenex: the stub's individual
+ * allergens plus the three category totals.
+ *
+ * Selectable everywhere rather than only where discovery sees empty details.
+ * Every zone has the category sensors -- the US zone has *only* those -- so a
+ * list that changed shape as discovery data arrived would make the picker
+ * depend on load timing for no gain. They stay out of `stubConfigKleenex`
+ * .allergens, so the default selection is unchanged and no existing config is
+ * touched; the US fallback in forecast.ts covers the users who never open the
+ * editor at all.
+ */
+export const KLEENEX_EDITOR_ALLERGENS: string[] = [
+  ...(stubConfigKleenex.allergens as string[]),
+  "trees_cat",
+  "grass_cat",
+  "weeds_cat",
+];
 
 // Re-exported from the shared helper so the three adapter constants modules
 // expose one identical capitalize (consumers keep their ./constants import).

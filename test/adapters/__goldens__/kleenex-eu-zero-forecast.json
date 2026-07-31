@@ -1,0 +1,118 @@
+[
+  {
+    "allergenReplaced": "trees_cat",
+    "entity_id": "sensor.kleenex_pollen_radar_london_trees",
+    "days": [
+      {
+        "name": "Trees",
+        "day": "Today",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Jun 18",
+        "state": -1,
+        "display_state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      },
+      {
+        "name": "Trees",
+        "day": "Jun 19",
+        "state": -1,
+        "display_state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      }
+    ],
+    "allergenCapitalized": "Trees",
+    "allergenShort": "Trees"
+  },
+  {
+    "allergenReplaced": "birch",
+    "entity_id": "sensor.kleenex_pollen_radar_london_trees",
+    "days": [
+      {
+        "name": "Birch",
+        "day": "Today",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Birch",
+        "day": "Tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Birch",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 18",
+        "state": -1,
+        "display_state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      },
+      {
+        "name": "Birch",
+        "day": "Jun 19",
+        "state": -1,
+        "display_state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
+      }
+    ],
+    "allergenCapitalized": "Birch",
+    "allergenShort": "Birch"
+  }
+]
