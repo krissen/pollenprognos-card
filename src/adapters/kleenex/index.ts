@@ -2,6 +2,7 @@
 // Public facade: re-exports all named exports from sub-modules.
 export {
   stubConfigKleenex,
+  KLEENEX_EDITOR_ALLERGENS,
   KLEENEX_ALLERGEN_MAP,
   KLEENEX_ALLERGEN_CATEGORIES,
   INDIVIDUAL_TO_CATEGORY,
@@ -73,7 +74,8 @@ export const autodetect: AdapterAutodetect = {
     }
     return { ids: Array.from(ids), discovery };
   },
-  discover: (hass, debug) => discoverKleenex(hass, debug) as AutodetectDiscovery,
+  discover: (hass, debug) =>
+    discoverKleenex(hass, debug) as AutodetectDiscovery,
   extractLocationSlug: kleenexSlugExtractor,
   // The one definition of "which location does this config mean": exact key,
   // then the rename-stable device identifier, then label/entity-ID matching.
@@ -99,7 +101,6 @@ export const autodetect: AdapterAutodetect = {
     scopeManualEntities(hass, entityIds, {
       ...opts,
       discovery: opts.discovery as
-        | { locations: Map<string, DiscoveredLocation> }
-        | undefined,
+        { locations: Map<string, DiscoveredLocation> } | undefined,
     }),
 };

@@ -7,7 +7,7 @@
 import { stubConfigDWD } from "../adapters/dwd.js";
 import { PEU_ALLERGENS } from "../adapters/peu.js";
 import { SILAM_ALLERGENS } from "../adapters/silam.js";
-import { stubConfigKleenex } from "../adapters/kleenex/index.js";
+import { KLEENEX_EDITOR_ALLERGENS } from "../adapters/kleenex/index.js";
 import { stubConfigPLU } from "../adapters/plu.js";
 import { ATMO_ALLERGENS } from "../adapters/atmo.js";
 import { GPL_BASE_ALLERGENS } from "../adapters/gpl/index.js";
@@ -43,7 +43,9 @@ export function allergenListForIntegration(
     case "silam":
       return SILAM_ALLERGENS;
     case "kleenex":
-      return stubConfigKleenex.allergens as string[];
+      // Individual allergens plus the three category totals: the US/NA zones
+      // report nothing but the categories, so those must be pickable.
+      return KLEENEX_EDITOR_ALLERGENS;
     case "plu":
       return stubConfigPLU.allergens as string[];
     case "gpl":
