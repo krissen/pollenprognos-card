@@ -104,7 +104,7 @@ In this file:
 | `show_summary_plants_in_season` *(GPL only)* | `boolean` | `true` | Show an "In season" row listing the plants currently in pollen season. Requires `show_summary_block: true`. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
-| `tap_action` | `object` | *(empty)* | Lovelace tap action. Supported types: `more-info`, `navigate` (needs `navigation_path`), and `call-service` / Home Assistant's `perform-action` (needs a `service` / `perform_action` and optional `target` / `data`). Honours both the Lovelace-standard `action` key and the card's historical `type` key; when a `tap_action` is set with no explicit type it defaults to `more-info`. |
+| `tap_action` | `object` | *(empty)* | Lovelace tap action. Supported types: `more-info` (needs an `entity`), `navigate` (needs `navigation_path`), and `call-service` / Home Assistant's `perform-action` (needs a `service` / `perform_action` and optional `target` / `data`). An action missing its required field is inert: the element is not clickable through it, and per-icon more-info keeps working. Honours both the Lovelace-standard `action` key and the card's historical `type` key; when a `tap_action` is set with no explicit type it defaults to `more-info`. |
 | `debug` | `boolean` | `false` | Enable verbose console logging. |
 | `show_version` | `boolean` | `true` | Log card version in the browser console. |
 | `phrases.full` | `object` | `{}` | Map allergen keys to full length names. |
@@ -427,7 +427,7 @@ badges:
 
 `badge_content: aggregate` falls back to `worst` for integrations that do not expose an overall-risk sensor.
 
-**Tap action (open more-info on tap):**
+**Tap action (open a specific entity on tap):**
 
 ```yaml
 badges:
@@ -436,9 +436,10 @@ badges:
     city: Stockholm
     tap_action:
       action: more-info
+      entity: sensor.pollen_stockholm_bjork
 ```
 
-The badge's `tap_action` is set in the editor's **Interactions** section and uses the same shape and types as the card (`more-info`, `navigate`, `call-service` / `perform-action`); see [`tap_action`](#options) under the card options. With no `tap_action` the badge is inert.
+`more-info` opens the entity you name, so it needs an `entity`; without one the action does nothing and the badge is not clickable through it. The badge's `tap_action` is set in the editor's **Interactions** section and uses the same shape and types as the card (`more-info`, `navigate`, `call-service` / `perform-action`); see [`tap_action`](#options) under the card options. With no `tap_action` the badge is inert.
 
 ## Color System Overview
 
