@@ -285,19 +285,33 @@ export async function fetchForecast(
   const categorySensorsFound = kleenexSensors.filter((sensor) =>
     isCategorySensorEntity(sensor.entity_id),
   );
+  // Attribute arrays arrive from HA exactly as the integration wrote them, so
+  // the fingerprint has to survive a `forecast` that is not an array and a
+  // forecast day that is null. This check runs before the collection passes and
+  // outside their try blocks: a throw here would reject the whole fetch and
+  // blank a card that has nothing wrong with it.
+  const isItemArray = (value: unknown): value is KleenexItem[] =>
+    Array.isArray(value) &&
+    value.every((item) => !!item && typeof item === "object");
+  // "No details" means absent or an empty array. Anything else is either real
+  // per-allergen data or a shape we do not recognise; neither is the NA zone.
+  const hasNoDetails = (value: unknown): boolean =>
+    value === null ||
+    value === undefined ||
+    (isItemArray(value) && value.length === 0);
   const naDetailsFingerprint =
     categorySensorsFound.length > 0 &&
     categorySensorsFound.every((sensor) => {
       const attrs = sensor.attributes || {};
-      const forecast: KleenexItem[] = attrs.forecast || [];
-      // NA always returns a forecast; requiring one keeps synthetic/empty
-      // fixtures from tripping the fingerprint.
-      if (forecast.length === 0) return false;
-      const detailsEmpty = (attrs.details || []).length === 0;
-      const forecastDetailsEmpty = forecast.every(
-        (f) => ((f.details as KleenexItem[]) || []).length === 0,
+      const forecast = attrs.forecast;
+      // NA always returns a forecast of well-formed days; requiring one keeps
+      // synthetic/empty fixtures and malformed payloads from tripping the
+      // fingerprint.
+      if (!isItemArray(forecast) || forecast.length === 0) return false;
+      return (
+        hasNoDetails(attrs.details) &&
+        forecast.every((day) => hasNoDetails(day.details))
       );
-      return detailsEmpty && forecastDetailsEmpty;
     });
   const categoryConfigured = configuredAllergens.some((a) =>
     categoryAllergenKeys.includes(a),

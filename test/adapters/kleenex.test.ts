@@ -3071,6 +3071,63 @@ describe("Kleenex adapter: US/NA category fallback", () => {
     expect(grass.days[0]!.state).toBe(1);
   });
 
+  // --- Malformed payloads --------------------------------------------------
+
+  it("does not throw when the forecast attribute is not an array", async () => {
+    const entities = makeUSLocation("atlanta_georgia");
+    (entities[0]!.attributes as any).forecast = { bogus: true };
+    const hass = makeHassFromEntities(entities);
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    await expect(fetchForecast(hass, config)).resolves.toBeInstanceOf(Array);
+  });
+
+  it("does not throw when a forecast day is null", async () => {
+    const entities = makeUSLocation("atlanta_georgia");
+    (entities[0]!.attributes as any).forecast = [
+      null,
+      { datetime: "x", level: 1, value: 3, details: [] },
+    ];
+    const hass = makeHassFromEntities(entities);
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    await expect(fetchForecast(hass, config)).resolves.toBeInstanceOf(Array);
+  });
+
+  it("leaves an EU location untouched when another one is malformed", async () => {
+    // A malformed payload must not match the fingerprint, and must not stop the
+    // per-allergen rows an EU location produces.
+    const hass = makeHassFromEntities([
+      makeKleenexEntity(
+        "utrecht",
+        "trees",
+        200,
+        [{ name: "Birch", value: 150 }],
+        [{ level: 2, details: [{ name: "Birch", value: 120 }] }],
+      ),
+      {
+        entity_id: "sensor.kleenex_pollen_radar_utrecht_grass",
+        state: "10",
+        attributes: { details: [], forecast: "not-an-array" },
+      },
+    ]);
+    const config = makeConfig({
+      location: "utrecht",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["birch"]);
+  });
+
   // --- The fallback stands aside ------------------------------------------
 
   it("does not touch an EU location, whose details are populated", async () => {
