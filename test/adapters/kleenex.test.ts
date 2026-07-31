@@ -3506,9 +3506,13 @@ describe("Kleenex adapter: more-info target (issue #317)", () => {
   });
 
   it("reproduces the reporter's setup: manual mode, individual allergens and the three categories", async () => {
-    // Issue #317 as configured by the reporter: manual mode with an empty
-    // prefix, a long individual list plus all three *_cat keys, on an EU zone
-    // whose per-allergen data lives in the category sensors' details.
+    // Issue #317's config, in the part that decides the outcome: a long
+    // individual allergen list next to all three *_cat keys, on an EU zone
+    // whose per-allergen data lives in the category sensors' details. The
+    // reporter left both `location` and `entity_prefix` empty; this names the
+    // prefix instead, because the prefix only decides which entities are
+    // collected and naming them keeps the fixture unambiguous about where each
+    // row came from.
     const hass = makeHassFromEntities([
       makeKleenexEntity(
         "paris",
