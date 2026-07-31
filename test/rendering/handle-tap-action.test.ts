@@ -71,6 +71,24 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(e.stopPropagation).toHaveBeenCalled();
   });
 
+  it("does not dispatch for an entity that is not an entity id", () => {
+    // The three shapes YAML can deliver that pass a truthiness test.
+    for (const entity of ["   ", 123, ["sensor.a"]]) {
+      el.dispatched.length = 0;
+      el.tapAction = { type: "more-info", entity } as any;
+      el._handleTapAction(makeEvent());
+      expect(el.dispatched, `dispatched for ${JSON.stringify(entity)}`).toEqual(
+        [],
+      );
+    }
+  });
+
+  it("dispatches a padded entity id trimmed", () => {
+    el.tapAction = { type: "more-info", entity: " sensor.pollen " };
+    el._handleTapAction(makeEvent());
+    expect(el.dispatched[0].detail).toEqual({ entityId: "sensor.pollen" });
+  });
+
   it("does nothing for more-info without an entity", () => {
     // This used to open sun.sun, so `tap_action: {type: more-info}` on its own
     // made every click on the card show the sun -- and suppressed the
@@ -329,6 +347,20 @@ describe("resolveTapActionType", () => {
     // more-info needs an entity for the same reason.
     expect(resolveTapActionType({ type: "more-info" })).toBeNull();
     expect(resolveTapActionType({ action: "more-info" })).toBeNull();
+    // ...and one that is actually an entity id. YAML hands over numbers, lists
+    // and blank strings, all of which are truthy: testing the raw value would
+    // bind a click and then dispatch something HA cannot open.
+    expect(resolveTapActionType({ type: "more-info", entity: "   " })).toBeNull();
+    expect(
+      resolveTapActionType({ type: "more-info", entity: 123 } as any),
+    ).toBeNull();
+    expect(
+      resolveTapActionType({ type: "more-info", entity: ["sensor.a"] } as any),
+    ).toBeNull();
+    // Surrounding whitespace is dropped, not treated as a broken value.
+    expect(
+      resolveTapActionType({ type: "more-info", entity: " sensor.a " }),
+    ).toBe("more-info");
     expect(resolveTapActionType({ type: "call-service" })).toBeNull();
     expect(resolveTapActionType({ action: "perform-action" })).toBeNull();
     expect(

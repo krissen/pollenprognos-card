@@ -94,6 +94,20 @@ function parseServiceId(svc: unknown): [string, string] | null {
 }
 
 /**
+ * The entity id a more-info action should open, or null when there is none to
+ * open. YAML can deliver a number, a list, or a string of spaces, and all three
+ * are truthy: testing the raw value would bind a click and then dispatch
+ * something that is not an entity id. Surrounding whitespace is dropped rather
+ * than rejected, since a stray space in hand-written YAML still names an
+ * entity the user meant.
+ */
+function parseEntityId(entity: unknown): string | null {
+  if (typeof entity !== "string") return null;
+  const trimmed = entity.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
  * Resolve a tap_action config to the effective action type, or null when the
  * action is absent/unactionable. A plain object with no action keyword defaults
  * to "more-info" (the handler's documented default); "none", non-objects,
@@ -118,7 +132,7 @@ export function resolveTapActionType(tapAction: unknown): TapActionType | null {
   // every click on the card into the sun dialog -- and, since a bound
   // tap_action suppresses per-icon more-info, it also took away the
   // per-allergen dialogs the user had before configuring it.
-  if (type === "more-info" && !ta.entity) return null;
+  if (type === "more-info" && !parseEntityId(ta.entity)) return null;
   return type as TapActionType;
 }
 
@@ -643,15 +657,15 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       e?.stopPropagation?.();
       switch (action) {
         case "more-info": {
-          // resolveTapActionType rejects more-info without an entity, so the
-          // click is never bound in that case and there is nothing to guess at
-          // here.
-          if (!ta.entity) break;
+          // resolveTapActionType applies the same rule, so the click is never
+          // bound for an entity the handler would have to invent.
+          const entityId = parseEntityId(ta.entity);
+          if (!entityId) break;
           this.dispatchEvent(
             new CustomEvent("hass-more-info", {
               bubbles: true,
               composed: true,
-              detail: { entityId: ta.entity },
+              detail: { entityId },
             }),
           );
           break;
