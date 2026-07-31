@@ -330,9 +330,18 @@ export async function fetchForecast(
 
     const allergenEntry = allergenData.get(configAllergenName)!;
 
-    // Today's data from sensor state - prioritize numeric value over level text
-    const sensorValue = Number(sensor.state) || 0;
-    const currentLevel = testVal(ppmToLevel(sensorValue, configAllergenName));
+    // Today's data from sensor state - prioritize numeric value over level text.
+    // A non-numeric state (`unavailable`, `unknown`) is an outage, not a
+    // reading: it becomes the -1 no-information sentinel, the same way the
+    // DetailSensor pass treats one. Reading it as 0 ppm would turn a dead
+    // entity into "no pollen", or -- with the default threshold -- drop the row
+    // without a word.
+    const parsedState = Number(sensor.state);
+    const hasReading = Number.isFinite(parsedState);
+    const sensorValue = hasReading ? parsedState : -1;
+    const currentLevel = testVal(
+      hasReading ? ppmToLevel(sensorValue, configAllergenName) : -1,
+    );
 
     if (debug) {
       console.debug(

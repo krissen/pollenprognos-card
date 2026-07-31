@@ -392,10 +392,11 @@ describe("Kleenex adapter: PPM to level conversion", () => {
     expect(result[0]!.days[0]!.raw_value).toBe(15);
   });
 
-  it("coerces 'unavailable' sensor state to level 0 for category sensors", async () => {
-    // The adapter uses: Number(sensor.state) || 0
-    // Number("unavailable") = NaN; NaN || 0 = 0; ppmToLevel(0) = 0.
-    // This means "unavailable" is treated as zero pollen, not -1.
+  it("reports an 'unavailable' category sensor as no information, not as zero pollen", async () => {
+    // This used to read Number(sensor.state) || 0, which turned a dead entity
+    // into a confident "no pollen" row (and, at the default threshold, into no
+    // row at all). A non-numeric state is an outage, and the DetailSensor pass
+    // has always used the -1 sentinel for one; the category paths now agree.
     const entity: any = {
       entity_id: "sensor.kleenex_pollen_radar_amsterdam_trees",
       state: "unavailable",
@@ -413,7 +414,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.days[0]!.state).toBe(0);
+    expect(result[0]!.days[0]!.state).toBe(-1);
+    expect(result[0]!.days[0]!.value).toBe(-1);
+    expect(result[0]!.days[0]!.state_text).toBe(NO_INFO_LABEL);
   });
 
   it("returns -1 for negative PPM values", async () => {
@@ -2924,6 +2927,9 @@ describe("Kleenex adapter: manual prefix across locations", () => {
  * the per-allergen breakdown away. Trees reads 0, which is the zero-value case
  * the issue calls out.
  */
+/** The label a -1 (no reading) day renders with, in the test locale. */
+const NO_INFO_LABEL = "(No information)";
+
 const US_ATLANTA_PPM: Record<string, number> = {
   trees: 0,
   grass: 15,
@@ -3009,9 +3015,7 @@ describe("Kleenex adapter: US/NA category fallback", () => {
     expect(trees.days[0]!.value).toBe(0);
     // The level-0 name, not the "no information" label that a -1 day gets.
     expect(trees.days[0]!.state_text).toBe("No pollen");
-    expect(trees.days[0]!.state_text).not.toBe(
-      stubConfigKleenex.phrase_no_information,
-    );
+    expect(trees.days[0]!.state_text).not.toBe(NO_INFO_LABEL);
   });
 
   it("treats an all-zero category exactly as an all-zero EU allergen: filtered by the threshold", async () => {
@@ -3040,6 +3044,31 @@ describe("Kleenex adapter: US/NA category fallback", () => {
 
     expect(usResult.map((s) => s.allergenReplaced)).not.toContain("trees_cat");
     expect(euResult.map((s) => s.allergenReplaced)).not.toContain("birch");
+  });
+
+  it("reports an unavailable category as no information, never as a zero reading", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // One category entity is mid-outage but still carries its attributes, so
+    // the fingerprint still matches and the fallback still runs. The dead row
+    // must not claim "no pollen" -- at the default threshold it would simply
+    // vanish, which is worse: a US card would silently show two categories.
+    const entities = makeUSLocation("atlanta_georgia");
+    entities[0]!.state = "unavailable";
+    const hass = makeHassFromEntities(entities);
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const trees = result.find((s) => s.allergenReplaced === "trees_cat")!;
+    expect(trees.days[0]!.state).toBe(-1);
+    expect(trees.days[0]!.value).toBe(-1);
+    expect(trees.days[0]!.state_text).toBe(NO_INFO_LABEL);
+    // The healthy categories are unaffected.
+    const grass = result.find((s) => s.allergenReplaced === "grass_cat")!;
+    expect(grass.days[0]!.state).toBe(1);
   });
 
   // --- The fallback stands aside ------------------------------------------
