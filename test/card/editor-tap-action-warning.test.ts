@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderInteractionSection } from "../../src/editor/sections/interactions.js";
-import {
-  parseEntityId,
-  resolveTapActionType,
-} from "../../src/rendering/level-circle-mixin.js";
+import { resolveTapActionType } from "../../src/rendering/level-circle-mixin.js";
 
 /**
  * The editor's caveat under the more-info entity field has to fire on exactly
@@ -26,19 +23,36 @@ function collectStrings(node: unknown, out: string[] = []): string[] {
   return out;
 }
 
-function fakeEditor(tapEntity: string) {
+/** The field each action type warns about, and the config key it lives under. */
+const TYPES = {
+  "more-info": { prop: "_tapEntity", key: "entity" },
+  navigate: { prop: "_tapNavigation", key: "navigation_path" },
+  "call-service": { prop: "_tapService", key: "service" },
+} as const;
+type TapType = keyof typeof TYPES;
+
+const WARNING_KEYS = [
+  "tap_action_more_info_needs_entity",
+  "tap_action_navigate_needs_path",
+  "tap_action_call_service_needs_service",
+];
+
+function fakeEditor(type: TapType, value: string) {
+  const { prop, key } = TYPES[type];
   return {
     _editorConfig: () => ({}),
-    _config: { tap_action: { type: "more-info", entity: tapEntity } },
+    _config: { tap_action: { type, [key]: value } },
     _hass: {},
-    _tapType: "more-info",
-    _tapEntity: tapEntity,
+    _tapType: type,
+    _tapEntity: "",
     _tapNavigation: "",
     _tapService: "",
+    [prop]: value,
     _tapServiceData: "",
-    // Only the warning key needs to be distinguishable.
+    // Any of the three warning strings collapses to one marker: the test cares
+    // that the field is flagged, not which sentence says so.
     _t: (key: string) =>
-      key === "tap_action_more_info_needs_entity" ? WARNING : `t:${key}`,
+      WARNING_KEYS.includes(key) ? WARNING : `t:${key}`,
     _renderTextField: () => "",
     _renderSectionReset: () => "",
     _interactivitySectionTitle: () => "",
@@ -48,31 +62,69 @@ function fakeEditor(tapEntity: string) {
   } as any;
 }
 
-const warns = (entity: string) =>
-  collectStrings(renderInteractionSection(fakeEditor(entity))).includes(WARNING);
+const warns = (type: TapType, value: string) =>
+  collectStrings(renderInteractionSection(fakeEditor(type, value))).includes(
+    WARNING,
+  );
+
+/** Values worth trying for every type: blank shapes, then a usable one. */
+const SAMPLES: Record<TapType, string[]> = {
+  "more-info": ["", "   ", "\t", "sensor.pollen", " sensor.pollen "],
+  navigate: ["", "   ", "\t", "/lovelace/2", " /lovelace/2 "],
+  "call-service": [
+    "",
+    "   ",
+    "notadomain",
+    "foo.bar.baz",
+    " . ",
+    "light.turn_on",
+    " light.turn_on ",
+  ],
+};
 
 describe("editor warning for a more-info tap_action", () => {
   it("warns for an entity that is only whitespace", () => {
-    expect(warns("   ")).toBe(true);
+    expect(warns("more-info", "   ")).toBe(true);
   });
 
   it("warns for an empty entity", () => {
-    expect(warns("")).toBe(true);
+    expect(warns("more-info", "")).toBe(true);
   });
 
   it("stays quiet for a real entity, padded or not", () => {
-    expect(warns("sensor.pollen")).toBe(false);
-    expect(warns(" sensor.pollen ")).toBe(false);
+    expect(warns("more-info", "sensor.pollen")).toBe(false);
+    expect(warns("more-info", " sensor.pollen ")).toBe(false);
+  });
+});
+
+describe("editor warnings cover every action type", () => {
+  it("warns for navigate without a usable path", () => {
+    expect(warns("navigate", "")).toBe(true);
+    expect(warns("navigate", "   ")).toBe(true);
+    expect(warns("navigate", "/lovelace/2")).toBe(false);
   });
 
-  it("fires on exactly the values the runtime calls inert", () => {
-    for (const entity of ["", "   ", "\t", "sensor.pollen", " sensor.pollen "]) {
-      const inert =
-        resolveTapActionType({ type: "more-info", entity }) === null;
-      expect(warns(entity), `disagreement for ${JSON.stringify(entity)}`).toBe(
-        inert,
-      );
-      expect(inert).toBe(parseEntityId(entity) === null);
+  it("warns for call-service without a usable service id", () => {
+    expect(warns("call-service", "")).toBe(true);
+    expect(warns("call-service", "notadomain")).toBe(true);
+    expect(warns("call-service", "foo.bar.baz")).toBe(true);
+    expect(warns("call-service", "light.turn_on")).toBe(false);
+  });
+
+  it("fires on exactly the configs the runtime calls inert", () => {
+    // The invariant, per type: the editor flags a field if and only if
+    // resolveTapActionType refuses to bind the click. Asserting it against the
+    // resolver rather than against a list of strings means the two cannot
+    // drift apart as either side gains cases.
+    for (const type of Object.keys(SAMPLES) as TapType[]) {
+      const { key } = TYPES[type];
+      for (const value of SAMPLES[type]) {
+        const inert = resolveTapActionType({ type, [key]: value }) === null;
+        expect(
+          warns(type, value),
+          `disagreement for ${type} ${JSON.stringify(value)}`,
+        ).toBe(inert);
+      }
     }
   });
 });

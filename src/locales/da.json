@@ -390,6 +390,8 @@
   "editor.tap_action_enable": "Aktivér tryk-handling",
   "editor.tap_action_entity": "Entitet",
   "editor.tap_action_more_info_needs_entity": "Denne handling kræver en entitet; uden en gør den ingenting.",
+  "editor.tap_action_navigate_needs_path": "Denne handling kræver en navigationssti; uden en gør den ingenting.",
+  "editor.tap_action_call_service_needs_service": "Denne handling kræver et gyldigt id på formen domain.service; uden et gør den ingenting.",
   "editor.tap_action_navigation_path": "Navigationssti",
   "editor.tap_action_service": "Service (f.eks. light.turn_on)",
   "editor.tap_action_service_data": "Servicedata (JSON)",

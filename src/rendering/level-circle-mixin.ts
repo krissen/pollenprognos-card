@@ -91,7 +91,7 @@ function rawTapActionType(tapAction: TapActionConfig): string {
  * domain of `" light"`, which is not a domain Home Assistant has, so the call
  * went nowhere with nothing said. The trimmed halves are what get dispatched.
  */
-function parseServiceId(svc: unknown): [string, string] | null {
+export function parseServiceId(svc: unknown): [string, string] | null {
   if (typeof svc !== "string") return null;
   const parts = svc.trim().split(".");
   if (parts.length !== 2) return null;
@@ -117,6 +117,19 @@ export function parseEntityId(entity: unknown): string | null {
 }
 
 /**
+ * The path a navigate action should push, or null when there is none. Same
+ * treatment as the other two parsers, for the same reason: a YAML value that
+ * is a number, a list or nothing but spaces is truthy, and pushing `"   "`
+ * into the router is not navigation. Exported so the editor warns on exactly
+ * this rule.
+ */
+export function parseNavigationPath(path: unknown): string | null {
+  if (typeof path !== "string") return null;
+  const trimmed = path.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
  * Resolve a tap_action config to the effective action type, or null when the
  * action is absent/unactionable. A plain object with no action keyword defaults
  * to "more-info" (the handler's documented default); "none", non-objects,
@@ -133,7 +146,8 @@ export function resolveTapActionType(tapAction: unknown): TapActionType | null {
   if (!TAP_ACTION_TYPES.includes(type as TapActionType)) return null;
   // Mirror the handler's own field requirements so callers never bind a click
   // (or show a pointer cursor) for a config the handler would no-op on.
-  if (type === "navigate" && !ta.navigation_path) return null;
+  if (type === "navigate" && !parseNavigationPath(ta.navigation_path))
+    return null;
   if (type === "call-service" && !parseServiceId(ta.service || ta.perform_action))
     return null;
   // more-info has nothing to open without an entity. The handler used to
@@ -679,13 +693,10 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
           );
           break;
         }
-        case "navigate":
-          if (
-            ta.navigation_path &&
-            typeof window !== "undefined" &&
-            window.history?.pushState
-          ) {
-            window.history.pushState(null, "", ta.navigation_path);
+        case "navigate": {
+          const path = parseNavigationPath(ta.navigation_path);
+          if (path && typeof window !== "undefined" && window.history?.pushState) {
+            window.history.pushState(null, "", path);
             // HA's router listens on window for "location-changed"; a bare
             // pushState updates the URL but never re-resolves the panel. Mirror
             // the frontend navigate() helper's fireEvent form: a plain Event
@@ -700,6 +711,7 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
             window.dispatchEvent(ev);
           }
           break;
+        }
         case "call-service": {
           // Accept the card's service/service_data and HA's modern
           // perform_action/data spelling. parseServiceId enforces a strict

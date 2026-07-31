@@ -390,6 +390,8 @@
   "editor.tap_action_enable": "Ota napautustoiminto käyttöön",
   "editor.tap_action_entity": "Entiteetti",
   "editor.tap_action_more_info_needs_entity": "Tämä toiminto tarvitsee entiteetin; ilman sitä se ei tee mitään.",
+  "editor.tap_action_navigate_needs_path": "Tämä toiminto tarvitsee navigointipolun; ilman sitä se ei tee mitään.",
+  "editor.tap_action_call_service_needs_service": "Tämä toiminto tarvitsee kelvollisen domain.service-tunnuksen; ilman sitä se ei tee mitään.",
   "editor.tap_action_navigation_path": "Navigointipolku",
   "editor.tap_action_service": "Palvelu (esim. light.turn_on)",
   "editor.tap_action_service_data": "Palveludata (JSON)",

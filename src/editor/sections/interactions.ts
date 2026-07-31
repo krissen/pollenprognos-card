@@ -5,7 +5,11 @@
 
 import { html, type TemplateResult } from "lit";
 import type { PollenEditorLike } from "../types.js";
-import { parseEntityId } from "../../rendering/level-circle-mixin.js";
+import {
+  parseEntityId,
+  parseNavigationPath,
+  parseServiceId,
+} from "../../rendering/level-circle-mixin.js";
 
 export function renderInteractionSection(
   editor: PollenEditorLike,
@@ -149,6 +153,11 @@ export function renderInteractionSection(
                       },
                     })}
                   </ha-formfield>
+                  ${!parseNavigationPath(editor._tapNavigation)
+                    ? html`<div class="field-warning">
+                        ${editor._t("tap_action_navigate_needs_path")}
+                      </div>`
+                    : ""}
                 `
               : ""}
             ${editor._tapType === "call-service"
@@ -170,6 +179,11 @@ export function renderInteractionSection(
                       },
                     })}
                   </ha-formfield>
+                  ${!parseServiceId(editor._tapService)
+                    ? html`<div class="field-warning">
+                        ${editor._t("tap_action_call_service_needs_service")}
+                      </div>`
+                    : ""}
                   <ha-formfield label="${editor._t("tap_action_service_data")}">
                     ${editor._renderTextField({
                       value: editor._tapServiceData,

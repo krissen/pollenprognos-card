@@ -390,6 +390,8 @@
   "editor.tap_action_enable": "Ενεργοποίηση ενέργειας πατήματος",
   "editor.tap_action_entity": "Οντότητα",
   "editor.tap_action_more_info_needs_entity": "Αυτή η ενέργεια χρειάζεται μια οντότητα· χωρίς αυτήν δεν κάνει τίποτα.",
+  "editor.tap_action_navigate_needs_path": "Αυτή η ενέργεια χρειάζεται διαδρομή πλοήγησης· χωρίς αυτήν δεν κάνει τίποτα.",
+  "editor.tap_action_call_service_needs_service": "Αυτή η ενέργεια χρειάζεται έγκυρο αναγνωριστικό της μορφής domain.service· χωρίς αυτό δεν κάνει τίποτα.",
   "editor.tap_action_navigation_path": "Διαδρομή πλοήγησης",
   "editor.tap_action_service": "Υπηρεσία (π.χ. light.turn_on)",
   "editor.tap_action_service_data": "Δεδομένα υπηρεσίας (JSON)",
