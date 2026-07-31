@@ -106,11 +106,22 @@ function makeConfig(overrides: any = {}): any {
 /**
  * Build a Kleenex sensor state object.
  *
+ * Every forecast day carries a numeric `value`, because every real one does:
+ * checked across all eight configured locations, and structural in the
+ * integration (sensor.py:272-278 writes the field unconditionally). A day
+ * without the field describes a payload the integration cannot produce, so
+ * omitting it here only ever tested the card against fiction. When a caller
+ * gives no explicit `value`, the day repeats today's reading -- which is what
+ * the US zone actually sends, and is a plausible EU day too.
+ *
+ * 0 is a reading, not a gap: London's and Utrecht's trees sensors sit at 0
+ * across the whole forecast, and that is "no pollen".
+ *
  * @param {string} location  - Location slug, e.g. "amsterdam"
  * @param {string} category  - Entity suffix, e.g. "trees", "grass", "weeds"
  * @param {number} ppmValue  - Today's PPM reading (sensor state)
  * @param {Array}  details   - [{name, value}] for individual allergen breakdown
- * @param {Array}  forecast  - [{level, details}] per future day
+ * @param {Array}  forecast  - [{level, value?, details}] per future day
  * @returns {Object} sensor state object with entity_id set
  */
 function makeKleenexEntity(
@@ -128,6 +139,7 @@ function makeKleenexEntity(
       forecast: forecast.map((f: any, i: number) => ({
         datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
         level: f.level,
+        value: f.value !== undefined ? f.value : Number(ppmValue),
         details: f.details || [],
       })),
     },
@@ -2976,6 +2988,45 @@ function makeUSLocation(location: string, ppm = US_ATLANTA_PPM): any[] {
   }));
 }
 
+/**
+ * The EU fixture builder writes a `value` on every forecast day, mirroring what
+ * the integration always sends. Without an assertion on it the helper could
+ * quietly go back to omitting the field, and every EU test would be exercising
+ * a payload shape that cannot occur.
+ */
+describe("Kleenex fixtures: EU forecast days carry their own value", () => {
+  it("levels a category forecast day from that day's value, not from today's", async () => {
+    const entity = makeKleenexEntity(
+      "utrecht",
+      "weeds",
+      37,
+      [{ name: "Nettle", value: 30 }],
+      // Utrecht's live weeds forecast, first two days.
+      [
+        { level: 2, value: 55, details: [{ name: "Nettle", value: 50 }] },
+        { level: 1, value: 8, details: [{ name: "Nettle", value: 6 }] },
+      ],
+    );
+    const hass = makeHassFromEntities([entity]);
+    const config = makeConfig({
+      location: "utrecht",
+      allergens: ["weeds_cat"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const weeds = result.find((s) => s.allergenReplaced === "weeds_cat")!;
+    // Weeds thresholds are [20, 77, 266]: 37 -> 2, 55 -> 2, 8 -> 1. Each day
+    // gets its own number rather than repeating today's or falling to a gap.
+    expect(weeds.days.slice(0, 3).map((d: any) => [d.state, d.value])).toEqual([
+      [2, 37],
+      [2, 55],
+      [1, 8],
+    ]);
+  });
+});
+
 describe("Kleenex adapter: US/NA category fallback", () => {
   beforeEach(() => {
     _resetNaWarningsForTest();
@@ -3162,11 +3213,20 @@ describe("Kleenex adapter: US/NA category fallback", () => {
       { datetime: "d2", level: 2, value: 200, details: [] },
       { datetime: "d3", level: 1, value: null, details: [] },
       { datetime: "d4", level: 1, value: "", details: [] },
+      // Deliberately synthetic: the integration always writes `value`
+      // (sensor.py:272-278, confirmed across all eight live locations), so a
+      // day without the field cannot occur today. Kept as the one place that
+      // holds the defensive net, so a future upstream change that starts
+      // omitting it cannot silently become "no pollen".
+      { datetime: "d5", level: 1, details: [] },
     ];
     const hass = makeHassFromEntities(entities);
     const config = makeConfig({
       location: "atlanta_georgia",
       pollen_threshold: 0,
+      // Five forecast days plus today: the stub's five columns would cut the
+      // last day off before it could be asserted.
+      days_to_show: 6,
     });
 
     const result = await fetchForecast(hass, config);
@@ -3183,6 +3243,9 @@ describe("Kleenex adapter: US/NA category fallback", () => {
     expect(trees.days[3]!.value).toBe(-1);
     expect(trees.days[4]!.state).toBe(-1);
     expect(trees.days[4]!.value).toBe(-1);
+    // The synthetic missing-field day.
+    expect(trees.days[5]!.state).toBe(-1);
+    expect(trees.days[5]!.value).toBe(-1);
   });
 
   it("treats an empty sensor state as no information", async () => {

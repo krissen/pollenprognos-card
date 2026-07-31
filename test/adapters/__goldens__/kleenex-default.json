@@ -16,22 +16,22 @@
       {
         "name": "Trees",
         "day": "Tomorrow",
-        "state": -1,
-        "display_state": -1,
-        "state_text": "(No information)",
-        "value": -1,
-        "raw_value": -1,
-        "description": "(No information)"
+        "state": 3,
+        "display_state": 3,
+        "state_text": "High levels",
+        "value": 250,
+        "raw_value": 250,
+        "description": "High levels"
       },
       {
         "name": "Trees",
         "day": "Day after tomorrow",
-        "state": -1,
-        "display_state": -1,
-        "state_text": "(No information)",
-        "value": -1,
-        "raw_value": -1,
-        "description": "(No information)"
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
       },
       {
         "name": "Trees",

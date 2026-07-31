@@ -227,12 +227,16 @@ function irmkmiHass(
 }
 
 // -- Kleenex --------------------------------------------------------------
+// The EU/UK shape. Every forecast day carries a numeric `value`: verified
+// across all eight configured locations and written unconditionally by the
+// integration (sensor.py:272-278), so a day without one describes a payload
+// that cannot occur. A day with no explicit value repeats today's reading.
 function kleenexEntity(
   location: string,
   category: string,
   ppmValue: number,
   details: Array<{ name: string; value: number }> = [],
-  forecast: Array<{ level: number; details?: any[] }> = [],
+  forecast: Array<{ level: number; value?: number; details?: any[] }> = [],
 ) {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
@@ -242,6 +246,7 @@ function kleenexEntity(
       forecast: forecast.map((f, i) => ({
         datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
         level: f.level,
+        value: f.value !== undefined ? f.value : ppmValue,
         details: f.details || [],
       })),
     },
@@ -620,8 +625,11 @@ export function buildGoldenFixtures(): GoldenCase[] {
           { name: "Oak", value: 50 },
         ],
         [
+          // Category totals, as the integration sends them: a number per day,
+          // at or above the details it breaks down into.
           {
             level: 3,
+            value: 250,
             details: [
               { name: "Birch", value: 120 },
               { name: "Oak", value: 40 },
@@ -629,6 +637,7 @@ export function buildGoldenFixtures(): GoldenCase[] {
           },
           {
             level: 1,
+            value: 15,
             details: [
               { name: "Birch", value: 10 },
               { name: "Oak", value: 5 },
@@ -640,6 +649,35 @@ export function buildGoldenFixtures(): GoldenCase[] {
     cfg(stubConfigKleenex, {
       location: "amsterdam",
       allergens: ["birch", "oak", "trees_cat"],
+      pollen_threshold: 0,
+    }),
+  );
+
+  // London's and Utrecht's trees sensors, live: 0 ppm today and on every
+  // forecast day, with the full nine-species breakdown also at 0. Pins that a
+  // zero reading is "no pollen" the whole way through -- it is a measurement,
+  // not a gap, and must not be confused with the -1 no-information sentinel.
+  add(
+    "kleenex",
+    "eu-zero-forecast",
+    kleenexHass([
+      kleenexEntity(
+        "london",
+        "trees",
+        0,
+        [
+          { name: "Hazel", value: 0 },
+          { name: "Birch", value: 0 },
+        ],
+        [
+          { level: 0, value: 0, details: [{ name: "Birch", value: 0 }] },
+          { level: 0, value: 0, details: [{ name: "Birch", value: 0 }] },
+        ],
+      ),
+    ]),
+    cfg(stubConfigKleenex, {
+      location: "london",
+      allergens: ["birch", "trees_cat"],
       pollen_threshold: 0,
     }),
   );
