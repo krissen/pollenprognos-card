@@ -738,14 +738,16 @@ export async function fetchForecast(
   // their chance first, so an install that has enabled the per-allergen
   // DetailSensor entities keeps rendering exactly those and never grows a
   // category row it did not ask for.
-  const individualAllEmpty = requestedIndividual.every(
-    (a) => !allergenData.has(a),
-  );
-  const naFallbackActive =
+  //
+  // Both this and the notice below start from the same question -- did the user
+  // ask for per-allergen rows the zone cannot give? -- and differ only in which
+  // configured category shape makes them stand down, so the shared part is
+  // stated once.
+  const naZoneUnanswered =
     naDetailsFingerprint &&
-    !categoryConfigured &&
     requestedIndividual.length > 0 &&
-    individualAllEmpty;
+    requestedIndividual.every((a) => !allergenData.has(a));
+  const naFallbackActive = naZoneUnanswered && !categoryConfigured;
   const effectiveAllergens = naFallbackActive
     ? [...configuredAllergens, ...recommendedCategoryKeys]
     : configuredAllergens;
@@ -768,16 +770,19 @@ export async function fetchForecast(
   }
 
   // --- NA-zone notice ---
-  // The user asked for individual allergens and the zone had none to give.
-  // Worth one line in the console either way: the fallback stepped in (say so,
-  // so rows the user never configured are not a mystery), or it stood aside
-  // because the user had configured category allergens themselves.
+  // Worth one line in the console in two cases, which is why this stands down
+  // on a narrower set of keys than the fallback does:
+  //   - the fallback stepped in: say so, so rows the user never configured are
+  //     not a mystery;
+  //   - the user configured a raw category name (`trees` rather than
+  //     `trees_cat`), which holds the fallback back without putting them on the
+  //     recommended keys -- their per-allergen selections are still silently
+  //     empty, so they are told why.
+  // A user already on `*_cat` needs neither: they see category rows and asked
+  // for them, so the notice stays quiet.
   const naNoticeApplies =
-    requestedIndividual.length > 0 &&
-    categorySensorsFound.length > 0 &&
-    naDetailsFingerprint &&
-    !recommendedCategoryKeys.some((k) => configuredAllergens.includes(k)) &&
-    individualAllEmpty;
+    naZoneUnanswered &&
+    !recommendedCategoryKeys.some((k) => configuredAllergens.includes(k));
   if (naNoticeApplies) {
     const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
     if (!NA_WARNED_KEYS.has(warnKey)) {
