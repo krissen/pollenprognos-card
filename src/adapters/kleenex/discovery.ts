@@ -689,8 +689,9 @@ export interface KleenexManualScope {
  *      Everything this step decides on is the device link, so a registry entry
  *      that has none is not "another device" to it and stays -- deliberately:
  *      were the link ever missing wholesale, dropping would leave an empty card
- *      where keeping degrades to the pre-narrowing behaviour. Such an entry is
- *      still attributable to a location by step 2, which does drop it.
+ *      where keeping degrades to the pre-narrowing behaviour. Kept by this step,
+ *      that is: on an install where no device owns the prefix, step 2 can
+ *      attribute such an entry and does drop it.
  *   2. Discovered locations (runs when no device owned the prefix, at least two
  *      entities matched, and they span more than one discovered location). A
  *      location may still answer to the prefix through its discovery key or
