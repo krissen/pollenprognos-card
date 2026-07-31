@@ -5,6 +5,7 @@
 
 import { html, type TemplateResult } from "lit";
 import type { PollenEditorLike } from "../types.js";
+import { parseEntityId } from "../../rendering/level-circle-mixin.js";
 
 export function renderInteractionSection(
   editor: PollenEditorLike,
@@ -127,7 +128,7 @@ export function renderInteractionSection(
                       },
                     })}
                   </ha-formfield>
-                  ${!editor._tapEntity
+                  ${!parseEntityId(editor._tapEntity)
                     ? html`<div class="field-warning">
                         ${editor._t("tap_action_more_info_needs_entity")}
                       </div>`

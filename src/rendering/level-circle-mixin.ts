@@ -85,23 +85,32 @@ function rawTapActionType(tapAction: TapActionConfig): string {
  * "domain.service": one dot, both halves non-empty. Multi-dot strings
  * (e.g. "foo.bar.baz") and dotless strings are rejected so a misconfigured
  * value can't silently call an unintended service.
+ *
+ * Whitespace around the id and around either half is dropped, the same way
+ * {@link parseEntityId} treats it: `" light.turn_on "` used to split into a
+ * domain of `" light"`, which is not a domain Home Assistant has, so the call
+ * went nowhere with nothing said. The trimmed halves are what get dispatched.
  */
 function parseServiceId(svc: unknown): [string, string] | null {
   if (typeof svc !== "string") return null;
-  const parts = svc.split(".");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-  return [parts[0], parts[1]];
+  const parts = svc.trim().split(".");
+  if (parts.length !== 2) return null;
+  const domain = parts[0]!.trim();
+  const service = parts[1]!.trim();
+  if (!domain || !service) return null;
+  return [domain, service];
 }
 
 /**
  * The entity id a more-info action should open, or null when there is none to
- * open. YAML can deliver a number, a list, or a string of spaces, and all three
+ * open. Exported so the editor can decide whether to warn on exactly the rule
+ * the runtime applies. YAML can deliver a number, a list, or a string of spaces, and all three
  * are truthy: testing the raw value would bind a click and then dispatch
  * something that is not an entity id. Surrounding whitespace is dropped rather
  * than rejected, since a stray space in hand-written YAML still names an
  * entity the user meant.
  */
-function parseEntityId(entity: unknown): string | null {
+export function parseEntityId(entity: unknown): string | null {
   if (typeof entity !== "string") return null;
   const trimmed = entity.trim();
   return trimmed ? trimmed : null;

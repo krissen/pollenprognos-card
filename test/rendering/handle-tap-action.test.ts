@@ -148,6 +148,23 @@ describe("LevelCircleMixin._handleTapAction", () => {
     );
   });
 
+  it("calls the right service when the id carries whitespace", () => {
+    // `" light.turn_on "` used to split into a domain of `" light"`, so the
+    // call reached a domain Home Assistant does not have and nothing happened.
+    el.tapAction = {
+      type: "call-service",
+      service: " light.turn_on ",
+      service_data: { brightness: 10 },
+    };
+    el._handleTapAction(makeEvent());
+    expect(el._hass.callService).toHaveBeenCalledWith(
+      "light",
+      "turn_on",
+      { brightness: 10 },
+      undefined,
+    );
+  });
+
   it("call-service splits domain.service and forwards service_data", () => {
     el.tapAction = {
       type: "call-service",
@@ -369,6 +386,18 @@ describe("resolveTapActionType", () => {
     // A valid service id is exactly domain.service; multi-dot is rejected.
     expect(
       resolveTapActionType({ type: "call-service", service: "foo.bar.baz" }),
+    ).toBeNull();
+    // Whitespace is not what makes an id invalid, though: it is trimmed, the
+    // same way a padded entity id is.
+    expect(
+      resolveTapActionType({ type: "call-service", service: " light.toggle " }),
+    ).toBe("call-service");
+    expect(
+      resolveTapActionType({ type: "call-service", service: "light . toggle" }),
+    ).toBe("call-service");
+    // Trimming cannot rescue an id that has no halves to begin with.
+    expect(
+      resolveTapActionType({ type: "call-service", service: " . " }),
     ).toBeNull();
   });
 
