@@ -16,22 +16,22 @@
       {
         "name": "Trees",
         "day": "Tomorrow",
-        "state": 0,
-        "display_state": 0,
-        "state_text": "No pollen",
-        "value": 0,
-        "raw_value": 0,
-        "description": "No pollen"
+        "state": -1,
+        "display_state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
       },
       {
         "name": "Trees",
         "day": "Day after tomorrow",
-        "state": 0,
-        "display_state": 0,
-        "state_text": "No pollen",
-        "value": 0,
-        "raw_value": 0,
-        "description": "No pollen"
+        "state": -1,
+        "display_state": -1,
+        "state_text": "(No information)",
+        "value": -1,
+        "raw_value": -1,
+        "description": "(No information)"
       },
       {
         "name": "Trees",

@@ -48,6 +48,21 @@ interface KleenexAllergenEntry {
 // A forecast/detail item as reported by the integration (loosely shaped).
 type KleenexItem = Record<string, unknown>;
 
+/**
+ * Read one ppm measurement off a payload field.
+ *
+ * A field that is not a finite number carries no measurement -- `unavailable`,
+ * `unknown`, a missing key -- and becomes the -1 no-information sentinel rather
+ * than a confident zero, which is what the card renders "no pollen" from. Every
+ * ppm read in this file goes through here so the sensor state, the category
+ * forecast days and the DetailSensor days cannot answer the question
+ * differently. `ppmToLevel` maps the sentinel straight back to level -1.
+ */
+function readPpm(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : -1;
+}
+
 // Track which (location, entity_prefix) combinations have already received the
 // NA-zone warning so it isn't re-emitted on every HA state update.
 const NA_WARNED_KEYS = new Set<string>();
@@ -375,12 +390,8 @@ export async function fetchForecast(
     // DetailSensor pass treats one. Reading it as 0 ppm would turn a dead
     // entity into "no pollen", or -- with the default threshold -- drop the row
     // without a word.
-    const parsedState = Number(sensor.state);
-    const hasReading = Number.isFinite(parsedState);
-    const sensorValue = hasReading ? parsedState : -1;
-    const currentLevel = testVal(
-      hasReading ? ppmToLevel(sensorValue, configAllergenName) : -1,
-    );
+    const sensorValue = readPpm(sensor.state);
+    const currentLevel = testVal(ppmToLevel(sensorValue, configAllergenName));
 
     if (debug) {
       console.debug(
@@ -399,9 +410,9 @@ export async function fetchForecast(
         entry !== null && typeof entry === "object"
           ? (entry as KleenexItem)
           : null;
-      const forecastValue = forecastItem ? Number(forecastItem.value) || 0 : -1;
+      const forecastValue = forecastItem ? readPpm(forecastItem.value) : -1;
       const forecastLevel = testVal(
-        forecastItem ? ppmToLevel(forecastValue, configAllergenName) : -1,
+        ppmToLevel(forecastValue, configAllergenName),
       );
 
       if (debug) {
@@ -519,7 +530,7 @@ export async function fetchForecast(
         const allergenEntry = allergenData.get(canonicalName)!;
 
         // Today's data - prioritize numeric value over level text
-        const detailValue = Number(detail.value) || 0;
+        const detailValue = readPpm(detail.value);
         const rawLevel = ppmToLevel(detailValue, canonicalName); // Calculate raw level (0-4)
         const currentLevel = testVal(rawLevel); // Validate and clamp level (0-4)
 
@@ -584,7 +595,7 @@ export async function fetchForecast(
           }
 
           const allergenEntry = allergenData.get(canonicalName)!;
-          const forecastValue = Number(detail.value) || 0;
+          const forecastValue = readPpm(detail.value);
           const rawLevel = ppmToLevel(forecastValue, canonicalName); // Calculate raw level (0-4)
           const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
 
@@ -713,13 +724,8 @@ export async function fetchForecast(
     // Non-numeric forecast values are treated as missing-day sentinels (-1).
     const detailForecast: KleenexItem[] = sensor.attributes?.forecast || [];
     detailForecast.forEach((forecastItem, dayIndex) => {
-      const parsedForecast = Number(forecastItem.value);
-      const forecastValue = Number.isFinite(parsedForecast)
-        ? parsedForecast
-        : -1;
-      const fRawLevel =
-        forecastValue < 0 ? -1 : ppmToLevel(forecastValue, canonicalName);
-      const forecastLevel = testVal(fRawLevel);
+      const forecastValue = readPpm(forecastItem.value);
+      const forecastLevel = testVal(ppmToLevel(forecastValue, canonicalName));
       allergenEntry.levels[dayIndex + 1] = {
         date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
         level: forecastLevel,

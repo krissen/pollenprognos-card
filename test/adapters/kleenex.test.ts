@@ -3148,6 +3148,33 @@ describe("Kleenex adapter: US/NA category fallback", () => {
     expect(result).toEqual([]);
   });
 
+  it("marks a forecast day with an unreadable value as no information, in its own slot", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // A well-formed day whose `value` is not a number carries no measurement.
+    // Reading it as 0 ppm claimed "no pollen" for a day nobody measured, and
+    // the neighbouring days must keep their own slots either way.
+    const entities = makeUSLocation("atlanta_georgia");
+    (entities[0]!.attributes as any).forecast = [
+      { datetime: "d1", level: 1, value: "unavailable", details: [] },
+      { datetime: "d2", level: 2, value: 200, details: [] },
+    ];
+    const hass = makeHassFromEntities(entities);
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const trees = result.find((s) => s.allergenReplaced === "trees_cat")!;
+    expect(trees.days[1]!.state).toBe(-1);
+    expect(trees.days[1]!.value).toBe(-1);
+    expect(trees.days[1]!.state_text).toBe(NO_INFO_LABEL);
+    // 200 ppm of tree pollen is level 2, and it stayed on day 2.
+    expect(trees.days[2]!.state).toBe(2);
+    expect(trees.days[2]!.value).toBe(200);
+  });
+
   // --- Malformed payloads --------------------------------------------------
 
   it("does not throw when the forecast attribute is not an array", async () => {
