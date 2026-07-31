@@ -113,3 +113,23 @@ describe("i18n", () => {
     }
   });
 });
+
+describe("editor warning strings", () => {
+  // One per action type: the editor flags whichever required field is empty,
+  // in whatever language the user runs HA in.
+  const KEYS = [
+    "editor.tap_action_more_info_needs_entity",
+    "editor.tap_action_navigate_needs_path",
+    "editor.tap_action_call_service_needs_service",
+  ];
+
+  it("has every tap_action caveat in every locale", () => {
+    for (const lang of SUPPORTED_LOCALES) {
+      for (const key of KEYS) {
+        const text = t(key, lang);
+        expect(text, `missing ${key} for ${lang}`).toBeTruthy();
+        expect(text, `untranslated ${key} for ${lang}`).not.toBe(key);
+      }
+    }
+  });
+});

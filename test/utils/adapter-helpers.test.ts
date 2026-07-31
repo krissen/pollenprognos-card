@@ -1121,7 +1121,7 @@ describe("findLocationBySlug", () => {
     // Extractor pulls out the city name from a known position
     const slugExtractor = (eid: string) => {
       const m = eid.match(/_([A-Z]+)_extra$/);
-      return m ? m[1].toLowerCase() : null;
+      return m ? m[1]!.toLowerCase() : null;
     };
 
     const result = findLocationBySlug(discovery, "nice", { slugExtractor })!;

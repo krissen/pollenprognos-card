@@ -1,0 +1,176 @@
+[
+  {
+    "allergenReplaced": "grass_cat",
+    "entity_id": "sensor.kleenex_pollen_radar_atlanta_georgia_grass",
+    "days": [
+      {
+        "name": "Grasses",
+        "day": "Today",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
+      },
+      {
+        "name": "Grasses",
+        "day": "Tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
+      },
+      {
+        "name": "Grasses",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
+      },
+      {
+        "name": "Grasses",
+        "day": "Jun 18",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
+      },
+      {
+        "name": "Grasses",
+        "day": "Jun 19",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
+      }
+    ],
+    "allergenCapitalized": "Grasses",
+    "allergenShort": "Grasses"
+  },
+  {
+    "allergenReplaced": "weeds_cat",
+    "entity_id": "sensor.kleenex_pollen_radar_atlanta_georgia_weeds",
+    "days": [
+      {
+        "name": "Weeds",
+        "day": "Today",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 8,
+        "raw_value": 8,
+        "description": "Low levels"
+      },
+      {
+        "name": "Weeds",
+        "day": "Tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 8,
+        "raw_value": 8,
+        "description": "Low levels"
+      },
+      {
+        "name": "Weeds",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 8,
+        "raw_value": 8,
+        "description": "Low levels"
+      },
+      {
+        "name": "Weeds",
+        "day": "Jun 18",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 8,
+        "raw_value": 8,
+        "description": "Low levels"
+      },
+      {
+        "name": "Weeds",
+        "day": "Jun 19",
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 8,
+        "raw_value": 8,
+        "description": "Low levels"
+      }
+    ],
+    "allergenCapitalized": "Weeds",
+    "allergenShort": "Weeds"
+  },
+  {
+    "allergenReplaced": "trees_cat",
+    "entity_id": "sensor.kleenex_pollen_radar_atlanta_georgia_trees",
+    "days": [
+      {
+        "name": "Trees",
+        "day": "Today",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Jun 18",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      },
+      {
+        "name": "Trees",
+        "day": "Jun 19",
+        "state": 0,
+        "display_state": 0,
+        "state_text": "No pollen",
+        "value": 0,
+        "raw_value": 0,
+        "description": "No pollen"
+      }
+    ],
+    "allergenCapitalized": "Trees",
+    "allergenShort": "Trees"
+  }
+]

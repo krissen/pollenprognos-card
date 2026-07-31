@@ -99,8 +99,8 @@ describe("MSW adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].days[0].state).toBe(expected);
-      expect(result[0].days[0].display_state).toBe(expected);
+      expect(result[0]!.days[0]!.state).toBe(expected);
+      expect(result[0]!.days[0]!.display_state).toBe(expected);
     }
   });
 
@@ -110,7 +110,7 @@ describe("MSW adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(1);
+    expect(result[0]!.days.length).toBe(1);
   });
 
   it("allergenReplaced matches canonical key", async () => {
@@ -119,7 +119,7 @@ describe("MSW adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("grass");
+    expect(result[0]!.allergenReplaced).toBe("grass");
   });
 
   it("entity_id is set correctly", async () => {
@@ -128,7 +128,7 @@ describe("MSW adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].entity_id).toBe("sensor.pollen_alder_level_at_8000_za");
+    expect(result[0]!.entity_id).toBe("sensor.pollen_alder_level_at_8000_za");
   });
 
   it("skips allergen with unavailable / unknown state", async () => {
@@ -150,7 +150,7 @@ describe("MSW adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].days[0].state).toBe(0);
+    expect(result[0]!.days[0]!.state).toBe(0);
   });
 
   it("pollen_threshold>0 filters out None-level allergens", async () => {
@@ -166,7 +166,7 @@ describe("MSW adapter: fetchForecast", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("oak");
+    expect(result[0]!.allergenReplaced).toBe("oak");
   });
 
   it("sorts by value_descending by default", async () => {
@@ -181,7 +181,7 @@ describe("MSW adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
   });
 
   it("handles multiple allergens", async () => {
@@ -234,7 +234,7 @@ describe("MSW adapter: fetchForecast", () => {
       const config = makeConfig({ allergens: ["birch"], pollen_threshold: 0 });
       const result = await fetchForecast(hass, config);
       expect(result.length).toBe(1);
-      expect(result[0].days[0].state_text).toBe(expectedText);
+      expect(result[0]!.days[0]!.state_text).toBe(expectedText);
     }
   });
 
@@ -252,7 +252,7 @@ describe("MSW adapter: fetchForecast", () => {
       },
     });
     const result = await fetchForecast(hass, config);
-    expect(result[0].days[0].state_text).toBe("Extremt");
+    expect(result[0]!.days[0]!.state_text).toBe("Extremt");
   });
 });
 
@@ -435,7 +435,7 @@ describe("MSW adapter: fetchForecast (multi-station)", () => {
       location: BERN_ENTRY,
     } as any);
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
-    expect(result[0].days[0].state).toBe(3);
+    expect(result[0]!.entity_id).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
+    expect(result[0]!.days[0]!.state).toBe(3);
   });
 });

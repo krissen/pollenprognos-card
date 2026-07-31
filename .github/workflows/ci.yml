@@ -5,7 +5,11 @@ on:
     branches: [master, dev]
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
+    # Run at an off-peak, odd-minute time (03:43 UTC) rather than midnight.
+    # Top-of-the-hour crons like "0 0 * * *" hit GitHub's scheduled-workflow
+    # rush, which rate-limited hacs/action's raw-content fetches and caused
+    # flaky "no images in Readme" validation failures.
+    - cron: "43 3 * * *"
 
 jobs:
   validate-hacs:
@@ -18,7 +22,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Validate HACS manifest & structure
         uses: hacs/action@main

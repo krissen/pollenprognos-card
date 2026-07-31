@@ -30,7 +30,11 @@ import { stubConfigPP } from "../src/adapters/pp.js";
 import { stubConfigDWD } from "../src/adapters/dwd.js";
 import { stubConfigPEU } from "../src/adapters/peu.js";
 import { stubConfigSILAM } from "../src/adapters/silam.js";
-import { stubConfigATMO, ATMO_ALLERGEN_MAP, ATMO_POLLUTION_ALLERGENS } from "../src/adapters/atmo.js";
+import {
+  stubConfigATMO,
+  ATMO_ALLERGEN_MAP,
+  ATMO_POLLUTION_ALLERGENS,
+} from "../src/adapters/atmo.js";
 import { stubConfigPLU } from "../src/adapters/plu.js";
 import { stubConfigMSW } from "../src/adapters/msw.js";
 import { stubConfigIRMKMI } from "../src/adapters/irmkmi.js";
@@ -43,7 +47,10 @@ import { stubConfigGPL, GPL_ATTRIBUTION } from "../src/adapters/gpl/index.js";
 // ---------------------------------------------------------------------------
 
 // -- PP -------------------------------------------------------------------
-function ppHass(cityKey: string, allergenMap: Record<string, Array<number | null>>) {
+function ppHass(
+  cityKey: string,
+  allergenMap: Record<string, Array<number | null>>,
+) {
   const states: Record<string, any> = {};
   for (const [allergen, levels] of Object.entries(allergenMap)) {
     states[`sensor.pollen_${cityKey}_${allergen}`] = createPPSensor(levels);
@@ -52,9 +59,14 @@ function ppHass(cityKey: string, allergenMap: Record<string, Array<number | null
 }
 
 // -- DWD ------------------------------------------------------------------
-function dwdHass(regionId: string, allergenMap: Record<string, number[]>) {
+function dwdHass(
+  regionId: string,
+  allergenMap: Record<string, [number, number, number]>,
+) {
   const states: Record<string, any> = {};
-  for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap)) {
+  for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(
+    allergenMap,
+  )) {
     states[`sensor.pollenflug_${allergen}_${regionId}`] = createDWDSensor(
       today,
       tomorrow,
@@ -81,10 +93,17 @@ function peuSensor(levelValues: number[], opts: Record<string, any> = {}) {
   };
 }
 
-function peuHass(location: string, allergenMap: Record<string, number[]>, opts: Record<string, any> = {}) {
+function peuHass(
+  location: string,
+  allergenMap: Record<string, number[]>,
+  opts: Record<string, any> = {},
+) {
   const states: Record<string, any> = {};
   for (const [allergen, levels] of Object.entries(allergenMap)) {
-    states[`sensor.polleninformation_${location}_${allergen}`] = peuSensor(levels, opts);
+    states[`sensor.polleninformation_${location}_${allergen}`] = peuSensor(
+      levels,
+      opts,
+    );
   }
   return createHass(states);
 }
@@ -101,9 +120,27 @@ function silamHass(location: string, weatherAttrs: Record<string, any> = {}) {
         pollen_grass: 12,
         index: 2,
         forecast: [
-          { datetime: "2026-06-16T00:00:00", pollen_birch: 40, pollen_alder: 10, pollen_grass: 20, index: 3 },
-          { datetime: "2026-06-17T00:00:00", pollen_birch: 20, pollen_alder: 2, pollen_grass: 8, index: 1 },
-          { datetime: "2026-06-20T00:00:00", pollen_birch: 60, pollen_alder: 1, pollen_grass: 30, index: 4 },
+          {
+            datetime: "2026-06-16T00:00:00",
+            pollen_birch: 40,
+            pollen_alder: 10,
+            pollen_grass: 20,
+            index: 3,
+          },
+          {
+            datetime: "2026-06-17T00:00:00",
+            pollen_birch: 20,
+            pollen_alder: 2,
+            pollen_grass: 8,
+            index: 1,
+          },
+          {
+            datetime: "2026-06-20T00:00:00",
+            pollen_birch: 60,
+            pollen_alder: 1,
+            pollen_grass: 30,
+            index: 4,
+          },
         ],
         ...weatherAttrs,
       },
@@ -113,7 +150,10 @@ function silamHass(location: string, weatherAttrs: Record<string, any> = {}) {
 }
 
 // -- ATMO -----------------------------------------------------------------
-function atmoHass(location: string, allergenStates: Array<[string, number, number?]>) {
+function atmoHass(
+  location: string,
+  allergenStates: Array<[string, number, number?]>,
+) {
   const states: Record<string, any> = {};
   for (const [allergen, todayVal, tomorrowVal] of allergenStates) {
     const frSlug = ATMO_ALLERGEN_MAP[allergen];
@@ -128,9 +168,12 @@ function atmoHass(location: string, allergenStates: Array<[string, number, numbe
       todayId = `sensor.niveau_${frSlug}_${location}`;
     }
     const j1Id = `${todayId}_j_1`;
-    states[todayId] = { state: String(todayVal), attributes: { "Libellé": "" } };
+    states[todayId] = { state: String(todayVal), attributes: { Libellé: "" } };
     if (tomorrowVal !== undefined) {
-      states[j1Id] = { state: String(tomorrowVal), attributes: { "Libellé": "" } };
+      states[j1Id] = {
+        state: String(tomorrowVal),
+        attributes: { Libellé: "" },
+      };
     }
   }
   return createHass(states, { language: "fr" });
@@ -149,25 +192,33 @@ function pluHass(allergenMap: Record<string, number>) {
 function mswHass(allergenMap: Record<string, [string, string]>) {
   const states: Record<string, any> = {};
   for (const [, [mswSlug, levelStr]] of Object.entries(allergenMap)) {
-    states[`sensor.pollen_${mswSlug}_level_at_8000_za`] = createMSWSensor(levelStr);
+    states[`sensor.pollen_${mswSlug}_level_at_8000_za`] =
+      createMSWSensor(levelStr);
   }
   return createHass(states, { language: "en" });
 }
 
 // -- IRMKMI ---------------------------------------------------------------
-function irmkmiSensor(colorState: string, attrOverrides: Record<string, any> = {}) {
+function irmkmiSensor(
+  colorState: string,
+  attrOverrides: Record<string, any> = {},
+) {
   return {
     state: colorState,
     attributes: {
       device_class: "enum",
       options: ["green", "yellow", "orange", "red", "purple", "active", "none"],
-      attribution: "Weather data from the Royal Meteorological Institute of Belgium meteo.be",
+      attribution:
+        "Weather data from the Royal Meteorological Institute of Belgium meteo.be",
       ...attrOverrides,
     },
   };
 }
 
-function irmkmiHass(allergenMap: Record<string, [string, string]>, location = "home") {
+function irmkmiHass(
+  allergenMap: Record<string, [string, string]>,
+  location = "home",
+) {
   const states: Record<string, any> = {};
   for (const [, [slug, colorState]] of Object.entries(allergenMap)) {
     states[`sensor.${location}_${slug}_level`] = irmkmiSensor(colorState);
@@ -176,12 +227,18 @@ function irmkmiHass(allergenMap: Record<string, [string, string]>, location = "h
 }
 
 // -- Kleenex --------------------------------------------------------------
+// The EU/UK shape. Every forecast day carries a `value` key: written
+// unconditionally by the integration (sensor.py:272-278) and checked across all
+// eight configured locations, so a day without the key describes a payload that
+// cannot occur. The key is not a promise of a number -- it comes from a
+// `day.get()` and arrives as null when the site omits the reading, which is why
+// readPpm guards null. A day with no explicit value repeats today's reading.
 function kleenexEntity(
   location: string,
   category: string,
   ppmValue: number,
   details: Array<{ name: string; value: number }> = [],
-  forecast: Array<{ level: number; details?: any[] }> = [],
+  forecast: Array<{ level: number; value?: number; details?: any[] }> = [],
 ) {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
@@ -191,13 +248,34 @@ function kleenexEntity(
       forecast: forecast.map((f, i) => ({
         datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
         level: f.level,
+        value: f.value !== undefined ? f.value : ppmValue,
         details: f.details || [],
       })),
     },
   };
 }
 
-function kleenexHass(entities: Array<{ entity_id: string; [key: string]: any }>) {
+// The NA/US shape: a real PPM reading and a four-day forecast, with every
+// details[] empty (api.py:__decode_raw_data_na hardcodes it that way).
+function kleenexUSEntity(location: string, category: string, ppmValue: number) {
+  return {
+    entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
+    state: String(ppmValue),
+    attributes: {
+      details: [],
+      forecast: Array.from({ length: 4 }, (_, i) => ({
+        datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
+        level: 1,
+        value: ppmValue,
+        details: [],
+      })),
+    },
+  };
+}
+
+function kleenexHass(
+  entities: Array<{ entity_id: string; [key: string]: any }>,
+) {
   const states: Record<string, any> = {};
   for (const entity of entities) {
     states[entity.entity_id] = entity;
@@ -310,7 +388,10 @@ export function buildGoldenFixtures(): GoldenCase[] {
     forecastEvent: any = null,
   ) => cases.push({ adapter, variant, hass, config, forecastEvent });
 
-  const cfg = (stub: any, overrides: Record<string, any>) => ({ ...stub, ...overrides });
+  const cfg = (stub: any, overrides: Record<string, any>) => ({
+    ...stub,
+    ...overrides,
+  });
 
   // -- PP -----------------------------------------------------------------
   add(
@@ -321,7 +402,10 @@ export function buildGoldenFixtures(): GoldenCase[] {
       al: [1, 2, 0, 0],
       gras: [2, 3, 1, 0],
     }),
-    cfg(stubConfigPP, { city: "Stockholm", allergens: ["Björk", "Al", "Gräs"] }),
+    cfg(stubConfigPP, {
+      city: "Stockholm",
+      allergens: ["Björk", "Al", "Gräs"],
+    }),
   );
   add(
     "pp",
@@ -374,7 +458,11 @@ export function buildGoldenFixtures(): GoldenCase[] {
     "dwd",
     "days-padding",
     dwdHass("50", { birke: [2, 1, 0] }),
-    cfg(stubConfigDWD, { region_id: "50", allergens: ["birke"], days_to_show: 5 }),
+    cfg(stubConfigDWD, {
+      region_id: "50",
+      allergens: ["birke"],
+      days_to_show: 5,
+    }),
   );
   add(
     "dwd",
@@ -500,7 +588,9 @@ export function buildGoldenFixtures(): GoldenCase[] {
   add(
     "plu",
     "nan-value",
-    createHass({ "sensor.pollen_birch": { state: "unavailable", attributes: {} } }),
+    createHass({
+      "sensor.pollen_birch": { state: "unavailable", attributes: {} },
+    }),
     cfg(stubConfigPLU, { allergens: ["birch"], pollen_threshold: 0 }),
   );
 
@@ -517,7 +607,10 @@ export function buildGoldenFixtures(): GoldenCase[] {
     "irmkmi",
     "default",
     irmkmiHass({ birch: ["birch", "yellow"], grass: ["grasses", "orange"] }),
-    cfg(stubConfigIRMKMI, { allergens: ["birch", "grass"], pollen_threshold: 0 }),
+    cfg(stubConfigIRMKMI, {
+      allergens: ["birch", "grass"],
+      pollen_threshold: 0,
+    }),
   );
 
   // -- Kleenex (category + individual + forecast + NA fallback) -----------
@@ -534,14 +627,78 @@ export function buildGoldenFixtures(): GoldenCase[] {
           { name: "Oak", value: 50 },
         ],
         [
-          { level: 3, details: [{ name: "Birch", value: 120 }, { name: "Oak", value: 40 }] },
-          { level: 1, details: [{ name: "Birch", value: 10 }, { name: "Oak", value: 5 }] },
+          // Category totals, as the integration sends them: a number per day,
+          // at or above the details it breaks down into.
+          {
+            level: 3,
+            value: 250,
+            details: [
+              { name: "Birch", value: 120 },
+              { name: "Oak", value: 40 },
+            ],
+          },
+          {
+            level: 1,
+            value: 15,
+            details: [
+              { name: "Birch", value: 10 },
+              { name: "Oak", value: 5 },
+            ],
+          },
         ],
       ),
     ]),
     cfg(stubConfigKleenex, {
       location: "amsterdam",
       allergens: ["birch", "oak", "trees_cat"],
+      pollen_threshold: 0,
+    }),
+  );
+
+  // London's and Utrecht's trees sensors, live: 0 ppm today and on every
+  // forecast day, with the full nine-species breakdown also at 0. Pins that a
+  // zero reading is "no pollen" the whole way through -- it is a measurement,
+  // not a gap, and must not be confused with the -1 no-information sentinel.
+  add(
+    "kleenex",
+    "eu-zero-forecast",
+    kleenexHass([
+      kleenexEntity(
+        "london",
+        "trees",
+        0,
+        [
+          { name: "Hazel", value: 0 },
+          { name: "Birch", value: 0 },
+        ],
+        [
+          { level: 0, value: 0, details: [{ name: "Birch", value: 0 }] },
+          { level: 0, value: 0, details: [{ name: "Birch", value: 0 }] },
+        ],
+      ),
+    ]),
+    cfg(stubConfigKleenex, {
+      location: "london",
+      allergens: ["birch", "trees_cat"],
+      pollen_threshold: 0,
+    }),
+  );
+
+  // A US location as the NA endpoint reports it: category PPM readings, a
+  // four-day forecast, and no per-allergen details anywhere. The config is the
+  // stub's own individual-allergen list, so this freezes the #313 fallback:
+  // the category totals stand in for allergens the zone cannot deliver. Trees
+  // reads 0, pinning that a zero category is a level-0 row and not a gap.
+  add(
+    "kleenex",
+    "us-category-fallback",
+    kleenexHass([
+      kleenexUSEntity("atlanta_georgia", "trees", 0),
+      kleenexUSEntity("atlanta_georgia", "grass", 15),
+      kleenexUSEntity("atlanta_georgia", "weeds", 8),
+    ]),
+    cfg(stubConfigKleenex, {
+      location: "atlanta_georgia",
       pollen_threshold: 0,
     }),
   );
@@ -605,9 +762,15 @@ export function buildGoldenFixtures(): GoldenCase[] {
     "gpl",
     "summary-block",
     gplAttr({
-      "sensor.pollenlevels_grass": gplTypeSensor("mdi:grass", 3, [gplForecastItem(1, 2)]),
-      "sensor.pollenlevels_tree": gplTypeSensor("mdi:tree", 2, [gplForecastItem(1, 1)]),
-      "sensor.pollenlevels_birch": gplPlantSensor("birch", 4, [gplForecastItem(1, 3)]),
+      "sensor.pollenlevels_grass": gplTypeSensor("mdi:grass", 3, [
+        gplForecastItem(1, 2),
+      ]),
+      "sensor.pollenlevels_tree": gplTypeSensor("mdi:tree", 2, [
+        gplForecastItem(1, 1),
+      ]),
+      "sensor.pollenlevels_birch": gplPlantSensor("birch", 4, [
+        gplForecastItem(1, 3),
+      ]),
     }),
     cfg(stubConfigGPL, {
       allergens: ["grass_cat", "trees_cat", "birch"],

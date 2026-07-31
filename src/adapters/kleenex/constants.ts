@@ -2,7 +2,15 @@
 import type { AdapterStubConfig } from "../../types/config.js";
 import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 
+// Legacy entity-ID prefix: the slug of the integration's *default* device name
+// ("Kleenex Pollen Radar (<instance>)"). It is not, and never was, the HA
+// domain -- users who rename the device get entity IDs without it (issue #309).
+// Kept for the pre-registry fallback paths only.
 export const DOMAIN = "kleenex_pollen_radar";
+
+// The actual HA platform/domain of the upstream integration. Used for
+// registry-based discovery (device identifiers and entry.platform).
+export const PLATFORM = "kleenex_pollenradar";
 
 // Map kleenex allergen names to our canonical names (supports all regional language variations)
 export const KLEENEX_ALLERGEN_MAP: Record<string, string> = {
@@ -69,6 +77,10 @@ export const KLEENEX_ALLERGEN_MAP: Record<string, string> = {
   ortie: "nettle",
 
   // Weeds - Italian (IT)
+  // The IT endpoint reports English allergen names, so the Italian aliases
+  // below are never exercised in practice -- but it misspells chenopod as
+  // "Chenepod" (Roma, Milano), which is the alias IT installs actually need.
+  chenepod: "chenopod",
   ambrosia: "ragweed",
   artemisia: "mugwort",
   chenopodio: "chenopod",
@@ -103,15 +115,15 @@ export const stubConfigKleenex: AdapterStubConfig = {
     "poaceae",
     "poplar",
     "ragweed",
-    // General categories (broad sensors) - disabled by default
-    // "trees_cat",
-    // "grass_cat",
-    // "weeds_cat",
+    // The three category totals are selectable in the editor
+    // (KLEENEX_EDITOR_ALLERGENS) but off by default: an EU install gets the
+    // per-allergen rows, and a US install gets the categories through the
+    // fallback in forecast.ts without having to configure anything.
   ],
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,
@@ -182,6 +194,25 @@ export const INDIVIDUAL_TO_CATEGORY: Record<string, string> = {
   chenopod: "weeds",
   nettle: "weeds",
 };
+
+/**
+ * The allergen keys the editor offers for Kleenex: the stub's individual
+ * allergens plus the three category totals.
+ *
+ * Selectable everywhere rather than only where discovery sees empty details.
+ * Every zone has the category sensors -- the US zone has *only* those -- so a
+ * list that changed shape as discovery data arrived would make the picker
+ * depend on load timing for no gain. They stay out of `stubConfigKleenex`
+ * .allergens, so the default selection is unchanged and no existing config is
+ * touched; the US fallback in forecast.ts covers the users who never open the
+ * editor at all.
+ */
+export const KLEENEX_EDITOR_ALLERGENS: string[] = [
+  ...(stubConfigKleenex.allergens as string[]),
+  "trees_cat",
+  "grass_cat",
+  "weeds_cat",
+];
 
 // Re-exported from the shared helper so the three adapter constants modules
 // expose one identical capitalize (consumers keep their ./constants import).

@@ -67,7 +67,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("sets entity_id on each sensor dict", async () => {
@@ -76,7 +76,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.niveau_bouleau_paris");
+      expect(result[0]!.entity_id).toBe("sensor.niveau_bouleau_paris");
     });
 
     it("each day object has required properties", async () => {
@@ -84,7 +84,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const config = makeConfig({ location: "paris", allergens: ["birch"] });
 
       const result = await fetchForecast(hass, config);
-      const day = result[0].days[0];
+      const day = result[0]!.days[0]!;
 
       expect(day).toHaveProperty("name");
       expect(day).toHaveProperty("day");
@@ -106,10 +106,10 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days.length).toBe(2);
-      expect(result[0].days[0]).toBeDefined();
-      expect(result[0].days[1]).toBeDefined();
-      expect(result[0].days[2]).toBeUndefined();
+      expect(result[0]!.days.length).toBe(2);
+      expect(result[0]!.days[0]).toBeDefined();
+      expect(result[0]!.days[1]).toBeDefined();
+      expect(result[0]!.days[2]).toBeUndefined();
     });
 
     it("fills j+1 with state -1 when tomorrow entity is absent", async () => {
@@ -119,8 +119,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[1].state).toBe(-1);
-      expect(result[0].days[1].display_state).toBe(-1);
+      expect(result[0]!.days[1]!.state).toBe(-1);
+      expect(result[0]!.days[1]!.display_state).toBe(-1);
     });
   });
 
@@ -139,8 +139,8 @@ describe("ATMO adapter: fetchForecast", () => {
       // state normalized to the no-data sentinel (matches display_state) so the
       // ring, which reads state, renders the no-data pattern rather than a
       // misleading green level-0 ring for "Indisponible".
-      expect(result[0].days[0].state).toBe(-1);
-      expect(result[0].days[0].display_state).toBe(-1);
+      expect(result[0]!.days[0]!.state).toBe(-1);
+      expect(result[0]!.days[0]!.display_state).toBe(-1);
     });
 
     it("maps levels 1-6 to state=raw and display_state=raw", async () => {
@@ -154,8 +154,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
         const result = await fetchForecast(hass, config);
 
-        expect(result[0].days[0].state).toBe(level);
-        expect(result[0].days[0].display_state).toBe(level);
+        expect(result[0]!.days[0]!.state).toBe(level);
+        expect(result[0]!.days[0]!.display_state).toBe(level);
       }
     });
 
@@ -171,8 +171,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       // Événement (raw 7) is capped to 6 on both state and display_state so the
       // raw event code never leaves the adapter.
-      expect(result[0].days[0].state).toBe(6);
-      expect(result[0].days[0].display_state).toBe(6);
+      expect(result[0]!.days[0]!.state).toBe(6);
+      expect(result[0]!.days[0]!.display_state).toBe(6);
     });
 
     it("maps NaN/unavailable to state=-1 and display_state=-1", async () => {
@@ -195,8 +195,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state).toBe(-1);
-      expect(result[0].days[0].display_state).toBe(-1);
+      expect(result[0]!.days[0]!.state).toBe(-1);
+      expect(result[0]!.days[0]!.display_state).toBe(-1);
     });
 
     it("uses localized label for level 0 (Indisponible) in French UI", async () => {
@@ -215,7 +215,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state_text).toBe("Indisponible");
+      expect(result[0]!.days[0]!.state_text).toBe("Indisponible");
     });
 
     it("uses localized label for level 0 in non-French UI even when Libelle is French", async () => {
@@ -236,7 +236,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state_text).toBe("Otillgänglig");
+      expect(result[0]!.days[0]!.state_text).toBe("Otillgänglig");
     });
 
     it("uses localized label for level 7 (Événement) in French UI", async () => {
@@ -255,7 +255,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state_text).toBe("Événement");
+      expect(result[0]!.days[0]!.state_text).toBe("Événement");
     });
 
     it("uses localized label for level 7 in non-French UI", async () => {
@@ -274,7 +274,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state_text).toBe("Händelse");
+      expect(result[0]!.days[0]!.state_text).toBe("Händelse");
     });
   });
 
@@ -291,7 +291,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
         const result = await fetchForecast(hass, config);
 
-        expect(result[0].group).toBe("pollen");
+        expect(result[0]!.group).toBe("pollen");
       }
     });
 
@@ -304,7 +304,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].group).toBe("pollen");
+      expect(result[0]!.group).toBe("pollen");
     });
 
     it("sets group='pollution' for pollution allergens", async () => {
@@ -318,7 +318,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
         const result = await fetchForecast(hass, config);
 
-        expect(result[0].group).toBe("pollution");
+        expect(result[0]!.group).toBe("pollution");
       }
     });
 
@@ -331,7 +331,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].group).toBe("pollution");
+      expect(result[0]!.group).toBe("pollution");
     });
   });
 
@@ -376,8 +376,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].group).toBe("pollution");
-      expect(result[1].group).toBe("pollen");
+      expect(result[0]!.group).toBe("pollution");
+      expect(result[1]!.group).toBe("pollen");
     });
 
     it("sorts within pollen block by value_descending", async () => {
@@ -398,8 +398,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const pollenResults = result.filter((s) => s.group === "pollen");
       for (let i = 0; i < pollenResults.length - 1; i++) {
-        expect(pollenResults[i].days[0].display_state).toBeGreaterThanOrEqual(
-          pollenResults[i + 1].days[0].display_state as number,
+        expect(pollenResults[i]!.days[0]!.display_state).toBeGreaterThanOrEqual(
+          pollenResults[i + 1]!.days[0]!.display_state as number,
         );
       }
     });
@@ -422,8 +422,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const pollutionResults = result.filter((s) => s.group === "pollution");
       for (let i = 0; i < pollutionResults.length - 1; i++) {
-        expect(pollutionResults[i].days[0].display_state).toBeGreaterThanOrEqual(
-          pollutionResults[i + 1].days[0].display_state as number,
+        expect(pollutionResults[i]!.days[0]!.display_state).toBeGreaterThanOrEqual(
+          pollutionResults[i + 1]!.days[0]!.display_state as number,
         );
       }
     });
@@ -448,7 +448,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       const pollenResults = result.filter((s) => s.group === "pollen");
-      expect(pollenResults[0].allergenReplaced).toBe("allergy_risk");
+      expect(pollenResults[0]!.allergenReplaced).toBe("allergy_risk");
     });
 
     it("pins qualite_globale to top of pollution block when allergy_risk_top=true", async () => {
@@ -468,7 +468,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       const pollutionResults = result.filter((s) => s.group === "pollution");
-      expect(pollutionResults[0].allergenReplaced).toBe("qualite_globale");
+      expect(pollutionResults[0]!.allergenReplaced).toBe("qualite_globale");
     });
 
     it("does not pin when allergy_risk_top=false", async () => {
@@ -489,7 +489,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const pollenResults = result.filter((s) => s.group === "pollen");
       // allergy_risk has the lowest value so it should be last
-      expect(pollenResults[pollenResults.length - 1].allergenReplaced).toBe("allergy_risk");
+      expect(pollenResults[pollenResults.length - 1]!.allergenReplaced).toBe("allergy_risk");
     });
 
     it("pins both summaries to absolute top when sort_pollution_block=false", async () => {
@@ -524,7 +524,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.niveau_bouleau_paris");
+      expect(result[0]!.entity_id).toBe("sensor.niveau_bouleau_paris");
     });
 
     it("pollution allergens do not use niveau_ prefix", async () => {
@@ -533,7 +533,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.pm25_paris");
+      expect(result[0]!.entity_id).toBe("sensor.pm25_paris");
     });
 
     it("allergy_risk uses qualite_globale_pollen_ pattern", async () => {
@@ -542,7 +542,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.qualite_globale_pollen_paris");
+      expect(result[0]!.entity_id).toBe("sensor.qualite_globale_pollen_paris");
     });
 
     it("qualite_globale uses qualite_globale_ pattern (no pollen suffix)", async () => {
@@ -551,7 +551,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.qualite_globale_paris");
+      expect(result[0]!.entity_id).toBe("sensor.qualite_globale_paris");
     });
 
     it("forecast j+1 appends _j_1 to base entity ID", async () => {
@@ -564,8 +564,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].state).toBe(3);
-      expect(result[0].days[1].state).toBe(2);
+      expect(result[0]!.days[0]!.state).toBe(3);
+      expect(result[0]!.days[1]!.state).toBe(2);
     });
 
     it("no2 maps to dioxyde_d_azote entity slug", async () => {
@@ -574,7 +574,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.dioxyde_d_azote_paris");
+      expect(result[0]!.entity_id).toBe("sensor.dioxyde_d_azote_paris");
     });
 
     it("so2 maps to dioxyde_de_soufre entity slug", async () => {
@@ -583,7 +583,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].entity_id).toBe("sensor.dioxyde_de_soufre_paris");
+      expect(result[0]!.entity_id).toBe("sensor.dioxyde_de_soufre_paris");
     });
   });
 
@@ -607,7 +607,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.pfx_niveau_bouleau_sfx");
+      expect(result[0]!.entity_id).toBe("sensor.pfx_niveau_bouleau_sfx");
     });
 
     it("pollution allergens in manual mode use bare slug stem", async () => {
@@ -628,7 +628,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.pfx_pm25_sfx");
+      expect(result[0]!.entity_id).toBe("sensor.pfx_pm25_sfx");
     });
 
     it("allergy_risk in manual mode uses qualite_globale_pollen stem", async () => {
@@ -649,7 +649,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.pfx_qualite_globale_pollen_sfx");
+      expect(result[0]!.entity_id).toBe("sensor.pfx_qualite_globale_pollen_sfx");
     });
 
     it("qualite_globale in manual mode uses qualite_globale stem", async () => {
@@ -670,7 +670,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.pfx_qualite_globale_sfx");
+      expect(result[0]!.entity_id).toBe("sensor.pfx_qualite_globale_sfx");
     });
 
     it("manual mode reads j+1 from {sensorId}_j_1", async () => {
@@ -695,8 +695,8 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].days[0].state).toBe(3);
-      expect(result[0].days[1].state).toBe(5);
+      expect(result[0]!.days[0]!.state).toBe(3);
+      expect(result[0]!.days[1]!.state).toBe(5);
     });
   });
 
@@ -716,7 +716,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].allergenReplaced).toBe("birch");
+      expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
     it("includes allergens when any day meets pollen_threshold", async () => {
@@ -832,8 +832,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].display_state).toBeGreaterThanOrEqual(
-        result[1].days[0].display_state as number,
+      expect(result[0]!.days[0]!.display_state).toBeGreaterThanOrEqual(
+        result[1]!.days[0]!.display_state as number,
       );
     });
 
@@ -852,8 +852,8 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].days[0].display_state).toBeLessThanOrEqual(
-        result[1].days[0].display_state as number,
+      expect(result[0]!.days[0]!.display_state).toBeLessThanOrEqual(
+        result[1]!.days[0]!.display_state as number,
       );
     });
 
@@ -875,7 +875,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       // alder (display_state=3) should be last
-      expect(result[result.length - 1].allergenReplaced).toBe("alder");
+      expect(result[result.length - 1]!.allergenReplaced).toBe("alder");
     });
   });
 
@@ -892,7 +892,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.niveau_bouleau_lyon");
+      expect(result[0]!.entity_id).toBe("sensor.niveau_bouleau_lyon");
     });
 
     it("auto-detects location from pollution entity IDs as fallback", async () => {
@@ -906,7 +906,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.pm25_marseille");
+      expect(result[0]!.entity_id).toBe("sensor.pm25_marseille");
     });
 
     it("returns empty array when no location and no entities to detect from", async () => {
@@ -937,7 +937,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenCapitalized).toBe("Mon Bouleau");
+      expect(result[0]!.allergenCapitalized).toBe("Mon Bouleau");
     });
 
     it("uses abbreviated allergenShort from phrases.short when allergens_abbreviated=true", async () => {
@@ -957,7 +957,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const result = await fetchForecast(hass, config);
 
-      expect(result[0].allergenShort).toBe("Bou.");
+      expect(result[0]!.allergenShort).toBe("Bou.");
     });
   });
 });
@@ -1186,9 +1186,9 @@ describe("fetchForecast with prefixed entities", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(2);
-    expect(result[0].entity_id).toContain("toulouse_niveau_");
-    expect(result[0].days[0].state).toBeGreaterThan(0);
-    expect(result[0].days[1].state).toBeGreaterThan(0);
+    expect(result[0]!.entity_id).toContain("toulouse_niveau_");
+    expect(result[0]!.days[0]!.state).toBeGreaterThan(0);
+    expect(result[0]!.days[1]!.state).toBeGreaterThan(0);
   });
 
   it("reads j+1 forecast from {entity_id}_j_1 for prefixed entities", async () => {
@@ -1203,8 +1203,8 @@ describe("fetchForecast with prefixed entities", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(3);
-    expect(result[0].days[1].state).toBe(5);
+    expect(result[0]!.days[0]!.state).toBe(3);
+    expect(result[0]!.days[1]!.state).toBe(5);
   });
 
   it("handles mixed prefixed and non-prefixed locations", async () => {
@@ -1215,9 +1215,9 @@ describe("fetchForecast with prefixed entities", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.niveau_bouleau_nice");
-    expect(result[0].days[0].state).toBe(4);
-    expect(result[0].days[1].state).toBe(2);
+    expect(result[0]!.entity_id).toBe("sensor.niveau_bouleau_nice");
+    expect(result[0]!.days[0]!.state).toBe(4);
+    expect(result[0]!.days[1]!.state).toBe(2);
   });
 });
 

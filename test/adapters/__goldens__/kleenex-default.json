@@ -16,22 +16,22 @@
       {
         "name": "Trees",
         "day": "Tomorrow",
-        "state": 0,
-        "display_state": 0,
-        "state_text": "No pollen",
-        "value": 0,
-        "raw_value": 0,
-        "description": "No pollen"
+        "state": 3,
+        "display_state": 3,
+        "state_text": "High levels",
+        "value": 250,
+        "raw_value": 250,
+        "description": "High levels"
       },
       {
         "name": "Trees",
         "day": "Day after tomorrow",
-        "state": 0,
-        "display_state": 0,
-        "state_text": "No pollen",
-        "value": 0,
-        "raw_value": 0,
-        "description": "No pollen"
+        "state": 1,
+        "display_state": 1,
+        "state_text": "Low levels",
+        "value": 15,
+        "raw_value": 15,
+        "description": "Low levels"
       },
       {
         "name": "Trees",
@@ -55,16 +55,7 @@
       }
     ],
     "allergenCapitalized": "Trees",
-    "allergenShort": "Trees",
-    "levelNames": [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels"
-    ]
+    "allergenShort": "Trees"
   },
   {
     "allergenReplaced": "birch",
@@ -122,16 +113,7 @@
       }
     ],
     "allergenCapitalized": "Birch",
-    "allergenShort": "Birch",
-    "levelNames": [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels"
-    ]
+    "allergenShort": "Birch"
   },
   {
     "allergenReplaced": "oak",
@@ -189,15 +171,6 @@
       }
     ],
     "allergenCapitalized": "Oak",
-    "allergenShort": "Oak",
-    "levelNames": [
-      "No pollen",
-      "Low levels",
-      "Low–moderate levels",
-      "Moderate levels",
-      "Moderate–high levels",
-      "High levels",
-      "Very high levels"
-    ]
+    "allergenShort": "Oak"
   }
 ]

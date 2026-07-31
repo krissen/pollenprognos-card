@@ -161,7 +161,7 @@ export const stubConfigPLU: AdapterStubConfig = {
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,
@@ -539,7 +539,7 @@ export const autodetect: AdapterAutodetect = {
       if (typeof id !== "string") return false;
       const match = /^sensor\.pollen_([^_]+)$/.exec(id);
       if (!match) return false;
-      return ctx.pluAllergenSlugs.has(match[1]);
+      return ctx.pluAllergenSlugs.has(match[1] ?? "");
     });
     return { ids };
   },

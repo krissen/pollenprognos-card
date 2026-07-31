@@ -4,7 +4,7 @@ import type { TemplateResult, PropertyValues } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { slugify } from "./utils/slugify.js";
 import { t, detectLang } from "./i18n.js";
-import { getAdapter, getStubConfig } from "./adapter-registry.js";
+import { getAdapter, getStubConfig, getAutodetect } from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
 import { cleanDeviceLabel } from "./utils/device-label.js";
 import {
@@ -40,6 +40,7 @@ import {
   mergeCardConfig,
   finalizeCardConfig,
   cardAllowedFields,
+  resolveIconSize,
 } from "./utils/config-normalize.js";
 import { computeGridOptions } from "./utils/grid-options.js";
 import {
@@ -228,10 +229,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     let targetLocation =
       this.config.location === "manual" ? "" : this.config.location;
     if (!targetLocation && this.config.location !== "manual") {
-      const match = peuStates[0].match(
+      const match = peuStates[0]!.match(
         /^sensor\.polleninformation_(.+)_[^_]+$/,
       );
-      targetLocation = match ? match[1] : "";
+      targetLocation = match?.[1] ?? "";
     }
 
     if (!targetLocation) {
@@ -720,6 +721,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         silam: silamDiscovery,
         atmo: atmoDiscovery,
         gp: gpDiscovery,
+        kleenex: kleenexDiscovery,
       },
       getPpDiscovery,
       getDwdDiscovery,
@@ -1020,7 +1022,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               /^sensor\.silam_pollen_(.*)_([^_]+)$/,
             );
             if (!match) return false;
-            return SilamValidAllergenSlugs.has(match[2]);
+            return SilamValidAllergenSlugs.has(match[2] ?? "");
           });
           const wantedSlug = slugify(cfg.location as string);
           const match = wantedSlug
@@ -1050,72 +1052,152 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
             ? title || cfg.location || ""
             : title;
       } else if (integration === "kleenex") {
-        // Kleenex pollen radar: extract location from sensor attributes
-        const kleenexEntities = Object.values(hass.states).filter((s) => {
-          if (
-            !s ||
-            typeof s !== "object" ||
-            typeof s.entity_id !== "string" ||
-            !s.entity_id.startsWith("sensor.kleenex_pollen_radar_")
-          )
-            return false;
-          return s.entity_id.match(/^sensor\.kleenex_pollen_radar_.+_.+$/);
-        });
-
-        const wantedLocation =
+        // Kleenex pollen radar: registry discovery first, because a renamed
+        // device leaves entity IDs without the location slug the attribute
+        // scraping below relies on (issue #309). The scraping stays as the
+        // fallback for registry-less installs and as the only path in manual
+        // mode.
+        const kleenexAutodetect = getAutodetect("kleenex");
+        const kleenexWanted =
           cfg.location && cfg.location !== "manual"
-            ? slugify(cfg.location as string)
+            ? (cfg.location as string)
             : "";
+        // One call into the adapter's own resolution rather than a candidate
+        // chain rebuilt here, so a location-based config resolves to the same
+        // place the card renders data for. Manual mode has no location to
+        // resolve; there the two are kept in step by the shared
+        // scopeManualEntities call further down instead.
+        const kleenexResolved = kleenexWanted
+          ? kleenexAutodetect?.resolveLocation?.(
+              hass,
+              kleenexDiscovery,
+              kleenexWanted,
+            ) ?? null
+          : null;
+        // More than one location answers to the configured value, so naming
+        // either would be a guess: derive no label and let the header fall
+        // back to the raw config value.
+        const kleenexAmbiguous = kleenexResolved === "ambiguous";
+        const kleenexMatch = kleenexAmbiguous ? null : kleenexResolved;
+        let title = kleenexMatch ? kleenexMatch[1].label : "";
 
-        // Find first entity with matching location
-        let match = null;
-        if (cfg.location === "manual") {
-          // In manual mode, use entity_prefix to find matching sensor
-          let prefix = cfg.entity_prefix || "";
-          // Remove 'sensor.' prefix if user included it
-          if (prefix.startsWith("sensor.")) {
-            prefix = prefix.substring(7);
-          }
-          // Add trailing underscore if not present
-          if (prefix && !prefix.endsWith("_")) {
-            prefix = prefix + "_";
-          }
-          if (prefix) {
-            match = kleenexEntities.find((s) =>
-              s.entity_id.startsWith(`sensor.${prefix}`),
-            );
-          }
-        } else if (wantedLocation) {
-          match = kleenexEntities.find((s) => {
-            const eid = s.entity_id.replace("sensor.kleenex_pollen_radar_", "");
-            const locPart = eid.replace(/_[^_]+$/, "");
-            return locPart === wantedLocation;
-          });
-        } else {
-          match = kleenexEntities[0];
-        }
+        if (!title && !kleenexAmbiguous) {
+          const isKleenexState = (s: unknown): s is { entity_id: string; attributes: Record<string, any> } =>
+            !!s && typeof s === "object" && typeof (s as { entity_id?: unknown }).entity_id === "string";
 
-        let title = "";
-        if (match) {
-          const attr = match.attributes;
-          title =
-            attr.location_name ||
-            attr.friendly_name?.match(/\(([^)]+)\)/)?.[1] ||
-            attr.friendly_name
-              ?.replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
-              .replace(
-                /[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
-                "",
-              )
-              .replace(
-                /^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i,
-                "",
-              )
-              .trim() ||
-            (cfg.location
-              ? cfg.location.charAt(0).toUpperCase() +
-                (cfg.location as string).slice(1)
-              : "");
+          let match = null;
+          if (cfg.location === "manual") {
+            // Manual mode: the user-supplied entity_prefix is the whole naming
+            // contract and need not contain the legacy `kleenex_pollen_radar_`
+            // slug, so match it against every sensor rather than prefiltering
+            // on the legacy prefix first (same rationale as fetchForecast).
+            const prefix = normalizeManualPrefix(cfg.entity_prefix);
+            if (prefix) {
+              // entity_suffix is part of the naming contract: an install can
+              // hold both `..._birch` and `..._birch_v2`, and a prefix-only
+              // collection would let state order decide which one names the
+              // header. fetchForecast filters its own collection the same way.
+              const entitySuffix =
+                typeof cfg.entity_suffix === "string" ? cfg.entity_suffix : "";
+              let prefixed = Object.values(hass.states)
+                .filter(isKleenexState)
+                .filter(
+                  (s) =>
+                    s.entity_id.startsWith(`sensor.${prefix}`) &&
+                    (!entitySuffix || s.entity_id.endsWith(entitySuffix)),
+                );
+              // The prefix can also match another config entry's entities
+              // (`kleenex_pollen_` matches `kleenex_pollen_radar_utrecht_*`).
+              // The adapter narrows its own collection to one location; the
+              // header goes through the same function so it can never name a
+              // location other than the one the card renders.
+              const scope = kleenexAutodetect?.scopeManualEntities?.(
+                hass,
+                prefixed.map((s) => s.entity_id),
+                {
+                  prefix,
+                  suffix: entitySuffix,
+                  discovery: kleenexDiscovery,
+                  debug: this.debug,
+                },
+              );
+              if (scope && scope.entityIds.length !== prefixed.length) {
+                const keep = new Set(scope.entityIds);
+                prefixed = prefixed.filter((s) => keep.has(s.entity_id));
+              }
+              // A narrowed match resolved a device, so its label is a better
+              // header than anything scraped out of a friendly name.
+              if (scope?.label) title = scope.label;
+              // The prefix also matches the diagnostic siblings (`..._date`,
+              // `..._last_updated`), whose friendly names would yield a header
+              // like "Kleenex pollen Date". Prefer an entity the adapter
+              // classifies as renderable, whatever order hass.states has.
+              //
+              // The suffix is stripped before classifying: the classifier reads
+              // the trailing token, so `..._trees_v2` would otherwise look as
+              // unrenderable as `..._date_v2`. Suffix handling belongs to the
+              // caller here, since it is card config the adapter's entity-ID
+              // predicate knows nothing about.
+              const stripSuffix = (entityId: string): string =>
+                entitySuffix && entityId.endsWith(entitySuffix)
+                  ? entityId.slice(0, -entitySuffix.length)
+                  : entityId;
+              const isRenderable = kleenexAutodetect?.isRenderableEntity;
+              match =
+                (isRenderable
+                  ? prefixed.find((s) => isRenderable(stripSuffix(s.entity_id)))
+                  : undefined) ??
+                prefixed[0] ??
+                null;
+            }
+          } else {
+            const kleenexEntities = Object.values(hass.states)
+              .filter(isKleenexState)
+              .filter((s) =>
+                /^sensor\.kleenex_pollen_radar_.+_.+$/.test(s.entity_id),
+              );
+
+            const wantedLocation = cfg.location
+              ? slugify(cfg.location as string)
+              : "";
+
+            // Find first entity with matching location
+            if (wantedLocation) {
+              match =
+                kleenexEntities.find((s) => {
+                  const eid = s.entity_id.replace(
+                    "sensor.kleenex_pollen_radar_",
+                    "",
+                  );
+                  const locPart = eid.replace(/_[^_]+$/, "");
+                  return locPart === wantedLocation;
+                }) ?? null;
+            } else {
+              match = kleenexEntities[0] ?? null;
+            }
+          }
+
+          if (match && !title) {
+            const attr = match.attributes;
+            title =
+              attr.location_name ||
+              attr.friendly_name?.match(/\(([^)]+)\)/)?.[1] ||
+              attr.friendly_name
+                ?.replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
+                .replace(
+                  /[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i,
+                  "",
+                )
+                .replace(
+                  /^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i,
+                  "",
+                )
+                .trim() ||
+              (cfg.location
+                ? cfg.location.charAt(0).toUpperCase() +
+                  (cfg.location as string).slice(1)
+                : "");
+          }
         }
 
         loc = title || cfg.location || "";
@@ -1451,7 +1533,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const ringIconRatio =
       Number(this.config?.icon_in_ring_size_ratio) ||
       LEVELS_DEFAULTS.icon_in_ring_size_ratio;
-    const iconSize = Number(this.config?.icon_size) || 48;
+    const iconSize = resolveIconSize(this.config?.icon_size);
     // A configured element-level tap_action takes precedence over per-icon
     // more-info unless link_to_sensors is explicitly true (#279).
     const hasTap = resolveTapActionType(this.tapAction) !== null;
@@ -1656,7 +1738,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // thickness and gap. Same derivation minimal mode and the badge use.
     const { colors, emptyColor, gapColor, thickness, gap } =
       this._buildLevelRingConfig();
-    const iconSize = Number(this.config.icon_size) || 48;
+    const iconSize = resolveIconSize(this.config.icon_size);
     const iconRatio = Number(this.config.levels_icon_ratio) || 1;
     const size = Math.min(100, Math.max(1, iconSize * iconRatio));
 
@@ -1769,8 +1851,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 this.config.show_block_separator &&
                 sIdx > 0 &&
                 sensor.group &&
-                rowSensors[sIdx - 1].group &&
-                sensor.group !== rowSensors[sIdx - 1].group
+                rowSensors[sIdx - 1]?.group &&
+                sensor.group !== rowSensors[sIdx - 1]?.group
                   ? html`<tr class="block-separator-row">
                       <td colspan="${totalCols}">
                         <hr class="block-separator" />
@@ -2141,8 +2223,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     const bg = (this.config.background_color as string | undefined)?.trim?.();
     const bgStyle = bg ? `background-color: ${bg};` : "";
     const cursorStyle = hasTap ? "pointer" : "auto";
-    const imgSize =
-      Number(this.config.icon_size) > 0 ? Number(this.config.icon_size) : 48;
+    const imgSize = resolveIconSize(this.config.icon_size);
     const cardStyle = `
     ${bgStyle}
     cursor: ${cursorStyle};

@@ -43,7 +43,7 @@ In this file:
 | `integration` | `string` | `pp` | Adapter to use: `pp`, `dwd`, `peu`, `silam`, `plu`, `kleenex`, `atmo`, `gpl`, `gp` or `msw`. If omitted the card tries to detect the correct integration. |
 | `city` *(PP only)* | `string` | **Required** (PP) | City name matching your Pollenprognos sensor IDs, a `config_entry_id` for multi-instance setups, or `manual` to use custom entity prefix/suffix. |
 | `region_id` *(DWD only)* | `string` | **Required** (DWD) | Numerical DWD region code, a `config_entry_id` for multi-instance setups, or `manual` for custom entity prefix/suffix. |
-| `location` *(PEU, SILAM, Kleenex, Atmo, GPL, GP, MSW)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For **PEU, SILAM, Atmo, GPL, GP, MSW** (and PP `city` / DWD `region_id`) may also be set to a `config_entry_id` (Crockford-base32 ULID); the visual editor uses this form by default since v3.2.0 to support multi-instance setups reliably. **Kleenex** does not accept a `config_entry_id` and continues to require a slug (e.g. `atlanta_georgia`, `utrecht`). For **MSW** the value can also be a label match (e.g. `Bern`) or station code (e.g. `8000`). Leave empty for auto-detection when only one location is configured. |
+| `location` *(PEU, SILAM, Kleenex, Atmo, GPL, GP, MSW)* | `string` | **Required** (PEU/SILAM/Kleenex/Atmo) | Location slug matching your integration sensors, or `manual` for custom entity prefix/suffix. Hidden for PLU because the integration always reports Luxembourg. For **PEU, SILAM, Atmo, GPL, GP, MSW** (and PP `city` / DWD `region_id`) may also be set to a `config_entry_id` (Crockford-base32 ULID); the visual editor uses this form by default since v3.2.0 to support multi-instance setups reliably. **Kleenex** takes the integration instance name or the device name (e.g. `utrecht`, `atlanta_georgia`); a `config_entry_id` is used only for devices that expose no usable identifier. For **MSW** the value can also be a label match (e.g. `Bern`) or station code (e.g. `8000`). Leave empty for auto-detection when only one location is configured. |
 | `entity_prefix` | `string` | *(empty)* | Prefix for sensor entity IDs in manual mode. Leave empty for sensors like `sensor.grass`. |
 | `entity_suffix` | `string` | *(empty)* | Optional suffix after the allergen slug in manual mode. |
 | `mode` *(PEU, SILAM only)* | `string` | `daily` | Forecast mode. SILAM supports `daily`, `hourly` and `twice_daily`. PEU supports `daily`, `twice_daily` and hourly variants: `hourly`, `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`. For PEU, modes other than `daily` only work with the `allergy_risk` sensor and require `polleninformation` **v0.4.4** or later together with card **v2.5.0** or newer. |
@@ -104,7 +104,7 @@ In this file:
 | `show_summary_plants_in_season` *(GPL only)* | `boolean` | `true` | Show an "In season" row listing the plants currently in pollen season. Requires `show_summary_block: true`. |
 | `title` | `string/boolean` | *(auto)* | Card title. `true` for default, `false` to hide, or provide a custom string. |
 | `date_locale` | `string` | `sv-SE` (PP) / `de-DE` (DWD) | Locale used for weekday formatting. |
-| `tap_action` | `object` | *(empty)* | Lovelace tap action. Supported types: `more-info`, `navigate` (needs `navigation_path`), and `call-service` / Home Assistant's `perform-action` (needs a `service` / `perform_action` and optional `target` / `data`). Honours both the Lovelace-standard `action` key and the card's historical `type` key; when a `tap_action` is set with no explicit type it defaults to `more-info`. |
+| `tap_action` | `object` | *(empty)* | Lovelace tap action. Supported types: `more-info` (needs an `entity`), `navigate` (needs `navigation_path`), and `call-service` / Home Assistant's `perform-action` (needs a `service` / `perform_action` and optional `target` / `data`). An action missing its required field is inert: the element is not clickable through it, and per-icon more-info applies as if no `tap_action` were set, so `link_to_sensors` keeps its usual meaning. Honours both the Lovelace-standard `action` key and the card's historical `type` key; when a `tap_action` is set with no explicit type it defaults to `more-info`. |
 | `debug` | `boolean` | `false` | Enable verbose console logging. |
 | `show_version` | `boolean` | `true` | Log card version in the browser console. |
 | `phrases.full` | `object` | `{}` | Map allergen keys to full length names. |
@@ -427,7 +427,7 @@ badges:
 
 `badge_content: aggregate` falls back to `worst` for integrations that do not expose an overall-risk sensor.
 
-**Tap action (open more-info on tap):**
+**Tap action (open a specific entity on tap):**
 
 ```yaml
 badges:
@@ -436,9 +436,10 @@ badges:
     city: Stockholm
     tap_action:
       action: more-info
+      entity: sensor.pollen_stockholm_bjork
 ```
 
-The badge's `tap_action` is set in the editor's **Interactions** section and uses the same shape and types as the card (`more-info`, `navigate`, `call-service` / `perform-action`); see [`tap_action`](#options) under the card options. With no `tap_action` the badge is inert.
+`more-info` opens the entity you name, so it needs an `entity`; without one the action does nothing and the badge is not clickable through it. The badge's `tap_action` is set in the editor's **Interactions** section and uses the same shape and types as the card (`more-info`, `navigate`, `call-service` / `perform-action`); see [`tap_action`](#options) under the card options. With no `tap_action` the badge is inert.
 
 ## Color System Overview
 

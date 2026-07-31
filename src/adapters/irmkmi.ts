@@ -93,7 +93,7 @@ function classifyIrmkmiEntity(eid: string): string | null {
   if (typeof eid !== "string") return null;
   const m = IRMKMI_LEVEL_RE.exec(eid);
   if (!m) return null;
-  return IRMKMI_POLLEN_TYPES[m[1]] || null;
+  return IRMKMI_POLLEN_TYPES[m[1] ?? ""] || null;
 }
 
 // Extract the location slug from an IRM KMI entity_id
@@ -111,7 +111,7 @@ export function extractIrmkmiLocationSlugFromEntityId(
 ): string | null {
   if (typeof eid !== "string") return null;
   const m = IRMKMI_LOCATION_SLUG_RE.exec(eid);
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 }
 
 export const stubConfigIRMKMI: AdapterStubConfig = {
@@ -121,7 +121,7 @@ export const stubConfigIRMKMI: AdapterStubConfig = {
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,

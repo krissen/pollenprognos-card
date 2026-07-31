@@ -47,7 +47,7 @@ export const stubConfigPP: AdapterStubConfig = {
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,
@@ -229,7 +229,7 @@ function detectCity(cfg: CardConfig, hass: HomeAssistant): string {
       (id) => extractCitySlugFromEntityId(id) !== null,
     );
     if (ppStates.length) {
-      cityKey = extractCitySlugFromEntityId(ppStates[0]) || "";
+      cityKey = extractCitySlugFromEntityId(ppStates[0]!) || "";
     }
   }
   return cityKey;
@@ -262,7 +262,7 @@ function ppTemplateFallback({
       const cands = Object.keys(hass.states).filter(
         (id) => id.startsWith(base) && id.endsWith(`_${rawKey}`),
       );
-      if (cands.length === 1) sensorId = cands[0];
+      if (cands.length === 1) sensorId = cands[0]!;
       else continue;
     }
     if (debug) {
@@ -373,7 +373,7 @@ function buildPpDict({
         // display_state mirrors state: PP has no separate display value, so the
         // contract's always-present display_state carries the same level.
         display_state: level,
-        state_text: ctx.levelNames[level],
+        state_text: ctx.levelNames[level]!,
       };
       dict.days.push(dayObj);
     } else if (ctx.pollen_threshold === 0) {
@@ -444,7 +444,7 @@ export const autodetect: AdapterAutodetect = {
       const match = /^sensor\.pollen_([^_]+)(_.*)?$/.exec(id);
       if (!match) return false;
 
-      const allergenSlug = match[1];
+      const allergenSlug = match[1] ?? "";
       // Single underscore AND a known PLU allergen -> likely PLU, not PP.
       if (!match[2] && ctx.pluAllergenSlugs.has(allergenSlug)) return false;
 

@@ -331,7 +331,7 @@ describe("fetchForecast: basic shape", () => {
     });
 
     const result = await fetchForecast(hass, config);
-    const day = result[0].days[0];
+    const day = result[0]!.days[0]!;
 
     expect(day).toHaveProperty("name");
     expect(day).toHaveProperty("day");
@@ -353,7 +353,7 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenReplaced).toBe("birch");
+    expect(result[0]!.allergenReplaced).toBe("birch");
   });
 
   it("allergenCapitalized is a non-empty string", async () => {
@@ -366,8 +366,8 @@ describe("fetchForecast: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].allergenCapitalized).toBeTruthy();
-    expect(typeof result[0].allergenCapitalized).toBe("string");
+    expect(result[0]!.allergenCapitalized).toBeTruthy();
+    expect(typeof result[0]!.allergenCapitalized).toBe("string");
   });
 });
 
@@ -387,9 +387,9 @@ describe("fetchForecast: level computation from grain counts", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
     // The raw grains/m3 measurement is kept for numeric_value_raw.
-    expect(result[0].days[0].raw_value).toBe(30);
+    expect(result[0]!.days[0]!.raw_value).toBe(30);
   });
 
   it("converts pollen_alder=5 to level 1 (between thresholds 1 and 10)", async () => {
@@ -403,7 +403,7 @@ describe("fetchForecast: level computation from grain counts", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days[0].state).toBe(1);
+    expect(result[0]!.days[0]!.state).toBe(1);
   });
 
   it("converts index=2 attribute to level 3 via indexToLevel", async () => {
@@ -418,7 +418,7 @@ describe("fetchForecast: level computation from grain counts", () => {
     const result = await fetchForecast(hass, config);
 
     // allergens: ["index"] normalizes to "allergy_risk" internally
-    expect(result[0].days[0].state).toBe(3);
+    expect(result[0]!.days[0]!.state).toBe(3);
   });
 });
 
@@ -441,11 +441,11 @@ describe("fetchForecast: daily forecast from entity.attributes.forecast", () => 
     const result = await fetchForecast(hass, config);
 
     // day0: current value 30 -> level 2
-    expect(result[0].days[0].state).toBe(2);
+    expect(result[0]!.days[0]!.state).toBe(2);
     // day1: forecast[0] pollen_birch=40 -> level 2
-    expect(result[0].days[1].state).toBe(2);
+    expect(result[0]!.days[1]!.state).toBe(2);
     // day2: forecast[1] pollen_birch=20 -> level 1
-    expect(result[0].days[2].state).toBe(1);
+    expect(result[0]!.days[2]!.state).toBe(1);
   });
 
   it("limits forecast to days_to_show", async () => {
@@ -459,8 +459,8 @@ describe("fetchForecast: daily forecast from entity.attributes.forecast", () => 
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0].days.length).toBe(2);
-    expect(result[0].days[2]).toBeUndefined();
+    expect(result[0]!.days.length).toBe(2);
+    expect(result[0]!.days[2]).toBeUndefined();
   });
 });
 
@@ -496,9 +496,9 @@ describe("fetchForecast: forecastEvent parameter", () => {
     const result = await fetchForecast(hass, config, forecastEvent as any);
 
     // day1 comes from forecastEvent.forecast[0]: pollen_birch=600 -> level 5
-    expect(result[0].days[1].state).toBe(5);
+    expect(result[0]!.days[1]!.state).toBe(5);
     // day2 comes from forecastEvent.forecast[1]: pollen_birch=1200 -> level 6
-    expect(result[0].days[2].state).toBe(6);
+    expect(result[0]!.days[2]!.state).toBe(6);
   });
 
   it("ignores forecastEvent when forecast array is absent", async () => {
@@ -515,7 +515,7 @@ describe("fetchForecast: forecastEvent parameter", () => {
     const result = await fetchForecast(hass, config, forecastEvent as any);
 
     expect(Array.isArray(result)).toBe(true);
-    expect(result[0].days.length).toBe(2);
+    expect(result[0]!.days.length).toBe(2);
   });
 });
 
@@ -589,7 +589,7 @@ describe("fetchForecast: sorting", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(2);
-    expect(result[0].days[0].state).toBeGreaterThanOrEqual(result[1].days[0].state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
   });
 
   it("sorts by value_ascending", async () => {
@@ -609,7 +609,7 @@ describe("fetchForecast: sorting", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(2);
-    expect(result[0].days[0].state).toBeLessThanOrEqual(result[1].days[0].state);
+    expect(result[0]!.days[0]!.state).toBeLessThanOrEqual(result[1]!.days[0]!.state);
   });
 
   it("sort: 'none' preserves allergen order", async () => {
@@ -629,8 +629,8 @@ describe("fetchForecast: sorting", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(2);
-    expect(result[0].allergenReplaced).toBe("birch");
-    expect(result[1].allergenReplaced).toBe("alder");
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[1]!.allergenReplaced).toBe("alder");
   });
 });
 
@@ -658,7 +658,7 @@ describe("fetchForecast: index_top pinning", () => {
     const result = await fetchForecast(hass, config);
 
     // allergy_risk (index) must appear first regardless of sort order
-    expect(result[0].allergenReplaced).toBe("allergy_risk");
+    expect(result[0]!.allergenReplaced).toBe("allergy_risk");
   });
 
   it("does not rearrange when index_top is false", async () => {
@@ -681,7 +681,7 @@ describe("fetchForecast: index_top pinning", () => {
 
     // With index_top false and value_descending, birch (level 5) or alder (level 5)
     // should come first, not index
-    expect(result[0].allergenReplaced).not.toBe("allergy_risk");
+    expect(result[0]!.allergenReplaced).not.toBe("allergy_risk");
   });
 });
 
@@ -704,7 +704,7 @@ describe("fetchForecast: hourly mode", () => {
     const result = await fetchForecast(hass, config);
 
     // In hourly mode maxItems = min(forecastArr.length, days_to_show) = min(2, 2) = 2
-    expect(result[0].days.length).toBe(2);
+    expect(result[0]!.days.length).toBe(2);
   });
 
   it("uses datetime from forecast items for day labels in hourly mode", async () => {
@@ -720,7 +720,7 @@ describe("fetchForecast: hourly mode", () => {
     const result = await fetchForecast(hass, config);
 
     // Hourly label should be a time string (HH:MM format), not a weekday name
-    const label: any = result[0].days[0].day;
+    const label: any = result[0]!.days[0]!.day;
     expect(typeof label).toBe("string");
     expect(label.length).toBeGreaterThan(0);
   });
@@ -740,8 +740,8 @@ describe("fetchForecast: twice_daily mode", () => {
     const result = await fetchForecast(hass, config);
 
     // Even index = morning, odd = evening
-    expect(result[0].days[0].icon).toBe("mdi:weather-sunset-up");
-    expect(result[0].days[1].icon).toBe("mdi:weather-sunset-down");
+    expect(result[0]!.days[0]!.icon).toBe("mdi:weather-sunset-up");
+    expect(result[0]!.days[1]!.icon).toBe("mdi:weather-sunset-down");
   });
 });
 
@@ -798,7 +798,7 @@ describe("fetchForecast: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.custom_birch_end");
+    expect(result[0]!.entity_id).toBe("sensor.custom_birch_end");
   });
 
   it("falls back to localized slug when canonical slug has no match", async () => {
@@ -845,7 +845,7 @@ describe("fetchForecast: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].entity_id).toBe("sensor.custom_berk_end");
+    expect(result[0]!.entity_id).toBe("sensor.custom_berk_end");
   });
 
   describe("entity_weather override (#231)", () => {
@@ -877,7 +877,7 @@ describe("fetchForecast: manual mode", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].days[0].state).toBe(2); // birch=30 -> level 2
+      expect(result[0]!.days[0]!.state).toBe(2); // birch=30 -> level 2
     });
 
     it("returns [] with a clear warning when entity_weather points at a missing entity", async () => {
@@ -945,7 +945,7 @@ describe("fetchForecast: manual mode", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].entity_id).toBe("sensor.custom_birch");
+      expect(result[0]!.entity_id).toBe("sensor.custom_birch");
     });
 
     it("warns when manual mode has neither entity_weather nor a discoverable weather entity", async () => {
@@ -1151,7 +1151,7 @@ describe("fetchForecast: manual mode", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0].days[0].state).toBe(2);
+      expect(result[0]!.days[0]!.state).toBe(2);
     });
 
     it("still runs discovery when manual mode lacks entity_weather", async () => {
@@ -1205,7 +1205,7 @@ describe("fetchForecast: 'index' allergen alias", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0].allergenReplaced).toBe("allergy_risk");
+    expect(result[0]!.allergenReplaced).toBe("allergy_risk");
   });
 
   it("uses pollen_index attribute as fallback when index is absent", async () => {
@@ -1228,7 +1228,7 @@ describe("fetchForecast: 'index' allergen alias", () => {
     const result = await fetchForecast(hass, config);
 
     // index=3 via indexToLevel(3) -> scale[3] = 5
-    expect(result[0].days[0].state).toBe(5);
+    expect(result[0]!.days[0]!.state).toBe(5);
   });
 });
 

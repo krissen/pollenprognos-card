@@ -277,7 +277,7 @@ export function findSilamWeatherEntity(
   // 1. Testa suffixar för aktuell locale
   const suffixesLocale =
     silamAllergenMap.weather_suffixes?.[locale] ||
-    silamAllergenMap.weather_suffixes?.[locale?.split("-")[0]] ||
+    silamAllergenMap.weather_suffixes?.[locale?.split("-")[0] ?? ""] ||
     [];
   for (const suffix of suffixesLocale) {
     tried.add(suffix);

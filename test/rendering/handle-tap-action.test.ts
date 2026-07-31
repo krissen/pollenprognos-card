@@ -71,10 +71,32 @@ describe("LevelCircleMixin._handleTapAction", () => {
     expect(e.stopPropagation).toHaveBeenCalled();
   });
 
-  it("more-info falls back to sun.sun when no entity is given", () => {
+  it("does not dispatch for an entity that is not an entity id", () => {
+    // The three shapes YAML can deliver that pass a truthiness test.
+    for (const entity of ["   ", 123, ["sensor.a"]]) {
+      el.dispatched.length = 0;
+      el.tapAction = { type: "more-info", entity } as any;
+      el._handleTapAction(makeEvent());
+      expect(el.dispatched, `dispatched for ${JSON.stringify(entity)}`).toEqual(
+        [],
+      );
+    }
+  });
+
+  it("dispatches a padded entity id trimmed", () => {
+    el.tapAction = { type: "more-info", entity: " sensor.pollen " };
+    el._handleTapAction(makeEvent());
+    expect(el.dispatched[0].detail).toEqual({ entityId: "sensor.pollen" });
+  });
+
+  it("does nothing for more-info without an entity", () => {
+    // This used to open sun.sun, so `tap_action: {type: more-info}` on its own
+    // made every click on the card show the sun -- and suppressed the
+    // per-allergen dialogs at the same time, since a bound tap_action takes
+    // precedence over per-icon more-info.
     el.tapAction = { type: "more-info" };
     el._handleTapAction(makeEvent());
-    expect(el.dispatched[0].detail).toEqual({ entityId: "sun.sun" });
+    expect(el.dispatched).toEqual([]);
   });
 
   it("defaults a typeless action to more-info", () => {
@@ -123,6 +145,23 @@ describe("LevelCircleMixin._handleTapAction", () => {
       "turn_on",
       { brightness: 128 },
       { entity_id: "light.kitchen" },
+    );
+  });
+
+  it("calls the right service when the id carries whitespace", () => {
+    // `" light.turn_on "` used to split into a domain of `" light"`, so the
+    // call reached a domain Home Assistant does not have and nothing happened.
+    el.tapAction = {
+      type: "call-service",
+      service: " light.turn_on ",
+      service_data: { brightness: 10 },
+    };
+    el._handleTapAction(makeEvent());
+    expect(el._hass.callService).toHaveBeenCalledWith(
+      "light",
+      "turn_on",
+      { brightness: 10 },
+      undefined,
     );
   });
 
@@ -278,7 +317,9 @@ describe("iconMoreInfoEnabled", () => {
 
 describe("resolveTapActionType", () => {
   it("resolves supported explicit types (with their required fields)", () => {
-    expect(resolveTapActionType({ type: "more-info" })).toBe("more-info");
+    expect(resolveTapActionType({ type: "more-info", entity: "sensor.x" })).toBe(
+      "more-info",
+    );
     expect(
       resolveTapActionType({ type: "navigate", navigation_path: "/x" }),
     ).toBe("navigate");
@@ -295,7 +336,9 @@ describe("resolveTapActionType", () => {
     expect(
       resolveTapActionType({ action: "navigate", navigation_path: "/x" }),
     ).toBe("navigate");
-    expect(resolveTapActionType({ action: "more-info" })).toBe("more-info");
+    expect(
+      resolveTapActionType({ action: "more-info", entity: "sensor.x" }),
+    ).toBe("more-info");
     expect(
       resolveTapActionType({
         action: "perform-action",
@@ -318,6 +361,23 @@ describe("resolveTapActionType", () => {
     // actionable (keeps the pointer cursor and click listener in lockstep).
     expect(resolveTapActionType({ type: "navigate" })).toBeNull();
     expect(resolveTapActionType({ action: "navigate" })).toBeNull();
+    // more-info needs an entity for the same reason.
+    expect(resolveTapActionType({ type: "more-info" })).toBeNull();
+    expect(resolveTapActionType({ action: "more-info" })).toBeNull();
+    // ...and one that is actually an entity id. YAML hands over numbers, lists
+    // and blank strings, all of which are truthy: testing the raw value would
+    // bind a click and then dispatch something HA cannot open.
+    expect(resolveTapActionType({ type: "more-info", entity: "   " })).toBeNull();
+    expect(
+      resolveTapActionType({ type: "more-info", entity: 123 } as any),
+    ).toBeNull();
+    expect(
+      resolveTapActionType({ type: "more-info", entity: ["sensor.a"] } as any),
+    ).toBeNull();
+    // Surrounding whitespace is dropped, not treated as a broken value.
+    expect(
+      resolveTapActionType({ type: "more-info", entity: " sensor.a " }),
+    ).toBe("more-info");
     expect(resolveTapActionType({ type: "call-service" })).toBeNull();
     expect(resolveTapActionType({ action: "perform-action" })).toBeNull();
     expect(
@@ -326,6 +386,18 @@ describe("resolveTapActionType", () => {
     // A valid service id is exactly domain.service; multi-dot is rejected.
     expect(
       resolveTapActionType({ type: "call-service", service: "foo.bar.baz" }),
+    ).toBeNull();
+    // Whitespace is not what makes an id invalid, though: it is trimmed, the
+    // same way a padded entity id is.
+    expect(
+      resolveTapActionType({ type: "call-service", service: " light.toggle " }),
+    ).toBe("call-service");
+    expect(
+      resolveTapActionType({ type: "call-service", service: "light . toggle" }),
+    ).toBe("call-service");
+    // Trimming cannot rescue an id that has no halves to begin with.
+    expect(
+      resolveTapActionType({ type: "call-service", service: " . " }),
     ).toBeNull();
   });
 
@@ -337,5 +409,40 @@ describe("resolveTapActionType", () => {
     expect(resolveTapActionType(undefined)).toBeNull();
     expect(resolveTapActionType("more-info")).toBeNull();
     expect(resolveTapActionType([{ type: "more-info" }])).toBeNull();
+  });
+});
+
+/**
+ * The pair that bit a user (owner, live in hass-test): a `tap_action` the
+ * handler could not act on still counted as "the element has a tap_action",
+ * which suppressed the per-icon more-info the card gives by default. So
+ * configuring `tap_action: {type: more-info}` without an entity both opened the
+ * wrong dialog and removed the right ones.
+ */
+describe("an unactionable tap_action leaves the per-icon dialogs alone", () => {
+  const perIconEnabled = (tapAction: unknown, linkToSensors?: unknown) =>
+    iconMoreInfoEnabled(linkToSensors, resolveTapActionType(tapAction) !== null);
+
+  it("keeps per-icon more-info on for more-info without an entity", () => {
+    // Identical to having configured no tap_action at all.
+    expect(perIconEnabled({ type: "more-info" })).toBe(true);
+    expect(perIconEnabled({ action: "more-info" })).toBe(true);
+    expect(perIconEnabled(undefined)).toBe(true);
+  });
+
+  it("still suppresses per-icon more-info for an actionable tap_action", () => {
+    expect(perIconEnabled({ type: "more-info", entity: "sensor.x" })).toBe(
+      false,
+    );
+    expect(perIconEnabled({ type: "navigate", navigation_path: "/x" })).toBe(
+      false,
+    );
+  });
+
+  it("leaves link_to_sensors as the global off switch either way", () => {
+    expect(perIconEnabled({ type: "more-info" }, false)).toBe(false);
+    expect(perIconEnabled({ type: "more-info", entity: "sensor.x" }, true)).toBe(
+      true,
+    );
   });
 });

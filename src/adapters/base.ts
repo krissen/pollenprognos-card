@@ -400,7 +400,7 @@ export function padForecastDates(
   }
   const forecastDates = upcoming.slice();
   let lastDate =
-    upcoming.length > 0 ? parseDate(upcoming[upcoming.length - 1]) : today;
+    upcoming.length > 0 ? parseDate(upcoming[upcoming.length - 1]!) : today;
   while (forecastDates.length < daysToShow) {
     lastDate = new Date(lastDate.getTime() + 86400000);
     const yyyy = lastDate.getFullYear();

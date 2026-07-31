@@ -4,6 +4,71 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.0.1] - 2026-07-31
+
+### Fixed
+
+- **Kleenex works with renamed devices and manual mode** (issue #309). The
+  adapter located its sensors solely through the hard-coded entity-id prefix
+  `sensor.kleenex_pollen_radar_*`, which is just the slug of the integration's
+  default device name; renaming the device broke auto-detection, and manual
+  `entity_prefix` configs without that legacy prefix never matched. Discovery
+  now goes through the device/entity registry (translation keys, device
+  identifiers), so renamed devices, the editor's location dropdown, the card
+  header title and badge configs all resolve correctly; pristine legacy setups
+  are byte-identical. The manual-mode header now shows the location name
+  instead of the configured prefix.
+- **Kleenex allergen rows no longer vanish on upstream name quirks.** French
+  and Italian category sensors deliver `"Poaceae "` with a trailing space, and
+  the Italian site spells chenopod `"Chenepod"`; both silently dropped their
+  rows (grass for FR/IT, chenopod for IT). Allergen names from the integration
+  are now normalized (trimmed, whitespace-collapsed, lowercased) through one
+  shared rule, the misspelling is aliased, and a test matrix pins the live
+  detail names of all five supported regions (FR/IT/NL/UK/US) so future
+  upstream changes fail loudly instead of dropping rows.
+- **US Kleenex locations show their pollen data** (issue #313). The upstream
+  integration's US zone only exposes category totals (trees/grass/weeds), never
+  per-allergen details, so the card rendered "(No information)" despite live
+  data. When a location has no per-allergen data, the card now falls back to
+  the three category totals automatically, a zero-PPM day renders as the
+  "no pollen" level (a category at zero across the whole forecast is filtered
+  by `pollen_threshold`, like any all-zero allergen), and the editor's allergen
+  picker offers the category totals for Kleenex. European locations and setups with per-allergen detail
+  sensors are unchanged.
+- **Tapping a Kleenex allergen icon opens that allergen's own sensor** (issue
+  #317). When the integration's per-allergen detail sensor exists it is opened
+  (even when the row's numbers came from the category sensor); otherwise the
+  tap opens the category sensor the row was read out of, whose attributes
+  carry the per-allergen data. Every icon leads somewhere; `link_to_sensors:
+  false` remains the off switch.
+- **A `more-info` tap_action without an entity no longer opens the sun.sun
+  dialog.** Such an action is now inert: the card is not clickable through it,
+  and the per-icon more-info it used to suppress works again. The editor warns
+  when a `more-info` tap_action lacks an entity.
+- **A manual Kleenex `entity_prefix` no longer mixes locations.** On installs
+  with several Kleenex locations, a prefix like `kleenex_pollen_` also matched
+  other entries' legacy ids (`kleenex_pollen_radar_utrecht_*`), so the card
+  merged cities and the header could name the wrong one. The prefix is now
+  scoped to the device it was minted from (resolved through the device
+  registry, so it holds even while that device is unavailable), and when
+  scoping drops entities the card says so once in the console. Single-location
+  and registry-less setups (e.g. template sensors) behave exactly as before.
+- **Invalid `icon_size` values fall back to the 48 px default** (issue #305).
+  Hand-written YAML like `icon_size: "abc"`, `"48px"`, `true` or `0` previously
+  leaked through as-is (rendering NaN-sized or zero-sized icons in some views);
+  numeric strings such as `"64"` are still honoured, in the editor slider too.
+  The same boundary hardening applies to every number-typed config field.
+
+### Changed
+
+- **Stricter compiler guarantees**: `noUncheckedIndexedAccess` is now enabled
+  across the codebase (issue #306), with type-level guards only: no runtime
+  behaviour changes, goldens untouched.
+- **Dead `levelNames` field dropped from emitted Kleenex sensors** (issue
+  #304). It was never read by the renderer.
+- **Editor-screenshot tooling is locale-independent** (issue #307). Internal
+  tooling only; the shipped bundle is unaffected.
+
 ## [4.0.0] - 2026-07-06
 
 The TypeScript release: the whole codebase migrated from JavaScript + Lit 2 to

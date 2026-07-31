@@ -85,7 +85,7 @@ function classifyMswEntity(eid: string): string | null {
   if (typeof eid !== "string") return null;
   const m = MSW_LEVEL_RE.exec(eid);
   if (!m) return null;
-  return MSW_POLLEN_TYPES[m[1]] || null;
+  return MSW_POLLEN_TYPES[m[1] ?? ""] || null;
 }
 
 export const stubConfigMSW: AdapterStubConfig = {
@@ -95,7 +95,7 @@ export const stubConfigMSW: AdapterStubConfig = {
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,

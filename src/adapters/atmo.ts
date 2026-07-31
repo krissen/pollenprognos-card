@@ -84,7 +84,7 @@ export const stubConfigATMO: AdapterStubConfig = {
   minimal: false,
   minimal_gap: 35,
   background_color: "",
-  icon_size: "48",
+  icon_size: 48,
   text_size_ratio: 1,
   ...LEVELS_DEFAULTS,
   show_text_allergen: true,
@@ -149,6 +149,7 @@ function classifyAtmoEntity(entityId: string): string | null {
   // Pollution: {fr_slug} without niveau_ or concentration_ prefix
   for (const canonical of ATMO_POLLUTION_ALLERGENS) {
     const frSlug = ATMO_ALLERGEN_MAP[canonical];
+    if (!frSlug) continue;
     if (
       id.includes(frSlug) &&
       !id.includes(`niveau_${frSlug}`) &&
@@ -312,7 +313,7 @@ function detectLocation(hass: HomeAssistant, debug: boolean): string | null {
     );
     if (m) {
       if (debug) console.debug("[ATMO] auto-detected location:", m[2]);
-      return m[2];
+      return m[2] ?? null;
     }
   }
   // Fallback: try pollution entities
@@ -326,7 +327,7 @@ function detectLocation(hass: HomeAssistant, debug: boolean): string | null {
           "[ATMO] auto-detected location from pollution entity:",
           m[2],
         );
-      return m[2];
+      return m[2] ?? null;
     }
   }
   // Fallback: try summary entities (qualite_globale_pollen_* or qualite_globale_*)
@@ -339,7 +340,7 @@ function detectLocation(hass: HomeAssistant, debug: boolean): string | null {
           "[ATMO] auto-detected location from pollen summary entity:",
           mp[1],
         );
-      return mp[1];
+      return mp[1] ?? null;
     }
     // Match qualite_globale_{location} but not qualite_globale_pollen_*
     const mg = id.match(/^sensor\.qualite_globale_(?!pollen)(.+?)(?:_j_\d+)?$/);
@@ -349,7 +350,7 @@ function detectLocation(hass: HomeAssistant, debug: boolean): string | null {
           "[ATMO] auto-detected location from global summary entity:",
           mg[1],
         );
-      return mg[1];
+      return mg[1] ?? null;
     }
   }
   return null;
@@ -497,7 +498,7 @@ export function resolveEntityIds(
           return false;
         return true;
       });
-      if (candidates.length === 1) sensorId = candidates[0];
+      if (candidates.length === 1) sensorId = candidates[0]!;
       else continue;
     }
     if (debug)
@@ -651,7 +652,8 @@ export async function fetchForecast(
       const sensorId = entityMap.get(allergen);
       if (!sensorId) continue;
 
-      const sensor = hass.states[sensorId];
+      // resolveEntityIds only maps ids it found in hass.states.
+      const sensor = hass.states[sensorId]!;
       dict.entity_id = sensorId;
 
       // Today's value

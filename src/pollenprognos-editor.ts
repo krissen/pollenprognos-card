@@ -22,7 +22,7 @@ import {
 } from "./editor/base.js";
 
 // Adapter registry (stub config lookup) + direct adapter imports for constants
-import { getStubConfig } from "./adapter-registry.js";
+import { getStubConfig, getAutodetect } from "./adapter-registry.js";
 import { stubConfigPP, discoverPpSensors, extractCitySlugFromEntityId as extractPpCitySlugFromEntityId } from "./adapters/pp.js";
 import { discoverDwdSensors, DWD_ENTITY_ID_RE } from "./adapters/dwd.js";
 import { PEU_ALLERGENS, extractPeuLocationSlugFromEntityId } from "./adapters/peu.js";
@@ -83,12 +83,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
   // subclass's own members are.
   declare installedCities: string[];
   declare installedRegionIds: string[];
-  // NOTE: `installedLocations` is read once in setConfig's SILAM auto-select
-  // branch but is never assigned anywhere (a latent bug preserved verbatim in
-  // this conversion). Declared optional so the read type-checks; the access
-  // site keeps the original throw-on-undefined behaviour via a non-null
-  // assertion.
-  declare installedLocations?: InstalledLocation[];
   declare _integrationExplicit: boolean;
   declare _thresholdExplicit: boolean;
   declare _prevIntegration?: string;
@@ -502,6 +496,20 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             (id) => [id, `${id} — ${DWD_REGIONS[id] || id}`] as InstalledLocation,
           );
         }
+
+        // SILAM: device-based discovery so the auto-select below (and the
+        // dropdown) has data within this same setConfig call, mirroring PP/DWD.
+        // Deliberately NO else-clear on empty discovery: `set hass` owns the
+        // regex fallback for SILAM installs whose devices lack registry
+        // metadata, and clearing here would clobber that list. `set hass`
+        // always reassigns (fallback or empty) on the next hass tick, so a
+        // stale list cannot outlive one update cycle.
+        if (integration === "silam") {
+          const silamDiscovery = discoverSilamSensors(this._hass, false);
+          if (silamDiscovery.locations.size > 0) {
+            this.installedSilamLocations = discoveryToLocations(silamDiscovery);
+          }
+        }
       }
       // 17. Auto-välj city/region om inte explicit
       if (!this._integrationExplicit) {
@@ -510,23 +518,21 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           !this._userConfig.region_id &&
           this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedDwdLocations[0][0];
+          this._config.region_id = this.installedDwdLocations[0]![0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
           this.installedPpLocations.length
         ) {
-          this._config.city = this.installedPpLocations[0][0];
+          this._config.city = this.installedPpLocations[0]![0];
         }
         if (
           integration === "silam" &&
           !this._userConfig.location &&
-          this.installedLocations!.length
+          this.installedSilamLocations.length
         ) {
-          // installedLocations is declared [string, string][] but the SILAM
-          // branch stores the location value; preserve the runtime assignment.
-          this._config.location = this.installedLocations![0] as unknown as string;
+          this._config.location = this.installedSilamLocations[0]![0];
         }
       }
 
@@ -568,7 +574,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       if (this._config.integration === "gpl" && this._hass) {
         const gplDiscovery = discoverGplSensors(this._hass, false);
         this.installedGplLocations = discoveryToLocations(gplDiscovery);
-        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+        const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0]![0] : null);
         const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId as string, false);
         this.installedGplPlants = allGplAllergens.filter((k: string) => !GPL_BASE_ALLERGENS.includes(k));
       }
@@ -576,7 +582,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       if (this._config.integration === "gp" && this._hass) {
         const gpDiscovery = discoverGpSensors(this._hass, false);
         this.installedGpLocations = discoveryToLocations(gpDiscovery);
-        const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
+        const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0]![0] : null);
         const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId as string, false);
         this.installedGpPlants = allGpAllergens.filter((k: string) => !GP_BASE_ALLERGENS.includes(k));
       }
@@ -592,13 +598,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         this.installedIrmkmiLocations = discoveryToLocations(id);
       }
 
-      // SILAM discovery: run here too for same reason as GPL above
-      if (this._config.integration === "silam" && this._hass) {
-        const sd = discoverSilamSensors(this._hass, false);
-        if (sd.locations.size > 0) {
-          this.installedSilamLocations = discoveryToLocations(sd);
-        }
-      }
     } catch (e) {
       console.error("pollenprognos-card-editor: Fel i setConfig:", e, config);
       throw e;
@@ -623,11 +622,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     // Other per-integration state lists are only needed for the pick, which is
     // handled inside the shared module.
     const {
-      states: { pp: ppStates, dwd: dwdStates },
+      states: { pp: ppStates = [], dwd: dwdStates = [] },
       discovery: {
         silam: silamDiscovery,
         atmo: atmoDiscovery,
         gp: gpDiscovery,
+        kleenex: kleenexDiscovery,
       },
       getPpDiscovery,
       getDwdDiscovery,
@@ -664,7 +664,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this.installedGplLocations = discoveryToLocations(gplDiscovery);
 
     if (integration === "gpl") {
-      const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0][0] : null);
+      const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0]![0] : null);
       const allGplAllergens = discoverGplAllergens(hass, gplConfigEntryId as string, false);
       this.installedGplPlants = allGplAllergens.filter((k: string) => !GPL_BASE_ALLERGENS.includes(k));
     } else {
@@ -676,7 +676,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     this.installedGpLocations = discoveryToLocations(gpDiscovery);
 
     if (integration === "gp") {
-      const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0][0] : null);
+      const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0]![0] : null);
       const allGpAllergens = discoverGpAllergens(hass, gpConfigEntryId as string, false);
       this.installedGpPlants = allGpAllergens.filter((k: string) => !GP_BASE_ALLERGENS.includes(k));
     } else {
@@ -922,7 +922,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   /^sensor\.silam_pollen_(.*)_([^_]+)$/,
                 );
                 if (!match) return false;
-                const allergenSlug = match[2];
+                const allergenSlug = match[2] ?? "";
                 return SilamValidAllergenSlugs.has(allergenSlug);
               })
               .map((s) => {
@@ -930,7 +930,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   /^sensor\.silam_pollen_(.*)_([^_]+)$/,
                 );
                 const rawLocation = match
-                  ? match[1].replace(/^[-\s]+/, "")
+                  ? (match[1] ?? "").replace(/^[-\s]+/, "")
                   : "";
                 const locationSlug = slugify(rawLocation);
 
@@ -953,47 +953,96 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         );
       }
 
-      // Collect kleenex locations
-      this.installedKleenexLocations = Array.from(
-        new Map(
-          Object.values(hass.states)
-            .filter(
-              (s) =>
-                s &&
-                typeof s === "object" &&
-                typeof s.entity_id === "string" &&
-                s.entity_id.startsWith("sensor.kleenex_pollen_radar_"),
-            )
-            .map((s) => {
-              // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
-              // Match all localized category names: English (trees/grass/weeds), Dutch (bomen/gras/kruiden/onkruid),
-              // French (arbres/graminees/herbacees), Italian (alberi/graminacee/erbacee)
-              const match = s.entity_id.match(
-                /^sensor\.kleenex_pollen_radar_(.*)_(?:tree|bomen|arbre|alber|grass|gras|graminee|graminace|weed|kruid|onkruid|herbacee|erbace)/,
-              );
-              if (!match) return null;
+      // Collect kleenex locations. Registry discovery first: a renamed device
+      // strips both the `radar_` prefix and the location slug from the entity
+      // IDs the regex below parses, which left the dropdown empty (issue #309).
+      this.installedKleenexLocations = discoveryToLocations(kleenexDiscovery);
 
-              const locationSlug = match[1];
-              let title = s.attributes?.friendly_name || locationSlug;
+      if (!this.installedKleenexLocations.length) {
+        this.installedKleenexLocations = Array.from(
+          new Map(
+            Object.values(hass.states)
+              .filter(
+                (s) =>
+                  s &&
+                  typeof s === "object" &&
+                  typeof s.entity_id === "string" &&
+                  s.entity_id.startsWith("sensor.kleenex_pollen_radar_"),
+              )
+              .map((s) => {
+                // Extract location from entity_id pattern: sensor.kleenex_pollen_radar_<location>_<allergen>
+                // Match all localized category names: English (trees/grass/weeds), Dutch (bomen/gras/kruiden/onkruid),
+                // French (arbres/graminees/herbacees), Italian (alberi/graminacee/erbacee)
+                const match = s.entity_id.match(
+                  /^sensor\.kleenex_pollen_radar_(.*)_(?:tree|bomen|arbre|alber|grass|gras|graminee|graminace|weed|kruid|onkruid|herbacee|erbace)/,
+                );
+                if (!match) return null;
 
-              // Clean up the title to show only the location
-              title = title
-                .replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
-                .replace(/[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
-                .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
-                .trim();
+                const locationSlug = match[1] ?? "";
+                let title = s.attributes?.friendly_name || locationSlug;
 
-              // Fallback to locationSlug if cleaning resulted in empty string
-              if (!title) {
-                title =
-                  locationSlug.charAt(0).toUpperCase() + locationSlug.slice(1);
-              }
+                // Clean up the title to show only the location
+                title = title
+                  .replace(/^Kleenex Pollen Radar\s*[(-]?\s*/i, "")
+                  .replace(/[)\s]+(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee).*$/i, "")
+                  .replace(/^(?:Trees|Grass|Weeds|Bomen|Gras|Kruiden|Onkruid|Arbres|Gramin[eé]+s?|Herbac[eé]+s?|Alberi|Graminacee|Erbacee)(?:\s.*)?$/i, "")
+                  .trim();
 
-              return [locationSlug, title] as InstalledLocation;
-            })
-            .filter((entry): entry is InstalledLocation => entry !== null),
-        ),
-      );
+                // Fallback to locationSlug if cleaning resulted in empty string
+                if (!title) {
+                  title =
+                    locationSlug.charAt(0).toUpperCase() +
+                    locationSlug.slice(1);
+                }
+
+                return [locationSlug, title] as InstalledLocation;
+              })
+              .filter((entry): entry is InstalledLocation => entry !== null),
+          ),
+        );
+      }
+
+      // Compatibility: a config can still hold a location value that is not a
+      // discovery key -- e.g. a device without a usable identifier (keyed by
+      // config entry), or a legacy slug whose device was renamed. Re-key the
+      // matched entry to the configured value so the dropdown shows it as
+      // selected. Replacing rather than appending keeps exactly one option per
+      // location: two entries sharing a label are indistinguishable to the
+      // user, and picking the wrong one would silently rewrite the config's
+      // location key.
+      const kleenexCfgLoc = this._config?.location as string | undefined;
+      if (
+        kleenexCfgLoc &&
+        kleenexCfgLoc !== "manual" &&
+        !kleenexDiscovery.locations.has(kleenexCfgLoc)
+      ) {
+        const kleenexAutodetect = getAutodetect("kleenex");
+        // Resolve exactly the way the adapter does -- one call, no local copy
+        // of the candidate chain. A partial mirror makes the dropdown and the
+        // rendered card disagree about which config values resolve, which is
+        // how the label-matching case was missed here. "ambiguous" (several
+        // locations answer to the value) yields no entry: binding the selector
+        // to one of them would be a guess.
+        const kleenexResolved =
+          kleenexAutodetect?.resolveLocation?.(
+            hass,
+            kleenexDiscovery,
+            kleenexCfgLoc,
+          ) ?? null;
+        const kleenexMatch =
+          kleenexResolved === "ambiguous" ? null : kleenexResolved;
+        if (kleenexMatch) {
+          const entry = [
+            kleenexCfgLoc,
+            kleenexMatch[1].label,
+          ] as InstalledLocation;
+          const idx = this.installedKleenexLocations.findIndex(
+            ([key]) => key === kleenexMatch[0],
+          );
+          if (idx >= 0) this.installedKleenexLocations[idx] = entry;
+          else this.installedKleenexLocations.push(entry);
+        }
+      }
 
       // Collect Atmo France locations (reuse discovery from autodetect above)
       this.installedAtmoLocations = discoveryToLocations(atmoDiscovery);
@@ -1025,63 +1074,63 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           !this._userConfig.region_id &&
           this.installedDwdLocations.length
         ) {
-          this._config.region_id = this.installedDwdLocations[0][0];
+          this._config.region_id = this.installedDwdLocations[0]![0];
         }
         if (
           integration === "pp" &&
           !this._userConfig.city &&
           this.installedPpLocations.length
         ) {
-          this._config.city = this.installedPpLocations[0][0];
+          this._config.city = this.installedPpLocations[0]![0];
         }
         if (
           integration === "silam" &&
           !this._userConfig.location &&
           this.installedSilamLocations.length
         ) {
-          this._config.location = this.installedSilamLocations[0][0];
+          this._config.location = this.installedSilamLocations[0]![0];
         }
         if (
           integration === "kleenex" &&
           !this._userConfig.location &&
           this.installedKleenexLocations.length
         ) {
-          this._config.location = this.installedKleenexLocations[0][0];
+          this._config.location = this.installedKleenexLocations[0]![0];
         }
         if (
           integration === "atmo" &&
           !this._userConfig.location &&
           this.installedAtmoLocations.length
         ) {
-          this._config.location = this.installedAtmoLocations[0][0];
+          this._config.location = this.installedAtmoLocations[0]![0];
         }
         if (
           integration === "gpl" &&
           !this._userConfig.location &&
           this.installedGplLocations.length
         ) {
-          this._config.location = this.installedGplLocations[0][0];
+          this._config.location = this.installedGplLocations[0]![0];
         }
         if (
           integration === "gp" &&
           !this._userConfig.location &&
           this.installedGpLocations?.length
         ) {
-          this._config.location = this.installedGpLocations[0][0];
+          this._config.location = this.installedGpLocations[0]![0];
         }
         if (
           integration === "msw" &&
           !this._userConfig.location &&
           this.installedMswLocations?.length
         ) {
-          this._config.location = this.installedMswLocations[0][0];
+          this._config.location = this.installedMswLocations[0]![0];
         }
         if (
           integration === "irmkmi" &&
           !this._userConfig.location &&
           this.installedIrmkmiLocations?.length
         ) {
-          this._config.location = this.installedIrmkmiLocations[0][0];
+          this._config.location = this.installedIrmkmiLocations[0]![0];
         }
       }
 
@@ -1851,6 +1900,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       .section-helper {
         font-size: 12px;
         color: var(--secondary-text-color);
+        padding: 0 0 8px;
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
+      /* Inline caveat under a field whose current value cannot take effect. */
+      .field-warning {
+        font-size: 12px;
+        color: var(--warning-color, #ff9800);
         padding: 0 0 8px;
         margin-left: 24px;
         margin-right: 24px;

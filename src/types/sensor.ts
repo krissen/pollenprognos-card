@@ -79,8 +79,6 @@ export interface PollenSensor {
   topPollen?: unknown;
   /** In-season plant list: gpl. */
   plantsInSeasonList?: unknown;
-  /** kleenex-specific: per-sensor 0-6 level-name array carried to the render path. */
-  levelNames?: string[];
   /** Raw entity attributes carried through: plu. */
   attributes?: Record<string, any>;
 }

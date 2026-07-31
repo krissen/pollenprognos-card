@@ -4,7 +4,7 @@ import { PP_POSSIBLE_CITIES } from "../../src/constants.js";
 
 describe("slugify: backward compatibility", () => {
   it("produces expected slugs for all 22 PP cities", () => {
-    const expected = [
+    const expected: Array<[string, string]> = [
       ["Borlänge", "borlange"],
       ["Bräkne-Hoby", "brakne_hoby"],
       ["Eskilstuna", "eskilstuna"],

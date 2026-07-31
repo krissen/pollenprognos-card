@@ -12,7 +12,7 @@ export function ppmToLevel(value: unknown, allergenName: string): number {
   const category = KLEENEX_ALLERGEN_CATEGORIES[allergenName] || "trees"; // Default to trees
 
   // Category-specific thresholds: [low, moderate, high] -> levels 1, 2, 3, with 4 being very-high
-  let thresholds: number[];
+  let thresholds: [number, number, number];
   switch (category) {
     case "trees":
       thresholds = [95, 207, 703];

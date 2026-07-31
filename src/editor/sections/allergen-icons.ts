@@ -131,7 +131,7 @@ export function renderAllergenIconsSection(
                               onClick: () => {
                                 const newColors = [...allergenColors];
                                 newColors[i] =
-                                  LEVELS_DEFAULTS.allergen_colors[i];
+                                  LEVELS_DEFAULTS.allergen_colors[i]!;
                                 editor._updateConfig(
                                   "allergen_colors",
                                   newColors,
