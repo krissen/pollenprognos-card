@@ -106,13 +106,16 @@ function makeConfig(overrides: any = {}): any {
 /**
  * Build a Kleenex sensor state object.
  *
- * Every forecast day carries a numeric `value`, because every real one does:
- * checked across all eight configured locations, and structural in the
- * integration (sensor.py:272-278 writes the field unconditionally). A day
- * without the field describes a payload the integration cannot produce, so
- * omitting it here only ever tested the card against fiction. When a caller
- * gives no explicit `value`, the day repeats today's reading -- which is what
- * the US zone actually sends, and is a plausible EU day too.
+ * Every forecast day carries a `value` key, because every real one does: the
+ * integration writes the field unconditionally (sensor.py:272-278) and all
+ * eight configured locations were checked. The key being present is not a
+ * promise that it holds a number -- it is written from a `day.get()`, so it
+ * arrives as null when the site omits the reading, which is exactly why
+ * `readPpm` guards null rather than trusting the field. A day with no key at
+ * all is the shape the integration cannot produce, and leaving it out here
+ * only ever tested the card against fiction. When a caller gives no explicit
+ * `value`, the day repeats today's reading -- which is what the US zone
+ * actually sends, and is a plausible EU day too.
  *
  * 0 is a reading, not a gap: London's and Utrecht's trees sensors sit at 0
  * across the whole forecast, and that is "no pollen".
@@ -217,9 +220,10 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.entity_id).toBe(
-      "sensor.kleenex_pollen_radar_amsterdam_trees",
-    );
+    // Issue #317: the reading comes out of the trees sensor's `details`, so
+    // the row has no entity of its own. Carrying the category entity here made
+    // tapping the birch icon open the trees dialog.
+    expect(result[0]!.entity_id).toBe("");
   });
 
   it("sets allergenCapitalized to a non-empty string", async () => {
@@ -969,9 +973,10 @@ describe("Kleenex adapter: manual mode", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0]!.entity_id).toBe(
-      "sensor.kleenex_pollen_radar_mypfx_amsterdam_trees",
-    );
+    // The row is derived from the matched sensor's details, so its provenance
+    // is the reading rather than an entity id of its own (issue #317).
+    expect(result[0]!.allergenReplaced).toBe("birch");
+    expect(result[0]!.days[0]!.value).toBe(150);
   });
 
   it("returns empty array in manual mode when no sensor matches the prefix", async () => {
@@ -1135,8 +1140,9 @@ describe("Kleenex adapter: location filtering", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(1);
-    expect(result[0]!.entity_id).toContain("amsterdam");
-    expect(result[0]!.entity_id).not.toContain("brussels");
+    // Amsterdam's reading, not Brussels': the row itself has no entity id to
+    // check, since it is derived from the category sensor's details (#317).
+    expect(result[0]!.days[0]!.value).toBe(200);
   });
 
   it("returns empty array when no sensors match the configured location", async () => {
@@ -1572,8 +1578,10 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(result[0]!.allergenReplaced).toBe("birch");
     // Must use the category sensor value (250 ppm -> level 3), not DetailSensor (50 -> level 1).
     expect(result[0]!.days[0]!.state).toBe(3);
+    // ...but the row still links to birch's own entity, not to the category
+    // sensor whose details it was read from (issue #317).
     expect(result[0]!.entity_id).toBe(
-      "sensor.kleenex_pollen_radar_amsterdam_trees",
+      "sensor.kleenex_pollen_radar_amsterdam_birch",
     );
   });
 
@@ -2385,8 +2393,13 @@ describe("Kleenex adapter: registry-driven resolution", () => {
     );
     expect(result.length).toBeGreaterThan(0);
     expect(
-      result.every((s) =>
-        s.entity_id.startsWith("sensor.kleenex_pollen_radar_cabin_"),
+      // No row may point at another location. Rows read out of a category
+      // sensor's details carry no entity id at all (#317), so the invariant is
+      // "no foreign entity", not "every row has a Cabin entity".
+      result.every(
+        (s) =>
+          !s.entity_id ||
+          s.entity_id.startsWith("sensor.kleenex_pollen_radar_cabin_"),
       ),
     ).toBe(true);
   });
@@ -2460,8 +2473,12 @@ describe("Kleenex adapter: legacy slug via device identifier", () => {
 
     const keys = result.map((s) => s.allergenReplaced).sort();
     expect(keys).toEqual(["birch", "mugwort", "trees_cat"]);
+    // Detail-derived rows carry no entity id (#317); the ones that do must all
+    // belong to the renamed device.
     expect(
-      result.every((s) => s.entity_id.startsWith("sensor.my_pollen_")),
+      result.every(
+        (s) => !s.entity_id || s.entity_id.startsWith("sensor.my_pollen_"),
+      ),
     ).toBe(true);
   });
 
@@ -3416,5 +3433,129 @@ describe("Kleenex adapter: US/NA category fallback", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 18. More-info target per row (issue #317)
+// ---------------------------------------------------------------------------
+/**
+ * The card opens `sensor.entity_id` when an allergen icon is tapped, and skips
+ * the handler entirely when the row has none (`clickable = ... && !!entity_id`
+ * in pollenprognos-card.ts / pollenprognos-badge.ts, the same rule SILAM's
+ * entity-less allergy_risk row relies on).
+ *
+ * So a row's entity_id is the answer to "which entity is this row?", not
+ * "which entity did the number come from". A per-allergen reading lifted out of
+ * a category sensor's `details` has no entity of its own; the category sensor
+ * holds a different number (the category total) and opening it when the user
+ * tapped birch showed them the wrong allergen (#317).
+ */
+describe("Kleenex adapter: more-info target (issue #317)", () => {
+  it("gives a detail-derived allergen no entity of its own", async () => {
+    const entity = makeKleenexEntity(
+      "amsterdam",
+      "trees",
+      200,
+      [{ name: "Birch", value: 150 }],
+      [{ level: 2, details: [{ name: "Birch", value: 120 }] }],
+    );
+    const hass = makeHassFromEntities([entity]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch", "trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch")!;
+    const trees = result.find((s) => s.allergenReplaced === "trees_cat")!;
+    expect(birch.entity_id).toBe("");
+    // The category row is a real entity and keeps its link.
+    expect(trees.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+  });
+
+  it("links a detail-derived allergen to its DetailSensor when one exists", async () => {
+    // The category sensor still wins on data (it is read first), but birch has
+    // an entity of its own and that is what the icon must open.
+    const category = makeKleenexEntity(
+      "amsterdam",
+      "trees",
+      200,
+      [{ name: "Birch", value: 150 }],
+      [],
+    );
+    const detailSensor = {
+      entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch",
+      state: "150",
+      attributes: { forecast: [] },
+    };
+    const hass = makeHassFromEntities([category, detailSensor]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch")!;
+    expect(birch.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    expect(birch.days[0]!.value).toBe(150);
+  });
+
+  it("reproduces the reporter's setup: manual mode, individual allergens and the three categories", async () => {
+    // Issue #317's config, in the part that decides the outcome: a long
+    // individual allergen list next to all three *_cat keys, on an EU zone
+    // whose per-allergen data lives in the category sensors' details. The
+    // reporter left both `location` and `entity_prefix` empty; this names the
+    // prefix instead, because the prefix only decides which entities are
+    // collected and naming them keeps the fixture unambiguous about where each
+    // row came from.
+    const hass = makeHassFromEntities([
+      makeKleenexEntity(
+        "paris",
+        "trees",
+        200,
+        [
+          { name: "Birch", value: 150 },
+          { name: "Alder", value: 20 },
+        ],
+        [],
+      ),
+      makeKleenexEntity(
+        "paris",
+        "grass",
+        30,
+        [{ name: "Poaceae", value: 30 }],
+        [],
+      ),
+    ]);
+    const config = makeConfig({
+      location: "manual",
+      entity_prefix: "kleenex_pollen_radar_paris",
+      allergens: [
+        "birch",
+        "alder",
+        "poaceae",
+        "trees_cat",
+        "grass_cat",
+        "weeds_cat",
+      ],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    for (const key of ["birch", "alder", "poaceae"]) {
+      const row = result.find((s) => s.allergenReplaced === key);
+      expect(row, `expected a ${key} row`).toBeTruthy();
+      // Tapping any of these opens nothing rather than the wrong allergen.
+      expect(row!.entity_id).toBe("");
+    }
+    expect(
+      result.find((s) => s.allergenReplaced === "trees_cat")!.entity_id,
+    ).toBe("sensor.kleenex_pollen_radar_paris_trees");
   });
 });

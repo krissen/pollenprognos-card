@@ -528,7 +528,12 @@ export async function fetchForecast(
         if (!allergenData.has(canonicalName)) {
           allergenData.set(canonicalName, {
             levels: [],
-            entity_id: sensor.entity_id,
+            // No entity of its own: this reading comes out of the category
+            // sensor's `details` attribute. Carrying the category entity here
+            // made the card open the trees dialog when the user tapped birch
+            // (issue #317). The DetailSensor pass below fills this in when the
+            // per-allergen entity exists.
+            entity_id: "",
             source: "individual_details", // Track data source
           });
         }
@@ -595,7 +600,9 @@ export async function fetchForecast(
           if (!allergenData.has(canonicalName)) {
             allergenData.set(canonicalName, {
               levels: [],
-              entity_id: sensor.entity_id,
+              // Same as the details pass above: read out of the category
+              // sensor's forecast, so the row has no entity of its own.
+              entity_id: "",
               source: "individual_forecast", // Track data source
             });
           }
@@ -695,8 +702,23 @@ export async function fetchForecast(
     // Skip allergens not requested in config.
     if (!configuredAllergens.includes(canonicalName)) continue;
 
-    // Only fill slots not already populated by category-sensor pass.
-    if (allergenData.has(canonicalName)) continue;
+    // Only fill slots not already populated by category-sensor pass -- but
+    // adopt the entity either way. The reading may well have come from the
+    // category sensor's details (that pass runs first and wins on data), while
+    // the allergen's own DetailSensor is what the card should open when the
+    // user taps its icon (issue #317).
+    const alreadyCollected = allergenData.get(canonicalName);
+    if (alreadyCollected) {
+      if (!alreadyCollected.entity_id) {
+        alreadyCollected.entity_id = sensor.entity_id;
+        if (debug) {
+          console.debug(
+            `[Kleenex] DetailSensor ${sensor.entity_id} adopted as the entity for ${canonicalName}`,
+          );
+        }
+      }
+      continue;
+    }
 
     // Skip when the sensor reports a non-numeric state (`unknown`,
     // `unavailable`, etc.) — treating those as 0 ppm would mask real
