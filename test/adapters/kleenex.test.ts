@@ -220,10 +220,13 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    // Issue #317: the reading comes out of the trees sensor's `details`, so
-    // the row has no entity of its own. Carrying the category entity here made
-    // tapping the birch icon open the trees dialog.
-    expect(result[0]!.entity_id).toBe("");
+    // The trees sensor the reading was lifted out of, as the fallback link.
+    // #317 first made this empty; the owner's call is that the category dialog
+    // is worth keeping (its attributes hold the details), so long as the
+    // allergen's own DetailSensor wins whenever there is one.
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_trees",
+    );
   });
 
   it("sets allergenCapitalized to a non-empty string", async () => {
@@ -3452,7 +3455,7 @@ describe("Kleenex adapter: US/NA category fallback", () => {
  * tapped birch showed them the wrong allergen (#317).
  */
 describe("Kleenex adapter: more-info target (issue #317)", () => {
-  it("gives a detail-derived allergen no entity of its own", async () => {
+  it("falls back to the category sensor a detail-derived allergen came from", async () => {
     const entity = makeKleenexEntity(
       "amsterdam",
       "trees",
@@ -3471,8 +3474,9 @@ describe("Kleenex adapter: more-info target (issue #317)", () => {
 
     const birch = result.find((s) => s.allergenReplaced === "birch")!;
     const trees = result.find((s) => s.allergenReplaced === "trees_cat")!;
-    expect(birch.entity_id).toBe("");
-    // The category row is a real entity and keeps its link.
+    // No DetailSensor for birch here, so the row links to the sensor whose
+    // `details` attribute carries birch's number.
+    expect(birch.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
     expect(trees.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
   });
 
@@ -3548,12 +3552,17 @@ describe("Kleenex adapter: more-info target (issue #317)", () => {
 
     const result = await fetchForecast(hass, config);
 
-    for (const key of ["birch", "alder", "poaceae"]) {
+    // Each row links to the category sensor it was read out of: birch and
+    // alder to trees, poaceae to grass. None of them points at a category it
+    // has nothing to do with, which was the actual complaint.
+    const linkOf = (key: string) => {
       const row = result.find((s) => s.allergenReplaced === key);
       expect(row, `expected a ${key} row`).toBeTruthy();
-      // Tapping any of these opens nothing rather than the wrong allergen.
-      expect(row!.entity_id).toBe("");
-    }
+      return row!.entity_id;
+    };
+    expect(linkOf("birch")).toBe("sensor.kleenex_pollen_radar_paris_trees");
+    expect(linkOf("alder")).toBe("sensor.kleenex_pollen_radar_paris_trees");
+    expect(linkOf("poaceae")).toBe("sensor.kleenex_pollen_radar_paris_grass");
     expect(
       result.find((s) => s.allergenReplaced === "trees_cat")!.entity_id,
     ).toBe("sensor.kleenex_pollen_radar_paris_trees");
