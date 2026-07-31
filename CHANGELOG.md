@@ -35,6 +35,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   by `pollen_threshold`, like any all-zero allergen), and the editor's allergen
   picker offers the category totals for Kleenex. European locations and setups with per-allergen detail
   sensors are unchanged.
+- **Tapping a Kleenex allergen icon opens that allergen's sensor** (issue
+  #317), not the category sensor its numbers were derived from. When the
+  integration's per-allergen detail sensor exists it is opened (even when the
+  row's data came from the category sensor); when no such sensor exists the
+  icon is no longer clickable, instead of opening the wrong dialog. Category
+  rows still open their category sensor.
 - **A manual Kleenex `entity_prefix` no longer mixes locations.** On installs
   with several Kleenex locations, a prefix like `kleenex_pollen_` also matched
   other entries' legacy ids (`kleenex_pollen_radar_utrecht_*`), so the card
