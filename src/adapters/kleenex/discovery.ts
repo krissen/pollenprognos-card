@@ -65,9 +65,7 @@ const SLUGIFIED_ALIAS_MAP: Map<string, string> = (() => {
  * so `amsterdam_noord_bouleau` still resolves to `birch` when the location part
  * could not be stripped up front.
  */
-export function canonicalAllergenFromSlug(
-  suffix: string,
-): string | undefined {
+export function canonicalAllergenFromSlug(suffix: string): string | undefined {
   const direct = SLUGIFIED_ALIAS_MAP.get(suffix);
   if (direct) return direct;
   if (!suffix.includes("_")) return undefined;
@@ -398,9 +396,7 @@ export function kleenexSlugExtractor(entityId: string): string | null {
  * location's forecast -- so callers must stop instead.
  */
 export type KleenexIdentifierMatch =
-  | [string, DiscoveredLocation]
-  | "ambiguous"
-  | null;
+  [string, DiscoveredLocation] | "ambiguous" | null;
 
 export function matchKleenexLocationByIdentifier(
   hass: HomeAssistant,
@@ -690,6 +686,11 @@ export interface KleenexManualScope {
  *      still owns its prefix. Membership follows discovery's own two signals, a
  *      `kleenex_pollenradar` device identifier or an entity registry entry with
  *      that platform, so a device exposed only the second way counts too.
+ *      Everything this step decides on is the device link, so a registry entry
+ *      that has none is not "another device" to it and stays -- deliberately:
+ *      were the link ever missing wholesale, dropping would leave an empty card
+ *      where keeping degrades to the pre-narrowing behaviour. Such an entry is
+ *      still attributable to a location by step 2, which does drop it.
  *   2. Discovered locations (runs when no device owned the prefix, at least two
  *      entities matched, and they span more than one discovered location). A
  *      location may still answer to the prefix through its discovery key or
@@ -793,8 +794,10 @@ export function scopeManualEntities(
   //
   // The entity registry's device link is therefore tried first: it covers every
   // entity of a device, classified or not. The classified map is the second
-  // source (it also holds entities whose registry entry has no device), and the
-  // legacy ID slug the third, since tier-3 locations are keyed by exactly that.
+  // source, and the only one that reaches a registry entry with our platform and
+  // no device at all: discovery buckets those as "default", a key no entity ID
+  // spells, so neither the device link nor the slug can place them. The legacy
+  // ID slug is the third, since tier-3 locations are keyed by exactly that.
   const locationOf = new Map<string, string>();
   const locationOfDevice = new Map<string, string>();
   for (const [key, loc] of discovery.locations) {
@@ -860,7 +863,9 @@ export function scopeManualEntities(
     return !key || key === winner;
   });
 
-  const label = winner ? (discovery.locations.get(winner)?.label ?? null) : null;
+  const label = winner
+    ? (discovery.locations.get(winner)?.label ?? null)
+    : null;
 
   warnOnceAboutNarrowing(
     prefix,
@@ -973,9 +978,14 @@ function requestedCategories(cfg: CardConfig): Set<string> {
 function requestedIndividualAllergens(cfg: CardConfig): string[] {
   return ((cfg.allergens as string[] | undefined) || []).filter(
     (a) =>
-      !["trees_cat", "grass_cat", "weeds_cat", "trees", "grass", "weeds"].includes(
-        a,
-      ),
+      ![
+        "trees_cat",
+        "grass_cat",
+        "weeds_cat",
+        "trees",
+        "grass",
+        "weeds",
+      ].includes(a),
   );
 }
 
@@ -1031,7 +1041,9 @@ export function resolveEntityIds(
 
       sensorId = `sensor.${prefix}${category}${suffix}`;
       if (!hass.states[sensorId]) {
-        const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
+        const possiblePrefixes = Object.entries(
+          KLEENEX_LOCALIZED_CATEGORY_NAMES,
+        )
           .filter(([, canonical]) => canonical === category)
           .map(([localPrefix]) => localPrefix);
 
@@ -1052,7 +1064,9 @@ export function resolveEntityIds(
         ? `sensor.kleenex_pollen_radar_${locationSlug}_${category}`
         : undefined;
       if (!sensorId || !hass.states[sensorId]) {
-        const possiblePrefixes = Object.entries(KLEENEX_LOCALIZED_CATEGORY_NAMES)
+        const possiblePrefixes = Object.entries(
+          KLEENEX_LOCALIZED_CATEGORY_NAMES,
+        )
           .filter(([, canonical]) => canonical === category)
           .map(([lp]) => lp);
 
