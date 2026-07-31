@@ -299,20 +299,39 @@ export async function fetchForecast(
     value === null ||
     value === undefined ||
     (isItemArray(value) && value.length === 0);
+  // The well-formed forecast days of a sensor, or null when it has none to
+  // judge by (absent, not an array, empty, or holding a malformed day).
+  const forecastDaysOf = (sensor: HassEntity): KleenexItem[] | null => {
+    const forecast = sensor.attributes?.forecast;
+    if (!isItemArray(forecast) || forecast.length === 0) return null;
+    return forecast;
+  };
+  // A sensor that carries a forecast is judged on the NA shape: no details
+  // today and none on any forecast day.
+  const reporting = categorySensorsFound.filter(
+    (sensor) => forecastDaysOf(sensor) !== null,
+  );
+  // One that carries no forecast has nothing to judge by -- Home Assistant
+  // strips the data attributes of an unavailable entity -- so it neither
+  // confirms nor denies the fingerprint. Requiring it to confirm let a single
+  // sensor going down blank a card whose other two categories were reporting
+  // live data. It is only passed over while it carries no details either: a
+  // sensor holding per-allergen details is the opposite of the NA shape,
+  // whatever state its forecast is in.
   const naDetailsFingerprint =
-    categorySensorsFound.length > 0 &&
-    categorySensorsFound.every((sensor) => {
-      const attrs = sensor.attributes || {};
-      const forecast = attrs.forecast;
-      // NA always returns a forecast of well-formed days; requiring one keeps
-      // synthetic/empty fixtures and malformed payloads from tripping the
-      // fingerprint.
-      if (!isItemArray(forecast) || forecast.length === 0) return false;
+    reporting.length > 0 &&
+    reporting.every((sensor) => {
+      const days = forecastDaysOf(sensor)!;
       return (
-        hasNoDetails(attrs.details) &&
-        forecast.every((day) => hasNoDetails(day.details))
+        hasNoDetails(sensor.attributes?.details) &&
+        days.every((day) => hasNoDetails(day.details))
       );
-    });
+    }) &&
+    categorySensorsFound.every(
+      (sensor) =>
+        forecastDaysOf(sensor) !== null ||
+        hasNoDetails(sensor.attributes?.details),
+    );
   const categoryConfigured = configuredAllergens.some((a) =>
     categoryAllergenKeys.includes(a),
   );
@@ -332,7 +351,13 @@ export async function fetchForecast(
     sensor: HassEntity,
     configAllergenName: string,
   ): void => {
-    const forecastData: KleenexItem[] = sensor.attributes?.forecast || [];
+    // Read positionally off whatever the integration sent: a day that is not
+    // an object becomes a no-information day at its own index rather than
+    // shifting the ones after it, and a forecast that is not an array yields no
+    // days at all. Both used to throw out of the whole fetch.
+    const forecastData: unknown[] = Array.isArray(sensor.attributes?.forecast)
+      ? (sensor.attributes.forecast as unknown[])
+      : [];
 
     if (!allergenData.has(configAllergenName)) {
       allergenData.set(configAllergenName, {
@@ -369,15 +394,19 @@ export async function fetchForecast(
       value: sensorValue,
     };
 
-    forecastData.forEach((forecastItem, dayIndex) => {
-      const forecastValue = Number(forecastItem.value) || 0;
+    forecastData.forEach((entry, dayIndex) => {
+      const forecastItem =
+        entry !== null && typeof entry === "object"
+          ? (entry as KleenexItem)
+          : null;
+      const forecastValue = forecastItem ? Number(forecastItem.value) || 0 : -1;
       const forecastLevel = testVal(
-        ppmToLevel(forecastValue, configAllergenName),
+        forecastItem ? ppmToLevel(forecastValue, configAllergenName) : -1,
       );
 
       if (debug) {
         console.debug(
-          `[Kleenex] CATEGORY ${configAllergenName} FORECAST day ${dayIndex + 1}: value=${forecastValue}, clamped_level=${forecastLevel}, text_level=${forecastItem.level}`,
+          `[Kleenex] CATEGORY ${configAllergenName} FORECAST day ${dayIndex + 1}: value=${forecastValue}, clamped_level=${forecastLevel}, text_level=${forecastItem?.level}`,
         );
       }
 

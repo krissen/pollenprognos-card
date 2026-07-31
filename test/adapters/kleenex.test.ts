@@ -3071,6 +3071,59 @@ describe("Kleenex adapter: US/NA category fallback", () => {
     expect(grass.days[0]!.state).toBe(1);
   });
 
+  it("keeps reporting when one category sensor is down", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Home Assistant strips the data attributes of an unavailable entity, so
+    // that sensor carries no forecast to judge the zone by. Demanding one from
+    // every category sensor let a single outage blank a card whose other two
+    // categories were reporting live data.
+    const entities = makeUSLocation("atlanta_georgia");
+    entities[0]!.state = "unavailable";
+    entities[0]!.attributes = { friendly_name: "Trees" } as any;
+    const hass = makeHassFromEntities(entities);
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced).sort()).toEqual([
+      "grass_cat",
+      "trees_cat",
+      "weeds_cat",
+    ]);
+    const grass = result.find((s) => s.allergenReplaced === "grass_cat")!;
+    expect(grass.days[0]!.state).toBe(1);
+    // The one that is down says so, rather than claiming zero pollen.
+    const trees = result.find((s) => s.allergenReplaced === "trees_cat")!;
+    expect(trees.days[0]!.state).toBe(-1);
+  });
+
+  it("still stands aside when the forecast-less sensor holds per-allergen details", async () => {
+    // Details are the opposite of the NA shape, so a detail-carrying sensor is
+    // never passed over -- even without a forecast to judge it by. The detail
+    // names an allergen the config does not ask for, so nothing is collected
+    // from it: without this guard the other two sensors would carry the
+    // fingerprint on their own and the fallback would fire on a location that
+    // demonstrably has per-allergen data.
+    const entities = makeUSLocation("atlanta_georgia");
+    entities[0]!.attributes = {
+      details: [{ name: "Ragweed", value: 12 }],
+      forecast: [],
+    } as any;
+    const hass = makeHassFromEntities(entities);
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result).toEqual([]);
+  });
+
   // --- Malformed payloads --------------------------------------------------
 
   it("does not throw when the forecast attribute is not an array", async () => {
