@@ -35,12 +35,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   by `pollen_threshold`, like any all-zero allergen), and the editor's allergen
   picker offers the category totals for Kleenex. European locations and setups with per-allergen detail
   sensors are unchanged.
-- **Tapping a Kleenex allergen icon opens that allergen's sensor** (issue
-  #317), not the category sensor its numbers were derived from. When the
-  integration's per-allergen detail sensor exists it is opened (even when the
-  row's data came from the category sensor); when no such sensor exists the
-  icon is no longer clickable, instead of opening the wrong dialog. Category
-  rows still open their category sensor.
+- **Tapping a Kleenex allergen icon opens that allergen's own sensor** (issue
+  #317). When the integration's per-allergen detail sensor exists it is opened
+  (even when the row's numbers came from the category sensor); otherwise the
+  tap opens the category sensor the row was read out of, whose attributes
+  carry the per-allergen data. Every icon leads somewhere; `link_to_sensors:
+  false` remains the off switch.
+- **A `more-info` tap_action without an entity no longer opens the sun.sun
+  dialog.** Such an action is now inert: the card is not clickable through it,
+  and the per-icon more-info it used to suppress works again. The editor warns
+  when a `more-info` tap_action lacks an entity.
 - **A manual Kleenex `entity_prefix` no longer mixes locations.** On installs
   with several Kleenex locations, a prefix like `kleenex_pollen_` also matched
   other entries' legacy ids (`kleenex_pollen_radar_utrecht_*`), so the card
