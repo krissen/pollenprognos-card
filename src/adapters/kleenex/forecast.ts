@@ -770,19 +770,17 @@ export async function fetchForecast(
   }
 
   // --- NA-zone notice ---
-  // Worth one line in the console in two cases, which is why this stands down
-  // on a narrower set of keys than the fallback does:
-  //   - the fallback stepped in: say so, so rows the user never configured are
-  //     not a mystery;
-  //   - the user configured a raw category name (`trees` rather than
-  //     `trees_cat`), which holds the fallback back without putting them on the
-  //     recommended keys -- their per-allergen selections are still silently
-  //     empty, so they are told why.
-  // A user already on `*_cat` needs neither: they see category rows and asked
-  // for them, so the notice stays quiet.
-  const naNoticeApplies =
-    naZoneUnanswered &&
-    !recommendedCategoryKeys.some((k) => configuredAllergens.includes(k));
+  // Same condition as the fallback minus its category-shape term: whenever the
+  // user asked for per-allergen rows this zone cannot fill, they are told once,
+  // whether or not the fallback was the thing that answered.
+  //
+  // The suppressed cases fall out of `naZoneUnanswered` on their own. A config
+  // of nothing but `*_cat` keys requests no per-allergen rows at all, so there
+  // is nothing to go missing and nothing to say. Suppressing on the configured
+  // keys instead used to silence exactly the config that most needed the line:
+  // `[trees_cat, birch]` renders the trees total and drops birch without a
+  // word.
+  const naNoticeApplies = naZoneUnanswered;
   if (naNoticeApplies) {
     const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
     if (!NA_WARNED_KEYS.has(warnKey)) {

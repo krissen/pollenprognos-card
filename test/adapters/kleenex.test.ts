@@ -1253,15 +1253,15 @@ describe("Kleenex adapter: NA-zone warning", () => {
     expect(warnMessage).toContain("North America");
   });
 
-  it("Test 2 - does NOT emit warning when user has trees_cat in allergens (already on correct path)", async () => {
+  it("Test 2 - does NOT emit warning for a category-only config (nothing can go missing)", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const treesEntity = makeNACategory("atlanta", "trees", 200);
     const hass = makeHassFromEntities([treesEntity]);
-    // User already has a category allergen configured -- no warning expected.
+    // No per-allergen rows were asked for, so none can be missing.
     const config = makeConfig({
       location: "atlanta",
-      allergens: ["trees_cat", "birch", "oak"],
+      allergens: ["trees_cat", "grass_cat", "weeds_cat"],
       pollen_threshold: 0,
     });
 
@@ -1274,6 +1274,30 @@ describe("Kleenex adapter: NA-zone warning", () => {
         typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
+  });
+
+  it("Test 2c - DOES emit the warning when a category allergen is mixed with individual ones", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const treesEntity = makeNACategory("atlanta", "trees", 200);
+    const hass = makeHassFromEntities([treesEntity]);
+    // `trees_cat` renders and `birch` cannot. This used to pass in silence: a
+    // configured *_cat key suppressed the notice outright, so the allergen the
+    // user asked for simply vanished.
+    const config = makeConfig({
+      location: "atlanta",
+      allergens: ["trees_cat", "birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
+    const naWarningCalled = warnSpy.mock.calls.some(
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
+    );
+    expect(naWarningCalled).toBe(true);
   });
 
   it("Test 3 - does NOT emit warning for EU pattern (forecast with non-empty details[])", async () => {
