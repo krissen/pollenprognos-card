@@ -113,7 +113,13 @@ function makeConfig(overrides: any = {}): any {
  * @param {Array}  forecast  - [{level, details}] per future day
  * @returns {Object} sensor state object with entity_id set
  */
-function makeKleenexEntity(location: any, category: any, ppmValue: any, details: any = [], forecast: any = []): any {
+function makeKleenexEntity(
+  location: any,
+  category: any,
+  ppmValue: any,
+  details: any = [],
+  forecast: any = [],
+): any {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
     state: String(ppmValue),
@@ -145,8 +151,13 @@ function makeHassFromEntities(entities: any): any {
 describe("Kleenex adapter: basic shape", () => {
   it("returns an array of sensor dicts with the required fields", async () => {
     const entity = makeKleenexEntity(
-      "amsterdam", "trees", 200,
-      [{ name: "Birch", value: 150 }, { name: "Oak", value: 50 }],
+      "amsterdam",
+      "trees",
+      200,
+      [
+        { name: "Birch", value: 150 },
+        { name: "Oak", value: 50 },
+      ],
       [],
     );
     const hass = makeHassFromEntities([entity]);
@@ -166,10 +177,9 @@ describe("Kleenex adapter: basic shape", () => {
   });
 
   it("sets allergenReplaced to the canonical slug", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
-      [{ name: "Birch", value: 100 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 100, [
+      { name: "Birch", value: 100 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -183,10 +193,9 @@ describe("Kleenex adapter: basic shape", () => {
   });
 
   it("sets entity_id to the source sensor entity_id", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
-      [{ name: "Birch", value: 100 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 100, [
+      { name: "Birch", value: 100 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -196,14 +205,15 @@ describe("Kleenex adapter: basic shape", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_trees",
+    );
   });
 
   it("sets allergenCapitalized to a non-empty string", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
-      [{ name: "Birch", value: 100 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 100, [
+      { name: "Birch", value: 100 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -218,10 +228,9 @@ describe("Kleenex adapter: basic shape", () => {
   });
 
   it("day0 is defined and is the same object as days[0]", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
-      [{ name: "Birch", value: 100 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 100, [
+      { name: "Birch", value: 100 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -237,7 +246,9 @@ describe("Kleenex adapter: basic shape", () => {
 
   it("respects days_to_show", async () => {
     const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
+      "amsterdam",
+      "trees",
+      100,
       [{ name: "Birch", value: 100 }],
       [{ level: 1, details: [{ name: "Birch", value: 80 }] }],
     );
@@ -264,10 +275,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
   // Trees thresholds: [95, 207, 703]
   // 0 -> 0, 1-95 -> 1, 96-207 -> 2, 208-703 -> 3, >703 -> 4
   it("maps 0 PPM to level 0 for trees allergens", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 0,
-      [{ name: "Birch", value: 0 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 0, [
+      { name: "Birch", value: 0 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -281,10 +291,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
   });
 
   it("maps trees PPM within low threshold (<=95) to level 1", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 95,
-      [{ name: "Birch", value: 95 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 95, [
+      { name: "Birch", value: 95 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -298,10 +307,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
   });
 
   it("maps trees PPM within moderate threshold (96-207) to level 2", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 200,
-      [{ name: "Birch", value: 200 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 200, [
+      { name: "Birch", value: 200 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -315,10 +323,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
   });
 
   it("maps trees PPM within high threshold (208-703) to level 3", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 703,
-      [{ name: "Birch", value: 703 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 703, [
+      { name: "Birch", value: 703 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -332,10 +339,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
   });
 
   it("maps trees PPM above high threshold (>703) to level 4", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 1000,
-      [{ name: "Birch", value: 1000 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 1000, [
+      { name: "Birch", value: 1000 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -350,10 +356,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
   // Grass thresholds: [29, 60, 341]
   it("applies grass-specific thresholds: 30 PPM -> level 2", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "grass", 30,
-      [{ name: "Grass", value: 30 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "grass", 30, [
+      { name: "Grass", value: 30 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -369,10 +374,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
 
   // Weeds thresholds: [20, 77, 266]
   it("applies weeds-specific thresholds: 15 PPM -> level 1", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "weeds", 15,
-      [{ name: "Ragweed", value: 15 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "weeds", 15, [
+      { name: "Ragweed", value: 15 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -413,10 +417,9 @@ describe("Kleenex adapter: PPM to level conversion", () => {
   });
 
   it("returns -1 for negative PPM values", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", -10,
-      [{ name: "Birch", value: -5 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", -10, [
+      { name: "Birch", value: -5 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -440,19 +443,18 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
   const scalingCases = [
     // [ppmForBirch, expectedRawLevel, expectedScaledStateText]
     // We test that state (raw) and state_text (scaled) are consistent.
-    [0, 0],    // raw 0 -> scaled 0
-    [50, 1],   // raw 1 (<=95) -> scaled 1
-    [150, 2],  // raw 2 (96-207) -> scaled 3
-    [500, 3],  // raw 3 (208-703) -> scaled 5
+    [0, 0], // raw 0 -> scaled 0
+    [50, 1], // raw 1 (<=95) -> scaled 1
+    [150, 2], // raw 2 (96-207) -> scaled 3
+    [500, 3], // raw 3 (208-703) -> scaled 5
     [1000, 4], // raw 4 (>703) -> scaled 6
   ];
 
   for (const [ppm, expectedRawLevel] of scalingCases) {
     it(`PPM ${ppm} produces raw state ${expectedRawLevel} with a non-empty state_text`, async () => {
-      const entity = makeKleenexEntity(
-        "amsterdam", "trees", ppm,
-        [{ name: "Birch", value: ppm }],
-      );
+      const entity = makeKleenexEntity("amsterdam", "trees", ppm, [
+        { name: "Birch", value: ppm },
+      ]);
       const hass = makeHassFromEntities([entity]);
       const config = makeConfig({
         location: "amsterdam",
@@ -468,14 +470,12 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
   }
 
   it("state_text for raw level 4 (PPM >703) differs from raw level 0 (PPM 0)", async () => {
-    const entityHigh = makeKleenexEntity(
-      "amsterdam", "trees", 1000,
-      [{ name: "Birch", value: 1000 }],
-    );
-    const entityLow = makeKleenexEntity(
-      "amsterdam", "trees", 0,
-      [{ name: "Birch", value: 0 }],
-    );
+    const entityHigh = makeKleenexEntity("amsterdam", "trees", 1000, [
+      { name: "Birch", value: 1000 },
+    ]);
+    const entityLow = makeKleenexEntity("amsterdam", "trees", 0, [
+      { name: "Birch", value: 0 },
+    ]);
 
     const hassHigh = makeHassFromEntities([entityHigh]);
     const hassLow = makeHassFromEntities([entityLow]);
@@ -488,7 +488,9 @@ describe("Kleenex adapter: level scaling (0-4 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(resultLow[0]!.days[0]!.state_text);
+    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(
+      resultLow[0]!.days[0]!.state_text,
+    );
   });
 });
 
@@ -577,13 +579,10 @@ describe("Kleenex adapter: category sensors", () => {
 // ---------------------------------------------------------------------------
 describe("Kleenex adapter: individual allergens from details", () => {
   it("extracts individual allergens from the details attribute", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 300,
-      [
-        { name: "Birch", value: 250 },
-        { name: "Oak", value: 50 },
-      ],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 300, [
+      { name: "Birch", value: 250 },
+      { name: "Oak", value: 50 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -600,10 +599,9 @@ describe("Kleenex adapter: individual allergens from details", () => {
 
   it("maps localized French allergen names to canonical slugs", async () => {
     // "bouleau" -> "birch" via KLEENEX_ALLERGEN_MAP
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 150,
-      [{ name: "Bouleau", value: 150 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 150, [
+      { name: "Bouleau", value: 150 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -619,10 +617,9 @@ describe("Kleenex adapter: individual allergens from details", () => {
 
   it("maps localized Dutch allergen names to canonical slugs", async () => {
     // "berk" -> "birch" via KLEENEX_ALLERGEN_MAP
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
-      [{ name: "Berk", value: 100 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 100, [
+      { name: "Berk", value: 100 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -637,13 +634,10 @@ describe("Kleenex adapter: individual allergens from details", () => {
   });
 
   it("skips individual allergens not in config.allergens", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 300,
-      [
-        { name: "Birch", value: 250 },
-        { name: "Pine", value: 50 },
-      ],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 300, [
+      { name: "Birch", value: 250 },
+      { name: "Pine", value: 50 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -658,10 +652,9 @@ describe("Kleenex adapter: individual allergens from details", () => {
 
   it("uses detail PPM value (not category PPM) for individual allergen level", async () => {
     // Category PPM 703 -> level 3; but birch detail 50 -> level 1
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 703,
-      [{ name: "Birch", value: 50 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 703, [
+      { name: "Birch", value: 50 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -677,7 +670,9 @@ describe("Kleenex adapter: individual allergens from details", () => {
 
   it("extracts forecast day data for individual allergens from forecast.details", async () => {
     const entity = makeKleenexEntity(
-      "amsterdam", "trees", 100,
+      "amsterdam",
+      "trees",
+      100,
       [{ name: "Birch", value: 100 }],
       [
         { level: 1, details: [{ name: "Birch", value: 800 }] }, // day+1: level 4
@@ -706,10 +701,12 @@ describe("Kleenex adapter: individual allergens from details", () => {
 describe("Kleenex adapter: sort_category_allergens_first", () => {
   it("places category allergens before individual allergens when enabled", async () => {
     const treesEntity = makeKleenexEntity(
-      "amsterdam", "trees", 100, // trees_cat level 1
+      "amsterdam",
+      "trees",
+      100, // trees_cat level 1
       [
         { name: "Birch", value: 700 }, // birch level 3
-        { name: "Oak", value: 200 },   // oak level 2
+        { name: "Oak", value: 200 }, // oak level 2
       ],
     );
     const hass = makeHassFromEntities([treesEntity]);
@@ -733,9 +730,11 @@ describe("Kleenex adapter: sort_category_allergens_first", () => {
 
   it("sorts all allergens together without two-tiered split when disabled", async () => {
     const treesEntity = makeKleenexEntity(
-      "amsterdam", "trees", 1000, // trees_cat level 4
+      "amsterdam",
+      "trees",
+      1000, // trees_cat level 4
       [
-        { name: "Birch", value: 50 },  // birch level 1
+        { name: "Birch", value: 50 }, // birch level 1
       ],
     );
     const hass = makeHassFromEntities([treesEntity]);
@@ -755,13 +754,10 @@ describe("Kleenex adapter: sort_category_allergens_first", () => {
   });
 
   it("preserves config order when sort is 'none'", async () => {
-    const treesEntity = makeKleenexEntity(
-      "amsterdam", "trees", 200,
-      [
-        { name: "Oak", value: 200 },
-        { name: "Birch", value: 50 },
-      ],
-    );
+    const treesEntity = makeKleenexEntity("amsterdam", "trees", 200, [
+      { name: "Oak", value: 200 },
+      { name: "Birch", value: 50 },
+    ]);
     const hass = makeHassFromEntities([treesEntity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -784,10 +780,12 @@ describe("Kleenex adapter: sort_category_allergens_first", () => {
 describe("Kleenex adapter: threshold filtering", () => {
   it("excludes allergens where all days are below pollen_threshold", async () => {
     const entity = makeKleenexEntity(
-      "amsterdam", "trees", 50, // level 1 (<=95)
+      "amsterdam",
+      "trees",
+      50, // level 1 (<=95)
       [
-        { name: "Birch", value: 50 },  // level 1
-        { name: "Oak", value: 0 },     // level 0
+        { name: "Birch", value: 50 }, // level 1
+        { name: "Oak", value: 0 }, // level 0
       ],
     );
     const hass = makeHassFromEntities([entity]);
@@ -804,13 +802,10 @@ describe("Kleenex adapter: threshold filtering", () => {
   });
 
   it("includes all allergens when pollen_threshold is 0", async () => {
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 0,
-      [
-        { name: "Birch", value: 0 },
-        { name: "Oak", value: 0 },
-      ],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 0, [
+      { name: "Birch", value: 0 },
+      { name: "Oak", value: 0 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
@@ -826,7 +821,9 @@ describe("Kleenex adapter: threshold filtering", () => {
   it("includes allergen when any single forecast day meets threshold", async () => {
     // Today: 0 PPM (level 0); day+1: 800 PPM (level 4)
     const entity = makeKleenexEntity(
-      "amsterdam", "trees", 0,
+      "amsterdam",
+      "trees",
+      0,
       [{ name: "Birch", value: 0 }],
       [{ level: 4, details: [{ name: "Birch", value: 800 }] }],
     );
@@ -850,18 +847,31 @@ describe("Kleenex adapter: threshold filtering", () => {
 // ---------------------------------------------------------------------------
 describe("Kleenex adapter: user level names", () => {
   it("accepts 7 custom level labels mapping directly to scaled indices 0-6", async () => {
-    const customLevels = ["None", "VeryLow", "Low", "Medium", "High", "VeryHigh", "Extreme"];
+    const customLevels = [
+      "None",
+      "VeryLow",
+      "Low",
+      "Medium",
+      "High",
+      "VeryHigh",
+      "Extreme",
+    ];
     // Birch 200 PPM (trees) -> raw level 2 -> scaled level ceil(2*6/4) = 3 -> "Medium"
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 200,
-      [{ name: "Birch", value: 200 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 200, [
+      { name: "Birch", value: 200 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
       allergens: ["birch"],
       pollen_threshold: 0,
-      phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+      phrases: {
+        full: {},
+        short: {},
+        levels: customLevels,
+        days: {},
+        no_information: "",
+      },
     });
 
     const result = await fetchForecast(hass, config);
@@ -874,16 +884,21 @@ describe("Kleenex adapter: user level names", () => {
     // 5 labels: idx0->scale0, idx1->scale1, idx2->scale3, idx3->scale5, idx4->scale6
     const customLevels = ["Zero", "Low", "Moderate", "High", "VeryHigh"];
     // Birch 200 PPM -> raw 2 -> scaled 3; map[2]=3 in 5-label -> customLevels[2] = "Moderate"
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 200,
-      [{ name: "Birch", value: 200 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 200, [
+      { name: "Birch", value: 200 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
       allergens: ["birch"],
       pollen_threshold: 0,
-      phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+      phrases: {
+        full: {},
+        short: {},
+        levels: customLevels,
+        days: {},
+        no_information: "",
+      },
     });
 
     const result = await fetchForecast(hass, config);
@@ -894,16 +909,21 @@ describe("Kleenex adapter: user level names", () => {
 
   it("falls back to i18n default for empty string entries in 7-label array", async () => {
     const customLevels = ["CustomZero", "", "", "", "", "", ""];
-    const entity = makeKleenexEntity(
-      "amsterdam", "trees", 0,
-      [{ name: "Birch", value: 0 }],
-    );
+    const entity = makeKleenexEntity("amsterdam", "trees", 0, [
+      { name: "Birch", value: 0 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "amsterdam",
       allergens: ["birch"],
       pollen_threshold: 0,
-      phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+      phrases: {
+        full: {},
+        short: {},
+        levels: customLevels,
+        days: {},
+        no_information: "",
+      },
     });
 
     const result = await fetchForecast(hass, config);
@@ -920,10 +940,9 @@ describe("Kleenex adapter: manual mode", () => {
   it("filters sensors by entity_prefix in manual mode", async () => {
     // In manual mode the adapter still looks for sensor.kleenex_pollen_radar_ prefix
     // but further filters by the user-provided prefix within those entity IDs.
-    const entity = makeKleenexEntity(
-      "mypfx_amsterdam", "trees", 150,
-      [{ name: "Birch", value: 150 }],
-    );
+    const entity = makeKleenexEntity("mypfx_amsterdam", "trees", 150, [
+      { name: "Birch", value: 150 },
+    ]);
     const hass = makeHassFromEntities([entity]);
     const config = makeConfig({
       location: "manual",
@@ -1152,13 +1171,20 @@ describe("stubConfigKleenex", () => {
 // Helper: build a DetailSensor-shaped entity.
 // DetailSensors have state = ppm string and attributes.forecast = [{date, value}].
 // ---------------------------------------------------------------------------
-function makeDetailSensorEntity(location: any, allergenSlug: any, ppmToday: any, forecastItems: any = []): any {
+function makeDetailSensorEntity(
+  location: any,
+  allergenSlug: any,
+  ppmToday: any,
+  forecastItems: any = [],
+): any {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${allergenSlug}`,
     state: String(ppmToday),
     attributes: {
       forecast: forecastItems.map((item: any, i: number) => ({
-        date: new Date(Date.now() + (i + 1) * 86400000).toISOString().split("T")[0],
+        date: new Date(Date.now() + (i + 1) * 86400000)
+          .toISOString()
+          .split("T")[0],
         value: item.value,
       })),
     },
@@ -1170,7 +1196,12 @@ function makeDetailSensorEntity(location: any, allergenSlug: any, ppmToday: any,
 // NA API returns non-empty forecast but every details[] and forecast[i].details[]
 // is an empty array (that is the fingerprint).
 // ---------------------------------------------------------------------------
-function makeNACategory(location: any, category: any, ppmToday: any, forecastDays: any = 4): any {
+function makeNACategory(
+  location: any,
+  category: any,
+  ppmToday: any,
+  forecastDays: any = 4,
+): any {
   return {
     entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
     state: String(ppmToday),
@@ -1210,7 +1241,10 @@ describe("Kleenex adapter: NA-zone warning", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result).toEqual([]);
+    // Issue #313: the zone does have category data, so the card shows that
+    // instead of nothing. The warning still fires -- what is on screen is not
+    // the set of allergens the user configured.
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
     expect(warnSpy).toHaveBeenCalled();
     const warnMessage = warnSpy.mock.calls[0]![0];
     expect(warnMessage).toContain("North America");
@@ -1233,7 +1267,8 @@ describe("Kleenex adapter: NA-zone warning", () => {
     // The warn spy may be called for other reasons (e.g. adapter errors), but
     // the NA warning message must NOT appear.
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
   });
@@ -1243,9 +1278,22 @@ describe("Kleenex adapter: NA-zone warning", () => {
 
     // EU category sensor: details populated, forecast.details populated.
     const treesEntity = makeKleenexEntity(
-      "amsterdam", "trees", 200,
-      [{ name: "Birch", value: 150 }, { name: "Oak", value: 50 }],
-      [{ level: 2, details: [{ name: "Birch", value: 120 }, { name: "Oak", value: 30 }] }],
+      "amsterdam",
+      "trees",
+      200,
+      [
+        { name: "Birch", value: 150 },
+        { name: "Oak", value: 50 },
+      ],
+      [
+        {
+          level: 2,
+          details: [
+            { name: "Birch", value: 120 },
+            { name: "Oak", value: 30 },
+          ],
+        },
+      ],
     );
     const hass = makeHassFromEntities([treesEntity]);
     const config = makeConfig({
@@ -1257,7 +1305,8 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
   });
@@ -1285,7 +1334,8 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(false);
   });
@@ -1307,7 +1357,8 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(true);
   });
@@ -1329,7 +1380,8 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarnings = warnSpy.mock.calls.filter(
-      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarnings.length).toBe(1);
   });
@@ -1360,7 +1412,8 @@ describe("Kleenex adapter: NA-zone warning", () => {
     await fetchForecast(hass, config);
 
     const naWarningCalled = warnSpy.mock.calls.some(
-      (args) => typeof args[0] === "string" && args[0]!.includes("North America"),
+      (args) =>
+        typeof args[0] === "string" && args[0]!.includes("North America"),
     );
     expect(naWarningCalled).toBe(true);
   });
@@ -1387,7 +1440,9 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
 
     expect(result.length).toBe(1);
     expect(result[0]!.allergenReplaced).toBe("birch");
-    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_birch",
+    );
     // 150 ppm for birch (trees category) is in range 96-207 -> raw level 2
     expect(result[0]!.days[0]!.state).toBe(2);
     // Forecast day 1: 100 ppm -> raw level 2; day 2: 50 ppm -> raw level 1
@@ -1416,7 +1471,9 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
   it("Test 6 - localized Dutch DetailSensor slug 'berk' normalizes to canonical allergen 'birch'", async () => {
     const treesEntity = makeNACategory("amsterdam", "trees", 200);
     // Dutch localization: sensor suffix is 'berk'
-    const berkDetail = makeDetailSensorEntity("amsterdam", "berk", 120, [{ value: 80 }]);
+    const berkDetail = makeDetailSensorEntity("amsterdam", "berk", 120, [
+      { value: 80 },
+    ]);
     const hass = makeHassFromEntities([treesEntity, berkDetail]);
     const config = makeConfig({
       location: "amsterdam",
@@ -1428,7 +1485,9 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
 
     expect(result.length).toBe(1);
     expect(result[0]!.allergenReplaced).toBe("birch");
-    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_berk");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_berk",
+    );
   });
 
   it("Test 6b - localized Italian DetailSensor slug 'betulla' normalizes to canonical allergen 'birch'", async () => {
@@ -1445,13 +1504,17 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
 
     expect(result.length).toBe(1);
     expect(result[0]!.allergenReplaced).toBe("birch");
-    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_rome_betulla");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_rome_betulla",
+    );
   });
 
   it("Test 7 - category sensor details (EU full data) wins over DetailSensor", async () => {
     // EU category sensor with full details — birch data comes from here.
     const treesEntity = makeKleenexEntity(
-      "amsterdam", "trees", 300,
+      "amsterdam",
+      "trees",
+      300,
       [{ name: "Birch", value: 250 }], // level 3 (208-703)
       [],
     );
@@ -1470,7 +1533,9 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     expect(result[0]!.allergenReplaced).toBe("birch");
     // Must use the category sensor value (250 ppm -> level 3), not DetailSensor (50 -> level 1).
     expect(result[0]!.days[0]!.state).toBe(3);
-    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_trees",
+    );
   });
 
   it("Test 8 - entity with '_level' suffix is NOT treated as a DetailSensor", async () => {
@@ -1497,13 +1562,41 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
   it("Test 9 - diagnostic suffix entities (_date, _last_updated, _region) are skipped", async () => {
     const treesEntity = makeNACategory("amsterdam", "trees", 200);
     const diagnosticEntities = [
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_date", state: "2026-04-25", attributes: {} },
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_last_updated", state: "2026-04-25T00:00:00Z", attributes: {} },
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_region", state: "NL", attributes: {} },
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_latitude", state: "52.37", attributes: {} },
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_longitude", state: "4.90", attributes: {} },
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_city", state: "Amsterdam", attributes: {} },
-      { entity_id: "sensor.kleenex_pollen_radar_amsterdam_error", state: "none", attributes: {} },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_date",
+        state: "2026-04-25",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_last_updated",
+        state: "2026-04-25T00:00:00Z",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_region",
+        state: "NL",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_latitude",
+        state: "52.37",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_longitude",
+        state: "4.90",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_city",
+        state: "Amsterdam",
+        attributes: {},
+      },
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_error",
+        state: "none",
+        attributes: {},
+      },
     ];
     const hass = makeHassFromEntities([treesEntity, ...diagnosticEntities]);
     const config = makeConfig({
@@ -1540,7 +1633,9 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
 
     expect(result.length).toBe(1);
     expect(result[0]!.allergenReplaced).toBe("birch");
-    expect(result[0]!.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_birch",
+    );
   });
 
   it("Test 9a - DetailSensor with non-numeric state ('unknown'/'unavailable') is skipped, not treated as 0 ppm", async () => {
@@ -1567,10 +1662,13 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const treesEntity = {
       entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_trees",
       state: "200",
-      attributes: { details: [], forecast: [
-        { datetime: "2026-04-26", level: 2, value: 200, details: [] },
-        { datetime: "2026-04-27", level: 2, value: 200, details: [] },
-      ] },
+      attributes: {
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          { datetime: "2026-04-27", level: 2, value: 200, details: [] },
+        ],
+      },
     };
     const birchDetail = {
       entity_id: "sensor.kleenex_pollen_radar_atlanta_georgia_birch",
@@ -1598,9 +1696,12 @@ describe("Kleenex adapter: DetailSensor fallback", () => {
     const treesEntity = {
       entity_id: "sensor.kleenex_pollen_radar_atlanta_trees_v2",
       state: "200",
-      attributes: { details: [], forecast: [
-        { datetime: "2026-04-26", level: 2, value: 200, details: [] },
-      ] },
+      attributes: {
+        details: [],
+        forecast: [
+          { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+        ],
+      },
     };
     const birchDetail = {
       entity_id: "sensor.kleenex_pollen_radar_atlanta_birch_v2",
@@ -1644,11 +1745,15 @@ describe("Kleenex adapter: resolveEntityIds DetailSensor probe", () => {
 
     // Category side: 'trees' should be present (birch -> trees category)
     expect(map.has("trees")).toBe(true);
-    expect(map.get("trees")).toBe("sensor.kleenex_pollen_radar_amsterdam_trees");
+    expect(map.get("trees")).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_trees",
+    );
 
     // DetailSensor side: 'birch' should also be present
     expect(map.has("birch")).toBe(true);
-    expect(map.get("birch")).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+    expect(map.get("birch")).toBe(
+      "sensor.kleenex_pollen_radar_amsterdam_birch",
+    );
   });
 
   it("Test 11 - manual mode resolves DetailSensor via entity_prefix", () => {
@@ -1673,7 +1778,9 @@ describe("Kleenex adapter: resolveEntityIds DetailSensor probe", () => {
     const map = resolveEntityIds(config, hass);
 
     expect(map.has("birch")).toBe(true);
-    expect(map.get("birch")).toBe("sensor.kleenex_pollen_radar_atlanta_georgia_birch");
+    expect(map.get("birch")).toBe(
+      "sensor.kleenex_pollen_radar_atlanta_georgia_birch",
+    );
   });
 
   it("Test 12 - DetailSensor not in hass.states is absent from the returned map", () => {
@@ -1701,7 +1808,12 @@ describe("Kleenex adapter: resolveEntityIds DetailSensor probe", () => {
 describe("Kleenex adapter: discoverKleenex", () => {
   it("discovers a renamed device (issue #309) as one location", () => {
     const hass = createHassWithRegistry(
-      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
     );
 
     const discovery = discoverKleenex(hass);
@@ -1722,7 +1834,12 @@ describe("Kleenex adapter: discoverKleenex", () => {
 
   it("keys locations by the slugified device identifier, not the entry id", () => {
     const hass = createHassWithRegistry(
-      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
     );
 
     const discovery = discoverKleenex(hass);
@@ -1734,8 +1851,18 @@ describe("Kleenex adapter: discoverKleenex", () => {
 
   it("does not resolve a config value that two identifiers both normalize to", async () => {
     const hass = createHassWithRegistry([
-      ...kleenexRegistryEntries("St. John", "kleenex_pollen_a", "device_a", "cfg_a"),
-      ...kleenexRegistryEntries("St John", "kleenex_pollen_b", "device_b", "cfg_b"),
+      ...kleenexRegistryEntries(
+        "St. John",
+        "kleenex_pollen_a",
+        "device_a",
+        "cfg_a",
+      ),
+      ...kleenexRegistryEntries(
+        "St John",
+        "kleenex_pollen_b",
+        "device_b",
+        "cfg_b",
+      ),
     ]);
 
     const discovery = discoverKleenex(hass);
@@ -1757,14 +1884,22 @@ describe("Kleenex adapter: discoverKleenex", () => {
     // identifier matcher declines -- and it also equals both devices' labels,
     // so the generic label matching would otherwise resolve to whichever
     // device the registry happens to list first.
-    const device = (instance: string, label: string, prefix: string, id: string, cfg: string) => [
+    const device = (
+      instance: string,
+      label: string,
+      prefix: string,
+      id: string,
+      cfg: string,
+    ) => [
       {
         entityId: `sensor.${prefix}_trees`,
         state: "200",
         attributes: {
           friendly_name: `${label} Trees`,
           details: [],
-          forecast: [{ datetime: "2026-04-26", level: 2, value: 200, details: [] }],
+          forecast: [
+            { datetime: "2026-04-26", level: 2, value: 200, details: [] },
+          ],
         },
         platform: "kleenex_pollenradar",
         translationKey: "trees",
@@ -1813,7 +1948,9 @@ describe("Kleenex adapter: discoverKleenex", () => {
         deviceId: "device_a",
         deviceMeta: {
           name: "Kleenex Pollen Radar (St. John)",
-          identifiers: [["kleenex_pollenradar", "St. John"] as [string, string]],
+          identifiers: [
+            ["kleenex_pollenradar", "St. John"] as [string, string],
+          ],
           configEntries: ["cfg_a"],
         },
       },
@@ -1975,7 +2112,12 @@ describe("Kleenex adapter: discoverKleenex", () => {
 
   it("keeps two config entries in separate locations", () => {
     const hass = createHassWithRegistry([
-      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      ...kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
       ...kleenexRegistryEntries(
         "Cabin",
         "kleenex_pollen_radar_cabin",
@@ -1999,7 +2141,9 @@ describe("Kleenex adapter: discoverKleenex", () => {
 
   it("falls back to the legacy entity-ID slug when no registry exists", () => {
     const hass = makeHassFromEntities([
-      makeKleenexEntity("amsterdam", "trees", 200, [{ name: "Birch", value: 150 }]),
+      makeKleenexEntity("amsterdam", "trees", 200, [
+        { name: "Birch", value: 150 },
+      ]),
       makeKleenexEntity("amsterdam", "grass", 100, []),
       {
         entity_id: "sensor.kleenex_pollen_radar_amsterdam_bouleau",
@@ -2018,7 +2162,11 @@ describe("Kleenex adapter: discoverKleenex", () => {
     expect(discovery.tierUsed).toBe(3);
     expect([...discovery.locations.keys()]).toEqual(["amsterdam"]);
     const loc = discovery.locations.get("amsterdam")!;
-    expect([...loc.entities.keys()].sort()).toEqual(["birch", "grass", "trees"]);
+    expect([...loc.entities.keys()].sort()).toEqual([
+      "birch",
+      "grass",
+      "trees",
+    ]);
   });
 
   it("classifies a fully renamed detail sensor via its unique_id", () => {
@@ -2107,7 +2255,12 @@ describe("Kleenex adapter: registry-driven resolution", () => {
 
   it("resolveEntityIds finds renamed-device entities and skips diagnostics", () => {
     const hass = createHassWithRegistry(
-      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
     );
 
     const map = resolveEntityIds(registryConfig({ location: "" }), hass);
@@ -2124,13 +2277,24 @@ describe("Kleenex adapter: registry-driven resolution", () => {
 
   it("fetchForecast returns category and detail sensors for a renamed device", async () => {
     const hass = createHassWithRegistry(
-      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
     );
 
     const result = await fetchForecast(hass, registryConfig({ location: "" }));
 
     const keys = result.map((s) => s.allergenReplaced).sort();
-    expect(keys).toEqual(["birch", "grass_cat", "mugwort", "trees_cat", "weeds_cat"]);
+    expect(keys).toEqual([
+      "birch",
+      "grass_cat",
+      "mugwort",
+      "trees_cat",
+      "weeds_cat",
+    ]);
     expect(
       result.find((s) => s.allergenReplaced === "mugwort")!.entity_id,
     ).toBe("sensor.kleenex_pollen_armoise");
@@ -2139,19 +2303,32 @@ describe("Kleenex adapter: registry-driven resolution", () => {
 
   it("resolves a legacy slug-style location config against the device label", async () => {
     const hass = createHassWithRegistry(
-      kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
     );
 
     const map = resolveEntityIds(registryConfig({ location: "home" }), hass);
     expect(map.get("trees")).toBe("sensor.kleenex_pollen_trees");
 
-    const result = await fetchForecast(hass, registryConfig({ location: "home" }));
+    const result = await fetchForecast(
+      hass,
+      registryConfig({ location: "home" }),
+    );
     expect(result.length).toBeGreaterThan(0);
   });
 
   it("keeps two config entries apart (no cross-talk)", async () => {
     const hass = createHassWithRegistry([
-      ...kleenexRegistryEntries("Home", "kleenex_pollen", "device_home", "cfg_home"),
+      ...kleenexRegistryEntries(
+        "Home",
+        "kleenex_pollen",
+        "device_home",
+        "cfg_home",
+      ),
       ...kleenexRegistryEntries(
         "Cabin",
         "kleenex_pollen_radar_cabin",
@@ -2169,7 +2346,9 @@ describe("Kleenex adapter: registry-driven resolution", () => {
     );
     expect(result.length).toBeGreaterThan(0);
     expect(
-      result.every((s) => s.entity_id.startsWith("sensor.kleenex_pollen_radar_cabin_")),
+      result.every((s) =>
+        s.entity_id.startsWith("sensor.kleenex_pollen_radar_cabin_"),
+      ),
     ).toBe(true);
   });
 });
@@ -2242,9 +2421,9 @@ describe("Kleenex adapter: legacy slug via device identifier", () => {
 
     const keys = result.map((s) => s.allergenReplaced).sort();
     expect(keys).toEqual(["birch", "mugwort", "trees_cat"]);
-    expect(result.every((s) => s.entity_id.startsWith("sensor.my_pollen_"))).toBe(
-      true,
-    );
+    expect(
+      result.every((s) => s.entity_id.startsWith("sensor.my_pollen_")),
+    ).toBe(true);
   });
 
   it("does not bind a legacy slug to a different location's identifier", () => {
@@ -2428,11 +2607,9 @@ describe("Kleenex adapter: manual prefix across locations", () => {
   it("scopeManualEntities reports the winning location's label", () => {
     const hass = createHassWithRegistry(collidingEntries() as any);
 
-    const scope = scopeManualEntities(
-      hass,
-      Object.keys(hass.states),
-      { prefix: "kleenex_pollen_" },
-    );
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
 
     expect(scope.label).toBe("Kleenex pollen");
     expect(scope.entityIds).toEqual([
@@ -2462,7 +2639,11 @@ describe("Kleenex adapter: manual prefix across locations", () => {
     (hass.states as any)["sensor.kleenex_pollen_weeds"] = {
       entity_id: "sensor.kleenex_pollen_weeds",
       state: "30",
-      attributes: { friendly_name: "Template weeds", details: [], forecast: [] },
+      attributes: {
+        friendly_name: "Template weeds",
+        details: [],
+        forecast: [],
+      },
     };
 
     const scope = scopeManualEntities(hass, Object.keys(hass.states), {
@@ -2485,7 +2666,9 @@ describe("Kleenex adapter: manual prefix across locations", () => {
       {
         entityId: "sensor.kleenex_pollen_zeer_lange_naam_brandnetel",
         state: "50",
-        attributes: { friendly_name: "Kleenex pollen Zeer lange naam brandnetel" },
+        attributes: {
+          friendly_name: "Kleenex pollen Zeer lange naam brandnetel",
+        },
         platform: "kleenex_pollenradar",
         translationKey: "detail_value",
         uniqueId: "cfg_paris-Kleenex Pollen Radarweeds_details-Nettle-value",
@@ -2602,7 +2785,9 @@ describe("Kleenex adapter: manual prefix across locations", () => {
     _resetManualScopeWarningsForTest();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const hass = createHassWithRegistry(collidingEntries().slice(0, 2) as any);
+      const hass = createHassWithRegistry(
+        collidingEntries().slice(0, 2) as any,
+      );
 
       scopeManualEntities(hass, Object.keys(hass.states), {
         prefix: "kleenex_pollen_",
@@ -2726,5 +2911,228 @@ describe("Kleenex adapter: manual prefix across locations", () => {
 
     expect(scope.label).toBeNull();
     expect(scope.entityIds.length).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 16. US/NA category fallback (issue #313)
+// ---------------------------------------------------------------------------
+/**
+ * The US zone as it actually reports (dumped from a live HA instance for
+ * Atlanta, 2026-07-30): three category sensors with real PPM readings, a
+ * four-day forecast, and `details: []` everywhere -- the NA endpoint hardcodes
+ * the per-allergen breakdown away. Trees reads 0, which is the zero-value case
+ * the issue calls out.
+ */
+const US_ATLANTA_PPM: Record<string, number> = {
+  trees: 0,
+  grass: 15,
+  weeds: 8,
+};
+
+function makeUSLocation(location: string, ppm = US_ATLANTA_PPM): any[] {
+  return Object.entries(ppm).map(([category, value]) => ({
+    entity_id: `sensor.kleenex_pollen_radar_${location}_${category}`,
+    state: String(value),
+    attributes: {
+      details: [],
+      forecast: Array.from({ length: 4 }, (_, i) => ({
+        datetime: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
+        level: 1,
+        value,
+        details: [],
+      })),
+    },
+  }));
+}
+
+describe("Kleenex adapter: US/NA category fallback", () => {
+  beforeEach(() => {
+    _resetNaWarningsForTest();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("renders the category totals for a US location configured with the stub allergens", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const hass = makeHassFromEntities(makeUSLocation("atlanta_georgia"));
+    // The stub ships individual allergens only -- the configuration every US
+    // user starts from, and the one that produced an empty card.
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced).sort()).toEqual([
+      "grass_cat",
+      "trees_cat",
+      "weeds_cat",
+    ]);
+    for (const sensor of result) assertSensorShape(sensor);
+    const grass = result.find((s) => s.allergenReplaced === "grass_cat")!;
+    expect(grass.days[0]!.value).toBe(15);
+    expect(grass.entity_id).toBe(
+      "sensor.kleenex_pollen_radar_atlanta_georgia_grass",
+    );
+  });
+
+  it("carries the forecast days, not just today", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const hass = makeHassFromEntities(makeUSLocation("boise"));
+    const config = makeConfig({ location: "boise", pollen_threshold: 0 });
+
+    const result = await fetchForecast(hass, config);
+
+    const weeds = result.find((s) => s.allergenReplaced === "weeds_cat")!;
+    // Four forecast days from the payload, padded to days_to_show.
+    expect(weeds.days.length).toBe(config.days_to_show);
+    expect(weeds.days.slice(0, 5).map((d: any) => d.value)).toEqual([
+      8, 8, 8, 8, 8,
+    ]);
+  });
+
+  it("shows a 0 ppm category as level 0, not as missing data", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const hass = makeHassFromEntities(makeUSLocation("atlanta_georgia"));
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const trees = result.find((s) => s.allergenReplaced === "trees_cat")!;
+    expect(trees.days[0]!.state).toBe(0);
+    expect(trees.days[0]!.value).toBe(0);
+    // The level-0 name, not the "no information" label that a -1 day gets.
+    expect(trees.days[0]!.state_text).toBe("No pollen");
+    expect(trees.days[0]!.state_text).not.toBe(
+      stubConfigKleenex.phrase_no_information,
+    );
+  });
+
+  it("treats an all-zero category exactly as an all-zero EU allergen: filtered by the threshold", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Same payload, default threshold (1). The zero-valued trees row drops out,
+    // which is what an EU individual allergen reading 0 does today.
+    const usHass = makeHassFromEntities(makeUSLocation("atlanta_georgia"));
+    const usResult = await fetchForecast(
+      usHass,
+      makeConfig({ location: "atlanta_georgia" }),
+    );
+
+    const euHass = makeHassFromEntities([
+      makeKleenexEntity(
+        "utrecht",
+        "trees",
+        0,
+        [{ name: "Birch", value: 0 }],
+        [{ level: 0, details: [{ name: "Birch", value: 0 }] }],
+      ),
+    ]);
+    const euResult = await fetchForecast(
+      euHass,
+      makeConfig({ location: "utrecht", allergens: ["birch"] }),
+    );
+
+    expect(usResult.map((s) => s.allergenReplaced)).not.toContain("trees_cat");
+    expect(euResult.map((s) => s.allergenReplaced)).not.toContain("birch");
+  });
+
+  // --- The fallback stands aside ------------------------------------------
+
+  it("does not touch an EU location, whose details are populated", async () => {
+    const hass = makeHassFromEntities([
+      makeKleenexEntity(
+        "utrecht",
+        "trees",
+        200,
+        [{ name: "Birch", value: 150 }],
+        [{ level: 2, details: [{ name: "Birch", value: 120 }] }],
+      ),
+    ]);
+    const config = makeConfig({
+      location: "utrecht",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["birch"]);
+  });
+
+  it("leaves an explicit category config alone rather than adding the other two", async () => {
+    const hass = makeHassFromEntities(makeUSLocation("atlanta_georgia"));
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      allergens: ["birch", "trees_cat"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees_cat"]);
+  });
+
+  it("leaves a raw category config alone, keeping the bare key", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const hass = makeHassFromEntities(makeUSLocation("atlanta_georgia"));
+    // `trees` (not `trees_cat`) is also a category config in this adapter.
+    const config = makeConfig({
+      location: "atlanta_georgia",
+      allergens: ["birch", "trees"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["trees"]);
+  });
+
+  it("keeps the per-allergen rows when DetailSensor entities supply them", async () => {
+    // A US-shaped category sensor next to an individually enabled DetailSensor:
+    // pass 2 answers the config, so no category row is added on top.
+    const hass = makeHassFromEntities([
+      ...makeUSLocation("amsterdam"),
+      {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch",
+        state: "42",
+        attributes: { forecast: [] },
+      },
+    ]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.map((s) => s.allergenReplaced)).toEqual(["birch"]);
+  });
+
+  it("stays out of a location whose category sensors report no forecast", async () => {
+    // No forecast means the payload is not the NA fingerprint (NA always sends
+    // four days), so an empty-but-unknown install is left as it was.
+    const hass = makeHassFromEntities([
+      {
+        entity_id: "sensor.kleenex_pollen_radar_testville_trees",
+        state: "0",
+        attributes: { details: [], forecast: [] },
+      },
+    ]);
+    const config = makeConfig({
+      location: "testville",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result).toEqual([]);
   });
 });

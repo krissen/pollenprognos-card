@@ -16,7 +16,11 @@ import {
   resolveAllergenNames,
   normalizeManualPrefix,
 } from "../../utils/adapter-helpers.js";
-import { DOMAIN, KLEENEX_ALLERGEN_MAP, stubConfigKleenex } from "./constants.js";
+import {
+  DOMAIN,
+  KLEENEX_ALLERGEN_MAP,
+  stubConfigKleenex,
+} from "./constants.js";
 import {
   CATEGORY_KEYS,
   DIAGNOSTIC_SUFFIXES,
@@ -212,14 +216,155 @@ export async function fetchForecast(
     let id = entityId;
     const entitySuffix =
       typeof config.entity_suffix === "string" ? config.entity_suffix : "";
-    if (config.location === "manual" && entitySuffix && id.endsWith(entitySuffix)) {
+    if (
+      config.location === "manual" &&
+      entitySuffix &&
+      id.endsWith(entitySuffix)
+    ) {
       id = id.slice(0, -entitySuffix.length);
     }
     return id.split("_").pop() as string;
   };
 
+  // The category an entity ID names through its localized last token
+  // ("trees"/"bomen"/"arbres"...), or null when it names none.
+  const categoryFromEntityToken = (entityId: string): string | null => {
+    const entityToken = effectiveLastToken(entityId);
+    for (const [localizedPrefix, canonicalCategory] of Object.entries(
+      KLEENEX_LOCALIZED_CATEGORY_NAMES,
+    )) {
+      if (entityToken.startsWith(localizedPrefix)) return canonicalCategory;
+    }
+    return null;
+  };
+
+  // True when the entity is a category sensor: registry classification first,
+  // localized entity-ID suffix as fallback.
+  const isCategorySensorEntity = (entityId: string): boolean => {
+    const key = keyByEntityId.get(entityId);
+    if (key) return CATEGORY_KEYS.has(key);
+    return categoryFromEntityToken(entityId) !== null;
+  };
+
+  // --- NA/US category fallback (issue #313) ---
+  //
+  // The NA endpoint hardcodes empty details[] (api.py:__decode_raw_data_na), so
+  // a US/Canada location only ever reports the three category totals. The stub
+  // config ships individual allergens, which left every US card empty even
+  // though the category sensors carried data. When the resolved location shows
+  // that fingerprint, the category allergens stand in for the per-allergen rows
+  // the zone cannot deliver.
+  //
+  // All-or-nothing on purpose. A single category with empty details is not the
+  // NA fingerprint -- EU zones deliver details for all three, down to entries
+  // whose value is 0 -- so one anomalous payload would otherwise splice a
+  // category row in among the individual ones and silently change what an EU
+  // card shows. Requiring every category sensor to be detail-less keeps this to
+  // the zone it was written for.
+  //
+  // Both category shapes count as "the user configured categories": `trees_cat`
+  // and bare `trees` are valid category configs here, and either means the user
+  // has already decided what to show, so nothing is added behind their back.
+  const configuredAllergens = Array.isArray(allergens) ? allergens : [];
+  const categoryAllergenKeys = [
+    "trees_cat",
+    "grass_cat",
+    "weeds_cat",
+    "trees",
+    "grass",
+    "weeds",
+  ];
+  // The set the fallback adds, and the one the warning recommends: NA users
+  // belong on *_cat, not on the raw category names.
+  const recommendedCategoryKeys = ["trees_cat", "grass_cat", "weeds_cat"];
+  const requestedIndividual = configuredAllergens.filter(
+    (a) => !categoryAllergenKeys.includes(a),
+  );
+  // Only evaluated over category sensors that were actually found, so an empty
+  // sensor set (location mismatch) cannot satisfy the fingerprint vacuously.
+  const categorySensorsFound = kleenexSensors.filter((sensor) =>
+    isCategorySensorEntity(sensor.entity_id),
+  );
+  const naDetailsFingerprint =
+    categorySensorsFound.length > 0 &&
+    categorySensorsFound.every((sensor) => {
+      const attrs = sensor.attributes || {};
+      const forecast: KleenexItem[] = attrs.forecast || [];
+      // NA always returns a forecast; requiring one keeps synthetic/empty
+      // fixtures from tripping the fingerprint.
+      if (forecast.length === 0) return false;
+      const detailsEmpty = (attrs.details || []).length === 0;
+      const forecastDetailsEmpty = forecast.every(
+        (f) => ((f.details as KleenexItem[]) || []).length === 0,
+      );
+      return detailsEmpty && forecastDetailsEmpty;
+    });
+  const categoryConfigured = configuredAllergens.some((a) =>
+    categoryAllergenKeys.includes(a),
+  );
+  // The config key a category sensor answers to: `<category>_cat` when the
+  // allergen list asks for that, otherwise the bare category name -- both are
+  // valid category configs in this adapter.
+  const categoryConfigName = (category: string, list: string[]): string =>
+    list.includes(`${category}_cat`) ? `${category}_cat` : category;
+
   let sensors: PollenSensor[] = [];
   const allergenData = new Map<string, KleenexAllergenEntry>(); // Map to collect data by allergen name
+
+  // Collect one category sensor's state and forecast under the given allergen
+  // key. Shared by the normal pass and the NA fallback below, so the two cannot
+  // drift apart in how a category row is built.
+  const collectCategorySensor = (
+    sensor: HassEntity,
+    configAllergenName: string,
+  ): void => {
+    const forecastData: KleenexItem[] = sensor.attributes?.forecast || [];
+
+    if (!allergenData.has(configAllergenName)) {
+      allergenData.set(configAllergenName, {
+        levels: [],
+        entity_id: sensor.entity_id,
+        source: "category_sensor", // Track data source
+      });
+    }
+
+    const allergenEntry = allergenData.get(configAllergenName)!;
+
+    // Today's data from sensor state - prioritize numeric value over level text
+    const sensorValue = Number(sensor.state) || 0;
+    const currentLevel = testVal(ppmToLevel(sensorValue, configAllergenName));
+
+    if (debug) {
+      console.debug(
+        `[Kleenex] CATEGORY ${configAllergenName} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, clamped_level=${currentLevel}, text_level=${sensor.attributes?.level}`,
+      );
+    }
+
+    allergenEntry.levels[0] = {
+      date: new Date(today),
+      level: currentLevel, // Store raw level (0-4)
+      value: sensorValue,
+    };
+
+    forecastData.forEach((forecastItem, dayIndex) => {
+      const forecastValue = Number(forecastItem.value) || 0;
+      const forecastLevel = testVal(
+        ppmToLevel(forecastValue, configAllergenName),
+      );
+
+      if (debug) {
+        console.debug(
+          `[Kleenex] CATEGORY ${configAllergenName} FORECAST day ${dayIndex + 1}: value=${forecastValue}, clamped_level=${forecastLevel}, text_level=${forecastItem.level}`,
+        );
+      }
+
+      allergenEntry.levels[dayIndex + 1] = {
+        date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
+        level: forecastLevel, // Store raw level (0-4)
+        value: forecastValue,
+      };
+    });
+  };
 
   if (debug) {
     console.debug(
@@ -244,21 +389,12 @@ export async function fetchForecast(
     // removed -- `..._trees_v2` yields "v2" otherwise, and a category-only
     // (NA-zone) config would collect nothing here while pass 2 correctly skips
     // the same entity as a category sensor.
-    let sensorCategory: string | null = null;
     const discoveredKey = keyByEntityId.get(sensor.entity_id);
-    if (discoveredKey) {
-      sensorCategory = CATEGORY_KEYS.has(discoveredKey) ? discoveredKey : null;
-    } else {
-      const entityToken = effectiveLastToken(sensor.entity_id);
-      for (const [localizedPrefix, canonicalCategory] of Object.entries(
-        KLEENEX_LOCALIZED_CATEGORY_NAMES,
-      )) {
-        if (entityToken.startsWith(localizedPrefix)) {
-          sensorCategory = canonicalCategory;
-          break;
-        }
-      }
-    }
+    const sensorCategory: string | null = discoveredKey
+      ? CATEGORY_KEYS.has(discoveredKey)
+        ? discoveredKey
+        : null
+      : categoryFromEntityToken(sensor.entity_id);
 
     if (debug) {
       console.debug(
@@ -268,105 +404,24 @@ export async function fetchForecast(
 
     // Process general category sensor (trees, grass, weeds) - only if category is requested
     if (sensorCategory) {
-      // Map sensor category to config allergen name
-      let configAllergenName = sensorCategory;
-      if (sensorCategory === "trees" && allergens.includes("trees_cat")) {
-        configAllergenName = "trees_cat";
-      } else if (
-        sensorCategory === "grass" &&
-        allergens.includes("grass_cat")
-      ) {
-        configAllergenName = "grass_cat";
-      } else if (
-        sensorCategory === "weeds" &&
-        allergens.includes("weeds_cat")
-      ) {
-        configAllergenName = "weeds_cat";
-      }
+      const configAllergenName = categoryConfigName(
+        sensorCategory,
+        configuredAllergens,
+      );
 
       if (debug) {
         console.debug(
-          `[Kleenex] Category sensor mapping: ${sensorCategory} -> ${configAllergenName}, included in config: ${allergens.includes(configAllergenName)}`,
+          `[Kleenex] Category sensor mapping: ${sensorCategory} -> ${configAllergenName}, included in config: ${configuredAllergens.includes(configAllergenName)}`,
         );
       }
 
       // Only process if the config allergen name is requested
-      if (allergens.includes(configAllergenName)) {
-        if (debug) {
-          console.debug(
-            `[Kleenex] Processing CATEGORY sensor for: ${sensorCategory} -> ${configAllergenName}`,
-          );
-        }
-
-        if (!allergenData.has(configAllergenName)) {
-          allergenData.set(configAllergenName, {
-            levels: [],
-            entity_id: sensor.entity_id,
-            source: "category_sensor", // Track data source
-          });
-
-          if (debug) {
-            console.debug(
-              `[Kleenex] CREATED allergenData entry for category: ${configAllergenName}`,
-            );
-          }
-        }
-
-        const allergenEntry = allergenData.get(configAllergenName)!;
-
-        // Today's data from sensor state - prioritize numeric value over level text
-        const sensorValue = Number(sensor.state) || 0;
-        const rawLevel = ppmToLevel(sensorValue, configAllergenName); // Calculate raw level (0-4)
-        const currentLevel = testVal(rawLevel); // Validate and clamp level (0-4)
-
-        if (debug) {
-          console.debug(
-            `[Kleenex] CATEGORY ${configAllergenName} TODAY: sensor_state=${sensor.state}, parsed_value=${sensorValue}, raw_level=${rawLevel}, clamped_level=${currentLevel}, text_level=${sensor.attributes?.level}`,
-          );
-        }
-
-        allergenEntry.levels[0] = {
-          date: new Date(today),
-          level: currentLevel, // Store raw level (0-4)
-          value: sensorValue,
-        };
-
-        if (debug) {
-          console.debug(
-            `[Kleenex] CATEGORY ${configAllergenName} TODAY DATA SET: level=${currentLevel}, value=${sensorValue}`,
-          );
-        }
-
-        // Forecast data for categories
-        forecastData.forEach((forecastItem, dayIndex) => {
-          const forecastValue = Number(forecastItem.value) || 0;
-          const rawLevel = ppmToLevel(forecastValue, configAllergenName); // Calculate raw level (0-4)
-          const forecastLevel = testVal(rawLevel); // Validate and clamp level (0-4)
-
-          if (debug) {
-            console.debug(
-              `[Kleenex] CATEGORY ${configAllergenName} FORECAST day ${dayIndex + 1}: value=${forecastValue}, raw_level=${rawLevel}, clamped_level=${forecastLevel}, text_level=${forecastItem.level}`,
-            );
-          }
-
-          allergenEntry.levels[dayIndex + 1] = {
-            date: new Date(today.getTime() + (dayIndex + 1) * 86400000),
-            level: forecastLevel, // Store raw level (0-4)
-            value: forecastValue,
-          };
-
-          if (debug) {
-            console.debug(
-              `[Kleenex] CATEGORY ${configAllergenName} FORECAST DAY ${dayIndex + 1} DATA SET: level=${forecastLevel}, value=${forecastValue}`,
-            );
-          }
-        });
-      } else {
-        if (debug) {
-          console.debug(
-            `[Kleenex] SKIPPING category sensor ${sensorCategory} -> ${configAllergenName}: not in config.allergens [${allergens.join(", ")}]`,
-          );
-        }
+      if (configuredAllergens.includes(configAllergenName)) {
+        collectCategorySensor(sensor, configAllergenName);
+      } else if (debug) {
+        console.debug(
+          `[Kleenex] SKIPPING category sensor ${sensorCategory} -> ${configAllergenName}: not in config.allergens [${configuredAllergens.join(", ")}]`,
+        );
       }
     }
 
@@ -386,7 +441,7 @@ export async function fetchForecast(
           KLEENEX_ALLERGEN_MAP[allergenName] || allergenName;
 
         // Skip if this allergen is not in the config
-        if (!allergens.includes(canonicalName)) {
+        if (!configuredAllergens.includes(canonicalName)) {
           if (debug && detail.value !== undefined) {
             console.debug(
               `[Kleenex] SKIPPING individual allergen ${canonicalName} (${allergenName}): not in config allergens`,
@@ -466,7 +521,7 @@ export async function fetchForecast(
             KLEENEX_ALLERGEN_MAP[allergenName] || allergenName;
 
           // Skip if this allergen is not in the config
-          if (!allergens.includes(canonicalName)) continue;
+          if (!configuredAllergens.includes(canonicalName)) continue;
 
           if (!allergenData.has(canonicalName)) {
             allergenData.set(canonicalName, {
@@ -516,17 +571,6 @@ export async function fetchForecast(
   // For zones where category sensor details[] is empty (e.g. NA/US endpoint hardcodes
   // empty details — see api.py:__decode_raw_data_na), try individually-enabled
   // DetailSensor entities (disabled by default in HA registry).
-
-  // True when the entity is a category sensor: registry classification first,
-  // localized entity-ID suffix as fallback.
-  const isCategorySensorEntity = (entityId: string): boolean => {
-    const key = keyByEntityId.get(entityId);
-    if (key) return CATEGORY_KEYS.has(key);
-    const lastToken = effectiveLastToken(entityId);
-    return Object.keys(KLEENEX_LOCALIZED_CATEGORY_NAMES).some((lp) =>
-      lastToken.startsWith(lp),
-    );
-  };
 
   for (const sensor of kleenexSensors) {
     // Only consider sensors that were NOT identified as category sensors.
@@ -580,7 +624,7 @@ export async function fetchForecast(
     const canonicalName = derivedName;
 
     // Skip allergens not requested in config.
-    if (!allergens.includes(canonicalName)) continue;
+    if (!configuredAllergens.includes(canonicalName)) continue;
 
     // Only fill slots not already populated by category-sensor pass.
     if (allergenData.has(canonicalName)) continue;
@@ -632,64 +676,65 @@ export async function fetchForecast(
     });
   }
 
-  // --- NA-zone warning ---
-  // Warn when the user requested individual allergens but got no data AND the
-  // category sensors all had empty details (NA endpoint fingerprint — see
-  // api.py:__decode_raw_data_na which hardcodes pollen[f"{type}_details"] = []).
-  // Both `trees_cat` and bare `trees` are valid category-level configs in this
-  // adapter — exclude both shapes from the "individual" set so a config like
-  // ["trees", "birch"] doesn't treat raw `trees` as individual.
-  const categoryAllergenKeys = [
-    "trees_cat",
-    "grass_cat",
-    "weeds_cat",
-    "trees",
-    "grass",
-    "weeds",
-  ];
-  // The recommended set for the warning's suggested fix (NA users should
-  // switch to *_cat, not raw category names).
-  const recommendedCategoryKeys = ["trees_cat", "grass_cat", "weeds_cat"];
-  const requestedIndividual = (allergens || []).filter(
-    (a) => !categoryAllergenKeys.includes(a),
+  // --- Pass 3: NA/US category fallback (issue #313) ---
+  // Every configured allergen came back empty, and the location carries the NA
+  // fingerprint: the category sensors have the data, the zone simply has no
+  // per-allergen breakdown to give. Show the category totals rather than an
+  // empty card.
+  //
+  // Decided here rather than up front on purpose: passes 1 and 2 must be given
+  // their chance first, so an install that has enabled the per-allergen
+  // DetailSensor entities keeps rendering exactly those and never grows a
+  // category row it did not ask for.
+  const individualAllEmpty = requestedIndividual.every(
+    (a) => !allergenData.has(a),
   );
-  // Only evaluate when at least one category sensor was actually found (guards
-  // against vacuous-truth on empty kleenexSensors when location doesn't match).
-  const categorySensorsFound = kleenexSensors.filter((sensor) =>
-    isCategorySensorEntity(sensor.entity_id),
-  );
-  if (requestedIndividual.length > 0 && categorySensorsFound.length > 0) {
-    const allIndividualEmpty = requestedIndividual.every(
-      (a) => !allergenData.has(a),
-    );
-    if (allIndividualEmpty) {
-      // NA fingerprint: a forecast is present (NA returns 4 days) but every
-      // category sensor has empty details[] AND every forecast[i].details[] is empty.
-      // Require non-empty forecast to avoid false positives on synthetic/empty fixtures.
-      const allDetailsEmpty = categorySensorsFound.every((sensor) => {
-        const attrs = sensor.attributes || {};
-        const forecast: KleenexItem[] = attrs.forecast || [];
-        if (forecast.length === 0) return false;
-        const detailsEmpty = (attrs.details || []).length === 0;
-        const forecastDetailsEmpty = forecast.every(
-          (f) => ((f.details as KleenexItem[]) || []).length === 0,
-        );
-        return detailsEmpty && forecastDetailsEmpty;
-      });
-      // Only emit the warning when the user hasn't already configured a recommended
-      // category allergen (if they have *_cat, they are already on the right path).
-      const hasAnyCategoryConfigured = recommendedCategoryKeys.some((k) =>
-        (allergens || []).includes(k),
+  const naFallbackActive =
+    naDetailsFingerprint &&
+    !categoryConfigured &&
+    requestedIndividual.length > 0 &&
+    individualAllEmpty;
+  const effectiveAllergens = naFallbackActive
+    ? [...configuredAllergens, ...recommendedCategoryKeys]
+    : configuredAllergens;
+  if (naFallbackActive) {
+    for (const sensor of categorySensorsFound) {
+      const category = keyByEntityId.get(sensor.entity_id);
+      const resolved =
+        category && CATEGORY_KEYS.has(category)
+          ? category
+          : categoryFromEntityToken(sensor.entity_id);
+      if (!resolved) continue;
+      collectCategorySensor(sensor, `${resolved}_cat`);
+    }
+    if (debug) {
+      console.debug(
+        "[Kleenex] NA zone: no per-allergen data, showing category totals instead",
+        Array.from(allergenData.keys()),
       );
-      if (allDetailsEmpty && !hasAnyCategoryConfigured) {
-        const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
-        if (!NA_WARNED_KEYS.has(warnKey)) {
-          NA_WARNED_KEYS.add(warnKey);
-          console.warn(
-            "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
-          );
-        }
-      }
+    }
+  }
+
+  // --- NA-zone notice ---
+  // The user asked for individual allergens and the zone had none to give.
+  // Worth one line in the console either way: the fallback stepped in (say so,
+  // so rows the user never configured are not a mystery), or it stood aside
+  // because the user had configured category allergens themselves.
+  const naNoticeApplies =
+    requestedIndividual.length > 0 &&
+    categorySensorsFound.length > 0 &&
+    naDetailsFingerprint &&
+    !recommendedCategoryKeys.some((k) => configuredAllergens.includes(k)) &&
+    individualAllEmpty;
+  if (naNoticeApplies) {
+    const warnKey = `${config.location || ""}|${config.entity_prefix || ""}|${config.entity_suffix || ""}`;
+    if (!NA_WARNED_KEYS.has(warnKey)) {
+      NA_WARNED_KEYS.add(warnKey);
+      console.warn(
+        naFallbackActive
+          ? "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns, so the card is showing those totals instead of the individual allergens you configured. Set allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] to make that explicit, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex"
+          : "[Kleenex] No per-allergen data found. The Kleenex API for North America (US/Canada) zones only provides category totals (trees/grass/weeds), not per-allergen breakdowns. Configure your card with allergens: ['trees_cat', 'grass_cat', 'weeds_cat'] for these zones, or enable the per-allergen DetailSensor entities (disabled by default) for EU/UK zones. See https://github.com/krissen/pollenprognos-card/blob/master/docs/troubleshooting.md#kleenex",
+      );
     }
   }
 
@@ -773,7 +818,7 @@ export async function fetchForecast(
   // Build sensors array in the correct order
   const allergenKeys =
     config.sort === "none"
-      ? allergens.filter((allergen) => allergenData.has(allergen))
+      ? effectiveAllergens.filter((allergen) => allergenData.has(allergen))
       : Array.from(allergenData.keys());
 
   if (debug) {
@@ -888,7 +933,8 @@ export async function fetchForecast(
           state_text:
             scaledLevel < 0
               ? noInfoLabel
-              : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
+              : levelNames[scaledLevel] ||
+                t(`card.levels.${scaledLevel}`, lang),
           value: dayData.value,
           // Raw ppm measurement, surfaced only when the user opts into
           // numeric_value_raw (resolveNumericValue). state stays the level.
@@ -899,7 +945,8 @@ export async function fetchForecast(
           description:
             scaledLevel < 0
               ? noInfoLabel
-              : levelNames[scaledLevel] || t(`card.levels.${scaledLevel}`, lang),
+              : levelNames[scaledLevel] ||
+                t(`card.levels.${scaledLevel}`, lang),
         };
 
         dict.days.push(dayObj);
