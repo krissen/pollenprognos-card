@@ -26,6 +26,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   shared rule, the misspelling is aliased, and a test matrix pins the live
   detail names of all five supported regions (FR/IT/NL/UK/US) so future
   upstream changes fail loudly instead of dropping rows.
+- **US Kleenex locations show their pollen data** (issue #313). The upstream
+  integration's US zone only exposes category totals (trees/grass/weeds), never
+  per-allergen details, so the card rendered "(No information)" despite live
+  data. When a location has no per-allergen data, the card now falls back to
+  the three category totals automatically, a zero-PPM day renders as the
+  "no pollen" level (a category at zero across the whole forecast is filtered
+  by `pollen_threshold`, like any all-zero allergen), and the editor's allergen
+  picker offers the category totals for Kleenex. European locations and setups with per-allergen detail
+  sensors are unchanged.
 - **A manual Kleenex `entity_prefix` no longer mixes locations.** On installs
   with several Kleenex locations, a prefix like `kleenex_pollen_` also matched
   other entries' legacy ids (`kleenex_pollen_radar_utrecht_*`), so the card
