@@ -289,10 +289,31 @@ function detectLocation(cfg: CardConfig, hass: HomeAssistant): string {
       id.startsWith("sensor.polleninformation_"),
     );
     if (peuStates.length) {
-      const match = peuStates[0]!.match(
-        /^sensor\.polleninformation_(.+)_[^_]+$/,
-      );
-      locationSlug = match?.[1] ?? "";
+      // Strip the allergen as a whole tail rather than splitting on the last
+      // underscore: a greedy `(.+)_[^_]+$` reads
+      // sensor.polleninformation_wien_sweet_chestnut as location "wien_sweet".
+      // Known allergens come from the whitelist; the configured allergens are
+      // tried too so a slug upstream ships before we do still resolves.
+      const configured = ((cfg.allergens as string[] | undefined) || [])
+        .slice()
+        .sort((a, b) => b.length - a.length);
+      const known = peuStates
+        .map(
+          (id) =>
+            extractPeuLocationSlugFromEntityId(id) ??
+            configured
+              .map((allergen) => extractPeuLocationSlug(id, allergen))
+              .find((slug): slug is string => Boolean(slug)),
+        )
+        .find((slug): slug is string => Boolean(slug));
+      if (known) {
+        locationSlug = known;
+      } else {
+        const match = peuStates[0]!.match(
+          /^sensor\.polleninformation_(.+)_[^_]+$/,
+        );
+        locationSlug = match?.[1] ?? "";
+      }
     }
   }
   return locationSlug;
@@ -333,18 +354,19 @@ function peuTemplateFallback({
         : null;
     }
     if (!sensorId || !hass.states[sensorId]) {
+      // Match the allergen as a whole tail rather than splitting on a greedy
+      // regex: `(.+)_(.+)` reads sensor.polleninformation_wien_sweet_chestnut
+      // as location "wien_sweet" + allergen "chestnut", so every allergen
+      // containing an underscore (sweet_chestnut, tree_of_heaven,
+      // cypress_family, allergy_risk_hourly) failed this scan.
+      const wanted =
+        mode !== "daily" && allergenSlug === "allergy_risk"
+          ? "allergy_risk_hourly"
+          : allergenSlug;
       const cands = peuStates.filter((id) => {
-        const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
-        if (!match) return false;
-        const loc = match[1];
-        const allg = match[2];
-        if (mode !== "daily" && allergenSlug === "allergy_risk") {
-          return (
-            (!locationSlug || loc === locationSlug) &&
-            allg === "allergy_risk_hourly"
-          );
-        }
-        return (!locationSlug || loc === locationSlug) && allg === allergenSlug;
+        const loc = extractPeuLocationSlug(id, wanted);
+        if (loc === null) return false;
+        return !locationSlug || loc === locationSlug;
       });
       if (cands.length === 1) sensorId = cands[0]!;
       else continue;
