@@ -1301,6 +1301,155 @@ describe("PEU adapter: fetchForecast", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Canonical fallback: config spellings vs upstream entity slugs
+  // -------------------------------------------------------------------------
+  describe("canonical allergen fallback", () => {
+    // A 0.5.3 location exposes the upstream slugs. Configs in the wild name the
+    // same two allergens in four ways: the pre-0.5.3 stub slug (lime), the
+    // current one (linden), the canonical key (sorrel) and the upstream slug
+    // (dock_sorrel). Every spelling must land on the same entity.
+    const wienStates = {
+      "sensor.polleninformation_wien_linden": makePEUSensor([2, 1, 0, 0]),
+      "sensor.polleninformation_wien_dock_sorrel": makePEUSensor([3, 2, 1, 0]),
+      "sensor.polleninformation_wien_birch": makePEUSensor([1, 1, 1, 1]),
+    };
+    const LINDEN = "sensor.polleninformation_wien_linden";
+    const SORREL = "sensor.polleninformation_wien_dock_sorrel";
+
+    const CELLS: Array<[string, string]> = [
+      ["lime", LINDEN],
+      ["linden", LINDEN],
+      ["sorrel", SORREL],
+      ["dock_sorrel", SORREL],
+    ];
+
+    for (const [configured, expected] of CELLS) {
+      for (const location of ["wien", ""]) {
+        const mode = location ? "explicit location" : "autodetect";
+        it(`resolves '${configured}' to its entity (${mode})`, () => {
+          const hass = createHass(wienStates);
+          const cfg: any = {
+            ...stubConfigPEU,
+            location,
+            allergens: [configured],
+          };
+
+          const map = resolveEntityIds(cfg, hass);
+
+          expect(map.get(configured)).toBe(expected);
+          expect(map.size).toBe(1);
+        });
+
+        it(`renders one row for '${configured}' (${mode})`, async () => {
+          const hass = createHass(wienStates);
+          const config = makeConfig({
+            location,
+            allergens: [configured],
+            pollen_threshold: 0,
+          });
+
+          const result = await fetchForecast(hass, config);
+
+          expect(result.length).toBe(1);
+          expect(result[0]!.entity_id).toBe(expected);
+          // The row keeps the configured spelling: the card re-filters on
+          // cfg.allergens by raw slug, so renaming it here would drop the row.
+          expect(result[0]!.allergenReplaced).toBe(configured);
+        });
+      }
+    }
+
+    it("yields one row when both spellings are configured", async () => {
+      const hass = createHass(wienStates);
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        allergens: ["lime", "linden"],
+      };
+
+      const map = resolveEntityIds(cfg, hass);
+
+      // The literal match wins the entity; the legacy spelling finds nothing
+      // left to claim rather than duplicating the row.
+      expect(map.get("linden")).toBe(LINDEN);
+      expect(map.has("lime")).toBe(false);
+      expect([...new Set(map.values())]).toHaveLength(1);
+
+      const result = await fetchForecast(
+        hass,
+        makeConfig({
+          location: "wien",
+          allergens: ["lime", "linden"],
+          pollen_threshold: 0,
+        }),
+      );
+      expect(result.length).toBe(1);
+    });
+
+    it("keeps distinct allergens apart when several fall back", () => {
+      const hass = createHass(wienStates);
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        allergens: ["lime", "sorrel", "birch"],
+      };
+
+      const map = resolveEntityIds(cfg, hass);
+
+      expect(map.get("lime")).toBe(LINDEN);
+      expect(map.get("sorrel")).toBe(SORREL);
+      expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
+    });
+
+    it("does not invent a row when the location lacks the allergen", () => {
+      const hass = createHass(wienStates);
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        allergens: ["olive"],
+      };
+
+      expect(resolveEntityIds(cfg, hass).size).toBe(0);
+    });
+
+    it("falls back canonically in manual mode too", () => {
+      const hass = createHass({
+        "sensor.peu_linden_wien": makePEUSensor([2, 1]),
+      });
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "manual",
+        entity_prefix: "peu_",
+        entity_suffix: "_wien",
+        allergens: ["lime"],
+      };
+
+      const map = resolveEntityIds(cfg, hass);
+
+      expect(map.get("lime")).toBe("sensor.peu_linden_wien");
+    });
+
+    it("keeps the hourly mode mapping ahead of the fallback", () => {
+      // allergy_risk must still resolve to the _hourly variant in hourly mode
+      // rather than being canonically matched to the daily entity.
+      const hass = createHass({
+        "sensor.polleninformation_wien_allergy_risk": makePEUSensor([2]),
+        "sensor.polleninformation_wien_allergy_risk_hourly": makePEUSensor([3]),
+      });
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        mode: "hourly",
+        allergens: ["allergy_risk"],
+      };
+
+      expect(resolveEntityIds(cfg, hass).get("allergy_risk")).toBe(
+        "sensor.polleninformation_wien_allergy_risk_hourly",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Auto-detection: location derived from available sensors
   // -------------------------------------------------------------------------
   describe("auto-detection from sensor entity IDs", () => {

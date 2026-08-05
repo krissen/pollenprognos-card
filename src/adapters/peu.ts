@@ -9,12 +9,15 @@ import type {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 import {
   buildDayLabel,
   clampLevel,
   resolveAllergenNames,
   discoverEntitiesByDevice,
   isConfigEntryId,
+  normalizeManualPrefix,
+  resolveLocationByKey,
   type DeviceDiscovery,
 } from "../utils/adapter-helpers.js";
 import {
@@ -389,7 +392,7 @@ const peuModeSlug = (rawKey: string, cfg: CardConfig): string =>
     ? "allergy_risk_hourly"
     : rawKey;
 
-export const resolveEntityIds = createEntityResolver({
+const resolvePeuEntityIds = createEntityResolver({
   locationKey: "location",
   normalize: identity,
   discover: discoverPeuSensors,
@@ -399,6 +402,95 @@ export const resolveEntityIds = createEntityResolver({
   discoveryLookupKey: peuModeSlug,
   templateFallback: peuTemplateFallback,
 });
+
+/**
+ * Every entity the configured location can offer, keyed by its allergen slug.
+ * Mirrors whichever path the resolver itself used: the manual naming scheme,
+ * the discovered location, or the legacy `{location}_{allergen}` template.
+ */
+function peuEntityPool(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug: boolean,
+): Map<string, string> {
+  const pool = new Map<string, string>();
+
+  if (cfg.location === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    const suffix = (cfg.entity_suffix as string) || "";
+    const base = `sensor.${prefix}`;
+    for (const eid of Object.keys(hass.states)) {
+      if (!eid.startsWith(base) || !eid.endsWith(suffix)) continue;
+      const slug = eid.slice(base.length, eid.length - suffix.length);
+      if (slug) pool.set(slug, eid);
+    }
+    return pool;
+  }
+
+  const discovery = discoverPeuSensors(hass, debug);
+  const match = resolveLocationByKey(discovery, cfg.location as string, {
+    slugExtractor: extractPeuLocationSlugFromEntityId,
+  });
+  if (match) return match[1].entities;
+
+  const locationSlug = detectLocation(cfg, hass);
+  for (const eid of Object.keys(hass.states)) {
+    const allergen = classifyPeuEntity(eid);
+    if (!allergen) continue;
+    if (locationSlug && extractPeuLocationSlug(eid, allergen) !== locationSlug) {
+      continue;
+    }
+    pool.set(allergen, eid);
+  }
+  return pool;
+}
+
+/**
+ * Resolve configured allergen keys to entity IDs.
+ *
+ * PEU keys are used verbatim as entity-ID suffixes, so a config naming an
+ * allergen by any other spelling than the integration's current one resolves to
+ * nothing and the row disappears without a word. That happens to every config
+ * written before polleninformation 0.5.3 renamed Tilia from "lime" to "linden",
+ * and to anyone who picked the canonical key ("sorrel") over the upstream slug
+ * ("dock_sorrel").
+ *
+ * So: after the literal pass, retry the unresolved keys through
+ * toCanonicalAllergenKey and match them against the location's entities
+ * canonicalized the same way. A literal match always wins, and entities already
+ * claimed are skipped, so having both spellings in one config yields one row.
+ */
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+): Map<string, string> {
+  const map = resolvePeuEntityIds(cfg, hass, debug);
+  const allergens = (cfg.allergens as string[] | undefined) || [];
+  const unresolved = allergens.filter((allergen) => !map.has(allergen));
+  if (unresolved.length === 0 || !hass) return map;
+
+  const pool = peuEntityPool(cfg, hass, debug);
+  const claimed = new Set(map.values());
+
+  for (const allergen of unresolved) {
+    const wanted = toCanonicalAllergenKey(peuModeSlug(allergen, cfg));
+    for (const [slug, eid] of pool) {
+      if (claimed.has(eid)) continue;
+      if (toCanonicalAllergenKey(slug) !== wanted) continue;
+      if (debug) {
+        console.debug(
+          `[PEU:resolveEntityIds] canonical fallback allergen: '${allergen}', canonical: '${wanted}', sensorId: '${eid}'`,
+        );
+      }
+      map.set(allergen, eid);
+      claimed.add(eid);
+      break;
+    }
+  }
+
+  return map;
+}
 
 // PEU is natively a five-level integration; clamp raw states to the 0-4 lookup
 // range. -1 marks a missing/invalid reading (the day loop then drops it).
