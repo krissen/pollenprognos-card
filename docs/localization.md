@@ -66,6 +66,10 @@ The badge visual editor uses the following i18n keys. Translators should add the
 | `editor.badge_label_position_right` | `Right` |
 | `editor.badge_label_position_below` | `Below` |
 | `editor.badge_show_label` | `Show label` |
+| `editor.badge_label_content` | `Label shows` |
+| `editor.badge_label_content_allergen` | `Allergen name` |
+| `editor.badge_label_content_level` | `Pollen level` |
+| `editor.badge_label_content_allergen_level` | `Allergen name and level` |
 
 ## Custom phrases
 
