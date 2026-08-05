@@ -183,6 +183,8 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - Requires card v2.4.2+ for integration v0.4.0+
 - Multi-part location names (e.g., "Le Blanc-Mesnil") are supported from card v2.4.2
 - Forecast modes (hourly, twice_daily) only work with `allergy_risk` sensors and integration v0.4.4+
+- Dock/sorrel, plantain, sweet chestnut, tree of heaven and linden need integration v0.5.3+ and card v4.1.0+. Which of them a location reports varies, so a missing row is usually the location, not the card
+- A config written before v4.1.0 may name Tilia `lime`, a key that never matched an entity. It still resolves: an allergen key with no literal entity match is retried as its canonical key, so `lime` finds the `linden` sensor (and naming both spellings yields one row, not two)
 
 #### SILAM Pollen
 - The card uses the entity registry for detection when available; renamed entities fall back to pattern matching

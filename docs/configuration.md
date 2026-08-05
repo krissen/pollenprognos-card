@@ -168,20 +168,28 @@ ash
 beech
 birch
 cypress_family
+dock_sorrel
 elm
 fungal_spores
 grasses
 hazel
-lime
+linden
 mugwort
 nettle_family
 oak
 olive
 plane_tree
+plantain
 ragweed
 rye
+sweet_chestnut
+tree_of_heaven
 willow
 ```
+
+`dock_sorrel`, `plantain`, `sweet_chestnut`, `tree_of_heaven` and `linden` require `polleninformation` **v0.5.3** or later together with card **v4.1.0** or newer. `linden` replaces the earlier `lime` key, which never matched a real entity (the API calls *Tilia* "linden"); configs that still say `lime` keep working, because an allergen key that matches no entity literally is retried as its canonical key.
+
+Which allergens a location actually reports varies, so expect a subset of this list.
 
 Only the `allergy_risk` allergen supports forecast modes other than `daily`. These modes require `polleninformation` **v0.4.4** or later and card **v2.5.0** or newer.
 
