@@ -12,6 +12,7 @@ import {
   editorControlStyles,
 } from "./editor/base.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
+import { coerceBadgeLabelContent } from "./utils/badge-label.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   detectIntegrationStates,
@@ -497,8 +498,16 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return this._editorConfig()?.allergens_abbreviated === true;
   }
 
+  // Level names are normally irrelevant to a badge, but badge_label_content
+  // level/allergen_level put days[0].state_text straight into the label, so the
+  // strings the badge shows would otherwise be uneditable. Gate on the label
+  // being visible too: with badge_show_label off nothing renders the level
+  // text, so the default badge editor surface is unchanged.
   override _showPhraseLevels(): boolean {
-    return false;
+    const c = this._editorConfig();
+    if (c?.badge_show_label !== true) return false;
+    const content = coerceBadgeLabelContent(c.badge_label_content);
+    return content === "level" || content === "allergen_level";
   }
 
   override _showPhraseDays(): boolean {
