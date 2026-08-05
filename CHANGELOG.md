@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   chestnut and tree of heaven -- exposed by the upstream integration since
   0.5.3 -- are now discovered, rendered with their own new icons and named in
   all 15 locales. Sorrel and plantain no longer borrow the mugwort icon.
+- **The badge label can show the pollen level.** New `badge_label_content`
+  option (`allergen` | `level` | `allergen_level`) controls what the text next
+  to the badge circle says, using the same localized level names as the card.
+  Default is the previous behaviour (allergen name).
+- **The visual editor is fully translated.** The badge section, the
+  icon-in-ring options and the remaining helper texts had English strings left
+  in most languages; all 15 locales now cover the whole editor surface
+  (556 strings translated).
 
 ### Fixed
 
