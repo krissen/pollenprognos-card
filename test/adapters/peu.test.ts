@@ -1222,6 +1222,82 @@ describe("PEU adapter: fetchForecast", () => {
         expect(getSvgContent(ALLERGEN_ICON_FALLBACK[canonical]!)).toBeTruthy();
       }
     });
+
+    // The entity IDs a live 0.5.3 Wien instance exposes, read from /api/states.
+    // Which allergens a location reports varies (Wien has no beech, elm, oak or
+    // willow), so this is the subset we must handle, not the full slug list.
+    const WIEN_LIVE_ENTITIES = [
+      "alder",
+      "allergy_risk",
+      "allergy_risk_hourly",
+      "ash",
+      "birch",
+      "cypress_family",
+      "dock_sorrel",
+      "fungal_spores",
+      "grasses",
+      "hazel",
+      "linden",
+      "mugwort",
+      "nettle_family",
+      "olive",
+      "plane_tree",
+      "plantain",
+      "ragweed",
+      "rye",
+      "sweet_chestnut",
+      "tree_of_heaven",
+    ].map((slug) => `sensor.polleninformation_wien_${slug}`);
+
+    it("classifies every entity a live Wien instance exposes", () => {
+      const states: Record<string, any> = {};
+      for (const eid of WIEN_LIVE_ENTITIES) states[eid] = makePEUSensor([2, 1]);
+      const hass = createHass(states);
+
+      const discovery = discoverPeuSensors(hass);
+      expect([...discovery.locations.keys()]).toEqual(["wien"]);
+      const loc = discovery.locations.get("wien")!;
+      // Every entity lands under its own key: no collisions, nothing dropped.
+      expect(loc.entities.size).toBe(WIEN_LIVE_ENTITIES.length);
+      for (const eid of WIEN_LIVE_ENTITIES) {
+        const slug = eid.replace("sensor.polleninformation_wien_", "");
+        expect(loc.entities.get(slug)).toBe(eid);
+      }
+    });
+
+    it("offers every allergen a live Wien instance exposes", () => {
+      // allergy_risk_hourly is a mode variant, not a pickable allergen.
+      for (const eid of WIEN_LIVE_ENTITIES) {
+        const slug = eid.replace("sensor.polleninformation_wien_", "");
+        if (slug === "allergy_risk_hourly") continue;
+        expect(PEU_ALLERGENS).toContain(slug);
+      }
+    });
+
+    it("classifies by entity ID, not by localized friendly names", () => {
+      // The integration localizes friendly_name to the HA server language but
+      // keeps entity IDs English. A Swedish server must discover the same keys.
+      const states = {
+        "sensor.polleninformation_wien_linden": makePEUSensor([2, 1], {
+          friendly_name: "Polleninformation Wien Lind",
+        }),
+        "sensor.polleninformation_wien_dock_sorrel": makePEUSensor([1, 0], {
+          friendly_name: "Polleninformation Wien Ängssyra",
+        }),
+        "sensor.polleninformation_wien_tree_of_heaven": makePEUSensor([3, 2], {
+          friendly_name: "Polleninformation Wien Gudaträd",
+        }),
+      };
+      const hass = createHass(states, { language: "sv" });
+
+      const discovery = discoverPeuSensors(hass);
+      const loc = discovery.locations.get("wien")!;
+      expect([...loc.entities.keys()].sort()).toEqual([
+        "dock_sorrel",
+        "linden",
+        "tree_of_heaven",
+      ]);
+    });
   });
 
   // -------------------------------------------------------------------------
