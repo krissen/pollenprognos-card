@@ -800,7 +800,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                     ],
                   },
                 }}
-                .value=${typeof c.badge_label_content === "string" ? c.badge_label_content : "allergen"}
+                .value=${coerceBadgeLabelContent(c.badge_label_content)}
                 @value-changed=${(e: CustomEvent) => {
                   const v = e.detail?.value;
                   if (v !== undefined) this._updateConfig("badge_label_content", v);
