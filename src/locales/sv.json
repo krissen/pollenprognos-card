@@ -1,7 +1,7 @@
 {
   "card.allergen.alder": "Al",
   "card.allergen.allergy_risk": "Allergirisk",
-  "card.allergen.ash": "Asp",
+  "card.allergen.ash": "Ask",
   "card.allergen.beech": "Bok",
   "card.allergen.birch": "Björk",
   "card.allergen.chenopod": "Svinmålla",
@@ -240,7 +240,7 @@
   "editor.phrases_full": "Allergener",
   "editor.phrases_full.alder": "Al",
   "editor.phrases_full.allergy_risk": "Allergirisk",
-  "editor.phrases_full.ash": "Asp",
+  "editor.phrases_full.ash": "Ask",
   "editor.phrases_full.beech": "Bok",
   "editor.phrases_full.birch": "Björk",
   "editor.phrases_full.chenopod": "Svinmålla",
