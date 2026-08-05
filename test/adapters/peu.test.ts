@@ -1213,13 +1213,13 @@ describe("PEU adapter: fetchForecast", () => {
       expect(getSvgContent(toCanonicalAllergenKey("dock_sorrel"))).toBeTruthy();
     });
 
-    it("falls back to a drawn icon for allergens without their own SVG", () => {
-      // sweet_chestnut and tree_of_heaven have no icon yet; the card must land
-      // on a real SVG rather than rendering nothing.
+    it("resolves the new tree allergens to their own SVG", () => {
+      // sweet_chestnut and tree_of_heaven ship dedicated icons, so they must
+      // resolve directly instead of leaning on a fallback stand-in.
       for (const slug of ["sweet_chestnut", "tree_of_heaven"]) {
         const canonical = toCanonicalAllergenKey(slug);
-        expect(getSvgContent(canonical)).toBeNull();
-        expect(getSvgContent(ALLERGEN_ICON_FALLBACK[canonical]!)).toBeTruthy();
+        expect(getSvgContent(canonical)).toBeTruthy();
+        expect(ALLERGEN_ICON_FALLBACK[canonical]).toBeUndefined();
       }
     });
 

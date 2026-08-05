@@ -31,10 +31,14 @@ import oakSvg from "./images/oak.svg?raw";
 import oliveSvg from "./images/olive.svg?raw";
 import pineSvg from "./images/pine.svg?raw";
 import planeSvg from "./images/plane.svg?raw";
+import plantainSvg from "./images/plantain.svg?raw";
 import poaceaeSvg from "./images/poaceae.svg?raw";
 import poplarSvg from "./images/poplar.svg?raw";
 import ragweedSvg from "./images/ragweed.svg?raw";
 import ryeSvg from "./images/rye.svg?raw";
+import sorrelSvg from "./images/sorrel.svg?raw";
+import sweetChestnutSvg from "./images/sweet_chestnut.svg?raw";
+import treeOfHeavenSvg from "./images/tree_of_heaven.svg?raw";
 import willowSvg from "./images/willow.svg?raw";
 
 // Pollution icons
@@ -63,12 +67,12 @@ export const svgs: Record<string, string> = {
   cypress: cypressSvg,
   elm: elmSvg,
   grass: grassSvg,
-  plantain: mugwortSvg, // Temporary alias (weed category)
+  plantain: plantainSvg,
   hazel: hazelSvg,
   lime: limeSvg,
   mold_spores: moldSporesSvg,
   mugwort: mugwortSvg,
-  sorrel: mugwortSvg, // Temporary alias (weed category)
+  sorrel: sorrelSvg,
   nettle_and_pellitory: nettleAndPellitorySvg,
   nettle: nettleAndPellitorySvg, // Alias for compatibility
   no_allergens: noAllergensSvg,
@@ -80,6 +84,8 @@ export const svgs: Record<string, string> = {
   poplar: poplarSvg,
   ragweed: ragweedSvg,
   rye: ryeSvg,
+  sweet_chestnut: sweetChestnutSvg,
+  tree_of_heaven: treeOfHeavenSvg,
   willow: willowSvg,
   // Pollution
   pm25: pm25Svg,

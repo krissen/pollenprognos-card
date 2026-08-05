@@ -585,12 +585,6 @@ export const ALLERGEN_ICON_FALLBACK: Record<string, string> = {
   graminales: "grass",
   cypress_pine: "cypress",
   maple: "oak",
-  // Temporary stand-ins until dedicated icons exist. Both are broadleaf trees;
-  // sweet chestnut shares a family with beech, tree of heaven is pinnate like
-  // ash. _getSvgKey prefers a real icon when one is added, so these lines
-  // simply stop being reached at that point.
-  sweet_chestnut: "beech",
-  tree_of_heaven: "ash",
 };
 
 // Mapping of localized category name prefixes to canonical names for Kleenex integration
