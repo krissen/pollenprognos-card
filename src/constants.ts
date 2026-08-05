@@ -75,6 +75,14 @@ const PEU_ALIASES = {
   plane: "plane",
   cypress: "cypress",
   lime: "lime",
+  // The API calls Tilia "linden"; our canonical key (locale strings, icon)
+  // stays "lime". "lime" above keeps hand-written configs canonicalizing.
+  linden: "lime",
+  // The API name for Rumex is "dock/sorrel", slugified to "dock_sorrel".
+  dock_sorrel: "sorrel",
+  plantain: "plantain",
+  sweet_chestnut: "sweet_chestnut",
+  tree_of_heaven: "tree_of_heaven",
   mold_spores: "mold_spores",
   nettle_and_pellitory: "nettle_and_pellitory",
   fungal_spores: "mold_spores",
@@ -577,6 +585,12 @@ export const ALLERGEN_ICON_FALLBACK: Record<string, string> = {
   graminales: "grass",
   cypress_pine: "cypress",
   maple: "oak",
+  // Temporary stand-ins until dedicated icons exist. Both are broadleaf trees;
+  // sweet chestnut shares a family with beech, tree of heaven is pinnate like
+  // ash. _getSvgKey prefers a real icon when one is added, so these lines
+  // simply stop being reached at that point.
+  sweet_chestnut: "beech",
+  tree_of_heaven: "ash",
 };
 
 // Mapping of localized category name prefixes to canonical names for Kleenex integration
