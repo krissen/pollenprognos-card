@@ -77,6 +77,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       typeof config.badge_label_position === "string"
         ? config.badge_label_position
         : undefined;
+    const badgeLabelContent =
+      typeof config.badge_label_content === "string"
+        ? config.badge_label_content
+        : undefined;
 
     // The pre-spread badge_content/badge_show_label defaults the JS version set
     // before `...config` are unconditionally re-set after the spread (badgeContent
@@ -96,6 +100,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       ...(badgeScale !== undefined ? { badge_scale: badgeScale } : {}),
       ...(badgeLabelPosition !== undefined
         ? { badge_label_position: badgeLabelPosition }
+        : {}),
+      ...(badgeLabelContent !== undefined
+        ? { badge_label_content: badgeLabelContent }
         : {}),
     } as unknown as CardConfig;
 
@@ -674,6 +681,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       "badge_icon_scale",
       "badge_show_label",
       "badge_label_position",
+      "badge_label_content",
     ];
   }
 
@@ -764,6 +772,29 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                 @value-changed=${(e: CustomEvent) => {
                   const v = e.detail?.value;
                   if (v !== undefined) this._updateConfig("badge_label_position", v);
+                }}
+              ></ha-selector>
+            </ha-formfield>
+
+            <!-- badge_label_content: allergen name (default), today's
+                 translated level text, or both (issue #63). -->
+            <ha-formfield label="${this._t("badge_label_content")}">
+              <ha-selector
+                .hass=${this._hass}
+                .selector=${{
+                  select: {
+                    mode: "dropdown",
+                    options: [
+                      { value: "allergen", label: this._t("badge_label_content_allergen") },
+                      { value: "level", label: this._t("badge_label_content_level") },
+                      { value: "allergen_level", label: this._t("badge_label_content_allergen_level") },
+                    ],
+                  },
+                }}
+                .value=${typeof c.badge_label_content === "string" ? c.badge_label_content : "allergen"}
+                @value-changed=${(e: CustomEvent) => {
+                  const v = e.detail?.value;
+                  if (v !== undefined) this._updateConfig("badge_label_content", v);
                 }}
               ></ha-selector>
             </ha-formfield>
