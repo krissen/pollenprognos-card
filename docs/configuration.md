@@ -399,6 +399,7 @@ The badge is today-only: it always forces `mode: daily` regardless of your integ
 | `badge_icon_scale` | `number` | `1` | Scales just the allergen visual within the badge: the ring (with its centred icon or value) in the ring modes, or the bare icon in `icon_only`. The label text and the overall pill box are unchanged, and the scaled visual is capped at the pill height so it never overflows. So `badge_scale` sets how big the badge is, `badge_icon_scale` sets how big the image is within it. Range 0.3 to 3. |
 | `badge_label_position` | `string` | `right` | Where to place the label: `right` (beside the visual, the HA community convention) or `below` (under the visual). |
 | `badge_show_label` | `boolean` | `false` | Show the allergen short name or label next to the visual. |
+| `badge_label_content` | `string` | `allergen` | What the label says when `badge_show_label` is on: `allergen` (the allergen's short name), `level` (today's translated pollen level, e.g. *High*), or `allergen_level` (both, as *Birch: High*). A part with no data is left out, so `level` on a sensor without a level text hides the label. |
 | `tap_action` | `object` | *(empty)* | Lovelace tap action for the badge, configured in the editor's **Interactions** section. Same shape and supported types as the card's [`tap_action`](#options): `more-info`, `navigate`, and `call-service` / `perform-action`. With no `tap_action` set the badge is inert. |
 
 ### Badge YAML examples
