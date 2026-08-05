@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Polleninformation EU: four new allergens.** Dock/sorrel, plantain, sweet
+  chestnut and tree of heaven -- exposed by the upstream integration since
+  0.5.3 -- are now discovered, rendered with their own new icons and named in
+  all 15 locales. Sorrel and plantain no longer borrow the mugwort icon.
+
+### Fixed
+
+- **PEU: Tilia is `linden`, not `lime`.** The `lime` entry in the PEU
+  allergen list never matched a real entity; discovery now uses the upstream
+  slug `linden`. Existing configs with `lime` keep working: configured
+  allergen keys that don't match an entity literally now fall back to their
+  canonical key, so old and new spellings resolve to the same sensor (and
+  never duplicate rows).
+- **PEU: multi-word allergens parse correctly.** Entity ids like
+  `..._wien_sweet_chestnut` no longer mis-split into location "wien_sweet" +
+  allergen "chestnut".
+- **Swedish: ash is "Ask", not "Asp"** (wrong tree since v2.0.0).
+
 ## [4.0.1] - 2026-07-31
 
 ### Fixed

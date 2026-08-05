@@ -75,6 +75,14 @@ const PEU_ALIASES = {
   plane: "plane",
   cypress: "cypress",
   lime: "lime",
+  // The API calls Tilia "linden"; our canonical key (locale strings, icon)
+  // stays "lime". "lime" above keeps hand-written configs canonicalizing.
+  linden: "lime",
+  // The API name for Rumex is "dock/sorrel", slugified to "dock_sorrel".
+  dock_sorrel: "sorrel",
+  plantain: "plantain",
+  sweet_chestnut: "sweet_chestnut",
+  tree_of_heaven: "tree_of_heaven",
   mold_spores: "mold_spores",
   nettle_and_pellitory: "nettle_and_pellitory",
   fungal_spores: "mold_spores",

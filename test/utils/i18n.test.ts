@@ -112,6 +112,31 @@ describe("i18n", () => {
       });
     }
   });
+
+  describe("PEU 0.5.3 allergen strings", () => {
+    // Canonical keys added with the upstream polleninformation 0.5.3 slug set.
+    // A missing locale entry surfaces as the raw key in the card and editor.
+    const KEYS = ["sweet_chestnut", "tree_of_heaven"];
+    const NAMESPACES = [
+      "card.allergen",
+      "editor.phrases_full",
+      "editor.phrases_short",
+    ];
+
+    for (const lang of SUPPORTED_LOCALES) {
+      it(`resolves the new PEU allergens in all namespaces for '${lang}'`, () => {
+        for (const allergen of KEYS) {
+          for (const ns of NAMESPACES) {
+            const key = `${ns}.${allergen}`;
+            const val = t(key, lang);
+            expect(val, `missing ${key} for ${lang}`).not.toBe(key);
+            expect(typeof val).toBe("string");
+            expect(val.length).toBeGreaterThan(0);
+          }
+        }
+      });
+    }
+  });
 });
 
 describe("editor warning strings", () => {

@@ -4,11 +4,12 @@ import { getSvgContent, svgs } from "../../src/pollenprognos-svgs.js";
 const ALLERGEN_KEYS = [
   "alder", "ash", "beech", "birch", "chenopod", "cypress", "elm",
   "grass", "hazel", "lime", "mold_spores", "mugwort", "oak", "olive",
-  "pine", "plane", "poaceae", "poplar", "ragweed", "rye", "willow",
+  "pine", "plane", "plantain", "poaceae", "poplar", "ragweed", "rye",
+  "sorrel", "sweet_chestnut", "tree_of_heaven", "willow",
 ];
 
 const ALIAS_KEYS = [
-  "goosefoot", "nettle", "plantain", "sorrel",
+  "goosefoot", "nettle",
 ];
 
 const POLLUTION_KEYS = [

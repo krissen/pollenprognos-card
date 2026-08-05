@@ -83,7 +83,12 @@ export interface EntityResolverOptions {
  */
 export function createEntityResolver(
   opts: EntityResolverOptions,
-): (cfg: CardConfig, hass: HomeAssistant, debug?: boolean) => Map<string, string> {
+): (
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug?: boolean,
+  precomputedDiscovery?: DeviceDiscovery | null,
+) => Map<string, string> {
   const {
     locationKey,
     normalize,
@@ -100,6 +105,10 @@ export function createEntityResolver(
     cfg: CardConfig,
     hass: HomeAssistant,
     debug = false,
+    // Discovery the caller has already run for this same hass. Threaded through
+    // so an adapter that needs the discovered entities for its own purposes
+    // (PEU's canonical fallback) scans the registry once per resolve, not twice.
+    precomputedDiscovery: DeviceDiscovery | null = null,
   ): Map<string, string> {
     const map = new Map<string, string>();
     const locationVal = cfg[locationKey] as string | undefined;
@@ -129,7 +138,7 @@ export function createEntityResolver(
     }
 
     // --- Path 2: Device-based discovery (tier 1/2) or regex fallback (tier 3) ---
-    const discovery = discover(hass, debug);
+    const discovery = precomputedDiscovery ?? discover(hass, debug);
 
     if (discovery.locations.size > 0) {
       let match = resolveLocationByKey(discovery, locationVal, {

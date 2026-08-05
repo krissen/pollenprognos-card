@@ -498,6 +498,28 @@ export function buildGoldenFixtures(): GoldenCase[] {
   );
   add(
     "peu",
+    "new-allergens",
+    peuHass("wien", {
+      dock_sorrel: [2, 1, 0, 0],
+      linden: [1, 2, 3, 4],
+      plantain: [0, 1, 1, 0],
+      sweet_chestnut: [3, 3, 2, 1],
+      tree_of_heaven: [4, 3, 2, 1],
+    }),
+    cfg(stubConfigPEU, {
+      location: "wien",
+      allergens: [
+        "dock_sorrel",
+        "linden",
+        "plantain",
+        "sweet_chestnut",
+        "tree_of_heaven",
+      ],
+      pollen_threshold: 0,
+    }),
+  );
+  add(
+    "peu",
     "padding",
     peuHass("amsterdam", { birch: [2, 1] }),
     cfg(stubConfigPEU, {
