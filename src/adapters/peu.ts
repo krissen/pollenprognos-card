@@ -407,11 +407,14 @@ const resolvePeuEntityIds = createEntityResolver({
  * Every entity the configured location can offer, keyed by its allergen slug.
  * Mirrors whichever path the resolver itself used: the manual naming scheme,
  * the discovered location, or the legacy `{location}_{allergen}` template.
+ *
+ * `discovery` is the result the literal pass already computed (null in manual
+ * mode, where no discovery runs), so building the pool costs no second scan.
  */
 function peuEntityPool(
   cfg: CardConfig,
   hass: HomeAssistant,
-  debug: boolean,
+  discovery: DeviceDiscovery | null,
 ): Map<string, string> {
   const pool = new Map<string, string>();
 
@@ -427,10 +430,11 @@ function peuEntityPool(
     return pool;
   }
 
-  const discovery = discoverPeuSensors(hass, debug);
-  const match = resolveLocationByKey(discovery, cfg.location as string, {
-    slugExtractor: extractPeuLocationSlugFromEntityId,
-  });
+  const match = discovery
+    ? resolveLocationByKey(discovery, cfg.location as string, {
+        slugExtractor: extractPeuLocationSlugFromEntityId,
+      })
+    : null;
   if (match) return match[1].entities;
 
   const locationSlug = detectLocation(cfg, hass);
@@ -459,18 +463,29 @@ function peuEntityPool(
  * toCanonicalAllergenKey and match them against the location's entities
  * canonicalized the same way. A literal match always wins, and entities already
  * claimed are skipped, so having both spellings in one config yields one row.
+ *
+ * Both passes share one discovery result: it is computed here and threaded into
+ * the literal pass, so a config that triggers the fallback still scans the
+ * registry once per resolve.
  */
 export function resolveEntityIds(
   cfg: CardConfig,
   hass: HomeAssistant,
   debug = false,
+  precomputedDiscovery: DeviceDiscovery | null = null,
 ): Map<string, string> {
-  const map = resolvePeuEntityIds(cfg, hass, debug);
+  // Manual mode resolves by entity naming and never looks at discovery.
+  const discovery =
+    !hass || cfg.location === "manual"
+      ? null
+      : (precomputedDiscovery ?? discoverPeuSensors(hass, debug));
+
+  const map = resolvePeuEntityIds(cfg, hass, debug, discovery);
   const allergens = (cfg.allergens as string[] | undefined) || [];
   const unresolved = allergens.filter((allergen) => !map.has(allergen));
   if (unresolved.length === 0 || !hass) return map;
 
-  const pool = peuEntityPool(cfg, hass, debug);
+  const pool = peuEntityPool(cfg, hass, discovery);
   const claimed = new Set(map.values());
 
   for (const allergen of unresolved) {

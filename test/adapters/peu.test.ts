@@ -1429,6 +1429,52 @@ describe("PEU adapter: fetchForecast", () => {
       expect(map.get("lime")).toBe("sensor.peu_linden_wien");
     });
 
+    it("scans the registry once, fallback or not", () => {
+      // The fallback needs the location's entities, which the literal pass has
+      // already discovered. Re-running discovery would double the registry and
+      // state scans on every update for anyone still configuring "lime".
+      const countRegistryReads = (allergens: string[]) => {
+        let reads = 0;
+        const hass: any = createHass(wienStates);
+        for (const key of ["entities", "devices"]) {
+          const value = hass[key];
+          Object.defineProperty(hass, key, {
+            get() {
+              reads += 1;
+              return value;
+            },
+          });
+        }
+        resolveEntityIds(
+          { ...stubConfigPEU, location: "wien", allergens } as any,
+          hass,
+        );
+        return reads;
+      };
+
+      const literal = countRegistryReads(["linden"]);
+      const viaFallback = countRegistryReads(["lime"]);
+
+      expect(literal).toBeGreaterThan(0);
+      expect(viaFallback).toBe(literal);
+    });
+
+    it("reuses a discovery result the caller already has", () => {
+      const hass = createHass(wienStates);
+      const discovery = discoverPeuSensors(hass);
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        allergens: ["lime"],
+      };
+
+      // Passed a discovery, the resolver must not need hass to find one.
+      const blindHass: any = { ...hass, entities: {}, devices: {} };
+      expect(resolveEntityIds(cfg, blindHass, false, discovery).get("lime")).toBe(
+        LINDEN,
+      );
+    });
+
     it("keeps the hourly mode mapping ahead of the fallback", () => {
       // allergy_risk must still resolve to the _hourly variant in hourly mode
       // rather than being canonically matched to the daily entity.
