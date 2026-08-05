@@ -142,6 +142,8 @@ export interface BadgeConfig extends CardConfig {
   badge_scale?: number;
   badge_icon_scale?: number;
   badge_label_position?: string;
+  /** What the label says: "allergen" (default) | "level" | "allergen_level". */
+  badge_label_content?: string;
 }
 
 /**
