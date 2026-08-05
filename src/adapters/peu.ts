@@ -9,12 +9,15 @@ import type {
 import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { buildLevelNamesForScale } from "../utils/level-names.js";
 import { slugify } from "../utils/slugify.js";
+import { toCanonicalAllergenKey } from "../constants.js";
 import {
   buildDayLabel,
   clampLevel,
   resolveAllergenNames,
   discoverEntitiesByDevice,
   isConfigEntryId,
+  normalizeManualPrefix,
+  resolveLocationByKey,
   type DeviceDiscovery,
 } from "../utils/adapter-helpers.js";
 import {
@@ -38,18 +41,22 @@ export const stubConfigPEU: AdapterStubConfig = {
     "beech",
     "birch",
     "cypress_family",
+    "dock_sorrel",
     "elm",
     "grasses",
     "hazel",
-    "lime",
+    "linden",
     "fungal_spores",
     "mugwort",
     "nettle_family",
     "oak",
     "olive",
     "plane_tree",
+    "plantain",
     "ragweed",
     "rye",
+    "sweet_chestnut",
+    "tree_of_heaven",
     "willow",
   ],
   minimal: false,
@@ -285,10 +292,31 @@ function detectLocation(cfg: CardConfig, hass: HomeAssistant): string {
       id.startsWith("sensor.polleninformation_"),
     );
     if (peuStates.length) {
-      const match = peuStates[0]!.match(
-        /^sensor\.polleninformation_(.+)_[^_]+$/,
-      );
-      locationSlug = match?.[1] ?? "";
+      // Strip the allergen as a whole tail rather than splitting on the last
+      // underscore: a greedy `(.+)_[^_]+$` reads
+      // sensor.polleninformation_wien_sweet_chestnut as location "wien_sweet".
+      // Known allergens come from the whitelist; the configured allergens are
+      // tried too so a slug upstream ships before we do still resolves.
+      const configured = ((cfg.allergens as string[] | undefined) || [])
+        .slice()
+        .sort((a, b) => b.length - a.length);
+      const known = peuStates
+        .map(
+          (id) =>
+            extractPeuLocationSlugFromEntityId(id) ??
+            configured
+              .map((allergen) => extractPeuLocationSlug(id, allergen))
+              .find((slug): slug is string => Boolean(slug)),
+        )
+        .find((slug): slug is string => Boolean(slug));
+      if (known) {
+        locationSlug = known;
+      } else {
+        const match = peuStates[0]!.match(
+          /^sensor\.polleninformation_(.+)_[^_]+$/,
+        );
+        locationSlug = match?.[1] ?? "";
+      }
     }
   }
   return locationSlug;
@@ -329,18 +357,19 @@ function peuTemplateFallback({
         : null;
     }
     if (!sensorId || !hass.states[sensorId]) {
+      // Match the allergen as a whole tail rather than splitting on a greedy
+      // regex: `(.+)_(.+)` reads sensor.polleninformation_wien_sweet_chestnut
+      // as location "wien_sweet" + allergen "chestnut", so every allergen
+      // containing an underscore (sweet_chestnut, tree_of_heaven,
+      // cypress_family, allergy_risk_hourly) failed this scan.
+      const wanted =
+        mode !== "daily" && allergenSlug === "allergy_risk"
+          ? "allergy_risk_hourly"
+          : allergenSlug;
       const cands = peuStates.filter((id) => {
-        const match = id.match(/^sensor\.polleninformation_(.+)_(.+)$/);
-        if (!match) return false;
-        const loc = match[1];
-        const allg = match[2];
-        if (mode !== "daily" && allergenSlug === "allergy_risk") {
-          return (
-            (!locationSlug || loc === locationSlug) &&
-            allg === "allergy_risk_hourly"
-          );
-        }
-        return (!locationSlug || loc === locationSlug) && allg === allergenSlug;
+        const loc = extractPeuLocationSlug(id, wanted);
+        if (loc === null) return false;
+        return !locationSlug || loc === locationSlug;
       });
       if (cands.length === 1) sensorId = cands[0]!;
       else continue;
@@ -363,7 +392,7 @@ const peuModeSlug = (rawKey: string, cfg: CardConfig): string =>
     ? "allergy_risk_hourly"
     : rawKey;
 
-export const resolveEntityIds = createEntityResolver({
+const resolvePeuEntityIds = createEntityResolver({
   locationKey: "location",
   normalize: identity,
   discover: discoverPeuSensors,
@@ -373,6 +402,110 @@ export const resolveEntityIds = createEntityResolver({
   discoveryLookupKey: peuModeSlug,
   templateFallback: peuTemplateFallback,
 });
+
+/**
+ * Every entity the configured location can offer, keyed by its allergen slug.
+ * Mirrors whichever path the resolver itself used: the manual naming scheme,
+ * the discovered location, or the legacy `{location}_{allergen}` template.
+ *
+ * `discovery` is the result the literal pass already computed (null in manual
+ * mode, where no discovery runs), so building the pool costs no second scan.
+ */
+function peuEntityPool(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  discovery: DeviceDiscovery | null,
+): Map<string, string> {
+  const pool = new Map<string, string>();
+
+  if (cfg.location === "manual") {
+    const prefix = normalizeManualPrefix(cfg.entity_prefix);
+    const suffix = (cfg.entity_suffix as string) || "";
+    const base = `sensor.${prefix}`;
+    for (const eid of Object.keys(hass.states)) {
+      if (!eid.startsWith(base) || !eid.endsWith(suffix)) continue;
+      const slug = eid.slice(base.length, eid.length - suffix.length);
+      if (slug) pool.set(slug, eid);
+    }
+    return pool;
+  }
+
+  const match = discovery
+    ? resolveLocationByKey(discovery, cfg.location as string, {
+        slugExtractor: extractPeuLocationSlugFromEntityId,
+      })
+    : null;
+  if (match) return match[1].entities;
+
+  const locationSlug = detectLocation(cfg, hass);
+  for (const eid of Object.keys(hass.states)) {
+    const allergen = classifyPeuEntity(eid);
+    if (!allergen) continue;
+    if (locationSlug && extractPeuLocationSlug(eid, allergen) !== locationSlug) {
+      continue;
+    }
+    pool.set(allergen, eid);
+  }
+  return pool;
+}
+
+/**
+ * Resolve configured allergen keys to entity IDs.
+ *
+ * PEU keys are used verbatim as entity-ID suffixes, so a config naming an
+ * allergen by any other spelling than the integration's current one resolves to
+ * nothing and the row disappears without a word. That happens to every config
+ * written before polleninformation 0.5.3 renamed Tilia from "lime" to "linden",
+ * and to anyone who picked the canonical key ("sorrel") over the upstream slug
+ * ("dock_sorrel").
+ *
+ * So: after the literal pass, retry the unresolved keys through
+ * toCanonicalAllergenKey and match them against the location's entities
+ * canonicalized the same way. A literal match always wins, and entities already
+ * claimed are skipped, so having both spellings in one config yields one row.
+ *
+ * Both passes share one discovery result: it is computed here and threaded into
+ * the literal pass, so a config that triggers the fallback still scans the
+ * registry once per resolve.
+ */
+export function resolveEntityIds(
+  cfg: CardConfig,
+  hass: HomeAssistant,
+  debug = false,
+  precomputedDiscovery: DeviceDiscovery | null = null,
+): Map<string, string> {
+  // Manual mode resolves by entity naming and never looks at discovery.
+  const discovery =
+    !hass || cfg.location === "manual"
+      ? null
+      : (precomputedDiscovery ?? discoverPeuSensors(hass, debug));
+
+  const map = resolvePeuEntityIds(cfg, hass, debug, discovery);
+  const allergens = (cfg.allergens as string[] | undefined) || [];
+  const unresolved = allergens.filter((allergen) => !map.has(allergen));
+  if (unresolved.length === 0 || !hass) return map;
+
+  const pool = peuEntityPool(cfg, hass, discovery);
+  const claimed = new Set(map.values());
+
+  for (const allergen of unresolved) {
+    const wanted = toCanonicalAllergenKey(peuModeSlug(allergen, cfg));
+    for (const [slug, eid] of pool) {
+      if (claimed.has(eid)) continue;
+      if (toCanonicalAllergenKey(slug) !== wanted) continue;
+      if (debug) {
+        console.debug(
+          `[PEU:resolveEntityIds] canonical fallback allergen: '${allergen}', canonical: '${wanted}', sensorId: '${eid}'`,
+        );
+      }
+      map.set(allergen, eid);
+      claimed.add(eid);
+      break;
+    }
+  }
+
+  return map;
+}
 
 // PEU is natively a five-level integration; clamp raw states to the 0-4 lookup
 // range. -1 marks a missing/invalid reading (the day loop then drops it).

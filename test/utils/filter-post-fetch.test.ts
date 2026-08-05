@@ -254,6 +254,31 @@ describe("filterSensorsPostFetch", () => {
       expect(result[0]!.allergenReplaced).toBe("birch");
     });
 
+    it("PEU: keeps the 0.5.3 slugs the adapter emits", () => {
+      // This filter matches on raw slugs, not canonical keys: dock_sorrel and
+      // linden are only kept because the adapter reports allergenReplaced as
+      // the configured upstream slug. An adapter that emitted the canonical
+      // key ("sorrel", "lime") instead would fetch the data and then have the
+      // card drop the row here.
+      const cfg: any = {
+        integration: "peu",
+        allergens: ["dock_sorrel", "linden", "sweet_chestnut"],
+      };
+      const sensors = [
+        sensor("dock_sorrel"),
+        sensor("linden"),
+        sensor("sweet_chestnut"),
+        sensor("sorrel"),
+        sensor("birch"),
+      ];
+      const result = filterSensorsPostFetch(sensors, cfg, [], [], silamMapping);
+      expect(result.map((s) => s.allergenReplaced)).toEqual([
+        "dock_sorrel",
+        "linden",
+        "sweet_chestnut",
+      ]);
+    });
+
     it("Kleenex: filters by normalized allergen name", () => {
       const cfg: any = { integration: "kleenex", allergens: ["trees"] };
       const sensors = [sensor("trees"), sensor("grass")];

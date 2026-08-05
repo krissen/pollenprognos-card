@@ -40,6 +40,11 @@ import {
   iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import {
+  buildBadgeLabel,
+  coerceBadgeLabelContent,
+} from "./utils/badge-label.js";
+import type { BadgeLabelContent } from "./utils/badge-label.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
   detectIntegrationStates,
@@ -262,6 +267,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // Label position: right (community convention, default) | below.
     const badgeLabelPosition =
       config.badge_label_position === "below" ? "below" : "right";
+    // Label content: allergen name (default, the original behaviour) | today's
+    // translated level text | both. Allow-list coercion lives in the helper.
+    const badgeLabelContent = coerceBadgeLabelContent(config.badge_label_content);
     // tap_action: optional element-level action (more-info | navigate |
     // call-service), shared with the card. Keep only a plain object so a
     // mis-typed YAML scalar can't reach the runtime handler.
@@ -330,6 +338,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       badge_scale: badgeScale,
       badge_icon_scale: badgeIconScale,
       badge_label_position: badgeLabelPosition,
+      badge_label_content: badgeLabelContent,
       icon_in_ring: iconInRing,
       show_value_numeric_in_circle: showValueInCircle,
       levels_thickness: effectiveThickness,
@@ -595,6 +604,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
 
     const visualMode = (this.config?.badge_visual as string) || "icon_in_ring";
     const showLabel = this.config.badge_show_label === true;
+    // setConfig allow-listed this already, and buildBadgeLabel treats anything
+    // unrecognised as "allergen", so the raw value is safe to pass through.
+    const labelContent = this.config.badge_label_content as BadgeLabelContent;
 
     // Badge-level tap_action (shared with the card). Bind only when the action
     // resolves to a supported type (so an inert/unknown action doesn't make the
@@ -644,17 +656,16 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
             clickable,
           });
 
-          // Hoisted out of the template: the long inline `??` chain formatted
-          // non-idempotently under Prettier. Referencing a short local keeps the
-          // span's inner whitespace byte-identical to the original.
-          const labelText =
-            sensor.allergenShort ?? sensor.allergenCapitalized ?? "";
+          // Hoisted out of the template: the helper's call formatted
+          // non-idempotently under Prettier inline. Referencing a short local
+          // keeps the span's inner whitespace byte-identical to the original.
+          const labelText = buildBadgeLabel(sensor, labelContent);
 
           return html`
             <div class="ppb-item">
               ${visual}
               ${
-                showLabel
+                showLabel && labelText
                   ? html`<span class="ppb-label"> ${labelText} </span>`
                   : ""
               }
