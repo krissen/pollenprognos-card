@@ -1,0 +1,202 @@
+[
+  {
+    "days": [
+      {
+        "name": "Tree of heaven",
+        "day": "Today",
+        "state": 4,
+        "display_state": 4,
+        "raw_value": null,
+        "state_text": "Very high levels"
+      },
+      {
+        "name": "Tree of heaven",
+        "day": "Tomorrow",
+        "state": 3,
+        "display_state": 3,
+        "raw_value": null,
+        "state_text": "High levels"
+      },
+      {
+        "name": "Tree of heaven",
+        "day": "Day after tomorrow",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Tree of heaven",
+        "day": "Jun 18",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      }
+    ],
+    "allergenReplaced": "tree_of_heaven",
+    "allergenCapitalized": "Tree of heaven",
+    "allergenShort": "Tree of heaven",
+    "entity_id": "sensor.polleninformation_wien_tree_of_heaven"
+  },
+  {
+    "days": [
+      {
+        "name": "Sweet chestnut",
+        "day": "Today",
+        "state": 3,
+        "display_state": 3,
+        "raw_value": null,
+        "state_text": "High levels"
+      },
+      {
+        "name": "Sweet chestnut",
+        "day": "Tomorrow",
+        "state": 3,
+        "display_state": 3,
+        "raw_value": null,
+        "state_text": "High levels"
+      },
+      {
+        "name": "Sweet chestnut",
+        "day": "Day after tomorrow",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Sweet chestnut",
+        "day": "Jun 18",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      }
+    ],
+    "allergenReplaced": "sweet_chestnut",
+    "allergenCapitalized": "Sweet chestnut",
+    "allergenShort": "Sweet chestnut",
+    "entity_id": "sensor.polleninformation_wien_sweet_chestnut"
+  },
+  {
+    "days": [
+      {
+        "name": "Sorrel",
+        "day": "Today",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Sorrel",
+        "day": "Tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Sorrel",
+        "day": "Day after tomorrow",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      },
+      {
+        "name": "Sorrel",
+        "day": "Jun 18",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      }
+    ],
+    "allergenReplaced": "dock_sorrel",
+    "allergenCapitalized": "Sorrel",
+    "allergenShort": "Sorrel",
+    "entity_id": "sensor.polleninformation_wien_dock_sorrel"
+  },
+  {
+    "days": [
+      {
+        "name": "Lime",
+        "day": "Today",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Lime",
+        "day": "Tomorrow",
+        "state": 2,
+        "display_state": 2,
+        "raw_value": null,
+        "state_text": "Moderate levels"
+      },
+      {
+        "name": "Lime",
+        "day": "Day after tomorrow",
+        "state": 3,
+        "display_state": 3,
+        "raw_value": null,
+        "state_text": "High levels"
+      },
+      {
+        "name": "Lime",
+        "day": "Jun 18",
+        "state": 4,
+        "display_state": 4,
+        "raw_value": null,
+        "state_text": "Very high levels"
+      }
+    ],
+    "allergenReplaced": "linden",
+    "allergenCapitalized": "Lime",
+    "allergenShort": "Lime",
+    "entity_id": "sensor.polleninformation_wien_linden"
+  },
+  {
+    "days": [
+      {
+        "name": "Plantain",
+        "day": "Today",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      },
+      {
+        "name": "Plantain",
+        "day": "Tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Plantain",
+        "day": "Day after tomorrow",
+        "state": 1,
+        "display_state": 1,
+        "raw_value": null,
+        "state_text": "Low levels"
+      },
+      {
+        "name": "Plantain",
+        "day": "Jun 18",
+        "state": 0,
+        "display_state": 0,
+        "raw_value": null,
+        "state_text": "No pollen"
+      }
+    ],
+    "allergenReplaced": "plantain",
+    "allergenCapitalized": "Plantain",
+    "allergenShort": "Plantain",
+    "entity_id": "sensor.polleninformation_wien_plantain"
+  }
+]

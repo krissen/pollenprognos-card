@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { fetchForecast, stubConfigPEU, PEU_ALLERGENS, discoverPeuSensors, resolveEntityIds } from "../../src/adapters/peu.js";
 import { createHass, createHassWithRegistry, createPEUSensor, assertSensorShape } from "../helpers.js";
+import { toCanonicalAllergenKey, ALLERGEN_ICON_FALLBACK } from "../../src/constants.js";
+import { getSvgContent } from "../../src/pollenprognos-svgs.js";
 
 function makeConfig(overrides: any = {}): any {
   return { ...stubConfigPEU, ...overrides };
@@ -1072,6 +1074,153 @@ describe("PEU adapter: fetchForecast", () => {
       expect(loc.entities.get("birch")).toBe(
         "sensor.polleninformation_amsterdam_birch",
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Upstream polleninformation 0.5.3 slug set
+  // -------------------------------------------------------------------------
+  describe("upstream 0.5.3 slug contract", () => {
+    // The integration's API-verified English slugs. dock_sorrel, plantain,
+    // sweet_chestnut and tree_of_heaven were missing; "lime" never matched a
+    // real entity because the API calls Tilia "linden".
+    const NEW_SLUGS = [
+      "dock_sorrel",
+      "plantain",
+      "sweet_chestnut",
+      "tree_of_heaven",
+      "linden",
+    ];
+
+    it("offers every new slug in the stub config", () => {
+      for (const slug of NEW_SLUGS) {
+        expect(stubConfigPEU.allergens as string[]).toContain(slug);
+      }
+    });
+
+    it("drops 'lime', which never matched a polleninformation entity", () => {
+      expect(stubConfigPEU.allergens as string[]).not.toContain("lime");
+    });
+
+    it("canonicalizes the new slugs for names and icons", () => {
+      expect(toCanonicalAllergenKey("dock_sorrel")).toBe("sorrel");
+      expect(toCanonicalAllergenKey("linden")).toBe("lime");
+      expect(toCanonicalAllergenKey("plantain")).toBe("plantain");
+      expect(toCanonicalAllergenKey("sweet_chestnut")).toBe("sweet_chestnut");
+      expect(toCanonicalAllergenKey("tree_of_heaven")).toBe("tree_of_heaven");
+    });
+
+    it("keeps 'lime' canonical for hand-written configs", () => {
+      expect(toCanonicalAllergenKey("lime")).toBe("lime");
+    });
+
+    it("classifies every new slug whole at an underscored location", () => {
+      const states: Record<string, any> = {};
+      for (const slug of NEW_SLUGS) {
+        states[`sensor.polleninformation_sankt_polten_${slug}`] =
+          makePEUSensor([2, 1, 0, 0]);
+      }
+      const hass = createHass(states);
+
+      const discovery = discoverPeuSensors(hass);
+      const loc = discovery.locations.get("sankt_polten");
+      expect(loc).toBeDefined();
+      for (const slug of NEW_SLUGS) {
+        expect(loc!.entities.get(slug)).toBe(
+          `sensor.polleninformation_sankt_polten_${slug}`,
+        );
+      }
+    });
+
+    it("does not let a shorter slug swallow the tail of a longer one", () => {
+      // "oak" and "ash" are suffixes of nothing here, but "plane_tree" ends in
+      // "tree" and "tree_of_heaven" starts with it: longest-first classification
+      // must keep the two apart at an underscored location.
+      const states = {
+        "sensor.polleninformation_sankt_polten_tree_of_heaven":
+          makePEUSensor([3]),
+        "sensor.polleninformation_sankt_polten_plane_tree": makePEUSensor([1]),
+      };
+      const hass = createHass(states);
+
+      const discovery = discoverPeuSensors(hass);
+      const loc = discovery.locations.get("sankt_polten")!;
+      expect(loc.entities.get("tree_of_heaven")).toBe(
+        "sensor.polleninformation_sankt_polten_tree_of_heaven",
+      );
+      expect(loc.entities.get("plane_tree")).toBe(
+        "sensor.polleninformation_sankt_polten_plane_tree",
+      );
+      expect(loc.entities.has("of_heaven")).toBe(false);
+    });
+
+    it("auto-detects the location from a multi-underscore allergen entity", async () => {
+      // Location left empty: the entity ID is the only source of the location,
+      // and splitting it on the last underscore would yield "wien_sweet".
+      const states = {
+        "sensor.polleninformation_wien_sweet_chestnut": makePEUSensor([
+          3, 2, 1, 0,
+        ]),
+      };
+      const hass = createHass(states);
+      const config = makeConfig({
+        location: "",
+        allergens: ["sweet_chestnut"],
+        pollen_threshold: 0,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0]!.entity_id).toBe(
+        "sensor.polleninformation_wien_sweet_chestnut",
+      );
+      expect(result[0]!.allergenReplaced).toBe("sweet_chestnut");
+    });
+
+    it("resolves a configured slug the whitelist does not know yet", () => {
+      // Discovery cannot classify an unknown allergen, so this falls through to
+      // the template fallback, which must still read the location as "wien".
+      const states = {
+        "sensor.polleninformation_wien_sea_buckthorn": makePEUSensor([2]),
+      };
+      const hass = createHass(states);
+
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "",
+        allergens: ["sea_buckthorn"],
+      };
+      const map = resolveEntityIds(cfg, hass);
+
+      expect(map.get("sea_buckthorn")).toBe(
+        "sensor.polleninformation_wien_sea_buckthorn",
+      );
+    });
+
+    it("names and icons resolve for a new allergen", async () => {
+      const hass = makeHass("wien", { dock_sorrel: [2, 1, 0, 0] });
+      const config = makeConfig({
+        location: "wien",
+        allergens: ["dock_sorrel"],
+        pollen_threshold: 0,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      expect(result.length).toBe(1);
+      expect(result[0]!.allergenCapitalized).toBe("Sorrel");
+      expect(getSvgContent(toCanonicalAllergenKey("dock_sorrel"))).toBeTruthy();
+    });
+
+    it("falls back to a drawn icon for allergens without their own SVG", () => {
+      // sweet_chestnut and tree_of_heaven have no icon yet; the card must land
+      // on a real SVG rather than rendering nothing.
+      for (const slug of ["sweet_chestnut", "tree_of_heaven"]) {
+        const canonical = toCanonicalAllergenKey(slug);
+        expect(getSvgContent(canonical)).toBeNull();
+        expect(getSvgContent(ALLERGEN_ICON_FALLBACK[canonical]!)).toBeTruthy();
+      }
     });
   });
 
