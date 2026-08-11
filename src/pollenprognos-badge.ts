@@ -40,6 +40,9 @@ import {
   iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
+import { googleMapsPinSvg } from "./pollenprognos-svgs.js";
+import { GOOGLE_MAPS_TEXT, GOOGLE_POLLEN_SOURCE_TEXT } from "./constants.js";
 import {
   buildBadgeLabel,
   coerceBadgeLabelContent,
@@ -218,8 +221,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       "integration",
     );
     let integration = normalizeIntegration(config.integration) as
-      | string
-      | undefined;
+      string | undefined;
 
     // Autodetect integration when the user didn't pin one.
     let detection = null;
@@ -269,7 +271,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       config.badge_label_position === "below" ? "below" : "right";
     // Label content: allergen name (default, the original behaviour) | today's
     // translated level text | both. Allow-list coercion lives in the helper.
-    const badgeLabelContent = coerceBadgeLabelContent(config.badge_label_content);
+    const badgeLabelContent = coerceBadgeLabelContent(
+      config.badge_label_content,
+    );
     // tap_action: optional element-level action (more-info | navigate |
     // call-service), shared with the card. Keep only a plain object so a
     // mis-typed YAML scalar can't reach the runtime handler.
@@ -291,6 +295,22 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         : config.link_to_sensors === "false"
           ? false
           : config.link_to_sensors;
+
+    // show_google_attribution is default-on and the render gate reads it as
+    // `!== false`, so a raw YAML string would slip through the gate and show
+    // the pin no matter what the user wrote (#338). Coerce it to a real boolean
+    // whenever the key is present; an absent key leaves the stub default alone.
+    // Only an explicit false / "false" turns it off: anything unrecognised
+    // fails OPEN and keeps the attribution, which is the safe direction for a
+    // toggle that exists to satisfy Google's attribution policy.
+    const hasAttributionKey = Object.prototype.hasOwnProperty.call(
+      config,
+      "show_google_attribution",
+    );
+    const showGoogleAttribution = !(
+      config.show_google_attribution === false ||
+      config.show_google_attribution === "false"
+    );
 
     // badge_visual drives two engine flags so the shared LevelCircleMixin
     // renders the right centre content: icon_in_ring shows the allergen icon;
@@ -351,6 +371,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       link_to_sensors: linkToSensors,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
+        : {}),
+      // Coerced above; overrides the raw spread so the render gate compares a
+      // real boolean. Written only when the user set the key, so the stub
+      // default keeps speaking for everyone else.
+      ...(hasAttributionKey
+        ? { show_google_attribution: showGoogleAttribution }
         : {}),
       // A badge shows today's value only and has no forecast-event
       // subscription, so non-daily SILAM/PEU modes would fetch an empty
@@ -519,6 +545,32 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     return Math.round(HA_BADGE_SIZE * scale);
   }
 
+  /**
+   * Google attribution logo for the badge (issue #338). The Google Pollen API
+   * attribution policy wants the wordmark AND the source line always visible;
+   * a badge pill has room for neither at a legible size, so by owner decision
+   * the badge shows the square Google Maps pin and carries the full string as
+   * a hover title. Both the pin and the tooltip are deliberate deviations from
+   * the policy and apply to the badge format only — the card footer and the
+   * editor still render the wordmark and the source line verbatim.
+   *
+   * Returns an empty string for every non-Google integration so their badge
+   * markup is byte-identical to before.
+   */
+  _renderGoogleAttribution(): TemplateResult | "" {
+    const integration = this.config?.integration;
+    if (
+      (integration !== "gpl" && integration !== "gp") ||
+      this.config?.show_google_attribution === false
+    ) {
+      return "";
+    }
+    const title = `${GOOGLE_MAPS_TEXT} — ${GOOGLE_POLLEN_SOURCE_TEXT}`;
+    return html`<div class="ppb-attribution" title="${title}">
+      ${unsafeSVG(googleMapsPinSvg)}
+    </div>`;
+  }
+
   override render(): TemplateResult {
     // Pill height follows the HA badge convention; the ring sits inside it.
     const height = this._badgeBaseSize();
@@ -617,9 +669,15 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // LevelCircleMixin.
     const hasTap = resolveTapActionType(this.config?.tap_action) !== null;
 
+    // Google-backed integrations only: the wordmark overlay plus the class that
+    // makes the pill its positioning context. Both stay empty otherwise, so the
+    // rendered markup for every other integration is unchanged.
+    const attribution = this._renderGoogleAttribution();
+    const attributionClass = attribution === "" ? "" : " ppb--attribution";
+
     return html`
       <div
-        class="ppb ${wrapClass}"
+        class="ppb ${wrapClass}${attributionClass}"
         style="${hostStyle}${hasTap ? " cursor: pointer;" : ""}"
         @click=${hasTap ? this._handleTapAction : null}
       >
@@ -672,6 +730,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
             </div>
           `;
         })}
+        ${attribution}
       </div>
     `;
   }
@@ -832,6 +891,52 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         line-height: 1.1;
         color: var(--primary-text-color);
         white-space: nowrap;
+      }
+
+      /* Google attribution pin (#338), Google-backed integrations only.
+         The pill is a rounded capsule, so its bottom-right corner of the border
+         box is transparent: anchoring the pin there left half of it outside the
+         pill and on top of the label. The inset pulls the pin inside the corner
+         radius, and the reserved padding on that side keeps the content (label
+         included) out of its footprint in both label positions. This does widen
+         the pill, deliberately and only for the two Google integrations; every
+         other badge keeps its native geometry down to the pixel. */
+      .ppb--attribution {
+        position: relative;
+        /* Height of the visible pin: the policy's 16dp minimum at badge_scale 1,
+           held there for bigger badges so the pin never dominates the pill, and
+           shrinking proportionally below. */
+        --ppb-attr-glyph: min(16px, calc(var(--ppb-size) * 0.45));
+        /* The asset's square 192x192 viewBox carries a symmetric transparent
+           margin around a 176-tall glyph, so the box has to be scaled up for the
+           glyph itself to reach --ppb-attr-glyph. Scaling the box here keeps the
+           asset file byte-identical to Google's. */
+        --ppb-attr-box: calc(var(--ppb-attr-glyph) * 192 / 176);
+        /* The pin is centred on the pill's axis, where the capsule is at its
+           widest, so this inset only has to clear the curve beside the pin's
+           own corners -- 2.3px at scale 1 -- plus a visual margin. */
+        --ppb-attr-inset: calc(var(--ppb-size) * 0.1);
+        padding-right: calc(
+          var(--ppb-attr-inset) + var(--ppb-attr-box) + var(--ppb-size) * 0.06
+        );
+      }
+
+      /* Centred on the pill's vertical axis: the glyph sits symmetrically in the
+         viewBox, so centring the box centres what the eye sees. */
+      .ppb-attribution {
+        position: absolute;
+        right: var(--ppb-attr-inset);
+        top: 50%;
+        transform: translateY(-50%);
+        line-height: 0;
+      }
+
+      /* The pin is square and full colour: never restyle the fills (it reads on
+         light and dark alike) and never set width and height independently. */
+      .ppb-attribution svg {
+        display: block;
+        height: var(--ppb-attr-box);
+        width: auto;
       }
 
       .ppb-empty {

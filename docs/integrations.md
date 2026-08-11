@@ -118,6 +118,14 @@ Pollen Levels v2.1.0 adds an `overall_pollen_risk_today` sensor (mapped to the c
 - **Top types are localized in the card's language, not the integration's.** The dominant pollen categories come from the summary sensor's `top_pollen_codes` (`TREE` / `GRASS` / `WEED`). Each code is mapped to the canonical category key (`trees_cat` / `grass_cat` / `weeds_cat`) and translated via the card's own locale files. The integration also ships pre-localized `top_pollen_names`, but those reflect whatever language that config entry fetched in (which may differ from the card), so they are used only as a per-item fallback for codes the card has no translation for.
 - **The in-season list comes from a sibling entity, resolved by config entry.** The plant list lives on the separate `plants_in_season_today` entity (`plant_codes` / `plant_names`), not on the summary entity. pollenlevels splits one location across several devices (pollen types vs plants), so the adapter resolves the sibling by **config entry** (not by device), matching on `translation_key` (the frontend's reduced `hass.entities` does not always expose `unique_id`). Plant names are localized the same way as the top types.
 
+### Attribution
+
+Google's Pollen API attribution policy requires the data to be credited wherever it is shown, so the card does it for you: a footer under the card carries the "Google Maps" wordmark and the line "Source: Includes pollen data from Google". Both strings are shown verbatim in English and are never translated, because the policy prescribes their wording. The visual editor repeats the attribution under the integration picker.
+
+The badge is the one place this does not fit. A badge pill is roughly 36 px wide, and the wordmark may not widen it, so a full attribution would shrink to an illegible sliver. The badge therefore shows the square Google Maps pin in its corner at the policy's 16 dp minimum, with the full attribution string as a hover title. Two deliberate trade-offs are hidden in that sentence: the source line is only visible on hover rather than always, and the pin is Google's product logo, not one of the assets from their attribution package (which ships the wordmark only). Both are concessions to the format, and both apply to the badge alone.
+
+Attribution is on by default and can be turned off with `show_google_attribution: false`, which hides the card footer and the badge pin but not the editor row. See [configuration.md](configuration.md) for the caveat that comes with turning it off.
+
 ## Google Pollen (svenove): design decisions
 
 The Google Pollen (GP) adapter supports the [home-assistant-google-pollen](https://github.com/svenove/home-assistant-google-pollen) integration by svenove. Both GP and GPL use the same underlying Google Pollen API, but the two HA integrations expose data in different formats.
@@ -167,3 +175,7 @@ If only the fallback detection path is available (no `hass.entities`), all senso
 ### Level scale
 
 Same as GPL: 0-5 UPI scale, mapped to the card's 6-level display system.
+
+### Attribution
+
+Same as GPL, since GP draws on the same Google Pollen API: the card renders the "Google Maps" wordmark and the "Source: Includes pollen data from Google" line as a footer, the editor repeats it under the integration picker, and the badge shows the Maps pin with the full string on hover. See [Attribution](#attribution) under GPL for the reasoning behind the badge's two deviations, and `show_google_attribution` in [configuration.md](configuration.md) for the opt-out.

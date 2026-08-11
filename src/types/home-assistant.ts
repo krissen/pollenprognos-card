@@ -95,7 +95,9 @@ export interface HomeAssistant {
   ) => Promise<unknown>;
   localize?: (key: string, ...args: unknown[]) => string;
   callWS?: <T = unknown>(msg: Record<string, unknown>) => Promise<T>;
-  themes?: Record<string, unknown>;
+  // darkMode is the boolean HA's own frontend uses to decide the document's
+  // color-scheme, so it is the authoritative light/dark signal for a card.
+  themes?: { darkMode?: boolean } & Record<string, unknown>;
   config?: Record<string, unknown>;
   [key: string]: unknown;
 }

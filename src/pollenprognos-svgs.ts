@@ -41,6 +41,15 @@ import sweetChestnutSvg from "./images/sweet_chestnut.svg?raw";
 import treeOfHeavenSvg from "./images/tree_of_heaven.svg?raw";
 import willowSvg from "./images/willow.svg?raw";
 
+// The square Google Maps pin the badge shows as its attribution logo (#338).
+// Kept OUT of the `svgs` map below on purpose: that record is the
+// allergen/pollution icon lookup, and this is a brand asset. It is NOT part of
+// Google's attribution asset package -- that package only ships the "Google
+// Maps" wordmark, which the card footer and editor render as text instead --
+// so this is Google's product logo, taken verbatim from gstatic. It is full
+// colour by design and must never be recoloured or reshaped.
+import googleMapsPinSvgRaw from "./images/google_maps_pin.svg?raw";
+
 // Pollution icons
 import pm25Svg from "./images/pm25.svg?raw";
 import pm10Svg from "./images/pm10.svg?raw";
@@ -96,13 +105,16 @@ export const svgs: Record<string, string> = {
   qualite_globale: airQualitySvg,
 };
 
+/** Official Google Maps pin, 192x192 viewBox, full colour (source: gstatic). */
+export const googleMapsPinSvg: string = googleMapsPinSvgRaw;
+
 /**
  * Get SVG content for a given key
  * @param key - The allergen key
  * @returns SVG content or null if not found
  */
 export function getSvgContent(key: unknown): string | null {
-  if (!key || typeof key !== 'string') {
+  if (!key || typeof key !== "string") {
     return null;
   }
   return svgs[key] || null;

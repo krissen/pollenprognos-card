@@ -5,6 +5,17 @@
 import type { HomeAssistant } from "../src/types/home-assistant.js";
 
 /**
+ * Attribution string published by pollenlevels >= v3.0.0rc3. Kept here rather
+ * than exported from src: the card must never depend on the exact upstream
+ * wording, only on the substring isGoogleAttribution() looks for.
+ */
+export const GPL_ATTRIBUTION =
+  "Google Maps — Source: Includes pollen data from Google";
+
+/** Attribution string published by pollenlevels <= v3.0.0rc2. */
+export const GPL_ATTRIBUTION_LEGACY = "Data provided by Google Maps Pollen API";
+
+/**
  * Create a minimal hass mock with the given entity states.
  *
  * The mock is deliberately partial: it only wires the properties adapters and

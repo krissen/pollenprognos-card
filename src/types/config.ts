@@ -106,6 +106,8 @@ export interface CardConfig extends LovelaceCardConfig {
   no_allergens_color?: string;
   show_no_data_distinct?: boolean;
   link_to_sensors?: boolean;
+  /** Google-backed adapters (gpl, gp): show the mandated attribution footer. */
+  show_google_attribution?: boolean;
   show_version?: boolean;
   debug?: boolean;
 

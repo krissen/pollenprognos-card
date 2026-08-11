@@ -90,6 +90,24 @@ export function renderAppearanceSection(
               </ha-formfield>
             `
           : ""}
+        ${// Google attribution footer toggle (#338). Google-backed integrations
+        // only, default on: the attribution row in §1 stays visible either
+        // way, so turning the footer off never hides the requirement from the
+        // person configuring the card.
+        c.integration === "gpl" || c.integration === "gp"
+          ? html`
+              <ha-formfield label="${editor._t("show_google_attribution")}">
+                <ha-checkbox
+                  .checked=${c.show_google_attribution !== false}
+                  @change=${(e: Event) =>
+                    editor._updateConfig(
+                      "show_google_attribution",
+                      (e.target as HTMLInputElement).checked,
+                    )}
+                ></ha-checkbox>
+              </ha-formfield>
+            `
+          : ""}
         ${editor._renderAppearanceExtras()}
     </details>
   `;

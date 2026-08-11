@@ -12,6 +12,7 @@ import {
   editorControlStyles,
 } from "./editor/base.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
+import { googleAttributionTypography } from "./rendering/google-attribution-styles.js";
 import { coerceBadgeLabelContent } from "./utils/badge-label.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -391,6 +392,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         // integration and render an empty badge. Pin-to-top flags are likewise
         // integration-specific. Clear them too, matching the card editor.
         "pollen_threshold", "allergy_risk_top", "index_top",
+        // The Google attribution only exists for gpl/gp (#338): keeping the key
+        // would write a Google-only option into a pp badge's YAML, and a
+        // lingering false would silently suppress the pin on switching back.
+        "show_google_attribution",
       ];
       this._userConfig = this._userConfig || {};
       for (const k of INTEGRATION_SCOPED) delete this._userConfig[k];
@@ -1003,6 +1008,15 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       .section-helper {
         font-size: 12px;
         color: var(--secondary-text-color);
+        padding: 0 0 8px;
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
+      /* Google attribution row under the integration picker (#338); box model
+         matches .section-helper, typography comes from the shared fragment. */
+      .google-attribution {
+        ${googleAttributionTypography}
         padding: 0 0 8px;
         margin-left: 24px;
         margin-right: 24px;

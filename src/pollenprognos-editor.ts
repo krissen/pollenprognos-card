@@ -12,6 +12,7 @@ import {
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
+import { googleAttributionTypography } from "./rendering/google-attribution-styles.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
 import {
@@ -1351,6 +1352,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         delete newUser.show_summary_separator;
         delete newUser.show_summary_top_types;
         delete newUser.show_summary_plants_in_season;
+        // The Google attribution footer only exists for gpl/gp (#338); a
+        // lingering false would silently suppress it after switching back.
+        delete newUser.show_google_attribution;
         this._allergensExplicit = false;
       }
       const base = getStubConfig(newInt) || getStubConfig("pp")!;
@@ -1900,6 +1904,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       .section-helper {
         font-size: 12px;
         color: var(--secondary-text-color);
+        padding: 0 0 8px;
+        margin-left: 24px;
+        margin-right: 24px;
+      }
+
+      /* Google attribution row under the integration picker (#338); box model
+         matches .section-helper, typography comes from the shared fragment. */
+      .google-attribution {
+        ${googleAttributionTypography}
         padding: 0 0 8px;
         margin-left: 24px;
         margin-right: 24px;
