@@ -2262,7 +2262,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         style="${cardStyle}"
         @click="${hasTap ? this._handleTapAction : null}"
       >
-        ${cardContent} ${this._renderGoogleAttribution()}
+        ${cardContent}${this._renderGoogleAttribution()}
       </ha-card>
     `;
   }
