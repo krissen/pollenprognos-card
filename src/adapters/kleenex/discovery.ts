@@ -15,6 +15,7 @@ import {
   type DeviceDiscovery,
   type DiscoveredLocation,
   type DiscoveryContext,
+  memoizeByHass,
 } from "../../utils/adapter-helpers.js";
 import {
   INDIVIDUAL_TO_CATEGORY,
@@ -337,7 +338,7 @@ function buildIdentifierKeys(hass: HomeAssistant): Map<string, string> {
  * onto a category key are already rejected by the classifier, so a category
  * sensor can never be displaced by a detail sensor.
  */
-export function discoverKleenex(
+function discoverKleenexUncached(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
@@ -364,6 +365,13 @@ export function discoverKleenex(
     logTag: "Kleenex",
   });
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverKleenex = memoizeByHass(discoverKleenexUncached);
 
 /**
  * Extract the legacy location slug from an entity ID
