@@ -56,6 +56,9 @@ export const stubConfigGPL: AdapterStubConfig = {
   sort: "value_descending",
   sort_category_allergens_first: true,
   allergy_risk_top: true,
+  // Google's attribution policy requires visible attribution for pollen data
+  // sourced from Google, so this defaults on; the user may still opt out (#338).
+  show_google_attribution: true,
   // Summary block (issue #222): opt-in, additive, never duplicates by default.
   // The two extras default true but stay invisible until show_summary_block is
   // turned on, so opting into the block gives the full rich GPL block at once.
