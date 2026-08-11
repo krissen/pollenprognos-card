@@ -656,10 +656,11 @@ const kleenexDeviceIds = memoizeByHass(
 function findPrefixOwnerDevice(
   hass: HomeAssistant,
   needle: string,
+  debug = false,
 ): string | null {
   if (!needle) return null;
   let found: string | null = null;
-  for (const deviceId of kleenexDeviceIds(hass)) {
+  for (const deviceId of kleenexDeviceIds(hass, debug)) {
     const device = hass?.devices?.[deviceId];
     if (!device) continue;
     if (!deviceSlugCandidates(device).has(needle)) continue;
@@ -761,9 +762,9 @@ export function scopeManualEntities(
   // another Kleenex device is dropped; entities with no registry entry, and
   // entities on devices from other integrations, are none of our business and
   // stay.
-  const ownerDeviceId = findPrefixOwnerDevice(hass, needle);
+  const ownerDeviceId = findPrefixOwnerDevice(hass, needle, debug);
   if (ownerDeviceId) {
-    const kleenexDevices = kleenexDeviceIds(hass);
+    const kleenexDevices = kleenexDeviceIds(hass, debug);
     const kept = entityIds.filter((eid) => {
       const deviceId = hass?.entities?.[eid]?.device_id;
       if (!deviceId || deviceId === ownerDeviceId) return true;
