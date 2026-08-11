@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Mostrar columna de alérgenos",
   "editor.show_block_separator": "Mostrar separador entre bloques",
   "editor.show_empty_days": "Mostrar días vacíos",
+  "editor.show_google_attribution": "Mostrar la atribución de Google",
   "editor.show_no_data_distinct": "Mostrar \"sin datos\" con estilo distintivo (difuso)",
   "editor.show_summary_block": "Mostrar bloque de resumen",
   "editor.show_summary_plants_in_season": "Mostrar plantas en temporada",

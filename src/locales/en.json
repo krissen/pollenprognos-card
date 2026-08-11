@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Show allergen column",
   "editor.show_block_separator": "Show separator between blocks",
   "editor.show_empty_days": "Show empty days",
+  "editor.show_google_attribution": "Show Google attribution",
   "editor.show_no_data_distinct": "Show \"no data\" with distinct (fuzzy) styling",
   "editor.show_summary_block": "Show summary block",
   "editor.show_summary_plants_in_season": "Show plants in season",

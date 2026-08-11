@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Näytä allergeenisarake",
   "editor.show_block_separator": "Näytä erotin lohkojen välillä",
   "editor.show_empty_days": "Näytä tyhjät päivät",
+  "editor.show_google_attribution": "Näytä Googlen lähdemerkintä",
   "editor.show_no_data_distinct": "Näytä \"ei dataa\" erottuvalla (sumea) tyylillä",
   "editor.show_summary_block": "Näytä yhteenvetolohko",
   "editor.show_summary_plants_in_season": "Näytä sesongin kasvit",

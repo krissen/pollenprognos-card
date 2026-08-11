@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Allergenspalte anzeigen",
   "editor.show_block_separator": "Trennlinie zwischen Blöcken anzeigen",
   "editor.show_empty_days": "Leere Tage anzeigen",
+  "editor.show_google_attribution": "Google-Quellenangabe anzeigen",
   "editor.show_no_data_distinct": "\"Keine Daten\" mit markiertem (verrauschtem) Stil anzeigen",
   "editor.show_summary_block": "Zusammenfassungsblock anzeigen",
   "editor.show_summary_plants_in_season": "Pflanzen in der Saison anzeigen",

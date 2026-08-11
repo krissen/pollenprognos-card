@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Zobrazit sloupec alergenů",
   "editor.show_block_separator": "Zobrazit oddělovač mezi bloky",
   "editor.show_empty_days": "Zobrazit prázdné dny",
+  "editor.show_google_attribution": "Zobrazit uvedení zdroje Google",
   "editor.show_no_data_distinct": "Zobrazit \"žádná data\" s výrazným (rozmazaným) stylem",
   "editor.show_summary_block": "Zobrazit souhrnný blok",
   "editor.show_summary_plants_in_season": "Zobrazit rostliny v sezóně",

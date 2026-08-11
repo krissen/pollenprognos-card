@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Visa allergenkolumn",
   "editor.show_block_separator": "Visa separator mellan block",
   "editor.show_empty_days": "Visa tomma dagar",
+  "editor.show_google_attribution": "Visa Google-attribution",
   "editor.show_no_data_distinct": "Visa \"inga data\" med distinkt (luddig) stil",
   "editor.show_summary_block": "Visa sammanfattningsblock",
   "editor.show_summary_plants_in_season": "Visa växter i säsong",
