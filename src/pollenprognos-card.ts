@@ -1,5 +1,5 @@
 // src/pollenprognos-card.ts
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult, PropertyValues } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { slugify } from "./utils/slugify.js";
@@ -20,7 +20,11 @@ import {
   type DeviceDiscovery,
   type DiscoveredLocation,
 } from "./utils/adapter-helpers.js";
-import { COSMETIC_FIELDS } from "./constants.js";
+import {
+  COSMETIC_FIELDS,
+  GOOGLE_MAPS_TEXT,
+  GOOGLE_POLLEN_SOURCE_TEXT,
+} from "./constants.js";
 // Sensor detection / integration pick / location auto-select are shared with
 // the card editor and the badge via src/utils/autodetect.js. The adapter
 // imports kept below are the ones still used by the header label-resolution
@@ -2144,6 +2148,28 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return rows;
   }
 
+  /**
+   * Google attribution footer (issue #338). The Google Pollen API attribution
+   * policy requires the "Google Maps" wordmark and the source line to be shown
+   * verbatim and always visible wherever the data is displayed, so the strings
+   * are never localized and never hidden behind a tooltip. Only the
+   * Google-backed adapters render it; every other integration gets no extra
+   * DOM node at all.
+   */
+  _renderGoogleAttribution(): TemplateResult | typeof nothing {
+    const integration = this.config.integration;
+    if (
+      (integration !== "gpl" && integration !== "gp") ||
+      this.config.show_google_attribution === false
+    ) {
+      return nothing;
+    }
+    return html`<div class="google-attribution">
+      <span class="google-attribution-maps">${GOOGLE_MAPS_TEXT}</span
+      ><span> — ${GOOGLE_POLLEN_SOURCE_TEXT}</span>
+    </div>`;
+  }
+
   override render(): TemplateResult {
     if (!this.config) return html``;
 
@@ -2235,7 +2261,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         style="${cardStyle}"
         @click="${hasTap ? this._handleTapAction : null}"
       >
-        ${cardContent}
+        ${cardContent} ${this._renderGoogleAttribution()}
       </ha-card>
     `;
   }
@@ -2570,6 +2596,25 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         color: var(--secondary-text-color);
         font-size: 0.85em;
         margin-top: 0.25em;
+      }
+
+      /* Google attribution footer (#338). Font, the 12px floor and the two
+         colours are dictated by the Google Pollen API attribution policy
+         (developers.google.com/maps/documentation/pollen/policies): never
+         scale the text below 12px, never recolour it, never localize the
+         strings and never move them behind a tooltip. */
+      .google-attribution {
+        font-family: Roboto, sans-serif;
+        font-weight: 400;
+        font-size: 12px;
+        line-height: 1.3;
+        padding: 4px 16px 8px;
+        text-align: center;
+        color: light-dark(#5e5e5e, #ffffff);
+      }
+
+      .google-attribution-maps {
+        white-space: nowrap;
       }
 
       /* Per-allergen stale indicator */
