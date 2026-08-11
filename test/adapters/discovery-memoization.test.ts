@@ -605,3 +605,54 @@ describe("discovery memoization: detection and fetch share one sweep (#321)", ()
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// The extra counters must not depend on someone else going first
+// ---------------------------------------------------------------------------
+
+describe("discovery memoization: Kleenex:deviceIds installs its own counter", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  // The tests above hand recordDiscoveryScan a counter object that already
+  // exists, which hides whether the tag can bootstrap one. In a real debug
+  // session nothing pre-creates it: the first sweep of the tick has to, from
+  // its own debug flag. The device sweep therefore has to receive that flag
+  // through findPrefixOwnerDevice, or it only ever counts when the engine's
+  // eager "Kleenex" sweep happens to run first and install the object for it.
+  it("counts under debug with no engine sweep beforehand", async () => {
+    const { scopeManualEntities } =
+      await import("../../src/adapters/kleenex/discovery.js");
+    const fakeWindow: { __ppDiscoveryScans?: Record<string, number> } = {};
+    vi.stubGlobal("window", fakeWindow);
+    const spy = vi.spyOn(helpers, "discoverEntitiesByDevice");
+    const hass = kleenexTwoLocationHass();
+
+    const scope = scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+      debug: true,
+    });
+
+    // Narrowing happened on the registry alone, so the engine never ran and
+    // could not have created the counter object.
+    expect(scope.label).toBe("Kleenex pollen");
+    expect(spy).not.toHaveBeenCalled();
+    expect(fakeWindow.__ppDiscoveryScans).toEqual({ "Kleenex:deviceIds": 1 });
+  });
+
+  it("stays silent without debug when nothing opted in", async () => {
+    const { scopeManualEntities } =
+      await import("../../src/adapters/kleenex/discovery.js");
+    const fakeWindow: { __ppDiscoveryScans?: Record<string, number> } = {};
+    vi.stubGlobal("window", fakeWindow);
+    const hass = kleenexTwoLocationHass();
+
+    scopeManualEntities(hass, Object.keys(hass.states), {
+      prefix: "kleenex_pollen_",
+    });
+
+    expect(fakeWindow.__ppDiscoveryScans).toBeUndefined();
+  });
+});
