@@ -47,6 +47,12 @@ import willowSvg from "./images/willow.svg?raw";
 // package (Google_Maps_Attribution_Assets.zip, "Gray" variant). It must not be
 // reshaped or recoloured beyond the two colours the attribution policy allows.
 import googleMapsSvg from "./images/google_maps.svg?raw";
+// The square Google Maps pin, used where the wordmark cannot reach a legible
+// size (the badge pill). It is NOT part of the attribution asset package --
+// that package only ships the wordmark -- so this is Google's product logo,
+// taken verbatim from gstatic. It is full colour by design and must never be
+// recoloured or reshaped.
+import googleMapsPinSvgRaw from "./images/google_maps_pin.svg?raw";
 
 // Pollution icons
 import pm25Svg from "./images/pm25.svg?raw";
@@ -105,6 +111,9 @@ export const svgs: Record<string, string> = {
 
 /** Official Google Maps attribution wordmark, 98x18 viewBox, fill #5E5E5E. */
 export const googleMapsLogoSvg: string = googleMapsSvg;
+
+/** Official Google Maps pin, 192x192 viewBox, full colour (source: gstatic). */
+export const googleMapsPinSvg: string = googleMapsPinSvgRaw;
 
 /**
  * Get SVG content for a given key

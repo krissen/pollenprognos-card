@@ -41,7 +41,7 @@ import {
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
-import { googleMapsLogoSvg } from "./pollenprognos-svgs.js";
+import { googleMapsPinSvg } from "./pollenprognos-svgs.js";
 import { GOOGLE_MAPS_TEXT, GOOGLE_POLLEN_SOURCE_TEXT } from "./constants.js";
 import {
   buildBadgeLabel,
@@ -526,10 +526,11 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   /**
    * Google attribution logo for the badge (issue #338). The Google Pollen API
    * attribution policy wants the wordmark AND the source line always visible;
-   * a badge pill has no room for the sentence, so by owner decision the badge
-   * shows the official wordmark and carries the full string as a hover title.
-   * That tooltip is a deliberate deviation from the always-visible requirement
-   * and applies to the badge format only — the card renders both verbatim.
+   * a badge pill has room for neither at a legible size, so by owner decision
+   * the badge shows the square Google Maps pin and carries the full string as
+   * a hover title. Both the pin and the tooltip are deliberate deviations from
+   * the policy and apply to the badge format only — the card footer and the
+   * editor still render the wordmark and the source line verbatim.
    *
    * Returns an empty string for every non-Google integration so their badge
    * markup is byte-identical to before.
@@ -544,7 +545,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     }
     const title = `${GOOGLE_MAPS_TEXT} — ${GOOGLE_POLLEN_SOURCE_TEXT}`;
     return html`<div class="ppb-attribution" title="${title}">
-      ${unsafeSVG(googleMapsLogoSvg)}
+      ${unsafeSVG(googleMapsPinSvg)}
     </div>`;
   }
 
@@ -870,38 +871,31 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         white-space: nowrap;
       }
 
-      /* Google attribution wordmark (#338), Google-backed integrations only.
-         The overlay is absolutely positioned so the pill keeps its native
-         geometry (--ppb-size drives height/padding/gap exactly as before) and
-         the logo can never push the badge wider or taller. Only the pill that
-         actually carries the logo becomes a positioning context. */
+      /* Google attribution pin (#338), Google-backed integrations only. The
+         overlay is absolutely positioned so the pill keeps its native geometry
+         (--ppb-size drives height/padding/gap exactly as before) and the logo
+         can never push the badge wider or taller. Only the pill that actually
+         carries the logo becomes a positioning context. */
       .ppb--attribution {
         position: relative;
       }
 
       .ppb-attribution {
         position: absolute;
-        left: 50%;
+        right: 0;
         bottom: 0;
-        transform: translateX(-50%);
-        max-width: 100%;
         line-height: 0;
       }
 
-      /* 87px = the wordmark at the policy's 16dp minimum height. It shrinks to
-         the pill width when the pill is narrower, keeping the aspect ratio
-         (height: auto) — the logo is never stretched or cropped. The fill is
-         swapped between the two colours the attribution policy allows; the
-         asset file itself ships unmodified. */
+      /* 16px is the policy's 16dp minimum, reached at badge_scale 1 and held
+         there for bigger badges so the pin never dominates the pill; smaller
+         scales shrink it proportionally. The pin is square and full colour:
+         never restyle the fills (it reads on light and dark alike) and never
+         set width and height independently. */
       .ppb-attribution svg {
         display: block;
-        width: 87px;
-        max-width: 100%;
-        height: auto;
-      }
-
-      .ppb-attribution svg path {
-        fill: light-dark(#5e5e5e, #ffffff);
+        height: min(16px, calc(var(--ppb-size) * 0.44));
+        width: auto;
       }
 
       .ppb-empty {
