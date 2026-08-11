@@ -41,6 +41,13 @@ import sweetChestnutSvg from "./images/sweet_chestnut.svg?raw";
 import treeOfHeavenSvg from "./images/tree_of_heaven.svg?raw";
 import willowSvg from "./images/willow.svg?raw";
 
+// Google Maps attribution wordmark (issue #338). Kept OUT of the `svgs` map
+// below on purpose: that record is the allergen/pollution icon lookup, and this
+// is a brand asset shipped verbatim from Google's official attribution asset
+// package (Google_Maps_Attribution_Assets.zip, "Gray" variant). It must not be
+// reshaped or recoloured beyond the two colours the attribution policy allows.
+import googleMapsSvg from "./images/google_maps.svg?raw";
+
 // Pollution icons
 import pm25Svg from "./images/pm25.svg?raw";
 import pm10Svg from "./images/pm10.svg?raw";
@@ -96,13 +103,16 @@ export const svgs: Record<string, string> = {
   qualite_globale: airQualitySvg,
 };
 
+/** Official Google Maps attribution wordmark, 98x18 viewBox, fill #5E5E5E. */
+export const googleMapsLogoSvg: string = googleMapsSvg;
+
 /**
  * Get SVG content for a given key
  * @param key - The allergen key
  * @returns SVG content or null if not found
  */
 export function getSvgContent(key: unknown): string | null {
-  if (!key || typeof key !== 'string') {
+  if (!key || typeof key !== "string") {
     return null;
   }
   return svgs[key] || null;
