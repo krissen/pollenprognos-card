@@ -40,6 +40,9 @@ import {
   iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import { unsafeSVG } from "lit/directives/unsafe-svg.js";
+import { googleMapsLogoSvg } from "./pollenprognos-svgs.js";
+import { GOOGLE_MAPS_TEXT, GOOGLE_POLLEN_SOURCE_TEXT } from "./constants.js";
 import {
   buildBadgeLabel,
   coerceBadgeLabelContent,
@@ -218,8 +221,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       "integration",
     );
     let integration = normalizeIntegration(config.integration) as
-      | string
-      | undefined;
+      string | undefined;
 
     // Autodetect integration when the user didn't pin one.
     let detection = null;
@@ -269,7 +271,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       config.badge_label_position === "below" ? "below" : "right";
     // Label content: allergen name (default, the original behaviour) | today's
     // translated level text | both. Allow-list coercion lives in the helper.
-    const badgeLabelContent = coerceBadgeLabelContent(config.badge_label_content);
+    const badgeLabelContent = coerceBadgeLabelContent(
+      config.badge_label_content,
+    );
     // tap_action: optional element-level action (more-info | navigate |
     // call-service), shared with the card. Keep only a plain object so a
     // mis-typed YAML scalar can't reach the runtime handler.
@@ -519,6 +523,31 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     return Math.round(HA_BADGE_SIZE * scale);
   }
 
+  /**
+   * Google attribution logo for the badge (issue #338). The Google Pollen API
+   * attribution policy wants the wordmark AND the source line always visible;
+   * a badge pill has no room for the sentence, so by owner decision the badge
+   * shows the official wordmark and carries the full string as a hover title.
+   * That tooltip is a deliberate deviation from the always-visible requirement
+   * and applies to the badge format only — the card renders both verbatim.
+   *
+   * Returns an empty string for every non-Google integration so their badge
+   * markup is byte-identical to before.
+   */
+  _renderGoogleAttribution(): TemplateResult | "" {
+    const integration = this.config?.integration;
+    if (
+      (integration !== "gpl" && integration !== "gp") ||
+      this.config?.show_google_attribution === false
+    ) {
+      return "";
+    }
+    const title = `${GOOGLE_MAPS_TEXT} — ${GOOGLE_POLLEN_SOURCE_TEXT}`;
+    return html`<div class="ppb-attribution" title="${title}">
+      ${unsafeSVG(googleMapsLogoSvg)}
+    </div>`;
+  }
+
   override render(): TemplateResult {
     // Pill height follows the HA badge convention; the ring sits inside it.
     const height = this._badgeBaseSize();
@@ -617,9 +646,15 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // LevelCircleMixin.
     const hasTap = resolveTapActionType(this.config?.tap_action) !== null;
 
+    // Google-backed integrations only: the wordmark overlay plus the class that
+    // makes the pill its positioning context. Both stay empty otherwise, so the
+    // rendered markup for every other integration is unchanged.
+    const attribution = this._renderGoogleAttribution();
+    const attributionClass = attribution === "" ? "" : " ppb--attribution";
+
     return html`
       <div
-        class="ppb ${wrapClass}"
+        class="ppb ${wrapClass}${attributionClass}"
         style="${hostStyle}${hasTap ? " cursor: pointer;" : ""}"
         @click=${hasTap ? this._handleTapAction : null}
       >
@@ -672,6 +707,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
             </div>
           `;
         })}
+        ${attribution}
       </div>
     `;
   }
@@ -832,6 +868,40 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         line-height: 1.1;
         color: var(--primary-text-color);
         white-space: nowrap;
+      }
+
+      /* Google attribution wordmark (#338), Google-backed integrations only.
+         The overlay is absolutely positioned so the pill keeps its native
+         geometry (--ppb-size drives height/padding/gap exactly as before) and
+         the logo can never push the badge wider or taller. Only the pill that
+         actually carries the logo becomes a positioning context. */
+      .ppb--attribution {
+        position: relative;
+      }
+
+      .ppb-attribution {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        transform: translateX(-50%);
+        max-width: 100%;
+        line-height: 0;
+      }
+
+      /* 87px = the wordmark at the policy's 16dp minimum height. It shrinks to
+         the pill width when the pill is narrower, keeping the aspect ratio
+         (height: auto) — the logo is never stretched or cropped. The fill is
+         swapped between the two colours the attribution policy allows; the
+         asset file itself ships unmodified. */
+      .ppb-attribution svg {
+        display: block;
+        width: 87px;
+        max-width: 100%;
+        height: auto;
+      }
+
+      .ppb-attribution svg path {
+        fill: light-dark(#5e5e5e, #ffffff);
       }
 
       .ppb-empty {
