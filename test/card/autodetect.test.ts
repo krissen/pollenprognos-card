@@ -18,8 +18,6 @@
 import { describe, it, expect } from "vitest";
 import { PLU_ALIAS_MAP } from "../../src/adapters/plu.js";
 
-// Attribution string published by pollenlevels >= v3.0.0rc3.
-const GPL_ATTRIBUTION = "Google Maps — Source: Includes pollen data from Google";
 import {
   detectIntegrationStates,
   pickIntegration,
@@ -27,7 +25,11 @@ import {
   autoSelectLocation,
   deriveLocationForEntity,
 } from "../../src/utils/autodetect.js";
-import { createHassWithRegistry } from "../helpers.js";
+import {
+  createHassWithRegistry,
+  GPL_ATTRIBUTION,
+  GPL_ATTRIBUTION_LEGACY,
+} from "../helpers.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -662,6 +664,39 @@ describe("GPL detection via entity registry vs attribution fallback", () => {
       },
     });
     expect(detect(hass)).toBeUndefined();
+  });
+
+  it("detects GPL via the legacy attribution string (pollenlevels <= 3.0.0rc2)", () => {
+    const hass = mkHass(["sensor.pollenlevels_grass"], {
+      entities: {},
+      stateObj: {
+        "sensor.pollenlevels_grass": {
+          state: "1",
+          attributes: { attribution: GPL_ATTRIBUTION_LEGACY },
+        },
+      },
+    });
+    expect(detect(hass)).toBe("gpl");
+  });
+
+  // GP publishes no attribution today; the id exclusion keeps a future
+  // upstream addition from making GP sensors look like GPL ones (#338).
+  it("sensor.google_pollen_* is never detected as GPL via attribution", () => {
+    const hass = mkHass(["sensor.google_pollen_grass"], {
+      entities: {},
+      stateObj: {
+        "sensor.google_pollen_grass": {
+          state: "1",
+          attributes: { attribution: GPL_ATTRIBUTION },
+        },
+      },
+    });
+    // GP's own detector still claims the entity; what must not happen is the
+    // GPL detector adopting it.
+    expect(detectedIntegrationIds(detectIntegrationStates(hass))).not.toContain(
+      "gpl",
+    );
+    expect(detect(hass)).toBe("gp");
   });
 
   it("entity_category entries are excluded from GPL entity detection", () => {
