@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import type { HomeAssistant } from "../../src/types/home-assistant.js";
 import {
+  memoizeByHass,
   discoverEntitiesByDevice,
   deviceLocationKey,
   findLocationBySlug,
@@ -1308,5 +1310,122 @@ describe("resolveAllergenNames", () => {
     });
     expect(allergenCapitalized).toBe("Grass");
     expect(allergenShort).toBe("Grass");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// memoizeByHass — per-update-cycle discovery memoization (issue #321)
+// ---------------------------------------------------------------------------
+
+describe("memoizeByHass", () => {
+  const makeHass = (id: string) =>
+    ({ states: {}, entities: {}, devices: {}, id }) as unknown as HomeAssistant;
+
+  it("runs once per hass object and hands back the same reference", () => {
+    const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
+    const memoized = memoizeByHass(inner);
+    const hass = makeHass("a");
+
+    const first = memoized(hass);
+    const second = memoized(hass);
+    const third = memoized(hass);
+
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+    expect(third).toBe(first);
+  });
+
+  it("recomputes when Home Assistant swaps the hass object", () => {
+    const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
+    const memoized = memoizeByHass(inner);
+
+    const first = memoized(makeHass("tick-1"));
+    const second = memoized(makeHass("tick-2"));
+
+    expect(inner).toHaveBeenCalledTimes(2);
+    expect(second).not.toBe(first);
+  });
+
+  it("passes a falsy or non-object hass straight through, uncached", () => {
+    const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
+    const memoized = memoizeByHass(inner);
+
+    expect(() =>
+      memoized(null as unknown as HomeAssistant),
+    ).not.toThrow();
+    memoized(null as unknown as HomeAssistant);
+    memoized(undefined as unknown as HomeAssistant);
+    memoized("hass" as unknown as HomeAssistant);
+
+    expect(inner).toHaveBeenCalledTimes(4);
+  });
+
+  it("caches an empty result rather than recomputing it", () => {
+    // A discovery that legitimately finds nothing must not be re-run for every
+    // subsequent caller in the same tick; probing the WeakMap with `has` (not
+    // comparing the stored value against undefined) is what makes it stick.
+    const nullish = vi.fn((_hass: HomeAssistant) => null);
+    const memoizedNull = memoizeByHass(nullish);
+    const undef = vi.fn((_hass: HomeAssistant) => undefined);
+    const memoizedUndef = memoizeByHass(undef);
+    const hass = makeHass("a");
+
+    expect(memoizedNull(hass)).toBeNull();
+    expect(memoizedNull(hass)).toBeNull();
+    expect(nullish).toHaveBeenCalledTimes(1);
+
+    expect(memoizedUndef(hass)).toBeUndefined();
+    expect(memoizedUndef(hass)).toBeUndefined();
+    expect(undef).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores extra arguments in the cache key (first call wins)", () => {
+    const inner = vi.fn((_hass: HomeAssistant, debug = false) => ({ debug }));
+    const memoized = memoizeByHass(inner);
+    const hass = makeHass("a");
+
+    const quiet = memoized(hass, false);
+    const loud = memoized(hass, true);
+
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(inner).toHaveBeenCalledWith(hass, false);
+    expect(loud).toBe(quiet);
+    expect(loud.debug).toBe(false);
+  });
+
+  it("counts uncached calls under countTag once the counter exists", () => {
+    // The suite runs in the node environment, so there is no window unless a
+    // test installs one — which doubles as the production no-op check below.
+    const fakeWindow = { __ppDiscoveryScans: {} as Record<string, number> };
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      const memoized = memoizeByHass(() => ({}), "unit-tag");
+      const hass = makeHass("a");
+      memoized(hass);
+      memoized(hass);
+      memoized(makeHass("b"));
+
+      expect(fakeWindow.__ppDiscoveryScans["unit-tag"]).toBe(2);
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
+  it("is inert when the counter object has not been opted into", () => {
+    const fakeWindow: { __ppDiscoveryScans?: Record<string, number> } = {};
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      const memoized = memoizeByHass(() => ({}), "unit-tag");
+      memoized(makeHass("a"));
+      expect(fakeWindow.__ppDiscoveryScans).toBeUndefined();
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
+  it("does not touch the counter when no window exists", () => {
+    expect(typeof window).toBe("undefined");
+    const memoized = memoizeByHass(() => ({}), "unit-tag");
+    expect(() => memoized(makeHass("a"))).not.toThrow();
   });
 });
