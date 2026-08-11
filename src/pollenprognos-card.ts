@@ -2200,7 +2200,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       } else if (this._availableSensorCount === 0) {
         const staleStatus = this._getStaleStatus();
         if (staleStatus.hasStale) {
-          return html` <ha-card> ${this._renderStaleDataHtml()} </ha-card> `;
+          // Same reasoning as the all-stale return below: what is on screen is
+          // Google's data, only old, so the attribution goes with it.
+          return html`
+            <ha-card>
+              ${this._renderStaleDataHtml()}${this._renderGoogleAttribution()}
+            </ha-card>
+          `;
         }
         errorMsg = this._t("card.error_no_sensors");
         return html`
@@ -2227,7 +2233,16 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
     const staleStatus = this._getStaleStatus();
     if (staleStatus.allStale) {
-      return html` <ha-card> ${this._renderStaleDataHtml()} </ha-card> `;
+      // Stale readings are still Google's data, only old, so the attribution
+      // has to stay with them. The other early returns (loading, error,
+      // no-data, no-allergens) show nothing sourced from Google and stay
+      // footer-free; the gate in _renderGoogleAttribution keeps this a no-op
+      // for every other integration.
+      return html`
+        <ha-card>
+          ${this._renderStaleDataHtml()}${this._renderGoogleAttribution()}
+        </ha-card>
+      `;
     }
 
     // Every remaining sensor is no-data (e.g. a threshold-0 config where each
