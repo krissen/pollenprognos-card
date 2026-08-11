@@ -619,7 +619,7 @@ function deviceSlugCandidates(
  * scoping would treat their entities as somebody else's and keep them --
  * merging two locations after all (Codex round 3 on PR #315).
  */
-function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
+function kleenexDeviceIdsUncached(hass: HomeAssistant): Set<string> {
   const out = new Set<string>();
   for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
     if (deviceIdentifierSlug(device)) out.add(deviceId);
@@ -630,6 +630,17 @@ function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
   }
   return out;
 }
+
+/**
+ * Memoized per HA update cycle (#321). Both callers below run it on the same
+ * hass, and it sweeps the device and entity registries without going through
+ * discoverEntitiesByDevice, hence its own counter tag. The returned Set is
+ * shared -- read it, never add to it.
+ */
+const kleenexDeviceIds = memoizeByHass(
+  kleenexDeviceIdsUncached,
+  "kleenex-devices",
+);
 
 /**
  * The Kleenex device a manual `entity_prefix` was minted from, if any.
