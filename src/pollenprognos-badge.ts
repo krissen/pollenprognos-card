@@ -296,6 +296,22 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
           ? false
           : config.link_to_sensors;
 
+    // show_google_attribution is default-on and the render gate reads it as
+    // `!== false`, so a raw YAML string would slip through the gate and show
+    // the pin no matter what the user wrote (#338). Coerce it to a real boolean
+    // whenever the key is present; an absent key leaves the stub default alone.
+    // Only an explicit false / "false" turns it off: anything unrecognised
+    // fails OPEN and keeps the attribution, which is the safe direction for a
+    // toggle that exists to satisfy Google's attribution policy.
+    const hasAttributionKey = Object.prototype.hasOwnProperty.call(
+      config,
+      "show_google_attribution",
+    );
+    const showGoogleAttribution = !(
+      config.show_google_attribution === false ||
+      config.show_google_attribution === "false"
+    );
+
     // badge_visual drives two engine flags so the shared LevelCircleMixin
     // renders the right centre content: icon_in_ring shows the allergen icon;
     // ring_value shows the numeric overlay; ring_empty/icon_only show neither
@@ -355,6 +371,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       link_to_sensors: linkToSensors,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
+        : {}),
+      // Coerced above; overrides the raw spread so the render gate compares a
+      // real boolean. Written only when the user set the key, so the stub
+      // default keeps speaking for everyone else.
+      ...(hasAttributionKey
+        ? { show_google_attribution: showGoogleAttribution }
         : {}),
       // A badge shows today's value only and has no forecast-event
       // subscription, so non-daily SILAM/PEU modes would fetch an empty
