@@ -1424,6 +1424,17 @@ describe("memoizeByHass", () => {
     }
   });
 
+  it("rejects a function whose extra argument selects what to discover", () => {
+    // Compile-time guard, not a runtime assertion: discoverGplAllergens-style
+    // signatures (hass, configEntryId, debug) must stay unwrappable, since the
+    // editor calls them with different config entries under one hass and the
+    // cache key ignores everything but hass. If this ever type-checks, tsc
+    // fails on the unused @ts-expect-error and the guard has been lost.
+    const byEntry = (_hass: HomeAssistant, _configEntryId: string) => ({});
+    // @ts-expect-error - second parameter is not the debug flag
+    memoizeByHass(byEntry);
+  });
+
   it("does not touch the counter when no window exists", () => {
     expect(typeof window).toBe("undefined");
     const memoized = memoizeByHass(() => ({}), "unit-tag");

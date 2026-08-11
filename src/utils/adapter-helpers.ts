@@ -798,33 +798,44 @@ export function recordDiscoveryScan(tag: string, debug = false): void {
  *    get the same object reference, so mutating a returned discovery (adding
  *    to `locations`/`entities`, deleting a location) leaks into unrelated
  *    callers. Copy before modifying.
- * 2. **Only `hass` is part of the cache key.** Extra arguments (notably
- *    `debug`) are passed through on a miss but ignored on a hit: the first
- *    call of a tick wins, and a later call with `debug: true` returns the
- *    cached result without logging anything. This is deliberate — the
- *    wrapped functions are pure with respect to those arguments apart from
- *    logging.
+ * 2. **`hass` is the whole cache key.** The signature therefore admits only
+ *    the discovery shape `(hass, debug?)`: `debug` is passed through on a miss
+ *    and ignored on a hit (the first call of a tick wins, so a later call with
+ *    `debug: true` returns the cached result without logging), which is
+ *    harmless because it only affects logging. A function taking a further
+ *    argument that selects WHAT to discover — `discoverGplAllergens(hass,
+ *    configEntryId, debug)` and its GP twin, which the editor calls with
+ *    different config entries under one `hass` — must not be wrapped: it would
+ *    silently serve the first entry's data to every later entry. Keeping the
+ *    parameter list narrow turns that mistake into a compile error instead of
+ *    a wrong-location bug.
  *
  * A falsy or non-object `hass` is passed straight through uncached (WeakMap
  * keys must be objects, and adapters already handle a missing `hass`).
  *
- * @param fn - Discovery function taking `hass` as its first argument.
+ * Wrap once, at module level (`export const discoverX = memoizeByHass(...)`):
+ * the WeakMap is created when the wrapper is created, so a wrapper built
+ * inside a function caches nothing.
+ *
+ * @param fn - Discovery function taking `hass` and an optional `debug` flag.
  * @param countTag - Optional instrumentation tag; when given, every uncached
  *   call is counted via {@link recordDiscoveryScan} (only once the counter
  *   object exists). Leave unset for functions that already count their own
  *   sweep inside `discoverEntitiesByDevice`, otherwise the same sweep is
- *   counted twice under two keys.
+ *   counted twice under two keys. It exists for the sweeps that never reach
+ *   the engine and so count nothing on their own: Kleenex's `kleenexDeviceIds`
+ *   (#322) and Atmo's `detectLocation` (#323).
  * @returns A wrapper with the same signature as `fn`.
  */
-export function memoizeByHass<A extends unknown[], R>(
-  fn: (hass: HomeAssistant, ...args: A) => R,
+export function memoizeByHass<R>(
+  fn: (hass: HomeAssistant, debug?: boolean) => R,
   countTag?: string,
-): (hass: HomeAssistant, ...args: A) => R {
+): (hass: HomeAssistant, debug?: boolean) => R {
   const cache = new WeakMap<object, R>();
-  return (hass: HomeAssistant, ...args: A): R => {
-    if (!hass || typeof hass !== "object") return fn(hass, ...args);
+  return (hass: HomeAssistant, debug?: boolean): R => {
+    if (!hass || typeof hass !== "object") return fn(hass, debug);
     if (cache.has(hass)) return cache.get(hass) as R;
-    const result = fn(hass, ...args);
+    const result = fn(hass, debug);
     if (countTag) recordDiscoveryScan(countTag);
     cache.set(hass, result);
     return result;
