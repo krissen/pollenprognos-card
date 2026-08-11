@@ -28,6 +28,7 @@ import {
   isConfigEntryId,
   coerceBool,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 
 // The subset of the discovery result atmo uses (config-entry keyed locations).
@@ -257,7 +258,7 @@ function resolveAtmoLabel(
  *   2. Entity-registry: hass.entities filtered by platform === "atmofrance"
  *   3. Regex fallback: hass.states scanned for known Atmo entity patterns
  */
-export function discoverAtmoSensors(
+function discoverAtmoSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): AtmoDiscovery {
@@ -282,6 +283,13 @@ export function discoverAtmoSensors(
 
   return { locations };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverAtmoSensors = memoizeByHass(discoverAtmoSensorsUncached);
 
 /**
  * Resolve a legacy slug-style location (e.g. "nice") to its config_entry_id
