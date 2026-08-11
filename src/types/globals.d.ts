@@ -26,4 +26,9 @@ interface CustomBadgeEntry {
 interface Window {
   customCards?: CustomCardEntry[];
   customBadges?: CustomBadgeEntry[];
+  // Opt-in instrumentation: counts uncached entity-discovery sweeps per tag.
+  // Create it from the browser console (`window.__ppDiscoveryScans = {}`) or
+  // let a card running with `debug: true` create it. See recordDiscoveryScan
+  // in src/utils/adapter-helpers.ts.
+  __ppDiscoveryScans?: Record<string, number>;
 }

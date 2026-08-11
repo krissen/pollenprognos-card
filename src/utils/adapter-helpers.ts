@@ -748,6 +748,78 @@ export function resolvePhraseOverride(
  */
 const _canonicalPhraseCache = new WeakMap<object, Record<string, string>>();
 
+/**
+ * Count one uncached entity-discovery sweep under `tag`.
+ *
+ * Opt-in instrumentation for before/after measurements of the discovery
+ * memoization (#321): it is a no-op unless `window.__ppDiscoveryScans` already
+ * exists, or `debug` is true (in which case the counter object is created).
+ * A tester can therefore enable it live from the browser console with
+ * `window.__ppDiscoveryScans = {}` without editing the card config, and
+ * production installs pay nothing but one property read per sweep.
+ *
+ * @param {string} tag - Counter key, typically the adapter's discovery logTag.
+ * @param {boolean} [debug] - When true, create the counter object if missing.
+ */
+export function recordDiscoveryScan(tag: string, debug = false): void {
+  if (typeof window === "undefined") return;
+  if (!window.__ppDiscoveryScans) {
+    if (!debug) return;
+    window.__ppDiscoveryScans = {};
+  }
+  const counters = window.__ppDiscoveryScans;
+  counters[tag] = (counters[tag] || 0) + 1;
+}
+
+/**
+ * Memoize a discovery function on the identity of the `hass` object.
+ *
+ * Home Assistant hands the card a NEW `hass` object on every state update, so
+ * a WeakMap keyed on that object caches only within one update cycle: the
+ * card, the badge, the editors and every adapter code path (detection,
+ * resolveEntityIds, fetchForecast) share one result per tick, and the entry
+ * becomes unreachable as soon as HA moves on. There is no staleness window and
+ * no cache invalidation to get wrong.
+ *
+ * Two contracts callers must respect:
+ *
+ * 1. **The result is shared — never mutate it.** All code paths within a tick
+ *    get the same object reference, so mutating a returned discovery (adding
+ *    to `locations`/`entities`, deleting a location) leaks into unrelated
+ *    callers. Copy before modifying.
+ * 2. **Only `hass` is part of the cache key.** Extra arguments (notably
+ *    `debug`) are passed through on a miss but ignored on a hit: the first
+ *    call of a tick wins, and a later call with `debug: true` returns the
+ *    cached result without logging anything. This is deliberate — the
+ *    wrapped functions are pure with respect to those arguments apart from
+ *    logging.
+ *
+ * A falsy or non-object `hass` is passed straight through uncached (WeakMap
+ * keys must be objects, and adapters already handle a missing `hass`).
+ *
+ * @param fn - Discovery function taking `hass` as its first argument.
+ * @param countTag - Optional instrumentation tag; when given, every uncached
+ *   call is counted via {@link recordDiscoveryScan} (only once the counter
+ *   object exists). Leave unset for functions that already count their own
+ *   sweep inside `discoverEntitiesByDevice`, otherwise the same sweep is
+ *   counted twice under two keys.
+ * @returns A wrapper with the same signature as `fn`.
+ */
+export function memoizeByHass<A extends unknown[], R>(
+  fn: (hass: HomeAssistant, ...args: A) => R,
+  countTag?: string,
+): (hass: HomeAssistant, ...args: A) => R {
+  const cache = new WeakMap<object, R>();
+  return (hass: HomeAssistant, ...args: A): R => {
+    if (!hass || typeof hass !== "object") return fn(hass, ...args);
+    if (cache.has(hass)) return cache.get(hass) as R;
+    const result = fn(hass, ...args);
+    if (countTag) recordDiscoveryScan(countTag);
+    cache.set(hass, result);
+    return result;
+  };
+}
+
 function getCanonicalPhraseIndex(phrases: PhraseMap): Record<string, string> {
   // Arrays satisfy typeof === "object" but would index numeric keys into a
   // meaningless map; the editor type-guards phrases.full/short to non-array
@@ -1128,6 +1200,9 @@ export function discoverEntitiesByDevice(
       : [];
   const logTag =
     opts.logTag || (platforms.length > 0 ? platforms[0] : "discovery");
+  // Every call here is a full registry sweep; memoized callers reach this
+  // point only on a cache miss, so the tally is the before/after metric.
+  recordDiscoveryScan(logTag || "discovery", debug);
   const classifyStrict = classify || (() => null);
   const classifyTier1 = classifyRelaxed || classifyStrict;
 
