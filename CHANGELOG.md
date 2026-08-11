@@ -33,6 +33,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Kleenex: tapping a row could open an unavailable sensor** (issue #326).
+  When an allergen has its own detail sensor, that sensor is what the row
+  opens -- but it was adopted as the tap target even when it was unavailable
+  or unknown, leaving a row that showed perfectly good numbers from the
+  category sensor and opened an empty dialog. Such a row now keeps the
+  category sensor it read its numbers from. A detail sensor reporting a blank
+  state is treated the same way; it used to count as a genuine reading of
+  zero.
 - **GPL: the discovery fallback did not know pollenlevels 3.0.0rc3's new
   attribution string** (issue #338). GPL finds its sensors through the device
   registry first and the entity registry second; only when both are
