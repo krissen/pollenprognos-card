@@ -142,9 +142,9 @@ describe("isGoogleAttribution", () => {
   it("does not match a reworded legacy string", () => {
     // The legacy branch is an exact comparison on purpose: it carries no
     // distinctive substring that another source could not also use.
-    expect(isGoogleAttribution("Data provided by Google Maps Pollen API v2")).toBe(
-      false,
-    );
+    expect(
+      isGoogleAttribution("Data provided by Google Maps Pollen API v2"),
+    ).toBe(false);
   });
 
   it("does not match an unrelated attribution", () => {
