@@ -41,17 +41,13 @@ import sweetChestnutSvg from "./images/sweet_chestnut.svg?raw";
 import treeOfHeavenSvg from "./images/tree_of_heaven.svg?raw";
 import willowSvg from "./images/willow.svg?raw";
 
-// Google Maps attribution wordmark (issue #338). Kept OUT of the `svgs` map
-// below on purpose: that record is the allergen/pollution icon lookup, and this
-// is a brand asset shipped verbatim from Google's official attribution asset
-// package (Google_Maps_Attribution_Assets.zip, "Gray" variant). It must not be
-// reshaped or recoloured beyond the two colours the attribution policy allows.
-import googleMapsSvg from "./images/google_maps.svg?raw";
-// The square Google Maps pin, used where the wordmark cannot reach a legible
-// size (the badge pill). It is NOT part of the attribution asset package --
-// that package only ships the wordmark -- so this is Google's product logo,
-// taken verbatim from gstatic. It is full colour by design and must never be
-// recoloured or reshaped.
+// The square Google Maps pin the badge shows as its attribution logo (#338).
+// Kept OUT of the `svgs` map below on purpose: that record is the
+// allergen/pollution icon lookup, and this is a brand asset. It is NOT part of
+// Google's attribution asset package -- that package only ships the "Google
+// Maps" wordmark, which the card footer and editor render as text instead --
+// so this is Google's product logo, taken verbatim from gstatic. It is full
+// colour by design and must never be recoloured or reshaped.
 import googleMapsPinSvgRaw from "./images/google_maps_pin.svg?raw";
 
 // Pollution icons
@@ -108,9 +104,6 @@ export const svgs: Record<string, string> = {
   so2: so2Svg,
   qualite_globale: airQualitySvg,
 };
-
-/** Official Google Maps attribution wordmark, 98x18 viewBox, fill #5E5E5E. */
-export const googleMapsLogoSvg: string = googleMapsSvg;
 
 /** Official Google Maps pin, 192x192 viewBox, full colour (source: gstatic). */
 export const googleMapsPinSvg: string = googleMapsPinSvgRaw;
