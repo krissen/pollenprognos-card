@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { HomeAssistant } from "../../src/types/home-assistant.js";
 import {
   memoizeByHass,
+  recordDiscoveryScan,
   discoverEntitiesByDevice,
   deviceLocationKey,
   findLocationBySlug,
@@ -1427,5 +1428,67 @@ describe("memoizeByHass", () => {
     expect(typeof window).toBe("undefined");
     const memoized = memoizeByHass(() => ({}), "unit-tag");
     expect(() => memoized(makeHass("a"))).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// recordDiscoveryScan — the instrumentation global is shared with the page
+// ---------------------------------------------------------------------------
+
+describe("recordDiscoveryScan", () => {
+  const withWindow = (
+    value: unknown,
+    body: (win: { __ppDiscoveryScans?: unknown }) => void,
+  ) => {
+    const fakeWindow: { __ppDiscoveryScans?: unknown } = {
+      __ppDiscoveryScans: value,
+    };
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      body(fakeWindow);
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  };
+
+  // Anything on window can be clobbered by another script on the dashboard.
+  // Assigning a property to a primitive throws in strict-mode code, so an
+  // unusable value must read as "not opted in" rather than take discovery down.
+  const poisonedValues: [string, unknown][] = [
+    ["a number", 1],
+    ["a string", "on"],
+    ["true", true],
+    ["an array", []],
+  ];
+
+  for (const [label, value] of poisonedValues) {
+    it(`treats ${label} as not opted in and does not throw`, () => {
+      withWindow(value, (win) => {
+        expect(() => recordDiscoveryScan("unit-tag")).not.toThrow();
+        expect(win.__ppDiscoveryScans).toBe(value);
+      });
+    });
+
+    it(`replaces ${label} with a fresh counter when debug is on`, () => {
+      withWindow(value, (win) => {
+        expect(() => recordDiscoveryScan("unit-tag", true)).not.toThrow();
+        expect(win.__ppDiscoveryScans).toEqual({ "unit-tag": 1 });
+      });
+    });
+  }
+
+  it("keeps counting into an existing counter object", () => {
+    withWindow({ "unit-tag": 2 }, (win) => {
+      recordDiscoveryScan("unit-tag");
+      recordDiscoveryScan("other-tag");
+      expect(win.__ppDiscoveryScans).toEqual({ "unit-tag": 3, "other-tag": 1 });
+    });
+  });
+
+  it("restarts a tag whose stored value is not a number", () => {
+    withWindow({ "unit-tag": "many" }, (win) => {
+      recordDiscoveryScan("unit-tag");
+      expect(win.__ppDiscoveryScans).toEqual({ "unit-tag": 1 });
+    });
   });
 });

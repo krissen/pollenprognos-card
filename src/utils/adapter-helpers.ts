@@ -753,22 +753,33 @@ const _canonicalPhraseCache = new WeakMap<object, Record<string, string>>();
  *
  * Opt-in instrumentation for before/after measurements of the discovery
  * memoization (#321): it is a no-op unless `window.__ppDiscoveryScans` already
- * exists, or `debug` is true (in which case the counter object is created).
+ * holds a plain object, or `debug` is true (in which case one is installed).
  * A tester can therefore enable it live from the browser console with
  * `window.__ppDiscoveryScans = {}` without editing the card config, and
  * production installs pay nothing but one property read per sweep.
  *
+ * The global is shared with everything else on the page, so its value is
+ * type-guarded rather than trusted: a non-object (or an array) left there by
+ * another script counts as "not opted in", since assigning a property to a
+ * primitive throws in the module's strict-mode code and would take discovery
+ * down with it.
+ *
  * @param {string} tag - Counter key, typically the adapter's discovery logTag.
- * @param {boolean} [debug] - When true, create the counter object if missing.
+ * @param {boolean} [debug] - When true, install a counter object if the global
+ *   is missing or holds something unusable.
  */
 export function recordDiscoveryScan(tag: string, debug = false): void {
   if (typeof window === "undefined") return;
-  if (!window.__ppDiscoveryScans) {
+  const existing: unknown = window.__ppDiscoveryScans;
+  const usable =
+    !!existing && typeof existing === "object" && !Array.isArray(existing);
+  if (!usable) {
     if (!debug) return;
     window.__ppDiscoveryScans = {};
   }
-  const counters = window.__ppDiscoveryScans;
-  counters[tag] = (counters[tag] || 0) + 1;
+  const counters = window.__ppDiscoveryScans!;
+  const previous = counters[tag];
+  counters[tag] = (typeof previous === "number" ? previous : 0) + 1;
 }
 
 /**
