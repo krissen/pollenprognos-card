@@ -21,6 +21,7 @@ import {
   normalizeManualPrefix,
   resolveManualEntity,
   type DeviceDiscovery,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 import { PLU_LEVEL_INDICES } from "./base.js";
 
@@ -114,7 +115,7 @@ function classifyPluEntity(eid: string): string | null {
  * typical HA custom-integration naming convention. "pollenlu" is included as a
  * defensive alternative.
  */
-export function discoverPluSensors(
+function discoverPluSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
@@ -133,6 +134,13 @@ export function discoverPluSensors(
     logTag: "PLU",
   });
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverPluSensors = memoizeByHass(discoverPluSensorsUncached);
 
 // Default thresholds per allergen (fallback when sensor attributes are missing)
 const DEFAULT_THRESHOLDS: Record<string, { moderate: number; high: number }> = {
