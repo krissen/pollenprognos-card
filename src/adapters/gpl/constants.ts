@@ -2,8 +2,21 @@
 import type { AdapterStubConfig } from "../../types/config.js";
 import { LEVELS_DEFAULTS } from "../../utils/levels-defaults.js";
 
-// Attribution string used by pollenlevels integration
-export const GPL_ATTRIBUTION = "Data provided by Google Maps Pollen API";
+/**
+ * Match the attribution string published by the pollenlevels integration.
+ * The wording changed in v3.0.0rc3 to
+ * "Google Maps — Source: Includes pollen data from Google", so an exact
+ * comparison against a single literal would silently drop tier-3 detection
+ * for one half of the installed base.
+ */
+export function isGoogleAttribution(attr: unknown): boolean {
+  return (
+    typeof attr === "string" &&
+    (attr.includes("pollen data from Google") ||
+      // pollenlevels <= 3.0.0rc2 published this legacy wording
+      attr === "Data provided by Google Maps Pollen API")
+  );
+}
 
 // Map pollenlevels TYPE_ICONS to our canonical allergen keys
 export const GPL_TYPE_ICON_MAP: Record<string, string> = {

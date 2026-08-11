@@ -17,7 +17,9 @@
 
 import { describe, it, expect } from "vitest";
 import { PLU_ALIAS_MAP } from "../../src/adapters/plu.js";
-import { GPL_ATTRIBUTION } from "../../src/adapters/gpl/index.js";
+
+// Attribution string published by pollenlevels >= v3.0.0rc3.
+const GPL_ATTRIBUTION = "Google Maps — Source: Includes pollen data from Google";
 import {
   detectIntegrationStates,
   pickIntegration,

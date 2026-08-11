@@ -40,7 +40,10 @@ import { stubConfigMSW } from "../src/adapters/msw.js";
 import { stubConfigIRMKMI } from "../src/adapters/irmkmi.js";
 import { stubConfigKleenex } from "../src/adapters/kleenex/index.js";
 import { stubConfigGP } from "../src/adapters/gp/index.js";
-import { stubConfigGPL, GPL_ATTRIBUTION } from "../src/adapters/gpl/index.js";
+import { stubConfigGPL } from "../src/adapters/gpl/index.js";
+
+// Attribution string published by pollenlevels >= v3.0.0rc3.
+const GPL_ATTRIBUTION = "Google Maps — Source: Includes pollen data from Google";
 
 // ---------------------------------------------------------------------------
 // Per-adapter local builders (mirrors of the helpers in each *.test.js).
@@ -361,7 +364,7 @@ function gplForecastItem(offset: number, value: number, hasIndex = true) {
 }
 
 // Attribution-fallback discovery: no hass.entities, GPL sensors identified by
-// their GPL_ATTRIBUTION attribute.
+// their Google attribution attribute.
 function gplAttr(states: Record<string, any>) {
   return createHass(states, { entities: undefined });
 }

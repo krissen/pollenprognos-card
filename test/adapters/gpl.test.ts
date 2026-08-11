@@ -3,11 +3,14 @@ import {
   fetchForecast,
   stubConfigGPL,
   GPL_BASE_ALLERGENS,
-  GPL_ATTRIBUTION,
+  isGoogleAttribution,
   discoverGplSensors,
   classifySensor,
 } from "../../src/adapters/gpl/index.js";
 import { createHass, assertSensorShape } from "../helpers.js";
+
+// Attribution string published by pollenlevels >= v3.0.0rc3.
+const GPL_ATTRIBUTION = "Google Maps — Source: Includes pollen data from Google";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,7 +104,7 @@ function makeHassPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {})
 }
 
 // ---------------------------------------------------------------------------
-// GPL_BASE_ALLERGENS and GPL_ATTRIBUTION
+// GPL_BASE_ALLERGENS and isGoogleAttribution
 // ---------------------------------------------------------------------------
 
 describe("GPL_BASE_ALLERGENS", () => {
@@ -114,10 +117,9 @@ describe("GPL_BASE_ALLERGENS", () => {
   });
 });
 
-describe("GPL_ATTRIBUTION", () => {
-  it("is a non-empty string", () => {
-    expect(typeof GPL_ATTRIBUTION).toBe("string");
-    expect(GPL_ATTRIBUTION.length).toBeGreaterThan(0);
+describe("isGoogleAttribution", () => {
+  it("matches the current pollenlevels attribution", () => {
+    expect(isGoogleAttribution(GPL_ATTRIBUTION)).toBe(true);
   });
 });
 
