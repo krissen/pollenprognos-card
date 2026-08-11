@@ -903,23 +903,31 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
          other badge keeps its native geometry down to the pixel. */
       .ppb--attribution {
         position: relative;
-        /* 16px is the policy's 16dp minimum, reached at badge_scale 1 and held
-           there for bigger badges so the pin never dominates the pill; smaller
-           scales shrink it proportionally. */
-        --ppb-attr-size: min(16px, calc(var(--ppb-size) * 0.44));
-        /* The capsule radius is --ppb-size / 2, so a corner point sits inside
-           the curve once it clears r - r/sqrt(2) ~= 0.146 * --ppb-size from both
-           edges. 0.16 keeps a little margin on top of that. */
-        --ppb-attr-inset: calc(var(--ppb-size) * 0.16);
+        /* Height of the visible pin: the policy's 16dp minimum at badge_scale 1,
+           held there for bigger badges so the pin never dominates the pill, and
+           shrinking proportionally below. */
+        --ppb-attr-glyph: min(16px, calc(var(--ppb-size) * 0.45));
+        /* The asset's square 192x192 viewBox carries a symmetric transparent
+           margin around a 176-tall glyph, so the box has to be scaled up for the
+           glyph itself to reach --ppb-attr-glyph. Scaling the box here keeps the
+           asset file byte-identical to Google's. */
+        --ppb-attr-box: calc(var(--ppb-attr-glyph) * 192 / 176);
+        /* The pin is centred on the pill's axis, where the capsule is at its
+           widest, so this inset only has to clear the curve beside the pin's
+           own corners -- 2.3px at scale 1 -- plus a visual margin. */
+        --ppb-attr-inset: calc(var(--ppb-size) * 0.1);
         padding-right: calc(
-          var(--ppb-attr-inset) + var(--ppb-attr-size) + var(--ppb-size) * 0.06
+          var(--ppb-attr-inset) + var(--ppb-attr-box) + var(--ppb-size) * 0.06
         );
       }
 
+      /* Centred on the pill's vertical axis: the glyph sits symmetrically in the
+         viewBox, so centring the box centres what the eye sees. */
       .ppb-attribution {
         position: absolute;
         right: var(--ppb-attr-inset);
-        bottom: var(--ppb-attr-inset);
+        top: 50%;
+        transform: translateY(-50%);
         line-height: 0;
       }
 
@@ -927,7 +935,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
          light and dark alike) and never set width and height independently. */
       .ppb-attribution svg {
         display: block;
-        height: var(--ppb-attr-size);
+        height: var(--ppb-attr-box);
         width: auto;
       }
 
