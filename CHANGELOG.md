@@ -21,13 +21,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
-- **GPL: sensors were missed on pollenlevels 3.0.0rc3 and later** (issue #338).
-  The attribution-based fallback in GPL discovery matched one exact string,
-  and upstream changed its wording in 3.0.0rc3, so the fallback silently found
-  nothing for the newer half of the installed base. It now recognizes both the
-  current and the legacy wording. The same three call sites also skip
-  `sensor.google_pollen_*` entities, so the separate Google Pollen integration
-  can never be mistaken for a GPL sensor.
+- **GPL: the discovery fallback did not know pollenlevels 3.0.0rc3's new
+  attribution string** (issue #338). GPL finds its sensors through the device
+  registry first and the entity registry second; only when both are
+  unavailable does it fall back to scanning states for the integration's
+  attribution text. That last path matched one exact string, and upstream
+  reworded it in 3.0.0rc3, so setups that depended on the fallback found
+  nothing. It now recognizes both the current and the legacy wording. The same
+  three call sites also skip `sensor.google_pollen_*` entities, so the separate
+  Google Pollen integration can never be mistaken for a GPL sensor.
 
 ## [4.1.0] - 2026-08-05
 
