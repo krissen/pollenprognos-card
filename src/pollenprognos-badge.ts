@@ -893,30 +893,41 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         white-space: nowrap;
       }
 
-      /* Google attribution pin (#338), Google-backed integrations only. The
-         overlay is absolutely positioned so the pill keeps its native geometry
-         (--ppb-size drives height/padding/gap exactly as before) and the logo
-         can never push the badge wider or taller. Only the pill that actually
-         carries the logo becomes a positioning context. */
+      /* Google attribution pin (#338), Google-backed integrations only.
+         The pill is a rounded capsule, so its bottom-right corner of the border
+         box is transparent: anchoring the pin there left half of it outside the
+         pill and on top of the label. The inset pulls the pin inside the corner
+         radius, and the reserved padding on that side keeps the content (label
+         included) out of its footprint in both label positions. This does widen
+         the pill, deliberately and only for the two Google integrations; every
+         other badge keeps its native geometry down to the pixel. */
       .ppb--attribution {
         position: relative;
+        /* 16px is the policy's 16dp minimum, reached at badge_scale 1 and held
+           there for bigger badges so the pin never dominates the pill; smaller
+           scales shrink it proportionally. */
+        --ppb-attr-size: min(16px, calc(var(--ppb-size) * 0.44));
+        /* The capsule radius is --ppb-size / 2, so a corner point sits inside
+           the curve once it clears r - r/sqrt(2) ~= 0.146 * --ppb-size from both
+           edges. 0.16 keeps a little margin on top of that. */
+        --ppb-attr-inset: calc(var(--ppb-size) * 0.16);
+        padding-right: calc(
+          var(--ppb-attr-inset) + var(--ppb-attr-size) + var(--ppb-size) * 0.06
+        );
       }
 
       .ppb-attribution {
         position: absolute;
-        right: 0;
-        bottom: 0;
+        right: var(--ppb-attr-inset);
+        bottom: var(--ppb-attr-inset);
         line-height: 0;
       }
 
-      /* 16px is the policy's 16dp minimum, reached at badge_scale 1 and held
-         there for bigger badges so the pin never dominates the pill; smaller
-         scales shrink it proportionally. The pin is square and full colour:
-         never restyle the fills (it reads on light and dark alike) and never
-         set width and height independently. */
+      /* The pin is square and full colour: never restyle the fills (it reads on
+         light and dark alike) and never set width and height independently. */
       .ppb-attribution svg {
         display: block;
-        height: min(16px, calc(var(--ppb-size) * 0.44));
+        height: var(--ppb-attr-size);
         width: auto;
       }
 
