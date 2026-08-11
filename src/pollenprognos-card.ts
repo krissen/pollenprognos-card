@@ -60,6 +60,7 @@ import {
   iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import { googleAttributionTypography } from "./rendering/google-attribution-styles.js";
 import type { HomeAssistant, UnsubscribeFunc } from "./types/home-assistant.js";
 import type { CardConfig, RawCardConfig } from "./types/config.js";
 import type { PollenSensor } from "./types/sensor.js";
@@ -2598,19 +2599,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         margin-top: 0.25em;
       }
 
-      /* Google attribution footer (#338). Font, the 12px floor and the two
-         colours are dictated by the Google Pollen API attribution policy
-         (developers.google.com/maps/documentation/pollen/policies): never
-         scale the text below 12px, never recolour it, never localize the
-         strings and never move them behind a tooltip. */
+      /* Google attribution footer (#338); the policy-mandated typography is
+         shared with the editor rows via googleAttributionTypography. */
       .google-attribution {
-        font-family: Roboto, sans-serif;
-        font-weight: 400;
-        font-size: 12px;
-        line-height: 1.3;
+        ${googleAttributionTypography}
         padding: 4px 16px 8px;
         text-align: center;
-        color: light-dark(#5e5e5e, #ffffff);
       }
 
       .google-attribution-maps {

@@ -12,6 +12,7 @@ import {
   ICON_IN_RING_DEFAULT_THICKNESS,
 } from "./utils/levels-defaults.js";
 import { COSMETIC_FIELDS } from "./constants.js";
+import { googleAttributionTypography } from "./rendering/google-attribution-styles.js";
 
 // Shared editor base (deepMerge, section methods, helpers)
 import {
@@ -1908,18 +1909,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         margin-right: 24px;
       }
 
-      /* Google attribution row under the integration picker (#338). Mirrors
-         the card footer: Roboto, never below 12px, and only the two colours
-         the Google Pollen API attribution policy allows. */
+      /* Google attribution row under the integration picker (#338); box model
+         matches .section-helper, typography comes from the shared fragment. */
       .google-attribution {
-        font-family: Roboto, sans-serif;
-        font-weight: 400;
-        font-size: 12px;
-        line-height: 1.3;
+        ${googleAttributionTypography}
         padding: 0 0 8px;
         margin-left: 24px;
         margin-right: 24px;
-        color: light-dark(#5e5e5e, #ffffff);
       }
 
       /* Inline caveat under a field whose current value cannot take effect. */

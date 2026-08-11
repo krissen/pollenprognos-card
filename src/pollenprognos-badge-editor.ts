@@ -12,6 +12,7 @@ import {
   editorControlStyles,
 } from "./editor/base.js";
 import { coerceBool } from "./utils/adapter-helpers.js";
+import { googleAttributionTypography } from "./rendering/google-attribution-styles.js";
 import { coerceBadgeLabelContent } from "./utils/badge-label.js";
 import { deepEqual } from "./utils/confcompare.js";
 import {
@@ -1008,18 +1009,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         margin-right: 24px;
       }
 
-      /* Google attribution row under the integration picker (#338). Mirrors
-         the card footer: Roboto, never below 12px, and only the two colours
-         the Google Pollen API attribution policy allows. */
+      /* Google attribution row under the integration picker (#338); box model
+         matches .section-helper, typography comes from the shared fragment. */
       .google-attribution {
-        font-family: Roboto, sans-serif;
-        font-weight: 400;
-        font-size: 12px;
-        line-height: 1.3;
+        ${googleAttributionTypography}
         padding: 0 0 8px;
         margin-left: 24px;
         margin-right: 24px;
-        color: light-dark(#5e5e5e, #ffffff);
       }
 
       /* Inline caveat under a field whose current value cannot take effect. */
