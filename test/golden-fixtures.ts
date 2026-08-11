@@ -275,6 +275,28 @@ function kleenexUSEntity(location: string, category: string, ppmValue: number) {
   };
 }
 
+// A per-allergen DetailSensor, the optional entities the integration creates
+// alongside the category sensors. `state` is a raw PPM string, or one of HA's
+// unavailable markers when the entity is disabled or its update failed --
+// which is the case this fixture exists to freeze (issue #326).
+function kleenexDetailEntity(
+  location: string,
+  allergen: string,
+  state: string,
+  forecast: Array<{ value: number }> = [],
+) {
+  return {
+    entity_id: `sensor.kleenex_pollen_radar_${location}_${allergen}`,
+    state,
+    attributes: {
+      forecast: forecast.map((f, i) => ({
+        date: new Date(Date.now() + (i + 1) * 86400000).toISOString(),
+        value: f.value,
+      })),
+    },
+  };
+}
+
 function kleenexHass(
   entities: Array<{ entity_id: string; [key: string]: any }>,
 ) {
@@ -723,6 +745,36 @@ export function buildGoldenFixtures(): GoldenCase[] {
     ]),
     cfg(stubConfigKleenex, {
       location: "atlanta_georgia",
+      pollen_threshold: 0,
+    }),
+  );
+
+  // Category sensor plus the optional per-allergen DetailSensors, one healthy
+  // and one unavailable. Both rows read their numbers out of the category
+  // sensor's details either way; what this freezes is the more-info target
+  // each row ends up with (issue #326). Birch has a working entity of its own
+  // and must link to it; oak's is dead, so oak keeps the category sensor
+  // rather than pointing at something that would open empty.
+  add(
+    "kleenex",
+    "detail-sensor-links",
+    kleenexHass([
+      kleenexEntity(
+        "amsterdam",
+        "trees",
+        200,
+        [
+          { name: "Birch", value: 150 },
+          { name: "Oak", value: 50 },
+        ],
+        [{ level: 2, value: 120, details: [{ name: "Birch", value: 100 }] }],
+      ),
+      kleenexDetailEntity("amsterdam", "birch", "150", [{ value: 100 }]),
+      kleenexDetailEntity("amsterdam", "oak", "unavailable"),
+    ]),
+    cfg(stubConfigKleenex, {
+      location: "amsterdam",
+      allergens: ["birch", "oak", "trees_cat"],
       pollen_threshold: 0,
     }),
   );
