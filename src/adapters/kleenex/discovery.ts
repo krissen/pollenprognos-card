@@ -639,7 +639,7 @@ function kleenexDeviceIdsUncached(hass: HomeAssistant): Set<string> {
  */
 const kleenexDeviceIds = memoizeByHass(
   kleenexDeviceIdsUncached,
-  "kleenex-devices",
+  "Kleenex:deviceIds",
 );
 
 /**

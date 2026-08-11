@@ -374,7 +374,7 @@ function detectLocationUncached(
  */
 const detectLocation = memoizeByHass(
   detectLocationUncached,
-  "ATMO-detectLocation",
+  "ATMO:detectLocation",
 );
 
 /**
