@@ -11,6 +11,7 @@ import {
   resolveLocationByKey,
   isConfigEntryId,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../../utils/adapter-helpers.js";
 import { cleanDeviceLabel } from "../../utils/device-label.js";
 import {
@@ -118,7 +119,7 @@ export function classifySensor(
  *
  * Returns: { locations: Map<configEntryId, { label, entities: Map<allergenKey, entityId> }> }
  */
-export function discoverGpSensors(
+function discoverGpSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): GpDiscovery {
@@ -192,6 +193,13 @@ export function discoverGpSensors(
 
   return { locations };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverGpSensors = memoizeByHass(discoverGpSensorsUncached);
 
 /**
  * Get available allergen keys for a given location.
