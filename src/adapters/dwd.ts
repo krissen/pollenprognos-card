@@ -14,6 +14,7 @@ import {
   resolveAllergenNames,
   discoverEntitiesByDevice,
   type DeviceDiscovery,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 import {
   createEntityResolver,
@@ -153,7 +154,7 @@ function extractRegionLabel(entityId: string): string | null {
  * In tier 3 the region ID (numeric suffix) is used as the location key so that
  * cfg.region_id = "50" matches entities like sensor.pollenflug_erle_50.
  */
-export function discoverDwdSensors(
+function discoverDwdSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
@@ -245,6 +246,13 @@ export function discoverDwdSensors(
 
   return { locations, tierUsed };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverDwdSensors = memoizeByHass(discoverDwdSensorsUncached);
 
 /**
  * Path 3 template fallback. Rebuilt around DWD_ENTITY_ID_RE so it accepts the
