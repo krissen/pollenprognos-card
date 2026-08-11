@@ -5,6 +5,10 @@
 
 import { html, type TemplateResult } from "lit";
 import type { PollenEditorLike } from "../types.js";
+import {
+  GOOGLE_MAPS_TEXT,
+  GOOGLE_POLLEN_SOURCE_TEXT,
+} from "../../constants.js";
 
 export function renderIntegrationSection(
   editor: PollenEditorLike,
@@ -37,6 +41,17 @@ export function renderIntegrationSection(
           }}
         ></ha-selector>
       </ha-formfield>
+      ${// Google attribution (#338), shown for the Google-backed integrations
+      // right under the picker. Both strings are mandated verbatim by the
+      // Google Pollen API attribution policy, so they are never localized.
+      // Unlike the card footer this row ignores show_google_attribution: the
+      // person configuring the card must see the attribution requirement even
+      // when they have turned the footer off.
+      c.integration === "gpl" || c.integration === "gp"
+        ? html`<div class="google-attribution">
+            ${GOOGLE_MAPS_TEXT} — ${GOOGLE_POLLEN_SOURCE_TEXT}
+          </div>`
+        : ""}
       ${c.integration === "pp"
         ? html`
             <ha-formfield label="${editor._t("city")}">

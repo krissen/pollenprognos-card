@@ -1351,6 +1351,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         delete newUser.show_summary_separator;
         delete newUser.show_summary_top_types;
         delete newUser.show_summary_plants_in_season;
+        // The Google attribution footer only exists for gpl/gp (#338); a
+        // lingering false would silently suppress it after switching back.
+        delete newUser.show_google_attribution;
         this._allergensExplicit = false;
       }
       const base = getStubConfig(newInt) || getStubConfig("pp")!;
@@ -1903,6 +1906,20 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         padding: 0 0 8px;
         margin-left: 24px;
         margin-right: 24px;
+      }
+
+      /* Google attribution row under the integration picker (#338). Mirrors
+         the card footer: Roboto, never below 12px, and only the two colours
+         the Google Pollen API attribution policy allows. */
+      .google-attribution {
+        font-family: Roboto, sans-serif;
+        font-weight: 400;
+        font-size: 12px;
+        line-height: 1.3;
+        padding: 0 0 8px;
+        margin-left: 24px;
+        margin-right: 24px;
+        color: light-dark(#5e5e5e, #ffffff);
       }
 
       /* Inline caveat under a field whose current value cannot take effect. */
