@@ -42,8 +42,7 @@ import { stubConfigKleenex } from "../src/adapters/kleenex/index.js";
 import { stubConfigGP } from "../src/adapters/gp/index.js";
 import { stubConfigGPL } from "../src/adapters/gpl/index.js";
 
-// Attribution string published by pollenlevels >= v3.0.0rc3.
-const GPL_ATTRIBUTION = "Google Maps — Source: Includes pollen data from Google";
+import { GPL_ATTRIBUTION } from "./helpers.js";
 
 // ---------------------------------------------------------------------------
 // Per-adapter local builders (mirrors of the helpers in each *.test.js).
