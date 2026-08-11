@@ -19,6 +19,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   with `show_google_attribution: false`, which hides the card footer and the
   badge pin but not the editor row. No other integration renders anything new.
 
+### Changed
+
+- **Discovery now runs at most once per HA state update per integration**
+  (issue #321). Every code path that needs to find your sensors -- the card,
+  the badge, the visual editor and the forecast fetch -- used to repeat the
+  full entity scan on its own, several times per update. They now share one
+  scan per update, which is most noticeable on dashboards that show a card
+  and a badge together, or that have the editor open.
+- **The editor's discovery logging follows the card's debug flag.** It was
+  hardcoded to stay quiet, so its scans logged nothing even with debugging
+  turned on.
+
 ### Fixed
 
 - **GPL: the discovery fallback did not know pollenlevels 3.0.0rc3's new
