@@ -236,3 +236,59 @@ describe("badge attribution pin gate (#338)", () => {
     expect(badgeGate({ integration: id })).toBe("");
   });
 });
+
+describe("badge attribution toggle coercion (#338)", () => {
+  // The badge builds its own config instead of going through
+  // normalizeCardConfig, so the YAML string forms have to be coerced in
+  // _buildConfig. Without that, `show_google_attribution: "false"` is not
+  // `=== false` and the pin stays on for a user who asked for it off.
+  it.each(["gpl", "gp"])(
+    'hides the pin for %s on the YAML string "false"',
+    (id) => {
+      expect(
+        badgeGate({ integration: id, show_google_attribution: "false" }),
+      ).toBe("");
+    },
+  );
+
+  it.each(["gpl", "gp"])(
+    'shows the pin for %s on the YAML string "true"',
+    (id) => {
+      const text = templateText(
+        badgeGate({ integration: id, show_google_attribution: "true" }),
+      );
+      expect(text).toContain("ppb-attribution");
+    },
+  );
+
+  it.each(["gpl", "gp"])(
+    "shows the pin for %s when the key is absent (stub default)",
+    (id) => {
+      const text = templateText(badgeGate({ integration: id }));
+      expect(text).toContain("ppb-attribution");
+    },
+  );
+
+  it.each(["gpl", "gp"])(
+    "shows the pin for %s when the key is present but undefined",
+    (id) => {
+      const text = templateText(
+        badgeGate({ integration: id, show_google_attribution: undefined }),
+      );
+      expect(text).toContain("ppb-attribution");
+    },
+  );
+
+  // Only an explicit false / "false" turns the attribution off: an
+  // unrecognised value must fail OPEN, since the toggle exists to satisfy
+  // Google's attribution policy.
+  it.each([0, "0", "no", "off", null, []])(
+    "keeps the pin for the unrecognised value %p",
+    (value) => {
+      const text = templateText(
+        badgeGate({ integration: "gpl", show_google_attribution: value }),
+      );
+      expect(text).toContain("ppb-attribution");
+    },
+  );
+});
