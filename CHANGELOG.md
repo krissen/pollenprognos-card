@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Google attribution for the two Google-backed integrations** (issue #338).
+  Google Pollen Levels and Google Pollen now credit their source the way
+  Google's Pollen API attribution policy requires: the card renders the
+  "Google Maps" wordmark and the line "Source: Includes pollen data from
+  Google" as a footer, the visual editor repeats it under the integration
+  picker, and the badge shows the Google Maps pin in its corner with the full
+  string as a hover title. The strings are never translated -- the policy
+  prescribes their wording. Attribution is on by default and can be turned off
+  with `show_google_attribution: false`, which hides the card footer and the
+  badge pin but not the editor row. No other integration renders anything new.
+
+### Fixed
+
+- **GPL: sensors were missed on pollenlevels 3.0.0rc3 and later** (issue #338).
+  The attribution-based fallback in GPL discovery matched one exact string,
+  and upstream changed its wording in 3.0.0rc3, so the fallback silently found
+  nothing for the newer half of the installed base. It now recognizes both the
+  current and the legacy wording. The same three call sites also skip
+  `sensor.google_pollen_*` entities, so the separate Google Pollen integration
+  can never be mistaken for a GPL sensor.
+
 ## [4.1.0] - 2026-08-05
 
 ### Added
