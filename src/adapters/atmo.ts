@@ -28,6 +28,7 @@ import {
   isConfigEntryId,
   coerceBool,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 
 // The subset of the discovery result atmo uses (config-entry keyed locations).
@@ -257,7 +258,7 @@ function resolveAtmoLabel(
  *   2. Entity-registry: hass.entities filtered by platform === "atmofrance"
  *   3. Regex fallback: hass.states scanned for known Atmo entity patterns
  */
-export function discoverAtmoSensors(
+function discoverAtmoSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): AtmoDiscovery {
@@ -284,6 +285,13 @@ export function discoverAtmoSensors(
 }
 
 /**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverAtmoSensors = memoizeByHass(discoverAtmoSensorsUncached);
+
+/**
  * Resolve a legacy slug-style location (e.g. "nice") to its config_entry_id
  * in a discovery result. Returns null if no match is found.
  *
@@ -305,7 +313,10 @@ export function findAtmoLocationBySlug(
  * Detect location slug from available Atmo France entities.
  * Legacy fallback for slug-based configs without hass.entities.
  */
-function detectLocation(hass: HomeAssistant, debug: boolean): string | null {
+function detectLocationUncached(
+  hass: HomeAssistant,
+  debug = false,
+): string | null {
   // Try pollen entities first (most reliable pattern)
   for (const id of Object.keys(hass.states)) {
     const m = id.match(
@@ -355,6 +366,16 @@ function detectLocation(hass: HomeAssistant, debug: boolean): string | null {
   }
   return null;
 }
+
+/**
+ * Memoized per HA update cycle (#321). This scan never reaches
+ * discoverEntitiesByDevice -- it walks hass.states itself, up to three times --
+ * so it carries its own counter tag rather than being tallied under "ATMO".
+ */
+const detectLocation = memoizeByHass(
+  detectLocationUncached,
+  "ATMO:detectLocation",
+);
 
 /**
  * Build entity ID for an allergen at a given location.

@@ -1424,6 +1424,23 @@ describe("memoizeByHass", () => {
     }
   });
 
+  it("installs the counter itself when called with debug", () => {
+    // debug is forwarded to the counter, so a debug-enabled run bootstraps the
+    // tally exactly like the engine's own does. Without this, the sweeps that
+    // never reach the engine (kleenexDeviceIds, atmo detectLocation) could only
+    // ever be measured by someone who had created the global by hand first.
+    const fakeWindow: { __ppDiscoveryScans?: Record<string, number> } = {};
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      const memoized = memoizeByHass(() => ({}), "unit-tag");
+      memoized(makeHass("a"), true);
+      memoized(makeHass("b"), true);
+      expect(fakeWindow.__ppDiscoveryScans).toEqual({ "unit-tag": 2 });
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
   it("rejects a function whose extra argument selects what to discover", () => {
     // Compile-time guard, not a runtime assertion: discoverGplAllergens-style
     // signatures (hass, configEntryId, debug) must stay unwrappable, since the

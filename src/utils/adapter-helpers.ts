@@ -819,8 +819,9 @@ export function recordDiscoveryScan(tag: string, debug = false): void {
  *
  * @param fn - Discovery function taking `hass` and an optional `debug` flag.
  * @param countTag - Optional instrumentation tag; when given, every uncached
- *   call is counted via {@link recordDiscoveryScan} (only once the counter
- *   object exists). Leave unset for functions that already count their own
+ *   call is counted via {@link recordDiscoveryScan}, with `debug` forwarded so
+ *   a debug-enabled call installs the counter object exactly as the engine's
+ *   own tally does. Leave unset for functions that already count their own
  *   sweep inside `discoverEntitiesByDevice`, otherwise the same sweep is
  *   counted twice under two keys. It exists for the sweeps that never reach
  *   the engine and so count nothing on their own: Kleenex's `kleenexDeviceIds`
@@ -836,7 +837,7 @@ export function memoizeByHass<R>(
     if (!hass || typeof hass !== "object") return fn(hass, debug);
     if (cache.has(hass)) return cache.get(hass) as R;
     const result = fn(hass, debug);
-    if (countTag) recordDiscoveryScan(countTag);
+    if (countTag) recordDiscoveryScan(countTag, debug);
     cache.set(hass, result);
     return result;
   };

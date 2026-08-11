@@ -11,6 +11,7 @@ import {
   resolveLocationByKey,
   isConfigEntryId,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../../utils/adapter-helpers.js";
 import { cleanDeviceLabel } from "../../utils/device-label.js";
 
@@ -117,7 +118,7 @@ export function isGplDataSensor(state: HassEntity | undefined): boolean {
  * Tier 2: entity registry scan filtering by entry.platform === "pollenlevels".
  * Tier 3: attribution scan -- filters states by isGoogleAttribution().
  */
-export function discoverGplSensors(
+function discoverGplSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): GplDiscovery {
@@ -184,6 +185,13 @@ export function discoverGplSensors(
 
   return { locations };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverGplSensors = memoizeByHass(discoverGplSensorsUncached);
 
 /**
  * Get available allergen keys for a given location (config_entry_id).

@@ -3,6 +3,7 @@ import {
   discoverEntitiesByDevice,
   isConfigEntryId,
   deviceLocationKey,
+  memoizeByHass,
 } from "./adapter-helpers.js";
 import type { DiscoveryContext } from "./adapter-helpers.js";
 import type { HomeAssistant } from "../types/home-assistant.js";
@@ -85,7 +86,7 @@ function stripSilamPrefix(
   return stripped || name;
 }
 
-export function discoverSilamSensors(
+function discoverSilamSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): SilamDiscovery {
@@ -191,6 +192,13 @@ export function discoverSilamSensors(
 
   return result;
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverSilamSensors = memoizeByHass(discoverSilamSensorsUncached);
 
 /**
  * Resolve a discovered location from pre-computed discovery data.

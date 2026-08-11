@@ -15,6 +15,7 @@ import {
   type DeviceDiscovery,
   type DiscoveredLocation,
   type DiscoveryContext,
+  memoizeByHass,
 } from "../../utils/adapter-helpers.js";
 import {
   INDIVIDUAL_TO_CATEGORY,
@@ -337,7 +338,7 @@ function buildIdentifierKeys(hass: HomeAssistant): Map<string, string> {
  * onto a category key are already rejected by the classifier, so a category
  * sensor can never be displaced by a detail sensor.
  */
-export function discoverKleenex(
+function discoverKleenexUncached(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
@@ -364,6 +365,13 @@ export function discoverKleenex(
     logTag: "Kleenex",
   });
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverKleenex = memoizeByHass(discoverKleenexUncached);
 
 /**
  * Extract the legacy location slug from an entity ID
@@ -611,7 +619,7 @@ function deviceSlugCandidates(
  * scoping would treat their entities as somebody else's and keep them --
  * merging two locations after all (Codex round 3 on PR #315).
  */
-function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
+function kleenexDeviceIdsUncached(hass: HomeAssistant): Set<string> {
   const out = new Set<string>();
   for (const [deviceId, device] of Object.entries(hass?.devices || {})) {
     if (deviceIdentifierSlug(device)) out.add(deviceId);
@@ -622,6 +630,17 @@ function kleenexDeviceIds(hass: HomeAssistant): Set<string> {
   }
   return out;
 }
+
+/**
+ * Memoized per HA update cycle (#321). Both callers below run it on the same
+ * hass, and it sweeps the device and entity registries without going through
+ * discoverEntitiesByDevice, hence its own counter tag. The returned Set is
+ * shared -- read it, never add to it.
+ */
+const kleenexDeviceIds = memoizeByHass(
+  kleenexDeviceIdsUncached,
+  "Kleenex:deviceIds",
+);
 
 /**
  * The Kleenex device a manual `entity_prefix` was minted from, if any.

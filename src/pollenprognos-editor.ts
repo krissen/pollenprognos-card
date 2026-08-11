@@ -430,7 +430,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         // PP: use discovery helper, fall back to PP_POSSIBLE_CITIES filter.
         // Sort by label alphabetically so the dropdown order is stable across
         // HA restarts (Map iteration order tracks hass-registry insertion).
-        const ppDiscovery = discoverPpSensors(this._hass, false);
+        const ppDiscovery = discoverPpSensors(this._hass, this.debug);
         if (ppDiscovery.locations.size > 0) {
           this.installedPpLocations = Array.from(ppDiscovery.locations.entries())
             .map(([key, loc]) => [key, loc.label] as InstalledLocation)
@@ -464,7 +464,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         // DWD: use discovery helper, fall back to regex-based region IDs.
         // Sort numerically for region-ID keys (legacy tier 3) and by label
         // for config_entry_id keys (tier 1/2), so the dropdown is stable.
-        const dwdDiscovery = discoverDwdSensors(this._hass, false);
+        const dwdDiscovery = discoverDwdSensors(this._hass, this.debug);
         if (dwdDiscovery.locations.size > 0) {
           const entries = Array.from(dwdDiscovery.locations.entries())
             .map(([key, loc]) => [key, loc.label] as InstalledLocation);
@@ -506,7 +506,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         // always reassigns (fallback or empty) on the next hass tick, so a
         // stale list cannot outlive one update cycle.
         if (integration === "silam") {
-          const silamDiscovery = discoverSilamSensors(this._hass, false);
+          const silamDiscovery = discoverSilamSensors(this._hass, this.debug);
           if (silamDiscovery.locations.size > 0) {
             this.installedSilamLocations = discoveryToLocations(silamDiscovery);
           }
@@ -573,7 +573,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // GPL discovery: run here too because set hass() may fire before setConfig()
       // and auto-detect the wrong integration (e.g., SILAM) if multiple integrations are installed.
       if (this._config.integration === "gpl" && this._hass) {
-        const gplDiscovery = discoverGplSensors(this._hass, false);
+        const gplDiscovery = discoverGplSensors(this._hass, this.debug);
         this.installedGplLocations = discoveryToLocations(gplDiscovery);
         const gplConfigEntryId = this._config.location || (this.installedGplLocations.length ? this.installedGplLocations[0]![0] : null);
         const allGplAllergens = discoverGplAllergens(this._hass, gplConfigEntryId as string, false);
@@ -581,7 +581,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
       // GP discovery
       if (this._config.integration === "gp" && this._hass) {
-        const gpDiscovery = discoverGpSensors(this._hass, false);
+        const gpDiscovery = discoverGpSensors(this._hass, this.debug);
         this.installedGpLocations = discoveryToLocations(gpDiscovery);
         const gpConfigEntryId = this._config.location || (this.installedGpLocations.length ? this.installedGpLocations[0]![0] : null);
         const allGpAllergens = discoverGpAllergens(this._hass, gpConfigEntryId as string, false);
@@ -589,13 +589,13 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
       // MSW discovery (same rationale as GPL/GP).
       if (this._config.integration === "msw" && this._hass) {
-        const md = discoverMswSensors(this._hass, false);
+        const md = discoverMswSensors(this._hass, this.debug);
         this.installedMswLocations = discoveryToLocations(md);
       }
 
       // IRM KMI discovery (same rationale as GPL/GP/MSW).
       if (this._config.integration === "irmkmi" && this._hass) {
-        const id = discoverIrmkmiSensors(this._hass, false);
+        const id = discoverIrmkmiSensors(this._hass, this.debug);
         this.installedIrmkmiLocations = discoveryToLocations(id);
       }
 

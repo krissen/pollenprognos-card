@@ -49,6 +49,7 @@ import {
   deviceLocationKey,
   type DiscoveryContext,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 
 // The subset of the discovery result irmkmi uses (config-entry keyed locations).
@@ -180,7 +181,7 @@ function resolveIrmkmiLabel(ctx: DiscoveryContext): string {
  *   2. Entity registry: hass.entities filtered by platform === "irm_kmi".
  *   3. Regex fallback: hass.states scanned for the level-entity pattern.
  */
-export function discoverIrmkmiSensors(
+function discoverIrmkmiSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): IrmkmiDiscovery {
@@ -209,6 +210,13 @@ export function discoverIrmkmiSensors(
 
   return { locations };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverIrmkmiSensors = memoizeByHass(discoverIrmkmiSensorsUncached);
 
 /**
  * Map allergen keys from config to irm-kmi-ha entity IDs for the resolved

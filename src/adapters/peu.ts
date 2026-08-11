@@ -19,6 +19,7 @@ import {
   normalizeManualPrefix,
   resolveLocationByKey,
   type DeviceDiscovery,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 import {
   createEntityResolver,
@@ -203,7 +204,7 @@ function extractPeuLocationLabel(eid: string): string | null {
  * is stored under its own key so that mode-mapping in resolveEntityIds can
  * look it up directly.
  */
-export function discoverPeuSensors(
+function discoverPeuSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
@@ -279,6 +280,13 @@ export function discoverPeuSensors(
 
   return { locations, tierUsed };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverPeuSensors = memoizeByHass(discoverPeuSensorsUncached);
 
 function detectLocation(cfg: CardConfig, hass: HomeAssistant): string {
   if (cfg.location === "manual") return "";
