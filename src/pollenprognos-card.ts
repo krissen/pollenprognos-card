@@ -60,7 +60,10 @@ import {
   iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
-import { googleAttributionTypography } from "./rendering/google-attribution-styles.js";
+import {
+  googleAttributionTypography,
+  googleAttributionColor,
+} from "./rendering/google-attribution-styles.js";
 import type { HomeAssistant, UnsubscribeFunc } from "./types/home-assistant.js";
 import type { CardConfig, RawCardConfig } from "./types/config.js";
 import type { PollenSensor } from "./types/sensor.js";
@@ -2165,7 +2168,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     ) {
       return nothing;
     }
-    return html`<div class="google-attribution">
+    // The policy colour is picked from HA's own dark-mode flag rather than from
+    // the document's color-scheme, which can disagree with the active theme.
+    const color = googleAttributionColor(this._hass);
+    return html`<div
+      class="google-attribution"
+      style="--pp-google-attribution-color: ${color};"
+    >
       <span class="google-attribution-maps">${GOOGLE_MAPS_TEXT}</span
       ><span> — ${GOOGLE_POLLEN_SOURCE_TEXT}</span>
     </div>`;

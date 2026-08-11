@@ -9,6 +9,7 @@ import {
   GOOGLE_MAPS_TEXT,
   GOOGLE_POLLEN_SOURCE_TEXT,
 } from "../../constants.js";
+import { googleAttributionColor } from "../../rendering/google-attribution-styles.js";
 
 export function renderIntegrationSection(
   editor: PollenEditorLike,
@@ -48,7 +49,12 @@ export function renderIntegrationSection(
       // person configuring the card must see the attribution requirement even
       // when they have turned the footer off.
       c.integration === "gpl" || c.integration === "gp"
-        ? html`<div class="google-attribution">
+        ? html`<div
+            class="google-attribution"
+            style="--pp-google-attribution-color: ${googleAttributionColor(
+              editor._hass,
+            )};"
+          >
             ${GOOGLE_MAPS_TEXT} — ${GOOGLE_POLLEN_SOURCE_TEXT}
           </div>`
         : ""}
