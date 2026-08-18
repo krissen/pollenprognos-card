@@ -604,6 +604,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         ? "ppb--below"
         : "ppb--right";
 
+    // Google-backed integrations only: the pin overlay plus the class that
+    // makes the pill its positioning context. Both stay empty otherwise, so the
+    // rendered markup for every other integration is unchanged.
+    const attribution = this._renderGoogleAttribution();
+    const attributionClass = attribution === "" ? "" : " ppb--attribution";
+
     // Not yet loaded: render an empty pill placeholder so the badge slot
     // doesn't jump when data arrives. It carries the same size base.
     if (!this._isLoaded) {
@@ -637,11 +643,18 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       // allergen is effectively "worst" and must show breezy here too, not a
       // blank pill. aggregate with a surviving summary is non-empty and rendered
       // below; with no summary it falls back to worst, so breezy is right.
+      // "No pollen" is a conclusion drawn from Google's readings, so the pin
+      // stays with it (mirrors the card, which keeps its attribution footer on
+      // the no-allergens result).
       if (this._noPollen) {
-        return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
+        return html`<div
+          class="ppb ${wrapClass}${attributionClass}"
+          style="${hostStyle}"
+        >
           <div class="ppb-item">
             ${this._renderAllergenSvg("no_allergens", 0, {})}
           </div>
+          ${attribution}
         </div>`;
       }
       return html`<div class="ppb ${wrapClass}" style="${hostStyle}">
@@ -668,12 +681,6 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     // link_to_sensors is explicitly true (#279). Handler and predicate live in
     // LevelCircleMixin.
     const hasTap = resolveTapActionType(this.config?.tap_action) !== null;
-
-    // Google-backed integrations only: the wordmark overlay plus the class that
-    // makes the pill its positioning context. Both stay empty otherwise, so the
-    // rendered markup for every other integration is unchanged.
-    const attribution = this._renderGoogleAttribution();
-    const attributionClass = attribution === "" ? "" : " ppb--attribution";
 
     return html`
       <div

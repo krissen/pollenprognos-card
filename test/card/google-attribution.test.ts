@@ -292,3 +292,92 @@ describe("badge attribution toggle coercion (#338)", () => {
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// No-pollen result (Codex review, PR #344)
+// ---------------------------------------------------------------------------
+
+/**
+ * "No pollen" (entities exist, every reading below the configured threshold)
+ * is a conclusion drawn from Google's data, so the card footer and the badge
+ * pin have to survive that early return -- they used to be dropped, which made
+ * the default-on attribution disappear on low-pollen days.
+ */
+
+/** Recursively flatten a lit TemplateResult tree into one searchable string. */
+function deepTemplateText(node: unknown): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(deepTemplateText).join("");
+  const tpl = node as { strings?: readonly string[]; values?: unknown[] };
+  if (tpl.strings) {
+    return (
+      tpl.strings.join("") + (tpl.values ?? []).map(deepTemplateText).join("")
+    );
+  }
+  return "";
+}
+
+type RenderElement = GateElement & {
+  render: () => unknown;
+  sensors: unknown[];
+  _isLoaded: boolean;
+  _availableSensorCount: number;
+  _noPollenData: boolean;
+  _noPollen: boolean;
+  _noData: boolean;
+};
+
+/** Card in the "all readings below threshold" state. */
+function renderNoPollenCard(config: Record<string, unknown>): string {
+  const card = new CardCtor() as RenderElement;
+  card.setConfig({ type: "custom:pollenprognos-card", ...config });
+  card.sensors = [];
+  card._isLoaded = true;
+  card._availableSensorCount = 2;
+  card._noPollenData = true;
+  return deepTemplateText(card.render());
+}
+
+/** Badge in the same state. */
+function renderNoPollenBadge(config: Record<string, unknown>): string {
+  const badge = new BadgeCtor() as RenderElement;
+  badge.setConfig({ type: "custom:pollenprognos-badge", ...config });
+  badge.sensors = [];
+  badge._isLoaded = true;
+  badge._noData = false;
+  badge._noPollen = true;
+  return deepTemplateText(badge.render());
+}
+
+describe("attribution on the no-pollen result (#338)", () => {
+  it.each(["gpl", "gp"])("card keeps the footer for %s", (id) => {
+    const text = renderNoPollenCard({ integration: id });
+    expect(text).toContain("google-attribution");
+    expect(text).toContain(GOOGLE_POLLEN_SOURCE_TEXT);
+  });
+
+  it("card renders no footer for a non-Google integration", () => {
+    const text = renderNoPollenCard({ integration: "pp" });
+    expect(text).not.toContain("google-attribution");
+  });
+
+  it("card honours the opt-out on the no-pollen result", () => {
+    const text = renderNoPollenCard({
+      integration: "gpl",
+      show_google_attribution: false,
+    });
+    expect(text).not.toContain("google-attribution");
+  });
+
+  it.each(["gpl", "gp"])("badge keeps the pin for %s", (id) => {
+    const text = renderNoPollenBadge({ integration: id });
+    expect(text).toContain("ppb-attribution");
+    expect(text).toContain("ppb--attribution");
+  });
+
+  it("badge renders no pin for a non-Google integration", () => {
+    const text = renderNoPollenBadge({ integration: "pp" });
+    expect(text).not.toContain("ppb-attribution");
+  });
+});
