@@ -15,6 +15,7 @@ import {
   clampLevel,
   resolveAllergenNames,
   discoverEntitiesByDevice,
+  memoizeByHass,
   isConfigEntryId,
   parseLocalDate,
   type DeviceDiscovery,
@@ -145,7 +146,7 @@ function extractAllergenKeyFromEntityId(entityId: string): string | null {
  * (regex fallback) will still provide discovery. Pass an array like
  * ["pollenprognos", "other_name"] to support multiple platform names.
  */
-export function discoverPpSensors(
+function discoverPpSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): DeviceDiscovery {
@@ -214,6 +215,13 @@ export function discoverPpSensors(
 
   return { locations, tierUsed };
 }
+
+/**
+ * Memoized per HA update cycle (#321): the card, the badge, the editor and the
+ * fetch path all reach discovery within one tick and now share one sweep. The
+ * returned object is shared -- callers must not mutate it.
+ */
+export const discoverPpSensors = memoizeByHass(discoverPpSensorsUncached);
 
 function detectCity(cfg: CardConfig, hass: HomeAssistant): string {
   if (cfg.city === "manual") return "";

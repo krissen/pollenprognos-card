@@ -1,10 +1,14 @@
 // src/pollenprognos-card.ts
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult, PropertyValues } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { slugify } from "./utils/slugify.js";
 import { t, detectLang } from "./i18n.js";
-import { getAdapter, getStubConfig, getAutodetect } from "./adapter-registry.js";
+import {
+  getAdapter,
+  getStubConfig,
+  getAutodetect,
+} from "./adapter-registry.js";
 import { findAvailableSensors } from "./utils/sensors.js";
 import { cleanDeviceLabel } from "./utils/device-label.js";
 import {
@@ -20,7 +24,11 @@ import {
   type DeviceDiscovery,
   type DiscoveredLocation,
 } from "./utils/adapter-helpers.js";
-import { COSMETIC_FIELDS } from "./constants.js";
+import {
+  COSMETIC_FIELDS,
+  GOOGLE_MAPS_TEXT,
+  GOOGLE_POLLEN_SOURCE_TEXT,
+} from "./constants.js";
 // Sensor detection / integration pick / location auto-select are shared with
 // the card editor and the badge via src/utils/autodetect.js. The adapter
 // imports kept below are the ones still used by the header label-resolution
@@ -56,6 +64,10 @@ import {
   iconMoreInfoEnabled,
 } from "./rendering/level-circle-mixin.js";
 import { ringIconStyles } from "./rendering/ring-icon-styles.js";
+import {
+  googleAttributionTypography,
+  googleAttributionColor,
+} from "./rendering/google-attribution-styles.js";
 import type { HomeAssistant, UnsubscribeFunc } from "./types/home-assistant.js";
 import type { CardConfig, RawCardConfig } from "./types/config.js";
 import type { PollenSensor } from "./types/sensor.js";
@@ -1068,11 +1080,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // resolve; there the two are kept in step by the shared
         // scopeManualEntities call further down instead.
         const kleenexResolved = kleenexWanted
-          ? kleenexAutodetect?.resolveLocation?.(
+          ? (kleenexAutodetect?.resolveLocation?.(
               hass,
               kleenexDiscovery,
               kleenexWanted,
-            ) ?? null
+            ) ?? null)
           : null;
         // More than one location answers to the configured value, so naming
         // either would be a guess: derive no label and let the header fall
@@ -1082,8 +1094,12 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         let title = kleenexMatch ? kleenexMatch[1].label : "";
 
         if (!title && !kleenexAmbiguous) {
-          const isKleenexState = (s: unknown): s is { entity_id: string; attributes: Record<string, any> } =>
-            !!s && typeof s === "object" && typeof (s as { entity_id?: unknown }).entity_id === "string";
+          const isKleenexState = (
+            s: unknown,
+          ): s is { entity_id: string; attributes: Record<string, any> } =>
+            !!s &&
+            typeof s === "object" &&
+            typeof (s as { entity_id?: unknown }).entity_id === "string";
 
           let match = null;
           if (cfg.location === "manual") {
@@ -1280,7 +1296,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         // friendly location name. Reuses gpDiscovery computed in set hass().
         const wantedLocation =
           cfg.location && cfg.location !== "manual" ? cfg.location : "";
-        const gpMatch = resolveLocationByKey(gpDiscovery as DeviceDiscovery, wantedLocation);
+        const gpMatch = resolveLocationByKey(
+          gpDiscovery as DeviceDiscovery,
+          wantedLocation,
+        );
         // Defensive: same rationale as the GPL branch above.
         const title = gpMatch ? cleanDeviceLabel(gpMatch[1].label) : "";
 
@@ -2144,6 +2163,34 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     return rows;
   }
 
+  /**
+   * Google attribution footer (issue #338). The Google Pollen API attribution
+   * policy requires the "Google Maps" wordmark and the source line to be shown
+   * verbatim and always visible wherever the data is displayed, so the strings
+   * are never localized and never hidden behind a tooltip. Only the
+   * Google-backed adapters render it; every other integration gets no extra
+   * DOM node at all.
+   */
+  _renderGoogleAttribution(): TemplateResult | typeof nothing {
+    const integration = this.config.integration;
+    if (
+      (integration !== "gpl" && integration !== "gp") ||
+      this.config.show_google_attribution === false
+    ) {
+      return nothing;
+    }
+    // The policy colour is picked from HA's own dark-mode flag rather than from
+    // the document's color-scheme, which can disagree with the active theme.
+    const color = googleAttributionColor(this._hass);
+    return html`<div
+      class="google-attribution"
+      style="--pp-google-attribution-color: ${color};"
+    >
+      <span class="google-attribution-maps">${GOOGLE_MAPS_TEXT}</span
+      ><span> — ${GOOGLE_POLLEN_SOURCE_TEXT}</span>
+    </div>`;
+  }
+
   override render(): TemplateResult {
     if (!this.config) return html``;
 
@@ -2173,7 +2220,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       } else if (this._availableSensorCount === 0) {
         const staleStatus = this._getStaleStatus();
         if (staleStatus.hasStale) {
-          return html` <ha-card> ${this._renderStaleDataHtml()} </ha-card> `;
+          // Same reasoning as the all-stale return below: what is on screen is
+          // Google's data, only old, so the attribution goes with it.
+          return html`
+            <ha-card>
+              ${this._renderStaleDataHtml()}${this._renderGoogleAttribution()}
+            </ha-card>
+          `;
         }
         errorMsg = this._t("card.error_no_sensors");
         return html`
@@ -2183,8 +2236,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         `;
       } else if (this._noPollenData) {
         // Entities exist and at least one has a real reading, all below
-        // threshold: genuine no pollen.
-        return html` <ha-card> ${this._renderNoAllergensHtml()} </ha-card> `;
+        // threshold: genuine no pollen. "No pollen" is itself a conclusion
+        // drawn from Google's readings, so the attribution goes with it.
+        return html`
+          <ha-card>
+            ${this._renderNoAllergensHtml()}${this._renderGoogleAttribution()}
+          </ha-card>
+        `;
       } else {
         // Entities exist but none have usable forecast data: a data problem,
         // not "no pollen". Show the no-info visual (the no_allergens silhouette
@@ -2200,7 +2258,17 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
     const staleStatus = this._getStaleStatus();
     if (staleStatus.allStale) {
-      return html` <ha-card> ${this._renderStaleDataHtml()} </ha-card> `;
+      // Stale readings are still Google's data, only old, so the attribution
+      // has to stay with them (as does the no-allergens result above, which is
+      // a conclusion drawn from real readings). The remaining early returns
+      // (loading, error, no-data) show nothing sourced from Google and stay
+      // footer-free; the gate in _renderGoogleAttribution keeps this a no-op
+      // for every other integration.
+      return html`
+        <ha-card>
+          ${this._renderStaleDataHtml()}${this._renderGoogleAttribution()}
+        </ha-card>
+      `;
     }
 
     // Every remaining sensor is no-data (e.g. a threshold-0 config where each
@@ -2235,7 +2303,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         style="${cardStyle}"
         @click="${hasTap ? this._handleTapAction : null}"
       >
-        ${cardContent}
+        ${cardContent}${this._renderGoogleAttribution()}
       </ha-card>
     `;
   }
@@ -2570,6 +2638,18 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         color: var(--secondary-text-color);
         font-size: 0.85em;
         margin-top: 0.25em;
+      }
+
+      /* Google attribution footer (#338); the policy-mandated typography is
+         shared with the editor rows via googleAttributionTypography. */
+      .google-attribution {
+        ${googleAttributionTypography}
+        padding: 4px 16px 8px;
+        text-align: center;
+      }
+
+      .google-attribution-maps {
+        white-space: nowrap;
       }
 
       /* Per-allergen stale indicator */

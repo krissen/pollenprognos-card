@@ -5,12 +5,13 @@ import type {
   EntityRegistryDisplayEntry,
 } from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
-import { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
+import { isGoogleAttribution, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
 import {
   discoverEntitiesByDevice,
   resolveLocationByKey,
   isConfigEntryId,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../../utils/adapter-helpers.js";
 import { cleanDeviceLabel } from "../../utils/device-label.js";
 
@@ -115,9 +116,9 @@ export function isGplDataSensor(state: HassEntity | undefined): boolean {
  *
  * Tier 1: device identifier match (platform "pollenlevels" in device.identifiers).
  * Tier 2: entity registry scan filtering by entry.platform === "pollenlevels".
- * Tier 3: attribution scan -- filters states by GPL_ATTRIBUTION attribute.
+ * Tier 3: attribution scan -- filters states by isGoogleAttribution().
  */
-export function discoverGplSensors(
+function discoverGplSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): GplDiscovery {
@@ -149,7 +150,12 @@ export function discoverGplSensors(
       Object.keys(h.states).filter((eid) => {
         const s = h.states[eid];
         return (
-          s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s)
+          isGoogleAttribution(s?.attributes?.attribution) &&
+          // GP (svenove/google_pollen) publishes no attribution today;
+          // exclude its ids so a future upstream addition can't leak its
+          // sensors into GPL discovery.
+          !eid.startsWith("sensor.google_pollen_") &&
+          isGplDataSensor(s)
         );
       }),
 
@@ -179,6 +185,13 @@ export function discoverGplSensors(
 
   return { locations };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverGplSensors = memoizeByHass(discoverGplSensorsUncached);
 
 /**
  * Get available allergen keys for a given location (config_entry_id).
@@ -243,7 +256,11 @@ function resolveEntityId(
       candidateIds = Object.keys(hass.states || {}).filter((eid) => {
         const s = hass.states[eid];
         return (
-          s?.attributes?.attribution === GPL_ATTRIBUTION && isGplDataSensor(s)
+          isGoogleAttribution(s?.attributes?.attribution) &&
+          // See fallbackSelector above: keep GP entity ids out of GPL
+          // manual-mode candidates even if GP ever gains an attribution.
+          !eid.startsWith("sensor.google_pollen_") &&
+          isGplDataSensor(s)
         );
       });
     }

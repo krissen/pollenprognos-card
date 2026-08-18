@@ -3,11 +3,16 @@ import {
   fetchForecast,
   stubConfigGPL,
   GPL_BASE_ALLERGENS,
-  GPL_ATTRIBUTION,
+  isGoogleAttribution,
   discoverGplSensors,
   classifySensor,
 } from "../../src/adapters/gpl/index.js";
-import { createHass, assertSensorShape } from "../helpers.js";
+import {
+  createHass,
+  assertSensorShape,
+  GPL_ATTRIBUTION,
+  GPL_ATTRIBUTION_LEGACY,
+} from "../helpers.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,7 +106,7 @@ function makeHassPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {})
 }
 
 // ---------------------------------------------------------------------------
-// GPL_BASE_ALLERGENS and GPL_ATTRIBUTION
+// GPL_BASE_ALLERGENS and isGoogleAttribution
 // ---------------------------------------------------------------------------
 
 describe("GPL_BASE_ALLERGENS", () => {
@@ -114,10 +119,95 @@ describe("GPL_BASE_ALLERGENS", () => {
   });
 });
 
-describe("GPL_ATTRIBUTION", () => {
-  it("is a non-empty string", () => {
-    expect(typeof GPL_ATTRIBUTION).toBe("string");
-    expect(GPL_ATTRIBUTION.length).toBeGreaterThan(0);
+describe("isGoogleAttribution", () => {
+  it("matches the current pollenlevels attribution", () => {
+    expect(isGoogleAttribution(GPL_ATTRIBUTION)).toBe(true);
+  });
+
+  // pollenlevels reworded the attribution in v3.0.0rc3. Both wordings are in
+  // the field, so dropping either one blinds tier-3 discovery for half the
+  // installed base (#338).
+  it("matches the legacy pollenlevels attribution verbatim", () => {
+    expect(isGoogleAttribution(GPL_ATTRIBUTION_LEGACY)).toBe(true);
+  });
+
+  it("matches when the current wording is embedded in a longer string", () => {
+    expect(
+      isGoogleAttribution(
+        `Data: ${GPL_ATTRIBUTION} (fetched 2026-08-11), all rights reserved`,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match a reworded legacy string", () => {
+    // The legacy branch is an exact comparison on purpose: it carries no
+    // distinctive substring that another source could not also use.
+    expect(
+      isGoogleAttribution("Data provided by Google Maps Pollen API v2"),
+    ).toBe(false);
+  });
+
+  it("does not match an unrelated attribution", () => {
+    expect(isGoogleAttribution("Other source")).toBe(false);
+    expect(isGoogleAttribution("")).toBe(false);
+  });
+
+  it("does not match non-string values", () => {
+    expect(isGoogleAttribution(undefined)).toBe(false);
+    expect(isGoogleAttribution(null)).toBe(false);
+    expect(isGoogleAttribution(42)).toBe(false);
+    expect(isGoogleAttribution({ attribution: GPL_ATTRIBUTION })).toBe(false);
+    expect(isGoogleAttribution([GPL_ATTRIBUTION])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tier-3 (attribution scan) hardening: legacy wording still discovered, GP
+// entity ids never adopted (#338).
+// ---------------------------------------------------------------------------
+
+describe("discoverGplSensors: tier-3 attribution scan hardening (#338)", () => {
+  it("discovers sensors carrying the legacy attribution string", () => {
+    // Protects pollenlevels <= 3.0.0rc2 installs, which have no entity
+    // registry entry in these fixtures and rely entirely on tier 3.
+    const hass = makeHassAttribution({
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 3, [], {
+        attribution: GPL_ATTRIBUTION_LEGACY,
+      }),
+      "sensor.pollenlevels_birch": makePlantSensor("birch", 4, [], {
+        attribution: GPL_ATTRIBUTION_LEGACY,
+      }),
+    });
+    const result = discoverGplSensors(hass);
+    const [, loc] = [...result.locations.entries()][0]!;
+    expect(loc.entities.get("grass_cat")).toBe("sensor.pollenlevels_grass");
+    expect(loc.entities.get("birch")).toBe("sensor.pollenlevels_birch");
+  });
+
+  it("never adopts sensor.google_pollen_* entities, attribution or not", () => {
+    // GP (svenove/google_pollen) publishes no attribution today; if it ever
+    // does, its sensors must not leak into GPL discovery.
+    const hass = makeHassAttribution({
+      "sensor.google_pollen_grass": makeTypeSensor("mdi:grass", 3),
+      "sensor.google_pollen_birch": makePlantSensor("birch", 4, [], {
+        attribution: GPL_ATTRIBUTION_LEGACY,
+      }),
+    });
+    const result = discoverGplSensors(hass);
+    expect(result.locations.size).toBe(0);
+  });
+
+  it("keeps the GPL sensors when GP sensors sit alongside them", () => {
+    const hass = makeHassAttribution({
+      "sensor.google_pollen_grass": makeTypeSensor("mdi:grass", 3),
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", 2),
+    });
+    const result = discoverGplSensors(hass);
+    const [, loc] = [...result.locations.entries()][0]!;
+    expect(loc.entities.get("grass_cat")).toBe("sensor.pollenlevels_grass");
+    expect([...loc.entities.values()]).not.toContain(
+      "sensor.google_pollen_grass",
+    );
   });
 });
 

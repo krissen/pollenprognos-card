@@ -704,6 +704,17 @@ export async function fetchForecast(
     // Skip allergens not requested in config.
     if (!configuredAllergens.includes(canonicalName)) continue;
 
+    // A DetailSensor reporting a non-numeric state (`unknown`, `unavailable`,
+    // …) is not usable as data -- treating it as 0 ppm would mask real outages
+    // and falsely suppress the NA warning -- and it is not usable as a link
+    // target either: the row's numbers then come from the working category
+    // sensor, so opening the dead entity shows the user nothing (issue #326).
+    // A blank state is counted out explicitly: Number("") is 0, which would
+    // otherwise pass as a real reading of zero ppm.
+    const rawState = String(sensor.state ?? "").trim();
+    const parsedState = Number(rawState);
+    const hasUsableState = rawState !== "" && Number.isFinite(parsedState);
+
     // Only fill slots not already populated by category-sensor pass -- but
     // adopt the entity either way. The reading may well have come from the
     // category sensor's details (that pass runs first and wins on data), while
@@ -717,22 +728,22 @@ export async function fetchForecast(
       const derivedFromCategory =
         alreadyCollected.source === "individual_details" ||
         alreadyCollected.source === "individual_forecast";
-      if (derivedFromCategory) {
+      if (derivedFromCategory && hasUsableState) {
         alreadyCollected.entity_id = sensor.entity_id;
         if (debug) {
           console.debug(
             `[Kleenex] DetailSensor ${sensor.entity_id} adopted as the entity for ${canonicalName}`,
           );
         }
+      } else if (derivedFromCategory && debug) {
+        console.debug(
+          `[Kleenex] DetailSensor ${sensor.entity_id} has state '${sensor.state}'; ${canonicalName} keeps ${alreadyCollected.entity_id} as its more-info target`,
+        );
       }
       continue;
     }
 
-    // Skip when the sensor reports a non-numeric state (`unknown`,
-    // `unavailable`, etc.) — treating those as 0 ppm would mask real
-    // outages and falsely suppress the NA warning.
-    const parsedState = Number(sensor.state);
-    if (!Number.isFinite(parsedState)) continue;
+    if (!hasUsableState) continue;
 
     if (debug) {
       console.debug(

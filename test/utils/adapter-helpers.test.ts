@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import type { HomeAssistant } from "../../src/types/home-assistant.js";
 import {
+  memoizeByHass,
+  recordDiscoveryScan,
   discoverEntitiesByDevice,
   deviceLocationKey,
   findLocationBySlug,
@@ -1308,5 +1311,212 @@ describe("resolveAllergenNames", () => {
     });
     expect(allergenCapitalized).toBe("Grass");
     expect(allergenShort).toBe("Grass");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// memoizeByHass — per-update-cycle discovery memoization (issue #321)
+// ---------------------------------------------------------------------------
+
+describe("memoizeByHass", () => {
+  const makeHass = (id: string) =>
+    ({ states: {}, entities: {}, devices: {}, id }) as unknown as HomeAssistant;
+
+  it("runs once per hass object and hands back the same reference", () => {
+    const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
+    const memoized = memoizeByHass(inner);
+    const hass = makeHass("a");
+
+    const first = memoized(hass);
+    const second = memoized(hass);
+    const third = memoized(hass);
+
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+    expect(third).toBe(first);
+  });
+
+  it("recomputes when Home Assistant swaps the hass object", () => {
+    const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
+    const memoized = memoizeByHass(inner);
+
+    const first = memoized(makeHass("tick-1"));
+    const second = memoized(makeHass("tick-2"));
+
+    expect(inner).toHaveBeenCalledTimes(2);
+    expect(second).not.toBe(first);
+  });
+
+  it("passes a falsy or non-object hass straight through, uncached", () => {
+    const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
+    const memoized = memoizeByHass(inner);
+
+    expect(() =>
+      memoized(null as unknown as HomeAssistant),
+    ).not.toThrow();
+    memoized(null as unknown as HomeAssistant);
+    memoized(undefined as unknown as HomeAssistant);
+    memoized("hass" as unknown as HomeAssistant);
+
+    expect(inner).toHaveBeenCalledTimes(4);
+  });
+
+  it("caches an empty result rather than recomputing it", () => {
+    // A discovery that legitimately finds nothing must not be re-run for every
+    // subsequent caller in the same tick; probing the WeakMap with `has` (not
+    // comparing the stored value against undefined) is what makes it stick.
+    const nullish = vi.fn((_hass: HomeAssistant) => null);
+    const memoizedNull = memoizeByHass(nullish);
+    const undef = vi.fn((_hass: HomeAssistant) => undefined);
+    const memoizedUndef = memoizeByHass(undef);
+    const hass = makeHass("a");
+
+    expect(memoizedNull(hass)).toBeNull();
+    expect(memoizedNull(hass)).toBeNull();
+    expect(nullish).toHaveBeenCalledTimes(1);
+
+    expect(memoizedUndef(hass)).toBeUndefined();
+    expect(memoizedUndef(hass)).toBeUndefined();
+    expect(undef).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores extra arguments in the cache key (first call wins)", () => {
+    const inner = vi.fn((_hass: HomeAssistant, debug = false) => ({ debug }));
+    const memoized = memoizeByHass(inner);
+    const hass = makeHass("a");
+
+    const quiet = memoized(hass, false);
+    const loud = memoized(hass, true);
+
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(inner).toHaveBeenCalledWith(hass, false);
+    expect(loud).toBe(quiet);
+    expect(loud.debug).toBe(false);
+  });
+
+  it("counts uncached calls under countTag once the counter exists", () => {
+    // The suite runs in the node environment, so there is no window unless a
+    // test installs one — which doubles as the production no-op check below.
+    const fakeWindow = { __ppDiscoveryScans: {} as Record<string, number> };
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      const memoized = memoizeByHass(() => ({}), "unit-tag");
+      const hass = makeHass("a");
+      memoized(hass);
+      memoized(hass);
+      memoized(makeHass("b"));
+
+      expect(fakeWindow.__ppDiscoveryScans["unit-tag"]).toBe(2);
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
+  it("is inert when the counter object has not been opted into", () => {
+    const fakeWindow: { __ppDiscoveryScans?: Record<string, number> } = {};
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      const memoized = memoizeByHass(() => ({}), "unit-tag");
+      memoized(makeHass("a"));
+      expect(fakeWindow.__ppDiscoveryScans).toBeUndefined();
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
+  it("installs the counter itself when called with debug", () => {
+    // debug is forwarded to the counter, so a debug-enabled run bootstraps the
+    // tally exactly like the engine's own does. Without this, the sweeps that
+    // never reach the engine (kleenexDeviceIds, atmo detectLocation) could only
+    // ever be measured by someone who had created the global by hand first.
+    const fakeWindow: { __ppDiscoveryScans?: Record<string, number> } = {};
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      const memoized = memoizeByHass(() => ({}), "unit-tag");
+      memoized(makeHass("a"), true);
+      memoized(makeHass("b"), true);
+      expect(fakeWindow.__ppDiscoveryScans).toEqual({ "unit-tag": 2 });
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
+  it("rejects a function whose extra argument selects what to discover", () => {
+    // Compile-time guard, not a runtime assertion: discoverGplAllergens-style
+    // signatures (hass, configEntryId, debug) must stay unwrappable, since the
+    // editor calls them with different config entries under one hass and the
+    // cache key ignores everything but hass. If this ever type-checks, tsc
+    // fails on the unused @ts-expect-error and the guard has been lost.
+    const byEntry = (_hass: HomeAssistant, _configEntryId: string) => ({});
+    // @ts-expect-error - second parameter is not the debug flag
+    memoizeByHass(byEntry);
+  });
+
+  it("does not touch the counter when no window exists", () => {
+    expect(typeof window).toBe("undefined");
+    const memoized = memoizeByHass(() => ({}), "unit-tag");
+    expect(() => memoized(makeHass("a"))).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// recordDiscoveryScan — the instrumentation global is shared with the page
+// ---------------------------------------------------------------------------
+
+describe("recordDiscoveryScan", () => {
+  const withWindow = (
+    value: unknown,
+    body: (win: { __ppDiscoveryScans?: unknown }) => void,
+  ) => {
+    const fakeWindow: { __ppDiscoveryScans?: unknown } = {
+      __ppDiscoveryScans: value,
+    };
+    (globalThis as { window?: unknown }).window = fakeWindow;
+    try {
+      body(fakeWindow);
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  };
+
+  // Anything on window can be clobbered by another script on the dashboard.
+  // Assigning a property to a primitive throws in strict-mode code, so an
+  // unusable value must read as "not opted in" rather than take discovery down.
+  const poisonedValues: [string, unknown][] = [
+    ["a number", 1],
+    ["a string", "on"],
+    ["true", true],
+    ["an array", []],
+  ];
+
+  for (const [label, value] of poisonedValues) {
+    it(`treats ${label} as not opted in and does not throw`, () => {
+      withWindow(value, (win) => {
+        expect(() => recordDiscoveryScan("unit-tag")).not.toThrow();
+        expect(win.__ppDiscoveryScans).toBe(value);
+      });
+    });
+
+    it(`replaces ${label} with a fresh counter when debug is on`, () => {
+      withWindow(value, (win) => {
+        expect(() => recordDiscoveryScan("unit-tag", true)).not.toThrow();
+        expect(win.__ppDiscoveryScans).toEqual({ "unit-tag": 1 });
+      });
+    });
+  }
+
+  it("keeps counting into an existing counter object", () => {
+    withWindow({ "unit-tag": 2 }, (win) => {
+      recordDiscoveryScan("unit-tag");
+      recordDiscoveryScan("other-tag");
+      expect(win.__ppDiscoveryScans).toEqual({ "unit-tag": 3, "other-tag": 1 });
+    });
+  });
+
+  it("restarts a tag whose stored value is not a number", () => {
+    withWindow({ "unit-tag": "many" }, (win) => {
+      recordDiscoveryScan("unit-tag");
+      expect(win.__ppDiscoveryScans).toEqual({ "unit-tag": 1 });
+    });
   });
 });

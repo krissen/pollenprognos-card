@@ -357,6 +357,7 @@
   "editor.show_allergen_column": "Vis allergenkolonne",
   "editor.show_block_separator": "Vis separator mellom blokker",
   "editor.show_empty_days": "Vis tomme dager",
+  "editor.show_google_attribution": "Vis Google-attribusjon",
   "editor.show_no_data_distinct": "Vis \"ingen data\" med tydelig (uklar) stil",
   "editor.show_summary_block": "Vis sammendragsblokk",
   "editor.show_summary_plants_in_season": "Vis planter i sesong",

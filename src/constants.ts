@@ -635,6 +635,13 @@ export const PP_POSSIBLE_CITIES = [
   "Östersund",
 ];
 
+// Attribution strings mandated by Google's Pollen API attribution policy.
+// They are shown verbatim in the card footer for the Google-backed adapters
+// (gpl, gp) and must NEVER be localized or reworded (issue #338).
+export const GOOGLE_MAPS_TEXT = "Google Maps";
+export const GOOGLE_POLLEN_SOURCE_TEXT =
+  "Source: Includes pollen data from Google";
+
 export const COSMETIC_FIELDS = [
   "icon_size",
   "icon_color_mode",
@@ -674,6 +681,9 @@ export const COSMETIC_FIELDS = [
   "show_summary_top_types",
   "show_summary_plants_in_season",
   "show_no_data_distinct",
+  // Pure render toggle for the Google attribution footer (#338): it only
+  // shows/hides already-rendered-independent markup, no data reload needed.
+  "show_google_attribution",
   "icon_in_ring",
   "show_allergen_column",
   "icon_in_ring_color_mode",

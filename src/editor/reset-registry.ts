@@ -12,6 +12,7 @@ export const APPEARANCE_RESET_KEYS = [
   "background_color",
   "icon_size",
   "text_size_ratio",
+  "show_google_attribution",
 ];
 
 // §6 Allergen icons. Static base; the getter conditionally appends

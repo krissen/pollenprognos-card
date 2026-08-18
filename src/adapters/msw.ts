@@ -43,6 +43,7 @@ import {
   resolveLocationByKey,
   type DiscoveryContext,
   type DiscoveredLocation,
+  memoizeByHass,
 } from "../utils/adapter-helpers.js";
 
 // The subset of the discovery result msw uses (config-entry keyed locations).
@@ -164,7 +165,7 @@ function resolveMswLabel(ctx: DiscoveryContext): string {
  *   2. Entity registry: hass.entities filtered by platform === "swissweather".
  *   3. Regex fallback: hass.states scanned for the level-entity pattern.
  */
-export function discoverMswSensors(
+function discoverMswSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): MswDiscovery {
@@ -186,6 +187,13 @@ export function discoverMswSensors(
 
   return { locations };
 }
+
+/**
+ * Memoized per HA update cycle (#321): every code path that reaches
+ * discovery within one tick shares a single sweep. The returned object is
+ * shared -- callers must not mutate it.
+ */
+export const discoverMswSensors = memoizeByHass(discoverMswSensorsUncached);
 
 /**
  * Map allergen keys from config to hass-swissweather entity IDs for the

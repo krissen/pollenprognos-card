@@ -1,6 +1,6 @@
 // src/adapters/gpl/index.ts
 // Public facade: re-exports all named exports from sub-modules.
-export { GPL_ATTRIBUTION, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS, stubConfigGPL, capitalize } from "./constants.js";
+export { isGoogleAttribution, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS, stubConfigGPL, capitalize } from "./constants.js";
 export { classifySensor, isGplDataSensor, discoverGplSensors, discoverGplAllergens, resolveEntityIds } from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
@@ -11,7 +11,7 @@ import type {
   AutodetectDetectResult,
   AutodetectDiscovery,
 } from "../../types/adapter.js";
-import { GPL_ATTRIBUTION as _GPL_ATTRIBUTION } from "./constants.js";
+import { isGoogleAttribution as _isGoogleAttribution } from "./constants.js";
 import { discoverGplSensors as _discoverGplSensors } from "./discovery.js";
 
 /**
@@ -45,9 +45,13 @@ export const autodetect: AdapterAutodetect = {
       ids = ctx.stateIds.filter((id) => {
         const s = hass.states[id];
         return (
-          s?.attributes?.attribution === _GPL_ATTRIBUTION &&
-          s.attributes.device_class !== "date" &&
-          s.attributes.device_class !== "timestamp"
+          _isGoogleAttribution(s?.attributes?.attribution) &&
+          // The GP integration (svenove/google_pollen) publishes no
+          // attribution today; exclude its entity ids anyway so a future
+          // upstream addition can't leak GP sensors into GPL detection.
+          !id.startsWith("sensor.google_pollen_") &&
+          s?.attributes?.device_class !== "date" &&
+          s?.attributes?.device_class !== "timestamp"
         );
       });
     }

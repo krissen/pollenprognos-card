@@ -3568,3 +3568,100 @@ describe("Kleenex adapter: more-info target (issue #317)", () => {
     ).toBe("sensor.kleenex_pollen_radar_paris_trees");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 19. Unavailable detail sensors are not link targets (issue #326)
+// ---------------------------------------------------------------------------
+/**
+ * The adoption above answers "which entity is this row", and an entity that
+ * cannot answer for itself is not it. When a DetailSensor is `unavailable` or
+ * `unknown`, the row's numbers come from the category sensor's `details`
+ * instead, so adopting the dead entity would open a dialog with nothing in it
+ * for a row that is showing perfectly good data.
+ */
+describe("Kleenex adapter: unavailable detail sensors (issue #326)", () => {
+  const unusableStates = ["unavailable", "unknown", ""];
+
+  for (const state of unusableStates) {
+    it(`keeps the category sensor when the DetailSensor is '${state}'`, async () => {
+      const category = makeKleenexEntity(
+        "amsterdam",
+        "trees",
+        200,
+        [{ name: "Birch", value: 150 }],
+        [],
+      );
+      const detailSensor = {
+        entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch",
+        state,
+        attributes: { forecast: [] },
+      };
+      const hass = makeHassFromEntities([category, detailSensor]);
+      const config = makeConfig({
+        location: "amsterdam",
+        allergens: ["birch"],
+        pollen_threshold: 0,
+      });
+
+      const result = await fetchForecast(hass, config);
+
+      const birch = result.find((s) => s.allergenReplaced === "birch")!;
+      expect(birch.entity_id).toBe(
+        "sensor.kleenex_pollen_radar_amsterdam_trees",
+      );
+      // The row itself is unaffected: the reading still comes from the
+      // category sensor's details, as it did before the DetailSensor existed.
+      expect(birch.days[0]!.value).toBe(150);
+    });
+  }
+
+  it("still adopts a DetailSensor reading zero", async () => {
+    // Zero ppm is a real measurement, so the test above must turn on whether
+    // the state parses as a number, not on whether it is truthy.
+    const category = makeKleenexEntity(
+      "amsterdam",
+      "trees",
+      200,
+      [{ name: "Birch", value: 150 }],
+      [],
+    );
+    const detailSensor = {
+      entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch",
+      state: "0",
+      attributes: { forecast: [] },
+    };
+    const hass = makeHassFromEntities([category, detailSensor]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    const birch = result.find((s) => s.allergenReplaced === "birch")!;
+    expect(birch.entity_id).toBe("sensor.kleenex_pollen_radar_amsterdam_birch");
+  });
+
+  it("drops an allergen the category cannot cover either", async () => {
+    // Nothing changes for the case the isFinite check was written for: with no
+    // category reading to fall back on, an unavailable DetailSensor yields no
+    // row rather than a zero one.
+    const category = makeKleenexEntity("amsterdam", "trees", 200, [], []);
+    const detailSensor = {
+      entity_id: "sensor.kleenex_pollen_radar_amsterdam_birch",
+      state: "unavailable",
+      attributes: { forecast: [] },
+    };
+    const hass = makeHassFromEntities([category, detailSensor]);
+    const config = makeConfig({
+      location: "amsterdam",
+      allergens: ["birch"],
+      pollen_threshold: 0,
+    });
+
+    const result = await fetchForecast(hass, config);
+
+    expect(result.find((s) => s.allergenReplaced === "birch")).toBeUndefined();
+  });
+});

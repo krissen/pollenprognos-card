@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.2.0] - 2026-08-11
+
+### Added
+
+- **Google attribution for the two Google-backed integrations** (issue #338).
+  Google Pollen Levels and Google Pollen now credit their source the way
+  Google's Pollen API attribution policy requires: the card renders the
+  "Google Maps" wordmark and the line "Source: Includes pollen data from
+  Google" as a footer, the visual editor repeats it under the integration
+  picker, and the badge shows the Google Maps pin in its corner with the full
+  string as a hover title. The strings are never translated -- the policy
+  prescribes their wording. Attribution is on by default and can be turned off
+  with `show_google_attribution: false`, which hides the card footer and the
+  badge pin but not the editor row. No other integration renders anything new.
+
+### Changed
+
+- **Discovery now runs at most once per HA state update per integration**
+  (issue #321). Every code path that needs to find your sensors -- the card,
+  the badge, the visual editor and the forecast fetch -- used to repeat the
+  full entity scan on its own, several times per update. They now share one
+  scan per update, which is most noticeable on dashboards that show a card
+  and a badge together, or that have the editor open.
+- **The editor's discovery logging follows the card's debug flag.** It was
+  hardcoded to stay quiet, so its scans logged nothing even with debugging
+  turned on.
+
+### Fixed
+
+- **Kleenex: tapping a row could open an unavailable sensor** (issue #326).
+  When an allergen has its own detail sensor, that sensor is what the row
+  opens -- but it was adopted as the tap target even when it was unavailable
+  or unknown, leaving a row that showed perfectly good numbers from the
+  category sensor and opened an empty dialog. Such a row now keeps the
+  category sensor it read its numbers from. A detail sensor reporting a blank
+  state is treated the same way; it used to count as a genuine reading of
+  zero.
+- **GPL: the discovery fallback did not know pollenlevels 3.0.0rc3's new
+  attribution string** (issue #338). GPL finds its sensors through the device
+  registry first and the entity registry second; only when both are
+  unavailable does it fall back to scanning states for the integration's
+  attribution text. That last path matched one exact string, and upstream
+  reworded it in 3.0.0rc3, so setups that depended on the fallback found
+  nothing. It now recognizes both the current and the legacy wording. The same
+  three call sites also skip `sensor.google_pollen_*` entities, so the separate
+  Google Pollen integration can never be mistaken for a GPL sensor.
+
 ## [4.1.0] - 2026-08-05
 
 ### Added

@@ -748,6 +748,101 @@ export function resolvePhraseOverride(
  */
 const _canonicalPhraseCache = new WeakMap<object, Record<string, string>>();
 
+/**
+ * Count one uncached entity-discovery sweep under `tag`.
+ *
+ * Opt-in instrumentation for before/after measurements of the discovery
+ * memoization (#321): it is a no-op unless `window.__ppDiscoveryScans` already
+ * holds a plain object, or `debug` is true (in which case one is installed).
+ * A tester can therefore enable it live from the browser console with
+ * `window.__ppDiscoveryScans = {}` without editing the card config, and
+ * production installs pay nothing but one property read per sweep.
+ *
+ * The global is shared with everything else on the page, so its value is
+ * type-guarded rather than trusted: a non-object (or an array) left there by
+ * another script counts as "not opted in", since assigning a property to a
+ * primitive throws in the module's strict-mode code and would take discovery
+ * down with it.
+ *
+ * @param {string} tag - Counter key, typically the adapter's discovery logTag.
+ * @param {boolean} [debug] - When true, install a counter object if the global
+ *   is missing or holds something unusable.
+ */
+export function recordDiscoveryScan(tag: string, debug = false): void {
+  if (typeof window === "undefined") return;
+  const existing: unknown = window.__ppDiscoveryScans;
+  const usable =
+    !!existing && typeof existing === "object" && !Array.isArray(existing);
+  if (!usable) {
+    if (!debug) return;
+    window.__ppDiscoveryScans = {};
+  }
+  const counters = window.__ppDiscoveryScans!;
+  const previous = counters[tag];
+  counters[tag] = (typeof previous === "number" ? previous : 0) + 1;
+}
+
+/**
+ * Memoize a discovery function on the identity of the `hass` object.
+ *
+ * Home Assistant hands the card a NEW `hass` object on every state update, so
+ * a WeakMap keyed on that object caches only within one update cycle: the
+ * card, the badge, the editors and every adapter code path (detection,
+ * resolveEntityIds, fetchForecast) share one result per tick, and the entry
+ * becomes unreachable as soon as HA moves on. There is no staleness window and
+ * no cache invalidation to get wrong.
+ *
+ * Two contracts callers must respect:
+ *
+ * 1. **The result is shared — never mutate it.** All code paths within a tick
+ *    get the same object reference, so mutating a returned discovery (adding
+ *    to `locations`/`entities`, deleting a location) leaks into unrelated
+ *    callers. Copy before modifying.
+ * 2. **`hass` is the whole cache key.** The signature therefore admits only
+ *    the discovery shape `(hass, debug?)`: `debug` is passed through on a miss
+ *    and ignored on a hit (the first call of a tick wins, so a later call with
+ *    `debug: true` returns the cached result without logging), which is
+ *    harmless because it only affects logging. A function taking a further
+ *    argument that selects WHAT to discover — `discoverGplAllergens(hass,
+ *    configEntryId, debug)` and its GP twin, which the editor calls with
+ *    different config entries under one `hass` — must not be wrapped: it would
+ *    silently serve the first entry's data to every later entry. Keeping the
+ *    parameter list narrow turns that mistake into a compile error instead of
+ *    a wrong-location bug.
+ *
+ * A falsy or non-object `hass` is passed straight through uncached (WeakMap
+ * keys must be objects, and adapters already handle a missing `hass`).
+ *
+ * Wrap once, at module level (`export const discoverX = memoizeByHass(...)`):
+ * the WeakMap is created when the wrapper is created, so a wrapper built
+ * inside a function caches nothing.
+ *
+ * @param fn - Discovery function taking `hass` and an optional `debug` flag.
+ * @param countTag - Optional instrumentation tag; when given, every uncached
+ *   call is counted via {@link recordDiscoveryScan}, with `debug` forwarded so
+ *   a debug-enabled call installs the counter object exactly as the engine's
+ *   own tally does. Leave unset for functions that already count their own
+ *   sweep inside `discoverEntitiesByDevice`, otherwise the same sweep is
+ *   counted twice under two keys. It exists for the sweeps that never reach
+ *   the engine and so count nothing on their own: Kleenex's `kleenexDeviceIds`
+ *   (#322) and Atmo's `detectLocation` (#323).
+ * @returns A wrapper with the same signature as `fn`.
+ */
+export function memoizeByHass<R>(
+  fn: (hass: HomeAssistant, debug?: boolean) => R,
+  countTag?: string,
+): (hass: HomeAssistant, debug?: boolean) => R {
+  const cache = new WeakMap<object, R>();
+  return (hass: HomeAssistant, debug?: boolean): R => {
+    if (!hass || typeof hass !== "object") return fn(hass, debug);
+    if (cache.has(hass)) return cache.get(hass) as R;
+    const result = fn(hass, debug);
+    if (countTag) recordDiscoveryScan(countTag, debug);
+    cache.set(hass, result);
+    return result;
+  };
+}
+
 function getCanonicalPhraseIndex(phrases: PhraseMap): Record<string, string> {
   // Arrays satisfy typeof === "object" but would index numeric keys into a
   // meaningless map; the editor type-guards phrases.full/short to non-array
@@ -1128,6 +1223,9 @@ export function discoverEntitiesByDevice(
       : [];
   const logTag =
     opts.logTag || (platforms.length > 0 ? platforms[0] : "discovery");
+  // Every call here is a full registry sweep; memoized callers reach this
+  // point only on a cache miss, so the tally is the before/after metric.
+  recordDiscoveryScan(logTag || "discovery", debug);
   const classifyStrict = classify || (() => null);
   const classifyTier1 = classifyRelaxed || classifyStrict;
 

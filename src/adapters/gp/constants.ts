@@ -548,6 +548,9 @@ export const stubConfigGP: AdapterStubConfig = {
   pollen_threshold: 1,
   sort: "value_descending",
   sort_category_allergens_first: true,
+  // Google's attribution policy requires visible attribution for pollen data
+  // sourced from Google, so this defaults on; the user may still opt out (#338).
+  show_google_attribution: true,
   allergens_abbreviated: false,
   date_locale: undefined,
   title: undefined,
