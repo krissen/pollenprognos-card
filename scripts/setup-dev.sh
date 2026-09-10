@@ -12,8 +12,9 @@
 # script detects that case and skips straight to telling you the one
 # command you need.
 #
-# Idempotent: safe to re-run any time (e.g. after `.pre-commit-config.yaml`
-# changes bump the pinned prek version).
+# Idempotent: safe to re-run any time (e.g. after .github/workflows/test.yml
+# bumps the pinned prek version -- installed version is checked and
+# reinstalled/upgraded if it doesn't match).
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -29,17 +30,41 @@ if [ -n "$hooks_path" ]; then
 	exit 0
 fi
 
+# Single source of truth for the pinned version: the same
+# `pipx run --spec prek==X.Y.Z` CI uses in .github/workflows/test.yml.
+# A mismatched local prek would run a different quality gate than CI.
+prek_version=$(grep -o 'prek==[0-9][0-9.]*' .github/workflows/test.yml | head -n1 | cut -d= -f3)
+if [ -z "$prek_version" ]; then
+	echo "could not read the pinned prek version from .github/workflows/test.yml"
+	exit 1
+fi
+
+installed_version=""
 if command -v prek >/dev/null 2>&1; then
-	echo "prek already installed ($(prek --version))"
+	installed_version=$(prek --version | awk '{print $2}')
+fi
+
+if [ "$installed_version" = "$prek_version" ]; then
+	echo "prek $installed_version already installed (matches the pinned version)"
 elif command -v pipx >/dev/null 2>&1; then
-	echo "installing prek==0.5.2 via pipx"
-	pipx install "prek==0.5.2"
+	if [ -n "$installed_version" ]; then
+		echo "installed prek $installed_version does not match pinned $prek_version -- reinstalling via pipx"
+		pipx install --force "prek==$prek_version"
+	else
+		echo "installing prek==$prek_version via pipx"
+		pipx install "prek==$prek_version"
+	fi
 elif command -v uv >/dev/null 2>&1; then
-	echo "installing prek==0.5.2 via uv tool"
-	uv tool install "prek==0.5.2"
+	echo "installing prek==$prek_version via uv tool (force, in case a different version is on PATH)"
+	uv tool install --force "prek==$prek_version"
 else
-	echo "missing: prek, and neither pipx nor uv is installed to fetch it."
-	echo "Install pipx or uv, or install prek directly:"
+	if [ -n "$installed_version" ]; then
+		echo "installed prek $installed_version does not match pinned $prek_version,"
+		echo "and neither pipx nor uv is installed to fix it."
+	else
+		echo "missing: prek, and neither pipx nor uv is installed to fetch it."
+	fi
+	echo "Install pipx or uv, or install prek==$prek_version directly:"
 	echo "  https://github.com/j178/prek#installation"
 	exit 1
 fi
