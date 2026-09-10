@@ -1,16 +1,21 @@
 #!/bin/sh
 # npm run setup — one-command contributor bootstrap for the local quality
-# gate. This is "path (a)" from CONTRIBUTING.md: an ordinary clone gets
-# prek + gitleaks installed and the hooks in .pre-commit-config.yaml wired
-# into this clone's own .git/hooks via `prek install`.
+# gate. Always installs the command-line prerequisites (prek, gitleaks) that
+# `npm run check` needs, regardless of how this machine wires Git hooks.
 #
-# Maintainer machines that route all repos through a global
-# core.hooksPath dispatcher are "path (b)": that dispatcher already runs
-# prek when `git config prek.enabled true` is set, and `prek install`
-# actively refuses to install into .git/hooks when core.hooksPath points
-# outside the repo (verified: exit 2, "Refusing to install hooks"). This
-# script detects that case and skips straight to telling you the one
-# command you need.
+# Wiring the hooks into commit/push is "path (a)" from CONTRIBUTING.md,
+# for an ordinary clone: `prek install` / `prek install --hook-type
+# pre-push` writes them into this clone's own .git/hooks.
+#
+# "Path (b)" is a maintainer machine that routes ALL repos' hooks through a
+# global core.hooksPath dispatcher: `prek install` actively refuses to
+# write into .git/hooks there (verified: exit 2, "Refusing to install
+# hooks because core.hooksPath is configured outside this repository"),
+# because Git would never read that file anyway. Any core.hooksPath value
+# means this clone's own .git/hooks won't run -- not just the one
+# maintainer dispatcher this repo happens to use -- so hook installation
+# is skipped whenever it's set, without trying to identify which
+# dispatcher it is. The binaries are still installed either way.
 #
 # Idempotent: safe to re-run any time (e.g. after .github/workflows/test.yml
 # bumps the pinned prek version -- installed version is checked and
@@ -19,16 +24,6 @@ set -eu
 cd "$(dirname "$0")/.."
 
 echo "npm run setup: bootstrapping the local quality gate"
-
-hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
-if [ -n "$hooks_path" ]; then
-	echo "core.hooksPath is set to '$hooks_path' (maintainer-machine"
-	echo "convention) -- prek install would refuse here anyway. Run:"
-	echo "  git config prek.enabled true"
-	echo "instead; the dispatcher at $hooks_path already runs prek for any"
-	echo "repo that opts in that way. See CONTRIBUTING.md for details."
-	exit 0
-fi
 
 # Single source of truth for the pinned version: the same
 # `pipx run --spec prek==X.Y.Z` CI uses in .github/workflows/test.yml.
@@ -76,6 +71,18 @@ else
 	echo "  brew install gitleaks"
 	echo "or download a release: https://github.com/gitleaks/gitleaks/releases"
 	exit 1
+fi
+
+hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
+if [ -n "$hooks_path" ]; then
+	echo "core.hooksPath is set to '$hooks_path', so this clone's own"
+	echo ".git/hooks won't run -- skipping 'prek install' (it would refuse"
+	echo "anyway). If that path already runs prek for opted-in repos (the"
+	echo "maintainer-machine convention), run:"
+	echo "  git config prek.enabled true"
+	echo "Otherwise wire prek into whatever '$hooks_path' runs yourself."
+	echo "prek and gitleaks are installed; 'npm run check' works regardless."
+	exit 0
 fi
 
 prek install
