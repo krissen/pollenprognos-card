@@ -7,18 +7,24 @@
 #
 # Runs prek AND a standalone eslint/prettier check-mode pass on purpose:
 # `prek run --all-files` resolves its file list from git (tracked files),
-# so a newly written, still-untracked module is invisible to it. Worse,
-# prek's eslint/prettier hooks autofix and report "Passed" once the fix is
-# applied — a bare `prek run` can silently launder a lint error into a
-# green run. The explicit `eslint .` (no --fix) and `prettier --check .`
-# below scan the whole working tree in report-only mode and catch both
-# gaps; `gitleaks dir .` closes the same hole for the gitleaks hook (its
-# `--staged` default sees zero files when nothing is staged).
+# so a newly written, still-untracked file is invisible to it -- a lint
+# or format issue in it goes entirely unseen by prek, not autofixed and
+# not reported either way. (For a file prek DOES see, its own
+# before/after diff check catches an autofix: changing a tracked file
+# marks that hook Failed, so a fix prek just applied is never silently
+# reported "Passed".) The explicit `eslint .` (no --fix) and
+# `prettier --check .` below scan the whole working tree in report-only
+# mode and close that untracked-file gap; `gitleaks dir .` closes the
+# same hole for the gitleaks hook (its `--staged` default sees zero files
+# when nothing is staged).
 #
-# prek runs through `pipx run --spec`/`uv tool run --from` (same as CI,
-# same as scripts/setup-dev.sh) rather than a `prek` on PATH -- see
-# setup-dev.sh for why: it removes the "wrong prek version" class of bug
-# regardless of what else happens to be installed or where.
+# prek runs through the persistent, version-pinned binary `npm run setup`
+# installs (see scripts/setup-dev.sh) when that exists -- no pipx/uv
+# overhead per invocation. Only when that hasn't been set up yet does
+# this fall back to `pipx run --spec`/`uv tool run --from` (same as CI),
+# rather than a `prek` on PATH -- see setup-dev.sh for why: it removes
+# the "wrong prek version" class of bug regardless of what else happens
+# to be installed or where.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -28,15 +34,24 @@ if [ -z "$prek_version" ]; then
 	exit 1
 fi
 
-if command -v pipx >/dev/null 2>&1; then
+persistent_prek="$HOME/.local/state/pollenprognos-card-prek/$prek_version/bin/prek"
+if [ -x "$persistent_prek" ]; then
+	prek() { "$persistent_prek" "$@"; }
+elif command -v pipx >/dev/null 2>&1; then
 	# --backend pip: pipx's own uv-detection can pick an incompatible
-	# uv already on PATH (from an unrelated toolchain) and refuse to run;
-	# pip's ephemeral-venv path has no such conflict.
-	prek() { pipx run --backend pip --spec "prek==$prek_version" prek "$@"; }
+	# uv already on PATH (from an unrelated toolchain) and refuse to run.
+	# Older pipx (reported: 1.4.3) predates the --backend flag entirely
+	# and errors out on it ("unrecognized arguments"), so only pass it
+	# when this pipx's own --help advertises it.
+	if pipx run --help 2>&1 | grep -q -- '--backend'; then
+		prek() { pipx run --backend pip --spec "prek==$prek_version" prek "$@"; }
+	else
+		prek() { pipx run --spec "prek==$prek_version" prek "$@"; }
+	fi
 elif command -v uv >/dev/null 2>&1; then
 	prek() { uv tool run --from "prek==$prek_version" prek "$@"; }
 else
-	echo "missing: pipx or uv -- run npm run setup"
+	echo "missing: prek -- run npm run setup"
 	exit 1
 fi
 
