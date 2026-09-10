@@ -34,34 +34,55 @@ if [ -z "$prek_version" ]; then
 	exit 1
 fi
 
-installed_version=""
-if command -v prek >/dev/null 2>&1; then
-	installed_version=$(prek --version | awk '{print $2}')
-fi
+# `hash -r` (POSIX) forgets any PATH lookup the current shell already
+# cached for `prek`, so re-checking after an install doesn't just repeat
+# a stale answer.
+resolved_prek_version() {
+	hash -r 2>/dev/null || true
+	if command -v prek >/dev/null 2>&1; then
+		prek --version | awk '{print $2}'
+	fi
+}
+
+installed_version=$(resolved_prek_version)
 
 if [ "$installed_version" = "$prek_version" ]; then
 	echo "prek $installed_version already installed (matches the pinned version)"
-elif command -v pipx >/dev/null 2>&1; then
-	if [ -n "$installed_version" ]; then
-		echo "installed prek $installed_version does not match pinned $prek_version -- reinstalling via pipx"
-		pipx install --force "prek==$prek_version"
-	else
-		echo "installing prek==$prek_version via pipx"
-		pipx install "prek==$prek_version"
-	fi
-elif command -v uv >/dev/null 2>&1; then
-	echo "installing prek==$prek_version via uv tool (force, in case a different version is on PATH)"
-	uv tool install --force "prek==$prek_version"
 else
-	if [ -n "$installed_version" ]; then
-		echo "installed prek $installed_version does not match pinned $prek_version,"
-		echo "and neither pipx nor uv is installed to fix it."
+	if command -v pipx >/dev/null 2>&1; then
+		if [ -n "$installed_version" ]; then
+			echo "installed prek $installed_version does not match pinned $prek_version -- reinstalling via pipx"
+		else
+			echo "installing prek==$prek_version via pipx"
+		fi
+		pipx install --force "prek==$prek_version"
+	elif command -v uv >/dev/null 2>&1; then
+		echo "installing prek==$prek_version via uv tool (force, in case a different version is on PATH)"
+		uv tool install --force "prek==$prek_version"
 	else
-		echo "missing: prek, and neither pipx nor uv is installed to fetch it."
+		if [ -n "$installed_version" ]; then
+			echo "installed prek $installed_version does not match pinned $prek_version,"
+			echo "and neither pipx nor uv is installed to fix it."
+		else
+			echo "missing: prek, and neither pipx nor uv is installed to fetch it."
+		fi
+		echo "Install pipx or uv, or install prek==$prek_version directly:"
+		echo "  https://github.com/j178/prek#installation"
+		exit 1
 	fi
-	echo "Install pipx or uv, or install prek==$prek_version directly:"
-	echo "  https://github.com/j178/prek#installation"
-	exit 1
+
+	# The installer can succeed while a DIFFERENT prek (e.g. a system
+	# package earlier on PATH than pipx's/uv's bin dir) still shadows it.
+	# Re-resolve for real instead of trusting the installer's exit code.
+	installed_version=$(resolved_prek_version)
+	if [ "$installed_version" != "$prek_version" ]; then
+		echo "installed prek==$prek_version, but 'prek --version' on PATH"
+		echo "still resolves to $installed_version at $(command -v prek 2>/dev/null || echo 'nowhere')."
+		echo "Something earlier on PATH is shadowing the pinned install --"
+		echo "check 'echo \$PATH' and pipx's/uv's bin directory ordering."
+		exit 1
+	fi
+	echo "prek $installed_version now on PATH (matches the pinned version)"
 fi
 
 if command -v gitleaks >/dev/null 2>&1; then
