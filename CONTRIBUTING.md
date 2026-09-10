@@ -66,11 +66,14 @@ setup` if they're missing.
    - **Local pre-commit/pre-push hooks** run most of the same checks
      automatically from `.pre-commit-config.yaml`, but the setup differs
      depending on how your machine runs Git hooks:
-     - **Ordinary clone (most contributors):** run `npm run setup` once.
-       It installs `prek` (via `pipx`/`uv`, pinned to the version this repo
-       uses) and checks for `gitleaks`, then runs `prek install` /
-       `prek install --hook-type pre-push` to wire the hooks into this
-       clone's own `.git/hooks`. Re-run it any time; it's idempotent.
+     - **Ordinary clone (most contributors):** run `npm run setup` once. It
+       resolves `prek` on demand via `pipx run --spec`/`uv tool run --from`
+       (pinned to the exact version this repo's CI uses, regardless of any
+       other `prek` on your machine) and checks for `gitleaks`, then runs
+       `prek install` / `prek install --hook-type pre-push` to wire the hooks
+       into this clone's own `.git/hooks` -- the generated hook scripts point
+       straight at the resolved, version-pinned binary, so `pipx`/`uv` aren't
+       invoked again on every commit. Re-run it any time; it's idempotent.
      - **A machine that routes all repos through a global
        `core.hooksPath` dispatcher** (a maintainer convention, not the
        norm): `prek install` refuses to write local hooks there on

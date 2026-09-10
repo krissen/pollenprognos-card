@@ -36,18 +36,23 @@ complete). Every change must keep these green:
   via `prek`, plus standalone eslint/prettier/gitleaks passes over the whole
   tree (see `scripts/check.sh` for why those aren't redundant with prek),
   typecheck, test, build and check-dist-size. Quiet on success; full output in
-  the gitignored `.check.log` on failure. Requires `prek` and `gitleaks` on
-  `PATH`; exits with `missing: <tool> -- run npm run setup` if either is gone.
+  the gitignored `.check.log` on failure. Runs prek via `pipx run --spec
+prek==X.Y.Z` (uv as the fallback) rather than a `prek` on `PATH`, so it
+  always uses the exact version pinned in `.github/workflows/test.yml`
+  regardless of what else is installed; requires `pipx`/`uv` and `gitleaks`,
+  and exits with `missing: <tool> -- run npm run setup` if either is gone.
 - `npm run setup` - One-command bootstrap for pre-commit/pre-push hooks on an
-  ordinary clone: installs `prek` (pinned version, via `pipx`/`uv`), checks
-  for `gitleaks`, then runs `prek install`/`prek install --hook-type
-pre-push` so `.pre-commit-config.yaml` actually runs on commit/push.
-  Idempotent. On a machine that routes Git hooks through a global
-  `core.hooksPath` dispatcher (`prek install` refuses there on purpose), it
-  detects that and tells you to use `git config prek.enabled true` instead
-  -- see CONTRIBUTING.md for which path applies to you. `SKIP_PREK=1 git
-commit` skips the lint stage for one commit without disabling the
-  separate AI-attribution guard.
+  ordinary clone: resolves the pinned `prek` via `pipx`/`uv` (same mechanism
+  as `npm run check`), checks for `gitleaks`, then runs `prek install`/`prek
+install --hook-type pre-push` so `.pre-commit-config.yaml` actually runs on
+  commit/push -- the generated hook script embeds the resolved, version-pinned
+  binary's path, so hooks run with no pipx/uv overhead afterwards. Idempotent.
+  On a machine that routes Git hooks through a global `core.hooksPath`
+  dispatcher (`prek install` refuses there on purpose), it detects that and
+  tells you to use `git config prek.enabled true` instead -- see
+  CONTRIBUTING.md for which path applies to you. `SKIP_PREK=1 git commit`
+  skips the lint stage for one commit without disabling the separate
+  AI-attribution guard.
 
 ### Commit Messages
 
