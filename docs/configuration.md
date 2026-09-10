@@ -220,7 +220,7 @@ For the SILAM integration, each allergen uses the following threshold values to 
 - **birch, grass, hazel:** 1, 25, 50, 100, 500, 1000, 5000
 - **alder, ragweed, mugwort, olive:** 1, 10, 25, 50, 100, 500, 1000
 
-> **Note on SILAM thresholds:**  
+> **Note on SILAM thresholds:**
 > For the SILAM integration, each threshold value marks the start of a new pollen level. A level applies as soon as the pollen value is greater than or equal to its threshold (≥). For example, a value of 25 will be assigned to the level that starts at 25. This ensures that all threshold values are inclusive and consistently interpreted across all levels.
 
 ### Kleenex Pollen Radar

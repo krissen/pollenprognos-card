@@ -1,6 +1,6 @@
 # Contributing to Pollenprognos Card
 
-First of all, **thank you for considering contributing to this project!**  
+First of all, **thank you for considering contributing to this project!**
 Everyone is welcome to participate, regardless of experience level, background, or where you are from.
 
 We appreciate all kinds of contributions, including code, documentation, translations, bug reports, feature requests, and ideas for improvements.

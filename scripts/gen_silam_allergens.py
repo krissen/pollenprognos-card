@@ -145,4 +145,3 @@ def main():
     print(f"Wrote {OUT_FILE}")
 if __name__ == "__main__":
     main()
-

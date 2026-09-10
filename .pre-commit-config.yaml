@@ -1,0 +1,94 @@
+# Local hooks; run `npm ci` first (the eslint hook runs against
+# node_modules). Install with `git config prek.enabled true` in the repo
+# root; see DRIFT.md in the quality-gates rollout for the mechanism.
+exclude: '^(dist/|test/adapters/__goldens__/)'
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        stages: [pre-commit]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+        stages: [pre-commit]
+      - id: check-json
+        files: '^(hacs\.json|oversattning\.json|size-budget\.json)$'
+        stages: [pre-commit]
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        stages: [pre-commit]
+      - id: trailing-whitespace
+        stages: [pre-commit]
+
+  # `language: system` so this hook runs the repo's own pinned eslint +
+  # plugin set (typescript-eslint, eslint-plugin-lit, eslint-plugin-wc)
+  # straight out of node_modules. A portable mirror (mirrors-eslint) would
+  # need every one of those plugins re-declared as additional_dependencies
+  # and would drift from the version pinned in package.json; system reuses
+  # the `npm ci` the CI job already runs.
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: node_modules/.bin/eslint --fix
+        language: system
+        types_or: [javascript, ts, tsx]
+        exclude: "^dist/"
+        stages: [pre-commit]
+
+  # Portable mirror, not language: node against the repo's own prettier:
+  # the fork tracks upstream releases (the official mirror stalled at
+  # v3.1.0), pinned to the exact devDependency version so a local
+  # `--write` and the hook never disagree.
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.9.4
+    hooks:
+      - id: prettier
+        # Keep in sync with .prettierignore: the ten non-idempotent editor
+        # templates (issue #345) and the frozen golden fixtures.
+        exclude: >
+          (?x)^(
+            dist/|
+            package-lock\.json|
+            CHANGELOG\.md|
+            test/adapters/__goldens__/|
+            src/editor/sections/(allergen-icons|allergens|appearance|icon-in-ring|integration|interactions|level-circles|phrases)\.ts|
+            src/pollenprognos-editor\.ts|
+            src/pollenprognos-badge-editor\.ts
+          )$
+        stages: [pre-commit]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+        stages: [pre-commit]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: ["-d", "relaxed"]
+        stages: [pre-commit]
+
+  # tsc and vitest are too slow for pre-commit; run at push time instead.
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: typecheck (tsc --noEmit)
+        entry: npm run typecheck
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: vitest
+        name: vitest
+        entry: npm run test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
