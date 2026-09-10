@@ -218,7 +218,11 @@ export async function fetchForecast(
         if (plantCodes.length) {
           plantList = plantCodes
             .map((code: unknown, i: number) =>
-              localizeAllergenLabel(String(code).toLowerCase(), plantNames[i], lang),
+              localizeAllergenLabel(
+                String(code).toLowerCase(),
+                plantNames[i],
+                lang,
+              ),
             )
             .filter((n: unknown) => typeof n === "string" && n.trim());
         } else {
@@ -338,7 +342,9 @@ export async function fetchForecast(
         const scaledLevel = scaleUpi0_5To0_6(level);
 
         const stateText =
-          scaledLevel < 0 ? noInfoLabel : levelNames[scaledLevel] || noInfoLabel;
+          scaledLevel < 0
+            ? noInfoLabel
+            : levelNames[scaledLevel] || noInfoLabel;
 
         const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,

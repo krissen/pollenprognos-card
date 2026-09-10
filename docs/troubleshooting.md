@@ -23,6 +23,7 @@ If the issue persists after these steps, open an issue with the diagnostic info 
 **This is the single most common cause of issues.** HACS downloading a new version does not mean your browser is running it. The browser (or the HA Companion app) may serve a cached old version.
 
 **Symptoms:**
+
 - "Custom element doesn't exist: pollenprognos-card"
 - `dict.forecast is undefined` or `dict.forecast.state` errors
 - Editor text unreadable or missing options
@@ -30,7 +31,7 @@ If the issue persists after these steps, open an issue with the diagnostic info 
 
 **How to fix:**
 
-*First: check that the resource is registered.*
+_First: check that the resource is registered._
 
 The card must be registered as a Lovelace resource to load. HACS does this automatically, but manual installations (or failed HACS installs) may be missing it:
 
@@ -44,18 +45,21 @@ The card must be registered as a Lovelace resource to load. HACS does this autom
 
 If the resource exists, the problem is likely a stale browser cache:
 
-*Desktop browser (quick method):*
+_Desktop browser (quick method):_
+
 1. Press Ctrl+Shift+R (or Cmd+Shift+R on Mac) to force-reload
 2. If that is not enough, open the browser's developer tools (usually F12 or right-click > "Inspect"), go to the **Network** tab, check **Disable cache**, and reload again
 
-*Home Assistant Companion app (iOS/Android):*
+_Home Assistant Companion app (iOS/Android):_
+
 1. Open the Companion App
 2. Go to **Settings** (gear icon, bottom right) > **Companion App**
 3. Scroll down to **Debug**
 4. Tap **Reset Frontend Cache**
 5. Restart the app
 
-*HACS shows the right version but the card still behaves like the old one?*
+_HACS shows the right version but the card still behaves like the old one?_
+
 - In HACS > Frontend > pollenprognos-card, open the three-dot menu and select **Redownload** to force HACS to re-fetch the file
 - Restart Home Assistant: Settings > System > three-dot menu (top right) > Restart Home Assistant
 - On some setups, the browser needs to be fully closed and reopened (not just refreshed)
@@ -81,6 +85,7 @@ This is the **actually running** version. The value after `version` is either a 
 This card and its predecessors (Isabella Alstrom's `lovelace-pollenprognos-card` and Nidayand's `lovelace-pollen-card`) all register the same custom element name: `custom:pollenprognos-card`. If more than one is installed, they conflict silently, and the wrong version may load.
 
 **How to check:**
+
 1. In HACS > Frontend, search for "pollen". You should only have **one** pollen card installed.
 2. Check your `/config/www/` directory (via File Editor, SSH, or Samba) for leftover files:
    - `pollenprognos-card.js`
@@ -89,6 +94,7 @@ This card and its predecessors (Isabella Alstrom's `lovelace-pollenprognos-card`
 3. Check Settings > Dashboards > Resources for duplicate entries pointing to old card files. (Note: the Resources tab is only visible when **Advanced Mode** is enabled in your user profile.)
 
 **How to fix:**
+
 - Remove any old card files from `/config/www/`
 - Remove any duplicate resource entries
 - Uninstall old cards from HACS if still listed
@@ -117,9 +123,11 @@ The card could not find any sensors matching your integration and location.
 6. **Integration reinstalled with a new `config_entry_id`.** If your card was configured (via the visual editor) with a `config_entry_id` and you later removed and re-added the integration, the saved ID will no longer match any discovered location. The card auto-recovers for all adapters that accept a `config_entry_id` (DWD, GPL, GP, SILAM, Atmo and MSW via an explicit retry-as-autodetect path, and PP and PEU via their legacy template-fallback path) by falling back to the first discovered location. No user action is required. To make the new `entry_id` permanent in your config, open the card in the visual editor and re-pick the location. (Kleenex normally stores the device's own location name instead of a `config_entry_id`, and that name is recreated unchanged when the integration is re-added, so those configs are unaffected. Kleenex does **not** auto-recover the remaining case: a device that exposes no usable identifier is stored as a `config_entry_id`, and after a remove/re-add that saved ID matches neither the new discovery key nor the device name. The card shows no data rather than guessing which location you meant — open it in the visual editor and re-pick the location.)
 
 **Quick test:** Try adding the card with only the minimum config to see if auto-detection works:
+
 ```yaml
 type: custom:pollenprognos-card
 ```
+
 If the card finds sensors with this minimal config, the issue is in your config, not in sensor detection.
 
 ---
@@ -143,14 +151,17 @@ Some or all allergens are not showing even though sensors exist.
 ### Editor problems
 
 **Can't select integration, region, or allergens in the visual editor:**
+
 - Verify that you typed the integration name in lowercase (e.g., `silam`, not `SILAM`)
 - Check that the integration's sensors are available in Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K)
 - Enable debug mode (visual editor: **Advanced** > **Debug**; YAML: `debug: true`) and check the console for detection messages
 
 **Allergen list resets when opening the editor:**
+
 - This was fixed in v2.7.1. Update the card.
 
 **Editor text unreadable (wrong colors):**
+
 - This was a CSS theme compatibility issue fixed in v2.3.4. Update the card.
 
 ---
@@ -171,15 +182,18 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 ### Integration-specific notes
 
 #### Pollenprognos (PP)
+
 - Requires card v1.0.6+ for integration v1.1.0+
 - If allergens changed names (e.g., `Ambrosia` to `Malortsambrosia`), update both the card and your config
 
 #### DWD Pollenflug
+
 - Keep default sensor names; renaming breaks detection
 - Uses a 0-3 scale internally (mapped to the card's 0-6 scale)
 - If minimal mode shows wrong colors, update to card v2.7.0+
 
 #### Polleninformation EU (PEU)
+
 - Requires card v2.4.2+ for integration v0.4.0+
 - Multi-part location names (e.g., "Le Blanc-Mesnil") are supported from card v2.4.2
 - Forecast modes (hourly, twice_daily) only work with `allergy_risk` sensors and integration v0.4.4+
@@ -187,6 +201,7 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - A config written before v4.1.0 may name Tilia `lime`, a key that never matched an entity. It still resolves: an allergen key with no literal entity match is retried as its canonical key, so `lime` finds the `linden` sensor (and naming both spellings yields one row, not two)
 
 #### SILAM Pollen
+
 - The card uses the entity registry for detection when available; renamed entities fall back to pattern matching
 - If location is not detected, set `location` explicitly in your config
 - Daily mode and hourly/twice_daily modes may show slightly different levels (this is expected; the integration reports different values per source)
@@ -194,6 +209,7 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 <a id="kleenex"></a>
 
 #### Kleenex Pollen Radar
+
 - Detected by the `kleenex_pollenradar` platform. Entities and devices can be renamed freely; the card identifies sensors by their registry entry, not by entity ID, so the older `sensor.kleenex_pollen_radar_<location>_<category>` naming is a fallback rather than a requirement
 - One exception to free renaming: the per-allergen **detail sensors** (disabled by default) are all registered under the same translation key, so the allergen is read from the end of the entity ID or the friendly name. Home Assistant's frontend does not always expose the registry `unique_id` that would identify them otherwise, so if you enable and rename them, keep the allergen as the **last** word: `Bedroom birch` is recognised, `Birch bedroom` is not. Per-allergen data coming from the category sensors is unaffected
 - Pick the location in the visual editor's dropdown, or set `location` to the name you gave the integration instance (e.g. `utrecht`) or the device name. A `config_entry_id` also works, but only for as long as that entry exists: it is stored for devices that expose no usable identifier, and stops matching if the integration is removed and re-added (re-pick the location in that case)
@@ -206,17 +222,20 @@ This was specifically addressed for SILAM in card v3.0.1 by fixing a reactive-pr
 - **EU/UK zones with missing allergens**: try enabling the per-allergen DetailSensor entities in Home Assistant's entity registry. They are disabled by default. Enable them under **Settings → Devices & Services → Kleenex Pollen Radar → entity list**. The card will detect and use them automatically as a fallback when category-sensor details are empty.
 
 #### Google Pollen Levels (GPL)
+
 - Entities can be renamed freely; the card detects them by platform attribute, not entity ID
 - Works with any HA language
 - Multi-location setups are supported via separate config entries
 
 #### Google Pollen (GP, svenove)
+
 - Detected by `google_pollen` platform or `sensor.google_pollen_*` entity prefix
 - Allergens are classified via the `display_name` attribute, which is localized by the integration's language setting; English names are supported out of the box
 - The API provides up to 4 forecast days (today + 3)
 - If you have both `pollenlevels` and `google_pollen` installed, the card auto-detects GP first; set `integration: gpl` explicitly if you prefer the other adapter
 
 #### MeteoSwiss (MSW, hass-swissweather)
+
 - Detected by the `swissweather` platform; entity IDs follow the pattern `sensor.<device-slug>_pollen_<allergen>_level_at_<station>`
 - The `<device-slug>` prefix comes from the device name and changes if you rename the device via Home Assistant's "rename device" UI (`name_by_user`). Discovery is device-registry-based so renames do not break detection
 - MeteoSwiss publishes only current-day measurements; `days_to_show` is fixed at 1 by the card regardless of config (synthetic future days are never rendered)
@@ -243,6 +262,7 @@ The **running** version from the browser console (not what HACS shows). See [How
 ### 3. Card YAML config (required)
 
 Copy your card config from the YAML editor:
+
 1. Edit your dashboard
 2. Click "Edit" on the card
 3. Switch to the YAML editor (if in visual mode, click "Show code editor")
@@ -251,6 +271,7 @@ Copy your card config from the YAML editor:
 ### 4. Sensor entity IDs (required for "sensors not found" issues)
 
 Go to Developer Tools > States (if not in your sidebar, use quick search: Ctrl+K or Cmd+K) and search for your pollen sensors. Copy 2-3 example entity IDs exactly as shown, e.g.:
+
 ```
 sensor.silam_pollen_home_birch_2
 sensor.dwd_pollenflug_31_hasel
@@ -315,14 +336,14 @@ If the badge appears but shows nothing (no icon, no ring content):
 
 Many reported issues turn out to be problems with the underlying integration, not the card itself. Here is how to tell:
 
-| Symptom | Likely issue in |
-|---------|-----------------|
-| No pollen sensors in Developer Tools > States | **Integration** |
-| Sensor state is "unavailable" or "unknown" | **Integration** |
-| Sensor attributes empty or have unexpected values | **Integration** |
-| HA logs show errors from the pollen integration | **Integration** |
-| Card shows "No sensors found" but sensors exist in States | **Card** |
-| Card shows wrong levels or colors for existing sensors | **Card** |
-| Editor options missing or broken | **Card** |
+| Symptom                                                   | Likely issue in |
+| --------------------------------------------------------- | --------------- |
+| No pollen sensors in Developer Tools > States             | **Integration** |
+| Sensor state is "unavailable" or "unknown"                | **Integration** |
+| Sensor attributes empty or have unexpected values         | **Integration** |
+| HA logs show errors from the pollen integration           | **Integration** |
+| Card shows "No sensors found" but sensors exist in States | **Card**        |
+| Card shows wrong levels or colors for existing sensors    | **Card**        |
+| Editor options missing or broken                          | **Card**        |
 
 If the issue is in the integration, report it on the integration's GitHub repository (linked in [integrations.md](integrations.md)).

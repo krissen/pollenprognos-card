@@ -1549,7 +1549,10 @@ describe("findAvailableSensors", () => {
       // fetchForecast, but resolveEntityIds still returns it -- which is
       // what sensors.js sees. Mirrors the #223 scenario for swissweather.
       const hass = createHass({
-        "sensor.pollen_birch_level_at_8000_za": { state: "unknown", attributes: {} },
+        "sensor.pollen_birch_level_at_8000_za": {
+          state: "unknown",
+          attributes: {},
+        },
       });
       const cfg = {
         integration: "msw",

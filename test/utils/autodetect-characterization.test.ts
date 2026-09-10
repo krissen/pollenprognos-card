@@ -163,9 +163,7 @@ describe("pickIntegration: explicit and skip", () => {
   });
 
   it("falls back to the normalized user integration when nothing is detected", () => {
-    const detection = detectIntegrationStates(
-      createHassWithRegistry([]),
-    );
+    const detection = detectIntegrationStates(createHassWithRegistry([]));
     expect(pickIntegration(detection, { userIntegration: "PP" })).toBe("pp");
     expect(pickIntegration(detection)).toBeUndefined();
   });
@@ -320,9 +318,10 @@ describe("autoSelectLocation: discovery-backed integrations", () => {
       states: { silam: ["sensor.silam_pollen_helsinki_birch"] },
       discovery: { silam: { locations: new Map() } },
     };
-    expect(
-      autoSelectLocation("silam", {}, {} as any, detection),
-    ).toEqual({ key: "location", value: "helsinki" });
+    expect(autoSelectLocation("silam", {}, {} as any, detection)).toEqual({
+      key: "location",
+      value: "helsinki",
+    });
   });
 });
 

@@ -19,38 +19,38 @@ describe("selectBadgeSensor", () => {
   it("defaults to the worst (highest-level) per-allergen sensor", () => {
     const sensors = [birch, grass, mugwort];
     expect(selectBadgeSensor(sensors, {} as any)).toEqual([grass]);
-    expect(selectBadgeSensor(sensors, { badge_content: "worst" } as any)).toEqual([
-      grass,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "worst" } as any),
+    ).toEqual([grass]);
   });
 
   it("excludes the aggregate from the worst comparison", () => {
     // grass (4) still beats the summary (2); summary is not a per-allergen pick.
     const sensors = [summary, birch, grass, mugwort];
-    expect(selectBadgeSensor(sensors, { badge_content: "worst" } as any)).toEqual([
-      grass,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "worst" } as any),
+    ).toEqual([grass]);
   });
 
   it("ranks no-data (state < 0) below a real level 0", () => {
     const sensors = [noData, mugwort];
-    expect(selectBadgeSensor(sensors, { badge_content: "worst" } as any)).toEqual([
-      mugwort,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "worst" } as any),
+    ).toEqual([mugwort]);
   });
 
   it("returns the aggregate when mode is 'aggregate' and one exists", () => {
     const sensors = [birch, summary, grass];
-    expect(selectBadgeSensor(sensors, { badge_content: "aggregate" } as any)).toEqual([
-      summary,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "aggregate" } as any),
+    ).toEqual([summary]);
   });
 
   it("falls back to worst when 'aggregate' but no aggregate is present", () => {
     const sensors = [birch, grass, mugwort];
-    expect(selectBadgeSensor(sensors, { badge_content: "aggregate" } as any)).toEqual([
-      grass,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "aggregate" } as any),
+    ).toEqual([grass]);
   });
 
   it("returns the named allergen when mode is 'single'", () => {
@@ -78,9 +78,9 @@ describe("selectBadgeSensor", () => {
 
   it("falls back to worst when 'single' has no allergen configured", () => {
     const sensors = [birch, grass, mugwort];
-    expect(selectBadgeSensor(sensors, { badge_content: "single" } as any)).toEqual([
-      grass,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "single" } as any),
+    ).toEqual([grass]);
   });
 
   it("matches 'single' on the user-facing key when it canonicalizes (SILAM index)", () => {
@@ -121,7 +121,10 @@ describe("selectBadgeSensor", () => {
 
   it("matches 'single' on a DWD localized config key (gräser -> graeser)", () => {
     // DWD sensors store normalizeDWD(configKey): "gräser" -> "graeser".
-    const dwdGraeser: any = { allergenReplaced: "graeser", days: [{ state: 3 }] };
+    const dwdGraeser: any = {
+      allergenReplaced: "graeser",
+      days: [{ state: 3 }],
+    };
     const dwdBirke: any = { allergenReplaced: "birke", days: [{ state: 1 }] };
     expect(
       selectBadgeSensor([dwdGraeser, dwdBirke], {
@@ -145,24 +148,30 @@ describe("selectBadgeSensor", () => {
 
   it("returns all sensors unchanged when mode is 'row'", () => {
     const sensors = [birch, grass, mugwort];
-    expect(selectBadgeSensor(sensors, { badge_content: "row" } as any)).toBe(sensors);
+    expect(selectBadgeSensor(sensors, { badge_content: "row" } as any)).toBe(
+      sensors,
+    );
   });
 
   it("honors a string badge_content from YAML", () => {
     const sensors = [birch, summary, grass];
-    expect(selectBadgeSensor(sensors, { badge_content: "aggregate" } as any)).toEqual([
-      summary,
-    ]);
+    expect(
+      selectBadgeSensor(sensors, { badge_content: "aggregate" } as any),
+    ).toEqual([summary]);
   });
 
   it("treats a non-string badge_content as the default (worst)", () => {
     const sensors = [birch, grass, mugwort];
-    expect(selectBadgeSensor(sensors, { badge_content: 5 } as any)).toEqual([grass]);
+    expect(selectBadgeSensor(sensors, { badge_content: 5 } as any)).toEqual([
+      grass,
+    ]);
   });
 
   it("is empty-safe on missing / empty input", () => {
     expect(selectBadgeSensor(null as any, {} as any)).toEqual([]);
-    expect(selectBadgeSensor(undefined as any, { badge_content: "worst" } as any)).toEqual([]);
+    expect(
+      selectBadgeSensor(undefined as any, { badge_content: "worst" } as any),
+    ).toEqual([]);
     expect(selectBadgeSensor([], {} as any)).toEqual([]);
   });
 

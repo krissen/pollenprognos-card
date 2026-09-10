@@ -373,7 +373,9 @@ function buildDwdDict({
   // Build dict.days[].
   levels.forEach((entry, idx) => {
     if (entry.level !== null && entry.level >= 0) {
-      const diff = Math.round((entry.date.getTime() - today.getTime()) / 86400000);
+      const diff = Math.round(
+        (entry.date.getTime() - today.getTime()) / 86400000,
+      );
       const dayLabel = buildDayLabel(entry.date, diff, {
         daysRelative: ctx.daysRelative,
         dayAbbrev: ctx.dayAbbrev,

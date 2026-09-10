@@ -51,8 +51,7 @@ function fakeEditor(type: TapType, value: string) {
     _tapServiceData: "",
     // Any of the three warning strings collapses to one marker: the test cares
     // that the field is flagged, not which sentence says so.
-    _t: (key: string) =>
-      WARNING_KEYS.includes(key) ? WARNING : `t:${key}`,
+    _t: (key: string) => (WARNING_KEYS.includes(key) ? WARNING : `t:${key}`),
     _renderTextField: () => "",
     _renderSectionReset: () => "",
     _interactivitySectionTitle: () => "",

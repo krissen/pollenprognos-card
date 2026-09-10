@@ -15,7 +15,10 @@ import { LEVELS_DEFAULTS } from "../utils/levels-defaults.js";
 import { ringSegmentsForIntegration } from "../utils/level-counts.js";
 import { buildNoiseSvgUri, hashStringSeed } from "../utils/no-data-pattern.js";
 import { buildDonutSvg } from "./donut.js";
-import { ALLERGEN_ICON_FALLBACK, toCanonicalAllergenKey } from "../constants.js";
+import {
+  ALLERGEN_ICON_FALLBACK,
+  toCanonicalAllergenKey,
+} from "../constants.js";
 import type { CardConfig } from "../types/config.js";
 import type { HomeAssistant } from "../types/home-assistant.js";
 
@@ -64,7 +67,11 @@ interface AllergenSvgOptions {
 }
 
 // The tap_action types the shared handler knows how to perform.
-const TAP_ACTION_TYPES: TapActionType[] = ["more-info", "navigate", "call-service"];
+const TAP_ACTION_TYPES: TapActionType[] = [
+  "more-info",
+  "navigate",
+  "call-service",
+];
 
 /**
  * Read the raw action keyword from a tap_action object, honouring both shapes:
@@ -148,7 +155,10 @@ export function resolveTapActionType(tapAction: unknown): TapActionType | null {
   // (or show a pointer cursor) for a config the handler would no-op on.
   if (type === "navigate" && !parseNavigationPath(ta.navigation_path))
     return null;
-  if (type === "call-service" && !parseServiceId(ta.service || ta.perform_action))
+  if (
+    type === "call-service" &&
+    !parseServiceId(ta.service || ta.perform_action)
+  )
     return null;
   // more-info has nothing to open without an entity. The handler used to
   // substitute `sun.sun`, so `tap_action: {type: more-info}` on its own turned
@@ -225,15 +235,24 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       }
 
       // Use custom allergen colors if set
-      if (this.config?.allergen_color_mode === "custom" && this.config?.allergen_colors) {
+      if (
+        this.config?.allergen_color_mode === "custom" &&
+        this.config?.allergen_colors
+      ) {
         const allergenColors = this.config.allergen_colors as string[];
-        const clampedLevel = Math.max(0, Math.min(level, allergenColors.length - 1));
+        const clampedLevel = Math.max(
+          0,
+          Math.min(level, allergenColors.length - 1),
+        );
         return allergenColors[clampedLevel] || allergenColors[0]!;
       }
 
       // Default: use default allergen colors (which includes empty color at index 0)
       const defaultColors = LEVELS_DEFAULTS.allergen_colors;
-      const clampedLevel = Math.max(0, Math.min(level, defaultColors.length - 1));
+      const clampedLevel = Math.max(
+        0,
+        Math.min(level, defaultColors.length - 1),
+      );
       return defaultColors[clampedLevel] || defaultColors[0]!;
     }
 
@@ -260,7 +279,8 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       }
 
       const colors =
-        (this.config?.levels_colors as string[]) || LEVELS_DEFAULTS.levels_colors;
+        (this.config?.levels_colors as string[]) ||
+        LEVELS_DEFAULTS.levels_colors;
       const colorIndex = level - 1; // Map level 1->0, 2->1, etc.
       const clampedIndex = Math.max(0, Math.min(colorIndex, colors.length - 1));
       return colors[clampedIndex] || colors[0]!;
@@ -431,14 +451,16 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
         (this.config?.levels_text_weight as string) || "normal";
       const fontSizeRatio = (this.config?.levels_text_size as number) || 0.2;
       const textColor =
-        (this.config?.levels_text_color as string) || "var(--primary-text-color)";
+        (this.config?.levels_text_color as string) ||
+        "var(--primary-text-color)";
       let valueText: string | TemplateResult = "";
       if (showValue && displayLevel >= 0 && !hasRingIcon) {
         valueText = html`
           <div
             class="level-value-text"
-            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; line-height: 1; font-size: ${size *
-            fontSizeRatio}px; font-weight: ${fontWeight}; color: ${textColor};"
+            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; line-height: 1; font-size: ${
+              size * fontSizeRatio
+            }px; font-weight: ${fontWeight}; color: ${textColor};"
           >
             ${displayLevel}
           </div>
@@ -449,10 +471,9 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
         <div
           id="${circleId}"
           class="level-circle"
-          style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${clickable &&
-          entityId
-            ? " cursor: pointer;"
-            : ""}"
+          style="display: inline-block; width: ${size}px; height: ${size}px; position: relative;${
+            clickable && entityId ? " cursor: pointer;" : ""
+          }"
           data-level="${level}"
           data-display-level="${displayLevel}"
           data-state="${stateAttr}"
@@ -485,13 +506,20 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       options: AllergenSvgOptions = {},
     ): TemplateResult {
       // Guard against null/undefined keys - show error placeholder
-      if (!allergenKey || typeof allergenKey !== 'string') {
+      if (!allergenKey || typeof allergenKey !== "string") {
         if (this.debug) {
-          console.warn('[SVG] Cannot render SVG with invalid key:', allergenKey);
+          console.warn(
+            "[SVG] Cannot render SVG with invalid key:",
+            allergenKey,
+          );
         }
         return html`
           <div class="pp-icon pp-icon-error" aria-hidden="true">
-            <div style="background: #ff0000; color: white; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+            <div
+              style="background: #ff0000; color: white; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;"
+            >
+              ?
+            </div>
           </div>
         `;
       }
@@ -551,7 +579,7 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
       }
 
       const clickHandler = clickable && onClick ? onClick : null;
-      const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? 'cursor: pointer;' : ''}`;
+      const style = `--pp-icon-color: ${color}; --pp-icon-stroke: ${actualStrokeColor}; --pp-icon-stroke-width: ${strokeWidth}; ${clickable ? "cursor: pointer;" : ""}`;
 
       if (svgContent) {
         // Render inline SVG with color styling.
@@ -581,7 +609,11 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
             aria-hidden="true"
             @click=${clickHandler}
           >
-            <div style="background: #ccc; color: #666; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;">?</div>
+            <div
+              style="background: #ccc; color: #666; border-radius: 50%; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12px;"
+            >
+              ?
+            </div>
           </div>
         `;
       }
@@ -595,9 +627,14 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
      * array, thickness and gap are derived in one place.
      */
     _buildLevelRingConfig(): Required<
-      Pick<LevelCircleOpts, "colors" | "emptyColor" | "gapColor" | "thickness" | "gap">
+      Pick<
+        LevelCircleOpts,
+        "colors" | "emptyColor" | "gapColor" | "thickness" | "gap"
+      >
     > {
-      const segments = ringSegmentsForIntegration(this.config?.integration ?? "");
+      const segments = ringSegmentsForIntegration(
+        this.config?.integration ?? "",
+      );
       const colors: string[] = [];
       for (let i = 0; i < segments; i++) {
         colors.push(this._levelColorForLevel(i + 1));
@@ -665,8 +702,7 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
      */
     _handleTapAction(e?: Event): void {
       const tapAction = (this.tapAction || this.config?.tap_action) as
-        | TapActionConfig
-        | undefined;
+        TapActionConfig | undefined;
       const action = resolveTapActionType(tapAction);
       // Bail before consuming the event for absent/none/unknown actions, so an
       // inert tap_action doesn't swallow the click. hass is needed for
@@ -695,7 +731,11 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
         }
         case "navigate": {
           const path = parseNavigationPath(ta.navigation_path);
-          if (path && typeof window !== "undefined" && window.history?.pushState) {
+          if (
+            path &&
+            typeof window !== "undefined" &&
+            window.history?.pushState
+          ) {
             window.history.pushState(null, "", path);
             // HA's router listens on window for "location-changed"; a bare
             // pushState updates the URL but never re-resolves the panel. Mirror
@@ -743,4 +783,3 @@ export const LevelCircleMixin = <T extends Constructor<LitElement>>(Base: T) =>
     // is nothing imperative left to tear down. The card and badge keep their
     // own lifecycle hooks (subscriptions etc.) untouched.
   };
-

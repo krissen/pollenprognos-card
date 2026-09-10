@@ -32,7 +32,9 @@ describe("no-data-pattern", () => {
       // fill="..." and inject SVG markup into the data URI. Decode the
       // URI back and assert the dangerous chars survived as entities.
       const uri = buildNoiseSvgUri('red"><script>alert(1)</script>');
-      const decoded = decodeURIComponent(uri.replace(/^data:image\/svg\+xml;utf8,/, ""));
+      const decoded = decodeURIComponent(
+        uri.replace(/^data:image\/svg\+xml;utf8,/, ""),
+      );
       // Original payload's `"` and `<script>` must NOT appear verbatim.
       expect(decoded).not.toContain('"><script>');
       // Their entity-encoded forms must be present.

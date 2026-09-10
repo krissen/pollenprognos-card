@@ -12,11 +12,15 @@ const dayNoRaw: any = { state: 3, display_state: 3 };
 describe("resolveNumericValue", () => {
   it("returns the level (display_state) by default", () => {
     expect(resolveNumericValue(dayWithRaw, {} as any)).toBe(2);
-    expect(resolveNumericValue(dayWithRaw, { numeric_value_raw: false } as any)).toBe(2);
+    expect(
+      resolveNumericValue(dayWithRaw, { numeric_value_raw: false } as any),
+    ).toBe(2);
   });
 
   it("returns the raw value when numeric_value_raw is on", () => {
-    expect(resolveNumericValue(dayWithRaw, { numeric_value_raw: true } as any)).toBe(369);
+    expect(
+      resolveNumericValue(dayWithRaw, { numeric_value_raw: true } as any),
+    ).toBe(369);
   });
 
   it("honours the legacy numeric_state_raw_risk alias only for PEU", () => {
@@ -36,7 +40,9 @@ describe("resolveNumericValue", () => {
   });
 
   it("falls back to the level when raw is requested but raw_value is absent", () => {
-    expect(resolveNumericValue(dayNoRaw, { numeric_value_raw: true } as any)).toBe(3);
+    expect(
+      resolveNumericValue(dayNoRaw, { numeric_value_raw: true } as any),
+    ).toBe(3);
   });
 
   it("falls back to state when display_state is absent", () => {
@@ -59,7 +65,9 @@ describe("resolveNumericValue", () => {
   });
 
   it("is null-safe on a missing day", () => {
-    expect(resolveNumericValue(null as any, { numeric_value_raw: true } as any)).toBeNull();
+    expect(
+      resolveNumericValue(null as any, { numeric_value_raw: true } as any),
+    ).toBeNull();
     expect(resolveNumericValue(undefined as any, {} as any)).toBeNull();
   });
 });

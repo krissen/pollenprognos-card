@@ -187,7 +187,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
       const baseDefaults = getStubConfig(incoming.integration || "pp") || getStubConfig("pp")!;
       const stubAllergens = baseDefaults.allergens;
-      
+
 
       // Insert default for levels_* if missing
       Object.entries(LEVELS_DEFAULTS).forEach(([key, val]) => {
@@ -196,9 +196,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         }
       });
 
-      // 2. Save user-provided allergens if they differ from defaults  
+      // 2. Save user-provided allergens if they differ from defaults
       // OR if allergens were previously explicit (user made changes)
-      
+
       if (
         Array.isArray(config.allergens) &&
         (!deepEqual(config.allergens, stubAllergens) || this._allergensExplicit)
@@ -274,7 +274,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // 6.1. Don't overwrite explicit user allergens with incoming allergens
       // If we already have user allergens saved, only overwrite if incoming is explicitly different
-      
+
       if (
         this._userConfig.allergens &&
         incoming.allergens &&
@@ -292,7 +292,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         const stubAllergens = (getStubConfig(
           incoming.integration || this._config.integration || "pp",
         ) || getStubConfig("pp")!).allergens;
-        
+
         if (deepEqual(incoming.allergens, stubAllergens)) {
           // Incoming matches stub, so it's not a user choice - keep our explicit allergens
           if (this.debug)
@@ -304,9 +304,9 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
-      
+
       this._userConfig = deepMerge(this._userConfig, incoming);
-      
+
 
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit =
@@ -314,7 +314,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       this._allergensExplicit = Object.hasOwn(this._userConfig, "allergens");
       this._integrationExplicit =
         Object.hasOwn(this._userConfig, "integration");
-      
+
       this._daysExplicit = Object.hasOwn(this._userConfig, "days_to_show");
       this._localeExplicit = Object.hasOwn(this._userConfig, "date_locale");
 
@@ -378,7 +378,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       // 12. Alltid använd explicit userConfig.allergens om det finns, annars stub
-      
+
       merged.allergens = (
         Array.isArray(this._userConfig.allergens)
           ? this._userConfig.allergens
@@ -707,7 +707,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     const base = getStubConfig(integration) || getStubConfig("pp")!;
 
     // Bygg merged-objekt (det är denna rad som saknas)
-    
+
     const merged = deepMerge(base, this._userConfig) as CardConfig;
 
 
@@ -731,7 +731,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     });
 
     // Only dispatch if config actually changed, to avoid UI blinking/loops
-    
+
     if (!deepEqual(this._config, merged)) {
       this._config = merged;
       // 3) Fyll installerade regioner/städer via discovery helpers
@@ -1382,18 +1382,18 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       // Track explicit allergen changes
       if (prop === "allergens") {
-        
+
         this._userConfig.allergens = value;
         this._allergensExplicit = true;
-        
-        
+
+
         if (this.debug)
           console.debug(
             "[Editor] allergens explicitly changed:",
             this._userConfig.allergens,
           );
       }
-      
+
       // Reset custom prefix/suffix when switching away from manual mode
       if (["city", "region_id", "location"].includes(prop)) {
         if (value !== "manual") {
@@ -1423,7 +1423,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             const isComingFromNonDaily =
               currentAllergens.length === 1 &&
               currentAllergens[0] === "allergy_risk";
-            
+
             // Reset allergens to defaults when:
             // 1. User hasn't explicitly set them, OR
             // 2. Coming from non-daily mode (only had allergy_risk)
@@ -1482,8 +1482,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
     if (!deepEqual(this._config, cfg)) {
       this._config = cfg;
       if (this.debug) console.debug("[Editor] updated _config:", this._config);
-      
-      
+
+
       this.dispatchEvent(
         new CustomEvent("config-changed", {
           detail: { config: this._config },
@@ -1864,7 +1864,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       /*
   This section ensures that the clickable area (hitbox) for boolean toggles (ha-switch)
-  matches the visible toggle size and does not expand unnecessarily. 
+  matches the visible toggle size and does not expand unnecessarily.
   The goal is DRY/KISS: no excessive click area, and only the toggle and label are clickable.
 */
 

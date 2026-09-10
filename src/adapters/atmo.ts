@@ -143,7 +143,10 @@ function classifyAtmoEntity(entityId: string): string | null {
     if (canonical === "allergy_risk" || canonical === "qualite_globale")
       continue;
     if (ATMO_POLLUTION_ALLERGENS.has(canonical)) continue;
-    if (id.includes(`niveau_${frSlug}`) || id.includes(`niveau_alerte_${frSlug}`))
+    if (
+      id.includes(`niveau_${frSlug}`) ||
+      id.includes(`niveau_alerte_${frSlug}`)
+    )
       return canonical;
   }
 
@@ -431,7 +434,9 @@ export function resolveEntityIds(
       const sensorId = resolveManualEntity(hass, prefix, stem, suffix);
       if (!sensorId) continue;
       if (debug)
-        console.debug(`[ATMO:resolveEntityIds] manual: '${allergen}' -> '${sensorId}'`);
+        console.debug(
+          `[ATMO:resolveEntityIds] manual: '${allergen}' -> '${sensorId}'`,
+        );
       map.set(allergen, sensorId);
     }
     return map;
@@ -448,7 +453,11 @@ export function resolveEntityIds(
   } else if (!location && discovery.locations.size) {
     // Auto-detect: use first discovered location
     discoveredEntities = discovery.locations.values().next().value!.entities;
-  } else if (location && isConfigEntryId(location) && discovery.locations.size) {
+  } else if (
+    location &&
+    isConfigEntryId(location) &&
+    discovery.locations.size
+  ) {
     // Stale config_entry_id (integration removed/reinstalled): fall back to
     // first discovered location instead of returning an empty card. Mirrors
     // the DWD/GPL/GP recovery path.
@@ -515,7 +524,10 @@ export function resolveEntityIds(
       }
       const candidates = Object.keys(hass.states).filter((id) => {
         if (!id.startsWith(pfx) || id.includes("_j_")) return false;
-        if (allergen === "qualite_globale" && id.includes("qualite_globale_pollen"))
+        if (
+          allergen === "qualite_globale" &&
+          id.includes("qualite_globale_pollen")
+        )
           return false;
         return true;
       });
@@ -523,7 +535,9 @@ export function resolveEntityIds(
       else continue;
     }
     if (debug)
-      console.debug(`[ATMO:resolveEntityIds] slug fallback: '${allergen}' -> '${sensorId}'`);
+      console.debug(
+        `[ATMO:resolveEntityIds] slug fallback: '${allergen}' -> '${sensorId}'`,
+      );
     map.set(allergen, sensorId);
   }
   return map;
@@ -711,7 +725,9 @@ export async function fetchForecast(
 
       // Build day objects (always include placeholders for show_empty_days support)
       levels.forEach((entry) => {
-        const diff = Math.round((entry.date.getTime() - today.getTime()) / 86400000);
+        const diff = Math.round(
+          (entry.date.getTime() - today.getTime()) / 86400000,
+        );
         const dayLabel = buildDayLabel(entry.date, diff, {
           daysRelative,
           dayAbbrev,

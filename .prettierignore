@@ -5,3 +5,27 @@ CHANGELOG.md
 
 # Third-party bundled JS shipped inside the screenshots Python virtualenv.
 **/.venv/**
+
+# Non-idempotent under prettier 3.9.4: these editor lit-templates embed TS
+# casts inside interpolated expressions (e.g. `${(e.target as
+# HTMLInputElement)...}`) and their indentation keeps drifting across
+# repeated `--write` passes instead of converging on the first pass (4
+# passes needed from a clean baseline; verified 2026-09-10). A pre-commit
+# hook only runs `--write` once, so these files would be left in a
+# non-canonical state that a `--check` step would then flag as dirty even
+# right after the hook "fixed" them. Tracked upstream: #345.
+src/editor/sections/allergen-icons.ts
+src/editor/sections/allergens.ts
+src/editor/sections/appearance.ts
+src/editor/sections/icon-in-ring.ts
+src/editor/sections/integration.ts
+src/editor/sections/interactions.ts
+src/editor/sections/level-circles.ts
+src/editor/sections/phrases.ts
+src/pollenprognos-badge-editor.ts
+src/pollenprognos-editor.ts
+
+# Golden characterization fixtures are frozen, byte-exact snapshots
+# (test/adapters/goldens.test.ts / test/golden-fixtures.ts); prettier
+# normalizing their trailing newline breaks the exact-file comparison.
+test/adapters/__goldens__/

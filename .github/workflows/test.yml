@@ -5,10 +5,15 @@ on:
     branches: [master, dev]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,8 +27,30 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # eslint runs as a prek hook against this node_modules (language:
+      # system), so it must exist before prek runs below.
+      - name: Cache prek hook environments
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/prek
+          key: prek-${{ runner.os }}-node20-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Quality gates (prek)
+        env:
+          PREK_HOME: ${{ runner.temp }}/prek
+        run: pipx run --spec prek==0.5.2 prek run --all-files --show-diff-on-failure
+
+      # The gitleaks pre-commit hook above only scans the *staged* diff,
+      # which is empty in CI (no `git add` happens here) and would
+      # otherwise silently report zero findings. Scan the full tree here
+      # instead.
+      - name: Scan whole tree for secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - run: npm run typecheck
-      - run: npm run lint
       - run: npm run test
       - run: npm run build
       - run: npm run check-dist-size

@@ -20,10 +20,41 @@ const projectRoot = resolve(__dirname, "..");
 
 // Google Pollen API supported languages (from API docs)
 const LANGUAGES = [
-  "ar", "bn", "cs", "da", "de", "el", "en", "es", "fi", "fr",
-  "gu", "hi", "hu", "id", "it", "ja", "kn", "ko", "ml", "mr",
-  "nl", "no", "pl", "pt", "ro", "ru", "sk", "sv", "ta", "te",
-  "th", "tr", "uk", "vi", "zh",
+  "ar",
+  "bn",
+  "cs",
+  "da",
+  "de",
+  "el",
+  "en",
+  "es",
+  "fi",
+  "fr",
+  "gu",
+  "hi",
+  "hu",
+  "id",
+  "it",
+  "ja",
+  "kn",
+  "ko",
+  "ml",
+  "mr",
+  "nl",
+  "no",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "sk",
+  "sv",
+  "ta",
+  "te",
+  "th",
+  "tr",
+  "uk",
+  "vi",
+  "zh",
 ];
 
 // Pollen codes from the API (categories)
@@ -32,13 +63,28 @@ const CATEGORY_CODES = ["GRASS", "TREE", "WEED"];
 // Category keys use special suffixed names; plant keys use the raw API code
 // (lowercase). This matches GPL behavior where raw codes are preserved and
 // canonicalization only happens at display/icon time.
-const CATEGORY_CANONICAL = { GRASS: "grass_cat", TREE: "trees_cat", WEED: "weeds_cat" };
+const CATEGORY_CANONICAL = {
+  GRASS: "grass_cat",
+  TREE: "trees_cat",
+  WEED: "weeds_cat",
+};
 const PLANT_CANONICAL = {
-  ALDER: "alder", ASH: "ash", BIRCH: "birch", COTTONWOOD: "cottonwood",
-  CYPRESS_PINE: "cypress_pine", ELM: "elm", GRAMINALES: "graminales",
-  HAZEL: "hazel", JAPANESE_CEDAR: "japanese_cedar", JUNIPER: "juniper",
-  MAPLE: "maple", MUGWORT: "mugwort", OAK: "oak", OLIVE: "olive",
-  PINE: "pine", RAGWEED: "ragweed",
+  ALDER: "alder",
+  ASH: "ash",
+  BIRCH: "birch",
+  COTTONWOOD: "cottonwood",
+  CYPRESS_PINE: "cypress_pine",
+  ELM: "elm",
+  GRAMINALES: "graminales",
+  HAZEL: "hazel",
+  JAPANESE_CEDAR: "japanese_cedar",
+  JUNIPER: "juniper",
+  MAPLE: "maple",
+  MUGWORT: "mugwort",
+  OAK: "oak",
+  OLIVE: "olive",
+  PINE: "pine",
+  RAGWEED: "ragweed",
 };
 
 function parseArgs() {
@@ -55,11 +101,18 @@ function parseArgs() {
   }
   if (!apiKey) {
     try {
-      apiKey = readFileSync(resolve(projectRoot, "tmp/google-pollen-api.key"), "utf-8").trim();
-    } catch { /* ignore */ }
+      apiKey = readFileSync(
+        resolve(projectRoot, "tmp/google-pollen-api.key"),
+        "utf-8",
+      ).trim();
+    } catch {
+      /* ignore */
+    }
   }
   if (!apiKey) {
-    console.error("No API key. Use --api-key KEY or --api-key-file PATH, or place key in tmp/google-pollen-api.key");
+    console.error(
+      "No API key. Use --api-key KEY or --api-key-file PATH, or place key in tmp/google-pollen-api.key",
+    );
     process.exit(1);
   }
   return apiKey;
@@ -77,7 +130,9 @@ async function fetchPollen(apiKey, lang, lat, lon) {
   const res = await fetch(url.toString());
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API error for lang=${lang}: ${res.status} ${text.slice(0, 200)}`);
+    throw new Error(
+      `API error for lang=${lang}: ${res.status} ${text.slice(0, 200)}`,
+    );
   }
   return res.json();
 }
@@ -88,7 +143,10 @@ function extractNames(data) {
   if (!dailyInfo.length) return names;
 
   const day = dailyInfo[0];
-  for (const info of [...(day.pollenTypeInfo || []), ...(day.plantInfo || [])]) {
+  for (const info of [
+    ...(day.pollenTypeInfo || []),
+    ...(day.plantInfo || []),
+  ]) {
     const code = info.code;
     const displayName = info.displayName;
     if (code && displayName) {
@@ -149,7 +207,10 @@ async function main() {
         displayNameMap[key] = CATEGORY_CANONICAL[code];
       } else if (PLANT_CANONICAL[code]) {
         const plantKey = PLANT_CANONICAL[code];
-        if (displayNameMap[key] && Object.values(CATEGORY_CANONICAL).includes(displayNameMap[key])) {
+        if (
+          displayNameMap[key] &&
+          Object.values(CATEGORY_CANONICAL).includes(displayNameMap[key])
+        ) {
           // Collision: this name is already a category; store plant separately
           collisionPlants[key] = plantKey;
         } else if (!displayNameMap[key]) {
@@ -160,11 +221,19 @@ async function main() {
   }
 
   // Output
-  const sortedMain = Object.entries(displayNameMap).sort(([a], [b]) => a.localeCompare(b));
-  const sortedCollisions = Object.entries(collisionPlants).sort(([a], [b]) => a.localeCompare(b));
+  const sortedMain = Object.entries(displayNameMap).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  const sortedCollisions = Object.entries(collisionPlants).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
 
-  console.log("\n=== GP_DISPLAY_NAME_MAP (for src/adapters/gp/constants.js) ===\n");
-  console.log(`// ${sortedMain.length} entries across ${LANGUAGES.length} languages`);
+  console.log(
+    "\n=== GP_DISPLAY_NAME_MAP (for src/adapters/gp/constants.js) ===\n",
+  );
+  console.log(
+    `// ${sortedMain.length} entries across ${LANGUAGES.length} languages`,
+  );
   console.log("export const GP_DISPLAY_NAME_MAP = {");
   for (const [name, canonical] of sortedMain) {
     const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -172,8 +241,12 @@ async function main() {
   }
   console.log("};");
 
-  console.log(`\n=== GP_COLLISION_PLANTS (for src/adapters/gp/constants.js) ===\n`);
-  console.log(`// ${sortedCollisions.length} entries where GRASS category and GRAMINALES plant share display_name`);
+  console.log(
+    `\n=== GP_COLLISION_PLANTS (for src/adapters/gp/constants.js) ===\n`,
+  );
+  console.log(
+    `// ${sortedCollisions.length} entries where GRASS category and GRAMINALES plant share display_name`,
+  );
   console.log("export const GP_COLLISION_PLANTS = {");
   for (const [name, canonical] of sortedCollisions) {
     const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');

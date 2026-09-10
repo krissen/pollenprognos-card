@@ -91,7 +91,10 @@ describe("pinBadgeSingleAllergen", () => {
   });
 
   it("returns the same reference when badge_content is 'aggregate'", () => {
-    const input: any = { badge_content: "aggregate", badge_single_allergen: "birch" };
+    const input: any = {
+      badge_content: "aggregate",
+      badge_single_allergen: "birch",
+    };
     expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
   });
 

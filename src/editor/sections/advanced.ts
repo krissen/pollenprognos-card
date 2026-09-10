@@ -21,7 +21,10 @@ export function renderAdvancedSection(
         <ha-switch
           .checked=${c.debug}
           @change=${(e: Event) =>
-            editor._updateConfig("debug", (e.target as HTMLInputElement).checked)}
+            editor._updateConfig(
+              "debug",
+              (e.target as HTMLInputElement).checked,
+            )}
         ></ha-switch>
       </ha-formfield>
       <ha-formfield label="${editor._t("show_version")}">
@@ -34,9 +37,7 @@ export function renderAdvancedSection(
             )}
         ></ha-switch>
       </ha-formfield>
-      <div class="version-info">
-        ${editor._versionLabel()}: ${__VERSION__}
-      </div>
+      <div class="version-info">${editor._versionLabel()}: ${__VERSION__}</div>
     </details>
   `;
 }

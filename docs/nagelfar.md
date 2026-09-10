@@ -22,7 +22,7 @@ bots.**
 - **One bot out of quota → that bot is replaced, per-bot.** When a bot signals it is out
   of quota/usage-limit (even once), the substitution is sticky for the rest of the
   session: run Nagelfararna in that bot's place, alongside the surviving bot. Review stays
-  dual: *(surviving bot + Nagelfararna)*.
+  dual: _(surviving bot + Nagelfararna)_.
 - **BOTH Codex and Copilot down → Nagelfararna alone are the review** for the PR. This is
   THE fallback; don't skip review just because the bots are unavailable.
 - **Both bots up and working → do NOT run Nagelfar**; it costs tokens for review the bots

@@ -9,11 +9,13 @@ Below are a few alternative Lovelace cards and integrations for pollen forecasts
 A card that displays pollen sensor data (forked from `isabellaalstrom/lovelace-pollenprognos-card`).
 
 **Pros**
+
 - Makes `lovelace-pollenprognos-card` usable after integration changes
 - More features than the original card
 - Still relatively easy to set up
 
 **Cons**
+
 - Does not work with the latest `homeassistant-pollenprognos` releases
 - Supports only the Pollenprognos integration
 - No built-in localization or visual editor
@@ -26,9 +28,11 @@ A card that displays pollen sensor data (forked from `isabellaalstrom/lovelace-p
 The original card for the Pollenprognos integration.
 
 **Pros**
+
 - Simple display of Pollenprognos sensor data
 
 **Cons**
+
 - Unmaintained
 - No HACS support or UI editor
 - Requires manual copying of `pollen_img` to `www/` or setting `img_path`
@@ -41,10 +45,12 @@ The original card for the Pollenprognos integration.
 A custom card for the DWD Pollenflug integration.
 
 **Pros**
+
 - Focused only on DWD data
 - Uses the same styling as the upstream card
 
 **Cons**
+
 - No visual editor; configuration via YAML only
 - Requires manual copy of `pollen_img` or custom `img_path`
 - Works only with DWD sensors
@@ -63,4 +69,3 @@ A custom card for the DWD Pollenflug integration.
 - **Companion badge element** (`pollenprognos-badge`) that shows the current pollen level as a compact HA dashboard badge, included in the same bundle
 
 These features make it a comprehensive solution for pollen forecast display that works seamlessly across different data sources and regions.
-

@@ -10,10 +10,7 @@ import {
   normalizeManualPrefix,
   resolveAllergenNames,
 } from "../../src/utils/adapter-helpers.js";
-import {
-  createHassWithRegistry,
-  assertDiscoveryShape,
-} from "../helpers.js";
+import { createHassWithRegistry, assertDiscoveryShape } from "../helpers.js";
 
 // ---------------------------------------------------------------------------
 // Test fixtures and helpers
@@ -241,10 +238,17 @@ describe("discoverEntitiesByDevice", () => {
   it("tier 2 hit: no devices, entities with matching platform", () => {
     const hass: any = {
       states: {
-        "sensor.myint_birch": { state: "2", attributes: { friendly_name: "Birch" } },
+        "sensor.myint_birch": {
+          state: "2",
+          attributes: { friendly_name: "Birch" },
+        },
       },
       entities: {
-        "sensor.myint_birch": { device_id: null, platform: "myint", entity_category: null },
+        "sensor.myint_birch": {
+          device_id: null,
+          platform: "myint",
+          entity_category: null,
+        },
       },
       // No hass.devices
       locale: { language: "en" },
@@ -269,7 +273,11 @@ describe("discoverEntitiesByDevice", () => {
         "sensor.myint_birch": { state: "2", attributes: {} },
       },
       entities: {
-        "sensor.myint_birch": { device_id: null, platform: "myint", entity_category: null },
+        "sensor.myint_birch": {
+          device_id: null,
+          platform: "myint",
+          entity_category: null,
+        },
       },
       locale: { language: "en" },
       language: "en",
@@ -323,7 +331,7 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "abc",
-      classify: (eid) => eid.includes("birch") ? "birch" : null,
+      classify: (eid) => (eid.includes("birch") ? "birch" : null),
       fallbackRegex: /^sensor\.not_/, // would match "not_selected" — should be ignored
       fallbackSelector: () => ["sensor.selected_birch"],
     });
@@ -343,7 +351,11 @@ describe("discoverEntitiesByDevice", () => {
         "sensor.unrelated": { state: "0", attributes: {} },
       },
       entities: {
-        "sensor.unrelated": { device_id: null, platform: "other_platform", entity_category: null },
+        "sensor.unrelated": {
+          device_id: null,
+          platform: "other_platform",
+          entity_category: null,
+        },
       },
       locale: { language: "en" },
       language: "en",
@@ -378,14 +390,16 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "testint",
-      classify: () => null,          // strict: never classifies
-      classifyRelaxed: (eid) => eid.includes("birch") ? "birch" : null,
+      classify: () => null, // strict: never classifies
+      classifyRelaxed: (eid) => (eid.includes("birch") ? "birch" : null),
     });
 
     // Tier 1 uses relaxed -> succeeds
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(1);
-    expect(discovery.locations.values().next().value!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
+    expect(
+      discovery.locations.values().next().value!.entities.get("birch"),
+    ).toBe("sensor.testint_birch_loc1");
   });
 
   it("classifyRelaxed irrelevant when no device: tier 2 uses strict (which returns null) -> no results", () => {
@@ -394,7 +408,11 @@ describe("discoverEntitiesByDevice", () => {
         "sensor.testint_birch": { state: "2", attributes: {} },
       },
       entities: {
-        "sensor.testint_birch": { device_id: null, platform: "testint", entity_category: null },
+        "sensor.testint_birch": {
+          device_id: null,
+          platform: "testint",
+          entity_category: null,
+        },
       },
       locale: { language: "en" },
       language: "en",
@@ -436,7 +454,12 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "testint",
-      classify: (eid) => eid.includes("birch") ? "birch" : eid.includes("diagnostic") ? "diag" : null,
+      classify: (eid) =>
+        eid.includes("birch")
+          ? "birch"
+          : eid.includes("diagnostic")
+            ? "diag"
+            : null,
     });
 
     expect(discovery.tierUsed).toBe(1);
@@ -516,7 +539,8 @@ describe("discoverEntitiesByDevice", () => {
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "testint",
       classify: (eid) => {
-        if (eid.includes("grass_cat") || eid.includes("gras_2")) return "grass_cat";
+        if (eid.includes("grass_cat") || eid.includes("gras_2"))
+          return "grass_cat";
         if (eid.includes("graminales")) return "graminales";
         return null;
       },
@@ -578,7 +602,7 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: ["primary", "altname"],
-      classify: (eid) => eid.includes("birch") ? "birch" : null,
+      classify: (eid) => (eid.includes("birch") ? "birch" : null),
     });
 
     expect(discovery.tierUsed).toBe(1);
@@ -599,7 +623,7 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "abc",
-      classify: (eid) => eid.includes("birch") ? "birch" : null,
+      classify: (eid) => (eid.includes("birch") ? "birch" : null),
       fallbackRegex: /^sensor\.abc_/,
     });
 
@@ -613,7 +637,11 @@ describe("discoverEntitiesByDevice", () => {
         "sensor.abc_birch": { state: "1", attributes: {} },
       },
       entities: {
-        "sensor.abc_birch": { device_id: null, platform: "abc", entity_category: null },
+        "sensor.abc_birch": {
+          device_id: null,
+          platform: "abc",
+          entity_category: null,
+        },
       },
       // No hass.devices
       locale: { language: "en" },
@@ -622,7 +650,7 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "abc",
-      classify: (eid) => eid.includes("birch") ? "birch" : null,
+      classify: (eid) => (eid.includes("birch") ? "birch" : null),
     });
 
     expect(discovery.tierUsed).toBe(2);
@@ -640,8 +668,16 @@ describe("discoverEntitiesByDevice", () => {
       },
       entities: {
         // First entity in iteration order has no device_id.
-        "sensor.abc_alder": { device_id: null, platform: "abc", entity_category: null },
-        "sensor.abc_birch": { device_id: "dev_later", platform: "abc", entity_category: null },
+        "sensor.abc_alder": {
+          device_id: null,
+          platform: "abc",
+          entity_category: null,
+        },
+        "sensor.abc_birch": {
+          device_id: "dev_later",
+          platform: "abc",
+          entity_category: null,
+        },
       },
       locale: { language: "en" },
       language: "en",
@@ -669,12 +705,23 @@ describe("discoverEntitiesByDevice", () => {
     // Second entity provides a device with name_by_user → label must upgrade.
     const hass: any = {
       states: {
-        "sensor.abc_alder": { state: "0", attributes: { friendly_name: "Fallback name" } },
+        "sensor.abc_alder": {
+          state: "0",
+          attributes: { friendly_name: "Fallback name" },
+        },
         "sensor.abc_birch": { state: "1", attributes: {} },
       },
       entities: {
-        "sensor.abc_alder": { device_id: null, platform: "abc", entity_category: null },
-        "sensor.abc_birch": { device_id: "dev_rich", platform: "abc", entity_category: null },
+        "sensor.abc_alder": {
+          device_id: null,
+          platform: "abc",
+          entity_category: null,
+        },
+        "sensor.abc_birch": {
+          device_id: "dev_rich",
+          platform: "abc",
+          entity_category: null,
+        },
       },
       devices: {
         dev_rich: {
@@ -726,7 +773,7 @@ describe("discoverEntitiesByDevice", () => {
 
     const discovery = discoverEntitiesByDevice(hass, {
       platform: "abc",
-      classify: (eid) => eid.includes("birch") ? "birch" : null,
+      classify: (eid) => (eid.includes("birch") ? "birch" : null),
     });
 
     expect(discovery.tierUsed).toBe(2);
@@ -772,8 +819,12 @@ describe("discoverEntitiesByDevice", () => {
     expect(discovery.locations.size).toBe(2);
     expect(discovery.locations.has("cfg_loc1")).toBe(true);
     expect(discovery.locations.has("cfg_loc2")).toBe(true);
-    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
-    expect(discovery.locations.get("cfg_loc2")!.entities.get("birch")).toBe("sensor.testint_birch_loc2");
+    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe(
+      "sensor.testint_birch_loc1",
+    );
+    expect(discovery.locations.get("cfg_loc2")!.entities.get("birch")).toBe(
+      "sensor.testint_birch_loc2",
+    );
   });
 
   // --- Tier 1 + Tier 2 cooperation (mixed-registry top-up) ---
@@ -817,8 +868,12 @@ describe("discoverEntitiesByDevice", () => {
     // tierUsed reflects tier 1 since tier 1 contributed; tier 2 topped up.
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(2);
-    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
-    expect(discovery.locations.get("cfg_loc2")!.entities.get("birch")).toBe("sensor.testint_birch_loc2");
+    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe(
+      "sensor.testint_birch_loc1",
+    );
+    expect(discovery.locations.get("cfg_loc2")!.entities.get("birch")).toBe(
+      "sensor.testint_birch_loc2",
+    );
   });
 
   it("mixed registry: tier 2 top-up does not reclassify tier-1 entities", () => {
@@ -859,7 +914,11 @@ describe("discoverEntitiesByDevice", () => {
       },
       classifyRelaxed: (eid) => {
         if (eid.includes("birch")) relaxedCallsForBirch++;
-        return eid.includes("birch") ? "birch" : eid.includes("grass") ? "grass" : null;
+        return eid.includes("birch")
+          ? "birch"
+          : eid.includes("grass")
+            ? "grass"
+            : null;
       },
     });
 
@@ -867,8 +926,12 @@ describe("discoverEntitiesByDevice", () => {
     expect(strictCallsForBirch).toBe(0); // tier 2 skipped the tier-1 device
     expect(discovery.tierUsed).toBe(1);
     expect(discovery.locations.size).toBe(2);
-    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe("sensor.testint_birch_loc1");
-    expect(discovery.locations.get("cfg_loc2")!.entities.get("grass")).toBe("sensor.testint_grass_loc2");
+    expect(discovery.locations.get("cfg_loc1")!.entities.get("birch")).toBe(
+      "sensor.testint_birch_loc1",
+    );
+    expect(discovery.locations.get("cfg_loc2")!.entities.get("grass")).toBe(
+      "sensor.testint_grass_loc2",
+    );
   });
 
   it("mixed registry: tier 2 top-up merges into same location when config_entry_id matches", () => {
@@ -1006,7 +1069,11 @@ describe("resolveLocationByKey", () => {
     // via its slugExtractor match, not to a location whose label happens to
     // include "50" as a substring (e.g. "150 Other Place").
     const discovery = makeDiscovery([
-      ["cfg_wrong", "150 Other Place", { birke: "sensor.pollenflug_birke_150" }],
+      [
+        "cfg_wrong",
+        "150 Other Place",
+        { birke: "sensor.pollenflug_birke_150" },
+      ],
       ["cfg_right", "50 Brandenburg", { birke: "sensor.pollenflug_birke_50" }],
     ]);
 
@@ -1023,7 +1090,7 @@ describe("resolveLocationByKey", () => {
   it("exact case-insensitive label equality beats fuzzy substring", () => {
     const discovery = makeDiscovery([
       ["cfg_substr", "Hamburger Meile", { birch: "sensor.x_birch" }],
-      ["cfg_exact",  "Hamburg",          { birch: "sensor.y_birch" }],
+      ["cfg_exact", "Hamburg", { birch: "sensor.y_birch" }],
     ]);
 
     const result = resolveLocationByKey(discovery, "hamburg")!;
@@ -1084,7 +1151,9 @@ describe("findLocationBySlug", () => {
       ["cfg_abc", "Auto", { birch: "sensor.birch_cityname_v2" }],
     ]);
 
-    const result = findLocationBySlug(discovery, "cityname", { suffixExtras: ["", "_v2"] })!;
+    const result = findLocationBySlug(discovery, "cityname", {
+      suffixExtras: ["", "_v2"],
+    })!;
     expect(result).not.toBeNull();
     expect(result[0]).toBe("cfg_abc");
   });
@@ -1095,7 +1164,9 @@ describe("findLocationBySlug", () => {
     ]);
 
     // Without "_j_1" in suffixExtras, only plain suffix matches
-    const result = findLocationBySlug(discovery, "paris", { suffixExtras: [] })!;
+    const result = findLocationBySlug(discovery, "paris", {
+      suffixExtras: [],
+    })!;
     expect(result).toBeNull();
   });
 
@@ -1182,7 +1253,7 @@ describe("resolveAllergenNames", () => {
 
   it("backward compat: exact raw config key still wins (pp Gräs)", () => {
     const { allergenCapitalized } = callPP({
-      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      fullPhrases: { Gräs: "MITT GRÄS!" },
       shortPhrases: {},
     } as any);
     expect(allergenCapitalized).toBe("MITT GRÄS!");
@@ -1191,7 +1262,7 @@ describe("resolveAllergenNames", () => {
   it("carries a pp-keyed override forward to msw via canonical key", () => {
     // Issue #253 core repro: phrases.full.Gräs set, integration switched to msw.
     const { allergenCapitalized } = callMSW({
-      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      fullPhrases: { Gräs: "MITT GRÄS!" },
       shortPhrases: {},
     } as any);
     expect(allergenCapitalized).toBe("MITT GRÄS!");
@@ -1209,7 +1280,7 @@ describe("resolveAllergenNames", () => {
     // "Gräser" resolves through normalize() (NFD strips ä → graser, an alias),
     // not the DWD ß path.
     const { allergenCapitalized } = callMSW({
-      fullPhrases: { "Gräser": "GRÄSER!" },
+      fullPhrases: { Gräser: "GRÄSER!" },
       shortPhrases: {},
     });
     expect(allergenCapitalized).toBe("GRÄSER!");
@@ -1221,7 +1292,7 @@ describe("resolveAllergenNames", () => {
     const { allergenCapitalized } = resolveAllergenNames("mugwort", {
       configKey: "mugwort",
       lang: "en",
-      fullPhrases: { "Beifuß": "MUGGA" },
+      fullPhrases: { Beifuß: "MUGGA" },
       shortPhrases: {},
     } as any);
     expect(allergenCapitalized).toBe("MUGGA");
@@ -1234,7 +1305,7 @@ describe("resolveAllergenNames", () => {
     const { allergenCapitalized } = resolveAllergenNames("graminales", {
       configKey: "graminales",
       lang: "en",
-      fullPhrases: { "Gräs": "MITT GRÄS!" },
+      fullPhrases: { Gräs: "MITT GRÄS!" },
       shortPhrases: {},
     } as any);
     expect(allergenCapitalized).not.toBe("MITT GRÄS!");
@@ -1246,7 +1317,7 @@ describe("resolveAllergenNames", () => {
   it("exact raw key beats a canonical alias in the same map", () => {
     // msw's ck is "grass" → exact match must win over the "Gräs" canonical entry.
     const { allergenCapitalized } = callMSW({
-      fullPhrases: { "Gräs": "A", grass: "B" },
+      fullPhrases: { Gräs: "A", grass: "B" },
       shortPhrases: {},
     });
     expect(allergenCapitalized).toBe("B");
@@ -1255,7 +1326,7 @@ describe("resolveAllergenNames", () => {
   it("resolves short names across integrations via canonical key", () => {
     const { allergenShort } = callMSW({
       fullPhrases: {},
-      shortPhrases: { "Gräs": "G!" },
+      shortPhrases: { Gräs: "G!" },
       abbreviated: true,
     });
     expect(allergenShort).toBe("G!");
@@ -1265,7 +1336,7 @@ describe("resolveAllergenNames", () => {
     // The editor writes "" when a phrase field is cleared. On msw the present
     // exact key "grass":"" must opt out, NOT resurrect the carried-over "Gräs".
     const { allergenCapitalized } = callMSW({
-      fullPhrases: { "Gräs": "OLD", grass: "" },
+      fullPhrases: { Gräs: "OLD", grass: "" },
       shortPhrases: {},
     });
     expect(allergenCapitalized).toBe("Grass");
@@ -1274,7 +1345,11 @@ describe("resolveAllergenNames", () => {
   it("tolerates null phrase maps (phrases: { full: null }) without throwing", () => {
     let res: any;
     expect(() => {
-      res = callMSW({ fullPhrases: null, shortPhrases: null, abbreviated: true });
+      res = callMSW({
+        fullPhrases: null,
+        shortPhrases: null,
+        abbreviated: true,
+      });
     }).not.toThrow();
     expect(res.allergenCapitalized).toBe("Grass");
   });
@@ -1351,9 +1426,7 @@ describe("memoizeByHass", () => {
     const inner = vi.fn((_hass: HomeAssistant) => ({ locations: new Map() }));
     const memoized = memoizeByHass(inner);
 
-    expect(() =>
-      memoized(null as unknown as HomeAssistant),
-    ).not.toThrow();
+    expect(() => memoized(null as unknown as HomeAssistant)).not.toThrow();
     memoized(null as unknown as HomeAssistant);
     memoized(undefined as unknown as HomeAssistant);
     memoized("hass" as unknown as HomeAssistant);

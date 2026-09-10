@@ -23,7 +23,12 @@ function makeConfig(overrides: any = {}): any {
  * @param {Object} forecast - { tomorrow, "day 3", "day 4" } numeric values
  * @param {Object} attrOverrides - Additional attribute overrides
  */
-function makeSensor(displayName: any, indexValue: any, forecast: any = {}, attrOverrides: any = {}): any {
+function makeSensor(
+  displayName: any,
+  indexValue: any,
+  forecast: any = {},
+  attrOverrides: any = {},
+): any {
   return {
     state: indexValue >= 0 ? "Moderate" : "No data",
     attributes: {
@@ -49,7 +54,11 @@ function makeHassFallback(statesMap: any): any {
 /**
  * Build a hass mock with hass.entities (primary path).
  */
-function makeHassPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {}): any {
+function makeHassPrimary(
+  statesMap: any,
+  entitiesMap: any,
+  devicesMap: any = {},
+): any {
   const entities: Record<string, any> = {};
   for (const [eid, info] of Object.entries(entitiesMap)) {
     entities[eid] = {
@@ -505,7 +514,9 @@ describe("fetchForecast: basic shape", () => {
   it("respects days_to_show", async () => {
     const hass = makeHassFallback({
       "sensor.google_pollen_birch": makeSensor("Birch", 3, {
-        tomorrow: 2, "day 3": 1, "day 4": 0,
+        tomorrow: 2,
+        "day 3": 1,
+        "day 4": 0,
       }),
     });
     const config = makeConfig({
@@ -629,7 +640,9 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(resultLow[0]!.days[0]!.state_text);
+    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(
+      resultLow[0]!.days[0]!.state_text,
+    );
   });
 });
 
@@ -828,7 +841,9 @@ describe("fetchForecast: sorting modes", () => {
 
     const result = await fetchForecast(hass, config);
     for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(result[i + 1]!.days[0]!.state);
+      expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(
+        result[i + 1]!.days[0]!.state,
+      );
     }
   });
 

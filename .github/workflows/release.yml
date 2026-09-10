@@ -11,7 +11,7 @@ jobs:
 
     steps:
       # 1) Check out the code
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -30,4 +30,3 @@ jobs:
           asset_name: pollenprognos-card.js
           tag: ${{ github.event.release.tag_name }}
           overwrite: true
-

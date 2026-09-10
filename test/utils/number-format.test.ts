@@ -10,19 +10,37 @@ const hassWith = (locale: any): any => ({ locale });
 describe("number-format", () => {
   describe("getDecimalSeparator", () => {
     it("maps point-decimal number_format enums to '.'", () => {
-      expect(getDecimalSeparator(hassWith({ number_format: "comma_decimal" }))).toBe(".");
-      expect(getDecimalSeparator(hassWith({ number_format: "quote_decimal" }))).toBe(".");
-      expect(getDecimalSeparator(hassWith({ number_format: "none" }))).toBe(".");
+      expect(
+        getDecimalSeparator(hassWith({ number_format: "comma_decimal" })),
+      ).toBe(".");
+      expect(
+        getDecimalSeparator(hassWith({ number_format: "quote_decimal" })),
+      ).toBe(".");
+      expect(getDecimalSeparator(hassWith({ number_format: "none" }))).toBe(
+        ".",
+      );
     });
 
     it("maps comma-decimal number_format enums to ','", () => {
-      expect(getDecimalSeparator(hassWith({ number_format: "decimal_comma" }))).toBe(",");
-      expect(getDecimalSeparator(hassWith({ number_format: "space_comma" }))).toBe(",");
+      expect(
+        getDecimalSeparator(hassWith({ number_format: "decimal_comma" })),
+      ).toBe(",");
+      expect(
+        getDecimalSeparator(hassWith({ number_format: "space_comma" })),
+      ).toBe(",");
     });
 
     it("derives from language when number_format is 'language' or unset", () => {
-      expect(getDecimalSeparator(hassWith({ number_format: "language", language: "de" }))).toBe(",");
-      expect(getDecimalSeparator(hassWith({ number_format: "language", language: "en" }))).toBe(".");
+      expect(
+        getDecimalSeparator(
+          hassWith({ number_format: "language", language: "de" }),
+        ),
+      ).toBe(",");
+      expect(
+        getDecimalSeparator(
+          hassWith({ number_format: "language", language: "en" }),
+        ),
+      ).toBe(".");
       // unset number_format falls through to language derivation
       expect(getDecimalSeparator(hassWith({ language: "fr" }))).toBe(",");
       expect(getDecimalSeparator(hassWith({ language: "en-US" }))).toBe(".");
@@ -51,7 +69,9 @@ describe("number-format", () => {
     });
 
     it("accepts numeric strings", () => {
-      expect(formatNumberForInput("0.8", hassWith({ language: "de" }))).toBe("0,8");
+      expect(formatNumberForInput("0.8", hassWith({ language: "de" }))).toBe(
+        "0,8",
+      );
     });
 
     it("returns empty string for empty/non-finite values", () => {

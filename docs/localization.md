@@ -48,27 +48,27 @@ When adding a new locale, translate these scale-specific keys too. For the five-
 
 The badge visual editor uses the following i18n keys. Translators should add these to every locale file; `src/locales/en.json` is the canonical reference.
 
-| Key | English value |
-|-----|---------------|
-| `editor.summary_badge_content` | `Badge content` |
-| `editor.helper_badge_content` | `What the badge shows.` |
-| `editor.badge_content_worst` | `Highest pollen level` |
-| `editor.badge_content_aggregate` | `Overall risk` |
-| `editor.badge_content_single` | `Single allergen` |
-| `editor.badge_content_row` | `Several (row)` |
-| `editor.badge_single_allergen` | `Allergen` |
-| `editor.badge_visual_icon_in_ring` | `Icon in ring` |
-| `editor.badge_visual_ring_value` | `Ring with value` |
-| `editor.badge_visual_ring_empty` | `Empty ring` |
-| `editor.badge_visual_icon_only` | `Icon only` |
-| `editor.badge_scale` | `Badge size (scale)` |
-| `editor.badge_label_position` | `Label position` |
-| `editor.badge_label_position_right` | `Right` |
-| `editor.badge_label_position_below` | `Below` |
-| `editor.badge_show_label` | `Show label` |
-| `editor.badge_label_content` | `Label shows` |
-| `editor.badge_label_content_allergen` | `Allergen name` |
-| `editor.badge_label_content_level` | `Pollen level` |
+| Key                                         | English value             |
+| ------------------------------------------- | ------------------------- |
+| `editor.summary_badge_content`              | `Badge content`           |
+| `editor.helper_badge_content`               | `What the badge shows.`   |
+| `editor.badge_content_worst`                | `Highest pollen level`    |
+| `editor.badge_content_aggregate`            | `Overall risk`            |
+| `editor.badge_content_single`               | `Single allergen`         |
+| `editor.badge_content_row`                  | `Several (row)`           |
+| `editor.badge_single_allergen`              | `Allergen`                |
+| `editor.badge_visual_icon_in_ring`          | `Icon in ring`            |
+| `editor.badge_visual_ring_value`            | `Ring with value`         |
+| `editor.badge_visual_ring_empty`            | `Empty ring`              |
+| `editor.badge_visual_icon_only`             | `Icon only`               |
+| `editor.badge_scale`                        | `Badge size (scale)`      |
+| `editor.badge_label_position`               | `Label position`          |
+| `editor.badge_label_position_right`         | `Right`                   |
+| `editor.badge_label_position_below`         | `Below`                   |
+| `editor.badge_show_label`                   | `Show label`              |
+| `editor.badge_label_content`                | `Label shows`             |
+| `editor.badge_label_content_allergen`       | `Allergen name`           |
+| `editor.badge_label_content_level`          | `Pollen level`            |
 | `editor.badge_label_content_allergen_level` | `Allergen name and level` |
 
 ## Custom phrases

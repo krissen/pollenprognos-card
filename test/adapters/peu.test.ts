@@ -1,7 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigPEU, PEU_ALLERGENS, discoverPeuSensors, resolveEntityIds } from "../../src/adapters/peu.js";
-import { createHass, createHassWithRegistry, createPEUSensor, assertSensorShape } from "../helpers.js";
-import { toCanonicalAllergenKey, ALLERGEN_ICON_FALLBACK } from "../../src/constants.js";
+import {
+  fetchForecast,
+  stubConfigPEU,
+  PEU_ALLERGENS,
+  discoverPeuSensors,
+  resolveEntityIds,
+} from "../../src/adapters/peu.js";
+import {
+  createHass,
+  createHassWithRegistry,
+  createPEUSensor,
+  assertSensorShape,
+} from "../helpers.js";
+import {
+  toCanonicalAllergenKey,
+  ALLERGEN_ICON_FALLBACK,
+} from "../../src/constants.js";
 import { getSvgContent } from "../../src/pollenprognos-svgs.js";
 
 function makeConfig(overrides: any = {}): any {
@@ -40,10 +54,12 @@ function makePEUSensor(levelValues: any, opts: any = {}): any {
  */
 function makeHass(location: any, allergenMap: any): any {
   const states: Record<string, any> = {};
-  for (const [allergen, levels] of Object.entries(allergenMap) as [string, any][]) {
-    states[`sensor.polleninformation_${location}_${allergen}`] = makePEUSensor(
-      levels,
-    );
+  for (const [allergen, levels] of Object.entries(allergenMap) as [
+    string,
+    any,
+  ][]) {
+    states[`sensor.polleninformation_${location}_${allergen}`] =
+      makePEUSensor(levels);
   }
   return createHass(states);
 }
@@ -229,7 +245,9 @@ describe("PEU adapter: fetchForecast", () => {
         [4, "Very high levels"],
       ];
       for (const [level, expected] of expectations) {
-        const hass = makeHass("amsterdam", { birch: [level, level, level, level] });
+        const hass = makeHass("amsterdam", {
+          birch: [level, level, level, level],
+        });
         const config = makeConfig({
           location: "amsterdam",
           allergens: ["birch"],
@@ -247,10 +265,10 @@ describe("PEU adapter: fetchForecast", () => {
       // path always rounded, so a 2.7 input still rendered "High levels".
       // Lock the rounding behavior in.
       const cases = [
-        [0.4, "No pollen"],     // -> 0
-        [0.6, "Low levels"],    // -> 1
+        [0.4, "No pollen"], // -> 0
+        [0.6, "Low levels"], // -> 1
         [1.5, "Moderate levels"], // -> 2 (banker's? no, round half-up)
-        [2.7, "High levels"],   // -> 3
+        [2.7, "High levels"], // -> 3
         [3.6, "Very high levels"], // -> 4
         [4.4, "Very high levels"], // clamps at 4
       ];
@@ -332,9 +350,7 @@ describe("PEU adapter: fetchForecast", () => {
         "sensor.polleninformation_amsterdam_birch": {
           state: "-1",
           attributes: {
-            forecast: [
-              { datetime: `${yyyy}-${mm}-${dd}T00:00:00`, level: -5 },
-            ],
+            forecast: [{ datetime: `${yyyy}-${mm}-${dd}T00:00:00`, level: -5 }],
             data_stale: false,
           },
         },
@@ -364,9 +380,7 @@ describe("PEU adapter: fetchForecast", () => {
         "sensor.polleninformation_amsterdam_birch": {
           state: "10",
           attributes: {
-            forecast: [
-              { datetime: `${yyyy}-${mm}-${dd}T00:00:00`, level: 10 },
-            ],
+            forecast: [{ datetime: `${yyyy}-${mm}-${dd}T00:00:00`, level: 10 }],
             data_stale: false,
           },
         },
@@ -451,17 +465,22 @@ describe("PEU adapter: fetchForecast", () => {
     });
 
     it("contains all allergens from (stubConfigPEU.allergens as string[])", () => {
-      for (const allergen of (stubConfigPEU.allergens as string[])) {
+      for (const allergen of stubConfigPEU.allergens as string[]) {
         expect(PEU_ALLERGENS).toContain(allergen);
       }
     });
 
     it("has length equal to (stubConfigPEU.allergens as string[]).length + 1", () => {
-      expect(PEU_ALLERGENS.length).toBe((stubConfigPEU.allergens as string[]).length + 1);
+      expect(PEU_ALLERGENS.length).toBe(
+        (stubConfigPEU.allergens as string[]).length + 1,
+      );
     });
 
     it("matches the exact shape: ['allergy_risk', ...(stubConfigPEU.allergens as string[])]", () => {
-      expect(PEU_ALLERGENS).toEqual(["allergy_risk", ...(stubConfigPEU.allergens as string[])]);
+      expect(PEU_ALLERGENS).toEqual([
+        "allergy_risk",
+        ...(stubConfigPEU.allergens as string[]),
+      ]);
     });
   });
 
@@ -779,19 +798,25 @@ describe("PEU adapter: fetchForecast", () => {
       // positions the spread historically populated -- so user-visible
       // labels stay identical for legacy configs.
       const customLevels = [
-        "None",     // index 0 -> native 0
-        "VeryLow",  // index 1 -> native 1
-        "Low",      // index 2 -> ignored under spread (no native maps here)
-        "Medium",   // index 3 -> native 2
-        "High",     // index 4 -> ignored under spread
+        "None", // index 0 -> native 0
+        "VeryLow", // index 1 -> native 1
+        "Low", // index 2 -> ignored under spread (no native maps here)
+        "Medium", // index 3 -> native 2
+        "High", // index 4 -> ignored under spread
         "VeryHigh", // index 5 -> native 3
-        "Extreme",  // index 6 -> native 4
+        "Extreme", // index 6 -> native 4
       ];
       const hass = makeHass("amsterdam", { birch: [2, 1, 0, 0] });
       const config = makeConfig({
         location: "amsterdam",
         allergens: ["birch"],
-        phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+        phrases: {
+          full: {},
+          short: {},
+          levels: customLevels,
+          days: {},
+          no_information: "",
+        },
       });
 
       const result = await fetchForecast(hass, config);
@@ -811,7 +836,13 @@ describe("PEU adapter: fetchForecast", () => {
       const config = makeConfig({
         location: "amsterdam",
         allergens: ["birch"],
-        phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+        phrases: {
+          full: {},
+          short: {},
+          levels: customLevels,
+          days: {},
+          no_information: "",
+        },
       });
 
       const result = await fetchForecast(hass, config);
@@ -827,7 +858,13 @@ describe("PEU adapter: fetchForecast", () => {
         location: "amsterdam",
         allergens: ["birch"],
         pollen_threshold: 0,
-        phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+        phrases: {
+          full: {},
+          short: {},
+          levels: customLevels,
+          days: {},
+          no_information: "",
+        },
       });
 
       const result = await fetchForecast(hass, config);
@@ -844,7 +881,13 @@ describe("PEU adapter: fetchForecast", () => {
         location: "amsterdam",
         allergens: ["birch"],
         pollen_threshold: 0,
-        phrases: { full: {}, short: {}, levels: customLevels, days: {}, no_information: "" },
+        phrases: {
+          full: {},
+          short: {},
+          levels: customLevels,
+          days: {},
+          no_information: "",
+        },
       });
 
       const result = await fetchForecast(hass, config);
@@ -965,7 +1008,11 @@ describe("PEU adapter: fetchForecast", () => {
         },
       ]);
 
-      const cfg: any = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        allergens: ["birch", "grasses"],
+      };
       const map = resolveEntityIds(cfg, hass);
 
       expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
@@ -980,7 +1027,11 @@ describe("PEU adapter: fetchForecast", () => {
       };
       const hass = createHass(states);
 
-      const cfg: any = { ...stubConfigPEU, location: "wien", allergens: ["birch", "grasses"] };
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        allergens: ["birch", "grasses"],
+      };
       const map = resolveEntityIds(cfg, hass);
 
       expect(map.get("birch")).toBe("sensor.polleninformation_wien_birch");
@@ -996,7 +1047,12 @@ describe("PEU adapter: fetchForecast", () => {
       };
       const hass = createHass(states);
 
-      const cfg: any = { ...stubConfigPEU, location: "wien", mode: "hourly", allergens: ["allergy_risk"] };
+      const cfg: any = {
+        ...stubConfigPEU,
+        location: "wien",
+        mode: "hourly",
+        allergens: ["allergy_risk"],
+      };
       const map = resolveEntityIds(cfg, hass);
 
       expect(map.get("allergy_risk")).toBe(
@@ -1054,7 +1110,9 @@ describe("PEU adapter: fetchForecast", () => {
 
     it("whitelist classifier: allergy_risk_hourly is not misclassified as allergy_risk", () => {
       const states = {
-        "sensor.polleninformation_amsterdam_allergy_risk_hourly": makePEUSensor([3]),
+        "sensor.polleninformation_amsterdam_allergy_risk_hourly": makePEUSensor(
+          [3],
+        ),
         "sensor.polleninformation_amsterdam_allergy_risk": makePEUSensor([2]),
         "sensor.polleninformation_amsterdam_birch": makePEUSensor([1]),
       };
@@ -1117,8 +1175,9 @@ describe("PEU adapter: fetchForecast", () => {
     it("classifies every new slug whole at an underscored location", () => {
       const states: Record<string, any> = {};
       for (const slug of NEW_SLUGS) {
-        states[`sensor.polleninformation_sankt_polten_${slug}`] =
-          makePEUSensor([2, 1, 0, 0]);
+        states[`sensor.polleninformation_sankt_polten_${slug}`] = makePEUSensor(
+          [2, 1, 0, 0],
+        );
       }
       const hass = createHass(states);
 
@@ -1137,8 +1196,9 @@ describe("PEU adapter: fetchForecast", () => {
       // "tree" and "tree_of_heaven" starts with it: longest-first classification
       // must keep the two apart at an underscored location.
       const states = {
-        "sensor.polleninformation_sankt_polten_tree_of_heaven":
-          makePEUSensor([3]),
+        "sensor.polleninformation_sankt_polten_tree_of_heaven": makePEUSensor([
+          3,
+        ]),
         "sensor.polleninformation_sankt_polten_plane_tree": makePEUSensor([1]),
       };
       const hass = createHass(states);
@@ -1470,9 +1530,9 @@ describe("PEU adapter: fetchForecast", () => {
 
       // Passed a discovery, the resolver must not need hass to find one.
       const blindHass: any = { ...hass, entities: {}, devices: {} };
-      expect(resolveEntityIds(cfg, blindHass, false, discovery).get("lime")).toBe(
-        LINDEN,
-      );
+      expect(
+        resolveEntityIds(cfg, blindHass, false, discovery).get("lime"),
+      ).toBe(LINDEN);
     });
 
     it("keeps the hourly mode mapping ahead of the fallback", () => {
