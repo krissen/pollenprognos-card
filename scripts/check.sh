@@ -17,6 +17,13 @@
 set -eu
 cd "$(dirname "$0")/.."
 
+for bin in prek gitleaks; do
+	if ! command -v "$bin" >/dev/null 2>&1; then
+		echo "missing: $bin -- run npm run setup"
+		exit 1
+	fi
+done
+
 log=.check.log
 : >"$log"
 

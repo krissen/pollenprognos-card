@@ -56,14 +56,28 @@ We are committed to providing a welcoming, friendly, and harassment-free environ
 
 4. **Testing and quality gates:**
    - `npm run check` runs the same gates CI does (lint, format, typecheck,
-     test, build, bundle size); run it before opening a PR.
+     test, build, bundle size); run it before opening a PR. It expects
+     `prek` and `gitleaks` on your `PATH` and tells you to run `npm run
+setup` if they're missing.
    - `npm run test` runs the vitest suite on its own; `npm run lint` /
      `npm run typecheck` run ESLint / `tsc --noEmit` on their own.
    - Manual testing in Home Assistant is still expected for anything that
      touches rendering or an adapter's live behaviour.
-   - Optional but recommended: `git config prek.enabled true` turns on local
-     pre-commit/pre-push hooks (`.pre-commit-config.yaml`) that run most of
-     the same checks automatically.
+   - **Local pre-commit/pre-push hooks** run most of the same checks
+     automatically from `.pre-commit-config.yaml`, but the setup differs
+     depending on how your machine runs Git hooks:
+     - **Ordinary clone (most contributors):** run `npm run setup` once.
+       It installs `prek` (via `pipx`/`uv`, pinned to the version this repo
+       uses) and checks for `gitleaks`, then runs `prek install` /
+       `prek install --hook-type pre-push` to wire the hooks into this
+       clone's own `.git/hooks`. Re-run it any time; it's idempotent.
+     - **A machine that routes all repos through a global
+       `core.hooksPath` dispatcher** (a maintainer convention, not the
+       norm): `prek install` refuses to write local hooks there on
+       purpose, since Git would never read them. Use
+       `git config prek.enabled true` instead — the dispatcher runs prek
+       for any repo that opts in that way. `npm run setup` detects this
+       case automatically and tells you which command to run.
 
 For detailed architecture documentation and development patterns, see the code comments and structure in `src/`.
 

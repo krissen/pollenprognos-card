@@ -107,7 +107,9 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 ### Testing and Validation
 
 - **Full gate**: `npm run check` runs lint, format, typecheck, test, build and
-  bundle-size checks in one command; run it before opening a PR.
+  bundle-size checks in one command; run it before opening a PR. It requires
+  `prek` and `gitleaks` on `PATH` -- run `npm run setup` first on a fresh
+  clone (see CONTRIBUTING.md for the two setup paths).
 - **Unit Tests**: `npx vitest run` runs adapter contract tests and utility tests
 - **Build Validation**: Always run `npm run build` to verify changes
 - **Manual Testing**: Test in Home Assistant environment when possible

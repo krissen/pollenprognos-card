@@ -36,10 +36,17 @@ complete). Every change must keep these green:
   via `prek`, plus standalone eslint/prettier/gitleaks passes over the whole
   tree (see `scripts/check.sh` for why those aren't redundant with prek),
   typecheck, test, build and check-dist-size. Quiet on success; full output in
-  the gitignored `.check.log` on failure.
-- Pre-commit/pre-push hooks (`.pre-commit-config.yaml`, run via `prek`) are
-  opt-in per clone: `git config prek.enabled true` turns them on. `SKIP_PREK=1
-git commit` skips the lint stage for one commit without disabling the
+  the gitignored `.check.log` on failure. Requires `prek` and `gitleaks` on
+  `PATH`; exits with `missing: <tool> -- run npm run setup` if either is gone.
+- `npm run setup` - One-command bootstrap for pre-commit/pre-push hooks on an
+  ordinary clone: installs `prek` (pinned version, via `pipx`/`uv`), checks
+  for `gitleaks`, then runs `prek install`/`prek install --hook-type
+pre-push` so `.pre-commit-config.yaml` actually runs on commit/push.
+  Idempotent. On a machine that routes Git hooks through a global
+  `core.hooksPath` dispatcher (`prek install` refuses there on purpose), it
+  detects that and tells you to use `git config prek.enabled true` instead
+  -- see CONTRIBUTING.md for which path applies to you. `SKIP_PREK=1 git
+commit` skips the lint stage for one commit without disabling the
   separate AI-attribution guard.
 
 ### Commit Messages
