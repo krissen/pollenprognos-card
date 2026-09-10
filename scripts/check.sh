@@ -14,15 +14,36 @@
 # below scan the whole working tree in report-only mode and catch both
 # gaps; `gitleaks dir .` closes the same hole for the gitleaks hook (its
 # `--staged` default sees zero files when nothing is staged).
+#
+# prek runs through `pipx run --spec`/`uv tool run --from` (same as CI,
+# same as scripts/setup-dev.sh) rather than a `prek` on PATH -- see
+# setup-dev.sh for why: it removes the "wrong prek version" class of bug
+# regardless of what else happens to be installed or where.
 set -eu
 cd "$(dirname "$0")/.."
 
-for bin in prek gitleaks; do
-	if ! command -v "$bin" >/dev/null 2>&1; then
-		echo "missing: $bin -- run npm run setup"
-		exit 1
-	fi
-done
+prek_version=$(grep -o 'prek==[0-9][0-9.]*' .github/workflows/test.yml | head -n1 | cut -d= -f3)
+if [ -z "$prek_version" ]; then
+	echo "could not read the pinned prek version from .github/workflows/test.yml"
+	exit 1
+fi
+
+if command -v pipx >/dev/null 2>&1; then
+	# --backend pip: pipx's own uv-detection can pick an incompatible
+	# uv already on PATH (from an unrelated toolchain) and refuse to run;
+	# pip's ephemeral-venv path has no such conflict.
+	prek() { pipx run --backend pip --spec "prek==$prek_version" prek "$@"; }
+elif command -v uv >/dev/null 2>&1; then
+	prek() { uv tool run --from "prek==$prek_version" prek "$@"; }
+else
+	echo "missing: pipx or uv -- run npm run setup"
+	exit 1
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+	echo "missing: gitleaks -- run npm run setup"
+	exit 1
+fi
 
 log=.check.log
 : >"$log"

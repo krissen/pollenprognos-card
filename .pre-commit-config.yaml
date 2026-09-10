@@ -1,6 +1,9 @@
 # Local hooks; run `npm ci` first (the eslint hook runs against
-# node_modules). Install with `git config prek.enabled true` in the repo
-# root; see DRIFT.md in the quality-gates rollout for the mechanism.
+# node_modules). Ordinary clone: run `npm run setup` once (see
+# CONTRIBUTING.md). `git config prek.enabled true` only does anything on a
+# machine that routes Git hooks through a global core.hooksPath dispatcher
+# (a maintainer convention, not the norm) -- it is not a substitute for
+# `npm run setup` on a plain clone.
 #
 # No top-level `exclude`: that would apply to every hook below, including
 # gitleaks and check-added-large-files, which must see the whole tree.

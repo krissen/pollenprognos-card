@@ -1,25 +1,33 @@
 #!/bin/sh
 # npm run setup — one-command contributor bootstrap for the local quality
-# gate. Always installs the command-line prerequisites (prek, gitleaks) that
-# `npm run check` needs, regardless of how this machine wires Git hooks.
+# gate. Wires .pre-commit-config.yaml into this clone's Git hooks by
+# running prek through `pipx run --spec prek==X.Y.Z` (or the uv
+# equivalent) instead of relying on a `prek` already on PATH.
 #
-# Wiring the hooks into commit/push is "path (a)" from CONTRIBUTING.md,
-# for an ordinary clone: `prek install` / `prek install --hook-type
-# pre-push` writes them into this clone's own .git/hooks.
+# That removes the whole class of "wrong prek version" problems Codex
+# found across three rounds on PR #346 (no version check at all; treating
+# any core.hooksPath as the one known dispatcher and skipping bootstrap
+# entirely; a stale prek shadowing a freshly pipx-installed one on PATH):
+# `pipx run --spec`/`uv tool run --from` always resolve the exact pinned
+# spec from their own cache, regardless of what else is installed or
+# where it sits on PATH. `prek install` embeds the absolute path it was
+# invoked from into the generated hook script (verified against a real
+# pipx cache), so the Git hook itself execs that cached, version-pinned
+# binary directly on every commit -- no pipx/uv overhead per commit, only
+# during this setup step.
 #
-# "Path (b)" is a maintainer machine that routes ALL repos' hooks through a
-# global core.hooksPath dispatcher: `prek install` actively refuses to
-# write into .git/hooks there (verified: exit 2, "Refusing to install
-# hooks because core.hooksPath is configured outside this repository"),
-# because Git would never read that file anyway. Any core.hooksPath value
-# means this clone's own .git/hooks won't run -- not just the one
-# maintainer dispatcher this repo happens to use -- so hook installation
-# is skipped whenever it's set, without trying to identify which
-# dispatcher it is. The binaries are still installed either way.
+# gitleaks has no such wrapper (a Go binary, not a Python package) and is
+# still expected to be a real installed binary on PATH.
+#
+# core.hooksPath handling: ANY custom hooks path means this clone's own
+# .git/hooks won't run (a maintainer-machine convention routes ALL repos
+# through one global dispatcher instead) -- hook installation is skipped
+# in that case, without trying to identify which dispatcher it is. The
+# prek/gitleaks checks above still run either way, since `npm run check`
+# needs them regardless of how hooks are wired.
 #
 # Idempotent: safe to re-run any time (e.g. after .github/workflows/test.yml
-# bumps the pinned prek version -- installed version is checked and
-# reinstalled/upgraded if it doesn't match).
+# bumps the pinned prek version).
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -27,63 +35,29 @@ echo "npm run setup: bootstrapping the local quality gate"
 
 # Single source of truth for the pinned version: the same
 # `pipx run --spec prek==X.Y.Z` CI uses in .github/workflows/test.yml.
-# A mismatched local prek would run a different quality gate than CI.
 prek_version=$(grep -o 'prek==[0-9][0-9.]*' .github/workflows/test.yml | head -n1 | cut -d= -f3)
 if [ -z "$prek_version" ]; then
 	echo "could not read the pinned prek version from .github/workflows/test.yml"
 	exit 1
 fi
 
-# `hash -r` (POSIX) forgets any PATH lookup the current shell already
-# cached for `prek`, so re-checking after an install doesn't just repeat
-# a stale answer.
-resolved_prek_version() {
-	hash -r 2>/dev/null || true
-	if command -v prek >/dev/null 2>&1; then
-		prek --version | awk '{print $2}'
-	fi
-}
-
-installed_version=$(resolved_prek_version)
-
-if [ "$installed_version" = "$prek_version" ]; then
-	echo "prek $installed_version already installed (matches the pinned version)"
+if command -v pipx >/dev/null 2>&1; then
+	# --backend pip: pipx's own uv-detection can pick an incompatible
+	# uv already on PATH (from an unrelated toolchain) and refuse to run;
+	# pip's ephemeral-venv path has no such conflict.
+	prek() { pipx run --backend pip --spec "prek==$prek_version" prek "$@"; }
+elif command -v uv >/dev/null 2>&1; then
+	prek() { uv tool run --from "prek==$prek_version" prek "$@"; }
 else
-	if command -v pipx >/dev/null 2>&1; then
-		if [ -n "$installed_version" ]; then
-			echo "installed prek $installed_version does not match pinned $prek_version -- reinstalling via pipx"
-		else
-			echo "installing prek==$prek_version via pipx"
-		fi
-		pipx install --force "prek==$prek_version"
-	elif command -v uv >/dev/null 2>&1; then
-		echo "installing prek==$prek_version via uv tool (force, in case a different version is on PATH)"
-		uv tool install --force "prek==$prek_version"
-	else
-		if [ -n "$installed_version" ]; then
-			echo "installed prek $installed_version does not match pinned $prek_version,"
-			echo "and neither pipx nor uv is installed to fix it."
-		else
-			echo "missing: prek, and neither pipx nor uv is installed to fetch it."
-		fi
-		echo "Install pipx or uv, or install prek==$prek_version directly:"
-		echo "  https://github.com/j178/prek#installation"
-		exit 1
-	fi
-
-	# The installer can succeed while a DIFFERENT prek (e.g. a system
-	# package earlier on PATH than pipx's/uv's bin dir) still shadows it.
-	# Re-resolve for real instead of trusting the installer's exit code.
-	installed_version=$(resolved_prek_version)
-	if [ "$installed_version" != "$prek_version" ]; then
-		echo "installed prek==$prek_version, but 'prek --version' on PATH"
-		echo "still resolves to $installed_version at $(command -v prek 2>/dev/null || echo 'nowhere')."
-		echo "Something earlier on PATH is shadowing the pinned install --"
-		echo "check 'echo \$PATH' and pipx's/uv's bin directory ordering."
-		exit 1
-	fi
-	echo "prek $installed_version now on PATH (matches the pinned version)"
+	echo "missing: pipx or uv, needed to run the pinned prek==$prek_version"
+	echo "without depending on whatever else might be on PATH. Install one:"
+	echo "  https://pipx.pypa.io/stable/installation/"
+	echo "  https://docs.astral.sh/uv/getting-started/installation/"
+	exit 1
 fi
+
+echo "resolving prek==$prek_version ..."
+prek --version
 
 if command -v gitleaks >/dev/null 2>&1; then
 	echo "gitleaks already installed ($(gitleaks version 2>&1 | head -n1))"
@@ -97,12 +71,13 @@ fi
 hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
 if [ -n "$hooks_path" ]; then
 	echo "core.hooksPath is set to '$hooks_path', so this clone's own"
-	echo ".git/hooks won't run -- skipping 'prek install' (it would refuse"
-	echo "anyway). If that path already runs prek for opted-in repos (the"
-	echo "maintainer-machine convention), run:"
+	echo ".git/hooks won't run -- skipping hook installation ('prek install'"
+	echo "would refuse anyway). If that path already runs prek for opted-in"
+	echo "repos (the maintainer-machine convention), run:"
 	echo "  git config prek.enabled true"
 	echo "Otherwise wire prek into whatever '$hooks_path' runs yourself."
-	echo "prek and gitleaks are installed; 'npm run check' works regardless."
+	echo "gitleaks is installed and prek==$prek_version is cached;"
+	echo "'npm run check' works regardless."
 	exit 0
 fi
 
