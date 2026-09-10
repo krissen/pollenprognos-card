@@ -1,7 +1,7 @@
 # Local hooks; run `npm ci` first (the eslint hook runs against
 # node_modules). Install with `git config prek.enabled true` in the repo
 # root; see DRIFT.md in the quality-gates rollout for the mechanism.
-exclude: '^(dist/|test/adapters/__goldens__/)'
+exclude: "^(dist/|test/adapters/__goldens__/)"
 
 repos:
   - repo: https://github.com/gitleaks/gitleaks
