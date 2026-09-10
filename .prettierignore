@@ -24,3 +24,8 @@ src/editor/sections/level-circles.ts
 src/editor/sections/phrases.ts
 src/pollenprognos-badge-editor.ts
 src/pollenprognos-editor.ts
+
+# Golden characterization fixtures are frozen, byte-exact snapshots
+# (test/adapters/goldens.test.ts / test/golden-fixtures.ts); prettier
+# normalizing their trailing newline breaks the exact-file comparison.
+test/adapters/__goldens__/
