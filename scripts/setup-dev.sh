@@ -13,21 +13,27 @@
 # path into .git/hooks/pre-commit that can silently stop existing later
 # (pipx documents its run-cache as pruned after as little as 14 days;
 # reported against this script). Once pruned, every commit fails with a
-# missing-executable error until `npm run setup` is re-run. So once a
-# hooks_path clone is confirmed (below), the pinned version is installed
-# *persistently* (`pipx install --force` / `uv tool install --force`,
-# not `run`) before `prek install` runs, so the embedded path survives.
+# missing-executable error until `npm run setup` is re-run. So the pinned
+# version is installed *persistently* (`pipx install --force` / `uv tool
+# install --force`, not `run`) before `prek install` runs, so the
+# embedded path survives.
 #
 # gitleaks has no such wrapper (a Go binary, not a Python package) and is
 # still expected to be a real installed binary on PATH.
 #
+# That persistent install happens UNCONDITIONALLY, before the
+# core.hooksPath check below, even though hook wiring itself is skipped
+# on a hooks_path clone: scripts/check.sh resolves prek from this
+# persistent path or from PATH, never from the ephemeral function above,
+# so a hooks_path machine with uv/pipx but no already-global `prek` still
+# needs the persistent binary for `npm run check` to work.
+#
 # core.hooksPath handling: ANY custom hooks path means this clone's own
 # .git/hooks won't run (a maintainer-machine convention routes ALL repos
-# through one global dispatcher instead) -- hook installation (and the
-# persistent install above) is skipped in that case, without trying to
-# identify which dispatcher it is. The prek/gitleaks checks above still
-# run either way, since `npm run check` needs them regardless of how
-# hooks are wired.
+# through one global dispatcher instead) -- only the hook-WIRING step
+# (`prek install`) is skipped in that case, without trying to identify
+# which dispatcher it is; the persistent install and the prek/gitleaks
+# checks above all still run.
 #
 # Idempotent: safe to re-run any time (e.g. after .github/workflows/test.yml
 # bumps the pinned prek version) -- `--force` re-pins the persistent
@@ -94,17 +100,6 @@ fi
 echo "gitleaks already installed ($(gitleaks version 2>&1 | head -n1))"
 
 hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
-if [ -n "$hooks_path" ]; then
-	echo "core.hooksPath is set to '$hooks_path', so this clone's own"
-	echo ".git/hooks won't run -- skipping hook installation ('prek install'"
-	echo "would refuse anyway). If that path already runs prek for opted-in"
-	echo "repos (the maintainer-machine convention), run:"
-	echo "  git config prek.enabled true"
-	echo "Otherwise wire prek into whatever '$hooks_path' runs yourself."
-	echo "gitleaks is installed and prek==$prek_version is cached;"
-	echo "'npm run check' works regardless."
-	exit 0
-fi
 
 # Install the pinned version persistently before wiring hooks, so the
 # path `prek install` embeds in .git/hooks/{pre-commit,pre-push} outlives
@@ -139,6 +134,18 @@ if [ ! -x "$prek_bin" ]; then
 	echo "installed prek==$prek_version but $prek_bin is missing or not"
 	echo "executable -- add $bin_dir to PATH, then re-run 'npm run setup'."
 	exit 1
+fi
+
+if [ -n "$hooks_path" ]; then
+	echo "core.hooksPath is set to '$hooks_path', so this clone's own"
+	echo ".git/hooks won't run -- skipping hook installation ('prek install'"
+	echo "would refuse anyway). If that path already runs prek for opted-in"
+	echo "repos (the maintainer-machine convention), run:"
+	echo "  git config prek.enabled true"
+	echo "Otherwise wire prek into whatever '$hooks_path' runs yourself."
+	echo "gitleaks and prek==$prek_version ($prek_bin) are both installed;"
+	echo "'npm run check' works regardless."
+	exit 0
 fi
 
 # From here on, use the resolved persistent binary directly (not the
