@@ -82,6 +82,16 @@ setup` if they're missing.
        for any repo that opts in that way. `npm run setup` detects this
        case automatically and tells you which command to run.
 
+   Escape hatches, one per path above: on an ordinary clone,
+   `git commit --no-verify` skips every hook `npm run setup` installed for
+   one commit; to skip only specific hooks instead, prek itself reads
+   `SKIP=<hook-id>[,<hook-id>...]` or `PREK_SKIP=<hook-id>[,...]`
+   (comma-delimited — e.g. `SKIP=eslint git commit`). `SKIP_PREK=1 git
+commit` only does something on the global-dispatcher machine (the
+   `git config prek.enabled true` case above) — that dispatcher, not
+   `prek` or Git itself, is what reads `SKIP_PREK`. Either way, the
+   separate AI-attribution guard is unaffected by any of these.
+
 For detailed architecture documentation and development patterns, see the code comments and structure in `src/`.
 
 ---
