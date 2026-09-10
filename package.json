@@ -17,7 +17,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check-dist-size": "node scripts/check-dist-size.js"
+    "check-dist-size": "node scripts/check-dist-size.js",
+    "check": "sh scripts/check.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
