@@ -95,10 +95,22 @@ mandatory scope: `type(scope): subject`.
 - **subject**: imperative mood, lowercase first letter, no trailing period.
 - **Breaking change**: `type(scope)!: subject` with a `BREAKING CHANGE:`
   footer.
-- Commit messages (and PR titles, which become the squash-merge commit
-  subject) are written in English.
+- Commit messages (and PR titles, which normally become the squash-merge
+  commit subject) are written in English. A PR that must keep a mechanical
+  commit reachable for `.git-blame-ignore-revs` to work (see below) is
+  merged with a real merge commit instead of squashed -- squashing would
+  drop that commit from `dev`'s history, and `git blame` would then fail
+  to resolve the ignored SHA for anyone who configures the ignore-revs
+  file.
 - One logical change per commit; don't bundle an unrelated fix into a feature
   commit.
+
+Mechanical, no-op commits (e.g. a repo-wide `prettier --write`) are listed in
+`.git-blame-ignore-revs` so `git blame` skips them. Configure it locally with:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ```
 feat(adapters): add support for the Foo integration
