@@ -37,6 +37,7 @@ We are committed to providing a welcoming, friendly, and harassment-free environ
 ### Getting Started
 
 1. **Clone the repository** and install dependencies:
+
    ```bash
    npm install
    ```

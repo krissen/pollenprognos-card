@@ -5,6 +5,7 @@ Get your first pollenprognos-card up and running in minutes!
 ## Prerequisites
 
 Before starting, make sure you have:
+
 - ✅ Installed a pollen data integration (see [installation.md](installation.md))
 - ✅ Installed the pollenprognos-card via HACS
 - ✅ Verified that pollen sensors are showing in Developer Tools → States
@@ -50,8 +51,8 @@ If you prefer YAML configuration, add this to your Lovelace configuration:
 
 ```yaml
 type: custom:pollenprognos-card
-integration: pp  # auto-detected if omitted
-city: Stockholm  # your city (for Pollenprognos)
+integration: pp # auto-detected if omitted
+city: Stockholm # your city (for Pollenprognos)
 ```
 
 **For other integrations:**
@@ -60,7 +61,7 @@ city: Stockholm  # your city (for Pollenprognos)
 # DWD Pollenflug (Germany)
 type: custom:pollenprognos-card
 integration: dwd
-region_id: "31"  # your region code
+region_id: "31" # your region code
 
 # Polleninformation EU
 type: custom:pollenprognos-card
@@ -70,7 +71,7 @@ location: stockholm
 # SILAM Pollen
 type: custom:pollenprognos-card
 integration: silam
-location: stockholm  # set explicitly if autodetection misses your location
+location: stockholm # set explicitly if autodetection misses your location
 
 # Kleenex Pollen Radar
 type: custom:pollenprognos-card
@@ -222,7 +223,7 @@ Shows daily forecast columns:
 ```yaml
 type: custom:pollenprognos-card
 city: Stockholm
-mode: daily  # default
+mode: daily # default
 ```
 
 ### Hourly Mode (SILAM, PEU)
@@ -268,7 +269,7 @@ days_to_show: 5
 ```yaml
 type: custom:pollenprognos-card
 integration: dwd
-region_id: "31"  # Niedersachsen und Bremen
+region_id: "31" # Niedersachsen und Bremen
 allergens:
   - Birke
   - Gräser

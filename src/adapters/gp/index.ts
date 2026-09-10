@@ -2,8 +2,19 @@
 // Adapter for svenove/home-assistant-google-pollen (domain: google_pollen)
 
 export { fetchForecast } from "./forecast.js";
-export { resolveEntityIds, discoverGpSensors, discoverGpAllergens } from "./discovery.js";
-export { stubConfigGP, capitalize, GP_DOMAIN, GP_BASE_ALLERGENS, GP_DISPLAY_NAME_MAP, GP_COLLISION_PLANTS } from "./constants.js";
+export {
+  resolveEntityIds,
+  discoverGpSensors,
+  discoverGpAllergens,
+} from "./discovery.js";
+export {
+  stubConfigGP,
+  capitalize,
+  GP_DOMAIN,
+  GP_BASE_ALLERGENS,
+  GP_DISPLAY_NAME_MAP,
+  GP_COLLISION_PLANTS,
+} from "./constants.js";
 
 import type { HomeAssistant } from "../../types/home-assistant.js";
 import type {
@@ -55,7 +66,8 @@ export const autodetect: AdapterAutodetect = {
       }
       if (!ids.length) {
         ids = ctx.stateIds.filter(
-          (id) => typeof id === "string" && id.startsWith("sensor.google_pollen_"),
+          (id) =>
+            typeof id === "string" && id.startsWith("sensor.google_pollen_"),
         );
       }
     }

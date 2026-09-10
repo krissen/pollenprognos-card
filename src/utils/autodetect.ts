@@ -201,8 +201,7 @@ export function pickIntegration(
   }: { explicit?: boolean; userIntegration?: unknown; skip?: Set<string> } = {},
 ): string | undefined {
   const normalized = normalizeIntegration(userIntegration) as
-    | string
-    | undefined;
+    string | undefined;
   if (explicit) return normalized;
 
   const states = detection?.states || {};
@@ -253,9 +252,7 @@ export function autoSelectLocation(
     const peuLocations = Array.from(
       new Set(
         states.peu
-          .map(
-            (eid) => hass.states[eid]?.attributes?.location_slug || null,
-          )
+          .map((eid) => hass.states[eid]?.attributes?.location_slug || null)
           .filter(Boolean),
       ),
     );

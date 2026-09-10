@@ -667,8 +667,7 @@ export async function fetchForecast(
       // existing row behaviour for 4000 configs is unchanged when it is off.
       const skipThreshold =
         (autoAddedAllergyRisk && allergen === "allergy_risk") ||
-        (allergen === "allergy_risk" &&
-          coerceBool(config.show_summary_block));
+        (allergen === "allergy_risk" && coerceBool(config.show_summary_block));
       if (skipThreshold || meetsThreshold(dict.days, pollen_threshold))
         sensors.push(dict);
     } catch (e) {
@@ -682,8 +681,7 @@ export async function fetchForecast(
   if (config.index_top || config.allergy_risk_top) {
     const idx = sensors.findIndex(
       (s) =>
-        s.allergenReplaced === "allergy_risk" ||
-        s.allergenReplaced === "index",
+        s.allergenReplaced === "allergy_risk" || s.allergenReplaced === "index",
     );
     if (idx > 0) {
       const [special] = sensors.splice(idx, 1);

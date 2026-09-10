@@ -45,7 +45,10 @@ export function createHass(
  * @param opts - Override attributes
  * @returns sensor state
  */
-export function createPPSensor(levels: Array<number | null>, opts: Record<string, any> = {}) {
+export function createPPSensor(
+  levels: Array<number | null>,
+  opts: Record<string, any> = {},
+) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const forecast = levels.map((level, i) => {
@@ -94,7 +97,10 @@ export function createDWDSensor(
  * @param attrOverrides - Override attributes
  * @returns sensor state
  */
-export function createPLUSensor(value: number, attrOverrides: Record<string, any> = {}) {
+export function createPLUSensor(
+  value: number,
+  attrOverrides: Record<string, any> = {},
+) {
   return {
     state: String(value),
     attributes: {
@@ -141,7 +147,10 @@ export function createPEUSensor(
  * @param attrOverrides - Override attributes
  * @returns sensor state
  */
-export function createMSWSensor(levelStr: string, attrOverrides: Record<string, any> = {}) {
+export function createMSWSensor(
+  levelStr: string,
+  attrOverrides: Record<string, any> = {},
+) {
   return {
     state: levelStr,
     attributes: {
@@ -322,8 +331,14 @@ export function assertDiscoveryShape(discovery: any) {
   if (!(discovery.locations instanceof Map)) {
     throw new Error("discovery.locations must be a Map");
   }
-  if (typeof discovery.tierUsed !== "number" || discovery.tierUsed < 0 || discovery.tierUsed > 3) {
-    throw new Error(`discovery.tierUsed must be 0-3, got ${discovery.tierUsed}`);
+  if (
+    typeof discovery.tierUsed !== "number" ||
+    discovery.tierUsed < 0 ||
+    discovery.tierUsed > 3
+  ) {
+    throw new Error(
+      `discovery.tierUsed must be 0-3, got ${discovery.tierUsed}`,
+    );
   }
   for (const [key, loc] of discovery.locations) {
     if (typeof key !== "string") {
@@ -337,7 +352,9 @@ export function assertDiscoveryShape(discovery: any) {
     }
     for (const [allergenKey, entityId] of loc.entities) {
       if (typeof allergenKey !== "string") {
-        throw new Error(`allergen key must be string, got ${typeof allergenKey}`);
+        throw new Error(
+          `allergen key must be string, got ${typeof allergenKey}`,
+        );
       }
       if (typeof entityId !== "string") {
         throw new Error(`entity ID must be string, got ${typeof entityId}`);
@@ -351,30 +368,45 @@ export function assertDiscoveryShape(discovery: any) {
  * @param sensor - A single sensor dict from fetchForecast result
  * @param opts - Optional expectations
  */
-export function assertSensorShape(sensor: any, opts: { minDays?: number } = {}) {
+export function assertSensorShape(
+  sensor: any,
+  opts: { minDays?: number } = {},
+) {
   const { minDays = 1 } = opts;
   if (typeof sensor.allergenReplaced !== "string") {
-    throw new Error(`allergenReplaced should be string, got ${typeof sensor.allergenReplaced}`);
+    throw new Error(
+      `allergenReplaced should be string, got ${typeof sensor.allergenReplaced}`,
+    );
   }
   if (typeof sensor.allergenCapitalized !== "string") {
-    throw new Error(`allergenCapitalized should be string, got ${typeof sensor.allergenCapitalized}`);
+    throw new Error(
+      `allergenCapitalized should be string, got ${typeof sensor.allergenCapitalized}`,
+    );
   }
   if (typeof sensor.allergenShort !== "string") {
-    throw new Error(`allergenShort should be string, got ${typeof sensor.allergenShort}`);
+    throw new Error(
+      `allergenShort should be string, got ${typeof sensor.allergenShort}`,
+    );
   }
   if (!Array.isArray(sensor.days)) {
     throw new Error(`days should be array, got ${typeof sensor.days}`);
   }
   if (sensor.days.length < minDays) {
-    throw new Error(`days should have at least ${minDays} entries, got ${sensor.days.length}`);
+    throw new Error(
+      `days should have at least ${minDays} entries, got ${sensor.days.length}`,
+    );
   }
   if (sensor.days[0] === undefined) {
     throw new Error("days[0] should be defined");
   }
   if (typeof sensor.days[0].state !== "number") {
-    throw new Error(`days[0].state should be number, got ${typeof sensor.days[0].state}`);
+    throw new Error(
+      `days[0].state should be number, got ${typeof sensor.days[0].state}`,
+    );
   }
   if (typeof sensor.days[0].day !== "string") {
-    throw new Error(`days[0].day (label) should be string, got ${typeof sensor.days[0].day}`);
+    throw new Error(
+      `days[0].day (label) should be string, got ${typeof sensor.days[0].day}`,
+    );
   }
 }

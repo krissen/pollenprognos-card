@@ -178,8 +178,8 @@ Once the design is locked:
 
 ## What goes in `docs/` vs. `tmp/`
 
-| Where | What |
-|-------|------|
-| `tmp/<feature>/` | The mockups themselves. Ephemeral. Gitignored. Cleaned up after merge. |
-| `docs/dev/` | The **process** (this file). Permanent. Should outlive every individual mockup set. |
-| `docs/configuration.md` | The **result** — once a config key is shipped, document it here for end users. |
+| Where                   | What                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `tmp/<feature>/`        | The mockups themselves. Ephemeral. Gitignored. Cleaned up after merge.              |
+| `docs/dev/`             | The **process** (this file). Permanent. Should outlive every individual mockup set. |
+| `docs/configuration.md` | The **result** — once a config key is shipped, document it here for end users.      |

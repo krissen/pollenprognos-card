@@ -14,7 +14,16 @@ describe("scaleRingLevel", () => {
   });
 
   it("passes other integrations through unchanged", () => {
-    for (const integration of ["pp", "peu", "kleenex", "plu", "silam", "gpl", "atmo", "msw"]) {
+    for (const integration of [
+      "pp",
+      "peu",
+      "kleenex",
+      "plu",
+      "silam",
+      "gpl",
+      "atmo",
+      "msw",
+    ]) {
       expect(scaleRingLevel(integration, 4)).toBe(4);
     }
   });

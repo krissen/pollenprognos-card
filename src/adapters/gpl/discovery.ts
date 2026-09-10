@@ -5,7 +5,11 @@ import type {
   EntityRegistryDisplayEntry,
 } from "../../types/home-assistant.js";
 import type { CardConfig } from "../../types/config.js";
-import { isGoogleAttribution, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS } from "./constants.js";
+import {
+  isGoogleAttribution,
+  GPL_TYPE_ICON_MAP,
+  GPL_BASE_ALLERGENS,
+} from "./constants.js";
 import {
   discoverEntitiesByDevice,
   resolveLocationByKey,
@@ -294,8 +298,7 @@ function resolveEntityId(
     return discoveredEntities.get(allergen) as string;
   }
 
-  if (debug)
-    console.debug(`[GPL] Sensor not found for allergen "${allergen}"`);
+  if (debug) console.debug(`[GPL] Sensor not found for allergen "${allergen}"`);
   return null;
 }
 

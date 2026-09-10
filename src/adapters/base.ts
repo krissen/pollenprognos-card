@@ -329,8 +329,7 @@ export function runForecastScaffold(
 
   const entityMap = resolveEntityIds(config, hass, debug);
   const sensors: PollenSensor[] = [];
-  const include =
-    shouldInclude ?? ((dict, t) => meetsThreshold(dict.days, t));
+  const include = shouldInclude ?? ((dict, t) => meetsThreshold(dict.days, t));
 
   const allergens = (config.allergens as string[] | undefined) || [];
   for (const allergen of allergens) {

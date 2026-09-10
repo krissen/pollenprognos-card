@@ -31,7 +31,11 @@ function makeConfig(overrides: any = {}): any {
  * Setting hass.entities to an empty object ensures discovery is skipped and
  * the regex fallback runs against hass.states.
  */
-function makeHass(location: any, weatherAttrs: any = {}, extraStates: any = {}): any {
+function makeHass(
+  location: any,
+  weatherAttrs: any = {},
+  extraStates: any = {},
+): any {
   // Use "forecast" suffix — present in every locale's weather_suffixes list
   const weatherEntityId = `weather.silam_pollen_${location.toLowerCase()}_forecast`;
   const states = {
@@ -265,14 +269,16 @@ describe("indexToLevel", () => {
 
 describe("SILAM_ALLERGENS", () => {
   it("includes all stub allergens plus 'index'", () => {
-    for (const allergen of (stubConfigSILAM.allergens as string[])) {
+    for (const allergen of stubConfigSILAM.allergens as string[]) {
       expect(SILAM_ALLERGENS).toContain(allergen);
     }
     expect(SILAM_ALLERGENS).toContain("index");
   });
 
   it("has exactly one more entry than (stubConfigSILAM.allergens as string[])", () => {
-    expect(SILAM_ALLERGENS.length).toBe((stubConfigSILAM.allergens as string[]).length + 1);
+    expect(SILAM_ALLERGENS.length).toBe(
+      (stubConfigSILAM.allergens as string[]).length + 1,
+    );
   });
 });
 
@@ -589,7 +595,9 @@ describe("fetchForecast: sorting", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(2);
-    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(
+      result[1]!.days[0]!.state,
+    );
   });
 
   it("sorts by value_ascending", async () => {
@@ -609,7 +617,9 @@ describe("fetchForecast: sorting", () => {
     const result = await fetchForecast(hass, config);
 
     expect(result.length).toBe(2);
-    expect(result[0]!.days[0]!.state).toBeLessThanOrEqual(result[1]!.days[0]!.state);
+    expect(result[0]!.days[0]!.state).toBeLessThanOrEqual(
+      result[1]!.days[0]!.state,
+    );
   });
 
   it("sort: 'none' preserves allergen order", async () => {
@@ -864,7 +874,11 @@ describe("fetchForecast: manual mode", () => {
         },
         "sensor.custom_birch": { state: "30", attributes: {} },
       };
-      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const hass = createHass(states, {
+        entities: {},
+        devices: {},
+        language: "en",
+      });
       const config = makeConfig({
         location: "manual",
         allergens: ["birch"],
@@ -930,7 +944,10 @@ describe("fetchForecast: manual mode", () => {
         },
       };
       const devices = {
-        [deviceId]: { name: "Custom Location", config_entries: ["entry_custom"] },
+        [deviceId]: {
+          name: "Custom Location",
+          config_entries: ["entry_custom"],
+        },
       };
       const hass = createHass(states, { entities, devices, language: "en" });
       const config = makeConfig({
@@ -1035,7 +1052,11 @@ describe("fetchForecast: manual mode", () => {
           },
           "sensor.custom_birch": { state: "30", attributes: {} },
         };
-        const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+        const hass = createHass(states, {
+          entities: {},
+          devices: {},
+          language: "en",
+        });
         const config = makeConfig({
           location: "manual",
           allergens: ["birch"],
@@ -1070,7 +1091,11 @@ describe("fetchForecast: manual mode", () => {
         },
         "sensor.silam_pollen_stockholm_birch": { state: "30", attributes: {} },
       };
-      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const hass = createHass(states, {
+        entities: {},
+        devices: {},
+        language: "en",
+      });
       const config = makeConfig({
         location: "manual",
         allergens: ["birch"],
@@ -1139,7 +1164,11 @@ describe("fetchForecast: manual mode", () => {
           attributes: {},
         },
       };
-      const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+      const hass = createHass(states, {
+        entities: {},
+        devices: {},
+        language: "en",
+      });
       const config = makeConfig({
         location: "manual",
         allergens: ["birch"],
@@ -1166,7 +1195,11 @@ describe("fetchForecast: manual mode", () => {
           },
           "sensor.custom_birch": { state: "30", attributes: {} },
         };
-        const hass = createHass(states, { entities: {}, devices: {}, language: "en" });
+        const hass = createHass(states, {
+          entities: {},
+          devices: {},
+          language: "en",
+        });
         const config = makeConfig({
           location: "manual",
           allergens: ["birch"],
@@ -1404,11 +1437,17 @@ describe("fetchForecast: summary block (#222)", () => {
       show_summary_block: true,
     });
     const result = await fetchForecast(hass, config);
-    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+    expect(
+      result.find((s) => s.allergenReplaced === "allergy_risk"),
+    ).toBeDefined();
   });
 
   it("still drops the below-threshold aggregate when the block is off", async () => {
-    const hass = makeHass("stockholm", { index: 1, forecast: [], pollen_birch: 500 });
+    const hass = makeHass("stockholm", {
+      index: 1,
+      forecast: [],
+      pollen_birch: 500,
+    });
     const config = makeConfig({
       location: "stockholm",
       allergens: ["index", "birch"], // birch keeps the result non-empty
@@ -1417,7 +1456,9 @@ describe("fetchForecast: summary block (#222)", () => {
       show_summary_block: false,
     });
     const result = await fetchForecast(hass, config);
-    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+    expect(
+      result.find((s) => s.allergenReplaced === "allergy_risk"),
+    ).toBeUndefined();
   });
 });
 
@@ -1437,8 +1478,8 @@ describe("getAllergenNames: phrase overrides (issue #253)", () => {
     // must apply when SILAM names the same allergen "grass".
     const { allergenCapitalized, allergenShort } = getAllergenNames(
       "grass",
-      { "Gräs": "MITT GRÄS!" },
-      { "Gräs": "G!" },
+      { Gräs: "MITT GRÄS!" },
+      { Gräs: "G!" },
       "en",
     );
     expect(allergenCapitalized).toBe("MITT GRÄS!");
@@ -1449,7 +1490,7 @@ describe("getAllergenNames: phrase overrides (issue #253)", () => {
     const expected = silamAllergenMap.names?.grass?.en;
     const { allergenCapitalized } = getAllergenNames(
       "grass",
-      { "Gräs": "OLD", grass: "" },
+      { Gräs: "OLD", grass: "" },
       {},
       "en",
     );

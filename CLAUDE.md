@@ -5,13 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Development Commands
 
 ### Development
+
 - `npm run dev` - Start Vite development server with hot reload
 - `npm run build` - Build production bundle to `dist/pollenprognos-card.js`
 - `npm run preview` - Preview production build locally
 
 ### Quality Gates
+
 The `src/` and `test/` trees are 100% TypeScript (the #259 migration is
 complete). Every change must keep these green:
+
 - `npm run typecheck` - `tsc --noEmit` in `strict` mode. Scope is `src` + `test`
   only; `scripts/*.js` and `vite.config.js`/`vitest.config.js` are plain Node ESM
   and deliberately outside the type-check surface.
@@ -28,10 +31,12 @@ complete). Every change must keep these green:
   run a repo-wide `format --write` expecting convergence.
 
 ### Version Management
+
 - `npm run update-version` - Sync version from git tags to package.json (runs automatically before build)
 - Version is embedded in the build via Vite's `__VERSION__` define
 
 ### Testing
+
 - `npm run test` - Run all tests with vitest
 - Tests located in `test/` with subdirectories mirroring `src/`:
   - `test/adapters/` - Contract tests for each adapter (fetchForecast, resolveEntityIds, stubConfig)
@@ -43,9 +48,11 @@ complete). Every change must keep these green:
 ## Project Architecture
 
 ### Overview
+
 A Lovelace custom card for Home Assistant that displays pollen forecasts from multiple integrations. Built with Lit 3 web components, TypeScript, and Vite bundling. Level circles are drawn by an in-house SVG donut (`src/rendering/donut.ts`); Chart.js was removed during the TS migration.
 
 ### TypeScript Conventions
+
 The whole of `src/` and `test/` is TypeScript (`strict`, `noEmit`; migration
 tracker #259). Patterns to follow when editing:
 
@@ -61,7 +68,7 @@ tracker #259). Patterns to follow when editing:
   `pollenprognos-card.ts`.
 - **`AdapterStubConfig`** (`src/types/config.ts`) is the shared shape every
   adapter's `stubConfig*` must satisfy (`export const stubConfigX: AdapterStubConfig
-  = {...}`). The adapter descriptor/registry types live in `src/types/adapter.ts`.
+= {...}`). The adapter descriptor/registry types live in `src/types/adapter.ts`.
 - **Config boundary.** Raw YAML (`RawCardConfig`) is validated and coerced into a
   well-formed `CardConfig` exactly once, in `setConfig` (card) / the editors'
   `setConfig`. `set hass` must not mutate config. String-typed YAML fields get
@@ -88,6 +95,7 @@ tracker #259). Patterns to follow when editing:
 ### Core Components
 
 **Main Card** (`src/pollenprognos-card.ts`)
+
 - LitElement-based custom element (`<pollenprognos-card>`)
 - Renders pollen forecasts with SVG icons and SVG donut level rings (`src/rendering/donut.ts`)
 - Handles real-time updates via Home Assistant state subscriptions
@@ -95,28 +103,33 @@ tracker #259). Patterns to follow when editing:
 - Uses adapter pattern to normalize data from different integrations
 
 **Visual Editor** (`src/pollenprognos-editor.ts`)
+
 - LitElement-based configuration UI for Home Assistant's visual editor
 - Auto-generates forms based on adapter stub configs
 - Provides integration-specific options (cities, regions, locations)
 - Live preview updates as user changes settings
 
 **Entry Point** (`src/index.ts`)
+
 - Imports and registers card and editor as custom elements
 - Registers with HACS custom card picker
 
 ### Adapter System
 
 Located in `src/adapters/`. Each adapter exports:
+
 - `stubConfig*` - Default configuration template for the editor
 - `fetchForecast(hass, config)` - Returns normalized sensor array for rendering
 - `resolveEntityIds(cfg, hass, debug?)` - Maps allergen keys to HA entity IDs (both auto-detect and manual mode)
 
 **Adapter Registry** (`src/adapter-registry.js`)
+
 - `getAdapter(id)` - Returns the adapter module for an integration ID
 - `getStubConfig(id)` - Returns the stub config for an integration ID
 - `getAllAdapterIds()` - Returns all registered integration IDs
 
 **Supported Integrations:**
+
 - `pp.js` - Pollenprognos (Swedish)
 - `dwd.js` - DWD Pollenflug (German)
 - `peu.js` - Polleninformation EU (European)
@@ -133,42 +146,51 @@ When adding support for a new integration, see "Adding a New Integration" below.
 ### Utilities
 
 **Normalization** (`src/utils/normalize.js`)
+
 - `normalize()` - Converts allergen names to canonical slugs (e.g., "Björk" → "birch")
 - `normalizeDWD()` - DWD-specific normalization handling German characters
 - Uses `slugify()` helper and `ALLERGEN_TRANSLATION` map from constants
 
 **Sensor Detection** (`src/utils/sensors.js`)
+
 - `findAvailableSensors()` - Thin dispatcher that delegates to the adapter's `resolveEntityIds()`
 - Returns array of available entity IDs for a given config
 
 **Adapter Helpers** (`src/utils/adapter-helpers.js`)
+
 - Pure functions shared across adapters: `getLangAndLocale`, `mergePhrases`, `buildDayLabel`, `clampLevel`, `sortSensors`, `resolveAllergenNames`, `meetsThreshold`
 - Manual mode helpers: `normalizeManualPrefix`, `resolveManualEntity`
 - Post-fetch filtering: `filterSensorsPostFetch` (used by the card after fetchForecast)
 
 **Level Defaults** (`src/utils/levels-defaults.js`)
+
 - Default color schemes and styling for pollen level circles
 - Conversion utilities for backwards compatibility
 
 **SILAM Helpers** (`src/utils/silam.js`)
+
 - Special handling for SILAM's weather entity pattern
 - Reverse mapping from weather entity attributes to allergen data
 
 **Slugify** (`src/utils/slugify.js`)
+
 - `slugify()` matches HA frontend behavior (Latin diacritics + Cyrillic character table)
 - Used by normalize.js and location matching across adapters
 - GP adapter uses pre-generated display_name maps instead of runtime slugification
 - Regenerate GP alias maps with `node scripts/fetch-gp-translations.js` after changes
 
 **Level Names** (`src/utils/level-names.js`)
+
 - `buildLevelNames()` - Constructs localized level name lookup from locale data
 
 **Config Comparison** (`src/utils/confcompare.js`)
+
 - `deepEqual()` - Deep equality comparison for config objects, used to detect meaningful config changes
 
 ### Internationalization
 
 **Translation System** (`src/i18n.js`)
+
 - Eagerly loads all locale files from `src/locales/*.json` using Vite's `import.meta.glob`
 - `detectLang()` - Auto-detects language from Home Assistant settings
 - `t()` - Translation function using IntlMessageFormat for variable interpolation
@@ -176,6 +198,7 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - 15 supported languages: cs, da, de, el, en, es, fi, fr, it, nl, no, pl, ru, sk, sv
 
 **Locale Files** (`src/locales/*.json`)
+
 - Flat JSON structure with dot-separated keys
 - Keys include: allergen names (full/short), level descriptions, UI labels, weekday names
 - English (`en.json`) serves as fallback
@@ -183,6 +206,7 @@ When adding support for a new integration, see "Adding a New Integration" below.
 ### Graphics
 
 **SVG Icons** (`src/pollenprognos-svgs.js`)
+
 - 36 static SVG files in `src/images/` imported via Vite's `?raw` query
 - Includes allergen icons (birch, grass, mugwort, etc.) and pollution icons (no2, ozone, pm10, pm25, so2, air_quality) plus allergy risk variants
 - `getSvgContent()` applies dynamic styling (fill, stroke, size) to the static SVGs
@@ -190,6 +214,7 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - Rendered via Lit's `unsafeSVG` directive
 
 **SVG Donut Rings** (`src/rendering/donut.ts`)
+
 - Pure `buildDonutSvg()` renders the level circles declaratively in the lit template
 - Colors arrive resolved from the mixin; user-influenced strings are attribute-escaped (`escapeXmlAttr`)
 - No-data state uses a seeded SVG noise `<pattern>`; custom colors, gaps and thickness via config
@@ -197,6 +222,7 @@ When adding support for a new integration, see "Adding a New Integration" below.
 ### Configuration
 
 **Constants** (`src/constants.ts`)
+
 - `ALLERGEN_TRANSLATION` - Allergen name normalization map (computed from per-adapter alias groups: PP_ALIASES, DWD_ALIASES, etc.)
 - `toCanonicalAllergenKey(raw)` - Single lookup function for allergen normalization
 - `DWD_REGIONS` - German region code to name mapping
@@ -211,12 +237,14 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 ### State Management
 
 **Home Assistant Integration**
+
 - Card receives `hass` object with all entity states
 - Subscribes to forecast events for SILAM hourly/twice_daily modes via `hass.connection.subscribeMessage()`
 - Unsubscribes on disconnect to prevent memory leaks
 - Uses `updated()` lifecycle to detect config/entity changes
 
 **Reactive Properties**
+
 - `config` - Card configuration (set by Home Assistant)
 - `hass` - Home Assistant state object (updated frequently)
 - `_error` - Error message translation key
@@ -225,16 +253,19 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 ### Display Modes
 
 **Minimal Mode** (`minimal: true`)
+
 - Horizontal icon-only layout with configurable gaps
 - No text labels, just allergen icons with level circles
 - Used for compact dashboard displays
 
 **Standard Modes**
+
 - `daily` - Shows daily forecast columns
 - `hourly` - Hourly forecast (SILAM, some PEU sensors)
 - `twice_daily` - Morning/evening forecasts (SILAM, PEU)
 
 **PEU Hourly Variants**
+
 - `hourly_second`, `hourly_third`, `hourly_fourth`, `hourly_sixth`, `hourly_eighth`
 - Different interval slices of hourly data
 
@@ -254,6 +285,7 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
    - Full independent control at cost of potential visual mismatch
 
 **Allergen Icon Coloring:**
+
 - `allergen_color_mode: "default_colors"` - Built-in color palette based on level
 - `allergen_color_mode: "custom"` - User-defined colors per level (0-6)
 - `allergen_stroke_color_synced: true` - Stroke matches fill color for consistency
@@ -261,6 +293,7 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 ### Build System
 
 **Vite Configuration** (`vite.config.js`)
+
 - Library mode: bundles everything into single ES module
 - Output: `dist/pollenprognos-card.js`
 - Legacy plugin for dev mode only (not production)
@@ -268,6 +301,7 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 - No externals - all dependencies bundled
 
 **Version Injection**
+
 - `scripts/update-version.js` extracts version from git tags
 - Removes 'v' prefix and suffixes like '-beta1'
 - Writes to both `package.json` and `package-lock.json`
@@ -283,14 +317,17 @@ Each adapter exports a `stubConfig*` object with all possible configuration opti
 ## Common Patterns
 
 ### Adding a New Allergen
+
 1. Add alias to the appropriate adapter's alias group (e.g. `PP_ALIASES`) in `src/constants.ts`
 2. Add SVG icon to `svgs` object in `src/pollenprognos-svgs.ts`
 3. Update locale files in `src/locales/*.json` with full/short names
 4. Add to the adapter's stub config `allergens` array
 
 ### Adding a New Integration
+
 Adapters are TypeScript. Import specifiers keep the `.js` extension even though
 the files are `.ts` (see TypeScript Conventions).
+
 1. Create `src/adapters/newintegration.ts` (or a subdirectory with `index.ts` for larger adapters)
 2. Export: `stubConfigX: AdapterStubConfig`, `fetchForecast(hass, config)`, `resolveEntityIds(cfg, hass, debug?)`. Type the module against `src/types/adapter.ts` and `src/types/sensor.ts` (`PollenSensor`, `ForecastDay`); `fetchForecast` returns normalized sensors carrying a `days[]` array.
 3. Use shared helpers from `src/utils/adapter-helpers.js` (getLangAndLocale, mergePhrases, buildDayLabel, clampLevel, sortSensors, meetsThreshold, resolveAllergenNames)
@@ -302,12 +339,14 @@ the files are `.ts` (see TypeScript Conventions).
 9. Run the full gate: `npm run typecheck && npm run lint && npm test && npm run build && npm run check-dist-size`
 
 ### Modifying Display Layout
+
 - Lit template is in `render()` method of `src/pollenprognos-card.ts`
 - CSS is in static `styles` getter using Lit's `css` tagged template
 - Level circles rendered by `_renderLevelCircle()` (SVG donut via `buildDonutSvg`)
 - Icon + data rows built in `_renderAllergenRows()`
 
 ### Debugging
+
 - Set `debug: true` in card config to enable console logging
 - Check `show_version: true` to log version on load
 - Use `findAvailableSensors()` to diagnose auto-detection issues
@@ -320,22 +359,22 @@ This project uses Claude Code's built-in subagent system. Agents are defined in
 
 ### Available Roles
 
-| Role | File | Responsibility |
-|------|------|----------------|
-| HR | `.claude/agents/hr.md` | Team composition, role profiles |
-| Frontend Developer | `.claude/agents/frontend-developer.md` | Card UI, editor, SVG icons, SVG donut rings |
-| Integration Developer | `.claude/agents/integration-developer.md` | Adapter system, entity discovery |
-| i18n Specialist | `.claude/agents/i18n-specialist.md` | Translations, locale files |
-| QA Tester | `.claude/agents/qa-tester.md` | Testing, contract validation |
-| HA Developer | `.claude/agents/ha-developer.md` | HA platform expertise, best practices |
-| User Panel | `.claude/agents/user-panel.md` | Simulated user feedback (4 personas) |
+| Role                  | File                                      | Responsibility                              |
+| --------------------- | ----------------------------------------- | ------------------------------------------- |
+| HR                    | `.claude/agents/hr.md`                    | Team composition, role profiles             |
+| Frontend Developer    | `.claude/agents/frontend-developer.md`    | Card UI, editor, SVG icons, SVG donut rings |
+| Integration Developer | `.claude/agents/integration-developer.md` | Adapter system, entity discovery            |
+| i18n Specialist       | `.claude/agents/i18n-specialist.md`       | Translations, locale files                  |
+| QA Tester             | `.claude/agents/qa-tester.md`             | Testing, contract validation                |
+| HA Developer          | `.claude/agents/ha-developer.md`          | HA platform expertise, best practices       |
+| User Panel            | `.claude/agents/user-panel.md`            | Simulated user feedback (4 personas)        |
 
 ### Code review fallback (Nagelfar)
 
 The `nagelfararna` agent (`.claude/agents/nagelfararna.md`) is a read-only review role,
 separate from the dev-team roles above. It **substitutes for a bot that can't run**
 (Nagelfaringsprotokollet, anchor `NF_PROTOCOL`): when one bot is out of quota it is
-replaced *per-bot* (review stays dual — surviving bot + Nagelfararna); when **both**
+replaced _per-bot_ (review stays dual — surviving bot + Nagelfararna); when **both**
 Codex and Copilot are down, Nagelfararna alone are the review. Do not run it when both
 bots are up. See `docs/nagelfar.md` for the process pointer and
 `~/.claude/skills/nagelfar/SKILL.md` for the full protocol.
@@ -343,11 +382,13 @@ bots are up. See `docs/nagelfar.md` for the process pointer and
 ### Delegation
 
 **Without approval:**
+
 - Delegate to subagents
 - Technical decisions within scope
 - Read documentation and research
 
 **Requires product owner approval:**
+
 - Scope changes
 - Architectural decisions affecting UX
 - Releases

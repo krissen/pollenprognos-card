@@ -62,7 +62,15 @@ export interface TextButtonOptions {
  */
 export function renderNumberField(
   editor: { _hass?: HomeAssistant },
-  { value, min, max, step, onValue, width = "80px", disabled = false }: NumberFieldOptions,
+  {
+    value,
+    min,
+    max,
+    step,
+    onValue,
+    width = "80px",
+    disabled = false,
+  }: NumberFieldOptions,
 ): TemplateResult {
   const isInt = Number.isInteger(step ?? 1);
   return html`

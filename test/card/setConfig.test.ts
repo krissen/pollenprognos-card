@@ -459,7 +459,10 @@ describe("setConfig: unknown integration falls back to PP stub", () => {
   });
 
   it("keeps a user-set link_to_sensors through the allowed-field filter", () => {
-    const off = simulateSetConfig({ integration: "pp", link_to_sensors: false });
+    const off = simulateSetConfig({
+      integration: "pp",
+      link_to_sensors: false,
+    });
     expect(off.link_to_sensors).toBe(false);
     const on = simulateSetConfig({ integration: "pp", link_to_sensors: true });
     expect(on.link_to_sensors).toBe(true);
@@ -592,9 +595,7 @@ describe("setConfig: cosmetic-only update detection", () => {
     );
 
     expect(changedKeys).toContain("pollen_threshold");
-    const allCosmetic = changedKeys.every((k) =>
-      COSMETIC_FIELDS.includes(k),
-    );
+    const allCosmetic = changedKeys.every((k) => COSMETIC_FIELDS.includes(k));
     expect(allCosmetic).toBe(false);
   });
 });

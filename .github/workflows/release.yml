@@ -30,4 +30,3 @@ jobs:
           asset_name: pollenprognos-card.js
           tag: ${{ github.event.release.tag_name }}
           overwrite: true
-

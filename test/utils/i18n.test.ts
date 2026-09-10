@@ -86,9 +86,20 @@ describe("i18n", () => {
     // sourced from the Pollen API. The editor used to leak the raw key
     // `editor.phrases_full.graminales` because these were missing.
     const EXPECTED = {
-      cs: "Trávy", da: "Græs", de: "Gräser", el: "Γρασίδι", en: "Grasses",
-      es: "Gramíneas", fi: "Ruohot", fr: "Graminées", it: "Piante erbacee",
-      nl: "Grassen", no: "Gress", pl: "Trawy", ru: "Травы", sk: "Trávy",
+      cs: "Trávy",
+      da: "Græs",
+      de: "Gräser",
+      el: "Γρασίδι",
+      en: "Grasses",
+      es: "Gramíneas",
+      fi: "Ruohot",
+      fr: "Graminées",
+      it: "Piante erbacee",
+      nl: "Grassen",
+      no: "Gress",
+      pl: "Trawy",
+      ru: "Травы",
+      sk: "Trávy",
       sv: "Gräs",
     };
     const NAMESPACES = [
