@@ -50,9 +50,13 @@ install --hook-type pre-push` so `.pre-commit-config.yaml` actually runs on
   On a machine that routes Git hooks through a global `core.hooksPath`
   dispatcher (`prek install` refuses there on purpose), it detects that and
   tells you to use `git config prek.enabled true` instead -- see
-  CONTRIBUTING.md for which path applies to you. `SKIP_PREK=1 git commit`
-  skips the lint stage for one commit without disabling the separate
-  AI-attribution guard.
+  CONTRIBUTING.md for which path applies to you. On an ordinary clone,
+  `git commit --no-verify` skips the installed hooks for one commit, or
+  `SKIP=<hook-id>`/`PREK_SKIP=<hook-id>` (comma-delimited, read by prek
+  itself) skips just specific hooks. `SKIP_PREK=1 git commit` only does
+  something on the global-dispatcher machine -- that dispatcher, not
+  `prek` or Git itself, is what reads it. Either way, the separate
+  AI-attribution guard is unaffected.
 
 ### Commit Messages
 
