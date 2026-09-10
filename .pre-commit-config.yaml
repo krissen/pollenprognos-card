@@ -1,7 +1,11 @@
 # Local hooks; run `npm ci` first (the eslint hook runs against
 # node_modules). Install with `git config prek.enabled true` in the repo
 # root; see DRIFT.md in the quality-gates rollout for the mechanism.
-exclude: "^(dist/|test/adapters/__goldens__/)"
+#
+# No top-level `exclude`: that would apply to every hook below, including
+# gitleaks and check-added-large-files, which must see the whole tree.
+# dist/ and test/adapters/__goldens__/ are excluded per hook instead, only
+# on the hooks that would otherwise rewrite them (formatters/fixers).
 
 repos:
   - repo: https://github.com/gitleaks/gitleaks
@@ -22,8 +26,13 @@ repos:
         args: ["--maxkb=1000"]
         stages: [pre-commit]
       - id: end-of-file-fixer
+        # __goldens__ are frozen, byte-exact snapshots (see the prettier
+        # hook below); a trailing-newline fixer breaks the exact-file
+        # comparison the same way prettier did.
+        exclude: "^(dist/|test/adapters/__goldens__/)"
         stages: [pre-commit]
       - id: trailing-whitespace
+        exclude: "^(dist/|test/adapters/__goldens__/)"
         stages: [pre-commit]
 
   # `language: system` so this hook runs the repo's own pinned eslint +
