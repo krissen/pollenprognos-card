@@ -24,11 +24,30 @@ complete). Every change must keep these green:
 - `npm run lint:fix` - ESLint autofix.
 - `npm run build` && `npm run check-dist-size` - Build, then assert the gzipped
   bundle is under `size-budget.json` (`gzipBudgetBytes`).
-- `npm run format` / `npm run format:check` - Prettier. NOTE: Prettier is
-  non-idempotent on the editor lit-templates that embed TS casts
-  (`${(e.target as HTMLInputElement)...}`), so `format:check` is intentionally
-  NOT part of CI. Format the files you touch and eyeball template regions; don't
-  run a repo-wide `format --write` expecting convergence.
+- `npm run format` / `npm run format:check` - Prettier. NOTE: Prettier 3.9.4 does
+  not converge on ten editor lit-templates that embed TS casts inside
+  multi-line interpolated expressions (`${(e.target as HTMLInputElement)...}`)
+  -- repeated `--write` passes keep re-indenting the same blocks instead of
+  reaching a fixed point on the first pass (tracked upstream: #345). Those ten
+  files are listed and excluded in `.prettierignore`; `format`/`format:check`
+  are safe to run repo-wide otherwise. Don't hand-format the excluded files
+  expecting the result to match what a second `--write` would produce.
+- `npm run check` - The single local gate that mirrors CI: `.pre-commit-config.yaml`
+  via `prek`, plus standalone eslint/prettier/gitleaks passes over the whole
+  tree (see `scripts/check.sh` for why those aren't redundant with prek),
+  typecheck, test, build and check-dist-size. Quiet on success; full output in
+  the gitignored `.check.log` on failure.
+- Pre-commit/pre-push hooks (`.pre-commit-config.yaml`, run via `prek`) are
+  opt-in per clone: `git config prek.enabled true` turns them on. `SKIP_PREK=1
+git commit` skips the lint stage for one commit without disabling the
+  separate AI-attribution guard.
+
+### Commit Messages
+
+Conventional Commits with a mandatory scope, in English: `type(scope): subject`
+(e.g. `fix(editor): keep the color picker in sync with custom mode`). See
+CONTRIBUTING.md for the full spec. Never add an AI-attribution trailer or
+co-author line to a commit or PR description.
 
 ### Version Management
 

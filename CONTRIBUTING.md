@@ -48,17 +48,51 @@ We are committed to providing a welcoming, friendly, and harassment-free environ
    - `npm run preview` - Preview production build
 
 3. **Project architecture:**
-   - Main card: `src/pollenprognos-card.js`
-   - Visual editor: `src/pollenprognos-editor.js`
+   - Main card: `src/pollenprognos-card.ts`
+   - Visual editor: `src/pollenprognos-editor.ts`
    - Adapters: `src/adapters/` (one per integration)
    - Translations: `src/locales/*.json` (only edit `en.json`)
-   - Constants: `src/constants.js`
+   - Constants: `src/constants.ts`
 
-4. **Testing:**
-   - Manual testing in Home Assistant
-   - Always run `npm run build` to verify changes compile
+4. **Testing and quality gates:**
+   - `npm run check` runs the same gates CI does (lint, format, typecheck,
+     test, build, bundle size); run it before opening a PR.
+   - `npm run test` runs the vitest suite on its own; `npm run lint` /
+     `npm run typecheck` run ESLint / `tsc --noEmit` on their own.
+   - Manual testing in Home Assistant is still expected for anything that
+     touches rendering or an adapter's live behaviour.
+   - Optional but recommended: `git config prek.enabled true` turns on local
+     pre-commit/pre-push hooks (`.pre-commit-config.yaml`) that run most of
+     the same checks automatically.
 
 For detailed architecture documentation and development patterns, see the code comments and structure in `src/`.
+
+---
+
+## Commit Messages
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) with a
+mandatory scope: `type(scope): subject`.
+
+- **type**: one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
+  `build`, `ci`, `chore`, `revert`.
+- **scope**: required, lowercase, short — a filename without its extension or
+  a module/feature name (e.g. `adapters`, `editor`, `i18n`).
+- **subject**: imperative mood, lowercase first letter, no trailing period.
+- **Breaking change**: `type(scope)!: subject` with a `BREAKING CHANGE:`
+  footer.
+- Commit messages (and PR titles, which become the squash-merge commit
+  subject) are written in English.
+- One logical change per commit; don't bundle an unrelated fix into a feature
+  commit.
+
+```
+feat(adapters): add support for the Foo integration
+fix(editor): keep the color picker in sync with custom mode
+docs(readme): describe the new hourly_sixth interval
+```
+
+PRs must carry at least one label (e.g. `bug`, `enhancement`) before merge.
 
 ---
 

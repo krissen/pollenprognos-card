@@ -106,11 +106,20 @@ This is a Home Assistant Lovelace card for displaying pollen forecasts. The card
 
 ### Testing and Validation
 
+- **Full gate**: `npm run check` runs lint, format, typecheck, test, build and
+  bundle-size checks in one command; run it before opening a PR.
 - **Unit Tests**: `npx vitest run` runs adapter contract tests and utility tests
 - **Build Validation**: Always run `npm run build` to verify changes
 - **Manual Testing**: Test in Home Assistant environment when possible
 - **HACS Validation**: CI validates HACS compatibility automatically
 - **Integration Testing**: Test with different pollen integrations if available
+
+### Commit Messages
+
+Conventional Commits with a mandatory scope, written in English:
+`type(scope): subject` (types: `feat`, `fix`, `docs`, `style`, `refactor`,
+`perf`, `test`, `build`, `ci`, `chore`, `revert`). See CONTRIBUTING.md for the
+full spec. Never add an AI-attribution trailer or co-author line.
 
 ### Version Management
 
