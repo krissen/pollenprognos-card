@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   v0.6.0, which adds Portugal and Hungary (alongside Finland and Slovakia)
   to the integration's coverage.
 
+### Fixed
+
+- Prettier now formats the full source tree, including ten editor files that
+  were previously excluded (issue #345).
+
 ## [4.2.0] - 2026-08-11
 
 ### Added

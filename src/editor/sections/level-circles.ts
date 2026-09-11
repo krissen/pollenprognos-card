@@ -22,9 +22,7 @@ export function renderLevelCirclesSection(
         ${editor._renderSectionReset(editor._levelCirclesResetKeys())}
       </summary>
       <div class="section-helper">${editor._t("helper_level_circles")}</div>
-      <ha-formfield
-        label="${editor._t("levels_inherit_mode")}"
-      >
+      <ha-formfield label="${editor._t("levels_inherit_mode")}">
         <ha-selector
           .hass=${editor._hass}
           .selector=${{
@@ -53,110 +51,117 @@ export function renderLevelCirclesSection(
         ></ha-selector>
       </ha-formfield>
 
-      ${inheritMode === "inherit_allergen"
-        ? html`
-            <ha-formfield
-              label="${editor._t("allergen_levels_gap_synced")}"
-            >
-              <ha-checkbox
-                .checked=${c.allergen_levels_gap_synced ?? true}
-                @change=${(e: Event) =>
-                  editor._updateConfig(
-                    "allergen_levels_gap_synced",
-                    (e.target as HTMLInputElement).checked,
-                  )}
-              ></ha-checkbox>
-            </ha-formfield>
-            <div class="field-helper">${editor._t("helper_allergen_levels_gap_synced")}</div>
-          `
-        : ""}
-
-      ${inheritMode === "custom"
-        ? html`
-            <ha-formfield label="${editor._t("levels_colors")}">
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                ${levelsColors.map(
-                  (col: string, i: number) => html`
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <input
-                        type="color"
-                        .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
-                          ? col
-                          : "#000000"}
-                        @input=${(e: Event) => {
-                          const newColors = [...levelsColors];
-                          newColors[i] = (e.target as HTMLInputElement).value;
-                          editor._updateConfig("levels_colors", newColors);
-                        }}
-                        style="width: 28px; height: 28px; border: none; background: none;"
-                      />
-                      ${editor._renderTextField({
-                        value: col,
-                        placeholder: editor._t("levels_colors_placeholder"),
-                        width: "100px",
-                        onInput: (v) => {
-                          const newColors = [...levelsColors];
-                          newColors[i] = v;
-                          editor._updateConfig("levels_colors", newColors);
-                        },
-                      })}
-                      ${editor._renderResetButton({
-                        title: editor._t("levels_reset"),
-                        style: "margin-left: 8px;",
-                        onClick: () => {
-                          const newColors = [...levelsColors];
-                          newColors[i] = LEVELS_DEFAULTS.levels_colors[i]!;
-                          editor._updateConfig("levels_colors", newColors);
-                        },
-                      })}
-                    </div>
-                  `,
-                )}
-              </div>
-            </ha-formfield>
-
-            <ha-formfield label="${editor._t("levels_empty_color")}">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input
-                  type="color"
-                  .value=${(() => {
-                    const color =
-                      (c.levels_empty_color as string) ||
-                      LEVELS_DEFAULTS.levels_empty_color;
-                    if (color.includes("rgba")) {
-                      return "#c8c8c8";
-                    }
-                    return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
-                      ? color
-                      : "#c8c8c8";
-                  })()}
-                  @input=${(e: Event) =>
+      ${
+        inheritMode === "inherit_allergen"
+          ? html`
+              <ha-formfield label="${editor._t("allergen_levels_gap_synced")}">
+                <ha-checkbox
+                  .checked=${c.allergen_levels_gap_synced ?? true}
+                  @change=${(e: Event) =>
                     editor._updateConfig(
-                      "levels_empty_color",
-                      (e.target as HTMLInputElement).value,
+                      "allergen_levels_gap_synced",
+                      (e.target as HTMLInputElement).checked,
                     )}
-                  style="width: 28px; height: 28px; border: none; background: none;"
-                />
-                ${editor._renderTextField({
-                  value: c.levels_empty_color as string,
-                  placeholder: editor._t("levels_colors_placeholder"),
-                  width: "100px",
-                  onInput: (v) =>
-                    editor._updateConfig("levels_empty_color", v),
-                })}
-                ${editor._renderResetButton({
-                  title: editor._t("levels_reset"),
-                  style: "margin-left: 8px;",
-                  onClick: () =>
-                    editor._updateConfig(
-                      "levels_empty_color",
-                      LEVELS_DEFAULTS.levels_empty_color,
-                    ),
-                })}
+                ></ha-checkbox>
+              </ha-formfield>
+              <div class="field-helper">
+                ${editor._t("helper_allergen_levels_gap_synced")}
               </div>
-            </ha-formfield>
-          `
-        : ""}
+            `
+          : ""
+      }
+      ${
+        inheritMode === "custom"
+          ? html`
+              <ha-formfield label="${editor._t("levels_colors")}">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  ${levelsColors.map(
+                    (col: string, i: number) => html`
+                      <div
+                        style="display: flex; align-items: center; gap: 8px;"
+                      >
+                        <input
+                          type="color"
+                          .value=${
+                            /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(col)
+                              ? col
+                              : "#000000"
+                          }
+                          @input=${(e: Event) => {
+                            const newColors = [...levelsColors];
+                            newColors[i] = (e.target as HTMLInputElement).value;
+                            editor._updateConfig("levels_colors", newColors);
+                          }}
+                          style="width: 28px; height: 28px; border: none; background: none;"
+                        />
+                        ${editor._renderTextField({
+                          value: col,
+                          placeholder: editor._t("levels_colors_placeholder"),
+                          width: "100px",
+                          onInput: (v) => {
+                            const newColors = [...levelsColors];
+                            newColors[i] = v;
+                            editor._updateConfig("levels_colors", newColors);
+                          },
+                        })}
+                        ${editor._renderResetButton({
+                          title: editor._t("levels_reset"),
+                          style: "margin-left: 8px;",
+                          onClick: () => {
+                            const newColors = [...levelsColors];
+                            newColors[i] = LEVELS_DEFAULTS.levels_colors[i]!;
+                            editor._updateConfig("levels_colors", newColors);
+                          },
+                        })}
+                      </div>
+                    `,
+                  )}
+                </div>
+              </ha-formfield>
+
+              <ha-formfield label="${editor._t("levels_empty_color")}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    type="color"
+                    .value=${(() => {
+                      const color =
+                        (c.levels_empty_color as string) ||
+                        LEVELS_DEFAULTS.levels_empty_color;
+                      if (color.includes("rgba")) {
+                        return "#c8c8c8";
+                      }
+                      return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
+                        ? color
+                        : "#c8c8c8";
+                    })()}
+                    @input=${(e: Event) =>
+                      editor._updateConfig(
+                        "levels_empty_color",
+                        (e.target as HTMLInputElement).value,
+                      )}
+                    style="width: 28px; height: 28px; border: none; background: none;"
+                  />
+                  ${editor._renderTextField({
+                    value: c.levels_empty_color as string,
+                    placeholder: editor._t("levels_colors_placeholder"),
+                    width: "100px",
+                    onInput: (v) =>
+                      editor._updateConfig("levels_empty_color", v),
+                  })}
+                  ${editor._renderResetButton({
+                    title: editor._t("levels_reset"),
+                    style: "margin-left: 8px;",
+                    onClick: () =>
+                      editor._updateConfig(
+                        "levels_empty_color",
+                        LEVELS_DEFAULTS.levels_empty_color,
+                      ),
+                  })}
+                </div>
+              </ha-formfield>
+            `
+          : ""
+      }
 
       <ha-formfield label="${editor._t("levels_thickness")}">
         <ha-slider
@@ -182,14 +187,14 @@ export function renderLevelCirclesSection(
           title: editor._t("levels_reset"),
           style: "margin-left: 8px;",
           onClick: () =>
-            editor._updateConfig("levels_thickness", LEVELS_DEFAULTS.levels_thickness),
+            editor._updateConfig(
+              "levels_thickness",
+              LEVELS_DEFAULTS.levels_thickness,
+            ),
         })}
       </ha-formfield>
 
-      <ha-formfield
-        label="${editor._t("levels_gap")}"
-        .disabled=${gapDisabled}
-      >
+      <ha-formfield label="${editor._t("levels_gap")}" .disabled=${gapDisabled}>
         <ha-slider
           min="0"
           max="20"
@@ -220,99 +225,107 @@ export function renderLevelCirclesSection(
         })}
       </ha-formfield>
       <div class="field-helper">
-        ${gapDisabled
-          ? editor._t("helper_levels_gap_synced")
-          : editor._t("helper_levels_gap_unsynced")}
+        ${
+          gapDisabled
+            ? editor._t("helper_levels_gap_synced")
+            : editor._t("helper_levels_gap_unsynced")
+        }
       </div>
 
-      ${inheritMode === "custom" || !gapSynced
-        ? html`
-            <ha-formfield label="${editor._t("levels_gap_color")}">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input
-                  type="color"
-                  .value=${(() => {
-                    const color =
-                      (c.levels_gap_color as string) ||
-                      LEVELS_DEFAULTS.levels_gap_color;
-                    if (color.includes("rgba")) {
-                      return "#c8c8c8";
-                    }
-                    return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
-                      ? color
-                      : "#c8c8c8";
-                  })()}
-                  @input=${(e: Event) =>
+      ${
+        inheritMode === "custom" || !gapSynced
+          ? html`
+              <ha-formfield label="${editor._t("levels_gap_color")}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    type="color"
+                    .value=${(() => {
+                      const color =
+                        (c.levels_gap_color as string) ||
+                        LEVELS_DEFAULTS.levels_gap_color;
+                      if (color.includes("rgba")) {
+                        return "#c8c8c8";
+                      }
+                      return /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(color)
+                        ? color
+                        : "#c8c8c8";
+                    })()}
+                    @input=${(e: Event) =>
+                      editor._updateConfig(
+                        "levels_gap_color",
+                        (e.target as HTMLInputElement).value,
+                      )}
+                    style="width: 28px; height: 28px; border: none; background: none;"
+                  />
+                  ${editor._renderTextField({
+                    value: c.levels_gap_color as string,
+                    placeholder: editor._t("levels_colors_placeholder"),
+                    width: "100px",
+                    onInput: (v) => editor._updateConfig("levels_gap_color", v),
+                  })}
+                  ${editor._renderResetButton({
+                    title: editor._t("levels_reset"),
+                    style: "margin-left: 8px;",
+                    onClick: () =>
+                      editor._updateConfig(
+                        "levels_gap_color",
+                        LEVELS_DEFAULTS.levels_gap_color,
+                      ),
+                  })}
+                </div>
+              </ha-formfield>
+            `
+          : ""
+      }
+      ${
+        editor._showNumericInCircleToggle()
+          ? html`
+              <ha-formfield
+                label="${editor._t("show_value_numeric_in_circle")}"
+              >
+                <ha-switch
+                  .checked=${c.show_value_numeric_in_circle}
+                  @change=${(e: Event) =>
                     editor._updateConfig(
-                      "levels_gap_color",
-                      (e.target as HTMLInputElement).value,
+                      "show_value_numeric_in_circle",
+                      (e.target as HTMLInputElement).checked,
                     )}
-                  style="width: 28px; height: 28px; border: none; background: none;"
-                />
-                ${editor._renderTextField({
-                  value: c.levels_gap_color as string,
-                  placeholder: editor._t("levels_colors_placeholder"),
-                  width: "100px",
-                  onInput: (v) => editor._updateConfig("levels_gap_color", v),
-                })}
-                ${editor._renderResetButton({
-                  title: editor._t("levels_reset"),
-                  style: "margin-left: 8px;",
-                  onClick: () =>
-                    editor._updateConfig(
-                      "levels_gap_color",
-                      LEVELS_DEFAULTS.levels_gap_color,
-                    ),
-                })}
+                ></ha-switch>
+              </ha-formfield>
+              <div class="field-helper">
+                ${editor._t("helper_show_value_numeric_in_circle")}
               </div>
-            </ha-formfield>
-          `
-        : ""}
-
-      ${editor._showNumericInCircleToggle()
-        ? html`
-            <ha-formfield
-              label="${editor._t("show_value_numeric_in_circle")}"
-            >
-              <ha-switch
-                .checked=${c.show_value_numeric_in_circle}
-                @change=${(e: Event) =>
-                  editor._updateConfig(
-                    "show_value_numeric_in_circle",
-                    (e.target as HTMLInputElement).checked,
-                  )}
-              ></ha-switch>
-            </ha-formfield>
-            <div class="field-helper">
-              ${editor._t("helper_show_value_numeric_in_circle")}
-            </div>
-          `
-        : ""}
-
-      ${editor._integrationHasRawValue(c.integration)
-        ? html`
-            <ha-formfield label="${editor._t("numeric_value_raw")}">
-              <ha-switch
-                .checked=${c.numeric_value_raw === true ||
-                (c.integration === "peu" &&
-                  c.numeric_state_raw_risk === true)}
-                @change=${(e: Event) => {
-                  const on = (e.target as HTMLInputElement).checked;
-                  editor._updateConfig("numeric_value_raw", on);
-                  // Migrate off the legacy PEU alias so the two cannot
-                  // diverge (turning the switch off must not leave
-                  // numeric_state_raw_risk: true silently showing raw).
-                  if (c.numeric_state_raw_risk === true) {
-                    editor._updateConfig("numeric_state_raw_risk", false);
+            `
+          : ""
+      }
+      ${
+        editor._integrationHasRawValue(c.integration)
+          ? html`
+              <ha-formfield label="${editor._t("numeric_value_raw")}">
+                <ha-switch
+                  .checked=${
+                    c.numeric_value_raw === true ||
+                    (c.integration === "peu" &&
+                      c.numeric_state_raw_risk === true)
                   }
-                }}
-              ></ha-switch>
-            </ha-formfield>
-            <div class="field-helper">
-              ${editor._t("helper_numeric_value_raw")}
-            </div>
-          `
-        : ""}
+                  @change=${(e: Event) => {
+                    const on = (e.target as HTMLInputElement).checked;
+                    editor._updateConfig("numeric_value_raw", on);
+                    // Migrate off the legacy PEU alias so the two cannot
+                    // diverge (turning the switch off must not leave
+                    // numeric_state_raw_risk: true silently showing raw).
+                    if (c.numeric_state_raw_risk === true) {
+                      editor._updateConfig("numeric_state_raw_risk", false);
+                    }
+                  }}
+                ></ha-switch>
+              </ha-formfield>
+              <div class="field-helper">
+                ${editor._t("helper_numeric_value_raw")}
+              </div>
+            `
+          : ""
+      }
 
       <ha-formfield label="${editor._t("levels_text_weight")}">
         <ha-selector
@@ -383,9 +396,11 @@ export function renderLevelCirclesSection(
         <div style="display: flex; align-items: center; gap: 8px;">
           <input
             type="color"
-            .value=${/^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(levelsTextColor)
-              ? levelsTextColor
-              : "#000000"}
+            .value=${
+              /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(levelsTextColor)
+                ? levelsTextColor
+                : "#000000"
+            }
             @input=${(e: Event) =>
               editor._updateConfig(
                 "levels_text_color",

@@ -9,9 +9,7 @@ import { normalize } from "../../utils/normalize.js";
 import { toCanonicalAllergenKey } from "../../constants.js";
 import type { PollenEditorLike } from "../types.js";
 
-export function renderPhrasesSection(
-  editor: PollenEditorLike,
-): TemplateResult {
+export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
   const c = editor._editorConfig();
   const allergens = editor._currentAllergens();
   const numLevels = editor._currentNumLevels();
@@ -108,76 +106,82 @@ export function renderPhrasesSection(
           `,
         )}
       </details>
-      ${editor._showPhraseShort()
-        ? html`
-            <details>
-              <summary>${editor._t("phrases_short")}</summary>
-              ${allergens.map(
-                (a) => html`
-                  <ha-formfield .label=${a}>
-                    ${editor._renderTextField({
-                      value: short[a] || "",
-                      onInput: (v) => {
-                        const p = {
-                          ...phrases,
-                          short: { ...short, [a]: v },
-                        };
-                        editor._updateConfig("phrases", p);
-                      },
-                    })}
-                  </ha-formfield>
-                `,
-              )}
-            </details>
-          `
-        : ""}
-      ${editor._showPhraseLevels()
-        ? html`
-            <details>
-              <summary>${editor._t("phrases_levels")}</summary>
-              ${Array.from({ length: numLevels }, (_, i) => i).map(
-                (i) => html`
-                  <ha-formfield .label=${i}>
-                    ${editor._renderTextField({
-                      value: levels[i] || "",
-                      onInput: (v) => {
-                        const lv = [...levels];
-                        lv[i] = v;
-                        editor._updateConfig("phrases", {
-                          ...phrases,
-                          levels: lv,
-                        });
-                      },
-                    })}
-                  </ha-formfield>
-                `,
-              )}
-            </details>
-          `
-        : ""}
-      ${editor._showPhraseDays()
-        ? html`
-            <details>
-              <summary>${editor._t("phrases_days")}</summary>
-              ${[0, 1, 2].map(
-                (i) => html`
-                  <ha-formfield .label=${i}>
-                    ${editor._renderTextField({
-                      value: days[i] || "",
-                      onInput: (v) => {
-                        const dd = { ...days, [i]: v };
-                        editor._updateConfig("phrases", {
-                          ...phrases,
-                          days: dd,
-                        });
-                      },
-                    })}
-                  </ha-formfield>
-                `,
-              )}
-            </details>
-          `
-        : ""}
+      ${
+        editor._showPhraseShort()
+          ? html`
+              <details>
+                <summary>${editor._t("phrases_short")}</summary>
+                ${allergens.map(
+                  (a) => html`
+                    <ha-formfield .label=${a}>
+                      ${editor._renderTextField({
+                        value: short[a] || "",
+                        onInput: (v) => {
+                          const p = {
+                            ...phrases,
+                            short: { ...short, [a]: v },
+                          };
+                          editor._updateConfig("phrases", p);
+                        },
+                      })}
+                    </ha-formfield>
+                  `,
+                )}
+              </details>
+            `
+          : ""
+      }
+      ${
+        editor._showPhraseLevels()
+          ? html`
+              <details>
+                <summary>${editor._t("phrases_levels")}</summary>
+                ${Array.from({ length: numLevels }, (_, i) => i).map(
+                  (i) => html`
+                    <ha-formfield .label=${i}>
+                      ${editor._renderTextField({
+                        value: levels[i] || "",
+                        onInput: (v) => {
+                          const lv = [...levels];
+                          lv[i] = v;
+                          editor._updateConfig("phrases", {
+                            ...phrases,
+                            levels: lv,
+                          });
+                        },
+                      })}
+                    </ha-formfield>
+                  `,
+                )}
+              </details>
+            `
+          : ""
+      }
+      ${
+        editor._showPhraseDays()
+          ? html`
+              <details>
+                <summary>${editor._t("phrases_days")}</summary>
+                ${[0, 1, 2].map(
+                  (i) => html`
+                    <ha-formfield .label=${i}>
+                      ${editor._renderTextField({
+                        value: days[i] || "",
+                        onInput: (v) => {
+                          const dd = { ...days, [i]: v };
+                          editor._updateConfig("phrases", {
+                            ...phrases,
+                            days: dd,
+                          });
+                        },
+                      })}
+                    </ha-formfield>
+                  `,
+                )}
+              </details>
+            `
+          : ""
+      }
       <ha-formfield label="${editor._t("no_information")}">
         ${editor._renderTextField({
           value: (phrases.no_information as string) || "",

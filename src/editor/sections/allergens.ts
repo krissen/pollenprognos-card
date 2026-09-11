@@ -49,42 +49,6 @@ export function renderAllergensSection(
                 </h4>
                 <div class="allergens-group">
                   ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
-                  const displayName = editor._getAllergenDisplayName(key);
-                  return html`
-                    <ha-formfield .label=${displayName}>
-                      <ha-checkbox
-                        .checked=${selectedAllergens.includes(key)}
-                        @change=${(e: Event) =>
-                          editor._onAllergenToggle(
-                            key,
-                            (e.target as HTMLInputElement).checked,
-                          )}
-                      ></ha-checkbox>
-                    </ha-formfield>
-                  `;
-                })}
-                </div>
-              </div>
-
-              <!-- Individual allergens -->
-              <div class="allergen-section">
-                <h4
-                  style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                >
-                  ${editor._t("allergens_header_specific")}
-                </h4>
-                <div class="allergens-group">
-                  ${allergens
-                  .filter(
-                    (key) =>
-                      !["trees_cat", "grass_cat", "weeds_cat"].includes(key),
-                  )
-                  .sort((a, b) => {
-                    const displayA = editor._getAllergenDisplayName(a);
-                    const displayB = editor._getAllergenDisplayName(b);
-                    return displayA.localeCompare(displayB);
-                  })
-                  .map((key) => {
                     const displayName = editor._getAllergenDisplayName(key);
                     return html`
                       <ha-formfield .label=${displayName}>
@@ -101,55 +65,19 @@ export function renderAllergensSection(
                   })}
                 </div>
               </div>
-            `
-          : c.integration === "atmo"
-            ? html`
-                <!-- Atmo France: Summary / Pollen / Pollution blocks -->
-                <div class="allergen-section">
-                  <h4
-                    style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                  >
-                    ${editor._t("allergens_header_summary")}
-                  </h4>
-                  <div class="allergens-group">
-                    ${["allergy_risk", "qualite_globale"]
-                    .filter((key) => allergens.includes(key))
-                    .map((key) => {
-                      const displayName = editor._getAllergenDisplayName(key);
-                      return html`
-                        <ha-formfield .label=${displayName}>
-                          <ha-checkbox
-                            .checked=${selectedAllergens.includes(key)}
-                            @change=${(e: Event) =>
-                              editor._onAllergenToggle(
-                                key,
-                                (e.target as HTMLInputElement).checked,
-                              )}
-                          ></ha-checkbox>
-                        </ha-formfield>
-                      `;
-                    })}
-                  </div>
-                </div>
-                <div class="allergen-section">
-                  <h4
-                    style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
-                  >
-                    ${editor._t("allergens_header_pollen")}
-                  </h4>
-                  <div class="allergens-group">
-                    ${allergens
+
+              <!-- Individual allergens -->
+              <div class="allergen-section">
+                <h4
+                  style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                >
+                  ${editor._t("allergens_header_specific")}
+                </h4>
+                <div class="allergens-group">
+                  ${allergens
                     .filter(
                       (key) =>
-                        ![
-                          "allergy_risk",
-                          "qualite_globale",
-                          "pm25",
-                          "pm10",
-                          "ozone",
-                          "no2",
-                          "so2",
-                        ].includes(key),
+                        !["trees_cat", "grass_cat", "weeds_cat"].includes(key),
                     )
                     .sort((a, b) => {
                       const displayA = editor._getAllergenDisplayName(a);
@@ -171,6 +99,78 @@ export function renderAllergensSection(
                         </ha-formfield>
                       `;
                     })}
+                </div>
+              </div>
+            `
+          : c.integration === "atmo"
+            ? html`
+                <!-- Atmo France: Summary / Pollen / Pollution blocks -->
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 8px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${editor._t("allergens_header_summary")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${["allergy_risk", "qualite_globale"]
+                      .filter((key) => allergens.includes(key))
+                      .map((key) => {
+                        const displayName = editor._getAllergenDisplayName(key);
+                        return html`
+                          <ha-formfield .label=${displayName}>
+                            <ha-checkbox
+                              .checked=${selectedAllergens.includes(key)}
+                              @change=${(e: Event) =>
+                                editor._onAllergenToggle(
+                                  key,
+                                  (e.target as HTMLInputElement).checked,
+                                )}
+                            ></ha-checkbox>
+                          </ha-formfield>
+                        `;
+                      })}
+                  </div>
+                </div>
+                <div class="allergen-section">
+                  <h4
+                    style="margin: 16px 0 4px 0; font-size: 0.9em; color: var(--secondary-text-color);"
+                  >
+                    ${editor._t("allergens_header_pollen")}
+                  </h4>
+                  <div class="allergens-group">
+                    ${allergens
+                      .filter(
+                        (key) =>
+                          ![
+                            "allergy_risk",
+                            "qualite_globale",
+                            "pm25",
+                            "pm10",
+                            "ozone",
+                            "no2",
+                            "so2",
+                          ].includes(key),
+                      )
+                      .sort((a, b) => {
+                        const displayA = editor._getAllergenDisplayName(a);
+                        const displayB = editor._getAllergenDisplayName(b);
+                        return displayA.localeCompare(displayB);
+                      })
+                      .map((key) => {
+                        const displayName = editor._getAllergenDisplayName(key);
+                        return html`
+                          <ha-formfield .label=${displayName}>
+                            <ha-checkbox
+                              .checked=${selectedAllergens.includes(key)}
+                              @change=${(e: Event) =>
+                                editor._onAllergenToggle(
+                                  key,
+                                  (e.target as HTMLInputElement).checked,
+                                )}
+                            ></ha-checkbox>
+                          </ha-formfield>
+                        `;
+                      })}
                   </div>
                 </div>
                 <div class="allergen-section">
@@ -181,22 +181,22 @@ export function renderAllergensSection(
                   </h4>
                   <div class="allergens-group">
                     ${["pm25", "pm10", "ozone", "no2", "so2"]
-                    .filter((key) => allergens.includes(key))
-                    .map((key) => {
-                      const displayName = editor._getAllergenDisplayName(key);
-                      return html`
-                        <ha-formfield .label=${displayName}>
-                          <ha-checkbox
-                            .checked=${selectedAllergens.includes(key)}
-                            @change=${(e: Event) =>
-                              editor._onAllergenToggle(
-                                key,
-                                (e.target as HTMLInputElement).checked,
-                              )}
-                          ></ha-checkbox>
-                        </ha-formfield>
-                      `;
-                    })}
+                      .filter((key) => allergens.includes(key))
+                      .map((key) => {
+                        const displayName = editor._getAllergenDisplayName(key);
+                        return html`
+                          <ha-formfield .label=${displayName}>
+                            <ha-checkbox
+                              .checked=${selectedAllergens.includes(key)}
+                              @change=${(e: Event) =>
+                                editor._onAllergenToggle(
+                                  key,
+                                  (e.target as HTMLInputElement).checked,
+                                )}
+                            ></ha-checkbox>
+                          </ha-formfield>
+                        `;
+                      })}
                   </div>
                 </div>
               `
@@ -204,20 +204,20 @@ export function renderAllergensSection(
                 <!-- Standard allergen display -->
                 <div class="allergens-group">
                   ${allergens.map((key) => {
-                  const displayName = editor._getAllergenDisplayName(key);
-                  return html`
-                    <ha-formfield .label=${displayName}>
-                      <ha-checkbox
-                        .checked=${selectedAllergens.includes(key)}
-                        @change=${(e: Event) =>
-                          editor._onAllergenToggle(
-                            key,
-                            (e.target as HTMLInputElement).checked,
-                          )}
-                      ></ha-checkbox>
-                    </ha-formfield>
-                  `;
-                })}
+                    const displayName = editor._getAllergenDisplayName(key);
+                    return html`
+                      <ha-formfield .label=${displayName}>
+                        <ha-checkbox
+                          .checked=${selectedAllergens.includes(key)}
+                          @change=${(e: Event) =>
+                            editor._onAllergenToggle(
+                              key,
+                              (e.target as HTMLInputElement).checked,
+                            )}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                    `;
+                  })}
                 </div>
               `
       }
@@ -236,36 +236,36 @@ export function renderAllergensSection(
           c.integration === "atmo"
             ? html`
                 ${editor._renderTextButton({
-                label: editor._t("select_all_pollen"),
-                onClick: () => {
-                  const pollenKeys = allergens.filter(
-                    (k) =>
-                      ![
-                        "allergy_risk",
-                        "qualite_globale",
-                        "pm25",
-                        "pm10",
-                        "ozone",
-                        "no2",
-                        "so2",
-                      ].includes(k),
-                  );
-                  editor._toggleAllergenSubset(pollenKeys);
-                },
-              })}
+                  label: editor._t("select_all_pollen"),
+                  onClick: () => {
+                    const pollenKeys = allergens.filter(
+                      (k) =>
+                        ![
+                          "allergy_risk",
+                          "qualite_globale",
+                          "pm25",
+                          "pm10",
+                          "ozone",
+                          "no2",
+                          "so2",
+                        ].includes(k),
+                    );
+                    editor._toggleAllergenSubset(pollenKeys);
+                  },
+                })}
                 ${editor._renderTextButton({
-                label: editor._t("select_all_pollution"),
-                onClick: () => {
-                  const pollutionKeys = [
-                    "pm25",
-                    "pm10",
-                    "ozone",
-                    "no2",
-                    "so2",
-                  ].filter((k) => allergens.includes(k));
-                  editor._toggleAllergenSubset(pollutionKeys);
-                },
-              })}
+                  label: editor._t("select_all_pollution"),
+                  onClick: () => {
+                    const pollutionKeys = [
+                      "pm25",
+                      "pm10",
+                      "ozone",
+                      "no2",
+                      "so2",
+                    ].filter((k) => allergens.includes(k));
+                    editor._toggleAllergenSubset(pollutionKeys);
+                  },
+                })}
               `
             : ""
         }
@@ -314,10 +314,10 @@ export function renderAllergensSection(
                 <ha-checkbox
                   .checked=${c.sort_category_allergens_first}
                   @change=${(e: Event) =>
-                  editor._updateConfig(
-                    "sort_category_allergens_first",
-                    (e.target as HTMLInputElement).checked,
-                  )}
+                    editor._updateConfig(
+                      "sort_category_allergens_first",
+                      (e.target as HTMLInputElement).checked,
+                    )}
                 ></ha-checkbox>
               </ha-formfield>
             `
@@ -335,22 +335,22 @@ export function renderAllergensSection(
           ? html`
               <ha-formfield
                 label="${
-                c.integration === "silam"
-                  ? editor._t("index_top")
-                  : editor._t("allergy_risk_top")
-              }"
+                  c.integration === "silam"
+                    ? editor._t("index_top")
+                    : editor._t("allergy_risk_top")
+                }"
               >
                 <ha-checkbox
                   .checked=${
-                  c.integration === "silam" ? c.index_top : c.allergy_risk_top
-                }
+                    c.integration === "silam" ? c.index_top : c.allergy_risk_top
+                  }
                   @change=${(e: Event) =>
-                  editor._updateConfig(
-                    c.integration === "silam"
-                      ? "index_top"
-                      : "allergy_risk_top",
-                    (e.target as HTMLInputElement).checked,
-                  )}
+                    editor._updateConfig(
+                      c.integration === "silam"
+                        ? "index_top"
+                        : "allergy_risk_top",
+                      (e.target as HTMLInputElement).checked,
+                    )}
                 ></ha-checkbox>
               </ha-formfield>
             `
@@ -367,80 +367,80 @@ export function renderAllergensSection(
                 <ha-checkbox
                   .checked=${c.show_summary_block === true}
                   @change=${(e: Event) =>
-                  editor._updateConfig(
-                    "show_summary_block",
-                    (e.target as HTMLInputElement).checked,
-                  )}
+                    editor._updateConfig(
+                      "show_summary_block",
+                      (e.target as HTMLInputElement).checked,
+                    )}
                 ></ha-checkbox>
               </ha-formfield>
               ${
-              c.show_summary_block
-                ? html`
-                    <ha-formfield label="${editor._t("show_summary_row")}">
-                      <ha-checkbox
-                        .checked=${c.show_summary_row === true}
-                        @change=${(e: Event) =>
-                        editor._updateConfig(
-                          "show_summary_row",
-                          (e.target as HTMLInputElement).checked,
-                        )}
-                      ></ha-checkbox>
-                    </ha-formfield>
-                    ${
-                    c.show_summary_row
-                      ? html`
-                          <ha-formfield
-                            label="${editor._t("show_summary_separator")}"
-                          >
-                            <ha-checkbox
-                              .checked=${c.show_summary_separator !== false}
-                              @change=${(e: Event) =>
-                              editor._updateConfig(
-                                "show_summary_separator",
-                                (e.target as HTMLInputElement).checked,
-                              )}
-                            ></ha-checkbox>
-                          </ha-formfield>
-                        `
-                      : ""
-                  }
-                    ${
-                    c.integration === "gpl"
-                      ? html`
-                          <ha-formfield
-                            label="${editor._t("show_summary_top_types")}"
-                          >
-                            <ha-checkbox
-                              .checked=${c.show_summary_top_types !== false}
-                              @change=${(e: Event) =>
-                              editor._updateConfig(
-                                "show_summary_top_types",
-                                (e.target as HTMLInputElement).checked,
-                              )}
-                            ></ha-checkbox>
-                          </ha-formfield>
-                          <ha-formfield
-                            label="${editor._t(
-                            "show_summary_plants_in_season",
-                          )}"
-                          >
-                            <ha-checkbox
-                              .checked=${
-                              c.show_summary_plants_in_season !== false
-                            }
-                              @change=${(e: Event) =>
-                              editor._updateConfig(
-                                "show_summary_plants_in_season",
-                                (e.target as HTMLInputElement).checked,
-                              )}
-                            ></ha-checkbox>
-                          </ha-formfield>
-                        `
-                      : ""
-                  }
-                  `
-                : ""
-            }
+                c.show_summary_block
+                  ? html`
+                      <ha-formfield label="${editor._t("show_summary_row")}">
+                        <ha-checkbox
+                          .checked=${c.show_summary_row === true}
+                          @change=${(e: Event) =>
+                            editor._updateConfig(
+                              "show_summary_row",
+                              (e.target as HTMLInputElement).checked,
+                            )}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                      ${
+                        c.show_summary_row
+                          ? html`
+                              <ha-formfield
+                                label="${editor._t("show_summary_separator")}"
+                              >
+                                <ha-checkbox
+                                  .checked=${c.show_summary_separator !== false}
+                                  @change=${(e: Event) =>
+                                    editor._updateConfig(
+                                      "show_summary_separator",
+                                      (e.target as HTMLInputElement).checked,
+                                    )}
+                                ></ha-checkbox>
+                              </ha-formfield>
+                            `
+                          : ""
+                      }
+                      ${
+                        c.integration === "gpl"
+                          ? html`
+                              <ha-formfield
+                                label="${editor._t("show_summary_top_types")}"
+                              >
+                                <ha-checkbox
+                                  .checked=${c.show_summary_top_types !== false}
+                                  @change=${(e: Event) =>
+                                    editor._updateConfig(
+                                      "show_summary_top_types",
+                                      (e.target as HTMLInputElement).checked,
+                                    )}
+                                ></ha-checkbox>
+                              </ha-formfield>
+                              <ha-formfield
+                                label="${editor._t(
+                                  "show_summary_plants_in_season",
+                                )}"
+                              >
+                                <ha-checkbox
+                                  .checked=${
+                                    c.show_summary_plants_in_season !== false
+                                  }
+                                  @change=${(e: Event) =>
+                                    editor._updateConfig(
+                                      "show_summary_plants_in_season",
+                                      (e.target as HTMLInputElement).checked,
+                                    )}
+                                ></ha-checkbox>
+                              </ha-formfield>
+                            `
+                          : ""
+                      }
+                    `
+                  : ""
+              }
             `
           : ""
       }
@@ -451,56 +451,61 @@ export function renderAllergensSection(
                 <ha-checkbox
                   .checked=${c.sort_pollution_block}
                   @change=${(e: Event) =>
-                  editor._updateConfig(
-                    "sort_pollution_block",
-                    (e.target as HTMLInputElement).checked,
-                  )}
+                    editor._updateConfig(
+                      "sort_pollution_block",
+                      (e.target as HTMLInputElement).checked,
+                    )}
                 ></ha-checkbox>
               </ha-formfield>
               ${
-              c.sort_pollution_block
-                ? html`
-                    <ha-formfield
-                      label="${editor._t("pollution_block_position")}"
-                    >
-                      <ha-selector
-                        .hass=${editor._hass}
-                        .selector=${{
-                        select: {
-                          mode: "dropdown",
-                          options: [
-                            {
-                              value: "bottom",
-                              label: editor._t("pollution_block_bottom"),
+                c.sort_pollution_block
+                  ? html`
+                      <ha-formfield
+                        label="${editor._t("pollution_block_position")}"
+                      >
+                        <ha-selector
+                          .hass=${editor._hass}
+                          .selector=${{
+                            select: {
+                              mode: "dropdown",
+                              options: [
+                                {
+                                  value: "bottom",
+                                  label: editor._t("pollution_block_bottom"),
+                                },
+                                {
+                                  value: "top",
+                                  label: editor._t("pollution_block_top"),
+                                },
+                              ],
                             },
-                            {
-                              value: "top",
-                              label: editor._t("pollution_block_top"),
-                            },
-                          ],
-                        },
-                      }}
-                        .value=${c.pollution_block_position || "bottom"}
-                        @value-changed=${(e: CustomEvent) => {
-                        const v = e.detail?.value;
-                        if (v !== undefined)
-                          editor._updateConfig("pollution_block_position", v);
-                      }}
-                      ></ha-selector>
-                    </ha-formfield>
-                    <ha-formfield label="${editor._t("show_block_separator")}">
-                      <ha-checkbox
-                        .checked=${c.show_block_separator}
-                        @change=${(e: Event) =>
-                        editor._updateConfig(
-                          "show_block_separator",
-                          (e.target as HTMLInputElement).checked,
-                        )}
-                      ></ha-checkbox>
-                    </ha-formfield>
-                  `
-                : ""
-            }
+                          }}
+                          .value=${c.pollution_block_position || "bottom"}
+                          @value-changed=${(e: CustomEvent) => {
+                            const v = e.detail?.value;
+                            if (v !== undefined)
+                              editor._updateConfig(
+                                "pollution_block_position",
+                                v,
+                              );
+                          }}
+                        ></ha-selector>
+                      </ha-formfield>
+                      <ha-formfield
+                        label="${editor._t("show_block_separator")}"
+                      >
+                        <ha-checkbox
+                          .checked=${c.show_block_separator}
+                          @change=${(e: Event) =>
+                            editor._updateConfig(
+                              "show_block_separator",
+                              (e.target as HTMLInputElement).checked,
+                            )}
+                        ></ha-checkbox>
+                      </ha-formfield>
+                    `
+                  : ""
+              }
             `
           : ""
       }

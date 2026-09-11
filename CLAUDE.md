@@ -24,14 +24,11 @@ complete). Every change must keep these green:
 - `npm run lint:fix` - ESLint autofix.
 - `npm run build` && `npm run check-dist-size` - Build, then assert the gzipped
   bundle is under `size-budget.json` (`gzipBudgetBytes`).
-- `npm run format` / `npm run format:check` - Prettier. NOTE: Prettier 3.9.4 does
-  not converge on ten editor lit-templates that embed TS casts inside
-  multi-line interpolated expressions (`${(e.target as HTMLInputElement)...}`)
-  -- repeated `--write` passes keep re-indenting the same blocks instead of
-  reaching a fixed point on the first pass (tracked upstream: #345). Those ten
-  files are listed and excluded in `.prettierignore`; `format`/`format:check`
-  are safe to run repo-wide otherwise. Don't hand-format the excluded files
-  expecting the result to match what a second `--write` would produce.
+- `npm run format` / `npm run format:check` - Prettier, run repo-wide with no
+  exclusions. (Ten editor lit-template files previously needed several
+  `--write` passes to reach a stable fixed point and were excluded in
+  `.prettierignore`; the fixed point is now committed, so they're back under
+  the formatter -- tracked as resolved in #345.)
 - `npm run check` - The single local gate that mirrors CI: `.pre-commit-config.yaml`
   via `prek`, plus standalone eslint/prettier/gitleaks passes over the whole
   tree (see `scripts/check.sh` for why those aren't redundant with prek),
