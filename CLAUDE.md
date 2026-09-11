@@ -230,7 +230,7 @@ When adding support for a new integration, see "Adding a New Integration" below.
 - `detectLang()` - Auto-detects language from Home Assistant settings
 - `t()` - Translation function using IntlMessageFormat for variable interpolation
 - `SUPPORTED_LOCALES` - Exported array of available locale codes (computed from loaded files)
-- 15 supported languages: cs, da, de, el, en, es, fi, fr, it, nl, no, pl, ru, sk, sv
+- 17 supported languages: cs, da, de, el, en, es, fi, fr, hu, it, nl, no, pl, pt, ru, sk, sv
 
 **Locale Files** (`src/locales/*.json`)
 
