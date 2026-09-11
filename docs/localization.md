@@ -18,10 +18,12 @@ This repository includes:
 - `src/locales/es.json`
 - `src/locales/fi.json`
 - `src/locales/fr.json`
+- `src/locales/hu.json`
 - `src/locales/it.json`
 - `src/locales/nl.json`
 - `src/locales/no.json`
 - `src/locales/pl.json`
+- `src/locales/pt.json`
 - `src/locales/ru.json`
 - `src/locales/sk.json`
 - `src/locales/sv.json`

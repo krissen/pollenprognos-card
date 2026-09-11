@@ -1,17 +1,64 @@
 import { describe, it, expect } from "vitest";
 import { detectLang, t, SUPPORTED_LOCALES } from "../../src/i18n.js";
 
+// The locale files themselves, loaded the same way src/i18n.ts loads them, so
+// the parity test below sees exactly the set that ships.
+const localeModules = import.meta.glob<{ default: Record<string, string> }>(
+  "../../src/locales/*.json",
+  { eager: true },
+);
+
+const LOCALE_FILES: Record<string, Record<string, string>> = {};
+for (const filePath in localeModules) {
+  const code = filePath.match(/\/([\w-]+)\.json$/)?.[1];
+  if (code) LOCALE_FILES[code] = localeModules[filePath]!.default;
+}
+
+const MASTER = "en";
+const MASTER_KEYS = Object.keys(LOCALE_FILES[MASTER]!);
+const TRANSLATED = Object.keys(LOCALE_FILES).filter((c) => c !== MASTER);
+
 describe("i18n", () => {
   describe("SUPPORTED_LOCALES", () => {
     it("includes expected core languages", () => {
-      for (const lang of ["en", "sv", "de", "fr", "nl", "es"]) {
+      for (const lang of ["en", "sv", "de", "fr", "nl", "es", "pt", "hu"]) {
         expect(SUPPORTED_LOCALES).toContain(lang);
       }
     });
 
-    it("has 15 locales", () => {
-      expect(SUPPORTED_LOCALES).toHaveLength(15);
+    it("covers every locale file in src/locales", () => {
+      expect([...SUPPORTED_LOCALES].sort()).toEqual(
+        Object.keys(LOCALE_FILES).sort(),
+      );
     });
+  });
+
+  // Key parity is the property that makes a hand-written locale file correct.
+  // t() falls back to English for a missing key and to the raw key when English
+  // lacks it too, so a typo in a key name is otherwise silent: the card renders
+  // English where it should render the local language and nothing fails.
+  describe("locale key parity against en.json", () => {
+    it("has en.json as the master with a non-trivial key set", () => {
+      expect(MASTER_KEYS.length).toBeGreaterThan(400);
+      expect(TRANSLATED.length).toBeGreaterThan(0);
+    });
+
+    for (const code of TRANSLATED) {
+      it(`'${code}' has exactly en.json's keys`, () => {
+        const keys = new Set(Object.keys(LOCALE_FILES[code]!));
+        const master = new Set(MASTER_KEYS);
+        const missing = MASTER_KEYS.filter((k) => !keys.has(k));
+        const extra = [...keys].filter((k) => !master.has(k));
+        expect(
+          missing,
+          `${code}.json is missing ${missing.length} key(s) present in en.json`,
+        ).toEqual([]);
+        expect(
+          extra,
+          `${code}.json has ${extra.length} key(s) not present in en.json`,
+        ).toEqual([]);
+      });
+    }
   });
 
   describe("detectLang", () => {
@@ -94,10 +141,12 @@ describe("i18n", () => {
       es: "Gramíneas",
       fi: "Ruohot",
       fr: "Graminées",
+      hu: "Fű",
       it: "Piante erbacee",
       nl: "Grassen",
       no: "Gress",
       pl: "Trawy",
+      pt: "Gramíneas",
       ru: "Травы",
       sk: "Trávy",
       sv: "Gräs",

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Portuguese and Hungarian card translations** (issue #349). The card and
+  its visual editor now speak Portuguese (`pt`) and Hungarian (`hu`), so a
+  Home Assistant set to either language no longer falls back to English.
+  Both files cover the full key set, including allergen names, pollen level
+  descriptions and every editor label. The trigger is Polleninformation
+  v0.6.0, which adds Portugal and Hungary (alongside Finland and Slovakia)
+  to the integration's coverage.
+
 ## [4.2.0] - 2026-08-11
 
 ### Added
