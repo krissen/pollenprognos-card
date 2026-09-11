@@ -4,13 +4,13 @@ import { detectLang, t, SUPPORTED_LOCALES } from "../../src/i18n.js";
 describe("i18n", () => {
   describe("SUPPORTED_LOCALES", () => {
     it("includes expected core languages", () => {
-      for (const lang of ["en", "sv", "de", "fr", "nl", "es"]) {
+      for (const lang of ["en", "sv", "de", "fr", "nl", "es", "pt"]) {
         expect(SUPPORTED_LOCALES).toContain(lang);
       }
     });
 
-    it("has 15 locales", () => {
-      expect(SUPPORTED_LOCALES).toHaveLength(15);
+    it("has 16 locales", () => {
+      expect(SUPPORTED_LOCALES).toHaveLength(16);
     });
   });
 
@@ -98,6 +98,7 @@ describe("i18n", () => {
       nl: "Grassen",
       no: "Gress",
       pl: "Trawy",
+      pt: "Gramíneas",
       ru: "Травы",
       sk: "Trávy",
       sv: "Gräs",
