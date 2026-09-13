@@ -14,9 +14,10 @@
 # marks that hook Failed, so a fix prek just applied is never silently
 # reported "Passed".) The explicit `eslint .` (no --fix) and
 # `prettier --check .` below scan the whole working tree in report-only
-# mode and close that untracked-file gap; `gitleaks dir .` closes the
-# same hole for the gitleaks hook (its `--staged` default sees zero files
-# when nothing is staged).
+# mode and close that untracked-file gap; scripts/scan_secrets.sh closes
+# the same hole for the gitleaks hook (its `--staged` default sees zero
+# files when nothing is staged), scanning every git-visible file but
+# skipping gitignored local state -- see that script for why.
 #
 # prek runs through the persistent, version-pinned binary `npm run setup`
 # installs (see scripts/setup-dev.sh) when that exists -- no pipx/uv
@@ -74,8 +75,8 @@ step() { printf '\n== %s ==\n' "$1" >>"$log"; }
 step "prek --all-files"
 prek run --all-files --show-diff-on-failure >>"$log" 2>&1 || fail "prek"
 
-step "gitleaks dir . (full tree, not just staged)"
-gitleaks dir . --no-banner >>"$log" 2>&1 || fail "gitleaks (full tree)"
+step "gitleaks (every git-visible file, not just staged)"
+bash scripts/scan_secrets.sh >>"$log" 2>&1 || fail "gitleaks"
 
 step "eslint (no --fix, whole tree)"
 npx eslint . >>"$log" 2>&1 || fail "eslint"

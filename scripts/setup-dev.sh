@@ -86,8 +86,8 @@ if ! command -v gitleaks >/dev/null 2>&1; then
 	exit 1
 fi
 # A legacy gitleaks (pre-v8 `detect`/`protect` CLI, no `dir` subcommand)
-# would report success here and then fail later, at `gitleaks dir .` in
-# scripts/check.sh, with an unknown-command error -- check for `dir`
+# would report success here and then fail later, at the `gitleaks dir` scan
+# in scripts/check.sh, with an unknown-command error -- check for `dir`
 # explicitly rather than just presence on PATH.
 if ! gitleaks --help 2>&1 | grep -q '^ *dir '; then
 	echo "installed gitleaks is too old (no 'dir' subcommand -- needs v8+):"
