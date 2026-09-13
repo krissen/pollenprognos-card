@@ -56,7 +56,11 @@ describe("computeDisplayDays: MSW integration", () => {
   });
 
   it("clamps to 1 for msw with show_empty_days false and a multi-day sensor", () => {
-    const cfg: any = { integration: "msw", days_to_show: 5, show_empty_days: false };
+    const cfg: any = {
+      integration: "msw",
+      days_to_show: 5,
+      show_empty_days: false,
+    };
     expect(computeDisplayDays([sensor5], cfg)).toBe(1);
   });
 });
@@ -68,7 +72,11 @@ describe("computeDisplayDays: IRM KMI integration", () => {
   });
 
   it("clamps to 1 for irmkmi with show_empty_days true", () => {
-    const cfg: any = { integration: "irmkmi", days_to_show: 5, show_empty_days: true };
+    const cfg: any = {
+      integration: "irmkmi",
+      days_to_show: 5,
+      show_empty_days: true,
+    };
     expect(computeDisplayDays([sensor5], cfg)).toBe(1);
   });
 });
@@ -95,13 +103,18 @@ describe("computeDisplayDays: standalone aggregate scenario", () => {
 
   it("returns the detail sensor count when aggregate and details are present", () => {
     const cfg: any = { days_to_show: 5 };
-    expect(computeDisplayDays([aggregateSensor, detailA, detailB], cfg)).toBe(4);
+    expect(computeDisplayDays([aggregateSensor, detailA, detailB], cfg)).toBe(
+      4,
+    );
   });
 
   it("proves columns shrink to 1 in standalone mode vs full mode", () => {
     const cfg: any = { days_to_show: 5 };
     const standaloneCount = computeDisplayDays([aggregateSensor], cfg);
-    const fullCount = computeDisplayDays([aggregateSensor, detailA, detailB], cfg);
+    const fullCount = computeDisplayDays(
+      [aggregateSensor, detailA, detailB],
+      cfg,
+    );
     expect(standaloneCount).toBe(1);
     expect(fullCount).toBeGreaterThan(standaloneCount);
   });

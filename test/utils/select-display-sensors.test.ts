@@ -31,14 +31,16 @@ describe("selectDisplaySensors", () => {
   it("returns the sensors unchanged when the block is off (default)", () => {
     const sensors = [birch, summary, grass];
     expect(selectDisplaySensors(sensors, {} as any)).toBe(sensors);
-    expect(selectDisplaySensors(sensors, { show_summary_block: false } as any)).toBe(
-      sensors,
-    );
+    expect(
+      selectDisplaySensors(sensors, { show_summary_block: false } as any),
+    ).toBe(sensors);
   });
 
   it("returns only the aggregate when block on and detail rows off (standalone)", () => {
     const sensors = [birch, summary, grass];
-    const out = selectDisplaySensors(sensors, { show_summary_block: true } as any);
+    const out = selectDisplaySensors(sensors, {
+      show_summary_block: true,
+    } as any);
     expect(out).toEqual([summary]);
   });
 
@@ -53,9 +55,9 @@ describe("selectDisplaySensors", () => {
 
   it("leaves the list unchanged when block on but no aggregate is present", () => {
     const sensors = [birch, grass];
-    expect(selectDisplaySensors(sensors, { show_summary_block: true } as any)).toBe(
-      sensors,
-    );
+    expect(
+      selectDisplaySensors(sensors, { show_summary_block: true } as any),
+    ).toBe(sensors);
   });
 
   it("honors string flags from YAML ('true')", () => {
@@ -72,7 +74,9 @@ describe("selectDisplaySensors", () => {
   });
 
   it("is null-safe on non-array input", () => {
-    expect(selectDisplaySensors(null as any, { show_summary_block: true } as any)).toEqual([]);
+    expect(
+      selectDisplaySensors(null as any, { show_summary_block: true } as any),
+    ).toEqual([]);
     expect(selectDisplaySensors(undefined as any, {} as any)).toEqual([]);
   });
 });

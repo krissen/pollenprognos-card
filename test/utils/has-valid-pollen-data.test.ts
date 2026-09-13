@@ -8,21 +8,27 @@ import { hasValidPollenData } from "../../src/utils/adapter-helpers.js";
 
 describe("hasValidPollenData", () => {
   it("returns true when a sensor has state 0 (level-0 is valid data)", async () => {
-    const adapter: any = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: 0 }] }]) };
+    const adapter: any = {
+      fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: 0 }] }]),
+    };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(true);
   });
 
   it("returns true when a sensor has state 3", async () => {
-    const adapter: any = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: 3 }] }]) };
+    const adapter: any = {
+      fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: 3 }] }]),
+    };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(true);
   });
 
   it("returns false when all sensors have state -1 (no-data sentinels)", async () => {
     const adapter: any = {
-      fetchForecast: vi.fn().mockResolvedValue([
-        { days: [{ state: -1 }] },
-        { days: [{ state: -1 }] },
-      ]),
+      fetchForecast: vi
+        .fn()
+        .mockResolvedValue([
+          { days: [{ state: -1 }] },
+          { days: [{ state: -1 }] },
+        ]),
     };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(false);
   });
@@ -33,42 +39,56 @@ describe("hasValidPollenData", () => {
   });
 
   it("returns false when days[0].state is missing (Number(undefined) is NaN)", async () => {
-    const adapter: any = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{}] }]) };
+    const adapter: any = {
+      fetchForecast: vi.fn().mockResolvedValue([{ days: [{}] }]),
+    };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(false);
   });
 
   it("returns false when days[0].state is null (Number(null) is 0, must not count as data)", async () => {
-    const adapter: any = { fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: null }] }]) };
+    const adapter: any = {
+      fetchForecast: vi.fn().mockResolvedValue([{ days: [{ state: null }] }]),
+    };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(false);
   });
 
   it("returns false when all sensors are atmo-unavailable (state 0 / display_state -1)", async () => {
     const adapter: any = {
-      fetchForecast: vi.fn().mockResolvedValue([
-        { days: [{ state: 0, display_state: -1 }] },
-        { days: [{ state: 0, display_state: -1 }] },
-      ]),
+      fetchForecast: vi
+        .fn()
+        .mockResolvedValue([
+          { days: [{ state: 0, display_state: -1 }] },
+          { days: [{ state: 0, display_state: -1 }] },
+        ]),
     };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(false);
   });
 
   it("returns true when at least one sensor has real data among unavailable ones", async () => {
     const adapter: any = {
-      fetchForecast: vi.fn().mockResolvedValue([
-        { days: [{ state: 0, display_state: -1 }] },
-        { days: [{ state: 2, display_state: 2 }] },
-      ]),
+      fetchForecast: vi
+        .fn()
+        .mockResolvedValue([
+          { days: [{ state: 0, display_state: -1 }] },
+          { days: [{ state: 2, display_state: 2 }] },
+        ]),
     };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(true);
   });
 
   it("returns false when fetchForecast throws (defensive catch)", async () => {
-    const adapter: any = { fetchForecast: vi.fn().mockRejectedValue(new Error("network error")) };
+    const adapter: any = {
+      fetchForecast: vi.fn().mockRejectedValue(new Error("network error")),
+    };
     expect(await hasValidPollenData(adapter, {} as any, {} as any)).toBe(false);
   });
 
   it("calls fetchForecast with pollen_threshold coerced to 0 while preserving the rest of cfg", async () => {
-    const cfg: any = { pollen_threshold: 5, allergens: ["x"], integration: "pp" };
+    const cfg: any = {
+      pollen_threshold: 5,
+      allergens: ["x"],
+      integration: "pp",
+    };
     const adapter: any = { fetchForecast: vi.fn().mockResolvedValue([]) };
 
     await hasValidPollenData(adapter, {} as any, cfg);

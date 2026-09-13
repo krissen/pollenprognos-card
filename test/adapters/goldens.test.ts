@@ -47,7 +47,19 @@ describe("adapter fetchForecast goldens", () => {
   it("covers every registered adapter", () => {
     const covered = new Set(buildGoldenFixtures().map((f: any) => f.adapter));
     // 11 registered adapters; each must have at least one golden case.
-    for (const id of ["pp", "dwd", "peu", "silam", "atmo", "plu", "msw", "irmkmi", "kleenex", "gp", "gpl"]) {
+    for (const id of [
+      "pp",
+      "dwd",
+      "peu",
+      "silam",
+      "atmo",
+      "plu",
+      "msw",
+      "irmkmi",
+      "kleenex",
+      "gp",
+      "gpl",
+    ]) {
       expect(covered.has(id)).toBe(true);
     }
   });

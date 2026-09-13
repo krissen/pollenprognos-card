@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import * as PP from "../../src/adapters/pp.js";
-import { createHass, createPPSensor, assertSensorShape, createHassWithRegistry } from "../helpers.js";
+import {
+  createHass,
+  createPPSensor,
+  assertSensorShape,
+  createHassWithRegistry,
+} from "../helpers.js";
 
 const { stubConfigPP } = PP;
 // Call fetchForecast as method on module to match production call pattern
@@ -13,7 +18,10 @@ function makeConfig(overrides: any = {}): any {
 
 function makeHass(cityKey: any, allergenMap: any): any {
   const states: Record<string, any> = {};
-  for (const [allergen, levels] of Object.entries(allergenMap) as [string, any][]) {
+  for (const [allergen, levels] of Object.entries(allergenMap) as [
+    string,
+    any,
+  ][]) {
     states[`sensor.pollen_${cityKey}_${allergen}`] = createPPSensor(levels);
   }
   return createHass(states);
@@ -150,7 +158,9 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(
+      result[1]!.days[0]!.state,
+    );
   });
 
   it("sorts by value_ascending", async () => {
@@ -166,7 +176,9 @@ describe("PP adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.days[0]!.state).toBeLessThanOrEqual(result[1]!.days[0]!.state);
+    expect(result[0]!.days[0]!.state).toBeLessThanOrEqual(
+      result[1]!.days[0]!.state,
+    );
   });
 
   it("respects user phrase overrides for allergen names", async () => {
@@ -175,7 +187,7 @@ describe("PP adapter: fetchForecast", () => {
       city: "Stockholm",
       allergens: ["Björk"],
       phrases: {
-        full: { "Björk": "Custom Birch" },
+        full: { Björk: "Custom Birch" },
         short: {},
         levels: [],
         days: {},
@@ -341,7 +353,9 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
     const hass = createHassWithRegistry([
       {
         entityId: "sensor.pollen_visby_bjork",
-        attributes: { forecast: createPPSensor([1, 0, 0, 0]).attributes.forecast },
+        attributes: {
+          forecast: createPPSensor([1, 0, 0, 0]).attributes.forecast,
+        },
         platform: "pollenprognos",
         deviceId: "device_visby",
         deviceMeta: {
@@ -361,7 +375,9 @@ describe("PP adapter: resolveEntityIds — device-based discovery", () => {
     const hass = createHassWithRegistry([
       {
         entityId: "sensor.pollen_visby_bjork",
-        attributes: { forecast: createPPSensor([1, 0, 0, 0]).attributes.forecast },
+        attributes: {
+          forecast: createPPSensor([1, 0, 0, 0]).attributes.forecast,
+        },
         platform: "pollenprognos",
         deviceId: "device_visby",
         deviceMeta: {

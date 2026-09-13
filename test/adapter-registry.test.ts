@@ -1,24 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { getAdapter, getStubConfig, getAllAdapterIds } from "../src/adapter-registry.js";
+import {
+  getAdapter,
+  getStubConfig,
+  getAllAdapterIds,
+} from "../src/adapter-registry.js";
 
-const EXPECTED_IDS = ["pp", "dwd", "peu", "silam", "kleenex", "plu", "atmo", "gpl", "gp", "msw", "irmkmi"];
+const EXPECTED_IDS = [
+  "pp",
+  "dwd",
+  "peu",
+  "silam",
+  "kleenex",
+  "plu",
+  "atmo",
+  "gpl",
+  "gp",
+  "msw",
+  "irmkmi",
+];
 
 describe("adapter-registry", () => {
   it("getAllAdapterIds returns all 11 integrations", () => {
     expect(getAllAdapterIds()).toEqual(EXPECTED_IDS);
   });
 
-  it.each(EXPECTED_IDS)("getStubConfig('%s') returns an object with integration field", (id) => {
-    const stub = getStubConfig(id)!;
-    expect(stub).toBeDefined();
-    expect(stub.integration).toBe(id);
-  });
+  it.each(EXPECTED_IDS)(
+    "getStubConfig('%s') returns an object with integration field",
+    (id) => {
+      const stub = getStubConfig(id)!;
+      expect(stub).toBeDefined();
+      expect(stub.integration).toBe(id);
+    },
+  );
 
-  it.each(EXPECTED_IDS)("getAdapter('%s') returns a module with fetchForecast", (id) => {
-    const adapter = getAdapter(id)!;
-    expect(adapter).toBeDefined();
-    expect(typeof adapter.fetchForecast).toBe("function");
-  });
+  it.each(EXPECTED_IDS)(
+    "getAdapter('%s') returns a module with fetchForecast",
+    (id) => {
+      const adapter = getAdapter(id)!;
+      expect(adapter).toBeDefined();
+      expect(typeof adapter.fetchForecast).toBe("function");
+    },
+  );
 
   it("getStubConfig returns undefined for unknown id", () => {
     expect(getStubConfig("nonexistent")).toBeUndefined();

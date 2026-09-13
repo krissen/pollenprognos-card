@@ -144,7 +144,9 @@ export async function fetchForecast(
         const scaledLevel = scaleUpi0_5To0_6(level);
 
         const stateText =
-          scaledLevel < 0 ? noInfoLabel : levelNames[scaledLevel] || noInfoLabel;
+          scaledLevel < 0
+            ? noInfoLabel
+            : levelNames[scaledLevel] || noInfoLabel;
 
         const dayObj: ForecastDay = {
           name: dict.allergenCapitalized,

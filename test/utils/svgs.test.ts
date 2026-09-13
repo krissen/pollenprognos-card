@@ -2,37 +2,68 @@ import { describe, it, expect } from "vitest";
 import { getSvgContent, svgs } from "../../src/pollenprognos-svgs.js";
 
 const ALLERGEN_KEYS = [
-  "alder", "ash", "beech", "birch", "chenopod", "cypress", "elm",
-  "grass", "hazel", "lime", "mold_spores", "mugwort", "oak", "olive",
-  "pine", "plane", "plantain", "poaceae", "poplar", "ragweed", "rye",
-  "sorrel", "sweet_chestnut", "tree_of_heaven", "willow",
+  "alder",
+  "ash",
+  "beech",
+  "birch",
+  "chenopod",
+  "cypress",
+  "elm",
+  "grass",
+  "hazel",
+  "lime",
+  "mold_spores",
+  "mugwort",
+  "oak",
+  "olive",
+  "pine",
+  "plane",
+  "plantain",
+  "poaceae",
+  "poplar",
+  "ragweed",
+  "rye",
+  "sorrel",
+  "sweet_chestnut",
+  "tree_of_heaven",
+  "willow",
 ];
 
-const ALIAS_KEYS = [
-  "goosefoot", "nettle",
-];
+const ALIAS_KEYS = ["goosefoot", "nettle"];
 
 const POLLUTION_KEYS = [
-  "pm25", "pm10", "ozone", "no2", "so2", "qualite_globale",
+  "pm25",
+  "pm10",
+  "ozone",
+  "no2",
+  "so2",
+  "qualite_globale",
 ];
 
 const SPECIAL_KEYS = [
   "no_allergens",
-  "allergy_risk", "allergy_risk_1", "allergy_risk_2", "allergy_risk_3",
-  "allergy_risk_4", "allergy_risk_5", "allergy_risk_6",
+  "allergy_risk",
+  "allergy_risk_1",
+  "allergy_risk_2",
+  "allergy_risk_3",
+  "allergy_risk_4",
+  "allergy_risk_5",
+  "allergy_risk_6",
 ];
 
 describe("getSvgContent", () => {
   describe("returns non-empty SVG string", () => {
-    it.each([...ALLERGEN_KEYS, ...ALIAS_KEYS, ...POLLUTION_KEYS, ...SPECIAL_KEYS])(
-      "for '%s'",
-      (key) => {
-        const svg = getSvgContent(key);
-        expect(svg).toBeTruthy();
-        expect(typeof svg).toBe("string");
-        expect(svg).toContain("<svg");
-      },
-    );
+    it.each([
+      ...ALLERGEN_KEYS,
+      ...ALIAS_KEYS,
+      ...POLLUTION_KEYS,
+      ...SPECIAL_KEYS,
+    ])("for '%s'", (key) => {
+      const svg = getSvgContent(key);
+      expect(svg).toBeTruthy();
+      expect(typeof svg).toBe("string");
+      expect(svg).toContain("<svg");
+    });
   });
 
   describe("returns null for invalid input", () => {

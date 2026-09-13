@@ -62,9 +62,9 @@ describe("matchSensorByAllergenKey", () => {
     expect(matchSensorByAllergenKey([english], "")).toBeNull();
     expect(matchSensorByAllergenKey(null as any, "birch")).toBeNull();
     // A sensor without a string allergenReplaced is skipped, not thrown on.
-    expect(matchSensorByAllergenKey([{ allergenReplaced: 5 }, english], "birch")).toBe(
-      english,
-    );
+    expect(
+      matchSensorByAllergenKey([{ allergenReplaced: 5 }, english], "birch"),
+    ).toBe(english);
   });
 
   it("matches PP short config keys (capital initial) against lowercase allergenReplaced slugs", () => {

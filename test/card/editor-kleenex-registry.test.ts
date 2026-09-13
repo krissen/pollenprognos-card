@@ -174,7 +174,12 @@ function identifierlessKleenexHass(): any {
  * apart.
  */
 function ambiguousKleenexHass(): any {
-  const device = (instance: string, prefix: string, id: string, cfg: string) => ({
+  const device = (
+    instance: string,
+    prefix: string,
+    id: string,
+    cfg: string,
+  ) => ({
     entityId: `sensor.${prefix}_trees`,
     state: "200",
     platform: "kleenex_pollenradar",
@@ -272,10 +277,7 @@ describe("editor Kleenex locations via registry discovery (issue #309)", () => {
     });
     editor.hass = renamedKleenexHass();
 
-    expect(editor.installedKleenexLocations).toContainEqual([
-      "home",
-      "Home",
-    ]);
+    expect(editor.installedKleenexLocations).toContainEqual(["home", "Home"]);
   });
 
   // The auto-select branch is guarded by `!this._initDone`, i.e. it only runs

@@ -19,10 +19,13 @@ function makeConfig(overrides: any = {}): any {
 function makeHass(allergenMap: any): any {
   // allergenMap: { canonical_allergen: [mswSlug, levelStr, postcode?, station?] }
   const states: Record<string, any> = {};
-  for (const [, [mswSlug, levelStr, postcode, station]] of Object.entries(allergenMap) as [string, any][]) {
+  for (const [, [mswSlug, levelStr, postcode, station]] of Object.entries(
+    allergenMap,
+  ) as [string, any][]) {
     const pc = postcode ?? "8000";
     const st = station ?? "za";
-    states[`sensor.pollen_${mswSlug}_level_at_${pc}_${st}`] = createMSWSensor(levelStr);
+    states[`sensor.pollen_${mswSlug}_level_at_${pc}_${st}`] =
+      createMSWSensor(levelStr);
   }
   return createHass(states, { language: "en" });
 }
@@ -133,7 +136,10 @@ describe("MSW adapter: fetchForecast", () => {
 
   it("skips allergen with unavailable / unknown state", async () => {
     const states = {
-      "sensor.pollen_birch_level_at_8000_za": { state: "unavailable", attributes: {} },
+      "sensor.pollen_birch_level_at_8000_za": {
+        state: "unavailable",
+        attributes: {},
+      },
     };
     const hass = createHass(states);
     const config = makeConfig({ allergens: ["birch"] });
@@ -181,7 +187,9 @@ describe("MSW adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(
+      result[1]!.days[0]!.state,
+    );
   });
 
   it("handles multiple allergens", async () => {
@@ -268,7 +276,15 @@ const ZURICH_ENTRY = "01KQVM6J4DC3BB3S3E9WC2DF5H";
 const BERN_ENTRY = "01KQVM8D770Q9DJZMJKWCND1YJ";
 
 function buildMultiStationEntries(): any {
-  const allergens = ["birch", "grasses", "alder", "hazel", "beech", "ash", "oak"];
+  const allergens = [
+    "birch",
+    "grasses",
+    "alder",
+    "hazel",
+    "beech",
+    "ash",
+    "oak",
+  ];
   const entries = [];
   for (const slug of allergens) {
     entries.push({
@@ -435,7 +451,9 @@ describe("MSW adapter: fetchForecast (multi-station)", () => {
       location: BERN_ENTRY,
     } as any);
     expect(result.length).toBe(1);
-    expect(result[0]!.entity_id).toBe("sensor.bern_pollen_birch_level_at_3000_pbe");
+    expect(result[0]!.entity_id).toBe(
+      "sensor.bern_pollen_birch_level_at_3000_pbe",
+    );
     expect(result[0]!.days[0]!.state).toBe(3);
   });
 });

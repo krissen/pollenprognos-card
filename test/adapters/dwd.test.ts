@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigDWD, discoverDwdSensors, resolveEntityIds } from "../../src/adapters/dwd.js";
-import { createHass, createDWDSensor, assertSensorShape, assertDiscoveryShape, createHassWithRegistry } from "../helpers.js";
+import {
+  fetchForecast,
+  stubConfigDWD,
+  discoverDwdSensors,
+  resolveEntityIds,
+} from "../../src/adapters/dwd.js";
+import {
+  createHass,
+  createDWDSensor,
+  assertSensorShape,
+  assertDiscoveryShape,
+  createHassWithRegistry,
+} from "../helpers.js";
 
 function makeConfig(overrides: any = {}): any {
   return { ...stubConfigDWD, ...overrides };
@@ -8,9 +19,13 @@ function makeConfig(overrides: any = {}): any {
 
 function makeHass(regionId: any, allergenMap: any): any {
   const states: Record<string, any> = {};
-  for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap) as [string, any][]) {
+  for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(
+    allergenMap,
+  ) as [string, any][]) {
     states[`sensor.pollenflug_${allergen}_${regionId}`] = createDWDSensor(
-      today, tomorrow, twoDays,
+      today,
+      tomorrow,
+      twoDays,
     );
   }
   return createHass(states, { language: "de" });
@@ -159,7 +174,9 @@ describe("DWD adapter: fetchForecast", () => {
 
     const result = await fetchForecast(hass, config);
 
-    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(result[1]!.days[0]!.state);
+    expect(result[0]!.days[0]!.state).toBeGreaterThanOrEqual(
+      result[1]!.days[0]!.state,
+    );
   });
 
   it("each day object has DWD-specific display_state", async () => {
@@ -173,7 +190,9 @@ describe("DWD adapter: fetchForecast", () => {
 
     expect(result[0]!.days[0]).toHaveProperty("display_state");
     // display_state should be level * 2
-    expect(result[0]!.days[0]!.display_state).toBe(result[0]!.days[0]!.state * 2);
+    expect(result[0]!.days[0]!.display_state).toBe(
+      result[0]!.days[0]!.state * 2,
+    );
   });
 
   it("entity_id is set on sensor dict", async () => {
@@ -447,7 +466,9 @@ const PREFIXED_ZONE = "92"; // Hessen, the region in the bug report
 describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
   function makePrefixedHass(prefix: any, regionId: any, allergenMap: any): any {
     const states: Record<string, any> = {};
-    for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(allergenMap) as [string, any][]) {
+    for (const [allergen, [today, tomorrow, twoDays]] of Object.entries(
+      allergenMap,
+    ) as [string, any][]) {
       states[`sensor.${prefix}_pollenflug_${allergen}_${regionId}`] =
         createDWDSensor(today, tomorrow, twoDays);
     }
@@ -455,11 +476,10 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
   }
 
   it("regex fallback discovers default 'Pollenflug Gefahrenindex' prefix", () => {
-    const hass = makePrefixedHass(
-      "pollenflug_gefahrenindex",
-      PREFIXED_ZONE,
-      { ambrosia: [3, 2, 1], birke: [2, 1, 0] },
-    );
+    const hass = makePrefixedHass("pollenflug_gefahrenindex", PREFIXED_ZONE, {
+      ambrosia: [3, 2, 1],
+      birke: [2, 1, 0],
+    });
     const result = discoverDwdSensors(hass);
     expect(result.locations.size).toBe(1);
     const [, loc] = [...result.locations.entries()][0]!;
@@ -475,26 +495,27 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
   });
 
   it("regex fallback discovers user-renamed device prefix", () => {
-    const hass = makePrefixedHass(
-      "mystation",
-      "50",
-      { erle: [1, 2, 0], graeser: [4, 3, 2] },
-    );
+    const hass = makePrefixedHass("mystation", "50", {
+      erle: [1, 2, 0],
+      graeser: [4, 3, 2],
+    });
     const result = discoverDwdSensors(hass);
     expect(result.locations.size).toBe(1);
     const [, loc] = [...result.locations.entries()][0]!;
-    expect(loc.entities.get("erle")).toBe("sensor.mystation_pollenflug_erle_50");
+    expect(loc.entities.get("erle")).toBe(
+      "sensor.mystation_pollenflug_erle_50",
+    );
     expect(loc.entities.get("graeser")).toBe(
       "sensor.mystation_pollenflug_graeser_50",
     );
   });
 
   it("resolveEntityIds maps configured allergens through device-prefixed shape", () => {
-    const hass = makePrefixedHass(
-      "pollenflug_gefahrenindex",
-      PREFIXED_ZONE,
-      { ambrosia: [3, 0, 0], graeser: [2, 1, 0], birke: [1, 0, 0] },
-    );
+    const hass = makePrefixedHass("pollenflug_gefahrenindex", PREFIXED_ZONE, {
+      ambrosia: [3, 0, 0],
+      graeser: [2, 1, 0],
+      birke: [1, 0, 0],
+    });
     const config = makeConfig({
       region_id: PREFIXED_ZONE,
       allergens: ["ambrosia", "graeser", "birke"],
@@ -512,11 +533,9 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
   });
 
   it("fetchForecast produces sensors when entities are device-prefixed", async () => {
-    const hass = makePrefixedHass(
-      "pollenflug_gefahrenindex",
-      PREFIXED_ZONE,
-      { ambrosia: [3, 2, 1] },
-    );
+    const hass = makePrefixedHass("pollenflug_gefahrenindex", PREFIXED_ZONE, {
+      ambrosia: [3, 2, 1],
+    });
     const config = makeConfig({
       region_id: PREFIXED_ZONE,
       allergens: ["ambrosia"],
@@ -534,11 +553,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     // hass without devices/entities forces tier-3 (regex fallback) inside
     // discovery, and if discovery somehow misses, resolveEntityIds falls
     // through to its own template scan -- both must accept the prefix.
-    const hass = makePrefixedHass(
-      "foo_bar_baz",
-      "50",
-      { erle: [1, 0, 0] },
-    );
+    const hass = makePrefixedHass("foo_bar_baz", "50", { erle: [1, 0, 0] });
     const config = makeConfig({
       region_id: "50",
       allergens: ["erle"],
@@ -552,11 +567,7 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     // entity_id then contains "pollenflug_pollenflug_" before the allergen.
     // The regex should still anchor the allergen to the rightmost
     // pollenflug_<allergen>_<region> match.
-    const hass = makePrefixedHass(
-      "pollenflug",
-      "121",
-      { erle: [2, 1, 0] },
-    );
+    const hass = makePrefixedHass("pollenflug", "121", { erle: [2, 1, 0] });
     const result = discoverDwdSensors(hass);
     const [, loc] = [...result.locations.entries()][0]!;
     expect(loc.entities.get("erle")).toBe(
@@ -570,8 +581,14 @@ describe("DWD adapter: device-prefixed entity IDs (#217)", () => {
     // object_id ended in _pollenflug_<token>_<digits>. The anchor is now
     // ^sensor\\. so non-sensor domains never enter discovery / autodetect.
     const hass = createHass({
-      "automation.house_alarm_pollenflug_test_42": { state: "on", attributes: {} },
-      "input_select.thing_pollenflug_birke_50": { state: "Med", attributes: {} },
+      "automation.house_alarm_pollenflug_test_42": {
+        state: "on",
+        attributes: {},
+      },
+      "input_select.thing_pollenflug_birke_50": {
+        state: "Med",
+        attributes: {},
+      },
       // A real DWD sensor in the same hass to confirm sensors still match.
       "sensor.pollenflug_erle_50": createDWDSensor(1, 0, 0),
     });

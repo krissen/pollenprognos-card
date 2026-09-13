@@ -66,145 +66,163 @@ export function renderInteractionSection(
           }}
         ></ha-switch>
       </ha-formfield>
-      ${editor._tapType !== "none"
-        ? html`
-            <div style="margin-top: 10px;">
-              <label>${editor._t("tap_action_type")}</label>
-              <ha-selector
-                .hass=${editor._hass}
-                .selector=${{
-                  select: {
-                    mode: "dropdown",
-                    options: [
-                      {
-                        value: "more-info",
-                        label: editor._t("tap_action_type_more_info"),
-                      },
-                      {
-                        value: "navigate",
-                        label: editor._t("tap_action_type_navigate"),
-                      },
-                      {
-                        value: "call-service",
-                        label: editor._t("tap_action_type_call_service"),
-                      },
-                    ],
-                  },
-                }}
-                .value=${editor._tapType}
-                @value-changed=${(e: CustomEvent) => {
-                  const v = e.detail?.value;
-                  if (v === undefined) return;
-                  editor._tapType = v as string;
-                  const tapAction: Record<string, unknown> = {
-                    type: editor._tapType,
-                  };
-                  if (editor._tapType === "more-info")
-                    tapAction.entity = editor._tapEntity;
-                  if (editor._tapType === "navigate")
-                    tapAction.navigation_path = editor._tapNavigation;
-                  if (editor._tapType === "call-service") {
-                    tapAction.service = editor._tapService;
-                    try {
-                      tapAction.service_data = JSON.parse(
-                        editor._tapServiceData || "{}",
-                      );
-                    } catch {
-                      tapAction.service_data = {};
+      ${
+        editor._tapType !== "none"
+          ? html`
+              <div style="margin-top: 10px;">
+                <label>${editor._t("tap_action_type")}</label>
+                <ha-selector
+                  .hass=${editor._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        {
+                          value: "more-info",
+                          label: editor._t("tap_action_type_more_info"),
+                        },
+                        {
+                          value: "navigate",
+                          label: editor._t("tap_action_type_navigate"),
+                        },
+                        {
+                          value: "call-service",
+                          label: editor._t("tap_action_type_call_service"),
+                        },
+                      ],
+                    },
+                  }}
+                  .value=${editor._tapType}
+                  @value-changed=${(e: CustomEvent) => {
+                    const v = e.detail?.value;
+                    if (v === undefined) return;
+                    editor._tapType = v as string;
+                    const tapAction: Record<string, unknown> = {
+                      type: editor._tapType,
+                    };
+                    if (editor._tapType === "more-info")
+                      tapAction.entity = editor._tapEntity;
+                    if (editor._tapType === "navigate")
+                      tapAction.navigation_path = editor._tapNavigation;
+                    if (editor._tapType === "call-service") {
+                      tapAction.service = editor._tapService;
+                      try {
+                        tapAction.service_data = JSON.parse(
+                          editor._tapServiceData || "{}",
+                        );
+                      } catch {
+                        tapAction.service_data = {};
+                      }
                     }
-                  }
-                  editor._updateConfig("tap_action", tapAction);
-                  editor.requestUpdate();
-                }}
-              ></ha-selector>
-            </div>
-            ${editor._tapType === "more-info"
-              ? html`
-                  <ha-formfield label="${editor._t("tap_action_entity")}">
-                    ${editor._renderTextField({
-                      value: editor._tapEntity,
-                      onInput: (v) => {
-                        editor._tapEntity = v;
-                        editor._updateConfig("tap_action", {
-                          type: "more-info",
-                          entity: editor._tapEntity,
-                        });
-                      },
-                    })}
-                  </ha-formfield>
-                  ${!parseEntityId(editor._tapEntity)
-                    ? html`<div class="field-warning">
-                        ${editor._t("tap_action_more_info_needs_entity")}
-                      </div>`
-                    : ""}
-                `
-              : ""}
-            ${editor._tapType === "navigate"
-              ? html`
-                  <ha-formfield label="${editor._t("tap_action_navigation_path")}">
-                    ${editor._renderTextField({
-                      value: editor._tapNavigation,
-                      onInput: (v) => {
-                        editor._tapNavigation = v;
-                        editor._updateConfig("tap_action", {
-                          type: "navigate",
-                          navigation_path: editor._tapNavigation,
-                        });
-                      },
-                    })}
-                  </ha-formfield>
-                  ${!parseNavigationPath(editor._tapNavigation)
-                    ? html`<div class="field-warning">
-                        ${editor._t("tap_action_navigate_needs_path")}
-                      </div>`
-                    : ""}
-                `
-              : ""}
-            ${editor._tapType === "call-service"
-              ? html`
-                  <ha-formfield label="${editor._t("tap_action_service")}">
-                    ${editor._renderTextField({
-                      value: editor._tapService,
-                      onInput: (v) => {
-                        editor._tapService = v;
-                        let data = {};
-                        try {
-                          data = JSON.parse(editor._tapServiceData || "{}");
-                        } catch {}
-                        editor._updateConfig("tap_action", {
-                          type: "call-service",
-                          service: editor._tapService,
-                          service_data: data,
-                        });
-                      },
-                    })}
-                  </ha-formfield>
-                  ${!parseServiceId(editor._tapService)
-                    ? html`<div class="field-warning">
-                        ${editor._t("tap_action_call_service_needs_service")}
-                      </div>`
-                    : ""}
-                  <ha-formfield label="${editor._t("tap_action_service_data")}">
-                    ${editor._renderTextField({
-                      value: editor._tapServiceData,
-                      onInput: (v) => {
-                        editor._tapServiceData = v;
-                        let data = {};
-                        try {
-                          data = JSON.parse(editor._tapServiceData || "{}");
-                        } catch {}
-                        editor._updateConfig("tap_action", {
-                          type: "call-service",
-                          service: editor._tapService,
-                          service_data: data,
-                        });
-                      },
-                    })}
-                  </ha-formfield>
-                `
-              : ""}
-          `
-        : ""}
+                    editor._updateConfig("tap_action", tapAction);
+                    editor.requestUpdate();
+                  }}
+                ></ha-selector>
+              </div>
+              ${
+                editor._tapType === "more-info"
+                  ? html`
+                      <ha-formfield label="${editor._t("tap_action_entity")}">
+                        ${editor._renderTextField({
+                          value: editor._tapEntity,
+                          onInput: (v) => {
+                            editor._tapEntity = v;
+                            editor._updateConfig("tap_action", {
+                              type: "more-info",
+                              entity: editor._tapEntity,
+                            });
+                          },
+                        })}
+                      </ha-formfield>
+                      ${
+                        !parseEntityId(editor._tapEntity)
+                          ? html`<div class="field-warning">
+                              ${editor._t("tap_action_more_info_needs_entity")}
+                            </div>`
+                          : ""
+                      }
+                    `
+                  : ""
+              }
+              ${
+                editor._tapType === "navigate"
+                  ? html`
+                      <ha-formfield
+                        label="${editor._t("tap_action_navigation_path")}"
+                      >
+                        ${editor._renderTextField({
+                          value: editor._tapNavigation,
+                          onInput: (v) => {
+                            editor._tapNavigation = v;
+                            editor._updateConfig("tap_action", {
+                              type: "navigate",
+                              navigation_path: editor._tapNavigation,
+                            });
+                          },
+                        })}
+                      </ha-formfield>
+                      ${
+                        !parseNavigationPath(editor._tapNavigation)
+                          ? html`<div class="field-warning">
+                              ${editor._t("tap_action_navigate_needs_path")}
+                            </div>`
+                          : ""
+                      }
+                    `
+                  : ""
+              }
+              ${
+                editor._tapType === "call-service"
+                  ? html`
+                      <ha-formfield label="${editor._t("tap_action_service")}">
+                        ${editor._renderTextField({
+                          value: editor._tapService,
+                          onInput: (v) => {
+                            editor._tapService = v;
+                            let data = {};
+                            try {
+                              data = JSON.parse(editor._tapServiceData || "{}");
+                            } catch {}
+                            editor._updateConfig("tap_action", {
+                              type: "call-service",
+                              service: editor._tapService,
+                              service_data: data,
+                            });
+                          },
+                        })}
+                      </ha-formfield>
+                      ${
+                        !parseServiceId(editor._tapService)
+                          ? html`<div class="field-warning">
+                              ${editor._t("tap_action_call_service_needs_service")}
+                            </div>`
+                          : ""
+                      }
+                      <ha-formfield
+                        label="${editor._t("tap_action_service_data")}"
+                      >
+                        ${editor._renderTextField({
+                          value: editor._tapServiceData,
+                          onInput: (v) => {
+                            editor._tapServiceData = v;
+                            let data = {};
+                            try {
+                              data = JSON.parse(editor._tapServiceData || "{}");
+                            } catch {}
+                            editor._updateConfig("tap_action", {
+                              type: "call-service",
+                              service: editor._tapService,
+                              service_data: data,
+                            });
+                          },
+                        })}
+                      </ha-formfield>
+                    `
+                  : ""
+              }
+            `
+          : ""
+      }
     </details>
   `;
 }

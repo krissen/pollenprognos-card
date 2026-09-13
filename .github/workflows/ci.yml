@@ -29,4 +29,3 @@ jobs:
         with:
           category: "plugin"
           ignore: "hacsjson"
-

@@ -13,6 +13,7 @@ Before installing the card, you need one of the supported pollen data integratio
 ### Option A: Pollenprognos (Sweden)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Pollenprognos"
@@ -25,6 +26,7 @@ Install via HACS:
 ### Option B: DWD Pollenflug (Germany)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "DWD Pollenflug"
@@ -37,6 +39,7 @@ Install via HACS:
 ### Option C: Polleninformation EU (Europe)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Polleninformation"
@@ -49,6 +52,7 @@ Install via HACS:
 ### Option D: SILAM Pollen Allergy Sensor
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "SILAM Pollen"
@@ -61,6 +65,7 @@ Install via HACS:
 ### Option E: Kleenex Pollen Radar (Netherlands, UK, France, Italy, USA)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Kleenex Pollen Radar"
@@ -73,6 +78,7 @@ Install via HACS:
 ### Option F: Pollen.lu (Luxembourg)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Pollen.lu"
@@ -85,6 +91,7 @@ Install via HACS:
 ### Option G: Atmo France (France)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Atmo France"
@@ -97,6 +104,7 @@ Install via HACS:
 ### Option H: Google Pollen Levels (Global)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Google Pollen Levels" or "pollenlevels"
@@ -109,6 +117,7 @@ Install via HACS:
 ### Option I: Google Pollen (Global)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the "+" button
 3. Search for "Google Pollen" or "home-assistant-google-pollen"
@@ -121,6 +130,7 @@ Install via HACS:
 ### Option J: MeteoSwiss / hass-swissweather (Switzerland)
 
 Install via HACS:
+
 1. Open HACS → Integrations
 2. Click the menu (⋮) → "Custom repositories"
 3. Add `https://github.com/izacus/hass-swissweather` as type "Integration"

@@ -66,9 +66,9 @@ describe("computeGridOptions", () => {
   describe("defensive inputs", () => {
     it("floors a missing / empty / non-array allergens list to one icon width", () => {
       for (const allergens of [undefined, [], "birch", 3, null]) {
-        expect(
-          computeGridOptions({ minimal: true, allergens }).columns,
-        ).toBe(3);
+        expect(computeGridOptions({ minimal: true, allergens }).columns).toBe(
+          3,
+        );
       }
     });
 

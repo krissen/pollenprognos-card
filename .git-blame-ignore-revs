@@ -1,0 +1,5 @@
+# Mechanical, no-op commits to skip in "git blame".
+# Configure with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: apply prettier formatting
+cbbb2734a6409399ef444df5fa0511df824121d5

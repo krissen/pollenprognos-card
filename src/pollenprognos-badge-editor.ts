@@ -59,8 +59,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     }
 
     const stub =
-      getStubConfig(typeof integration === "string" ? integration : undefined) ||
-      getStubConfig("pp");
+      getStubConfig(
+        typeof integration === "string" ? integration : undefined,
+      ) || getStubConfig("pp");
     if (!integration) integration = stub?.integration;
 
     // Defensive type-guards (repo policy) on badge-specific fields.
@@ -203,7 +204,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
    * @param {ReturnType<typeof detectIntegrationStates>} detection
    * @param {object} hass
    */
-  _populateInstalledLocations(detection: DetectionResult, hass: HomeAssistant): void {
+  _populateInstalledLocations(
+    detection: DetectionResult,
+    hass: HomeAssistant,
+  ): void {
     const toList = (discovery: {
       locations: Map<string, { label: string }>;
     }): InstalledLocation[] =>
@@ -227,7 +231,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     this.installedDwdLocations = dwdDiscovery.locations.size
       ? toList(dwdDiscovery)
       : Array.from(
-          new Set((detection.states.dwd ?? []).map((id: string) => id.split("_").pop())),
+          new Set(
+            (detection.states.dwd ?? []).map((id: string) =>
+              id.split("_").pop(),
+            ),
+          ),
         )
           .sort((a, b) => Number(a) - Number(b))
           .map((id) => [id, id] as InstalledLocation);
@@ -342,7 +350,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       locKey,
     );
     if (!userSetLocation && next[locKey] !== "manual" && !next[locKey]) {
-      const sel = autoSelectLocation(integration as string, next, hass, detection);
+      const sel = autoSelectLocation(
+        integration as string,
+        next,
+        hass,
+        detection,
+      );
       if (sel) next[sel.key] = sel.value;
     }
 
@@ -384,14 +397,22 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     // integration and the badge would render empty. Mirrors the card editor.
     if (prop === "integration" && value !== this._config.integration) {
       const INTEGRATION_SCOPED = [
-        "city", "region_id", "location",
-        "entity_prefix", "entity_suffix", "entity_weather",
-        "mode", "allergens", "badge_single_allergen",
+        "city",
+        "region_id",
+        "location",
+        "entity_prefix",
+        "entity_suffix",
+        "entity_weather",
+        "mode",
+        "allergens",
+        "badge_single_allergen",
         // Threshold ranges are integration-specific (DWD 0-3, PP 0-6, ...), so
         // a stale high threshold can suppress every allergen on the new
         // integration and render an empty badge. Pin-to-top flags are likewise
         // integration-specific. Clear them too, matching the card editor.
-        "pollen_threshold", "allergy_risk_top", "index_top",
+        "pollen_threshold",
+        "allergy_risk_top",
+        "index_top",
         // The Google attribution only exists for gpl/gp (#338): keeping the key
         // would write a Google-only option into a pp badge's YAML, and a
         // lingering false would silently suppress the pin on switching back.
@@ -441,9 +462,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       this._thicknessAutoShifted = result.thicknessAutoShifted;
     }
     const after = (
-      result.handled
-        ? result.config
-        : deepMerge(before, { [prop]: value })
+      result.handled ? result.config : deepMerge(before, { [prop]: value })
     ) as CardConfig;
 
     // Persist only user-origin keys: the edited prop plus any key the
@@ -576,10 +595,22 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               select: {
                 mode: "dropdown",
                 options: [
-                  { value: "icon_in_ring", label: this._t("badge_visual_icon_in_ring") },
-                  { value: "ring_value", label: this._t("badge_visual_ring_value") },
-                  { value: "ring_empty", label: this._t("badge_visual_ring_empty") },
-                  { value: "icon_only", label: this._t("badge_visual_icon_only") },
+                  {
+                    value: "icon_in_ring",
+                    label: this._t("badge_visual_icon_in_ring"),
+                  },
+                  {
+                    value: "ring_value",
+                    label: this._t("badge_visual_ring_value"),
+                  },
+                  {
+                    value: "ring_empty",
+                    label: this._t("badge_visual_ring_empty"),
+                  },
+                  {
+                    value: "icon_only",
+                    label: this._t("badge_visual_icon_only"),
+                  },
                 ],
               },
             }}
@@ -600,7 +631,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                 mode: "dropdown",
                 options: [
                   { value: "worst", label: this._t("badge_content_worst") },
-                  { value: "aggregate", label: this._t("badge_content_aggregate") },
+                  {
+                    value: "aggregate",
+                    label: this._t("badge_content_aggregate"),
+                  },
                   { value: "single", label: this._t("badge_content_single") },
                   { value: "row", label: this._t("badge_content_row") },
                 ],
@@ -626,30 +660,32 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           ></ha-selector>
         </ha-formfield>
 
-        ${c.badge_content === "single"
-          ? html`
-              <ha-formfield label="${this._t("badge_single_allergen")}">
-                <ha-selector
-                  .hass=${this._hass}
-                  .selector=${{
-                    select: {
-                      mode: "dropdown",
-                      options: allergens.map((key) => ({
-                        value: key,
-                        label: this._getAllergenDisplayName(key),
-                      })),
-                    },
-                  }}
-                  .value=${c.badge_single_allergen || allergens[0] || ""}
-                  @value-changed=${(e: CustomEvent) => {
-                    const v = e.detail?.value;
-                    if (v !== undefined)
-                      this._updateConfig("badge_single_allergen", v);
-                  }}
-                ></ha-selector>
-              </ha-formfield>
-            `
-          : ""}
+        ${
+          c.badge_content === "single"
+            ? html`
+                <ha-formfield label="${this._t("badge_single_allergen")}">
+                  <ha-selector
+                    .hass=${this._hass}
+                    .selector=${{
+                      select: {
+                        mode: "dropdown",
+                        options: allergens.map((key) => ({
+                          value: key,
+                          label: this._getAllergenDisplayName(key),
+                        })),
+                      },
+                    }}
+                    .value=${c.badge_single_allergen || allergens[0] || ""}
+                    @value-changed=${(e: CustomEvent) => {
+                      const v = e.detail?.value;
+                      if (v !== undefined)
+                        this._updateConfig("badge_single_allergen", v);
+                    }}
+                  ></ha-selector>
+                </ha-formfield>
+              `
+            : ""
+        }
       </details>
     `;
   }
@@ -737,9 +773,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           min="0.3"
           max="3"
           step="0.05"
-          .value=${typeof c.badge_icon_scale === "number"
-            ? c.badge_icon_scale
-            : 1}
+          .value=${
+            typeof c.badge_icon_scale === "number" ? c.badge_icon_scale : 1
+          }
           @input=${(e: Event) =>
             this._updateConfig(
               "badge_icon_scale",
@@ -748,7 +784,8 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           style="width: 120px;"
         ></ha-slider>
         ${this._renderNumberField({
-          value: typeof c.badge_icon_scale === "number" ? c.badge_icon_scale : 1,
+          value:
+            typeof c.badge_icon_scale === "number" ? c.badge_icon_scale : 1,
           min: 0.3,
           max: 3,
           step: 0.05,
@@ -768,52 +805,71 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ></ha-switch>
       </ha-formfield>
 
-      ${c.badge_show_label
-        ? html`
-            <ha-formfield label="${this._t("badge_label_position")}">
-              <ha-selector
-                .hass=${this._hass}
-                .selector=${{
-                  select: {
-                    mode: "dropdown",
-                    options: [
-                      { value: "right", label: this._t("badge_label_position_right") },
-                      { value: "below", label: this._t("badge_label_position_below") },
-                    ],
-                  },
-                }}
-                .value=${typeof c.badge_label_position === "string" ? c.badge_label_position : "right"}
-                @value-changed=${(e: CustomEvent) => {
-                  const v = e.detail?.value;
-                  if (v !== undefined) this._updateConfig("badge_label_position", v);
-                }}
-              ></ha-selector>
-            </ha-formfield>
+      ${
+        c.badge_show_label
+          ? html`
+              <ha-formfield label="${this._t("badge_label_position")}">
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        {
+                          value: "right",
+                          label: this._t("badge_label_position_right"),
+                        },
+                        {
+                          value: "below",
+                          label: this._t("badge_label_position_below"),
+                        },
+                      ],
+                    },
+                  }}
+                  .value=${typeof c.badge_label_position === "string" ? c.badge_label_position : "right"}
+                  @value-changed=${(e: CustomEvent) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined)
+                      this._updateConfig("badge_label_position", v);
+                  }}
+                ></ha-selector>
+              </ha-formfield>
 
-            <!-- badge_label_content: allergen name (default), today's
+              <!-- badge_label_content: allergen name (default), today's
                  translated level text, or both (issue #63). -->
-            <ha-formfield label="${this._t("badge_label_content")}">
-              <ha-selector
-                .hass=${this._hass}
-                .selector=${{
-                  select: {
-                    mode: "dropdown",
-                    options: [
-                      { value: "allergen", label: this._t("badge_label_content_allergen") },
-                      { value: "level", label: this._t("badge_label_content_level") },
-                      { value: "allergen_level", label: this._t("badge_label_content_allergen_level") },
-                    ],
-                  },
-                }}
-                .value=${coerceBadgeLabelContent(c.badge_label_content)}
-                @value-changed=${(e: CustomEvent) => {
-                  const v = e.detail?.value;
-                  if (v !== undefined) this._updateConfig("badge_label_content", v);
-                }}
-              ></ha-selector>
-            </ha-formfield>
-          `
-        : ""}
+              <ha-formfield label="${this._t("badge_label_content")}">
+                <ha-selector
+                  .hass=${this._hass}
+                  .selector=${{
+                    select: {
+                      mode: "dropdown",
+                      options: [
+                        {
+                          value: "allergen",
+                          label: this._t("badge_label_content_allergen"),
+                        },
+                        {
+                          value: "level",
+                          label: this._t("badge_label_content_level"),
+                        },
+                        {
+                          value: "allergen_level",
+                          label: this._t("badge_label_content_allergen_level"),
+                        },
+                      ],
+                    },
+                  }}
+                  .value=${coerceBadgeLabelContent(c.badge_label_content)}
+                  @value-changed=${(e: CustomEvent) => {
+                    const v = e.detail?.value;
+                    if (v !== undefined)
+                      this._updateConfig("badge_label_content", v);
+                  }}
+                ></ha-selector>
+              </ha-formfield>
+            `
+          : ""
+      }
     `;
   }
 
@@ -831,16 +887,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           label: this._t("preset_reset_all"),
           onClick: () => this._resetAll(),
         })}
-
-        ${this._renderIntegrationSection()}
-        ${this._renderBadgeContentSection()}
-        ${this._renderAllergensSection()}
-        ${this._renderAppearanceSection()}
+        ${this._renderIntegrationSection()} ${this._renderBadgeContentSection()}
+        ${this._renderAllergensSection()} ${this._renderAppearanceSection()}
         ${this._renderAllergenIconsSection()}
-        ${this._renderLevelCirclesSection()}
-        ${this._renderIconInRingSection()}
-        ${this._renderPhrasesSection()}
-        ${this._renderInteractionSection()}
+        ${this._renderLevelCirclesSection()} ${this._renderIconInRingSection()}
+        ${this._renderPhrasesSection()} ${this._renderInteractionSection()}
         ${this._renderAdvancedSection()}
       </div>
     `;

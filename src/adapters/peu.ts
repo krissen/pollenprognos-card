@@ -449,7 +449,10 @@ function peuEntityPool(
   for (const eid of Object.keys(hass.states)) {
     const allergen = classifyPeuEntity(eid);
     if (!allergen) continue;
-    if (locationSlug && extractPeuLocationSlug(eid, allergen) !== locationSlug) {
+    if (
+      locationSlug &&
+      extractPeuLocationSlug(eid, allergen) !== locationSlug
+    ) {
       continue;
     }
     pool.set(allergen, eid);
@@ -536,10 +539,7 @@ const lookupIndex = (level: number): number =>
  * numeric_value_raw. Guards null/"" so a missing field stays null (Number(null)
  * is 0) and the display falls back to the level. A real 0 is kept.
  */
-function extractRawValue(
-  allergenSlug: string,
-  src: unknown,
-): number | null {
+function extractRawValue(allergenSlug: string, src: unknown): number | null {
   if (allergenSlug !== "allergy_risk") return null;
   if (src == null || src === "") return null;
   const r = Number(src);
@@ -642,7 +642,9 @@ function buildPeuDict({
         display_state: state,
         raw_value: rawValue,
         state_text:
-          levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
+          levelIdx < 0
+            ? ctx.noInfoLabel
+            : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
       };
       dict.days.push(dayObj);
     }
@@ -706,7 +708,9 @@ function buildPeuDict({
         display_state: level,
         raw_value: rawValue,
         state_text:
-          levelIdx < 0 ? ctx.noInfoLabel : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
+          levelIdx < 0
+            ? ctx.noInfoLabel
+            : ctx.levelNames[levelIdx] || ctx.noInfoLabel,
       };
 
       dict.days.push(dayObj);
@@ -739,9 +743,7 @@ export async function fetchForecast(
     // TODO(#259-normalize): retire the length-7 remap once no legacy configs
     // carry seven-entry phrases.levels.
     levelNamesBuilder: (userLevels, lang) => {
-      let normalizedUserLevels = userLevels as Array<
-        string | null | undefined
-      >;
+      let normalizedUserLevels = userLevels as Array<string | null | undefined>;
       if (Array.isArray(userLevels) && userLevels.length === 7) {
         normalizedUserLevels = PEU_LEGACY_PHRASE_INDICES.map(
           (i) => userLevels[i] as string | null | undefined,

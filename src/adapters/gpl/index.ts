@@ -1,7 +1,19 @@
 // src/adapters/gpl/index.ts
 // Public facade: re-exports all named exports from sub-modules.
-export { isGoogleAttribution, GPL_TYPE_ICON_MAP, GPL_BASE_ALLERGENS, stubConfigGPL, capitalize } from "./constants.js";
-export { classifySensor, isGplDataSensor, discoverGplSensors, discoverGplAllergens, resolveEntityIds } from "./discovery.js";
+export {
+  isGoogleAttribution,
+  GPL_TYPE_ICON_MAP,
+  GPL_BASE_ALLERGENS,
+  stubConfigGPL,
+  capitalize,
+} from "./constants.js";
+export {
+  classifySensor,
+  isGplDataSensor,
+  discoverGplSensors,
+  discoverGplAllergens,
+  resolveEntityIds,
+} from "./discovery.js";
 export { fetchForecast } from "./forecast.js";
 
 import type { HomeAssistant } from "../../types/home-assistant.js";

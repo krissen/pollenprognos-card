@@ -215,7 +215,10 @@ describe("badge editor Kleenex legacy-slug compatibility (issue #309)", () => {
 
   it("keeps a config that only the device label can resolve", () => {
     expect(
-      locationsFor({ integration: "kleenex", location: "home" }, labelOnlyKleenexHass()),
+      locationsFor(
+        { integration: "kleenex", location: "home" },
+        labelOnlyKleenexHass(),
+      ),
     ).toEqual([["home", "Home"]]);
   });
 

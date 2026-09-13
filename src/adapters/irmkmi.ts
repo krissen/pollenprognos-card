@@ -216,7 +216,9 @@ function discoverIrmkmiSensorsUncached(
  * discovery within one tick shares a single sweep. The returned object is
  * shared -- callers must not mutate it.
  */
-export const discoverIrmkmiSensors = memoizeByHass(discoverIrmkmiSensorsUncached);
+export const discoverIrmkmiSensors = memoizeByHass(
+  discoverIrmkmiSensorsUncached,
+);
 
 /**
  * Map allergen keys from config to irm-kmi-ha entity IDs for the resolved
@@ -390,7 +392,8 @@ export const autodetect: AdapterAutodetect = {
     hass: HomeAssistant,
     ctx: AutodetectContext,
   ): AutodetectDetectResult {
-    const irmkmiLevelRe = /_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
+    const irmkmiLevelRe =
+      /_(?:alder|ash|birch|grasses|hazel|mugwort|oak)_level$/;
     let ids: string[] = [];
     if (hass && hass.entities) {
       ids = Object.entries(hass.entities)

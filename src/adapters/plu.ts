@@ -65,16 +65,13 @@ export const PLU_SUPPORTED_ALLERGENS = Object.keys(RAW_ALIAS_NAMES).sort();
 // Slugified alias map exported for sensor discovery helpers
 export const PLU_ALIAS_MAP: Record<string, string[]> = Object.entries(
   RAW_ALIAS_NAMES,
-).reduce(
-  (acc: Record<string, string[]>, [canonical, names]) => {
-    const slugged = Array.from(new Set(names.map((name) => slugify(name))));
-    // Ensure canonical slug is present as alias
-    if (!slugged.includes(canonical)) slugged.push(canonical);
-    acc[canonical] = slugged;
-    return acc;
-  },
-  {},
-);
+).reduce((acc: Record<string, string[]>, [canonical, names]) => {
+  const slugged = Array.from(new Set(names.map((name) => slugify(name))));
+  // Ensure canonical slug is present as alias
+  if (!slugged.includes(canonical)) slugged.push(canonical);
+  acc[canonical] = slugged;
+  return acc;
+}, {});
 
 // Reverse alias map: slug-alias (or canonical key) -> canonical allergen key.
 // Built once at module load from PLU_ALIAS_MAP.
@@ -499,8 +496,10 @@ export async function fetchForecast(
       string,
       (a: PollenSensor, b: PollenSensor) => number
     > = {
-      value_ascending: (a, b) => (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0),
-      value_descending: (a, b) => (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0),
+      value_ascending: (a, b) =>
+        (a.days?.[0]?.state ?? 0) - (b.days?.[0]?.state ?? 0),
+      value_descending: (a, b) =>
+        (b.days?.[0]?.state ?? 0) - (a.days?.[0]?.state ?? 0),
       name_ascending: (a, b) =>
         (a.allergenCapitalized || "").localeCompare(
           b.allergenCapitalized || "",

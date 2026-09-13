@@ -8,6 +8,7 @@ __pycache__/
 *.pyc
 *.pyo
 tmp
+.check.log
 
 # Team structure (local tooling, not shipped)
 .claude/agents/

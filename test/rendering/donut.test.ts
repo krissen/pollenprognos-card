@@ -33,7 +33,9 @@ describe("buildDonutSvg", () => {
   });
 
   it("clamps level below 0 to all-empty and above segments to all-filled", () => {
-    const none = fillPaths(buildDonutSvg({ ...base, level: -1, noData: false }));
+    const none = fillPaths(
+      buildDonutSvg({ ...base, level: -1, noData: false }),
+    );
     expect(none).toEqual(Array(6).fill("#eee"));
     const all = fillPaths(buildDonutSvg({ ...base, level: 99 }));
     expect(all).toEqual(base.colors);
@@ -66,7 +68,7 @@ describe("buildDonutSvg", () => {
     const svg = buildDonutSvg({
       ...base,
       colors: [hostile, "#b", "#c", "#d", "#e", "#f"],
-      gapColor: '</svg><script>alert(2)</script>',
+      gapColor: "</svg><script>alert(2)</script>",
     });
     expect(svg).not.toContain('" onmouseover="');
     expect(svg).not.toContain("<script>");

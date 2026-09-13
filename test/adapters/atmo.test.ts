@@ -31,9 +31,12 @@ function makeHass(location: any, allergenStates: any): any {
       todayId = `sensor.niveau_${frSlug}_${location}`;
     }
     const j1Id = `${todayId}_j_1`;
-    states[todayId] = { state: String(todayVal), attributes: { "Libellé": "" } };
+    states[todayId] = { state: String(todayVal), attributes: { Libellé: "" } };
     if (tomorrowVal !== undefined) {
-      states[j1Id] = { state: String(tomorrowVal), attributes: { "Libellé": "" } };
+      states[j1Id] = {
+        state: String(tomorrowVal),
+        attributes: { Libellé: "" },
+      };
     }
   }
   return createHass(states, { language: "fr" });
@@ -179,11 +182,11 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "unavailable",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
         "sensor.niveau_bouleau_paris_j_1": {
           state: "unknown",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -203,7 +206,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "0",
-          attributes: { "Libellé": "Indisponible" },
+          attributes: { Libellé: "Indisponible" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -224,7 +227,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "0",
-          attributes: { "Libellé": "Indisponible" },
+          attributes: { Libellé: "Indisponible" },
         },
       };
       const hass = createHass(states, { language: "sv" });
@@ -243,7 +246,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "7",
-          attributes: { "Libellé": "Événement" },
+          attributes: { Libellé: "Événement" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -262,7 +265,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.niveau_bouleau_paris": {
           state: "7",
-          attributes: { "Libellé": "Événement" },
+          attributes: { Libellé: "Événement" },
         },
       };
       const hass = createHass(states, { language: "sv" });
@@ -281,7 +284,14 @@ describe("ATMO adapter: fetchForecast", () => {
   // 3. Dual pollen/pollution support
   describe("group property", () => {
     it("sets group='pollen' for pollen allergens", async () => {
-      const pollenAllergens = ["birch", "ragweed", "mugwort", "alder", "grass", "olive"];
+      const pollenAllergens = [
+        "birch",
+        "ragweed",
+        "mugwort",
+        "alder",
+        "grass",
+        "olive",
+      ];
       for (const allergen of pollenAllergens) {
         const hass = makeHass("paris", [[allergen, 3, 2]]);
         const config = makeConfig({
@@ -422,7 +432,9 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const pollutionResults = result.filter((s) => s.group === "pollution");
       for (let i = 0; i < pollutionResults.length - 1; i++) {
-        expect(pollutionResults[i]!.days[0]!.display_state).toBeGreaterThanOrEqual(
+        expect(
+          pollutionResults[i]!.days[0]!.display_state,
+        ).toBeGreaterThanOrEqual(
           pollutionResults[i + 1]!.days[0]!.display_state as number,
         );
       }
@@ -433,7 +445,7 @@ describe("ATMO adapter: fetchForecast", () => {
   describe("allergy_risk_top pinning", () => {
     it("pins allergy_risk to top of pollen block when allergy_risk_top=true", async () => {
       const hass = makeHass("paris", [
-        ["birch", 5, 4],   // higher value than allergy_risk
+        ["birch", 5, 4], // higher value than allergy_risk
         ["grass", 4, 3],
         ["allergy_risk", 2, 1],
       ]);
@@ -453,7 +465,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("pins qualite_globale to top of pollution block when allergy_risk_top=true", async () => {
       const hass = makeHass("paris", [
-        ["pm25", 5, 4],   // higher value than qualite_globale
+        ["pm25", 5, 4], // higher value than qualite_globale
         ["pm10", 4, 3],
         ["qualite_globale", 2, 1],
       ]);
@@ -489,7 +501,9 @@ describe("ATMO adapter: fetchForecast", () => {
 
       const pollenResults = result.filter((s) => s.group === "pollen");
       // allergy_risk has the lowest value so it should be last
-      expect(pollenResults[pollenResults.length - 1]!.allergenReplaced).toBe("allergy_risk");
+      expect(pollenResults[pollenResults.length - 1]!.allergenReplaced).toBe(
+        "allergy_risk",
+      );
     });
 
     it("pins both summaries to absolute top when sort_pollution_block=false", async () => {
@@ -538,7 +552,10 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("allergy_risk uses qualite_globale_pollen_ pattern", async () => {
       const hass = makeHass("paris", [["allergy_risk", 3, 2]]);
-      const config = makeConfig({ location: "paris", allergens: ["allergy_risk"] });
+      const config = makeConfig({
+        location: "paris",
+        allergens: ["allergy_risk"],
+      });
 
       const result = await fetchForecast(hass, config);
 
@@ -547,7 +564,10 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("qualite_globale uses qualite_globale_ pattern (no pollen suffix)", async () => {
       const hass = makeHass("paris", [["qualite_globale", 3, 2]]);
-      const config = makeConfig({ location: "paris", allergens: ["qualite_globale"] });
+      const config = makeConfig({
+        location: "paris",
+        allergens: ["qualite_globale"],
+      });
 
       const result = await fetchForecast(hass, config);
 
@@ -556,8 +576,14 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("forecast j+1 appends _j_1 to base entity ID", async () => {
       const states = {
-        "sensor.niveau_bouleau_paris": { state: "3", attributes: { "Libellé": "" } },
-        "sensor.niveau_bouleau_paris_j_1": { state: "2", attributes: { "Libellé": "" } },
+        "sensor.niveau_bouleau_paris": {
+          state: "3",
+          attributes: { Libellé: "" },
+        },
+        "sensor.niveau_bouleau_paris_j_1": {
+          state: "2",
+          attributes: { Libellé: "" },
+        },
       };
       const hass = createHass(states, { language: "fr" });
       const config = makeConfig({ location: "paris", allergens: ["birch"] });
@@ -593,7 +619,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.pfx_niveau_bouleau_sfx": {
           state: "3",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -614,7 +640,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.pfx_pm25_sfx": {
           state: "4",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -635,7 +661,7 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.pfx_qualite_globale_pollen_sfx": {
           state: "3",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -649,14 +675,16 @@ describe("ATMO adapter: fetchForecast", () => {
       const result = await fetchForecast(hass, config);
 
       expect(result.length).toBe(1);
-      expect(result[0]!.entity_id).toBe("sensor.pfx_qualite_globale_pollen_sfx");
+      expect(result[0]!.entity_id).toBe(
+        "sensor.pfx_qualite_globale_pollen_sfx",
+      );
     });
 
     it("qualite_globale in manual mode uses qualite_globale stem", async () => {
       const states = {
         "sensor.pfx_qualite_globale_sfx": {
           state: "3",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -677,11 +705,11 @@ describe("ATMO adapter: fetchForecast", () => {
       const states = {
         "sensor.niveau_bouleau_manual": {
           state: "3",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
         "sensor.niveau_bouleau_manual_j_1": {
           state: "5",
-          attributes: { "Libellé": "" },
+          attributes: { Libellé: "" },
         },
       };
       const hass = createHass(states, { language: "fr" });
@@ -721,7 +749,7 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("includes allergens when any day meets pollen_threshold", async () => {
       const hass = makeHass("paris", [
-        ["birch", 0, 3],  // today=0 but tomorrow=3 meets threshold
+        ["birch", 0, 3], // today=0 but tomorrow=3 meets threshold
       ]);
       const config = makeConfig({
         location: "paris",
@@ -859,9 +887,9 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("level 7 (evenement) sorts as display_state=6 (equal to max)", async () => {
       const hass = makeHass("paris", [
-        ["birch", 7, 6],   // display_state=6
-        ["grass", 6, 5],   // display_state=6
-        ["alder", 3, 2],   // display_state=3
+        ["birch", 7, 6], // display_state=6
+        ["grass", 6, 5], // display_state=6
+        ["alder", 3, 2], // display_state=3
       ]);
       const config = makeConfig({
         location: "paris",
@@ -883,8 +911,14 @@ describe("ATMO adapter: fetchForecast", () => {
   describe("location auto-detection", () => {
     it("auto-detects location from pollen entity IDs when location is empty", async () => {
       const states = {
-        "sensor.niveau_bouleau_lyon": { state: "3", attributes: { "Libellé": "" } },
-        "sensor.niveau_bouleau_lyon_j_1": { state: "2", attributes: { "Libellé": "" } },
+        "sensor.niveau_bouleau_lyon": {
+          state: "3",
+          attributes: { Libellé: "" },
+        },
+        "sensor.niveau_bouleau_lyon_j_1": {
+          state: "2",
+          attributes: { Libellé: "" },
+        },
       };
       const hass = createHass(states, { language: "fr" });
       const config = makeConfig({ location: "", allergens: ["birch"] });
@@ -897,8 +931,11 @@ describe("ATMO adapter: fetchForecast", () => {
 
     it("auto-detects location from pollution entity IDs as fallback", async () => {
       const states = {
-        "sensor.pm25_marseille": { state: "4", attributes: { "Libellé": "" } },
-        "sensor.pm25_marseille_j_1": { state: "3", attributes: { "Libellé": "" } },
+        "sensor.pm25_marseille": { state: "4", attributes: { Libellé: "" } },
+        "sensor.pm25_marseille_j_1": {
+          state: "3",
+          attributes: { Libellé: "" },
+        },
       };
       const hass = createHass(states, { language: "fr" });
       const config = makeConfig({ location: "", allergens: ["pm25"] });
@@ -963,7 +1000,12 @@ describe("ATMO adapter: fetchForecast", () => {
 });
 
 // Helper: create a hass mock with prefixed entity IDs (multi-instance pattern)
-function makePrefixedHass(prefix: any, location: any, allergenStates: any, configEntryId: any): any {
+function makePrefixedHass(
+  prefix: any,
+  location: any,
+  allergenStates: any,
+  configEntryId: any,
+): any {
   const states: Record<string, any> = {};
   const entities: Record<string, any> = {};
   const deviceId = `device_${location}`;
@@ -980,10 +1022,19 @@ function makePrefixedHass(prefix: any, location: any, allergenStates: any, confi
       todayId = `sensor.${prefix}_niveau_${frSlug}_${location}`;
     }
     const j1Id = `${todayId}_j_1`;
-    states[todayId] = { state: String(todayVal), attributes: { "Libellé": "", "Nom de la zone": location.charAt(0).toUpperCase() + location.slice(1) } };
+    states[todayId] = {
+      state: String(todayVal),
+      attributes: {
+        Libellé: "",
+        "Nom de la zone": location.charAt(0).toUpperCase() + location.slice(1),
+      },
+    };
     entities[todayId] = { platform: "atmofrance", device_id: deviceId };
     if (tomorrowVal !== undefined) {
-      states[j1Id] = { state: String(tomorrowVal), attributes: { "Libellé": "" } };
+      states[j1Id] = {
+        state: String(tomorrowVal),
+        attributes: { Libellé: "" },
+      };
       entities[j1Id] = { platform: "atmofrance", device_id: deviceId };
     }
   }
@@ -1000,22 +1051,34 @@ function makePrefixedHass(prefix: any, location: any, allergenStates: any, confi
 
 describe("discoverAtmoSensors", () => {
   it("discovers entities grouped by config_entry_id via hass.entities", () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-      ["pm25", 4, 3],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [
+        ["birch", 3, 2],
+        ["pm25", 4, 3],
+      ],
+      "entry_toulouse",
+    );
 
     const result = discoverAtmoSensors(hass);
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("entry_toulouse")).toBe(true);
     const loc = result.locations.get("entry_toulouse")!;
-    expect(loc.entities.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+    expect(loc.entities.get("birch")).toBe(
+      "sensor.toulouse_niveau_bouleau_toulouse",
+    );
     expect(loc.entities.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
   });
 
   it("discovers multiple locations from different config entries", () => {
-    const hass1 = makePrefixedHass("toulouse", "toulouse", [["birch", 3, 2]], "entry_toulouse");
+    const hass1 = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [["birch", 3, 2]],
+      "entry_toulouse",
+    );
     const hass2 = makeHass("nice", [["birch", 4, 3]]);
     // Merge: nice uses non-prefixed entities, add entity registry entries for nice
     const merged = createHass(
@@ -1024,12 +1087,22 @@ describe("discoverAtmoSensors", () => {
         language: "fr",
         entities: {
           ...hass1.entities,
-          "sensor.niveau_bouleau_nice": { platform: "atmofrance", device_id: "device_nice" },
-          "sensor.niveau_bouleau_nice_j_1": { platform: "atmofrance", device_id: "device_nice" },
+          "sensor.niveau_bouleau_nice": {
+            platform: "atmofrance",
+            device_id: "device_nice",
+          },
+          "sensor.niveau_bouleau_nice_j_1": {
+            platform: "atmofrance",
+            device_id: "device_nice",
+          },
         },
         devices: {
           ...hass1.devices,
-          device_nice: { name: "Atmo France", config_entries: ["entry_nice"], identifiers: [["atmofrance", "AtmoSud-Nice"]] },
+          device_nice: {
+            name: "Atmo France",
+            config_entries: ["entry_nice"],
+            identifiers: [["atmofrance", "AtmoSud-Nice"]],
+          },
         },
       },
     );
@@ -1042,21 +1115,26 @@ describe("discoverAtmoSensors", () => {
   });
 
   it("classifies all allergen types correctly", () => {
-    const hass = makePrefixedHass("pfx", "city", [
-      ["birch", 3, 2],
-      ["ragweed", 2, 1],
-      ["mugwort", 1, 0],
-      ["alder", 2, 1],
-      ["grass", 3, 2],
-      ["olive", 1, 0],
-      ["allergy_risk", 4, 3],
-      ["qualite_globale", 3, 2],
-      ["pm25", 2, 1],
-      ["pm10", 3, 2],
-      ["ozone", 1, 0],
-      ["no2", 2, 1],
-      ["so2", 1, 0],
-    ], "entry_city");
+    const hass = makePrefixedHass(
+      "pfx",
+      "city",
+      [
+        ["birch", 3, 2],
+        ["ragweed", 2, 1],
+        ["mugwort", 1, 0],
+        ["alder", 2, 1],
+        ["grass", 3, 2],
+        ["olive", 1, 0],
+        ["allergy_risk", 4, 3],
+        ["qualite_globale", 3, 2],
+        ["pm25", 2, 1],
+        ["pm10", 3, 2],
+        ["ozone", 1, 0],
+        ["no2", 2, 1],
+        ["so2", 1, 0],
+      ],
+      "entry_city",
+    );
 
     const result = discoverAtmoSensors(hass);
     const entities = result.locations.get("entry_city")!.entities;
@@ -1071,12 +1149,24 @@ describe("discoverAtmoSensors", () => {
 
   it("excludes concentration entities", () => {
     const states = {
-      "sensor.toulouse_concentration_ambroisie_toulouse": { state: "42", attributes: {} },
-      "sensor.toulouse_niveau_bouleau_toulouse": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.toulouse_concentration_ambroisie_toulouse": {
+        state: "42",
+        attributes: {},
+      },
+      "sensor.toulouse_niveau_bouleau_toulouse": {
+        state: "3",
+        attributes: { Libellé: "" },
+      },
     };
     const entities = {
-      "sensor.toulouse_concentration_ambroisie_toulouse": { platform: "atmofrance", device_id: "d1" },
-      "sensor.toulouse_niveau_bouleau_toulouse": { platform: "atmofrance", device_id: "d1" },
+      "sensor.toulouse_concentration_ambroisie_toulouse": {
+        platform: "atmofrance",
+        device_id: "d1",
+      },
+      "sensor.toulouse_niveau_bouleau_toulouse": {
+        platform: "atmofrance",
+        device_id: "d1",
+      },
     };
     const hass = createHass(states, {
       language: "fr",
@@ -1093,7 +1183,7 @@ describe("discoverAtmoSensors", () => {
 
   it("falls back to regex scan when hass.entities is unavailable", () => {
     const states = {
-      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { Libellé: "" } },
       "sensor.pm25_nice": { state: "2", attributes: {} },
     };
     const hass = createHass(states, { language: "fr", entities: undefined });
@@ -1103,17 +1193,24 @@ describe("discoverAtmoSensors", () => {
     // Falls back to "default" grouping (no config_entry_id)
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("default")).toBe(true);
-    expect(result.locations.get("default")!.entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+    expect(result.locations.get("default")!.entities.get("birch")).toBe(
+      "sensor.niveau_bouleau_nice",
+    );
   });
 });
 
 describe("resolveEntityIds with discovery (prefixed entities)", () => {
   it("resolves prefixed entities via config_entry_id", () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-      ["pm25", 4, 3],
-      ["allergy_risk", 2, 1],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [
+        ["birch", 3, 2],
+        ["pm25", 4, 3],
+        ["allergy_risk", 2, 1],
+      ],
+      "entry_toulouse",
+    );
 
     const config = makeConfig({
       location: "entry_toulouse",
@@ -1124,13 +1221,18 @@ describe("resolveEntityIds with discovery (prefixed entities)", () => {
 
     expect(map.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
     expect(map.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
-    expect(map.get("allergy_risk")).toBe("sensor.toulouse_qualite_globale_pollen_toulouse");
+    expect(map.get("allergy_risk")).toBe(
+      "sensor.toulouse_qualite_globale_pollen_toulouse",
+    );
   });
 
   it("auto-detects prefixed location when location is empty", () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [["birch", 3, 2]],
+      "entry_toulouse",
+    );
 
     const config = makeConfig({ location: "", allergens: ["birch"] });
 
@@ -1152,10 +1254,15 @@ describe("resolveEntityIds with discovery (prefixed entities)", () => {
     // 26-char Crockford-base32 ULIDs — isConfigEntryId() detects this format.
     const realEntryId = "01ABCDEFGHJKMNPQRSTVWXYZ01";
     const staleEntryId = "01ZZZZZZZZZZZZZZZZZZZZZZZZ";
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-      ["pm25", 4, 3],
-    ], realEntryId);
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [
+        ["birch", 3, 2],
+        ["pm25", 4, 3],
+      ],
+      realEntryId,
+    );
 
     // Saved config_entry_id no longer matches (integration removed/reinstalled).
     // Adapter should fall back to first discovered location instead of returning empty.
@@ -1173,10 +1280,15 @@ describe("resolveEntityIds with discovery (prefixed entities)", () => {
 
 describe("fetchForecast with prefixed entities", () => {
   it("returns correct data for prefixed entity IDs", async () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-      ["grass", 5, 4],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [
+        ["birch", 3, 2],
+        ["grass", 5, 4],
+      ],
+      "entry_toulouse",
+    );
 
     const config = makeConfig({
       location: "entry_toulouse",
@@ -1192,9 +1304,12 @@ describe("fetchForecast with prefixed entities", () => {
   });
 
   it("reads j+1 forecast from {entity_id}_j_1 for prefixed entities", async () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 5],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [["birch", 3, 5]],
+      "entry_toulouse",
+    );
 
     const config = makeConfig({
       location: "entry_toulouse",
@@ -1223,17 +1338,31 @@ describe("fetchForecast with prefixed entities", () => {
 
 describe("classifyAtmoEntityRelaxed", () => {
   it("matches standard niveau_ entities", () => {
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_ambroisie_nice")).toBe("ragweed");
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_bouleau_paris")).toBe("birch");
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_gramine_nice")).toBe("grass");
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_olivier_nice")).toBe("olive");
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_armoise_nice")).toBe("mugwort");
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_ambroisie_nice")).toBe(
+      "ragweed",
+    );
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_bouleau_paris")).toBe(
+      "birch",
+    );
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_gramine_nice")).toBe(
+      "grass",
+    );
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_olivier_nice")).toBe(
+      "olive",
+    );
+    expect(classifyAtmoEntityRelaxed("sensor.niveau_armoise_nice")).toBe(
+      "mugwort",
+    );
     expect(classifyAtmoEntityRelaxed("sensor.niveau_aulne_nice")).toBe("alder");
   });
 
   it("matches old-style niveau_alerte_ entities", () => {
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_alerte_ambroisie_nice")).toBe("ragweed");
-    expect(classifyAtmoEntityRelaxed("sensor.niveau_alerte_bouleau_paris")).toBe("birch");
+    expect(
+      classifyAtmoEntityRelaxed("sensor.niveau_alerte_ambroisie_nice"),
+    ).toBe("ragweed");
+    expect(
+      classifyAtmoEntityRelaxed("sensor.niveau_alerte_bouleau_paris"),
+    ).toBe("birch");
   });
 
   it("matches bare allergen slug (no niveau_ prefix)", () => {
@@ -1242,62 +1371,100 @@ describe("classifyAtmoEntityRelaxed", () => {
   });
 
   it("matches prefixed entities (HA disambiguation)", () => {
-    expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours")).toBe("ragweed");
-    expect(classifyAtmoEntityRelaxed("sensor.plouha_niveau_bouleau_plouha")).toBe("birch");
+    expect(
+      classifyAtmoEntityRelaxed(
+        "sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours",
+      ),
+    ).toBe("ragweed");
+    expect(
+      classifyAtmoEntityRelaxed("sensor.plouha_niveau_bouleau_plouha"),
+    ).toBe("birch");
   });
 
   it("prefers niveau_{slug} over a slug-shaped user prefix", () => {
     // bouleau appears in the prefix but ambroisie is the actual pollen slug;
     // classifier must return ragweed, not birch.
-    expect(classifyAtmoEntityRelaxed("sensor.bouleau_niveau_ambroisie_nice")).toBe("ragweed");
-    expect(classifyAtmoEntityRelaxed("sensor.ambroisie_niveau_bouleau_nice")).toBe("birch");
+    expect(
+      classifyAtmoEntityRelaxed("sensor.bouleau_niveau_ambroisie_nice"),
+    ).toBe("ragweed");
+    expect(
+      classifyAtmoEntityRelaxed("sensor.ambroisie_niveau_bouleau_nice"),
+    ).toBe("birch");
   });
 
   it("rejects concentration entities", () => {
-    expect(classifyAtmoEntityRelaxed("sensor.concentration_ambroisie_nice")).toBeNull();
-    expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_concentration_bouleau_chambray_les_tours")).toBeNull();
+    expect(
+      classifyAtmoEntityRelaxed("sensor.concentration_ambroisie_nice"),
+    ).toBeNull();
+    expect(
+      classifyAtmoEntityRelaxed(
+        "sensor.chambray_les_tours_concentration_bouleau_chambray_les_tours",
+      ),
+    ).toBeNull();
   });
 
   it("classifies summary entities", () => {
-    expect(classifyAtmoEntityRelaxed("sensor.qualite_globale_pollen_nice")).toBe("allergy_risk");
-    expect(classifyAtmoEntityRelaxed("sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours")).toBe("allergy_risk");
-    expect(classifyAtmoEntityRelaxed("sensor.qualite_globale_nice")).toBe("qualite_globale");
+    expect(
+      classifyAtmoEntityRelaxed("sensor.qualite_globale_pollen_nice"),
+    ).toBe("allergy_risk");
+    expect(
+      classifyAtmoEntityRelaxed(
+        "sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours",
+      ),
+    ).toBe("allergy_risk");
+    expect(classifyAtmoEntityRelaxed("sensor.qualite_globale_nice")).toBe(
+      "qualite_globale",
+    );
   });
 
   it("classifies pollution entities", () => {
     expect(classifyAtmoEntityRelaxed("sensor.pm25_nice")).toBe("pm25");
     expect(classifyAtmoEntityRelaxed("sensor.ozone_nice")).toBe("ozone");
-    expect(classifyAtmoEntityRelaxed("sensor.dioxyde_d_azote_nice")).toBe("no2");
-    expect(classifyAtmoEntityRelaxed("sensor.dioxyde_de_soufre_nice")).toBe("so2");
+    expect(classifyAtmoEntityRelaxed("sensor.dioxyde_d_azote_nice")).toBe(
+      "no2",
+    );
+    expect(classifyAtmoEntityRelaxed("sensor.dioxyde_de_soufre_nice")).toBe(
+      "so2",
+    );
   });
 });
 
 describe("discoverAtmoSensors: device-based discovery", () => {
   it("discovers entities via device identifiers (tier 1)", () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-      ["pm25", 4, 3],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [
+        ["birch", 3, 2],
+        ["pm25", 4, 3],
+      ],
+      "entry_toulouse",
+    );
 
     const result = discoverAtmoSensors(hass);
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("entry_toulouse")).toBe(true);
     const loc = result.locations.get("entry_toulouse")!;
-    expect(loc.entities.get("birch")).toBe("sensor.toulouse_niveau_bouleau_toulouse");
+    expect(loc.entities.get("birch")).toBe(
+      "sensor.toulouse_niveau_bouleau_toulouse",
+    );
     expect(loc.entities.get("pm25")).toBe("sensor.toulouse_pm25_toulouse");
   });
 
   it("discovers multi-word prefix entities via device path", () => {
     const states = {
       "sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours": {
-        state: "3", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
+        state: "3",
+        attributes: { Libellé: "", "Nom de la zone": "Chambray-lès-Tours" },
       },
       "sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours": {
-        state: "5", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
+        state: "5",
+        attributes: { Libellé: "", "Nom de la zone": "Chambray-lès-Tours" },
       },
       "sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours": {
-        state: "4", attributes: { "Libellé": "", "Nom de la zone": "Chambray-lès-Tours" },
+        state: "4",
+        attributes: { Libellé: "", "Nom de la zone": "Chambray-lès-Tours" },
       },
     };
     const entities: Record<string, any> = {};
@@ -1318,17 +1485,29 @@ describe("discoverAtmoSensors: device-based discovery", () => {
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("entry_chambray")).toBe(true);
     const loc = result.locations.get("entry_chambray")!;
-    expect(loc.entities.get("ragweed")).toBe("sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours");
-    expect(loc.entities.get("birch")).toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
-    expect(loc.entities.get("allergy_risk")).toBe("sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours");
+    expect(loc.entities.get("ragweed")).toBe(
+      "sensor.chambray_les_tours_niveau_ambroisie_chambray_les_tours",
+    );
+    expect(loc.entities.get("birch")).toBe(
+      "sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours",
+    );
+    expect(loc.entities.get("allergy_risk")).toBe(
+      "sensor.chambray_les_tours_qualite_globale_pollen_chambray_les_tours",
+    );
   });
 
   it("resolves label from device identifier (city after first dash)", () => {
     const states = {
-      "sensor.pfx_niveau_bouleau_city": { state: "3", attributes: { "Libellé": "", "Nom de la zone": "Some Admin Zone" } },
+      "sensor.pfx_niveau_bouleau_city": {
+        state: "3",
+        attributes: { Libellé: "", "Nom de la zone": "Some Admin Zone" },
+      },
     };
     const entities = {
-      "sensor.pfx_niveau_bouleau_city": { platform: "atmofrance", device_id: "d1" },
+      "sensor.pfx_niveau_bouleau_city": {
+        platform: "atmofrance",
+        device_id: "d1",
+      },
     };
     const devices = {
       d1: {
@@ -1346,10 +1525,16 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
   it("resolves label from device name_by_user (highest priority)", () => {
     const states = {
-      "sensor.pfx_niveau_bouleau_city": { state: "3", attributes: { "Libellé": "", "Nom de la zone": "Zone Name" } },
+      "sensor.pfx_niveau_bouleau_city": {
+        state: "3",
+        attributes: { Libellé: "", "Nom de la zone": "Zone Name" },
+      },
     };
     const entities = {
-      "sensor.pfx_niveau_bouleau_city": { platform: "atmofrance", device_id: "d1" },
+      "sensor.pfx_niveau_bouleau_city": {
+        platform: "atmofrance",
+        device_id: "d1",
+      },
     };
     const devices = {
       d1: {
@@ -1368,7 +1553,10 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
   it("falls back to Nom de la zone when no device info", () => {
     const states = {
-      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "", "Nom de la zone": "Nice" } },
+      "sensor.niveau_bouleau_nice": {
+        state: "3",
+        attributes: { Libellé: "", "Nom de la zone": "Nice" },
+      },
     };
     // Tier 3 fallback: no entities, no devices
     const hass = createHass(states, { language: "fr", entities: undefined });
@@ -1379,7 +1567,7 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
   it("falls back to tier 2 when no devices have atmofrance identifiers", () => {
     const states = {
-      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { Libellé: "" } },
     };
     const entities = {
       "sensor.niveau_bouleau_nice": { platform: "atmofrance", device_id: "d1" },
@@ -1393,12 +1581,14 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("e1")).toBe(true);
-    expect(result.locations.get("e1")!.entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+    expect(result.locations.get("e1")!.entities.get("birch")).toBe(
+      "sensor.niveau_bouleau_nice",
+    );
   });
 
   it("falls back to tier 3 (regex) when hass.entities is unavailable", () => {
     const states = {
-      "sensor.niveau_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
+      "sensor.niveau_bouleau_nice": { state: "3", attributes: { Libellé: "" } },
       "sensor.pm25_nice": { state: "2", attributes: {} },
     };
     const hass = createHass(states, { language: "fr", entities: undefined });
@@ -1407,13 +1597,16 @@ describe("discoverAtmoSensors: device-based discovery", () => {
 
     expect(result.locations.size).toBe(1);
     expect(result.locations.has("default")).toBe(true);
-    expect(result.locations.get("default")!.entities.get("birch")).toBe("sensor.niveau_bouleau_nice");
+    expect(result.locations.get("default")!.entities.get("birch")).toBe(
+      "sensor.niveau_bouleau_nice",
+    );
   });
 
   it("regex fallback handles multi-word prefix", () => {
     const states = {
       "sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours": {
-        state: "3", attributes: { "Libellé": "" },
+        state: "3",
+        attributes: { Libellé: "" },
       },
     };
     const hass = createHass(states, { language: "fr", entities: undefined });
@@ -1421,24 +1614,33 @@ describe("discoverAtmoSensors: device-based discovery", () => {
     const result = discoverAtmoSensors(hass);
 
     expect(result.locations.size).toBe(1);
-    expect(result.locations.get("default")!.entities.get("birch"))
-      .toBe("sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours");
+    expect(result.locations.get("default")!.entities.get("birch")).toBe(
+      "sensor.chambray_les_tours_niveau_bouleau_chambray_les_tours",
+    );
   });
 
   it("regex fallback handles legacy niveau_alerte_{slug} entities", () => {
     const states = {
-      "sensor.niveau_alerte_bouleau_nice": { state: "3", attributes: { "Libellé": "" } },
-      "sensor.niveau_alerte_ambroisie_nice": { state: "2", attributes: { "Libellé": "" } },
+      "sensor.niveau_alerte_bouleau_nice": {
+        state: "3",
+        attributes: { Libellé: "" },
+      },
+      "sensor.niveau_alerte_ambroisie_nice": {
+        state: "2",
+        attributes: { Libellé: "" },
+      },
     };
     const hass = createHass(states, { language: "fr", entities: undefined });
 
     const result = discoverAtmoSensors(hass);
 
     expect(result.locations.size).toBe(1);
-    expect(result.locations.get("default")!.entities.get("birch"))
-      .toBe("sensor.niveau_alerte_bouleau_nice");
-    expect(result.locations.get("default")!.entities.get("ragweed"))
-      .toBe("sensor.niveau_alerte_ambroisie_nice");
+    expect(result.locations.get("default")!.entities.get("birch")).toBe(
+      "sensor.niveau_alerte_bouleau_nice",
+    );
+    expect(result.locations.get("default")!.entities.get("ragweed")).toBe(
+      "sensor.niveau_alerte_ambroisie_nice",
+    );
   });
 });
 
@@ -1450,17 +1652,29 @@ describe("findAtmoLocationBySlug", () => {
   });
 
   it("maps a legacy slug to a discovered config_entry_id (prefixed)", () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [["birch", 3, 2]], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [["birch", 3, 2]],
+      "entry_toulouse",
+    );
     const discovery = discoverAtmoSensors(hass);
-    expect(findAtmoLocationBySlug(discovery, "toulouse")).toBe("entry_toulouse");
+    expect(findAtmoLocationBySlug(discovery, "toulouse")).toBe(
+      "entry_toulouse",
+    );
   });
 
   it("handles multi-word slugs", () => {
-    const hass = makePrefixedHass("chambray_les_tours", "chambray_les_tours", [
-      ["birch", 3, 2],
-    ], "entry_chambray");
+    const hass = makePrefixedHass(
+      "chambray_les_tours",
+      "chambray_les_tours",
+      [["birch", 3, 2]],
+      "entry_chambray",
+    );
     const discovery = discoverAtmoSensors(hass);
-    expect(findAtmoLocationBySlug(discovery, "chambray_les_tours")).toBe("entry_chambray");
+    expect(findAtmoLocationBySlug(discovery, "chambray_les_tours")).toBe(
+      "entry_chambray",
+    );
   });
 
   it("returns null for unknown slugs", () => {
@@ -1472,9 +1686,12 @@ describe("findAtmoLocationBySlug", () => {
   });
 
   it("lets resolveEntityIds serve prefixed entities when config carries a legacy slug", () => {
-    const hass = makePrefixedHass("toulouse", "toulouse", [
-      ["birch", 3, 2],
-    ], "entry_toulouse");
+    const hass = makePrefixedHass(
+      "toulouse",
+      "toulouse",
+      [["birch", 3, 2]],
+      "entry_toulouse",
+    );
     const cfg = makeConfig({ location: "toulouse", allergens: ["birch"] });
 
     const map = resolveEntityIds(cfg, hass);
@@ -1515,7 +1732,9 @@ describe("ATMO summary block (#222)", () => {
       show_summary_block: true,
     });
     const result = await fetchForecast(hass, config);
-    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+    expect(
+      result.find((s) => s.allergenReplaced === "allergy_risk"),
+    ).toBeDefined();
   });
 
   it("still drops the below-threshold aggregate when the block is off", async () => {
@@ -1530,6 +1749,8 @@ describe("ATMO summary block (#222)", () => {
       show_summary_block: false,
     });
     const result = await fetchForecast(hass, config);
-    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+    expect(
+      result.find((s) => s.allergenReplaced === "allergy_risk"),
+    ).toBeUndefined();
   });
 });

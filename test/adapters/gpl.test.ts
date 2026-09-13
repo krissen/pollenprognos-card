@@ -26,7 +26,12 @@ function makeConfig(overrides: any = {}): any {
  * Build a minimal GPL type sensor (grass_cat, trees_cat, weeds_cat).
  * Type sensors are identified by their icon attribute.
  */
-function makeTypeSensor(icon: any, stateValue: any, forecastItems: any = [], attrOverrides: any = {}): any {
+function makeTypeSensor(
+  icon: any,
+  stateValue: any,
+  forecastItems: any = [],
+  attrOverrides: any = {},
+): any {
   return {
     state: String(stateValue),
     attributes: {
@@ -42,7 +47,12 @@ function makeTypeSensor(icon: any, stateValue: any, forecastItems: any = [], att
  * Build a minimal GPL plant sensor (e.g. birch, oak, ragweed).
  * Plant sensors are identified by their code attribute.
  */
-function makePlantSensor(code: any, stateValue: any, forecastItems: any = [], attrOverrides: any = {}): any {
+function makePlantSensor(
+  code: any,
+  stateValue: any,
+  forecastItems: any = [],
+  attrOverrides: any = {},
+): any {
   return {
     state: String(stateValue),
     attributes: {
@@ -88,7 +98,11 @@ function makeHassAttribution(statesMap: any): any {
  * Each entry in entitiesMap should have { entity_id, device_id, config_entry_id }
  * and a corresponding state object.
  */
-function makeHassPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {}): any {
+function makeHassPrimary(
+  statesMap: any,
+  entitiesMap: any,
+  devicesMap: any = {},
+): any {
   const entities: Record<string, any> = {};
   for (const [eid, info] of Object.entries(entitiesMap)) {
     entities[eid] = {
@@ -471,7 +485,11 @@ describe("discoverGplSensors: primary path (hass.entities)", () => {
 });
 
 // Helper alias used in primary-path tests above
-function makeHasPrimary(statesMap: any, entitiesMap: any, devicesMap: any = {}): any {
+function makeHasPrimary(
+  statesMap: any,
+  entitiesMap: any,
+  devicesMap: any = {},
+): any {
   return makeHassPrimary(statesMap, entitiesMap, devicesMap);
 }
 
@@ -524,10 +542,18 @@ describe("discoverGplSensors: v3 config subentries", () => {
     expect(result.locations.get(SUB_A)!.label).toBe("Home");
     expect(result.locations.get(SUB_B)!.label).toBe("Work");
     // Each location keeps its own grass + birch (no collision drop).
-    expect(result.locations.get(SUB_A)!.entities.get("grass_cat")).toBe("sensor.home_grass");
-    expect(result.locations.get(SUB_A)!.entities.get("birch")).toBe("sensor.home_birch");
-    expect(result.locations.get(SUB_B)!.entities.get("grass_cat")).toBe("sensor.work_grass");
-    expect(result.locations.get(SUB_B)!.entities.get("birch")).toBe("sensor.work_birch");
+    expect(result.locations.get(SUB_A)!.entities.get("grass_cat")).toBe(
+      "sensor.home_grass",
+    );
+    expect(result.locations.get(SUB_A)!.entities.get("birch")).toBe(
+      "sensor.home_birch",
+    );
+    expect(result.locations.get(SUB_B)!.entities.get("grass_cat")).toBe(
+      "sensor.work_grass",
+    );
+    expect(result.locations.get(SUB_B)!.entities.get("birch")).toBe(
+      "sensor.work_birch",
+    );
   });
 
   it("keys a legacy device (subentry list [null]) by its config entry id, not 'default'", () => {
@@ -785,7 +811,9 @@ describe("fetchForecast: level scaling (0-5 to 0-6)", () => {
     const resultHigh = await fetchForecast(hassHigh, config);
     const resultLow = await fetchForecast(hassLow, config);
 
-    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(resultLow[0]!.days[0]!.state_text);
+    expect(resultHigh[0]!.days[0]!.state_text).not.toBe(
+      resultLow[0]!.days[0]!.state_text,
+    );
   });
 });
 
@@ -971,7 +999,9 @@ describe("fetchForecast: forecast data", () => {
   it("uses the today-dated forecast item when the state is unavailable", async () => {
     const todayItem = { ...makeForecastItem(0, 2), offset: 1 };
     const hass = makeHassAttribution({
-      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", "unavailable", [todayItem]),
+      "sensor.pollenlevels_grass": makeTypeSensor("mdi:grass", "unavailable", [
+        todayItem,
+      ]),
     });
     const config = makeConfig({
       allergens: ["grass_cat"],
@@ -1205,7 +1235,9 @@ describe("fetchForecast: sorting modes", () => {
     const result = await fetchForecast(hass, config);
 
     for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(result[i + 1]!.days[0]!.state);
+      expect(result[i]!.days[0]!.state).toBeLessThanOrEqual(
+        result[i + 1]!.days[0]!.state,
+      );
     }
   });
 
@@ -1688,7 +1720,10 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
   // code, so the card language wins over the integration's name.
   it("localizes from the code even when top_pollen_names is another language", async () => {
     const hass = makeSummaryHass({
-      summaryAttrs: { top_pollen_codes: ["TREE"], top_pollen_names: ["Дерево"] },
+      summaryAttrs: {
+        top_pollen_codes: ["TREE"],
+        top_pollen_names: ["Дерево"],
+      },
       language: "sv",
     });
     const config = makeConfig({
@@ -1782,12 +1817,18 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     const statesMap = {
       "sensor.home_overall_pollen_risk_today": {
         state: "3",
-        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_pollen_codes: ["TREE"],
+        },
       },
       "sensor.home_grass": makeTypeSensor("mdi:grass", 2),
       "sensor.home_plants_in_season_today": {
         state: "2",
-        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          plant_codes: ["BIRCH", "PINE"],
+        },
       },
     };
     const entitiesMap = {
@@ -1823,12 +1864,18 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     const statesMap = {
       "sensor.home_overall_pollen_risk_today": {
         state: "3",
-        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_pollen_codes: ["TREE"],
+        },
       },
       "sensor.home_grass": makeTypeSensor("mdi:grass", 2),
       "sensor.home_plants_in_season_today": {
         state: "2",
-        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          plant_codes: ["BIRCH", "PINE"],
+        },
       },
     };
     const entitiesMap = {
@@ -1876,15 +1923,24 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
     const statesMap = {
       "sensor.home_overall_pollen_risk_today": {
         state: "3",
-        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["TREE"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_pollen_codes: ["TREE"],
+        },
       },
       "sensor.home_plants_in_season_today": {
         state: "2",
-        attributes: { attribution: GPL_ATTRIBUTION, plant_codes: ["BIRCH", "PINE"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          plant_codes: ["BIRCH", "PINE"],
+        },
       },
       "sensor.work_overall_pollen_risk_today": {
         state: "1",
-        attributes: { attribution: GPL_ATTRIBUTION, top_pollen_codes: ["GRASS"] },
+        attributes: {
+          attribution: GPL_ATTRIBUTION,
+          top_pollen_codes: ["GRASS"],
+        },
       },
       "sensor.work_plants_in_season_today": {
         state: "1",
@@ -1964,7 +2020,9 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       show_summary_block: true,
     });
     const result = await fetchForecast(hass, config);
-    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeDefined();
+    expect(
+      result.find((s) => s.allergenReplaced === "allergy_risk"),
+    ).toBeDefined();
   });
 
   it("still drops a below-threshold aggregate when the block is off (no behaviour change)", async () => {
@@ -1976,6 +2034,8 @@ describe("fetchForecast: summary block tagging and extras (#222)", () => {
       show_summary_block: false,
     });
     const result = await fetchForecast(hass, config);
-    expect(result.find((s) => s.allergenReplaced === "allergy_risk")).toBeUndefined();
+    expect(
+      result.find((s) => s.allergenReplaced === "allergy_risk"),
+    ).toBeUndefined();
   });
 });

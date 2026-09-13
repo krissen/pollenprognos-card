@@ -305,7 +305,11 @@ describe("normalizeCardConfig: allergens guard", () => {
 describe("normalizeCardConfig: passthrough + location keys", () => {
   it("preserves the city key and tap_action (both action and type forms)", () => {
     const withAction = normalizeCardConfig(
-      { integration: "pp", city: "Stockholm", tap_action: { action: "more-info" } },
+      {
+        integration: "pp",
+        city: "Stockholm",
+        tap_action: { action: "more-info" },
+      },
       stubConfigPP,
       { integration: "pp", filter: true },
     );
@@ -404,7 +408,10 @@ describe("cross-stub coercion union", () => {
 
 describe("structural guarantees", () => {
   it("finalizeCardConfig freezes the result", () => {
-    const cfg = finalizeCardConfig({ integration: "pp", minimal: true }, stubConfigPP);
+    const cfg = finalizeCardConfig(
+      { integration: "pp", minimal: true },
+      stubConfigPP,
+    );
     expect(Object.isFrozen(cfg)).toBe(true);
     expect(() => {
       cfg.minimal = false;

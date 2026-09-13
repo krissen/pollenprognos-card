@@ -239,7 +239,9 @@ function resolveEntityId(
   debug: boolean,
 ): string | null {
   if (config.location === "manual") {
-    const prefix = normalizeManualPrefix((config.entity_prefix as string) || "");
+    const prefix = normalizeManualPrefix(
+      (config.entity_prefix as string) || "",
+    );
     const suffix = (config.entity_suffix as string) || "";
 
     // Collect candidate entity IDs
@@ -282,8 +284,7 @@ function resolveEntityId(
     return discoveredEntities.get(allergen) as string;
   }
 
-  if (debug)
-    console.debug(`[GP] Sensor not found for allergen "${allergen}"`);
+  if (debug) console.debug(`[GP] Sensor not found for allergen "${allergen}"`);
   return null;
 }
 

@@ -28,8 +28,12 @@ describe("suggestEntityConfig", () => {
     });
 
     it("returns null when hass has no states", () => {
-      expect(suggestEntityConfig(null as any, "sensor.pollen_stockholm_bjork")).toBeNull();
-      expect(suggestEntityConfig({} as any, "sensor.pollen_stockholm_bjork")).toBeNull();
+      expect(
+        suggestEntityConfig(null as any, "sensor.pollen_stockholm_bjork"),
+      ).toBeNull();
+      expect(
+        suggestEntityConfig({} as any, "sensor.pollen_stockholm_bjork"),
+      ).toBeNull();
     });
 
     it("returns null for an unrecognised sensor", () => {
@@ -66,9 +70,7 @@ describe("suggestEntityConfig", () => {
         "sensor.pollenflug_gefahrenindex_pollenflug_erle_91": s(),
       });
 
-      expect(
-        suggestEntityConfig(hass, "sensor.pollenflug_birke_50"),
-      ).toEqual({
+      expect(suggestEntityConfig(hass, "sensor.pollenflug_birke_50")).toEqual({
         config: {
           type: "custom:pollenprognos-card",
           integration: "dwd",
@@ -362,13 +364,23 @@ describe("deriveLocationForEntity", () => {
 
   it("PP: city from the entity id", () => {
     expect(
-      deriveLocationForEntity("pp", "sensor.pollen_goteborg_bjork", {} as any, {} as any),
+      deriveLocationForEntity(
+        "pp",
+        "sensor.pollen_goteborg_bjork",
+        {} as any,
+        {} as any,
+      ),
     ).toEqual({ key: "city", value: "goteborg" });
   });
 
   it("DWD: region_id from the entity id", () => {
     expect(
-      deriveLocationForEntity("dwd", "sensor.pollenflug_erle_91", {} as any, {} as any),
+      deriveLocationForEntity(
+        "dwd",
+        "sensor.pollenflug_erle_91",
+        {} as any,
+        {} as any,
+      ),
     ).toEqual({ key: "region_id", value: "91" });
   });
 
@@ -379,12 +391,19 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("peu", "sensor.polleninformation_x", hass as any, {} as any),
+      deriveLocationForEntity(
+        "peu",
+        "sensor.polleninformation_x",
+        hass as any,
+        {} as any,
+      ),
     ).toEqual({ key: "location", value: "wien" });
   });
 
   it("PEU: derives location from the entity id when the attribute is absent", () => {
-    const hass = { states: { "sensor.polleninformation_wien_birch": { attributes: {} } } };
+    const hass = {
+      states: { "sensor.polleninformation_wien_birch": { attributes: {} } },
+    };
     expect(
       deriveLocationForEntity(
         "peu",
@@ -434,12 +453,20 @@ describe("deriveLocationForEntity", () => {
     const detection: any = {
       discovery: {
         atmo: disc([
-          ["entry_atmo", { entities: new Map([["pm25", "sensor.pm25_paris"]]) }],
+          [
+            "entry_atmo",
+            { entities: new Map([["pm25", "sensor.pm25_paris"]]) },
+          ],
         ]),
       },
     };
     expect(
-      deriveLocationForEntity("atmo", "sensor.pm25_paris", {} as any, detection),
+      deriveLocationForEntity(
+        "atmo",
+        "sensor.pm25_paris",
+        {} as any,
+        detection,
+      ),
     ).toEqual({ key: "location", value: "entry_atmo" });
   });
 
@@ -452,7 +479,12 @@ describe("deriveLocationForEntity", () => {
       },
     };
     expect(
-      deriveLocationForEntity("atmo", "sensor.pm25_paris", {} as any, detection),
+      deriveLocationForEntity(
+        "atmo",
+        "sensor.pm25_paris",
+        {} as any,
+        detection,
+      ),
     ).toBeNull();
   });
 
@@ -581,6 +613,8 @@ describe("deriveLocationForEntity", () => {
   });
 
   it("returns null for an unknown integration", () => {
-    expect(deriveLocationForEntity("nope", "sensor.x", {} as any, {} as any)).toBeNull();
+    expect(
+      deriveLocationForEntity("nope", "sensor.x", {} as any, {} as any),
+    ).toBeNull();
   });
 });

@@ -21,30 +21,32 @@ export function renderAppearanceSection(
       </summary>
       <div class="section-helper">${editor._appearanceSectionHelper()}</div>
       <ha-formfield label="${editor._t("background_color")}">
-          <div style="display:flex; gap:8px; align-items:center;">
-            ${editor._renderTextField({
-              value: backgroundColor || "",
-              placeholder: editor._t("background_color_placeholder") || "#ffffff",
-              width: "120px",
-              onInput: (v) => editor._updateConfig("background_color", v),
-            })}
-            <input
-              type="color"
-              .value=${backgroundColor &&
-              /^#[0-9a-fA-F]{6}$/.test(backgroundColor)
+        <div style="display:flex; gap:8px; align-items:center;">
+          ${editor._renderTextField({
+            value: backgroundColor || "",
+            placeholder: editor._t("background_color_placeholder") || "#ffffff",
+            width: "120px",
+            onInput: (v) => editor._updateConfig("background_color", v),
+          })}
+          <input
+            type="color"
+            .value=${
+              backgroundColor && /^#[0-9a-fA-F]{6}$/.test(backgroundColor)
                 ? backgroundColor
-                : "#ffffff"}
-              @input=${(e: Event) =>
-                editor._updateConfig(
-                  "background_color",
-                  (e.target as HTMLInputElement).value,
-                )}
-              style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
-              title="${editor._t("background_color_picker") || "Pick color"}"
-            />
-          </div>
-        </ha-formfield>
-        ${editor._showCardSizeControls()
+                : "#ffffff"
+            }
+            @input=${(e: Event) =>
+              editor._updateConfig(
+                "background_color",
+                (e.target as HTMLInputElement).value,
+              )}
+            style="width: 36px; height: 32px; border: none; background: none; cursor: pointer;"
+            title="${editor._t("background_color_picker") || "Pick color"}"
+          />
+        </div>
+      </ha-formfield>
+      ${
+        editor._showCardSizeControls()
           ? html`
               <ha-formfield label="${editor._t("icon_size")}">
                 <ha-slider
@@ -89,8 +91,10 @@ export function renderAppearanceSection(
                 })}
               </ha-formfield>
             `
-          : ""}
-        ${// Google attribution footer toggle (#338). Google-backed integrations
+          : ""
+      }
+      ${
+        // Google attribution footer toggle (#338). Google-backed integrations
         // only, default on: the attribution row in §1 stays visible either
         // way, so turning the footer off never hides the requirement from the
         // person configuring the card.
@@ -107,8 +111,9 @@ export function renderAppearanceSection(
                 ></ha-checkbox>
               </ha-formfield>
             `
-          : ""}
-        ${editor._renderAppearanceExtras()}
+          : ""
+      }
+      ${editor._renderAppearanceExtras()}
     </details>
   `;
 }

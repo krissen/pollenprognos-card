@@ -70,7 +70,7 @@ def find_used_keys_in_js():
                     used_keys.add(f"{prefix}{match}")
                 else:
                     used_keys.add(match)
-    
+
     # Scan adapter files for dynamic t() calls like t(`card.allergen.${key}`, lang)
     for adapter_file in ADAPTER_FILES:
         if adapter_file.exists():
@@ -84,12 +84,12 @@ def find_used_keys_in_js():
                 # Add a comment noting these are dynamic keys that need manual verification
                 # We'll just note the pattern, not add specific keys
                 pass
-            
+
             # Also find static t() calls in adapters
             static_matches = re.findall(r't\(\s*["\']([a-zA-Z0-9_.-]+)["\']\s*,', content)
             for match in static_matches:
                 used_keys.add(match)
-    
+
     return used_keys
 
 def find_dynamic_translation_patterns():
@@ -99,25 +99,25 @@ def find_dynamic_translation_patterns():
     Returns a list of warnings about potentially missing keys.
     """
     warnings = []
-    
+
     for adapter_file in ADAPTER_FILES:
         if not adapter_file.exists():
             continue
-        
+
         content = adapter_file.read_text(encoding="utf-8")
-        
+
         # Find patterns like t(`editor.phrases_short.${canonKey}`, lang)
         # or t(`card.allergen.${transKey}`, lang)
         dynamic_patterns = re.findall(
             r't\(\s*[`"\']((?:card|editor)\.[a-zA-Z0-9_.]+)\.\$\{([^}]+)\}[`"\']',
             content
         )
-        
+
         if dynamic_patterns:
             warnings.append(f"\n{ICON_WARN} Dynamiska översättningsnycklar i {adapter_file.name}:")
             for prefix, var in dynamic_patterns:
                 warnings.append(f"  {prefix}.${{...}} (variabel: {var})")
-    
+
     return warnings
 
 def scan_missing():
@@ -151,7 +151,7 @@ def scan_missing():
         print(f"\n{ICON_DEL} Överflödiga nycklar (finns ej i {MASTER}):")
         for key, langs in all_redundant_keys.items():
             print(f"  {ICON_DEL} '{key}' finns i: {', '.join(langs)}")
-    
+
     # Visa varningar om dynamiska översättningar
     dynamic_warnings = find_dynamic_translation_patterns()
     if dynamic_warnings:
@@ -285,4 +285,3 @@ if __name__ == "__main__":
             "\nDu kan kombinera flera kommandon i valfri ordning, t.ex.:\n"
             f"  python3 {Path(__file__).name} update oversattning.json clean\n"
         )
-

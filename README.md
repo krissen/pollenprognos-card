@@ -77,8 +77,8 @@ You can configure the card using the Lovelace editor. A minimal YAML configurati
 
 ```yaml
 type: custom:pollenprognos-card
-integration: pp       # auto-detected if omitted
-city: Stockholm       # adapter specific option
+integration: pp # auto-detected if omitted
+city: Stockholm # adapter specific option
 ```
 
 ## Configuration reference

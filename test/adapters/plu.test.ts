@@ -1,6 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { fetchForecast, stubConfigPLU, PLU_SUPPORTED_ALLERGENS, discoverPluSensors, resolveEntityIds } from "../../src/adapters/plu.js";
-import { createHass, createPLUSensor, assertSensorShape, assertDiscoveryShape, createHassWithRegistry } from "../helpers.js";
+import {
+  fetchForecast,
+  stubConfigPLU,
+  PLU_SUPPORTED_ALLERGENS,
+  discoverPluSensors,
+  resolveEntityIds,
+} from "../../src/adapters/plu.js";
+import {
+  createHass,
+  createPLUSensor,
+  assertSensorShape,
+  assertDiscoveryShape,
+  createHassWithRegistry,
+} from "../helpers.js";
 
 function makeConfig(overrides: any = {}): any {
   return { ...stubConfigPLU, ...overrides };
@@ -12,7 +24,10 @@ function makeConfig(overrides: any = {}): any {
  */
 function makeHass(allergenMap: any): any {
   const states: Record<string, any> = {};
-  for (const [allergen, value] of Object.entries(allergenMap) as [string, any][]) {
+  for (const [allergen, value] of Object.entries(allergenMap) as [
+    string,
+    any,
+  ][]) {
     states[`sensor.pollen_${allergen}`] = createPLUSensor(value);
   }
   return createHass(states);
@@ -228,8 +243,8 @@ describe("PLU adapter: fetchForecast", () => {
       // resolve birch.
       const hass: any = {
         states: {
-          "sensor.pollen_betula": { state: "5" },   // discovery would catch this
-          "sensor.custom_betula": { state: "12" },  // manual prefix targets this
+          "sensor.pollen_betula": { state: "5" }, // discovery would catch this
+          "sensor.custom_betula": { state: "12" }, // manual prefix targets this
         },
       };
       const result = resolveEntityIds(
@@ -320,8 +335,8 @@ describe("PLU adapter: fetchForecast", () => {
 
   it("filters allergens below pollen_threshold", async () => {
     const hass = makeHass({
-      birch: 25,  // level 2
-      alder: 0,   // level 0
+      birch: 25, // level 2
+      alder: 0, // level 0
     });
     const config = makeConfig({
       allergens: ["birch", "alder"],
@@ -403,7 +418,9 @@ describe("PLU adapter: discoverPluSensors (tier 2 via entity registry)", () => {
     // sensor.pollen_betula -> also canonical "birch" (Latin alias)
     // Note: collision: first entity wins, second is silently skipped
     // The important guarantee is that at least one birch entity was classified
-    expect(["sensor.pollen_birch", "sensor.pollen_betula"]).toContain(location.entities.get("birch"));
+    expect(["sensor.pollen_birch", "sensor.pollen_betula"]).toContain(
+      location.entities.get("birch"),
+    );
     // sensor.pollen_alder -> canonical "alder"
     expect(location.entities.get("alder")).toBe("sensor.pollen_alder");
   });
@@ -432,7 +449,10 @@ describe("PLU adapter: discoverPluSensors (tier 2 via entity registry)", () => {
       },
     ]);
 
-    const cfg: any = { ...stubConfigPLU, allergens: ["birch", "alder", "hazel"] };
+    const cfg: any = {
+      ...stubConfigPLU,
+      allergens: ["birch", "alder", "hazel"],
+    };
     const result = resolveEntityIds(cfg, hass);
 
     // birch and alder are in entity registry -> discovery path
@@ -463,12 +483,15 @@ describe("PLU adapter: resolveEntityIds alias-probe fallback", () => {
   it("alias-probe classifies both canonical English keys and Latin/French aliases", () => {
     // Verify the reverse-alias map covers all alias forms
     const states = {
-      "sensor.pollen_bouleau": createPLUSensor(20),  // French alias for birch
-      "sensor.pollen_corylus": createPLUSensor(8),   // Latin alias for hazel
-      "sensor.pollen_mugwort": createPLUSensor(3),   // English canonical
+      "sensor.pollen_bouleau": createPLUSensor(20), // French alias for birch
+      "sensor.pollen_corylus": createPLUSensor(8), // Latin alias for hazel
+      "sensor.pollen_mugwort": createPLUSensor(3), // English canonical
     };
     const hass = createHass(states);
-    const cfg: any = { ...stubConfigPLU, allergens: ["birch", "hazel", "mugwort"] };
+    const cfg: any = {
+      ...stubConfigPLU,
+      allergens: ["birch", "hazel", "mugwort"],
+    };
 
     const result = resolveEntityIds(cfg, hass);
 

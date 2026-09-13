@@ -200,9 +200,9 @@ describe("shared autodetect", () => {
     });
 
     it("selects SILAM when PP, PLU, PEU, DWD are absent", () => {
-      expect(detect(hassWithIntegrations("silam", "kleenex", "atmo", "gpl"))).toBe(
-        "silam",
-      );
+      expect(
+        detect(hassWithIntegrations("silam", "kleenex", "atmo", "gpl")),
+      ).toBe("silam");
     });
 
     it("selects Kleenex when PP, PLU, PEU, DWD, SILAM are absent", () => {
@@ -523,7 +523,9 @@ describe("Kleenex detection with renamed devices (issue #309)", () => {
       "sensor.kleenex_pollen_radar_home_error",
       "sensor.kleenex_pollen_radar_home_date",
     ]) {
-      expect(deriveLocationForEntity("kleenex", id, hass, detection)).toBeNull();
+      expect(
+        deriveLocationForEntity("kleenex", id, hass, detection),
+      ).toBeNull();
     }
 
     // The category sensor still derives its location.
@@ -791,7 +793,10 @@ describe("badge picker integration choice (getStubConfig logic)", () => {
   });
 
   it("detectIntegrationStates tolerates an empty hass", () => {
-    const detection = detectIntegrationStates({ states: {}, entities: {} } as any);
+    const detection = detectIntegrationStates({
+      states: {},
+      entities: {},
+    } as any);
     expect(detectedIntegrationIds(detection).size).toBe(0);
   });
 });

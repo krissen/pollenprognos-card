@@ -120,7 +120,11 @@ describe("LevelCircleMixin._handleTapAction", () => {
     } as any;
     el.tapAction = { action: "navigate", navigation_path: "/lovelace/2" };
     el._handleTapAction(makeEvent());
-    expect(window.history.pushState).toHaveBeenCalledWith(null, "", "/lovelace/2");
+    expect(window.history.pushState).toHaveBeenCalledWith(
+      null,
+      "",
+      "/lovelace/2",
+    );
     globalThis.window = prev;
   });
 
@@ -317,9 +321,9 @@ describe("iconMoreInfoEnabled", () => {
 
 describe("resolveTapActionType", () => {
   it("resolves supported explicit types (with their required fields)", () => {
-    expect(resolveTapActionType({ type: "more-info", entity: "sensor.x" })).toBe(
-      "more-info",
-    );
+    expect(
+      resolveTapActionType({ type: "more-info", entity: "sensor.x" }),
+    ).toBe("more-info");
     expect(
       resolveTapActionType({ type: "navigate", navigation_path: "/x" }),
     ).toBe("navigate");
@@ -367,7 +371,9 @@ describe("resolveTapActionType", () => {
     // ...and one that is actually an entity id. YAML hands over numbers, lists
     // and blank strings, all of which are truthy: testing the raw value would
     // bind a click and then dispatch something HA cannot open.
-    expect(resolveTapActionType({ type: "more-info", entity: "   " })).toBeNull();
+    expect(
+      resolveTapActionType({ type: "more-info", entity: "   " }),
+    ).toBeNull();
     expect(
       resolveTapActionType({ type: "more-info", entity: 123 } as any),
     ).toBeNull();
@@ -421,7 +427,10 @@ describe("resolveTapActionType", () => {
  */
 describe("an unactionable tap_action leaves the per-icon dialogs alone", () => {
   const perIconEnabled = (tapAction: unknown, linkToSensors?: unknown) =>
-    iconMoreInfoEnabled(linkToSensors, resolveTapActionType(tapAction) !== null);
+    iconMoreInfoEnabled(
+      linkToSensors,
+      resolveTapActionType(tapAction) !== null,
+    );
 
   it("keeps per-icon more-info on for more-info without an entity", () => {
     // Identical to having configured no tap_action at all.
@@ -441,8 +450,8 @@ describe("an unactionable tap_action leaves the per-icon dialogs alone", () => {
 
   it("leaves link_to_sensors as the global off switch either way", () => {
     expect(perIconEnabled({ type: "more-info" }, false)).toBe(false);
-    expect(perIconEnabled({ type: "more-info", entity: "sensor.x" }, true)).toBe(
-      true,
-    );
+    expect(
+      perIconEnabled({ type: "more-info", entity: "sensor.x" }, true),
+    ).toBe(true);
   });
 });

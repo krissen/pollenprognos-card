@@ -5,3 +5,8 @@ CHANGELOG.md
 
 # Third-party bundled JS shipped inside the screenshots Python virtualenv.
 **/.venv/**
+
+# Golden characterization fixtures are frozen, byte-exact snapshots
+# (test/adapters/goldens.test.ts / test/golden-fixtures.ts); prettier
+# normalizing their trailing newline breaks the exact-file comparison.
+test/adapters/__goldens__/
