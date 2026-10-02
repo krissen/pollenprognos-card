@@ -178,6 +178,29 @@ describe("badge editor wiring (#369)", () => {
     expect(ALLERGENS_RESET_KEYS).not.toContain("hide_no_allergens_display");
     expect(APPEARANCE_RESET_KEYS).not.toContain("hide_no_allergens_display");
   });
+
+  it("coerces the YAML string form so the checkbox reflects it", async () => {
+    const mod = await import("../../src/pollenprognos-badge-editor.js");
+    const EditorCtor = mod.default as unknown as new () => {
+      _config: Record<string, unknown>;
+      setConfig: (config: Record<string, unknown>) => void;
+    };
+    const cases: Array<[unknown, boolean]> = [
+      ["true", true],
+      [true, true],
+      ["false", false],
+      [undefined, false],
+    ];
+    for (const [raw, expected] of cases) {
+      const editor = new EditorCtor();
+      editor.setConfig({
+        type: "custom:pollenprognos-badge",
+        integration: "pp",
+        hide_no_allergens_display: raw,
+      });
+      expect(editor._config.hide_no_allergens_display).toBe(expected);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
