@@ -304,6 +304,59 @@ describe("badge hides the genuine no-allergens state only (#369)", () => {
     ];
     expect(badge._isNoAllergensHidden()).toBe(false);
   });
+
+  // The adapters keep a sensor when ANY forecast day meets the threshold, but
+  // the badge shows only today: judge the picked sensors by days[0].
+  function pickedBadge(
+    today: number,
+    config: Record<string, unknown> = {},
+  ): BadgeLike {
+    const badge = noPollenBadge({
+      hide_no_allergens_display: true,
+      pollen_threshold: 2,
+      ...config,
+    });
+    badge._noPollen = false;
+    badge.sensors = [
+      {
+        allergenReplaced: "birch",
+        entity_id: "sensor.pollen_birch",
+        days: [
+          { state: today, display_state: today },
+          { state: 4, display_state: 4 },
+        ],
+      },
+    ];
+    return badge;
+  }
+
+  it("hides when today is below the threshold but a later day is not", () => {
+    expect(pickedBadge(1)._isNoAllergensHidden()).toBe(true);
+    expect(pickedBadge(0)._isNoAllergensHidden()).toBe(true);
+  });
+
+  it("stays visible when today reaches the threshold", () => {
+    expect(pickedBadge(2)._isNoAllergensHidden()).toBe(false);
+  });
+
+  it("stays visible when today's pick has no data", () => {
+    expect(pickedBadge(-1)._isNoAllergensHidden()).toBe(false);
+    expect(pickedBadge(Number.NaN)._isNoAllergensHidden()).toBe(false);
+  });
+
+  it("never hides a picked sensor at threshold 0", () => {
+    expect(pickedBadge(0, { pollen_threshold: 0 })._isNoAllergensHidden()).toBe(
+      false,
+    );
+  });
+
+  it("keeps a below-threshold pick visible when the option is off", () => {
+    expect(
+      pickedBadge(0, {
+        hide_no_allergens_display: false,
+      })._isNoAllergensHidden(),
+    ).toBe(false);
+  });
 });
 
 describe("badge collapses its host through hui-badge (#369)", () => {

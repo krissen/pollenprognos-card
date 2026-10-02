@@ -585,33 +585,33 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   }
 
   /**
-   * True when the badge would show the genuine "no allergens" image (loaded,
-   * nothing above threshold, entities exist and carry real readings) and the
-   * user opted to hide it with hide_no_allergens_display. Mirrors the
-   * `_noPollen` branch in render(): the no-information visual (`_noData`) and
-   * the empty error / loading pills are deliberately NOT covered, since they
-   * point at a data problem rather than a genuine absence of pollen. Never true
-   * in a preview (badge editor, dashboard edit mode), so the badge stays
-   * visible and editable there.
+   * True when the user opted into hide_no_allergens_display and nothing the
+   * badge shows today reaches the threshold. Two shapes qualify: the genuine
+   * "no allergens" image (loaded, nothing kept by the threshold filter,
+   * entities exist and carry real readings; the `_noPollen` branch in
+   * render()), and picked sensors whose current-day readings are all real but
+   * below pollen_threshold. The second exists because the adapters keep a
+   * sensor when ANY forecast day meets the threshold (meetsThreshold) and a
+   * summary row bypasses the filter, while the badge shows only today. The
+   * no-information visual (`_noData`), a no-data pick (negative level) and the
+   * empty error / loading pills are deliberately NOT covered, since they point
+   * at a data problem rather than a genuine absence of pollen. Never true in a
+   * preview (badge editor, dashboard edit mode), so the badge stays visible
+   * and editable there.
    */
   _isNoAllergensHidden(): boolean {
     if (this.config?.hide_no_allergens_display !== true || this._inPreview()) {
       return false;
     }
     if (this._isLoaded !== true || this._noData) return false;
-
     const picks = selectBadgeSensor(this.sensors, this.config);
     if (!picks.length) return this._noPollen;
-
     const threshold = Number(this.config.pollen_threshold);
-    return (
-      Number.isFinite(threshold) &&
-      threshold > 0 &&
-      picks.every((sensor) => {
-        const level = badgeRingLevel(sensor.days?.[0]);
-        return level >= 0 && level < threshold;
-      })
-    );
+    if (!Number.isFinite(threshold) || threshold <= 0) return false;
+    return picks.every((sensor) => {
+      const level = badgeRingLevel(sensor.days?.[0]);
+      return level >= 0 && level < threshold;
+    });
   }
 
   /**
