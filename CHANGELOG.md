@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Option to hide the badge when there are no allergens** (issue #369).
+  Outside pollen season every allergen sits below `pollen_threshold`, so the
+  badge shows the breezy "no allergens" image for months. The new badge option
+  `hide_no_allergens_display` (default `false`, exposed as a checkbox under
+  Allergens in the badge editor) hides the whole badge in that state. A badge
+  with no usable data keeps showing its no-information visual, since that
+  points at a data problem rather than a genuine absence of pollen, and the
+  badge is always shown in the editor and in dashboard edit mode so it stays
+  findable. The card is unchanged and keeps its "No allergens" icon and text.
+
 ## [4.3.0] - 2026-09-13
 
 ### Added

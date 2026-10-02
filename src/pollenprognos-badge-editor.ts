@@ -72,6 +72,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ? config.badge_single_allergen
         : undefined;
     const badgeShowLabel = coerceBool(config.badge_show_label);
+    // Same coercion as the badge runtime, so a hand-written YAML "true" shows
+    // the Allergens checkbox as checked instead of off (#369).
+    const hideNoAllergensDisplay = coerceBool(config.hide_no_allergens_display);
     const badgeVisual =
       typeof config.badge_visual === "string" ? config.badge_visual : undefined;
     const badgeScale =
@@ -96,6 +99,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       integration: integration as string,
       badge_content: badgeContent,
       badge_show_label: badgeShowLabel,
+      hide_no_allergens_display: hideNoAllergensDisplay,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
@@ -502,6 +506,18 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
   // on the badge, so the §7 toggle would be a false affordance — hide it.
   override _showNumericInCircleToggle(): boolean {
     return false;
+  }
+
+  // hide_no_allergens_display (#369) is a badge-only option, so only the badge
+  // editor offers the shared Allergens switch.
+  override _showHideNoAllergensToggle(): boolean {
+    return true;
+  }
+
+  // The Allergens reset also clears the badge-only hide_no_allergens_display
+  // switch, which lives in that section (see _showHideNoAllergensToggle).
+  override _allergensResetKeys(): string[] {
+    return [...super._allergensResetKeys(), "hide_no_allergens_display"];
   }
 
   // badge_visual (in the Badge content section) is the single source of truth

@@ -105,6 +105,8 @@ export interface CardConfig extends LovelaceCardConfig {
   background_color?: string;
   no_allergens_color?: string;
   show_no_data_distinct?: boolean;
+  /** Badge only: hide the badge while it would show the "no allergens" image. */
+  hide_no_allergens_display?: boolean;
   link_to_sensors?: boolean;
   /** Google-backed adapters (gpl, gp): show the mandated attribution footer. */
   show_google_attribution?: boolean;
