@@ -598,11 +598,19 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     if (this.config?.hide_no_allergens_display !== true || this._inPreview()) {
       return false;
     }
+    if (this._isLoaded !== true || this._noData) return false;
+
+    const picks = selectBadgeSensor(this.sensors, this.config);
+    if (!picks.length) return this._noPollen;
+
+    const threshold = Number(this.config.pollen_threshold);
     return (
-      this._isLoaded === true &&
-      this._noPollen &&
-      !this._noData &&
-      !selectBadgeSensor(this.sensors, this.config).length
+      Number.isFinite(threshold) &&
+      threshold > 0 &&
+      picks.every((sensor) => {
+        const level = badgeRingLevel(sensor.days?.[0]);
+        return level >= 0 && level < threshold;
+      })
     );
   }
 
