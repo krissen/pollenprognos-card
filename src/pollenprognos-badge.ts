@@ -608,7 +608,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     if (!picks.length) return this._noPollen;
     const threshold = Number(this.config.pollen_threshold);
     if (!Number.isFinite(threshold) || threshold <= 0) return false;
-    return picks.every((sensor) => {
+    const candidates =
+      this.config.badge_content === "aggregate" ? this.sensors : picks;
+    return candidates.every((sensor) => {
       const level = badgeRingLevel(sensor.days?.[0]);
       return level >= 0 && level < threshold;
     });
