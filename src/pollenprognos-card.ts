@@ -109,6 +109,13 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   declare _forecastSubEntity: string | null;
   declare _forecastSubType: string | null;
   declare _fetchSeq?: number;
+  // Set by Home Assistant while the card is shown in a card editor or a
+  // dashboard in edit mode (hui-card forwards it as `preview`).
+  declare preview?: boolean;
+  // Keep the element attached while hide_no_allergens_display has it hidden.
+  // Without this hui-card detaches a hidden card, and disconnectedCallback would
+  // drop the SILAM forecast subscription that a later reveal depends on.
+  connectedWhileHidden = true;
   // Cached SILAM discovery from set hass. Bridges two structurally different
   // discovery shapes: the assignment source is the driver's AutodetectDiscovery
   // (adapter.ts), while the consumer (findSilamWeatherEntity) expects silam.ts's
@@ -136,6 +143,8 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     ) {
       this._subscribeForecastIfNeeded();
     }
+
+    this._syncNoAllergensVisibility();
 
     super.updated(changedProps);
   }
@@ -617,6 +626,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       _isLoaded: { type: Boolean, state: true },
       _error: { type: String, state: true },
       _noPollenData: { type: Boolean, state: true },
+      preview: { type: Boolean },
     };
   }
 
@@ -1500,6 +1510,42 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     // this.requestUpdate();
   }
 
+  /**
+   * True when the card shows the genuine "no allergens" state (loaded, nothing
+   * to list, entities exist and carry real readings that are all below the
+   * threshold) and the user opted to hide it with hide_no_allergens_display.
+   * Mirrors the branch order in render(): the error, no-sensors / stale and
+   * no-information states are deliberately NOT covered, since they point at a
+   * data problem rather than a genuine absence of pollen. Never true in a
+   * preview (card editor, dashboard edit mode), so the card stays visible and
+   * editable there.
+   */
+  _isNoAllergensHidden(): boolean {
+    if (this.config?.hide_no_allergens_display !== true || this.preview) {
+      return false;
+    }
+    return (
+      this._isLoaded === true &&
+      !this.sensors?.length &&
+      !this._error &&
+      this._availableSensorCount !== 0 &&
+      this._noPollenData
+    );
+  }
+
+  /**
+   * Mirror _isNoAllergensHidden() onto the host element. Rendering nothing
+   * alone would leave an empty grid cell / margin in the dashboard; hui-card
+   * collapses the card when its element is `hidden` and re-evaluates that when
+   * told about the change via `card-visibility-changed`.
+   */
+  _syncNoAllergensVisibility() {
+    const hide = this._isNoAllergensHidden();
+    if (!!this.hidden === hide) return;
+    this.hidden = hide;
+    this._fire("card-visibility-changed", { value: !hide });
+  }
+
   _renderNoAllergensHtml() {
     return html`
       ${this.header ? html`<div class="card-header">${this.header}</div>` : ""}
@@ -2193,6 +2239,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
   override render(): TemplateResult {
     if (!this.config) return html``;
+
+    // hide_no_allergens_display: render nothing (the host is hidden in
+    // updated(); this also covers a render that runs before that sync).
+    if (this._isNoAllergensHidden()) return html``;
 
     // Visa laddningsruta endast om vi INTE är laddade och saknar sensorer
     if (!this._isLoaded && (!this.sensors || !this.sensors.length)) {

@@ -526,6 +526,13 @@ export class PollenEditorBase extends LitElement {
     return true;
   }
 
+  // Whether the Allergens section offers hide_no_allergens_display. The card
+  // editor uses it; the badge editor hides it because the option only exists
+  // for the card (a badge has no "no allergens" card to hide).
+  _showHideNoAllergensToggle() {
+    return true;
+  }
+
   _renderLevelCirclesSection() {
     return renderLevelCirclesSection(this);
   }

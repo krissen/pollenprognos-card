@@ -47,6 +47,13 @@ export const LEVELS_DEFAULTS = {
   // out per card.
   show_no_data_distinct: true,
 
+  // Hide the whole card while it would only show the genuine "no allergens"
+  // placeholder (entities exist, every reading is below pollen_threshold).
+  // The no-information and stale-data states stay visible: they signal a data
+  // problem, not an absence of pollen. Off by default; ignored in editor /
+  // dashboard-edit previews so the card stays findable and editable.
+  hide_no_allergens_display: false,
+
   // Icon-in-ring (#227): place the allergen icon inside the level-ring
   // donut hole instead of (or in addition to) the side icon column.
   // Two independent toggles plus the centered-icon color/size knobs.

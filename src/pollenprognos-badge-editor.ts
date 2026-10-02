@@ -504,6 +504,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
+  // hide_no_allergens_display hides the card's "no allergens" placeholder; the
+  // badge has no such option, so the shared Allergens switch would do nothing.
+  override _showHideNoAllergensToggle(): boolean {
+    return false;
+  }
+
   // badge_visual (in the Badge content section) is the single source of truth
   // for whether the icon sits in the ring, so the §8 on/off checkbox would be
   // a false affordance here — hide it. The ring sub-fields (size ratio, colour)

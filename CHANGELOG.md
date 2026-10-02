@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Option to hide the "No allergens" placeholder** (issue #369). Outside
+  pollen season every allergen sits below `pollen_threshold`, so the card shows
+  the breezy "No allergens" image for months. The new
+  `hide_no_allergens_display` option (default `false`, exposed as a checkbox
+  under Allergens in the visual editor) hides the whole card in that state. The
+  "No information" and stale-data states stay visible, since they point at a
+  data problem rather than a genuine absence of pollen, and the card is always
+  shown in the editor and in dashboard edit mode so it stays findable.
+
 ## [4.3.0] - 2026-09-13
 
 ### Added

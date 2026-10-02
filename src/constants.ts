@@ -681,6 +681,9 @@ export const COSMETIC_FIELDS = [
   "show_summary_top_types",
   "show_summary_plants_in_season",
   "show_no_data_distinct",
+  // Pure render toggle: _noPollenData is already classified by the last fetch,
+  // flipping this only changes whether the card shows or hides itself.
+  "hide_no_allergens_display",
   // Pure render toggle for the Google attribution footer (#338): it only
   // shows/hides already-rendered-independent markup, no data reload needed.
   "show_google_attribution",
