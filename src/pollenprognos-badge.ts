@@ -729,9 +729,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       // breezy no_allergens image instead of a blank pill. Reuse
       // _renderAllergenSvg("no_allergens", 0) so the level-0 colour matches the
       // card. This applies to every mode, keyed only on _noPollen: a single
-      // badge WITH a named allergen never reaches here with _noPollen set,
-      // because the pin forces pollen_threshold 0 so its sensor is kept (it
-      // renders its own ring / no-data visual). A single badge with NO named
+      // badge WITH a named allergen normally never reaches here with _noPollen
+      // set, because the pin forces pollen_threshold 0 so its sensor is kept (it
+      // renders its own ring / no-data visual). The exception is
+      // hide_no_allergens_display, where the pin keeps the configured
+      // threshold: below it the badge is hidden, and in a preview it shows this
+      // breezy image instead of the named ring. A single badge with NO named
       // allergen is effectively "worst" and must show breezy here too, not a
       // blank pill. aggregate with a surviving summary is non-empty and rendered
       // below; with no summary it falls back to worst, so breezy is right.
