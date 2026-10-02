@@ -350,6 +350,34 @@ describe("badge hides the genuine no-allergens state only (#369)", () => {
     );
   });
 
+  it("judges every retained allergen in aggregate mode, not only the summary", () => {
+    const badge = pickedBadge(1, { badge_content: "aggregate" });
+    badge.sensors = [
+      {
+        allergenReplaced: "allergy_risk",
+        entity_id: "sensor.pollen_risk",
+        isSummary: true,
+        days: [{ state: 1, display_state: 1 }],
+      },
+      {
+        allergenReplaced: "birch",
+        entity_id: "sensor.pollen_birch",
+        days: [{ state: 4, display_state: 4 }],
+      },
+    ];
+    expect(badge._isNoAllergensHidden()).toBe(false);
+
+    badge.sensors = [
+      badge.sensors[0],
+      {
+        allergenReplaced: "birch",
+        entity_id: "sensor.pollen_birch",
+        days: [{ state: 1, display_state: 1 }],
+      },
+    ];
+    expect(badge._isNoAllergensHidden()).toBe(true);
+  });
+
   it("keeps a below-threshold pick visible when the option is off", () => {
     expect(
       pickedBadge(0, {

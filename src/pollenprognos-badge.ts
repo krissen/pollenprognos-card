@@ -589,11 +589,14 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    * badge shows today reaches the threshold. Two shapes qualify: the genuine
    * "no allergens" image (loaded, nothing kept by the threshold filter,
    * entities exist and carry real readings; the `_noPollen` branch in
-   * render()), and picked sensors whose current-day readings are all real but
-   * below pollen_threshold. The second exists because the adapters keep a
+   * render()), and retained sensors whose current-day readings are all real
+   * but below pollen_threshold. The second exists because the adapters keep a
    * sensor when ANY forecast day meets the threshold (meetsThreshold) and a
-   * summary row bypasses the filter, while the badge shows only today. The
-   * no-information visual (`_noData`), a no-data pick (negative level) and the
+   * summary row bypasses the filter, while the badge shows only today.
+   * Aggregate mode judges every retained sensor, not just its pick: the pick
+   * is the summary alone, and a low summary must not hide an allergen that is
+   * at or above the threshold. The other modes judge their picks. The
+   * no-information visual (`_noData`), a no-data reading (negative level) and the
    * empty error / loading pills are deliberately NOT covered, since they point
    * at a data problem rather than a genuine absence of pollen. Never true in a
    * preview (badge editor, dashboard edit mode), so the badge stays visible
