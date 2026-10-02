@@ -249,6 +249,27 @@ describe("badge hides the genuine no-allergens state only (#369)", () => {
     expect(deepTemplateText(badge.render())).toContain("ppb-item");
   });
 
+  it("stays visible when only the wrapping hui-badge is in preview", () => {
+    // HA before 2026.10 sets preview on hui-badge but does not forward it to
+    // the badge element, so the badge must read it from its parent.
+    const badge = noPollenBadge({ hide_no_allergens_display: true });
+    Object.defineProperty(badge, "parentElement", {
+      value: { preview: true },
+      configurable: true,
+    });
+    expect(badge._isNoAllergensHidden()).toBe(false);
+    expect(deepTemplateText(badge.render())).toContain("ppb-item");
+  });
+
+  it("still hides when the wrapping hui-badge is not in preview", () => {
+    const badge = noPollenBadge({ hide_no_allergens_display: true });
+    Object.defineProperty(badge, "parentElement", {
+      value: { preview: false },
+      configurable: true,
+    });
+    expect(badge._isNoAllergensHidden()).toBe(true);
+  });
+
   it("keeps the no-information visual", () => {
     // Entities exist but carry no usable forecast: a data problem.
     const badge = noPollenBadge({ hide_no_allergens_display: true });

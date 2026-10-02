@@ -595,7 +595,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
    * visible and editable there.
    */
   _isNoAllergensHidden(): boolean {
-    if (this.config?.hide_no_allergens_display !== true || this.preview) {
+    if (this.config?.hide_no_allergens_display !== true || this._inPreview()) {
       return false;
     }
     return (
@@ -604,6 +604,27 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       !this._noData &&
       !selectBadgeSensor(this.sensors, this.config).length
     );
+  }
+
+  /**
+   * Whether the badge is shown in an editor or a dashboard in edit mode. HA
+   * forwards `preview` to the badge element only since frontend #54096 (HA
+   * 2026.10); older releases set it on the wrapping hui-badge alone, so fall
+   * back to that parent. Without the fallback a hidden badge would vanish in
+   * edit mode on those releases and could no longer be edited.
+   */
+  _inPreview(): boolean {
+    if (this.preview === true) return true;
+    const parent = this.parentElement as { preview?: unknown } | null;
+    return parent?.preview === true;
+  }
+
+  // Entering or leaving dashboard edit mode re-parents the badge (into or out
+  // of hui-badge-edit-mode), so re-check visibility on every connect: on HA
+  // releases before 2026.10 nothing else tells the badge that preview changed.
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this.requestUpdate();
   }
 
   /**
