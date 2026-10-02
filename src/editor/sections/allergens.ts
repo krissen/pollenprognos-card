@@ -288,9 +288,9 @@ export function renderAllergensSection(
         ></ha-slider>
       </div>
       ${
-        // Card-only: hides the whole card while every allergen is below the
-        // threshold above. No-information / stale states stay visible, and the
-        // card is never hidden in the editor preview.
+        // Badge-only: hides the whole badge while every allergen is below the
+        // threshold above. The no-information visual stays, and the badge is
+        // never hidden in the editor preview.
         editor._showHideNoAllergensToggle()
           ? html`
               <ha-formfield label="${editor._t("hide_no_allergens_display")}">

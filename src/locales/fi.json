@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Mitä tapahtuu, kun käyttäjä napauttaa korttia tai allergeenia.",
   "editor.helper_card_layout": "Tiivis (minimaalinen) tila ja näkyvät sarakkeet.",
   "editor.helper_day_display": "Mitä kussakin päiväsarakkeessa näkyy: arvot ja otsikot.",
-  "editor.helper_hide_no_allergens_display": "Piilottaa koko kortin niin kauan kuin kaikki allergeenit ovat kynnysarvon alapuolella. Tilat \"Ei tietoa\" ja vanhentuneet tiedot pysyvät näkyvissä. Kortti näytetään aina muokkauksen aikana.",
+  "editor.helper_hide_no_allergens_display": "Piilottaa koko merkin niin kauan kuin kaikki allergeenit ovat kynnysarvon alapuolella. Merkki, jolla ei ole käyttökelpoisia tietoja, pysyy näkyvissä. Merkki näytetään aina muokkauksen aikana.",
   "editor.helper_icon_in_ring": "Näyttää allergeenikuvakkeen keskitettynä tasoympyrän sisällä.",
   "editor.helper_integration_and_place": "Lähdeintegraatio, sijainti ja kortin otsikko.",
   "editor.helper_level_circles": "Rengaskaavio jokaisen allergeenin ympärillä, joka näyttää tämän päivän siitepölytason.",

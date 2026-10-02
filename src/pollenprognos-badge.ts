@@ -14,7 +14,7 @@
 // getConfigElement points at that tag so HA can lazy-load it when ready.
 
 import { LitElement, html, css } from "lit";
-import type { TemplateResult } from "lit";
+import type { PropertyValues, TemplateResult } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
@@ -92,6 +92,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   declare _error?: string | null;
   // Monotonic fetch token; starts undefined and is read via `|| 0`.
   declare _fetchSeq?: number;
+  // Set by Home Assistant while the badge is shown in the badge editor or a
+  // dashboard in edit mode (hui-badge forwards it as `preview`).
+  declare preview?: boolean;
+  // Keep the element attached while hide_no_allergens_display has it hidden, so
+  // hui-badge never detaches it and it keeps receiving hass updates (and can
+  // reveal itself again when pollen returns).
+  connectedWhileHidden = true;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
@@ -106,6 +113,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       _isLoaded: { type: Boolean, state: true },
       _noPollen: { state: true },
       _noData: { state: true },
+      preview: { type: Boolean },
     };
   }
 
@@ -312,6 +320,10 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       config.show_google_attribution === "false"
     );
 
+    // hide_no_allergens_display (#369) is a plain opt-in flag: only a real
+    // true / the "true" YAML string turns it on, everything else stays off.
+    const hideNoAllergensDisplay = coerceBool(config.hide_no_allergens_display);
+
     // badge_visual drives two engine flags so the shared LevelCircleMixin
     // renders the right centre content: icon_in_ring shows the allergen icon;
     // ring_value shows the numeric overlay; ring_empty/icon_only show neither
@@ -359,6 +371,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       badge_icon_scale: badgeIconScale,
       badge_label_position: badgeLabelPosition,
       badge_label_content: badgeLabelContent,
+      hide_no_allergens_display: hideNoAllergensDisplay,
       icon_in_ring: iconInRing,
       show_value_numeric_in_circle: showValueInCircle,
       levels_thickness: effectiveThickness,
@@ -571,7 +584,57 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     </div>`;
   }
 
+  /**
+   * True when the badge would show the genuine "no allergens" image (loaded,
+   * nothing above threshold, entities exist and carry real readings) and the
+   * user opted to hide it with hide_no_allergens_display. Mirrors the
+   * `_noPollen` branch in render(): the no-information visual (`_noData`) and
+   * the empty error / loading pills are deliberately NOT covered, since they
+   * point at a data problem rather than a genuine absence of pollen. Never true
+   * in a preview (badge editor, dashboard edit mode), so the badge stays
+   * visible and editable there.
+   */
+  _isNoAllergensHidden(): boolean {
+    if (this.config?.hide_no_allergens_display !== true || this.preview) {
+      return false;
+    }
+    return (
+      this._isLoaded === true &&
+      this._noPollen &&
+      !this._noData &&
+      !selectBadgeSensor(this.sensors, this.config).length
+    );
+  }
+
+  /**
+   * Mirror _isNoAllergensHidden() onto the host element. Rendering nothing
+   * alone would leave an empty slot in the badge row; hui-badge collapses the
+   * badge when its element is `hidden` and re-evaluates that when told about
+   * the change via `badge-visibility-changed`.
+   */
+  _syncNoAllergensVisibility(): void {
+    const hide = this._isNoAllergensHidden();
+    if (!!this.hidden === hide) return;
+    this.hidden = hide;
+    this.dispatchEvent(
+      new CustomEvent("badge-visibility-changed", {
+        detail: { value: !hide },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  override updated(changedProps: PropertyValues): void {
+    this._syncNoAllergensVisibility();
+    super.updated(changedProps);
+  }
+
   override render(): TemplateResult {
+    // hide_no_allergens_display: render nothing (the host is hidden in
+    // updated(); this also covers a render that runs before that sync).
+    if (this._isNoAllergensHidden()) return html``;
+
     // Pill height follows the HA badge convention; the ring sits inside it.
     const height = this._badgeBaseSize();
     const ring = Math.round(height * 0.78);

@@ -504,10 +504,16 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
-  // hide_no_allergens_display hides the card's "no allergens" placeholder; the
-  // badge has no such option, so the shared Allergens switch would do nothing.
+  // hide_no_allergens_display (#369) is a badge-only option, so only the badge
+  // editor offers the shared Allergens switch.
   override _showHideNoAllergensToggle(): boolean {
-    return false;
+    return true;
+  }
+
+  // The Allergens reset also clears the badge-only hide_no_allergens_display
+  // switch, which lives in that section (see _showHideNoAllergensToggle).
+  override _allergensResetKeys(): string[] {
+    return [...super._allergensResetKeys(), "hide_no_allergens_display"];
   }
 
   // badge_visual (in the Badge content section) is the single source of truth

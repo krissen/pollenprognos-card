@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Qué ocurre cuando el usuario pulsa la tarjeta o un alérgeno.",
   "editor.helper_card_layout": "Modo compacto (mínimo) y qué columnas se muestran.",
   "editor.helper_day_display": "Qué aparece en cada columna de día: valores y etiquetas.",
-  "editor.helper_hide_no_allergens_display": "Oculta toda la tarjeta mientras todos los alérgenos estén por debajo del umbral. Los estados «Sin información» y datos obsoletos siguen visibles. La tarjeta siempre se muestra durante la edición.",
+  "editor.helper_hide_no_allergens_display": "Oculta toda la insignia mientras todos los alérgenos estén por debajo del umbral. Una insignia sin datos utilizables sigue visible. La insignia siempre se muestra durante la edición.",
   "editor.helper_icon_in_ring": "Muestra el icono del alérgeno centrado dentro del círculo de nivel.",
   "editor.helper_integration_and_place": "Integración de origen, ubicación y título de la tarjeta.",
   "editor.helper_level_circles": "Gráfico de anillo alrededor de cada alérgeno que muestra el nivel de polen de hoy.",

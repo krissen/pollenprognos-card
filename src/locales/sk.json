@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Čo sa stane, keď používateľ klepne na kartu alebo alergén.",
   "editor.helper_card_layout": "Kompaktný (minimálny) režim a ktoré stĺpce sú viditeľné.",
   "editor.helper_day_display": "Čo sa zobrazuje v každom stĺpci dňa: hodnoty a popisy.",
-  "editor.helper_hide_no_allergens_display": "Skryje celú kartu, kým sú všetky alergény pod prahom. Stavy „Žiadne informácie“ a zastarané dáta zostanú viditeľné. Pri úpravách sa karta zobrazuje vždy.",
+  "editor.helper_hide_no_allergens_display": "Skryje celý odznak, kým sú všetky alergény pod prahom. Odznak bez použiteľných dát zostane viditeľný. Pri úpravách sa odznak zobrazuje vždy.",
   "editor.helper_icon_in_ring": "Zobrazí ikonu alergénu v strede kruhu úrovní.",
   "editor.helper_integration_and_place": "Zdrojová integrácia, poloha a názov karty.",
   "editor.helper_level_circles": "Kruhový graf okolo každého alergénu zobrazujúci dnešnú úroveň peľu.",
