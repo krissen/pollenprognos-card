@@ -897,6 +897,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
         align-items: center;
       }
 
+      /* hide_no_allergens_display sets the hidden attribute; the display rule
+         above would otherwise override it outside hui-badge. */
+      :host([hidden]) {
+        display: none;
+      }
+
       /* The pill follows the native Home Assistant badge box so badges drop in
          alongside stock ones: fixed height + min-width = --ppb-size (the HA
          badge height, 36px at scale 1), horizontal padding 12px and inner gap
