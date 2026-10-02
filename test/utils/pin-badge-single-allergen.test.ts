@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pinBadgeSingleAllergen } from "../../src/utils/adapter-helpers.js";
+import type { CardConfig } from "../../src/types/config.js";
 
 // pinBadgeSingleAllergen narrows the fetch to the one named allergen, resolved
 // through the adapter's STUB allergen set (native slugs), not the possibly-
@@ -101,5 +102,36 @@ describe("pinBadgeSingleAllergen", () => {
   it("returns the same reference when badge_content is absent", () => {
     const input: any = { badge_single_allergen: "birch", allergens: ["grass"] };
     expect(pinBadgeSingleAllergen(input, PP_STUB)).toBe(input);
+  });
+
+  it("keeps the configured threshold when hide_no_allergens_display is on", () => {
+    const out = pinBadgeSingleAllergen(
+      {
+        type: "custom:pollenprognos-badge",
+        integration: "pp",
+        badge_content: "single",
+        badge_single_allergen: "birch",
+        pollen_threshold: 2,
+        hide_no_allergens_display: true,
+      } as CardConfig,
+      ["Al", "Björk", "Gräs"],
+    );
+    expect(out.allergens).toEqual(["Björk"]);
+    expect(out.pollen_threshold).toBe(2);
+  });
+
+  it("still drops the threshold when hide_no_allergens_display is off", () => {
+    const out = pinBadgeSingleAllergen(
+      {
+        type: "custom:pollenprognos-badge",
+        integration: "pp",
+        badge_content: "single",
+        badge_single_allergen: "birch",
+        pollen_threshold: 2,
+        hide_no_allergens_display: false,
+      } as CardConfig,
+      ["Al", "Björk", "Gräs"],
+    );
+    expect(out.pollen_threshold).toBe(0);
   });
 });
