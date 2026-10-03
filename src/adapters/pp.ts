@@ -296,6 +296,10 @@ export const resolveEntityIds = createEntityResolver({
 // day loop can emit the no-data sentinel only when the threshold is 0.
 const testVal = (v: unknown): number | null => clampLevel<null>(v, 6, null);
 
+/** Format a local date as a forecast date key (the shape padForecastDates emits). */
+const localDateKey = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T00:00:00`;
+
 /** Parse a forecast date key to LOCAL midnight (falls back to Invalid Date). */
 const parseLocal = (s: string): Date => parseLocalDate(s) ?? new Date(NaN);
 
@@ -350,9 +354,17 @@ function buildPpDict({
     (d) => parseLocal(d).getTime() >= ctx.today.getTime(),
   );
 
-  // Pad out to exactly days_to_show dates.
+  // The integration may expose end_of_season (pollenrapporten.se's
+  // isEndOfSeason): the season's last forecast has been published and the
+  // empty forecast means "no pollen until spring", not missing data. Only an
+  // explicit true counts; absent keeps the no-data behaviour (#369).
+  const seasonOver = sensor.attributes.end_of_season === true;
+
+  // Pad out to exactly days_to_show dates. With the season over and nothing
+  // upcoming, seed today so day 0 is today (padForecastDates starts padding
+  // the day after its last date).
   const forecastDates = padForecastDates(
-    upcoming,
+    seasonOver && upcoming.length === 0 ? [localDateKey(ctx.today)] : upcoming,
     ctx.days_to_show,
     ctx.today,
     parseLocal,
@@ -361,7 +373,8 @@ function buildPpDict({
   // Iterate forecast days
   forecastDates.forEach((dateStr) => {
     const raw = forecastMap[dateStr] || {};
-    const level = testVal(raw.level);
+    // Off season a day without a reading is a genuine level 0.
+    const level = testVal(raw.level) ?? (seasonOver ? 0 : null);
     const d = parseLocal(dateStr);
     const diff = Math.round((d.getTime() - ctx.today.getTime()) / 86400000);
     const label = buildDayLabel(d, diff, {
