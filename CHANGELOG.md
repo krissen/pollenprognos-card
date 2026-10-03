@@ -25,6 +25,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   information", so the card shows "No allergens" and the hide option applies.
   Without the attribute nothing changes.
 
+### Fixed
+
+- **Forecast dates across the switch to winter time** (pp, peu). When a
+  forecast was shorter than the configured number of days, the padded day
+  columns repeated the date of the autumn DST change and skipped the next day.
+  Padding now steps by calendar day.
+
 ## [4.3.0] - 2026-09-13
 
 ### Added
