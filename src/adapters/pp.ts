@@ -372,9 +372,15 @@ function buildPpDict({
 
   // Iterate forecast days
   forecastDates.forEach((dateStr) => {
+    const published = Object.prototype.hasOwnProperty.call(
+      forecastMap,
+      dateStr,
+    );
     const raw = forecastMap[dateStr] || {};
-    // Off season a day without a reading is a genuine level 0.
-    const level = testVal(raw.level) ?? (seasonOver ? 0 : null);
+    // Off season a day the forecast does not cover is a genuine level 0. A
+    // published entry with an invalid level stays no data: that is a data
+    // problem, not an absence of pollen.
+    const level = testVal(raw.level) ?? (seasonOver && !published ? 0 : null);
     const d = parseLocal(dateStr);
     const diff = Math.round((d.getTime() - ctx.today.getTime()) / 86400000);
     const label = buildDayLabel(d, diff, {

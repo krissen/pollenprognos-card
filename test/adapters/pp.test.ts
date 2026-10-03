@@ -347,6 +347,24 @@ describe("PP adapter: end_of_season", () => {
     );
     expect(result[0]!.days.map((d: any) => d.state)).toEqual([3, 2]);
   });
+
+  it("keeps no data for an invalid published level but zeroes padded days", async () => {
+    const hass = createHass({
+      "sensor.pollen_stockholm_bjork": createPPSensor([null, 2], {
+        end_of_season: true,
+      }),
+    });
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        city: "Stockholm",
+        allergens: ["Björk"],
+        pollen_threshold: 0,
+        days_to_show: 3,
+      }),
+    );
+    expect(result[0]!.days.map((d: any) => d.state)).toEqual([-1, 2, 0]);
+  });
 });
 
 describe("PP adapter: resolveEntityIds — device-based discovery", () => {
