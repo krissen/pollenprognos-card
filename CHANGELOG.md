@@ -8,15 +8,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- **Option to hide the badge when there are no allergens** (issue #369).
-  Outside pollen season every allergen sits below `pollen_threshold`, so the
-  badge shows the breezy "no allergens" image for months. The new badge option
-  `hide_no_allergens_display` (default `false`, exposed as a checkbox under
-  Allergens in the badge editor) hides the whole badge in that state. A badge
-  with no usable data keeps showing its no-information visual, since that
-  points at a data problem rather than a genuine absence of pollen, and the
-  badge is always shown in the editor and in dashboard edit mode so it stays
-  findable. The card is unchanged and keeps its "No allergens" icon and text.
+- **Option to hide the card and badge when there are no allergens** (issue
+  #369, badge part contributed by @sebfrie in #370). Outside pollen season
+  every allergen sits below `pollen_threshold`, so the card and badge show the
+  breezy "no allergens" image for months. The new option
+  `hide_no_allergens_display` (default `false`, a checkbox under Allergens in
+  both editors) hides the whole card or badge in that state, with no empty slot
+  in the dashboard. "No information", stale data and errors stay visible, since
+  they point at a data problem rather than a genuine absence of pollen, and
+  both always show in the editor and in dashboard edit mode, including on Home
+  Assistant releases before 2026.10. The badge judges what it shows today, so
+  it also hides when only a later forecast day reaches the threshold.
+- **Pollenprognos off season** (pp). When the integration reports the
+  season's end (`end_of_season`, from pollenrapporten.se's `isEndOfSeason`),
+  the empty off-season forecast counts as no pollen instead of "No
+  information", so the card shows "No allergens" and the hide option applies.
+  Without the attribute nothing changes.
+
+### Fixed
+
+- **Forecast dates across the switch to winter time** (pp, peu). When a
+  forecast was shorter than the configured number of days, the padded day
+  columns repeated the date of the autumn DST change and skipped the next day.
+  Padding now steps by calendar day.
 
 ## [4.3.0] - 2026-09-13
 

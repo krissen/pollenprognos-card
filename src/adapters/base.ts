@@ -410,7 +410,10 @@ export function padForecastDates(
   let lastDate =
     upcoming.length > 0 ? parseDate(upcoming[upcoming.length - 1]!) : today;
   while (forecastDates.length < daysToShow) {
-    lastDate = new Date(lastDate.getTime() + 86400000);
+    // Advance one calendar day, not 24 hours: across a DST change a fixed
+    // 86,400,000 ms step lands on the same date (autumn) and repeats it.
+    lastDate = new Date(lastDate);
+    lastDate.setDate(lastDate.getDate() + 1);
     const yyyy = lastDate.getFullYear();
     const mm = String(lastDate.getMonth() + 1).padStart(2, "0");
     const dd = String(lastDate.getDate()).padStart(2, "0");

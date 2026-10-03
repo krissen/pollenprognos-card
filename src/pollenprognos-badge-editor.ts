@@ -508,18 +508,6 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     return false;
   }
 
-  // hide_no_allergens_display (#369) is a badge-only option, so only the badge
-  // editor offers the shared Allergens switch.
-  override _showHideNoAllergensToggle(): boolean {
-    return true;
-  }
-
-  // The Allergens reset also clears the badge-only hide_no_allergens_display
-  // switch, which lives in that section (see _showHideNoAllergensToggle).
-  override _allergensResetKeys(): string[] {
-    return [...super._allergensResetKeys(), "hide_no_allergens_display"];
-  }
-
   // badge_visual (in the Badge content section) is the single source of truth
   // for whether the icon sits in the ring, so the §8 on/off checkbox would be
   // a false affordance here — hide it. The ring sub-fields (size ratio, colour)

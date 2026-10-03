@@ -43,6 +43,7 @@ import {
   resolveDiscoveredLocation,
 } from "./utils/silam.js";
 import { deepEqual } from "./utils/confcompare.js";
+import { isInPreview, syncSelfVisibility } from "./utils/self-visibility.js";
 import {
   normalizeCardConfig,
   mergeCardConfig,
@@ -115,6 +116,14 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   // private SilamDiscovery. Reconciling the two Map value types is a tracked
   // follow-up; `any` keeps the bridge until then.
   declare _silamDiscovery?: any;
+  // Set by Home Assistant while the card is shown in the card editor or a
+  // dashboard in edit mode (hui-card forwards it as `preview`).
+  declare preview?: boolean;
+  // Keep the element attached while hide_no_allergens_display has it hidden,
+  // so hui-card never detaches it: a detached card would drop its SILAM
+  // forecast subscription (disconnectedCallback) and stop receiving hass, and
+  // could not reveal itself again when pollen returns.
+  connectedWhileHidden = true;
   // Debug-only snapshots, assigned when this.debug is on.
   declare d_sensors?: PollenSensor[];
   declare d_availableSensors?: string[];
@@ -137,11 +146,42 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       this._subscribeForecastIfNeeded();
     }
 
+    syncSelfVisibility(
+      this,
+      this._isNoAllergensHidden(),
+      "card-visibility-changed",
+    );
     super.updated(changedProps);
   }
 
+  // Entering or leaving dashboard edit mode re-parents the card, so re-check
+  // visibility on every connect (see isInPreview for why preview alone is not
+  // enough on older Home Assistant releases).
   override connectedCallback() {
     super.connectedCallback();
+    this.requestUpdate();
+  }
+
+  /**
+   * True when the user opted into hide_no_allergens_display and the card would
+   * show its genuine "No allergens" result: loaded, nothing above the
+   * threshold, entities exist and at least one carries a real reading. Mirrors
+   * the `_noPollenData` branch in render(). Loading, errors, missing sensors,
+   * stale data and "No information" stay visible, since they point at a data
+   * problem rather than a genuine absence of pollen. Never true in a preview
+   * (card editor, dashboard edit mode), so the card stays editable there.
+   */
+  _isNoAllergensHidden(): boolean {
+    if (this.config?.hide_no_allergens_display !== true || isInPreview(this)) {
+      return false;
+    }
+    return (
+      this._isLoaded === true &&
+      (!this.sensors || !this.sensors.length) &&
+      !this._error &&
+      this._availableSensorCount !== 0 &&
+      this._noPollenData === true
+    );
   }
 
   // Clean up forecast subscription when component is disconnected.
@@ -617,6 +657,7 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
       _isLoaded: { type: Boolean, state: true },
       _error: { type: String, state: true },
       _noPollenData: { type: Boolean, state: true },
+      preview: { type: Boolean },
     };
   }
 
@@ -2193,6 +2234,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
 
   override render(): TemplateResult {
     if (!this.config) return html``;
+    // hide_no_allergens_display: render nothing (the host is hidden in
+    // updated(); this also covers a render that runs before that sync).
+    if (this._isNoAllergensHidden()) return html``;
 
     // Visa laddningsruta endast om vi INTE är laddade och saknar sensorer
     if (!this._isLoaded && (!this.sensors || !this.sensors.length)) {
@@ -2333,6 +2377,11 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
   static override get styles() {
     return css`
       ${ringIconStyles}
+      /* hide_no_allergens_display sets the hidden attribute; keep it hidden
+         even if a theme or card-mod sets a display on the host. */
+      :host([hidden]) {
+        display: none;
+      }
       /* normalhtml */
       .forecast {
         width: 100%; /* Fyll hela kortet! */

@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Vad som händer när användaren trycker på kortet eller ett allergen.",
   "editor.helper_card_layout": "Kompakt (minimalt) läge och vilka kolumner som visas.",
   "editor.helper_day_display": "Vad som visas i varje dagkolumn: värden och etiketter.",
-  "editor.helper_hide_no_allergens_display": "Döljer hela märket så länge alla allergener ligger under tröskelvärdet. Ett märke utan användbara data visas fortfarande. Märket visas alltid vid redigering.",
+  "editor.helper_hide_no_allergens_display": "Visningen döljs helt så länge alla allergener ligger under tröskelvärdet. Den visas ändå när data saknas eller är oanvändbara, och alltid vid redigering.",
   "editor.helper_icon_in_ring": "Rendera allergenikonen centrerad inuti nivåcirkeln.",
   "editor.helper_integration_and_place": "Källintegration, plats och kortets rubrik.",
   "editor.helper_level_circles": "Ringdiagram runt varje allergen som visar dagens pollennivå.",

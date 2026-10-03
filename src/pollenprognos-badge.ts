@@ -49,6 +49,7 @@ import {
 } from "./utils/badge-label.js";
 import type { BadgeLabelContent } from "./utils/badge-label.js";
 import { deepEqual } from "./utils/confcompare.js";
+import { isInPreview, syncSelfVisibility } from "./utils/self-visibility.js";
 import {
   detectIntegrationStates,
   pickIntegration,
@@ -619,17 +620,9 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     });
   }
 
-  /**
-   * Whether the badge is shown in an editor or a dashboard in edit mode. HA
-   * forwards `preview` to the badge element only since frontend #54096 (HA
-   * 2026.10); older releases set it on the wrapping hui-badge alone, so fall
-   * back to that parent. Without the fallback a hidden badge would vanish in
-   * edit mode on those releases and could no longer be edited.
-   */
+  // Shown in an editor or a dashboard in edit mode (see isInPreview).
   _inPreview(): boolean {
-    if (this.preview === true) return true;
-    const parent = this.parentElement as { preview?: unknown } | null;
-    return parent?.preview === true;
+    return isInPreview(this);
   }
 
   // Entering or leaving dashboard edit mode re-parents the badge (into or out
@@ -640,22 +633,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     this.requestUpdate();
   }
 
-  /**
-   * Mirror _isNoAllergensHidden() onto the host element. Rendering nothing
-   * alone would leave an empty slot in the badge row; hui-badge collapses the
-   * badge when its element is `hidden` and re-evaluates that when told about
-   * the change via `badge-visibility-changed`.
-   */
+  // Mirror _isNoAllergensHidden() onto the host so hui-badge collapses the
+  // slot (see syncSelfVisibility).
   _syncNoAllergensVisibility(): void {
-    const hide = this._isNoAllergensHidden();
-    if (!!this.hidden === hide) return;
-    this.hidden = hide;
-    this.dispatchEvent(
-      new CustomEvent("badge-visibility-changed", {
-        detail: { value: !hide },
-        bubbles: true,
-        composed: true,
-      }),
+    syncSelfVisibility(
+      this,
+      this._isNoAllergensHidden(),
+      "badge-visibility-changed",
     );
   }
 
