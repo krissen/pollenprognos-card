@@ -695,6 +695,9 @@ export const COSMETIC_FIELDS = [
   // (resolveNumericValue reads it; adapters no longer change output for it).
   "numeric_value_raw",
   "numeric_state_raw_risk",
+  // Self-hiding in the "No allergens" state (#369) is decided from the
+  // already-fetched sensors on every update, so toggling it needs no reload.
+  "hide_no_allergens_display",
   "title",
   "card_mod",
 ];
