@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Cosa succede quando l'utente tocca la scheda o un allergene.",
   "editor.helper_card_layout": "Modalità compatta (minima) e quali colonne sono visibili.",
   "editor.helper_day_display": "Cosa appare in ogni colonna del giorno: valori ed etichette.",
-  "editor.helper_hide_no_allergens_display": "Viene nascosto del tutto finché tutti gli allergeni sono sotto la soglia. I dati mancanti o inutilizzabili vengono comunque mostrati, così come l'anteprima durante la modifica.",
+  "editor.helper_hide_no_allergens_display": "La vista viene nascosta del tutto finché tutti gli allergeni sono sotto la soglia. Resta visibile quando i dati mancano o sono inutilizzabili, e sempre durante la modifica.",
   "editor.helper_icon_in_ring": "Mostra l'icona dell'allergene centrata dentro il cerchio di livello.",
   "editor.helper_integration_and_place": "Integrazione di origine, posizione e titolo della scheda.",
   "editor.helper_level_circles": "Grafico ad anello attorno a ogni allergene che mostra il livello di polline di oggi.",

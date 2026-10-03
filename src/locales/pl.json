@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Co się dzieje, gdy użytkownik dotyka karty lub alergenu.",
   "editor.helper_card_layout": "Tryb kompaktowy (minimalny) i widoczne kolumny.",
   "editor.helper_day_display": "Co pojawia się w każdej kolumnie dnia: wartości i etykiety.",
-  "editor.helper_hide_no_allergens_display": "Jest całkowicie ukryte, dopóki wszystkie alergeny są poniżej progu. Brakujące lub bezużyteczne dane nadal są wyświetlane, podobnie jak podgląd podczas edycji.",
+  "editor.helper_hide_no_allergens_display": "Widok jest całkowicie ukryty, dopóki wszystkie alergeny są poniżej progu. Nadal jest wyświetlany, gdy brakuje danych lub nie nadają się one do użycia, oraz zawsze podczas edycji.",
   "editor.helper_icon_in_ring": "Wyświetla ikonę alergenu na środku okręgu poziomu.",
   "editor.helper_integration_and_place": "Integracja źródłowa, lokalizacja i tytuł karty.",
   "editor.helper_level_circles": "Wykres pierścieniowy wokół każdego alergenu pokazujący dzisiejszy poziom pyłków.",
