@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "O que acontece quando o utilizador toca no cartão ou num alergénio.",
   "editor.helper_card_layout": "Modo compacto (mínimo) e que colunas ficam visíveis.",
   "editor.helper_day_display": "O que aparece em cada coluna de dia: valores e etiquetas.",
-  "editor.helper_hide_no_allergens_display": "Oculta todo o crachá enquanto todos os alergénios estiverem abaixo do limiar. Um crachá sem dados utilizáveis continua visível. O crachá é sempre mostrado durante a edição.",
+  "editor.helper_hide_no_allergens_display": "Fica totalmente oculto enquanto todos os alergénios estiverem abaixo do limiar. Os dados em falta ou inutilizáveis continuam a ser mostrados, tal como a pré-visualização durante a edição.",
   "editor.helper_icon_in_ring": "Mostra o ícone do alergénio centrado dentro do círculo de nível.",
   "editor.helper_integration_and_place": "Integração de origem, localização e título do cartão.",
   "editor.helper_level_circles": "Anel à volta de cada alergénio que mostra o nível de pólen de hoje.",

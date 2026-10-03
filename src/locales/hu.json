@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Mi történik, ha a felhasználó a kártyára vagy egy allergénre koppint.",
   "editor.helper_card_layout": "Kompakt (minimál) mód és a látható oszlopok.",
   "editor.helper_day_display": "Mi jelenjen meg az egyes napok oszlopában: értékek és címkék.",
-  "editor.helper_hide_no_allergens_display": "Elrejti a teljes jelvényt, amíg minden allergén a küszöbérték alatt van. A használható adatok nélküli jelvény továbbra is látható marad. Szerkesztés közben a jelvény mindig megjelenik.",
+  "editor.helper_hide_no_allergens_display": "Teljesen el van rejtve, amíg minden allergén a küszöbérték alatt van. A hiányzó vagy használhatatlan adatok továbbra is megjelennek, akárcsak az előnézet szerkesztés közben.",
   "editor.helper_icon_in_ring": "Az allergénikont a szintgyűrű közepén jeleníti meg.",
   "editor.helper_integration_and_place": "Forrásintegráció, helyszín és a kártya címe.",
   "editor.helper_level_circles": "Gyűrűdiagram minden allergén körül, amely a mai pollenszintet mutatja.",

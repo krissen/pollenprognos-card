@@ -1,14 +1,15 @@
 /**
- * hide_no_allergens_display (issue #369) -- a badge-only option.
+ * hide_no_allergens_display (issue #369) -- for the badge and the card.
  *
- * Covers the badge's config boundary and hide logic:
+ * Covers the config boundary and hide logic of both elements:
  *   - the option defaults off and coerces the "true"/"false" YAML strings;
  *   - the badge hides itself (renders nothing, flags the host `hidden` and tells
  *     hui-badge via `badge-visibility-changed`) ONLY in the genuine "no
- *     allergens" state;
+ *     allergens" state (the card likewise, via `card-visibility-changed`);
  *   - the no-information visual, the empty error / loading pills and a badge
  *     shown in an editor / dashboard-edit preview stay visible;
- *   - the card is untouched and keeps its "No allergens" icon and text.
+ *   - the same for the card: no information, errors, missing sensors, loading
+ *     and previews stay visible.
  *
  * The elements are LitElements, so this file installs the same minimal DOM shim
  * the other card tests use and calls render() / the sync method directly.
@@ -105,7 +106,12 @@ type CardLike = {
   setConfig: (config: Record<string, unknown>) => void;
   config: Record<string, unknown>;
   render: () => unknown;
-  _isNoAllergensHidden?: () => boolean;
+  updated: (changed: Map<string, unknown>) => void;
+  dispatchEvent: (ev: Event) => boolean;
+  _isNoAllergensHidden: () => boolean;
+  connectedWhileHidden: boolean;
+  hidden: boolean;
+  preview?: boolean;
   sensors: unknown[];
   _isLoaded: boolean;
   _error: string | null;
@@ -174,8 +180,8 @@ describe("hide_no_allergens_display at the badge config boundary (#369)", () => 
 });
 
 describe("badge editor wiring (#369)", () => {
-  it("keeps the option out of the shared (card) reset registries", () => {
-    expect(ALLERGENS_RESET_KEYS).not.toContain("hide_no_allergens_display");
+  it("resets with the Allergens section, shared by card and badge", () => {
+    expect(ALLERGENS_RESET_KEYS).toContain("hide_no_allergens_display");
     expect(APPEARANCE_RESET_KEYS).not.toContain("hide_no_allergens_display");
   });
 
@@ -464,23 +470,122 @@ describe("badge collapses its host through hui-badge (#369)", () => {
 // The card is unchanged
 // ---------------------------------------------------------------------------
 
-describe("the card keeps its no-allergens icon and text (#369)", () => {
-  it("ignores the badge-only option", () => {
-    const card = new CardCtor();
-    card.setConfig({
-      type: "custom:pollenprognos-card",
-      integration: "pp",
-      hide_no_allergens_display: true,
-    });
-    card.sensors = [];
-    card._isLoaded = true;
-    card._error = null;
-    card._availableSensorCount = 2;
-    card._noPollenData = true;
+/** Card in the "entities exist, every reading below threshold" state. */
+function noPollenCard(config: Record<string, unknown> = {}): CardLike {
+  const card = new CardCtor();
+  card.setConfig({
+    type: "custom:pollenprognos-card",
+    integration: "pp",
+    ...config,
+  });
+  card.sensors = [];
+  card._isLoaded = true;
+  card._error = null;
+  card._availableSensorCount = 2;
+  card._noPollenData = true;
+  return card;
+}
 
-    expect(card._isNoAllergensHidden).toBeUndefined();
+describe("the card hides the genuine no-allergens state only (#369)", () => {
+  it("keeps the No allergens icon and text by default", () => {
+    const card = noPollenCard();
+    expect(card._isNoAllergensHidden()).toBe(false);
     const text = deepTemplateText(card.render());
     expect(text).toContain("no-allergens-container");
     expect(text).toContain("no-allergens-text");
+  });
+
+  it("renders nothing when the option is on", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    expect(card._isNoAllergensHidden()).toBe(true);
+    expect(deepTemplateText(card.render())).toBe("");
+  });
+
+  it("keeps the option and coerces the YAML string at setConfig", () => {
+    const card = noPollenCard({ hide_no_allergens_display: "true" });
+    expect(card.config.hide_no_allergens_display).toBe(true);
+    expect(card._isNoAllergensHidden()).toBe(true);
+    expect(
+      noPollenCard({ hide_no_allergens_display: "false" }).config
+        .hide_no_allergens_display,
+    ).toBe(false);
+  });
+
+  it("keeps No information visible", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    card._noPollenData = false;
+    expect(card._isNoAllergensHidden()).toBe(false);
+    expect(deepTemplateText(card.render())).toContain("no-allergens-container");
+  });
+
+  it("keeps errors and missing sensors visible", () => {
+    const errored = noPollenCard({ hide_no_allergens_display: true });
+    errored._error = "card.error_entity_unavailable";
+    expect(errored._isNoAllergensHidden()).toBe(false);
+
+    const noSensors = noPollenCard({ hide_no_allergens_display: true });
+    noSensors._availableSensorCount = 0;
+    expect(noSensors._isNoAllergensHidden()).toBe(false);
+  });
+
+  it("keeps the loading state visible", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    card._isLoaded = false;
+    expect(card._isNoAllergensHidden()).toBe(false);
+  });
+
+  it("does not hide while there are allergens to show", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    card.sensors = [{ allergenReplaced: "birch", days: [{ state: 3 }] }];
+    expect(card._isNoAllergensHidden()).toBe(false);
+  });
+
+  it("stays visible in an editor / dashboard-edit preview", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    card.preview = true;
+    expect(card._isNoAllergensHidden()).toBe(false);
+
+    const wrapped = noPollenCard({ hide_no_allergens_display: true });
+    Object.defineProperty(wrapped, "parentElement", {
+      value: { preview: true },
+      configurable: true,
+    });
+    expect(wrapped._isNoAllergensHidden()).toBe(false);
+  });
+});
+
+describe("the card collapses its host through hui-card (#369)", () => {
+  function track(card: CardLike) {
+    const events: CustomEvent[] = [];
+    card.dispatchEvent = (ev: Event) => {
+      events.push(ev as CustomEvent);
+      return true;
+    };
+    return events;
+  }
+
+  it("flags the host hidden and fires card-visibility-changed once", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    const events = track(card);
+    card.updated(new Map());
+    card.updated(new Map());
+    expect(card.hidden).toBe(true);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe("card-visibility-changed");
+    expect(events[0]!.detail).toEqual({ value: false });
+  });
+
+  it("reveals the host again when pollen returns", () => {
+    const card = noPollenCard({ hide_no_allergens_display: true });
+    const events = track(card);
+    card.updated(new Map());
+    card.sensors = [{ allergenReplaced: "birch", days: [{ state: 3 }] }];
+    card.updated(new Map());
+    expect(card.hidden).toBe(false);
+    expect(events.at(-1)!.detail).toEqual({ value: true });
+  });
+
+  it("asks hui-card to keep it connected while hidden", () => {
+    expect(new CardCtor().connectedWhileHidden).toBe(true);
   });
 });

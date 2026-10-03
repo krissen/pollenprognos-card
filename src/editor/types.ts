@@ -105,7 +105,6 @@ export interface PollenEditorLike {
   _showModeSelector(): boolean;
   _showCardSizeControls(): boolean;
   _showNumericInCircleToggle(): boolean;
-  _showHideNoAllergensToggle(): boolean;
   _showIconInRingToggle(): boolean;
   _showPhraseShort(): boolean;
   _showPhraseLevels(): boolean;

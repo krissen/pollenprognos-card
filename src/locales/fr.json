@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "Ce qui se passe quand l'utilisateur appuie sur la carte ou un allergène.",
   "editor.helper_card_layout": "Mode compact (minimal) et colonnes visibles.",
   "editor.helper_day_display": "Ce qui apparait dans chaque colonne journalière: valeurs et étiquettes.",
-  "editor.helper_hide_no_allergens_display": "Masque tout le badge tant que tous les allergènes sont sous le seuil. Un badge sans données exploitables reste visible. Le badge est toujours affiché pendant la modification.",
+  "editor.helper_hide_no_allergens_display": "Est entièrement masqué tant que tous les allergènes sont sous le seuil. Les données manquantes ou inexploitables restent affichées, tout comme l'aperçu pendant la modification.",
   "editor.helper_icon_in_ring": "Afficher l'icône d'allergène centré à l'intérieur du cercle de niveau.",
   "editor.helper_integration_and_place": "Intégration source, emplacement et titre de la carte.",
   "editor.helper_level_circles": "Diagramme annulaire autour de chaque allergène indiquant le niveau de pollen du jour.",

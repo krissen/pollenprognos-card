@@ -46,6 +46,7 @@ import { discoverSilamSensors } from "./utils/silam.js";
 import {
   findLocationBySlug,
   type DeviceDiscovery,
+  coerceBool,
 } from "./utils/adapter-helpers.js";
 import { slugify } from "./utils/slugify.js";
 import { formatNumberForInput } from "./utils/number-format.js";
@@ -397,6 +398,15 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           : baseStub.allergens
       ) as string[];
       //
+      // A hand-written YAML "true" must show the Allergens checkbox as
+      // checked, like the card itself reads it (#369). Only coerce a key the
+      // user set, so an untouched config gains no new key.
+      if ("hide_no_allergens_display" in merged) {
+        merged.hide_no_allergens_display = coerceBool(
+          merged.hide_no_allergens_display,
+        );
+      }
+
       // 13. Lägg till typ och integration
       merged.integration = integration;
       merged.type = "custom:pollenprognos-card";

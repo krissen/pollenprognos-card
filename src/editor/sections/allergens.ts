@@ -287,28 +287,19 @@ export function renderAllergensSection(
             )}
         ></ha-slider>
       </div>
-      ${
-        // Badge-only: hides the whole badge while every allergen is below the
-        // threshold above. The no-information visual stays, and the badge is
-        // never hidden in the editor preview.
-        editor._showHideNoAllergensToggle()
-          ? html`
-              <ha-formfield label="${editor._t("hide_no_allergens_display")}">
-                <ha-checkbox
-                  .checked=${c.hide_no_allergens_display === true}
-                  @change=${(e: Event) =>
-                    editor._updateConfig(
-                      "hide_no_allergens_display",
-                      (e.target as HTMLInputElement).checked,
-                    )}
-                ></ha-checkbox>
-              </ha-formfield>
-              <div class="field-helper">
-                ${editor._t("helper_hide_no_allergens_display")}
-              </div>
-            `
-          : ""
-      }
+      <ha-formfield label="${editor._t("hide_no_allergens_display")}">
+        <ha-checkbox
+          .checked=${c.hide_no_allergens_display === true}
+          @change=${(e: Event) =>
+            editor._updateConfig(
+              "hide_no_allergens_display",
+              (e.target as HTMLInputElement).checked,
+            )}
+        ></ha-checkbox>
+      </ha-formfield>
+      <div class="field-helper">
+        ${editor._t("helper_hide_no_allergens_display")}
+      </div>
       <ha-formfield label="${editor._t("sort")}">
         <ha-selector
           .hass=${editor._hass}

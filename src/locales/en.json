@@ -159,7 +159,7 @@
   "editor.helper_card_interactivity": "What happens when the user taps the card or an allergen.",
   "editor.helper_card_layout": "Compact (minimal) mode and which columns are visible.",
   "editor.helper_day_display": "What appears in each day column: values and labels.",
-  "editor.helper_hide_no_allergens_display": "Hides the whole badge while every allergen is below the threshold. A badge with no usable data stays visible. The badge is always shown while editing.",
+  "editor.helper_hide_no_allergens_display": "Hides it entirely while every allergen is below the threshold. Missing or unusable data still shows, and so does the preview while editing.",
   "editor.helper_icon_in_ring": "Render the allergen icon centered inside the level circle.",
   "editor.helper_integration_and_place": "Source integration, location, and card title.",
   "editor.helper_level_circles": "Ring chart around each allergen showing today's pollen level.",

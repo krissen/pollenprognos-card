@@ -71,6 +71,9 @@ const { booleanFields: BOOLEAN_FIELDS, numberFields: NUMBER_FIELDS } =
 // union above can't discover its type, so register it here so a hand-written
 // `link_to_sensors: "false"` YAML string still coerces to a boolean.
 BOOLEAN_FIELDS.add("link_to_sensors");
+// hide_no_allergens_display (#369) is likewise stub-less (an opt-in flag that
+// defaults off), so register it for the same "true"/"false" string coercion.
+BOOLEAN_FIELDS.add("hide_no_allergens_display");
 
 /**
  * Non-stub config keys that setConfig accepts in addition to the resolved
@@ -93,6 +96,9 @@ export const CARD_EXTRA_FIELDS: readonly string[] = [
   // it must be listed here or setConfig's allowed-field filter would strip a
   // user-set value.
   "link_to_sensors",
+  // Opt-in self-hiding in the genuine "No allergens" state (#369); no stub
+  // declares it, so list it here or the allowed-field filter would strip it.
+  "hide_no_allergens_display",
   "debug",
   "show_version",
   "title",
