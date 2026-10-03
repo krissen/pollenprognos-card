@@ -317,6 +317,17 @@ class PollenPrognosCardEditor extends PollenEditorBase {
 
       this._userConfig = deepMerge(this._userConfig, incoming);
 
+      // A hand-written YAML "true" must show the Allergens checkbox as
+      // checked, like the card itself reads it (#369). Coerce it in the stored
+      // user config, not just in this merge: set hass rebuilds _config from
+      // _userConfig and would otherwise bring the raw string back. Only coerce
+      // a key the user set, so an untouched config gains no new key.
+      if ("hide_no_allergens_display" in this._userConfig) {
+        this._userConfig.hide_no_allergens_display = coerceBool(
+          this._userConfig.hide_no_allergens_display,
+        );
+      }
+
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit = Object.hasOwn(
         this._userConfig,
@@ -398,15 +409,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           : baseStub.allergens
       ) as string[];
       //
-      // A hand-written YAML "true" must show the Allergens checkbox as
-      // checked, like the card itself reads it (#369). Only coerce a key the
-      // user set, so an untouched config gains no new key.
-      if ("hide_no_allergens_display" in merged) {
-        merged.hide_no_allergens_display = coerceBool(
-          merged.hide_no_allergens_display,
-        );
-      }
-
       // 13. Lägg till typ och integration
       merged.integration = integration;
       merged.type = "custom:pollenprognos-card";

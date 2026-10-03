@@ -20,6 +20,8 @@ import {
   ALLERGENS_RESET_KEYS,
   APPEARANCE_RESET_KEYS,
 } from "../../src/editor/reset-registry.js";
+import { COSMETIC_FIELDS } from "../../src/constants.js";
+import { createHass, createPPSensor } from "../helpers.js";
 
 class FakeNode {
   childNodes: unknown[] = [];
@@ -206,6 +208,41 @@ describe("badge editor wiring (#369)", () => {
       });
       expect(editor._config.hide_no_allergens_display).toBe(expected);
     }
+  });
+});
+
+describe("card editor wiring (#369)", () => {
+  type CardEditorLike = {
+    _config: Record<string, unknown>;
+    hass: unknown;
+    setConfig: (config: Record<string, unknown>) => void;
+  };
+
+  it("keeps the YAML string coerced when hass rebuilds the config", async () => {
+    await import("../../src/pollenprognos-editor.js");
+    const EditorCtor = (
+      globalThis as unknown as {
+        customElements: { get: (n: string) => new () => CardEditorLike };
+      }
+    ).customElements.get("pollenprognos-card-editor");
+    const editor = new EditorCtor();
+    editor.setConfig({
+      type: "custom:pollenprognos-card",
+      integration: "pp",
+      city: "Stockholm",
+      hide_no_allergens_display: "true",
+    });
+    expect(editor._config.hide_no_allergens_display).toBe(true);
+    // set hass rebuilds _config from the stored user config; the raw string
+    // must not come back and uncheck the box.
+    editor.hass = createHass({
+      "sensor.pollen_stockholm_bjork": createPPSensor([1]),
+    });
+    expect(editor._config.hide_no_allergens_display).toBe(true);
+  });
+
+  it("counts the option as cosmetic, so toggling it does not refetch", () => {
+    expect(COSMETIC_FIELDS).toContain("hide_no_allergens_display");
   });
 });
 
