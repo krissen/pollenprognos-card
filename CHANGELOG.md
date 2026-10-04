@@ -19,7 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   both always show in the editor and in dashboard edit mode, including on Home
   Assistant releases before 2026.10. The badge judges what it shows today, so
   it also hides when only a later forecast day reaches the threshold.
-- **Pollenprognos off season** (pp). When the integration reports the
+- **Pollenprognos off season** (pp, requires integration v1.1.7 or later).
+  When the integration reports the
   season's end (`end_of_season`, from pollenrapporten.se's `isEndOfSeason`),
   the empty off-season forecast counts as no pollen instead of "No
   information", so the card shows "No allergens" and the hide option applies.
