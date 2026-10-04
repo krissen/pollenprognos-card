@@ -46,6 +46,7 @@ import { discoverSilamSensors } from "./utils/silam.js";
 import {
   findLocationBySlug,
   type DeviceDiscovery,
+  coerceBool,
 } from "./utils/adapter-helpers.js";
 import { slugify } from "./utils/slugify.js";
 import { formatNumberForInput } from "./utils/number-format.js";
@@ -315,6 +316,17 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       // 7. Slå ihop userConfig med nya inkommande värden EN gång (alltid userConfig = det senaste)
 
       this._userConfig = deepMerge(this._userConfig, incoming);
+
+      // A hand-written YAML "true" must show the Allergens checkbox as
+      // checked, like the card itself reads it (#369). Coerce it in the stored
+      // user config, not just in this merge: set hass rebuilds _config from
+      // _userConfig and would otherwise bring the raw string back. Only coerce
+      // a key the user set, so an untouched config gains no new key.
+      if ("hide_no_allergens_display" in this._userConfig) {
+        this._userConfig.hide_no_allergens_display = coerceBool(
+          this._userConfig.hide_no_allergens_display,
+        );
+      }
 
       // 8. Sätt explicit-flaggor
       this._thresholdExplicit = Object.hasOwn(

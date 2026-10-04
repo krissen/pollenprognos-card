@@ -267,6 +267,106 @@ describe("PP adapter: fetchForecast", () => {
   });
 });
 
+// Off season pollenrapporten.se publishes no forecast; an integration that
+// exposes end_of_season turns the empty forecast into a genuine level 0 (#369).
+describe("PP adapter: end_of_season", () => {
+  function offSeasonHass(endOfSeason: unknown): any {
+    const sensor = (end: unknown) => ({
+      state: "n/a",
+      attributes: {
+        forecast: [],
+        update_success: true,
+        ...(end === undefined ? {} : { end_of_season: end }),
+      },
+    });
+    return createHass({
+      "sensor.pollen_stockholm_bjork": sensor(endOfSeason),
+      "sensor.pollen_stockholm_al": sensor(endOfSeason),
+    });
+  }
+
+  it("reports level 0 from today when the season is over", async () => {
+    const config = makeConfig({
+      city: "Stockholm",
+      allergens: ["Björk", "Al"],
+      pollen_threshold: 0,
+      days_to_show: 2,
+    });
+    // Day labels of an in-season forecast that starts today.
+    const inSeason = await fetchForecast(
+      createHass({ "sensor.pollen_stockholm_bjork": createPPSensor([1, 1]) }),
+      config,
+    );
+    const todayLabels = inSeason[0]!.days.map((d: any) => d.day);
+
+    const result = await fetchForecast(offSeasonHass(true), config);
+    expect(result.length).toBe(2);
+    for (const sensor of result) {
+      expect(sensor.days.map((d: any) => d.state)).toEqual([0, 0]);
+      expect(sensor.days.map((d: any) => d.day)).toEqual(todayLabels);
+    }
+  });
+
+  it("filters the off-season level 0 out at the default threshold", async () => {
+    const result = await fetchForecast(
+      offSeasonHass(true),
+      makeConfig({ city: "Stockholm", allergens: ["Björk", "Al"] }),
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("keeps the no-data sentinel without the attribute or when it is not true", async () => {
+    for (const flag of [undefined, false, "true"]) {
+      const result = await fetchForecast(
+        offSeasonHass(flag),
+        makeConfig({
+          city: "Stockholm",
+          allergens: ["Björk"],
+          pollen_threshold: 0,
+          days_to_show: 2,
+        }),
+      );
+      expect(result[0]!.days.every((d: any) => d.state === -1)).toBe(true);
+    }
+  });
+
+  it("leaves a published forecast untouched", async () => {
+    const hass = createHass({
+      "sensor.pollen_stockholm_bjork": createPPSensor([3, 2], {
+        end_of_season: true,
+      }),
+    });
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        city: "Stockholm",
+        allergens: ["Björk"],
+        pollen_threshold: 0,
+        days_to_show: 2,
+      }),
+    );
+    expect(result[0]!.days.map((d: any) => d.state)).toEqual([3, 2]);
+  });
+
+  it("keeps no data for an invalid published level but zeroes padded days", async () => {
+    const hass = createHass({
+      "sensor.pollen_stockholm_bjork": createPPSensor([null, 2], {
+        end_of_season: true,
+      }),
+    });
+    const result = await fetchForecast(
+      hass,
+      makeConfig({
+        city: "Stockholm",
+        allergens: ["Björk"],
+        pollen_threshold: 0,
+        days_to_show: 3,
+      }),
+    );
+    expect(result[0]!.days.map((d: any) => d.state)).toEqual([-1, 2, 0]);
+  });
+});
+
 describe("PP adapter: resolveEntityIds — device-based discovery", () => {
   const { resolveEntityIds } = PP;
 

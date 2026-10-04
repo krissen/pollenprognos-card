@@ -345,7 +345,9 @@ export function selectBadgeSensor(
  * fetching the same entity from a casing/diacritic variant. The threshold is set
  * to 0 so a level-0 / no-data named allergen still reaches selectBadgeSensor,
  * which resolves the name canonically; a genuine miss then surfaces as no-data
- * rather than the wrong allergen. Pure: returns the input unchanged for any
+ * rather than the wrong allergen. With hide_no_allergens_display on, the
+ * configured threshold is kept instead (see the comment at the return). Pure:
+ * returns the input unchanged for any
  * non-single / unnamed config, else a shallow-merged copy.
  *
  * @param {object} config - badge config (already typeguarded by _buildConfig).
@@ -375,6 +377,14 @@ export function pinBadgeSingleAllergen(
     );
   });
   const allergens = matches.length ? matches : [key];
+  // hide_no_allergens_display (#369) needs the configured threshold: with it
+  // dropped to 0 the named sensor always survives the filter, the badge never
+  // reaches its no-pollen state and so never hides. A below-threshold reading
+  // then classifies as no-pollen (hidden) and a missing one as no-data (still
+  // shown), so only the opt-in path keeps it.
+  if (config.hide_no_allergens_display === true) {
+    return { ...config, allergens };
+  }
   return { ...config, allergens, pollen_threshold: 0 };
 }
 

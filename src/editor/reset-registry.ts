@@ -69,6 +69,7 @@ export const INTEGRATION_RESET_KEYS = [
 export const ALLERGENS_RESET_KEYS = [
   "allergens",
   "pollen_threshold",
+  "hide_no_allergens_display",
   "sort",
   "sort_category_allergens_first",
   "sort_pollution_block",

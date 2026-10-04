@@ -14,7 +14,7 @@
 // getConfigElement points at that tag so HA can lazy-load it when ready.
 
 import { LitElement, html, css } from "lit";
-import type { TemplateResult } from "lit";
+import type { PropertyValues, TemplateResult } from "lit";
 import type { PrimitiveType } from "intl-messageformat";
 import { t, detectLang } from "./i18n.js";
 import { getAdapter, getStubConfig } from "./adapter-registry.js";
@@ -49,6 +49,7 @@ import {
 } from "./utils/badge-label.js";
 import type { BadgeLabelContent } from "./utils/badge-label.js";
 import { deepEqual } from "./utils/confcompare.js";
+import { isInPreview, syncSelfVisibility } from "./utils/self-visibility.js";
 import {
   detectIntegrationStates,
   pickIntegration,
@@ -92,6 +93,13 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
   declare _error?: string | null;
   // Monotonic fetch token; starts undefined and is read via `|| 0`.
   declare _fetchSeq?: number;
+  // Set by Home Assistant while the badge is shown in the badge editor or a
+  // dashboard in edit mode (hui-badge forwards it as `preview`).
+  declare preview?: boolean;
+  // Keep the element attached while hide_no_allergens_display has it hidden, so
+  // hui-badge never detaches it and it keeps receiving hass updates (and can
+  // reveal itself again when pollen returns).
+  connectedWhileHidden = true;
 
   // ---------------------------------------------------------------------- //
   // Lit reactive properties                                                  //
@@ -106,6 +114,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       _isLoaded: { type: Boolean, state: true },
       _noPollen: { state: true },
       _noData: { state: true },
+      preview: { type: Boolean },
     };
   }
 
@@ -312,6 +321,10 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       config.show_google_attribution === "false"
     );
 
+    // hide_no_allergens_display (#369) is a plain opt-in flag: only a real
+    // true / the "true" YAML string turns it on, everything else stays off.
+    const hideNoAllergensDisplay = coerceBool(config.hide_no_allergens_display);
+
     // badge_visual drives two engine flags so the shared LevelCircleMixin
     // renders the right centre content: icon_in_ring shows the allergen icon;
     // ring_value shows the numeric overlay; ring_empty/icon_only show neither
@@ -359,6 +372,7 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       badge_icon_scale: badgeIconScale,
       badge_label_position: badgeLabelPosition,
       badge_label_content: badgeLabelContent,
+      hide_no_allergens_display: hideNoAllergensDisplay,
       icon_in_ring: iconInRing,
       show_value_numeric_in_circle: showValueInCircle,
       levels_thickness: effectiveThickness,
@@ -571,7 +585,74 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
     </div>`;
   }
 
+  /**
+   * True when the user opted into hide_no_allergens_display and nothing the
+   * badge shows today reaches the threshold. Two shapes qualify: the genuine
+   * "no allergens" image (loaded, nothing kept by the threshold filter,
+   * entities exist and carry real readings; the `_noPollen` branch in
+   * render()), and retained sensors whose current-day readings are all real
+   * but below pollen_threshold. The second exists because the adapters keep a
+   * sensor when ANY forecast day meets the threshold (meetsThreshold) and a
+   * summary row bypasses the filter, while the badge shows only today.
+   * Aggregate mode judges every retained sensor, not just its pick: the pick
+   * is the summary alone, and a low summary must not hide an allergen that is
+   * at or above the threshold. The other modes judge their picks. The
+   * no-information visual (`_noData`), a no-data reading (negative level) and the
+   * empty error / loading pills are deliberately NOT covered, since they point
+   * at a data problem rather than a genuine absence of pollen. Never true in a
+   * preview (badge editor, dashboard edit mode), so the badge stays visible
+   * and editable there.
+   */
+  _isNoAllergensHidden(): boolean {
+    if (this.config?.hide_no_allergens_display !== true || this._inPreview()) {
+      return false;
+    }
+    if (this._isLoaded !== true || this._noData) return false;
+    const picks = selectBadgeSensor(this.sensors, this.config);
+    if (!picks.length) return this._noPollen;
+    const threshold = Number(this.config.pollen_threshold);
+    if (!Number.isFinite(threshold) || threshold <= 0) return false;
+    const candidates =
+      this.config.badge_content === "aggregate" ? this.sensors : picks;
+    return candidates.every((sensor) => {
+      const level = badgeRingLevel(sensor.days?.[0]);
+      return level >= 0 && level < threshold;
+    });
+  }
+
+  // Shown in an editor or a dashboard in edit mode (see isInPreview).
+  _inPreview(): boolean {
+    return isInPreview(this);
+  }
+
+  // Entering or leaving dashboard edit mode re-parents the badge (into or out
+  // of hui-badge-edit-mode), so re-check visibility on every connect: on HA
+  // releases before 2026.10 nothing else tells the badge that preview changed.
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this.requestUpdate();
+  }
+
+  // Mirror _isNoAllergensHidden() onto the host so hui-badge collapses the
+  // slot (see syncSelfVisibility).
+  _syncNoAllergensVisibility(): void {
+    syncSelfVisibility(
+      this,
+      this._isNoAllergensHidden(),
+      "badge-visibility-changed",
+    );
+  }
+
+  override updated(changedProps: PropertyValues): void {
+    this._syncNoAllergensVisibility();
+    super.updated(changedProps);
+  }
+
   override render(): TemplateResult {
+    // hide_no_allergens_display: render nothing (the host is hidden in
+    // updated(); this also covers a render that runs before that sync).
+    if (this._isNoAllergensHidden()) return html``;
+
     // Pill height follows the HA badge convention; the ring sits inside it.
     const height = this._badgeBaseSize();
     const ring = Math.round(height * 0.78);
@@ -637,9 +718,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       // breezy no_allergens image instead of a blank pill. Reuse
       // _renderAllergenSvg("no_allergens", 0) so the level-0 colour matches the
       // card. This applies to every mode, keyed only on _noPollen: a single
-      // badge WITH a named allergen never reaches here with _noPollen set,
-      // because the pin forces pollen_threshold 0 so its sensor is kept (it
-      // renders its own ring / no-data visual). A single badge with NO named
+      // badge WITH a named allergen normally never reaches here with _noPollen
+      // set, because the pin forces pollen_threshold 0 so its sensor is kept (it
+      // renders its own ring / no-data visual). The exception is
+      // hide_no_allergens_display, where the pin keeps the configured
+      // threshold: below it the badge is hidden, and in a preview it shows this
+      // breezy image instead of the named ring. A single badge with NO named
       // allergen is effectively "worst" and must show breezy here too, not a
       // blank pill. aggregate with a surviving summary is non-empty and rendered
       // below; with no summary it falls back to worst, so breezy is right.
@@ -832,6 +916,12 @@ class PollenPrognosBadge extends LevelCircleMixin(LitElement) {
       :host {
         display: inline-flex;
         align-items: center;
+      }
+
+      /* hide_no_allergens_display sets the hidden attribute; the display rule
+         above would otherwise override it outside hui-badge. */
+      :host([hidden]) {
+        display: none;
       }
 
       /* The pill follows the native Home Assistant badge box so badges drop in

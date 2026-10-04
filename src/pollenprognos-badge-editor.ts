@@ -72,6 +72,9 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         ? config.badge_single_allergen
         : undefined;
     const badgeShowLabel = coerceBool(config.badge_show_label);
+    // Same coercion as the badge runtime, so a hand-written YAML "true" shows
+    // the Allergens checkbox as checked instead of off (#369).
+    const hideNoAllergensDisplay = coerceBool(config.hide_no_allergens_display);
     const badgeVisual =
       typeof config.badge_visual === "string" ? config.badge_visual : undefined;
     const badgeScale =
@@ -96,6 +99,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
       integration: integration as string,
       badge_content: badgeContent,
       badge_show_label: badgeShowLabel,
+      hide_no_allergens_display: hideNoAllergensDisplay,
       ...(badgeSingleAllergen !== undefined
         ? { badge_single_allergen: badgeSingleAllergen }
         : {}),
