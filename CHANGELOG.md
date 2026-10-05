@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.4.1]
+
+### Fixed
+
+- **Hide-when-no-pollen across failed and recovered refreshes** (follow-up to
+  #372, in #374). With `hide_no_allergens_display`, a failed refresh kept the
+  stale no-pollen state, leaving the card invisible instead of showing the
+  error; a later identical successful refresh then kept the error, leaving the
+  card on the error instead of recovering to the hidden no-pollen state.
+  Failed refreshes now surface the error, successful ones always clear it, and
+  superseded failures no longer overwrite newer results.
+
 ## [4.4.0] - 2026-10-03
 
 ### Added
