@@ -16,6 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   Failed refreshes now surface the error, successful ones always clear it, and
   superseded failures no longer overwrite newer results.
 
+## [Unreleased]
+
+### Added
+
+- **Console capture for the ad-hoc screenshot helper** (issue #373).
+  `scripts/screenshots/shoot.py` takes `--console-log PATH`, saving the raw
+  browser console alongside the screenshot. With `debug: true` on the shot
+  card the log shows entity resolution and per-sensor levels, tying the image
+  back to the data behind it during issue triage.
+
 ## [4.4.0] - 2026-10-03
 
 ### Added

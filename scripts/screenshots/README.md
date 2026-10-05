@@ -21,6 +21,12 @@ export HASS_TOKEN=<long-lived hass-test token>   # do NOT commit
 # optional: export HASS_URL=http://localhost:8123
 ```
 
+The injected token object carries a far-future `expires` on purpose: the
+frontend treats an expired (or imminently expiring) token without a usable
+`refresh_token` as logged out and bounces back to the login page mid-session.
+Don't "simplify" the injection to a short-lived token — the run will render
+fine and then lose its session right before the screenshots.
+
 ## Fixtures
 
 Card and badge configs live under `docs/screenshots/fixtures/` so the image set
@@ -67,7 +73,10 @@ resulting screenshots still show the instance's UI language, so shoot the
 committed docs images against an English-language HA.
 
 `shoot.py` is a thin helper for ad-hoc shots (a badge row or a card by index in
-a given view).
+a given view). `--console-log PATH` additionally saves the raw browser console
+(one `type: text` line per message), which ties a screenshot back to the data
+behind it: with `debug: true` on the shot card the log shows entity resolution
+and per-sensor levels. Used for issue triage (e.g. #373).
 
 The README badge block (`hero-badges.png`) is shot manually: apply
 `fixtures/hero-badges.json` as a view's `badges:`, open it at a narrow viewport
