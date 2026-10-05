@@ -601,6 +601,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               : false;
           if (fetchId !== this._fetchSeq) return;
           this._noPollenData = noPollenData;
+          // A successful fetch clears any earlier fetch failure. The helper
+          // below returns early when the data is unchanged, so the error must
+          // be cleared here or a transient failure would stick past recovery.
+          this._error = null;
           this._updateSensorsAndColumns(
             filtered,
             availableSensors,
@@ -610,8 +614,16 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // this.requestUpdate();
         })
         .catch((err) => {
+          // Drop a superseded fetch before mutating any state (same guard as
+          // the success path above).
+          if (fetchId !== this._fetchSeq) return;
           console.error("[Card] Error fetching SILAM forecast:", err);
           if (this.debug) console.debug("[Card] SILAM fetch error:", err);
+          // Clear a stale no-pollen classification so a previously hidden card
+          // turns visible again, and record the failure so render() takes the
+          // error branch instead of the hidden no-allergens state.
+          this._noPollenData = false;
+          this._error = "card.error_entity_unavailable";
           this._isLoaded = true; // Avoid endless loading on failure.
           this.requestUpdate();
         });
@@ -1511,6 +1523,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // Drop a superseded fetch before mutating any state.
           if (fetchId !== this._fetchSeq) return;
           this._noPollenData = noPollenData;
+          // A successful fetch clears any earlier fetch failure. The helper
+          // below returns early when the data is unchanged, so the error must
+          // be cleared here or a transient failure would stick past recovery.
+          this._error = null;
 
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;
@@ -1531,8 +1547,16 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
         })
 
         .catch((err) => {
+          // Drop a superseded fetch before mutating any state (same guard as
+          // the success path above).
+          if (fetchId !== this._fetchSeq) return;
           console.error("[Card] Error fetching pollen forecast:", err);
           if (this.debug) console.debug("[Card] fetchForecast error:", err);
+          // Clear a stale no-pollen classification so a previously hidden card
+          // turns visible again, and record the failure so render() takes the
+          // error branch instead of the hidden no-allergens state.
+          this._noPollenData = false;
+          this._error = "card.error_entity_unavailable";
           this._isLoaded = true; // Avoid endless loading on failure.
           this.requestUpdate();
         });
