@@ -14,6 +14,10 @@ Usage:
     # Render as if the browser were in another timezone (see --timezone below):
     python shoot.py --view pollen-test/issue271 --card 0 --out out.png \
         --timezone Australia/Sydney
+
+    # Also save the browser console (entity resolution, levels) for triage:
+    python shoot.py --view pollen-test/373-ugly-icons --card 0 --out out.png \
+        --console-log out.log
 """
 import argparse, json, os, sys, time
 from playwright.sync_api import sync_playwright
@@ -65,6 +69,13 @@ def main():
     ap.add_argument("--timezone",
         help="browser IANA timezone, e.g. Australia/Sydney (default: machine zone). "
              "Reproduces timezone-dependent day-column rendering; see issue #271.")
+    # --console-log saves the raw browser console (one "type: text" line per
+    # message). The card logs entity resolution and per-sensor levels there
+    # when a shot card runs with debug: true, which is what lets a screenshot
+    # be tied back to the data behind it during issue triage (see #373).
+    ap.add_argument("--console-log",
+        help="output path: save the browser console log. "
+             "Useful for issue triage alongside the screenshot.")
     a = ap.parse_args()
     if not TOKEN:
         print("ERROR: set HASS_TOKEN", file=sys.stderr); sys.exit(2)
@@ -76,6 +87,9 @@ def main():
         ctx = b.new_context(**ctx_opts)
         ctx.add_init_script(tokens_init())
         pg = ctx.new_page()
+        console_lines: list[str] = []
+        if a.console_log:
+            pg.on("console", lambda m: console_lines.append(f"{m.type}: {m.text}"))
         pg.goto(f"{URL}/{a.view}", wait_until="networkidle")
         waited = wait_ready(pg, a.timeout)
         empties = pg.evaluate(
@@ -91,6 +105,10 @@ def main():
             el.scroll_into_view_if_needed(); pg.wait_for_timeout(400)
             el.screenshot(path=a.out)
             print("saved", a.out)
+        if a.console_log:
+            with open(a.console_log, "w") as f:
+                f.write("\n".join(console_lines) + "\n" if console_lines else "")
+            print(f"saved {a.console_log} ({len(console_lines)} lines)")
         b.close()
 
 if __name__ == "__main__":
