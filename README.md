@@ -117,6 +117,7 @@ Thank you to everyone who has contributed to this project:
 - [@Krzysztonek](https://github.com/Krzysztonek) - Polish localization
 - [@AndreasSkarpelos](https://github.com/AndreasSkarpelos) - Greek localization
 - [@r3turnNull](https://github.com/r3turnNull) - MeteoSwiss / hass-swissweather adapter (#212)
+- [@sebfrie](https://github.com/sebfrie) - Hide-when-no-pollen badge option (#370)
 
 ---
 
