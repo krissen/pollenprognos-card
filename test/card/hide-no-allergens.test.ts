@@ -15,13 +15,44 @@
  * the other card tests use and calls render() / the sync method directly.
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import {
   ALLERGENS_RESET_KEYS,
   APPEARANCE_RESET_KEYS,
 } from "../../src/editor/reset-registry.js";
 import { COSMETIC_FIELDS } from "../../src/constants.js";
+import type { HomeAssistant } from "../../src/types/home-assistant.js";
 import { createHass, createPPSensor } from "../helpers.js";
+
+/**
+ * Per-test fetch override. The registry hands out frozen adapter module
+ * namespaces, so tests cannot reassign `fetchForecast` on the adapter itself.
+ * Instead the registry mock below wraps the real adapter in a plain object
+ * with a delegating `fetchForecast` whenever an override is installed.
+ */
+const fetchOverrides = vi.hoisted(() => ({
+  pp: null as ((...args: any[]) => Promise<any>) | null,
+  silam: null as ((...args: any[]) => Promise<any>) | null,
+}));
+
+vi.mock("../../src/adapter-registry.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../src/adapter-registry.js")>();
+  return {
+    ...actual,
+    getAdapter: (id: string | undefined) => {
+      const real = actual.getAdapter(id);
+      const override =
+        id === "pp"
+          ? fetchOverrides.pp
+          : id === "silam"
+            ? fetchOverrides.silam
+            : null;
+      if (!real || !override) return real;
+      return { ...real, fetchForecast: override };
+    },
+  };
+});
 
 class FakeNode {
   childNodes: unknown[] = [];
@@ -111,9 +142,13 @@ type CardLike = {
   updated: (changed: Map<string, unknown>) => void;
   dispatchEvent: (ev: Event) => boolean;
   _isNoAllergensHidden: () => boolean;
+  _updateSensorsAfterForecastEvent: () => void;
   connectedWhileHidden: boolean;
   hidden: boolean;
   preview?: boolean;
+  hass: HomeAssistant;
+  _hass: unknown;
+  _forecastEvent: unknown;
   sensors: unknown[];
   _isLoaded: boolean;
   _error: string | null;
@@ -624,5 +659,115 @@ describe("the card collapses its host through hui-card (#369)", () => {
 
   it("asks hui-card to keep it connected while hidden", () => {
     expect(new CardCtor().connectedWhileHidden).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A fetch failure clears the hidden no-pollen state (PR #372 review follow-up)
+// ---------------------------------------------------------------------------
+
+/** Let queued promise continuations (the card's fetch chains) run. */
+async function flushFetches(times = 25): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
+}
+
+/** Card with explicit silam integration in the genuine no-pollen state. */
+function noPollenSilamCard(config: Record<string, unknown> = {}): CardLike {
+  const card = new CardCtor();
+  card.setConfig({
+    type: "custom:pollenprognos-card",
+    integration: "silam",
+    hide_no_allergens_display: true,
+    ...config,
+  });
+  card.sensors = [];
+  card._isLoaded = true;
+  card._error = null;
+  card._availableSensorCount = 2;
+  card._noPollenData = true;
+  return card;
+}
+
+describe("a fetch failure clears the hidden no-pollen state (#372)", () => {
+  it("set hass: a rejected refresh unhides the card and shows the error", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchOverrides.pp = () => Promise.reject(new Error("fetch failed"));
+    try {
+      const card = noPollenCard({ hide_no_allergens_display: true });
+      expect(card._isNoAllergensHidden()).toBe(true);
+
+      card.hass = createHass({
+        "sensor.pollen_stockholm_bjork": createPPSensor([0, 0, 0]),
+      });
+      await flushFetches();
+
+      expect(card._noPollenData).toBe(false);
+      expect(card._error).toBe("card.error_entity_unavailable");
+      expect(card._isNoAllergensHidden()).toBe(false);
+      expect(deepTemplateText(card.render())).toContain("card-error");
+    } finally {
+      fetchOverrides.pp = null;
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("SILAM forecast-event fetch: a rejection unhides the card and shows the error", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchOverrides.silam = () => Promise.reject(new Error("fetch failed"));
+    try {
+      const card = noPollenSilamCard();
+      expect(card._isNoAllergensHidden()).toBe(true);
+
+      card._hass = createHass({
+        "sensor.pollen_stockholm_bjork": createPPSensor([0, 0, 0]),
+      });
+      card._forecastEvent = {};
+      card._updateSensorsAfterForecastEvent();
+      await flushFetches();
+
+      expect(card._noPollenData).toBe(false);
+      expect(card._error).toBe("card.error_entity_unavailable");
+      expect(card._isNoAllergensHidden()).toBe(false);
+      expect(deepTemplateText(card.render())).toContain("card-error");
+    } finally {
+      fetchOverrides.silam = null;
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("a superseded fetch failure does not clobber newer state", async () => {
+    let rejectFirst!: (reason?: unknown) => void;
+    let calls = 0;
+    fetchOverrides.pp = () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Promise<never>((_, reject) => {
+          rejectFirst = reject;
+        });
+      }
+      return Promise.resolve([]);
+    };
+    try {
+      const card = noPollenCard({ hide_no_allergens_display: true });
+      card.hass = createHass({
+        "sensor.pollen_stockholm_bjork": createPPSensor([0, 0, 0]),
+      });
+      // A newer fetch starts before the first one settles.
+      card.hass = createHass({});
+      await flushFetches();
+      expect(calls).toBe(2);
+
+      // The stale fetch now fails: the guard must drop it before it can
+      // record an error over the newer successful state.
+      rejectFirst(new Error("stale failure"));
+      await flushFetches();
+
+      expect(card._error).toBe(null);
+      expect(card._noPollenData).toBe(false);
+    } finally {
+      fetchOverrides.pp = null;
+    }
   });
 });
