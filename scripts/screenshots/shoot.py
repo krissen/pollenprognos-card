@@ -106,7 +106,10 @@ def main():
             el.screenshot(path=a.out)
             print("saved", a.out)
         if a.console_log:
-            with open(a.console_log, "w") as f:
+            # Explicit UTF-8: the captured console is non-ASCII by default
+            # (e.g. the 🤧 version message), so a platform default like
+            # Windows cp1252 would raise UnicodeEncodeError here.
+            with open(a.console_log, "w", encoding="utf-8") as f:
                 f.write("\n".join(console_lines) + "\n" if console_lines else "")
             print(f"saved {a.console_log} ({len(console_lines)} lines)")
         b.close()
