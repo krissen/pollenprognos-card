@@ -601,6 +601,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
               : false;
           if (fetchId !== this._fetchSeq) return;
           this._noPollenData = noPollenData;
+          // A successful fetch clears any earlier fetch failure. The helper
+          // below returns early when the data is unchanged, so the error must
+          // be cleared here or a transient failure would stick past recovery.
+          this._error = null;
           this._updateSensorsAndColumns(
             filtered,
             availableSensors,
@@ -1519,6 +1523,10 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
           // Drop a superseded fetch before mutating any state.
           if (fetchId !== this._fetchSeq) return;
           this._noPollenData = noPollenData;
+          // A successful fetch clears any earlier fetch failure. The helper
+          // below returns early when the data is unchanged, so the error must
+          // be cleared here or a transient failure would stick past recovery.
+          this._error = null;
 
           const explicitLocation = this._integrationExplicit && !!cfg.location;
           const noAvailableSensors = availableSensorCount === 0;

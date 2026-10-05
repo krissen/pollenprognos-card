@@ -770,4 +770,77 @@ describe("a fetch failure clears the hidden no-pollen state (#372)", () => {
       fetchOverrides.pp = null;
     }
   });
+
+  it("set hass: recovery with unchanged data clears the error and hides again", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // Main fetch resolves empty; the threshold-0 classification re-fetch
+    // reports one valid reading, i.e. genuine no pollen.
+    const emptyThenValid = () => {
+      let n = 0;
+      return () => {
+        n += 1;
+        if (n % 2 === 1) return Promise.resolve([]);
+        return Promise.resolve([{ days: [{ state: 0 }] }]);
+      };
+    };
+    const twoSensorHass = () =>
+      createHass({
+        "sensor.pollen_stockholm_bjork": createPPSensor([0, 0, 0]),
+        "sensor.pollen_stockholm_gras": createPPSensor([0, 0, 0]),
+      });
+    try {
+      const card = noPollenCard({ hide_no_allergens_display: true });
+      // Settle into the classified no-pollen state (hidden).
+      fetchOverrides.pp = emptyThenValid();
+      card.hass = twoSensorHass();
+      await flushFetches();
+      expect(card._error).toBe(null);
+      expect(card._noPollenData).toBe(true);
+      expect(card._isNoAllergensHidden()).toBe(true);
+
+      // A transient failure surfaces the error (visible again).
+      fetchOverrides.pp = () => Promise.reject(new Error("fetch failed"));
+      card.hass = twoSensorHass();
+      await flushFetches();
+      expect(card._error).toBe("card.error_entity_unavailable");
+      expect(card._isNoAllergensHidden()).toBe(false);
+
+      // An identical successful refresh early-returns in
+      // _updateSensorsAndColumns, so the error must already be cleared by the
+      // success path itself for the card to recover (and hide) here.
+      fetchOverrides.pp = emptyThenValid();
+      card.hass = twoSensorHass();
+      await flushFetches();
+      expect(card._noPollenData).toBe(true);
+      expect(card._error).toBe(null);
+      expect(card._isNoAllergensHidden()).toBe(true);
+      expect(deepTemplateText(card.render())).toBe("");
+    } finally {
+      fetchOverrides.pp = null;
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("SILAM forecast-event fetch: recovery with unchanged data clears the error", async () => {
+    fetchOverrides.silam = () => Promise.resolve([]);
+    try {
+      const card = noPollenSilamCard();
+      card._hass = createHass({});
+      card._forecastEvent = {};
+      // Settle the displayed state so the next identical success early-returns
+      // in _updateSensorsAndColumns ...
+      card._updateSensorsAfterForecastEvent();
+      await flushFetches();
+      expect(card._error).toBe(null);
+      // ... then simulate the post-failure state the SILAM catch produces
+      // (covered by the rejection test above) ...
+      card._error = "card.error_entity_unavailable";
+      // ... and recover with the same unchanged data.
+      card._updateSensorsAfterForecastEvent();
+      await flushFetches();
+      expect(card._error).toBe(null);
+    } finally {
+      fetchOverrides.silam = null;
+    }
+  });
 });
