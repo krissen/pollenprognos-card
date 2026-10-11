@@ -28,8 +28,9 @@ bots.**
 - **Both bots up and working → do NOT run Nagelfar**; it costs tokens for review the bots
   already give.
 
-The normal path is the Codex + Copilot double loop (see `~/.claude/CLAUDE.md` § Code
-review-loop). Nagelfar only fills the gap when that loop cannot run in full.
+The normal path is the bot-review loop in the `/botreview-loop` skill (Codex iterates,
+Copilot runs once as the final round). Nagelfar only fills the gap when that loop cannot
+run in full.
 
 ## Quickstart
 
