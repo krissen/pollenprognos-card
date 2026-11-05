@@ -158,14 +158,6 @@ function resolveMswLabel(ctx: DiscoveryContext): string {
 }
 
 /**
- * Discover hass-swissweather pollen-level sensors grouped by config entry.
- *
- * Three-tier cascade via shared helper:
- *   1. Device registry: hass.devices with identifiers ["swissweather", ...].
- *   2. Entity registry: hass.entities filtered by platform === "swissweather".
- *   3. Regex fallback: hass.states scanned for the level-entity pattern.
- */
-/**
  * Tier 3 / autodetect fallback for MeteoSwiss pollen entity ids. The
  * device-name prefix is `(?:\w+_)?`, not `(?:\w+_)*`: both accept the same
  * ids (`\w` includes `_`), but the starred form backtracks exponentially on
@@ -175,6 +167,14 @@ function resolveMswLabel(ctx: DiscoveryContext): string {
 export const MSW_FALLBACK_RE =
   /^sensor\.(?:\w+_)?pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
 
+/**
+ * Discover hass-swissweather pollen-level sensors grouped by config entry.
+ *
+ * Three-tier cascade via shared helper:
+ *   1. Device registry: hass.devices with identifiers ["swissweather", ...].
+ *   2. Entity registry: hass.entities filtered by platform === "swissweather".
+ *   3. Regex fallback: hass.states scanned for the level-entity pattern.
+ */
 function discoverMswSensorsUncached(
   hass: HomeAssistant,
   debug = false,
