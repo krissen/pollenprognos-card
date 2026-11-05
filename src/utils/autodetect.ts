@@ -40,7 +40,7 @@ export type LocationResult = { key: string; value: unknown } | null;
  */
 export interface DetectionResult {
   stateIds: string[];
-  states: Record<string, string[]>;
+  states: Record<string, readonly string[]>;
   // silam/atmo/gp/kleenex run their discovery eagerly during detection (their
   // descriptors always return it), so these are always present.
   discovery: {
@@ -103,7 +103,7 @@ function makeLazyDiscovery(
 // exact element-wise comparison (~0.05 ms for 14k ids) decides, and any
 // change, including a reorder, starts a fresh cache.
 let filterIdSet: string[] | null = null;
-let filterResults = new Map<string, string[]>();
+let filterResults = new Map<string, readonly string[]>();
 
 function sameIdSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -120,7 +120,12 @@ function idFilters(stateIds: string[]): AutodetectContext["filterIds"] {
   return (key, pred) => {
     let ids = results.get(key);
     if (ids === undefined) {
-      ids = stateIds.filter((id) => typeof id === "string" && pred(id));
+      // Frozen: the array outlives this update and is shared by every caller
+      // until the id set changes, so a mutation must fail loudly rather than
+      // leak into other cards (ES modules run in strict mode, so it throws).
+      ids = Object.freeze(
+        stateIds.filter((id) => typeof id === "string" && pred(id)),
+      );
       results.set(key, ids);
     }
     return ids;
@@ -175,7 +180,7 @@ function detectIntegrationStatesUncached(
     filterIds: idFilters(stateIds),
   };
 
-  const states: Record<string, string[]> = {};
+  const states: Record<string, readonly string[]> = {};
   const eagerDiscovery: Record<string, AutodetectDiscovery> = {};
 
   // Detect every integration uniformly, in priority order. Descriptors that run

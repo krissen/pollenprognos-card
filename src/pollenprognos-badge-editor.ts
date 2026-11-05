@@ -1050,13 +1050,6 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         box-sizing: border-box;
       }
 
-      pp-formfield label {
-        vertical-align: middle;
-        margin-left: 8px;
-        margin-right: 0;
-        padding: 0;
-      }
-
       /* Section helper text below summary */
       .section-helper {
         font-size: 12px;

@@ -80,3 +80,13 @@ describe("autodetect caching (#383)", () => {
     );
   });
 });
+
+describe("shared filter results are frozen (#383 follow-up)", () => {
+  it("throws on mutation instead of leaking into other callers", () => {
+    const d = detectIntegrationStates(hass([...DWD, ...OTHER]));
+    expect(Object.isFrozen(d.states.dwd)).toBe(true);
+    expect(() => (d.states.dwd as string[]).push("sensor.x")).toThrow(
+      TypeError,
+    );
+  });
+});

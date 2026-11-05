@@ -511,12 +511,9 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
                 "- will try next integration",
               );
             }
-            // Force re-evaluation by bypassing the reference equality check.
-            // The null seed is intentional (defeats set hass's === guard); cast
-            // for the field's HomeAssistant | undefined type.
-            const hass = this._hass;
-            this._hass = null as unknown as HomeAssistant | undefined;
-            this.hass = hass as HomeAssistant;
+            // Re-run detection with the same hass (the setter's identity
+            // guard would skip it).
+            if (this._hass) this._applyHass(this._hass);
           } else {
             if (this.sensors?.length !== 0) this.sensors = [];
             if (this._availableSensorCount !== 0)
@@ -759,12 +756,23 @@ class PollenPrognosCard extends LevelCircleMixin(LitElement) {
     }
     this._initDone = false;
     if (this._hass) {
-      this.hass = this._hass;
+      this._applyHass(this._hass);
     }
   }
   set hass(hass: HomeAssistant) {
     if (this._hass === hass) return;
     this._hass = hass;
+    this._applyHass(hass);
+  }
+
+  /**
+   * Derive the effective config from `hass` and fetch. Runs for every new
+   * `hass` object, and from setConfig after a data-driven config change: the
+   * setter's identity guard used to turn that second call into a no-op, so a
+   * changed allergen list or location waited for the next state update anywhere
+   * in Home Assistant before the card refetched.
+   */
+  private _applyHass(hass: HomeAssistant): void {
     const explicit = !!this._integrationExplicit;
     if (this.debug)
       console.debug("[Card] set hass called; explicit:", explicit);
