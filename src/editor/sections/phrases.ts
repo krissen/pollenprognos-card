@@ -51,15 +51,15 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
       <div class="section-helper">
         ${editor._t("helper_translation_and_strings")}
       </div>
-      <ha-formfield label="${editor._t("locale")}">
+      <pp-formfield label="${editor._t("locale")}">
         ${editor._renderTextField({
           value: dateLocale || "",
           onInput: (v) => editor._updateConfig("date_locale", v),
         })}
-      </ha-formfield>
+      </pp-formfield>
       <h3>${editor._t("phrases")}</h3>
       <div class="preset-buttons">
-        <ha-formfield label="${editor._t("phrases_translate_all")}">
+        <pp-formfield label="${editor._t("phrases_translate_all")}">
           <ha-selector
             .hass=${editor._hass}
             .selector=${{
@@ -80,7 +80,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
               if (v !== undefined) editor._selectedPhraseLang = v as string;
             }}
           ></ha-selector>
-        </ha-formfield>
+        </pp-formfield>
         ${editor._renderTextButton({
           label: editor._t("phrases_apply"),
           onClick: () =>
@@ -91,7 +91,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
         <summary>${editor._t("phrases_full")}</summary>
         ${allergens.map(
           (a) => html`
-            <ha-formfield .label=${a}>
+            <pp-formfield .label=${a}>
               ${editor._renderTextField({
                 value: full[a] || "",
                 onInput: (v) => {
@@ -102,7 +102,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                   editor._updateConfig("phrases", p);
                 },
               })}
-            </ha-formfield>
+            </pp-formfield>
           `,
         )}
       </details>
@@ -113,7 +113,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                 <summary>${editor._t("phrases_short")}</summary>
                 ${allergens.map(
                   (a) => html`
-                    <ha-formfield .label=${a}>
+                    <pp-formfield .label=${a}>
                       ${editor._renderTextField({
                         value: short[a] || "",
                         onInput: (v) => {
@@ -124,7 +124,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                           editor._updateConfig("phrases", p);
                         },
                       })}
-                    </ha-formfield>
+                    </pp-formfield>
                   `,
                 )}
               </details>
@@ -138,7 +138,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                 <summary>${editor._t("phrases_levels")}</summary>
                 ${Array.from({ length: numLevels }, (_, i) => i).map(
                   (i) => html`
-                    <ha-formfield .label=${i}>
+                    <pp-formfield .label=${i}>
                       ${editor._renderTextField({
                         value: levels[i] || "",
                         onInput: (v) => {
@@ -150,7 +150,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                           });
                         },
                       })}
-                    </ha-formfield>
+                    </pp-formfield>
                   `,
                 )}
               </details>
@@ -164,7 +164,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                 <summary>${editor._t("phrases_days")}</summary>
                 ${[0, 1, 2].map(
                   (i) => html`
-                    <ha-formfield .label=${i}>
+                    <pp-formfield .label=${i}>
                       ${editor._renderTextField({
                         value: days[i] || "",
                         onInput: (v) => {
@@ -175,14 +175,14 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
                           });
                         },
                       })}
-                    </ha-formfield>
+                    </pp-formfield>
                   `,
                 )}
               </details>
             `
           : ""
       }
-      <ha-formfield label="${editor._t("no_information")}">
+      <pp-formfield label="${editor._t("no_information")}">
         ${editor._renderTextField({
           value: (phrases.no_information as string) || "",
           onInput: (v) =>
@@ -191,7 +191,7 @@ export function renderPhrasesSection(editor: PollenEditorLike): TemplateResult {
               no_information: v,
             }),
         })}
-      </ha-formfield>
+      </pp-formfield>
     </details>
   `;
 }

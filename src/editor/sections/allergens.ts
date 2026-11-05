@@ -51,7 +51,7 @@ export function renderAllergensSection(
                   ${["trees_cat", "grass_cat", "weeds_cat"].map((key) => {
                     const displayName = editor._getAllergenDisplayName(key);
                     return html`
-                      <ha-formfield .label=${displayName}>
+                      <pp-formfield .label=${displayName}>
                         <ha-checkbox
                           .checked=${selectedAllergens.includes(key)}
                           @change=${(e: Event) =>
@@ -60,7 +60,7 @@ export function renderAllergensSection(
                               (e.target as HTMLInputElement).checked,
                             )}
                         ></ha-checkbox>
-                      </ha-formfield>
+                      </pp-formfield>
                     `;
                   })}
                 </div>
@@ -87,7 +87,7 @@ export function renderAllergensSection(
                     .map((key) => {
                       const displayName = editor._getAllergenDisplayName(key);
                       return html`
-                        <ha-formfield .label=${displayName}>
+                        <pp-formfield .label=${displayName}>
                           <ha-checkbox
                             .checked=${selectedAllergens.includes(key)}
                             @change=${(e: Event) =>
@@ -96,7 +96,7 @@ export function renderAllergensSection(
                                 (e.target as HTMLInputElement).checked,
                               )}
                           ></ha-checkbox>
-                        </ha-formfield>
+                        </pp-formfield>
                       `;
                     })}
                 </div>
@@ -117,7 +117,7 @@ export function renderAllergensSection(
                       .map((key) => {
                         const displayName = editor._getAllergenDisplayName(key);
                         return html`
-                          <ha-formfield .label=${displayName}>
+                          <pp-formfield .label=${displayName}>
                             <ha-checkbox
                               .checked=${selectedAllergens.includes(key)}
                               @change=${(e: Event) =>
@@ -126,7 +126,7 @@ export function renderAllergensSection(
                                   (e.target as HTMLInputElement).checked,
                                 )}
                             ></ha-checkbox>
-                          </ha-formfield>
+                          </pp-formfield>
                         `;
                       })}
                   </div>
@@ -159,7 +159,7 @@ export function renderAllergensSection(
                       .map((key) => {
                         const displayName = editor._getAllergenDisplayName(key);
                         return html`
-                          <ha-formfield .label=${displayName}>
+                          <pp-formfield .label=${displayName}>
                             <ha-checkbox
                               .checked=${selectedAllergens.includes(key)}
                               @change=${(e: Event) =>
@@ -168,7 +168,7 @@ export function renderAllergensSection(
                                   (e.target as HTMLInputElement).checked,
                                 )}
                             ></ha-checkbox>
-                          </ha-formfield>
+                          </pp-formfield>
                         `;
                       })}
                   </div>
@@ -185,7 +185,7 @@ export function renderAllergensSection(
                       .map((key) => {
                         const displayName = editor._getAllergenDisplayName(key);
                         return html`
-                          <ha-formfield .label=${displayName}>
+                          <pp-formfield .label=${displayName}>
                             <ha-checkbox
                               .checked=${selectedAllergens.includes(key)}
                               @change=${(e: Event) =>
@@ -194,7 +194,7 @@ export function renderAllergensSection(
                                   (e.target as HTMLInputElement).checked,
                                 )}
                             ></ha-checkbox>
-                          </ha-formfield>
+                          </pp-formfield>
                         `;
                       })}
                   </div>
@@ -206,7 +206,7 @@ export function renderAllergensSection(
                   ${allergens.map((key) => {
                     const displayName = editor._getAllergenDisplayName(key);
                     return html`
-                      <ha-formfield .label=${displayName}>
+                      <pp-formfield .label=${displayName}>
                         <ha-checkbox
                           .checked=${selectedAllergens.includes(key)}
                           @change=${(e: Event) =>
@@ -215,7 +215,7 @@ export function renderAllergensSection(
                               (e.target as HTMLInputElement).checked,
                             )}
                         ></ha-checkbox>
-                      </ha-formfield>
+                      </pp-formfield>
                     `;
                   })}
                 </div>
@@ -287,7 +287,7 @@ export function renderAllergensSection(
             )}
         ></ha-slider>
       </div>
-      <ha-formfield label="${editor._t("hide_no_allergens_display")}">
+      <pp-formfield label="${editor._t("hide_no_allergens_display")}">
         <ha-checkbox
           .checked=${c.hide_no_allergens_display === true}
           @change=${(e: Event) =>
@@ -296,11 +296,11 @@ export function renderAllergensSection(
               (e.target as HTMLInputElement).checked,
             )}
         ></ha-checkbox>
-      </ha-formfield>
+      </pp-formfield>
       <div class="field-helper">
         ${editor._t("helper_hide_no_allergens_display")}
       </div>
-      <ha-formfield label="${editor._t("sort")}">
+      <pp-formfield label="${editor._t("sort")}">
         <ha-selector
           .hass=${editor._hass}
           .selector=${{
@@ -315,13 +315,13 @@ export function renderAllergensSection(
             if (v !== undefined) editor._updateConfig("sort", v);
           }}
         ></ha-selector>
-      </ha-formfield>
+      </pp-formfield>
       ${
         c.integration === "kleenex" ||
         c.integration === "gpl" ||
         c.integration === "gp"
           ? html`
-              <ha-formfield
+              <pp-formfield
                 label="${editor._t("sort_category_allergens_first")}"
               >
                 <ha-checkbox
@@ -332,7 +332,7 @@ export function renderAllergensSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
@@ -346,7 +346,7 @@ export function renderAllergensSection(
           c.integration === "gpl") &&
           !c.show_summary_block)
           ? html`
-              <ha-formfield
+              <pp-formfield
                 label="${
                   c.integration === "silam"
                     ? editor._t("index_top")
@@ -365,7 +365,7 @@ export function renderAllergensSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
@@ -376,7 +376,7 @@ export function renderAllergensSection(
         c.integration === "atmo" ||
         c.integration === "gpl"
           ? html`
-              <ha-formfield label="${editor._t("show_summary_block")}">
+              <pp-formfield label="${editor._t("show_summary_block")}">
                 <ha-checkbox
                   .checked=${c.show_summary_block === true}
                   @change=${(e: Event) =>
@@ -385,11 +385,11 @@ export function renderAllergensSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
               ${
                 c.show_summary_block
                   ? html`
-                      <ha-formfield label="${editor._t("show_summary_row")}">
+                      <pp-formfield label="${editor._t("show_summary_row")}">
                         <ha-checkbox
                           .checked=${c.show_summary_row === true}
                           @change=${(e: Event) =>
@@ -398,11 +398,11 @@ export function renderAllergensSection(
                               (e.target as HTMLInputElement).checked,
                             )}
                         ></ha-checkbox>
-                      </ha-formfield>
+                      </pp-formfield>
                       ${
                         c.show_summary_row
                           ? html`
-                              <ha-formfield
+                              <pp-formfield
                                 label="${editor._t("show_summary_separator")}"
                               >
                                 <ha-checkbox
@@ -413,14 +413,14 @@ export function renderAllergensSection(
                                       (e.target as HTMLInputElement).checked,
                                     )}
                                 ></ha-checkbox>
-                              </ha-formfield>
+                              </pp-formfield>
                             `
                           : ""
                       }
                       ${
                         c.integration === "gpl"
                           ? html`
-                              <ha-formfield
+                              <pp-formfield
                                 label="${editor._t("show_summary_top_types")}"
                               >
                                 <ha-checkbox
@@ -431,8 +431,8 @@ export function renderAllergensSection(
                                       (e.target as HTMLInputElement).checked,
                                     )}
                                 ></ha-checkbox>
-                              </ha-formfield>
-                              <ha-formfield
+                              </pp-formfield>
+                              <pp-formfield
                                 label="${editor._t(
                                   "show_summary_plants_in_season",
                                 )}"
@@ -447,7 +447,7 @@ export function renderAllergensSection(
                                       (e.target as HTMLInputElement).checked,
                                     )}
                                 ></ha-checkbox>
-                              </ha-formfield>
+                              </pp-formfield>
                             `
                           : ""
                       }
@@ -460,7 +460,7 @@ export function renderAllergensSection(
       ${
         c.integration === "atmo"
           ? html`
-              <ha-formfield label="${editor._t("sort_pollution_block")}">
+              <pp-formfield label="${editor._t("sort_pollution_block")}">
                 <ha-checkbox
                   .checked=${c.sort_pollution_block}
                   @change=${(e: Event) =>
@@ -469,11 +469,11 @@ export function renderAllergensSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
               ${
                 c.sort_pollution_block
                   ? html`
-                      <ha-formfield
+                      <pp-formfield
                         label="${editor._t("pollution_block_position")}"
                       >
                         <ha-selector
@@ -503,8 +503,8 @@ export function renderAllergensSection(
                               );
                           }}
                         ></ha-selector>
-                      </ha-formfield>
-                      <ha-formfield
+                      </pp-formfield>
+                      <pp-formfield
                         label="${editor._t("show_block_separator")}"
                       >
                         <ha-checkbox
@@ -515,7 +515,7 @@ export function renderAllergensSection(
                               (e.target as HTMLInputElement).checked,
                             )}
                         ></ha-checkbox>
-                      </ha-formfield>
+                      </pp-formfield>
                     `
                   : ""
               }
