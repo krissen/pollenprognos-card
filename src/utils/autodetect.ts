@@ -97,16 +97,6 @@ function makeLazyDiscovery(
   };
 }
 
-/**
- * Scan hass for every supported integration's sensors and run the discovery
- * helpers. Returns per-integration entity-id arrays plus discovery results so
- * callers never re-scan hass.states or re-run discovery within a single update.
- *
- * Discovery cost is preserved from the card: silam/atmo/gp run eagerly (their
- * descriptors return the discovery they computed during detection); the
- * remaining integrations stay behind memoized getters so large installs don't
- * gain extra registry scans per HA tick.
- */
 // Results of id-only filters (`ctx.filterIds`), kept while the entity id set
 // is unchanged. HA replaces `hass.states` on every update but almost never
 // adds or removes an entity, so the filters over every id can be reused; an
@@ -145,6 +135,16 @@ function idFilters(stateIds: string[]): AutodetectContext["filterIds"] {
 // logging on the first call per `hass`.
 const detectionCache = new WeakMap<object, DetectionResult>();
 
+/**
+ * Scan hass for every supported integration's sensors and run the discovery
+ * helpers. Returns per-integration entity-id arrays plus discovery results so
+ * callers never re-scan hass.states or re-run discovery within a single update.
+ *
+ * Discovery cost is preserved from the card: silam/atmo/gp run eagerly (their
+ * descriptors return the discovery they computed during detection); the
+ * remaining integrations stay behind memoized getters so large installs don't
+ * gain extra registry scans per HA tick.
+ */
 export function detectIntegrationStates(
   hass: HomeAssistant,
   options: { debug?: boolean } = {},
