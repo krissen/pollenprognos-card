@@ -261,16 +261,24 @@ function resolveAtmoLabel(
  *   2. Entity-registry: hass.entities filtered by platform === "atmofrance"
  *   3. Regex fallback: hass.states scanned for known Atmo entity patterns
  */
+/**
+ * Tier 3 fallback for Atmo France entity ids. `(?:\w+_)?` handles
+ * multi-word prefixes like "chambray_les_tours_"; it accepts the same ids as
+ * `(?:\w+_)*` (`\w` includes `_`) without the exponential backtracking the
+ * starred form has on non-matching ids, which froze dashboards on large
+ * installs (#383). `(?:alerte_)?` keeps legacy niveau_alerte_{slug} entities
+ * in scope.
+ */
+export const ATMO_FALLBACK_RE =
+  /^sensor\.(?:\w+_)?(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
+
 function discoverAtmoSensorsUncached(
   hass: HomeAssistant,
   debug = false,
 ): AtmoDiscovery {
   if (!hass) return { locations: new Map() };
 
-  // (?:\w+_)* handles multi-word prefixes like "chambray_les_tours_".
-  // (?:alerte_)? keeps legacy niveau_alerte_{slug} entities in scope.
-  const atmoFallbackRe =
-    /^sensor\.(?:\w+_)*(?:niveau_(?:alerte_)?(?:ambroisie|armoise|aulne|bouleau|gramine|olivier)|(?:pm25|pm10|ozone|dioxyde_d_azote|dioxyde_de_soufre)|qualite_globale(?:_pollen)?)_/;
+  const atmoFallbackRe = ATMO_FALLBACK_RE;
 
   const { locations } = discoverEntitiesByDevice(hass, {
     platform: "atmofrance",
