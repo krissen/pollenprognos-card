@@ -27,8 +27,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   Autodetect also runs once per `hass` object for every card, badge and
   editor, id-only detection filters are reused while the entity id set is
   unchanged, and translation formatters are cached. Measured with 13,734
-  entities: 104 to 3.8 ms per update with one card, 302 to 4.1 ms with
-  three, 203 to 4.1 ms with the editor open, and no long tasks.
+  entities: 105 to 3.9 ms per update with one card, 300 to 4.0 ms with
+  three, 196 to 4.5 ms with the editor open, and no long tasks.
+- **Config changes refetch right away** (#390). A data-driven `setConfig`
+  (new location, allergens) re-ran the hass derivation through the `hass`
+  setter, whose identity guard skipped it, so the card kept the old data until
+  the next state update anywhere in Home Assistant. The setter body is now
+  `_applyHass`, called directly from `setConfig` and the autodetect skip path.
+  Also in #390: the shared detection id lists are frozen and typed `readonly`,
+  and editor CSS left without targets by #386 is removed.
 - **Hide-when-no-pollen across failed and recovered refreshes** (follow-up to
   #372, in #374). With `hide_no_allergens_display`, a failed refresh kept the
   stale no-pollen state, leaving the card invisible instead of showing the
