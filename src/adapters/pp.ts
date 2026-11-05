@@ -459,8 +459,7 @@ export const autodetect: AdapterAutodetect = {
     _hass: HomeAssistant,
     ctx: AutodetectContext,
   ): AutodetectDetectResult {
-    const ids = ctx.stateIds.filter((id) => {
-      if (typeof id !== "string") return false;
+    const ids = ctx.filterIds("pp", (id) => {
       if (!id.startsWith("sensor.pollen_")) return false;
       if (id.startsWith("sensor.pollenflug_")) return false;
       // Exclude MSW (hass-swissweather): sensor.pollen_<allergen>_level_at_<station>

@@ -97,6 +97,44 @@ function makeLazyDiscovery(
   };
 }
 
+// Results of id-only filters (`ctx.filterIds`), kept while the entity id set
+// is unchanged. HA replaces `hass.states` on every update but almost never
+// adds or removes an entity, so the filters over every id can be reused; an
+// exact element-wise comparison (~0.05 ms for 14k ids) decides, and any
+// change, including a reorder, starts a fresh cache.
+let filterIdSet: string[] | null = null;
+let filterResults = new Map<string, string[]>();
+
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function idFilters(stateIds: string[]): AutodetectContext["filterIds"] {
+  if (filterIdSet === null || !sameIdSet(filterIdSet, stateIds)) {
+    filterIdSet = stateIds;
+    filterResults = new Map();
+  }
+  const results = filterResults;
+  return (key, pred) => {
+    let ids = results.get(key);
+    if (ids === undefined) {
+      ids = stateIds.filter((id) => typeof id === "string" && pred(id));
+      results.set(key, ids);
+    }
+    return ids;
+  };
+}
+
+// One detection per `hass` object, shared by every card, badge, editor and
+// editor preview that sees it (#383): HA hands out a NEW `hass` on every state
+// update and never mutates one, so a WeakMap keyed on it caches within a single
+// update and has no staleness window. Same contract as `memoizeByHass`: the
+// result is shared, so callers must never mutate it, and `debug` only affects
+// logging on the first call per `hass`.
+const detectionCache = new WeakMap<object, DetectionResult>();
+
 /**
  * Scan hass for every supported integration's sensors and run the discovery
  * helpers. Returns per-integration entity-id arrays plus discovery results so
@@ -109,6 +147,20 @@ function makeLazyDiscovery(
  */
 export function detectIntegrationStates(
   hass: HomeAssistant,
+  options: { debug?: boolean } = {},
+): DetectionResult {
+  if (!hass || typeof hass !== "object") {
+    return detectIntegrationStatesUncached(hass, options);
+  }
+  const cached = detectionCache.get(hass);
+  if (cached) return cached;
+  const result = detectIntegrationStatesUncached(hass, options);
+  detectionCache.set(hass, result);
+  return result;
+}
+
+function detectIntegrationStatesUncached(
+  hass: HomeAssistant,
   { debug = false }: { debug?: boolean } = {},
 ): DetectionResult {
   const stateIds =
@@ -117,7 +169,11 @@ export function detectIntegrationStates(
   // PP allergen disambiguation against PLU (both can use sensor.pollen_<x>).
   const pluAllergenSlugs =
     getAutodetect("plu")?.allergenSlugs ?? new Set<string>();
-  const ctx: AutodetectContext = { stateIds, pluAllergenSlugs };
+  const ctx: AutodetectContext = {
+    stateIds,
+    pluAllergenSlugs,
+    filterIds: idFilters(stateIds),
+  };
 
   const states: Record<string, string[]> = {};
   const eagerDiscovery: Record<string, AutodetectDiscovery> = {};
