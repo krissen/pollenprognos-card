@@ -88,7 +88,7 @@ export interface AutodetectContext {
    * cached under `key` until the set of entity ids changes (#383): a state
    * update rarely adds or removes an entity, so a filter over ~14k ids need
    * not rerun on every hass. The key must name one predicate; the returned
-   * array is shared, so never mutate it.
+   * array is shared and frozen, so copy it before changing it.
    */
   filterIds(key: string, pred: (id: string) => boolean): string[];
 }

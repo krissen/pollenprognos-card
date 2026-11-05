@@ -120,7 +120,12 @@ function idFilters(stateIds: string[]): AutodetectContext["filterIds"] {
   return (key, pred) => {
     let ids = results.get(key);
     if (ids === undefined) {
-      ids = stateIds.filter((id) => typeof id === "string" && pred(id));
+      // Frozen: the array outlives this update and is shared by every caller
+      // until the id set changes, so a mutation must fail loudly rather than
+      // leak into other cards (ES modules run in strict mode, so it throws).
+      ids = Object.freeze(
+        stateIds.filter((id) => typeof id === "string" && pred(id)),
+      ) as string[];
       results.set(key, ids);
     }
     return ids;
