@@ -107,6 +107,36 @@ function makeLazyDiscovery(
  * remaining integrations stay behind memoized getters so large installs don't
  * gain extra registry scans per HA tick.
  */
+// Results of id-only filters (`ctx.filterIds`), kept while the entity id set
+// is unchanged. HA replaces `hass.states` on every update but almost never
+// adds or removes an entity, so the filters over every id can be reused; an
+// exact element-wise comparison (~0.05 ms for 14k ids) decides, and any
+// change, including a reorder, starts a fresh cache.
+let filterIdSet: string[] | null = null;
+let filterResults = new Map<string, string[]>();
+
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function idFilters(stateIds: string[]): AutodetectContext["filterIds"] {
+  if (filterIdSet === null || !sameIdSet(filterIdSet, stateIds)) {
+    filterIdSet = stateIds;
+    filterResults = new Map();
+  }
+  const results = filterResults;
+  return (key, pred) => {
+    let ids = results.get(key);
+    if (ids === undefined) {
+      ids = stateIds.filter((id) => typeof id === "string" && pred(id));
+      results.set(key, ids);
+    }
+    return ids;
+  };
+}
+
 // One detection per `hass` object, shared by every card, badge, editor and
 // editor preview that sees it (#383): HA hands out a NEW `hass` on every state
 // update and never mutates one, so a WeakMap keyed on it caches within a single
@@ -139,7 +169,11 @@ function detectIntegrationStatesUncached(
   // PP allergen disambiguation against PLU (both can use sensor.pollen_<x>).
   const pluAllergenSlugs =
     getAutodetect("plu")?.allergenSlugs ?? new Set<string>();
-  const ctx: AutodetectContext = { stateIds, pluAllergenSlugs };
+  const ctx: AutodetectContext = {
+    stateIds,
+    pluAllergenSlugs,
+    filterIds: idFilters(stateIds),
+  };
 
   const states: Record<string, string[]> = {};
   const eagerDiscovery: Record<string, AutodetectDiscovery> = {};

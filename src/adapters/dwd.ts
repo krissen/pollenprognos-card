@@ -449,9 +449,7 @@ export const autodetect: AdapterAutodetect = {
     _hass: HomeAssistant,
     ctx: AutodetectContext,
   ): AutodetectDetectResult {
-    const ids = ctx.stateIds.filter(
-      (id) => typeof id === "string" && DWD_ENTITY_ID_RE.test(id),
-    );
+    const ids = ctx.filterIds("dwd", (id) => DWD_ENTITY_ID_RE.test(id));
     return { ids };
   },
   discover: discoverDwdSensors,
