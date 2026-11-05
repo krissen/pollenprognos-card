@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [4.4.1]
+## [Unreleased]
+
+## [4.4.1] - 2026-11-05
+
+### Added
+
+- **Console capture for the ad-hoc screenshot helper** (issue #373).
+  `scripts/screenshots/shoot.py` takes `--console-log PATH`, saving the raw
+  browser console alongside the screenshot. With `debug: true` on the shot
+  card the log shows entity resolution and per-sensor levels, tying the image
+  back to the data behind it during issue triage.
 
 ### Fixed
 
@@ -21,16 +31,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   `pp-formfield` wrapper, which renders the same layout on every HA version
   (clicking a label still toggles its switch or checkbox). A test now scans
   `src/` for components HA has documented as removed.
-
-## [Unreleased]
-
-### Added
-
-- **Console capture for the ad-hoc screenshot helper** (issue #373).
-  `scripts/screenshots/shoot.py` takes `--console-log PATH`, saving the raw
-  browser console alongside the screenshot. With `debug: true` on the shot
-  card the log shows entity resolution and per-sensor levels, tying the image
-  back to the data behind it during issue triage.
 
 ## [4.4.0] - 2026-10-03
 
