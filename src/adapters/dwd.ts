@@ -94,9 +94,9 @@ export const stubConfigDWD: AdapterStubConfig = {
  * Anchored to `^sensor\.` so callers can run the regex against
  * `Object.keys(hass.states)` (which spans every HA domain) without
  * misclassifying unrelated entities whose object_id happens to end with
- * `_pollenflug_<token>_<digits>` (Copilot review on #218). Allows zero or
- * more `\w+_` segments between `sensor.` and the integration's own
- * `pollenflug_` marker so the device-name slug can be of any length.
+ * `_pollenflug_<token>_<digits>` (Copilot review on #218). Allows an
+ * optional `\w+_` device-name prefix between `sensor.` and the integration's
+ * own `pollenflug_` marker, so the slug can be of any length.
  *
  * The integration's allergen segment is always a single lowercase token
  * (erle / ambrosia / esche / birke / buche / hasel / graser / graeser /
@@ -104,8 +104,13 @@ export const stubConfigDWD: AdapterStubConfig = {
  * regex engine pick the correct rightmost `pollenflug_<allergen>_<id>`
  * occurrence even when the device-name prefix happens to repeat
  * "pollenflug" earlier in the string. (#217)
+ *
+ * The device-name prefix is `(?:\w+_)?`, not `(?:\w+_)*`: both accept the
+ * same ids (`\w` includes `_`, so any prefix is one `\w+_` token), but the
+ * starred form backtracks exponentially on non-matching ids with many
+ * `_`-separated tokens, which froze dashboards on large installs (#383).
  */
-export const DWD_ENTITY_ID_RE = /^sensor\.(?:\w+_)*pollenflug_([a-z]+)_(\d+)$/;
+export const DWD_ENTITY_ID_RE = /^sensor\.(?:\w+_)?pollenflug_([a-z]+)_(\d+)$/;
 
 /**
  * Extract the numeric region ID from a DWD entity ID, accepting both bare

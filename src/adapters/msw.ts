@@ -158,6 +158,16 @@ function resolveMswLabel(ctx: DiscoveryContext): string {
 }
 
 /**
+ * Tier 3 / autodetect fallback for MeteoSwiss pollen entity ids. The
+ * device-name prefix is `(?:\w+_)?`, not `(?:\w+_)*`: both accept the same
+ * ids (`\w` includes `_`), but the starred form backtracks exponentially on
+ * non-matching ids with many `_`-separated tokens, which froze dashboards on
+ * large installs (#383).
+ */
+export const MSW_FALLBACK_RE =
+  /^sensor\.(?:\w+_)?pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+
+/**
  * Discover hass-swissweather pollen-level sensors grouped by config entry.
  *
  * Three-tier cascade via shared helper:
@@ -171,10 +181,9 @@ function discoverMswSensorsUncached(
 ): MswDiscovery {
   if (!hass) return { locations: new Map() };
 
-  // Tier 3 fallback: device-name prefix (\w+_)* covers slugified
+  // Tier 3 fallback: the device-name prefix covers slugified
   // "meteoswiss_at_8000_klo_" and friendly renames like "bern_".
-  const fallbackRe =
-    /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/;
+  const fallbackRe = MSW_FALLBACK_RE;
 
   const { locations } = discoverEntitiesByDevice(hass, {
     platform: "swissweather",
@@ -374,11 +383,7 @@ export const autodetect: AdapterAutodetect = {
     }
     if (!ids.length) {
       ids = ctx.stateIds.filter(
-        (id) =>
-          typeof id === "string" &&
-          /^sensor\.(?:\w+_)*pollen_(?:birch|grasses|alder|hazel|beech|ash|oak)_level_at_/.test(
-            id,
-          ),
+        (id) => typeof id === "string" && MSW_FALLBACK_RE.test(id),
       );
     }
     return { ids };
