@@ -18,6 +18,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- **Dashboard freezes on large installs** (#383, in #388 and #389). On an
+  install with ~13.7k entities, every state update blocked the browser for
+  100-300 ms (one to three cards; ~200 ms with the editor open), so the
+  dashboard and the card editor became unusable. The DWD, MSW and ATMO
+  entity-id regexes used a `(?:\w+_)*` prefix that backtracks exponentially
+  on non-matching ids; they now use the equivalent linear `(?:\w+_)?`.
+  Autodetect also runs once per `hass` object for every card, badge and
+  editor, id-only detection filters are reused while the entity id set is
+  unchanged, and translation formatters are cached. Measured with 13,734
+  entities: 104 to 3.8 ms per update with one card, 302 to 4.1 ms with
+  three, 203 to 4.1 ms with the editor open, and no long tasks.
 - **Hide-when-no-pollen across failed and recovered refreshes** (follow-up to
   #372, in #374). With `hide_no_allergens_display`, a failed refresh kept the
   stale no-pollen state, leaving the card invisible instead of showing the
