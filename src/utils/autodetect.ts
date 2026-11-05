@@ -107,7 +107,29 @@ function makeLazyDiscovery(
  * remaining integrations stay behind memoized getters so large installs don't
  * gain extra registry scans per HA tick.
  */
+// One detection per `hass` object, shared by every card, badge, editor and
+// editor preview that sees it (#383): HA hands out a NEW `hass` on every state
+// update and never mutates one, so a WeakMap keyed on it caches within a single
+// update and has no staleness window. Same contract as `memoizeByHass`: the
+// result is shared, so callers must never mutate it, and `debug` only affects
+// logging on the first call per `hass`.
+const detectionCache = new WeakMap<object, DetectionResult>();
+
 export function detectIntegrationStates(
+  hass: HomeAssistant,
+  options: { debug?: boolean } = {},
+): DetectionResult {
+  if (!hass || typeof hass !== "object") {
+    return detectIntegrationStatesUncached(hass, options);
+  }
+  const cached = detectionCache.get(hass);
+  if (cached) return cached;
+  const result = detectIntegrationStatesUncached(hass, options);
+  detectionCache.set(hass, result);
+  return result;
+}
+
+function detectIntegrationStatesUncached(
   hass: HomeAssistant,
   { debug = false }: { debug?: boolean } = {},
 ): DetectionResult {
