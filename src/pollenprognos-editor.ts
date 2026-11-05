@@ -2048,21 +2048,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         box-sizing: border-box;
       }
 
-      /* Minimize ripple/overlay area if present (Material Web ripple) */
-      .mdc-form-field__ripple {
-        width: auto !important;
-        min-width: 0 !important;
-        height: auto !important;
-        min-height: 0 !important;
-        border-radius: 16px !important;
-        /* Only as large as the toggle itself */
-      }
-
-      /* Reduce spacing between toggles in settings group */
-      details .pp-formfield {
-        margin-bottom: 2px;
-      }
-
       /* Section helper text below summary */
       .section-helper {
         font-size: 12px;
@@ -2137,14 +2122,6 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         background: none;
         border: none;
         box-sizing: border-box;
-      }
-
-      /* Label alignment with switch */
-      pp-formfield label {
-        vertical-align: middle;
-        margin-left: 8px;
-        margin-right: 0;
-        padding: 0;
       }
 
       /* End of boolean control styles */
