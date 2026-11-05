@@ -29,7 +29,7 @@ export function renderAllergenIconsSection(
         ${editor._renderSectionReset(editor._allergenIconsResetKeys())}
       </summary>
       <div class="section-helper">${editor._t("helper_allergen_icons")}</div>
-      <ha-formfield
+      <pp-formfield
         label="${editor._t("allergen_color_mode") || "Allergen Color Mode"}"
       >
         <ha-selector
@@ -57,12 +57,12 @@ export function renderAllergenIconsSection(
             if (v !== undefined) editor._updateConfig("allergen_color_mode", v);
           }}
         ></ha-selector>
-      </ha-formfield>
+      </pp-formfield>
 
       ${
         c.allergen_color_mode === "custom"
           ? html`
-              <ha-formfield
+              <pp-formfield
                 label="${
                   editor._t("allergen_colors") || "Allergen Colors (by Level)"
                 }"
@@ -139,9 +139,9 @@ export function renderAllergenIconsSection(
                     );
                   })()}
                 </div>
-              </ha-formfield>
+              </pp-formfield>
 
-              <ha-formfield
+              <pp-formfield
                 label="${
                   editor._t("no_allergens_color") || "No Allergens Color"
                 }"
@@ -179,11 +179,11 @@ export function renderAllergenIconsSection(
                       ),
                   })}
                 </div>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
-      <ha-formfield label="${editor._t("allergen_outline_color")}">
+      <pp-formfield label="${editor._t("allergen_outline_color")}">
         <div style="display: flex; align-items: center; gap: 8px;">
           <input
             type="color"
@@ -221,8 +221,8 @@ export function renderAllergenIconsSection(
               ),
           })}
         </div>
-      </ha-formfield>
-      <ha-formfield label="${editor._t("allergen_stroke_color_synced")}">
+      </pp-formfield>
+      <pp-formfield label="${editor._t("allergen_stroke_color_synced")}">
         <ha-checkbox
           .checked=${c.allergen_stroke_color_synced ?? true}
           @change=${(e: Event) =>
@@ -231,8 +231,8 @@ export function renderAllergenIconsSection(
               (e.target as HTMLInputElement).checked,
             )}
         ></ha-checkbox>
-      </ha-formfield>
-      <ha-formfield label="${editor._t("allergen_stroke_width")}">
+      </pp-formfield>
+      <pp-formfield label="${editor._t("allergen_stroke_width")}">
         <ha-slider
           min="0"
           max="150"
@@ -272,7 +272,7 @@ export function renderAllergenIconsSection(
               LEVELS_DEFAULTS.allergen_stroke_width,
             ),
         })}
-      </ha-formfield>
+      </pp-formfield>
       <div class="field-helper">
         ${editor._t("helper_allergen_stroke_width")}
       </div>

@@ -36,6 +36,7 @@
 //     the caller must maintain that flag based on the returned state.
 
 import { LitElement, html, type TemplateResult } from "lit";
+import "./pp-formfield.js";
 import { t, detectLang } from "../i18n.js";
 import type { HomeAssistant } from "../types/home-assistant.js";
 import type { CardConfig, RawCardConfig } from "../types/config.js";

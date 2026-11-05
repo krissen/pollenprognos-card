@@ -20,7 +20,7 @@ export function renderAppearanceSection(
         ${editor._renderSectionReset(editor._appearanceResetKeys())}
       </summary>
       <div class="section-helper">${editor._appearanceSectionHelper()}</div>
-      <ha-formfield label="${editor._t("background_color")}">
+      <pp-formfield label="${editor._t("background_color")}">
         <div style="display:flex; gap:8px; align-items:center;">
           ${editor._renderTextField({
             value: backgroundColor || "",
@@ -44,11 +44,11 @@ export function renderAppearanceSection(
             title="${editor._t("background_color_picker") || "Pick color"}"
           />
         </div>
-      </ha-formfield>
+      </pp-formfield>
       ${
         editor._showCardSizeControls()
           ? html`
-              <ha-formfield label="${editor._t("icon_size")}">
+              <pp-formfield label="${editor._t("icon_size")}">
                 <ha-slider
                   min="16"
                   max="128"
@@ -68,8 +68,8 @@ export function renderAppearanceSection(
                   step: 1,
                   onValue: (n) => editor._updateConfig("icon_size", n),
                 })}
-              </ha-formfield>
-              <ha-formfield label="${editor._t("text_size_ratio")}">
+              </pp-formfield>
+              <pp-formfield label="${editor._t("text_size_ratio")}">
                 <ha-slider
                   min="0.5"
                   max="2"
@@ -89,7 +89,7 @@ export function renderAppearanceSection(
                   step: 0.05,
                   onValue: (n) => editor._updateConfig("text_size_ratio", n),
                 })}
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
@@ -100,7 +100,7 @@ export function renderAppearanceSection(
         // person configuring the card.
         c.integration === "gpl" || c.integration === "gp"
           ? html`
-              <ha-formfield label="${editor._t("show_google_attribution")}">
+              <pp-formfield label="${editor._t("show_google_attribution")}">
                 <ha-checkbox
                   .checked=${c.show_google_attribution !== false}
                   @change=${(e: Event) =>
@@ -109,7 +109,7 @@ export function renderAppearanceSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }

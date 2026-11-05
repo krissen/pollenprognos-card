@@ -1650,7 +1650,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
             ])}
           </summary>
           <div class="section-helper">${this._t("helper_card_layout")}</div>
-          <ha-formfield label="${this._t("minimal")}">
+          <pp-formfield label="${this._t("minimal")}">
             <ha-switch
               .checked=${c.minimal}
               @change=${(e: Event) =>
@@ -1659,12 +1659,12 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
+          </pp-formfield>
           <div class="field-helper">${this._t("helper_minimal")}</div>
           ${
             c.minimal === true
               ? html`
-                  <ha-formfield label="${this._t("minimal_gap")}">
+                  <pp-formfield label="${this._t("minimal_gap")}">
                     <ha-slider
                       min="0"
                       max="100"
@@ -1684,14 +1684,14 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                       step: 1,
                       onValue: (n) => this._updateConfig("minimal_gap", n),
                     })}
-                  </ha-formfield>
+                  </pp-formfield>
                   <div class="field-helper">
                     ${this._t("helper_minimal_gap")}
                   </div>
                 `
               : ""
           }
-          <ha-formfield label="${this._t("show_allergen_column")}">
+          <pp-formfield label="${this._t("show_allergen_column")}">
             <ha-checkbox
               .checked=${c.show_allergen_column !== false}
               @change=${(e: Event) =>
@@ -1700,11 +1700,11 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-checkbox>
-          </ha-formfield>
+          </pp-formfield>
           <div class="field-helper">
             ${this._t("helper_show_allergen_column")}
           </div>
-          <ha-formfield label="${this._t("show_text_allergen")}">
+          <pp-formfield label="${this._t("show_text_allergen")}">
             <ha-switch
               .checked=${c.show_text_allergen}
               @change=${(e: Event) =>
@@ -1713,8 +1713,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("allergens_abbreviated")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("allergens_abbreviated")}">
             <ha-switch
               .checked=${c.allergens_abbreviated}
               @change=${(e: Event) =>
@@ -1723,7 +1723,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
+          </pp-formfield>
         </details>
 
         <!-- §4 Day display -->
@@ -1745,7 +1745,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
           <div class="section-helper">${this._t("helper_day_display")}</div>
 
           <div class="subgroup-header">${this._t("subgroup_values")}</div>
-          <ha-formfield label="${this._t("show_value_text")}">
+          <pp-formfield label="${this._t("show_value_text")}">
             <ha-switch
               .checked=${c.show_value_text}
               @change=${(e: Event) =>
@@ -1754,8 +1754,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_value_numeric")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("show_value_numeric")}">
             <ha-switch
               .checked=${c.show_value_numeric}
               @change=${(e: Event) =>
@@ -1764,8 +1764,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_empty_days")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("show_empty_days")}">
             <ha-switch
               .checked=${c.show_empty_days}
               @change=${(e: Event) =>
@@ -1774,8 +1774,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("show_no_data_distinct")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("show_no_data_distinct")}">
             <ha-switch
               .checked=${c.show_no_data_distinct !== false}
               @change=${(e: Event) =>
@@ -1784,14 +1784,14 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
+          </pp-formfield>
           <!-- The level/raw numeric toggle (numeric_value_raw) lives in the
                shared Level circles section now, gated to integrations with a
                raw value (PLU/PEU/SILAM/Kleenex). PEU's legacy
                numeric_state_raw_risk config still works via resolveNumericValue. -->
 
           <div class="subgroup-header">${this._t("subgroup_day_labels")}</div>
-          <ha-formfield label="${this._t("days_relative")}">
+          <pp-formfield label="${this._t("days_relative")}">
             <ha-switch
               .checked=${c.days_relative}
               @change=${(e: Event) =>
@@ -1800,8 +1800,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("days_abbreviated")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("days_abbreviated")}">
             <ha-switch
               .checked=${c.days_abbreviated}
               @change=${(e: Event) =>
@@ -1810,8 +1810,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("days_uppercase")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("days_uppercase")}">
             <ha-switch
               .checked=${c.days_uppercase}
               @change=${(e: Event) =>
@@ -1820,8 +1820,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="${this._t("days_boldfaced")}">
+          </pp-formfield>
+          <pp-formfield label="${this._t("days_boldfaced")}">
             <ha-switch
               .checked=${c.days_boldfaced}
               @change=${(e: Event) =>
@@ -1830,7 +1830,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
                   (e.target as HTMLInputElement).checked,
                 )}
             ></ha-switch>
-          </ha-formfield>
+          </pp-formfield>
           <div class="slider-row">
             <div class="slider-text">
               ${
@@ -1897,7 +1897,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       /* Formfield and details spacing */
-      ha-formfield,
+      pp-formfield,
       details {
         margin-bottom: 8px;
       }
@@ -2032,9 +2032,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
   The goal is DRY/KISS: no excessive click area, and only the toggle and label are clickable.
 */
 
-      /* Remove any default margin/padding around the switch inside ha-formfield */
-      ha-formfield > ha-switch,
-      ha-formfield > .mdc-form-field > ha-switch {
+      /* Remove any default margin/padding around the switch inside pp-formfield */
+      pp-formfield > ha-switch {
         margin: 0;
         padding: 0;
         width: auto;
@@ -2042,8 +2041,8 @@ class PollenPrognosCardEditor extends PollenEditorBase {
         box-sizing: content-box;
       }
 
-      /* Remove extra padding/margin on ha-formfield itself */
-      ha-formfield {
+      /* Remove extra padding/margin on pp-formfield itself */
+      pp-formfield {
         padding: 0;
         margin: 0;
         box-sizing: border-box;
@@ -2060,7 +2059,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       /* Reduce spacing between toggles in settings group */
-      details .ha-formfield {
+      details .pp-formfield {
         margin-bottom: 2px;
       }
 
@@ -2141,8 +2140,7 @@ class PollenPrognosCardEditor extends PollenEditorBase {
       }
 
       /* Label alignment with switch */
-      ha-formfield label,
-      ha-formfield .mdc-label {
+      pp-formfield label {
         vertical-align: middle;
         margin-left: 8px;
         margin-right: 0;

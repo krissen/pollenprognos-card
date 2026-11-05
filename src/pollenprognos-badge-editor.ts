@@ -592,7 +592,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
 
         <!-- badge_visual: what kind of badge (the section header + helper say
              "Badge content / What the badge shows", so no extra field label). -->
-        <ha-formfield>
+        <pp-formfield>
           <ha-selector
             .hass=${this._hass}
             .selector=${{
@@ -624,10 +624,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               if (v !== undefined) this._updateConfig("badge_visual", v);
             }}
           ></ha-selector>
-        </ha-formfield>
+        </pp-formfield>
 
         <!-- badge_content: which allergen(s) the badge concerns -->
-        <ha-formfield>
+        <pp-formfield>
           <ha-selector
             .hass=${this._hass}
             .selector=${{
@@ -662,12 +662,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               this._updateConfig("badge_content", v);
             }}
           ></ha-selector>
-        </ha-formfield>
+        </pp-formfield>
 
         ${
           c.badge_content === "single"
             ? html`
-                <ha-formfield label="${this._t("badge_single_allergen")}">
+                <pp-formfield label="${this._t("badge_single_allergen")}">
                   <ha-selector
                     .hass=${this._hass}
                     .selector=${{
@@ -686,7 +686,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                         this._updateConfig("badge_single_allergen", v);
                     }}
                   ></ha-selector>
-                </ha-formfield>
+                </pp-formfield>
               `
             : ""
         }
@@ -746,7 +746,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
     const c = this._editorConfig();
     return html`
       <!-- badge_scale: overall badge size multiplier -->
-      <ha-formfield label="${this._t("badge_scale")}">
+      <pp-formfield label="${this._t("badge_scale")}">
         <ha-slider
           min="0.5"
           max="3"
@@ -766,13 +766,13 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           step: 0.1,
           onValue: (n) => this._updateConfig("badge_scale", n),
         })}
-      </ha-formfield>
+      </pp-formfield>
 
       <!-- badge_icon_scale: scale the allergen visual as a whole — the ring
            (and whatever it centres) in the ring modes, the bare icon in
            icon_only — without touching the label text or the pill box. Shown
            in every visual mode. -->
-      <ha-formfield label="${this._t("badge_icon_scale")}">
+      <pp-formfield label="${this._t("badge_icon_scale")}">
         <ha-slider
           min="0.3"
           max="3"
@@ -795,10 +795,10 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
           step: 0.05,
           onValue: (n) => this._updateConfig("badge_icon_scale", n),
         })}
-      </ha-formfield>
+      </pp-formfield>
 
       <!-- badge_show_label / badge_label_position -->
-      <ha-formfield label="${this._t("badge_show_label")}">
+      <pp-formfield label="${this._t("badge_show_label")}">
         <ha-switch
           .checked=${c.badge_show_label === true}
           @change=${(e: Event) =>
@@ -807,12 +807,12 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
               (e.target as HTMLInputElement).checked,
             )}
         ></ha-switch>
-      </ha-formfield>
+      </pp-formfield>
 
       ${
         c.badge_show_label
           ? html`
-              <ha-formfield label="${this._t("badge_label_position")}">
+              <pp-formfield label="${this._t("badge_label_position")}">
                 <ha-selector
                   .hass=${this._hass}
                   .selector=${{
@@ -837,11 +837,11 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                       this._updateConfig("badge_label_position", v);
                   }}
                 ></ha-selector>
-              </ha-formfield>
+              </pp-formfield>
 
               <!-- badge_label_content: allergen name (default), today's
                  translated level text, or both (issue #63). -->
-              <ha-formfield label="${this._t("badge_label_content")}">
+              <pp-formfield label="${this._t("badge_label_content")}">
                 <ha-selector
                   .hass=${this._hass}
                   .selector=${{
@@ -870,7 +870,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
                       this._updateConfig("badge_label_content", v);
                   }}
                 ></ha-selector>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
@@ -920,7 +920,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         margin-top: 4px;
       }
 
-      ha-formfield,
+      pp-formfield,
       details {
         margin-bottom: 8px;
       }
@@ -1027,8 +1027,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         border-radius: 5px;
       }
 
-      ha-formfield > ha-switch,
-      ha-formfield > .mdc-form-field > ha-switch {
+      pp-formfield > ha-switch {
         margin: 0;
         padding: 0;
         width: auto;
@@ -1036,7 +1035,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         box-sizing: content-box;
       }
 
-      ha-formfield {
+      pp-formfield {
         padding: 0;
         margin: 0;
         box-sizing: border-box;
@@ -1051,8 +1050,7 @@ class PollenPrognosBadgeEditor extends PollenEditorBase {
         box-sizing: border-box;
       }
 
-      ha-formfield label,
-      ha-formfield .mdc-label {
+      pp-formfield label {
         vertical-align: middle;
         margin-left: 8px;
         margin-right: 0;

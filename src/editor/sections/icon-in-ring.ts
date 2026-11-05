@@ -26,7 +26,7 @@ export function renderIconInRingSection(
       ${
         editor._showIconInRingToggle()
           ? html`
-              <ha-formfield label="${editor._t("icon_in_ring")}">
+              <pp-formfield label="${editor._t("icon_in_ring")}">
                 <ha-checkbox
                   .checked=${c.icon_in_ring === true}
                   @change=${(e: Event) =>
@@ -35,11 +35,11 @@ export function renderIconInRingSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
-      <ha-formfield label="${editor._t("icon_in_ring_size_ratio")}">
+      <pp-formfield label="${editor._t("icon_in_ring_size_ratio")}">
         <div style="display: flex; align-items: center; gap: 8px;">
           <ha-slider
             min="0.2"
@@ -60,8 +60,8 @@ export function renderIconInRingSection(
             onValue: (n) => editor._updateConfig("icon_in_ring_size_ratio", n),
           })}
         </div>
-      </ha-formfield>
-      <ha-formfield label="${editor._t("icon_in_ring_color_mode")}">
+      </pp-formfield>
+      <pp-formfield label="${editor._t("icon_in_ring_color_mode")}">
         <ha-selector
           .hass=${editor._hass}
           .selector=${{
@@ -89,11 +89,11 @@ export function renderIconInRingSection(
               editor._updateConfig("icon_in_ring_color_mode", v);
           }}
         ></ha-selector>
-      </ha-formfield>
+      </pp-formfield>
       ${
         (c.icon_in_ring_color_mode || "static") === "static"
           ? html`
-              <ha-formfield label="${editor._t("icon_in_ring_static_color")}">
+              <pp-formfield label="${editor._t("icon_in_ring_static_color")}">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <input
                     type="color"
@@ -117,7 +117,7 @@ export function renderIconInRingSection(
                       editor._updateConfig("icon_in_ring_static_color", v),
                   })}
                 </div>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }

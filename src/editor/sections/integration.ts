@@ -28,7 +28,7 @@ export function renderIntegrationSection(
 
       <div class="subgroup-header">${editor._t("subgroup_source")}</div>
 
-      <ha-formfield label="${editor._t("integration")}">
+      <pp-formfield label="${editor._t("integration")}">
         <ha-selector
           .hass=${editor._hass}
           .selector=${{
@@ -43,7 +43,7 @@ export function renderIntegrationSection(
             if (v !== undefined) editor._updateConfig("integration", v);
           }}
         ></ha-selector>
-      </ha-formfield>
+      </pp-formfield>
       ${
         // Google attribution (#338), shown for the Google-backed integrations
         // right under the picker. Both strings are mandated verbatim by the
@@ -65,7 +65,7 @@ export function renderIntegrationSection(
       ${
         c.integration === "pp"
           ? html`
-              <ha-formfield label="${editor._t("city")}">
+              <pp-formfield label="${editor._t("city")}">
                 <ha-selector
                   .hass=${editor._hass}
                   .selector=${{
@@ -95,11 +95,11 @@ export function renderIntegrationSection(
                     if (v !== undefined) editor._updateConfig("city", v);
                   }}
                 ></ha-selector>
-              </ha-formfield>
+              </pp-formfield>
             `
           : c.integration === "peu"
             ? html`
-                <ha-formfield label="${editor._t("location")}">
+                <pp-formfield label="${editor._t("location")}">
                   <ha-selector
                     .hass=${editor._hass}
                     .selector=${{
@@ -129,11 +129,11 @@ export function renderIntegrationSection(
                       if (v !== undefined) editor._updateConfig("location", v);
                     }}
                   ></ha-selector>
-                </ha-formfield>
+                </pp-formfield>
               `
             : c.integration === "silam"
               ? html`
-                  <ha-formfield label="${editor._t("location")}">
+                  <pp-formfield label="${editor._t("location")}">
                     <ha-selector
                       .hass=${editor._hass}
                       .selector=${{
@@ -164,11 +164,11 @@ export function renderIntegrationSection(
                           editor._updateConfig("location", v);
                       }}
                     ></ha-selector>
-                  </ha-formfield>
+                  </pp-formfield>
                 `
               : c.integration === "kleenex"
                 ? html`
-                    <ha-formfield label="${editor._t("location")}">
+                    <pp-formfield label="${editor._t("location")}">
                       <ha-selector
                         .hass=${editor._hass}
                         .selector=${{
@@ -199,11 +199,11 @@ export function renderIntegrationSection(
                             editor._updateConfig("location", v);
                         }}
                       ></ha-selector>
-                    </ha-formfield>
+                    </pp-formfield>
                   `
                 : c.integration === "atmo"
                   ? html`
-                      <ha-formfield label="${editor._t("location")}">
+                      <pp-formfield label="${editor._t("location")}">
                         <ha-selector
                           .hass=${editor._hass}
                           .selector=${{
@@ -234,14 +234,14 @@ export function renderIntegrationSection(
                               editor._updateConfig("location", v);
                           }}
                         ></ha-selector>
-                      </ha-formfield>
+                      </pp-formfield>
                     `
                   : c.integration === "gpl" ||
                       c.integration === "gp" ||
                       c.integration === "msw" ||
                       c.integration === "irmkmi"
                     ? html`
-                        <ha-formfield label="${editor._t("location")}">
+                        <pp-formfield label="${editor._t("location")}">
                           <ha-selector
                             .hass=${editor._hass}
                             .selector=${{
@@ -277,11 +277,11 @@ export function renderIntegrationSection(
                                 editor._updateConfig("location", v);
                             }}
                           ></ha-selector>
-                        </ha-formfield>
+                        </pp-formfield>
                       `
                     : c.integration === "plu"
                       ? html`
-                          <ha-formfield label="${editor._t("location")}">
+                          <pp-formfield label="${editor._t("location")}">
                             <ha-selector
                               .hass=${editor._hass}
                               .selector=${{
@@ -306,10 +306,10 @@ export function renderIntegrationSection(
                                   editor._updateConfig("location", v);
                               }}
                             ></ha-selector>
-                          </ha-formfield>
+                          </pp-formfield>
                         `
                       : html`
-                          <ha-formfield label="${editor._t("region_id")}">
+                          <pp-formfield label="${editor._t("region_id")}">
                             <ha-selector
                               .hass=${editor._hass}
                               .selector=${{
@@ -340,7 +340,7 @@ export function renderIntegrationSection(
                                   editor._updateConfig("region_id", v);
                               }}
                             ></ha-selector>
-                          </ha-formfield>
+                          </pp-formfield>
                         `
       }
       ${
@@ -352,7 +352,7 @@ export function renderIntegrationSection(
                 c.entity_weather as string,
               )
             ? html`
-                <ha-formfield label="${editor._t("mode")}">
+                <pp-formfield label="${editor._t("mode")}">
                   <ha-selector
                     .hass=${editor._hass}
                     .selector=${{
@@ -374,11 +374,11 @@ export function renderIntegrationSection(
                       if (v !== undefined) editor._updateConfig("mode", v);
                     }}
                   ></ha-selector>
-                </ha-formfield>
+                </pp-formfield>
               `
             : c.integration === "peu"
               ? html`
-                  <ha-formfield label="${editor._t("mode")}">
+                  <pp-formfield label="${editor._t("mode")}">
                     <ha-selector
                       .hass=${editor._hass}
                       .selector=${{
@@ -423,7 +423,7 @@ export function renderIntegrationSection(
                         if (v !== undefined) editor._updateConfig("mode", v);
                       }}
                     ></ha-selector>
-                  </ha-formfield>
+                  </pp-formfield>
                   <p>${editor._t("peu_nondaily_expl")}</p>
                 `
               : ""
@@ -442,24 +442,24 @@ export function renderIntegrationSection(
           ? html`
               <details>
                 <summary>${editor._t("summary_entity_prefix_suffix")}</summary>
-                <ha-formfield label="${editor._t("entity_prefix")}">
+                <pp-formfield label="${editor._t("entity_prefix")}">
                   ${editor._renderTextField({
                     value: (c.entity_prefix as string) || "",
                     placeholder: editor._t("entity_prefix_placeholder"),
                     onInput: (v) => editor._updateConfig("entity_prefix", v),
                   })}
-                </ha-formfield>
-                <ha-formfield label="${editor._t("entity_suffix")}">
+                </pp-formfield>
+                <pp-formfield label="${editor._t("entity_suffix")}">
                   ${editor._renderTextField({
                     value: (c.entity_suffix as string) || "",
                     placeholder: editor._t("entity_suffix_placeholder"),
                     onInput: (v) => editor._updateConfig("entity_suffix", v),
                   })}
-                </ha-formfield>
+                </pp-formfield>
                 ${
                   c.integration === "silam"
                     ? html`
-                        <ha-formfield label="${editor._t("entity_weather")}">
+                        <pp-formfield label="${editor._t("entity_weather")}">
                           ${editor._renderTextField({
                             value: (c.entity_weather as string) || "",
                             placeholder: editor._t(
@@ -468,7 +468,7 @@ export function renderIntegrationSection(
                             onInput: (v) =>
                               editor._updateConfig("entity_weather", v),
                           })}
-                        </ha-formfield>
+                        </pp-formfield>
                       `
                     : ""
                 }
@@ -483,7 +483,7 @@ export function renderIntegrationSection(
           ? html`
               <div class="subgroup-header">${editor._t("subgroup_title")}</div>
               <div style="display:flex; gap:8px; align-items:center;">
-                <ha-formfield label="${editor._t("title_hide")}">
+                <pp-formfield label="${editor._t("title_hide")}">
                   <ha-checkbox
                     .checked=${c.title === false}
                     @change=${(e: Event) => {
@@ -494,8 +494,8 @@ export function renderIntegrationSection(
                       }
                     }}
                   ></ha-checkbox>
-                </ha-formfield>
-                <ha-formfield label="${editor._t("title_automatic")}">
+                </pp-formfield>
+                <pp-formfield label="${editor._t("title_automatic")}">
                   <ha-checkbox
                     .checked=${c.title === true || c.title === undefined}
                     @change=${(e: Event) => {
@@ -506,9 +506,9 @@ export function renderIntegrationSection(
                       }
                     }}
                   ></ha-checkbox>
-                </ha-formfield>
+                </pp-formfield>
               </div>
-              <ha-formfield label="${editor._t("title")}">
+              <pp-formfield label="${editor._t("title")}">
                 ${editor._renderTextField({
                   value:
                     typeof c.title === "string"
@@ -526,7 +526,7 @@ export function renderIntegrationSection(
                     }
                   },
                 })}
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }

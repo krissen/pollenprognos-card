@@ -22,7 +22,7 @@ export function renderLevelCirclesSection(
         ${editor._renderSectionReset(editor._levelCirclesResetKeys())}
       </summary>
       <div class="section-helper">${editor._t("helper_level_circles")}</div>
-      <ha-formfield label="${editor._t("levels_inherit_mode")}">
+      <pp-formfield label="${editor._t("levels_inherit_mode")}">
         <ha-selector
           .hass=${editor._hass}
           .selector=${{
@@ -49,12 +49,12 @@ export function renderLevelCirclesSection(
             if (v !== undefined) editor._updateConfig("levels_inherit_mode", v);
           }}
         ></ha-selector>
-      </ha-formfield>
+      </pp-formfield>
 
       ${
         inheritMode === "inherit_allergen"
           ? html`
-              <ha-formfield label="${editor._t("allergen_levels_gap_synced")}">
+              <pp-formfield label="${editor._t("allergen_levels_gap_synced")}">
                 <ha-checkbox
                   .checked=${c.allergen_levels_gap_synced ?? true}
                   @change=${(e: Event) =>
@@ -63,7 +63,7 @@ export function renderLevelCirclesSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-checkbox>
-              </ha-formfield>
+              </pp-formfield>
               <div class="field-helper">
                 ${editor._t("helper_allergen_levels_gap_synced")}
               </div>
@@ -73,7 +73,7 @@ export function renderLevelCirclesSection(
       ${
         inheritMode === "custom"
           ? html`
-              <ha-formfield label="${editor._t("levels_colors")}">
+              <pp-formfield label="${editor._t("levels_colors")}">
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                   ${levelsColors.map(
                     (col: string, i: number) => html`
@@ -117,9 +117,9 @@ export function renderLevelCirclesSection(
                     `,
                   )}
                 </div>
-              </ha-formfield>
+              </pp-formfield>
 
-              <ha-formfield label="${editor._t("levels_empty_color")}">
+              <pp-formfield label="${editor._t("levels_empty_color")}">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <input
                     type="color"
@@ -158,12 +158,12 @@ export function renderLevelCirclesSection(
                       ),
                   })}
                 </div>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
 
-      <ha-formfield label="${editor._t("levels_thickness")}">
+      <pp-formfield label="${editor._t("levels_thickness")}">
         <ha-slider
           min="10"
           max="90"
@@ -192,9 +192,9 @@ export function renderLevelCirclesSection(
               LEVELS_DEFAULTS.levels_thickness,
             ),
         })}
-      </ha-formfield>
+      </pp-formfield>
 
-      <ha-formfield label="${editor._t("levels_gap")}" .disabled=${gapDisabled}>
+      <pp-formfield label="${editor._t("levels_gap")}" .disabled=${gapDisabled}>
         <ha-slider
           min="0"
           max="20"
@@ -223,7 +223,7 @@ export function renderLevelCirclesSection(
           onClick: () =>
             editor._updateConfig("levels_gap", LEVELS_DEFAULTS.levels_gap),
         })}
-      </ha-formfield>
+      </pp-formfield>
       <div class="field-helper">
         ${
           gapDisabled
@@ -235,7 +235,7 @@ export function renderLevelCirclesSection(
       ${
         inheritMode === "custom" || !gapSynced
           ? html`
-              <ha-formfield label="${editor._t("levels_gap_color")}">
+              <pp-formfield label="${editor._t("levels_gap_color")}">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <input
                     type="color"
@@ -273,14 +273,14 @@ export function renderLevelCirclesSection(
                       ),
                   })}
                 </div>
-              </ha-formfield>
+              </pp-formfield>
             `
           : ""
       }
       ${
         editor._showNumericInCircleToggle()
           ? html`
-              <ha-formfield
+              <pp-formfield
                 label="${editor._t("show_value_numeric_in_circle")}"
               >
                 <ha-switch
@@ -291,7 +291,7 @@ export function renderLevelCirclesSection(
                       (e.target as HTMLInputElement).checked,
                     )}
                 ></ha-switch>
-              </ha-formfield>
+              </pp-formfield>
               <div class="field-helper">
                 ${editor._t("helper_show_value_numeric_in_circle")}
               </div>
@@ -301,7 +301,7 @@ export function renderLevelCirclesSection(
       ${
         editor._integrationHasRawValue(c.integration)
           ? html`
-              <ha-formfield label="${editor._t("numeric_value_raw")}">
+              <pp-formfield label="${editor._t("numeric_value_raw")}">
                 <ha-switch
                   .checked=${
                     c.numeric_value_raw === true ||
@@ -319,7 +319,7 @@ export function renderLevelCirclesSection(
                     }
                   }}
                 ></ha-switch>
-              </ha-formfield>
+              </pp-formfield>
               <div class="field-helper">
                 ${editor._t("helper_numeric_value_raw")}
               </div>
@@ -327,7 +327,7 @@ export function renderLevelCirclesSection(
           : ""
       }
 
-      <ha-formfield label="${editor._t("levels_text_weight")}">
+      <pp-formfield label="${editor._t("levels_text_weight")}">
         <ha-selector
           .hass=${editor._hass}
           .selector=${{
@@ -346,9 +346,9 @@ export function renderLevelCirclesSection(
             if (v !== undefined) editor._updateConfig("levels_text_weight", v);
           }}
         ></ha-selector>
-      </ha-formfield>
+      </pp-formfield>
 
-      <ha-formfield label="${editor._t("levels_text_size")}">
+      <pp-formfield label="${editor._t("levels_text_size")}">
         <ha-slider
           min="0.1"
           max="0.5"
@@ -368,9 +368,9 @@ export function renderLevelCirclesSection(
           step: 0.05,
           onValue: (n) => editor._updateConfig("levels_text_size", n),
         })}
-      </ha-formfield>
+      </pp-formfield>
 
-      <ha-formfield label="${editor._t("levels_icon_ratio")}">
+      <pp-formfield label="${editor._t("levels_icon_ratio")}">
         <ha-slider
           min="0.1"
           max="2"
@@ -390,9 +390,9 @@ export function renderLevelCirclesSection(
           step: 0.05,
           onValue: (n) => editor._updateConfig("levels_icon_ratio", n),
         })}
-      </ha-formfield>
+      </pp-formfield>
 
-      <ha-formfield label="${editor._t("levels_text_color")}">
+      <pp-formfield label="${editor._t("levels_text_color")}">
         <div style="display: flex; align-items: center; gap: 8px;">
           <input
             type="color"
@@ -415,7 +415,7 @@ export function renderLevelCirclesSection(
             onInput: (v) => editor._updateConfig("levels_text_color", v),
           })}
         </div>
-      </ha-formfield>
+      </pp-formfield>
     </details>
   `;
 }
