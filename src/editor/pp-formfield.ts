@@ -16,7 +16,9 @@ import { LitElement, html, css, type PropertyDeclarations } from "lit";
 const TOGGLE_TAGS = new Set(["HA-SWITCH", "HA-CHECKBOX"]);
 
 export class PpFormfield extends LitElement {
-  declare label: string | undefined;
+  // Numbers are valid labels (the phrase editor labels levels 0-6 by index),
+  // so presence is checked against null/undefined/"", never truthiness.
+  declare label: string | number | undefined;
   declare disabled: boolean;
 
   static override get properties(): PropertyDeclarations {
@@ -64,8 +66,10 @@ export class PpFormfield extends LitElement {
   }
 
   override render() {
+    const hasLabel =
+      this.label !== undefined && this.label !== null && this.label !== "";
     return html`<slot></slot>${
-        this.label
+        hasLabel
           ? html`<label @click=${this._onLabelClick}>${this.label}</label>`
           : ""
       }`;
