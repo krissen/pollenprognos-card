@@ -44,6 +44,30 @@ export function detectLang(
 
 export const SUPPORTED_LOCALES = Object.keys(LOCALES);
 
+// Parsed formatters, keyed by language then message. Building an
+// IntlMessageFormat parses the message and resolves the locale, which showed
+// up on every hass update on large installs (#383); the set of messages and
+// languages is finite, so the cache is bounded.
+const formatterCache = new Map<string, Map<string, IntlMessageFormat>>();
+
+function getFormatter(
+  msg: string,
+  lang: string | undefined,
+): IntlMessageFormat {
+  const langKey = lang ?? "";
+  let byMsg = formatterCache.get(langKey);
+  if (!byMsg) {
+    byMsg = new Map();
+    formatterCache.set(langKey, byMsg);
+  }
+  let formatter = byMsg.get(msg);
+  if (!formatter) {
+    formatter = new IntlMessageFormat(msg, lang);
+    byMsg.set(msg, formatter);
+  }
+  return formatter;
+}
+
 // Translate a given key to the requested language using IntlMessageFormat.
 export function t(
   key: string,
@@ -58,8 +82,7 @@ export function t(
     msg = fallback === undefined ? key : fallback;
   }
   try {
-    const formatter = new IntlMessageFormat(msg, lang);
-    return formatter.format(vars) as string;
+    return getFormatter(msg, lang).format(vars) as string;
   } catch (err) {
     console.warn(`Translation failed for key: ${key}`, err);
     return msg;

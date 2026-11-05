@@ -4,19 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [4.4.1]
-
-### Fixed
-
-- **Hide-when-no-pollen across failed and recovered refreshes** (follow-up to
-  #372, in #374). With `hide_no_allergens_display`, a failed refresh kept the
-  stale no-pollen state, leaving the card invisible instead of showing the
-  error; a later identical successful refresh then kept the error, leaving the
-  card on the error instead of recovering to the hidden no-pollen state.
-  Failed refreshes now surface the error, successful ones always clear it, and
-  superseded failures no longer overwrite newer results.
-
 ## [Unreleased]
+
+## [4.4.1] - 2026-11-05
 
 ### Added
 
@@ -25,6 +15,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   browser console alongside the screenshot. With `debug: true` on the shot
   card the log shows entity resolution and per-sensor levels, tying the image
   back to the data behind it during issue triage.
+
+### Fixed
+
+- **Dashboard freezes on large installs** (#383, in #388 and #389). On an
+  install with ~13.7k entities, every state update blocked the browser for
+  100-300 ms (one to three cards; ~200 ms with the editor open), so the
+  dashboard and the card editor became unusable. The DWD, MSW and ATMO
+  entity-id regexes used a `(?:\w+_)*` prefix that backtracks exponentially
+  on non-matching ids; they now use the equivalent linear `(?:\w+_)?`.
+  Autodetect also runs once per `hass` object for every card, badge and
+  editor, id-only detection filters are reused while the entity id set is
+  unchanged, and translation formatters are cached. Measured with 13,734
+  entities: 105 to 3.9 ms per update with one card, 300 to 4.0 ms with
+  three, 196 to 4.5 ms with the editor open, and no long tasks.
+- **Config changes refetch right away** (#390). A data-driven `setConfig`
+  (new location, allergens) re-ran the hass derivation through the `hass`
+  setter, whose identity guard skipped it, so the card kept the old data until
+  the next state update anywhere in Home Assistant. The setter body is now
+  `_applyHass`, called directly from `setConfig` and the autodetect skip path.
+  Also in #390: the shared detection id lists are frozen and typed `readonly`,
+  and editor CSS left without targets by #386 is removed.
+- **Hide-when-no-pollen across failed and recovered refreshes** (follow-up to
+  #372, in #374). With `hide_no_allergens_display`, a failed refresh kept the
+  stale no-pollen state, leaving the card invisible instead of showing the
+  error; a later identical successful refresh then kept the error, leaving the
+  card on the error instead of recovering to the hidden no-pollen state.
+  Failed refreshes now surface the error, successful ones always clear it, and
+  superseded failures no longer overwrite newer results.
+- **Editor labels on Home Assistant 2026.11** (#383). HA 2026.11 removed
+  `ha-formfield`, so the card and badge editors lost the labels next to every
+  switch, checkbox, slider and selector. The editors now use their own
+  `pp-formfield` wrapper, which renders the same layout on every HA version
+  (clicking a label still toggles its switch or checkbox). A test now scans
+  `src/` for components HA has documented as removed.
 
 ## [4.4.0] - 2026-10-03
 

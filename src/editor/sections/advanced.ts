@@ -17,7 +17,7 @@ export function renderAdvancedSection(
         ${editor._renderSectionReset(["debug", "show_version"])}
       </summary>
       <div class="section-helper">${editor._t("helper_advanced")}</div>
-      <ha-formfield label="${editor._t("debug")}">
+      <pp-formfield label="${editor._t("debug")}">
         <ha-switch
           .checked=${c.debug}
           @change=${(e: Event) =>
@@ -26,8 +26,8 @@ export function renderAdvancedSection(
               (e.target as HTMLInputElement).checked,
             )}
         ></ha-switch>
-      </ha-formfield>
-      <ha-formfield label="${editor._t("show_version")}">
+      </pp-formfield>
+      <pp-formfield label="${editor._t("show_version")}">
         <ha-switch
           .checked=${c.show_version !== false}
           @change=${(e: Event) =>
@@ -36,7 +36,7 @@ export function renderAdvancedSection(
               (e.target as HTMLInputElement).checked,
             )}
         ></ha-switch>
-      </ha-formfield>
+      </pp-formfield>
       <div class="version-info">${editor._versionLabel()}: ${__VERSION__}</div>
     </details>
   `;

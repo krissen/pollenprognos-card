@@ -24,7 +24,7 @@ export function renderInteractionSection(
       </summary>
       <div class="section-helper">${editor._interactivitySectionHelper()}</div>
       <h3>${editor._t("tap_action")}</h3>
-      <ha-formfield label="${editor._t("link_to_sensors")}">
+      <pp-formfield label="${editor._t("link_to_sensors")}">
         <ha-switch
           .checked=${c.link_to_sensors !== false}
           @change=${(e: Event) =>
@@ -33,8 +33,8 @@ export function renderInteractionSection(
               (e.target as HTMLInputElement).checked,
             )}
         ></ha-switch>
-      </ha-formfield>
-      <ha-formfield label="${editor._t("tap_action_enable")}">
+      </pp-formfield>
+      <pp-formfield label="${editor._t("tap_action_enable")}">
         <ha-switch
           .checked=${editor._tapType !== "none"}
           @change=${(e: Event) => {
@@ -65,7 +65,7 @@ export function renderInteractionSection(
             editor.requestUpdate();
           }}
         ></ha-switch>
-      </ha-formfield>
+      </pp-formfield>
       ${
         editor._tapType !== "none"
           ? html`
@@ -122,7 +122,7 @@ export function renderInteractionSection(
               ${
                 editor._tapType === "more-info"
                   ? html`
-                      <ha-formfield label="${editor._t("tap_action_entity")}">
+                      <pp-formfield label="${editor._t("tap_action_entity")}">
                         ${editor._renderTextField({
                           value: editor._tapEntity,
                           onInput: (v) => {
@@ -133,7 +133,7 @@ export function renderInteractionSection(
                             });
                           },
                         })}
-                      </ha-formfield>
+                      </pp-formfield>
                       ${
                         !parseEntityId(editor._tapEntity)
                           ? html`<div class="field-warning">
@@ -147,7 +147,7 @@ export function renderInteractionSection(
               ${
                 editor._tapType === "navigate"
                   ? html`
-                      <ha-formfield
+                      <pp-formfield
                         label="${editor._t("tap_action_navigation_path")}"
                       >
                         ${editor._renderTextField({
@@ -160,7 +160,7 @@ export function renderInteractionSection(
                             });
                           },
                         })}
-                      </ha-formfield>
+                      </pp-formfield>
                       ${
                         !parseNavigationPath(editor._tapNavigation)
                           ? html`<div class="field-warning">
@@ -174,7 +174,7 @@ export function renderInteractionSection(
               ${
                 editor._tapType === "call-service"
                   ? html`
-                      <ha-formfield label="${editor._t("tap_action_service")}">
+                      <pp-formfield label="${editor._t("tap_action_service")}">
                         ${editor._renderTextField({
                           value: editor._tapService,
                           onInput: (v) => {
@@ -190,7 +190,7 @@ export function renderInteractionSection(
                             });
                           },
                         })}
-                      </ha-formfield>
+                      </pp-formfield>
                       ${
                         !parseServiceId(editor._tapService)
                           ? html`<div class="field-warning">
@@ -198,7 +198,7 @@ export function renderInteractionSection(
                             </div>`
                           : ""
                       }
-                      <ha-formfield
+                      <pp-formfield
                         label="${editor._t("tap_action_service_data")}"
                       >
                         ${editor._renderTextField({
@@ -216,7 +216,7 @@ export function renderInteractionSection(
                             });
                           },
                         })}
-                      </ha-formfield>
+                      </pp-formfield>
                     `
                   : ""
               }

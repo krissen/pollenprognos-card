@@ -61,10 +61,8 @@ export const autodetect: AdapterAutodetect = {
   ): AutodetectDetectResult {
     const discovery = discoverKleenex(hass, debug) as AutodetectDiscovery;
     const ids = new Set(
-      ctx.stateIds.filter(
-        (id) =>
-          typeof id === "string" &&
-          id.startsWith("sensor.kleenex_pollen_radar_"),
+      ctx.filterIds("kleenex", (id) =>
+        id.startsWith("sensor.kleenex_pollen_radar_"),
       ),
     );
     for (const loc of discovery.locations.values()) {

@@ -542,8 +542,7 @@ export const autodetect: AdapterAutodetect = {
     _hass: HomeAssistant,
     ctx: AutodetectContext,
   ): AutodetectDetectResult {
-    const ids = ctx.stateIds.filter((id) => {
-      if (typeof id !== "string") return false;
+    const ids = ctx.filterIds("plu", (id) => {
       const match = /^sensor\.pollen_([^_]+)$/.exec(id);
       if (!match) return false;
       return ctx.pluAllergenSlugs.has(match[1] ?? "");

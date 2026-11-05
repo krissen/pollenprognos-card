@@ -786,9 +786,8 @@ export const autodetect: AdapterAutodetect = {
     _hass: HomeAssistant,
     ctx: AutodetectContext,
   ): AutodetectDetectResult {
-    const ids = ctx.stateIds.filter(
-      (id) =>
-        typeof id === "string" && id.startsWith("sensor.polleninformation_"),
+    const ids = ctx.filterIds("peu", (id) =>
+      id.startsWith("sensor.polleninformation_"),
     );
     return { ids };
   },

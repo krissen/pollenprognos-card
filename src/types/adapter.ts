@@ -83,6 +83,14 @@ export interface AutodetectContext {
    * `allergenSlugs` so PP never imports PLU internals.
    */
   pluAllergenSlugs: Set<string>;
+  /**
+   * `stateIds.filter(pred)` for a predicate that reads nothing but the id,
+   * cached under `key` until the set of entity ids changes (#383): a state
+   * update rarely adds or removes an entity, so a filter over ~14k ids need
+   * not rerun on every hass. The key must name one predicate; the returned
+   * array is shared and frozen, so copy it before changing it.
+   */
+  filterIds(key: string, pred: (id: string) => boolean): readonly string[];
 }
 
 /**
@@ -91,7 +99,8 @@ export interface AutodetectContext {
  * eagerly, so `autoSelectLocation` can reuse it instead of recomputing.
  */
 export interface AutodetectDetectResult {
-  ids: string[];
+  /** Shared across callers (and, via ctx.filterIds, across updates): read-only. */
+  ids: readonly string[];
   discovery?: AutodetectDiscovery;
 }
 
