@@ -90,7 +90,7 @@ export interface AutodetectContext {
    * not rerun on every hass. The key must name one predicate; the returned
    * array is shared and frozen, so copy it before changing it.
    */
-  filterIds(key: string, pred: (id: string) => boolean): string[];
+  filterIds(key: string, pred: (id: string) => boolean): readonly string[];
 }
 
 /**
@@ -99,7 +99,8 @@ export interface AutodetectContext {
  * eagerly, so `autoSelectLocation` can reuse it instead of recomputing.
  */
 export interface AutodetectDetectResult {
-  ids: string[];
+  /** Shared across callers (and, via ctx.filterIds, across updates): read-only. */
+  ids: readonly string[];
   discovery?: AutodetectDiscovery;
 }
 
