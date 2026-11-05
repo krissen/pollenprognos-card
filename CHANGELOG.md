@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   card on the error instead of recovering to the hidden no-pollen state.
   Failed refreshes now surface the error, successful ones always clear it, and
   superseded failures no longer overwrite newer results.
+- **Editor labels on Home Assistant 2026.11** (#383). HA 2026.11 removed
+  `ha-formfield`, so the card and badge editors lost the labels next to every
+  switch, checkbox, slider and selector. The editors now use their own
+  `pp-formfield` wrapper, which renders the same layout on every HA version
+  (clicking a label still toggles its switch or checkbox). A test now scans
+  `src/` for components HA has documented as removed.
 
 ## [Unreleased]
 
